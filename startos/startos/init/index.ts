@@ -5,6 +5,7 @@ import { setInterfaces } from '../interfaces'
 import { sdk } from '../sdk'
 import { versionGraph } from '../versions'
 import { installCredentials } from './installCredentials'
+import { recalculateTask } from './recalculateTask'
 import { seedStore } from './seedStore'
 
 /**
@@ -19,6 +20,7 @@ export const init = sdk.setupInit(
   setDependencies,
   actions,
   installCredentials,
+  recalculateTask,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)

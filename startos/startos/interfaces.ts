@@ -6,6 +6,7 @@ import { uiPort } from './utils'
 // the domains and Tor addresses users attached to them.
 export const hostId = 'ui-multi'
 export const webUiInterfaceId = 'webui'
+export const mcpInterfaceId = 'mcp'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const origin = await sdk.MultiHost.of(effects, hostId).bindPort(uiPort, {
@@ -24,5 +25,21 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     query: {},
   })
 
-  return [await origin.export([ui])]
+  // Same server and login as the web UI; listed separately so the address an
+  // MCP client needs (BTCTX_URL) is one copy away.
+  const mcp = sdk.createInterface(effects, {
+    name: i18n('MCP API'),
+    id: mcpInterfaceId,
+    description: i18n(
+      'The address for AI assistants (MCP clients). Run the Connect an AI Assistant action for a ready-made configuration.',
+    ),
+    type: 'api',
+    masked: false,
+    schemeOverride: null,
+    username: null,
+    path: '/api',
+    query: {},
+  })
+
+  return [await origin.export([ui, mcp])]
 })

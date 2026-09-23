@@ -48,7 +48,7 @@ This installs a `btctx-mcp` command. `uvx` works too:
 
 | Variable | Meaning |
 |----------|---------|
-| `BTCTX_URL` | Where BitcoinTX is reachable: macOS app `http://127.0.0.1:8765`; Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS its `https://….local` address; from source `http://localhost:8000` |
+| `BTCTX_URL` | Where BitcoinTX is reachable: macOS app `http://127.0.0.1:8765`; Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000` |
 | `BTCTX_USERNAME` / `BTCTX_PASSWORD` | Your BitcoinTX login |
 | `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
 | `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |

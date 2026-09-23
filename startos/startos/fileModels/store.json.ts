@@ -6,6 +6,9 @@ const shape = z.object({
   // Credentials. BitcoinTX owns the live credential: a password changed in the
   // app is not reflected here.
   adminPassword: z.string().optional().catch(undefined),
+  // Set when updating from before 0.8.0, whose calculation fixes only reach
+  // existing transactions after a recalculation; cleared by Recalculate Ledger.
+  recalculateLedger: z.boolean().optional().catch(undefined),
 })
 
 /** Package state, on the `startos` volume that no subcontainer mounts. */

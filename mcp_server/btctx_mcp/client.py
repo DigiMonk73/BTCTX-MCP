@@ -18,6 +18,17 @@ class BtctxError(Exception):
     """An API error with a message suitable for showing to the model."""
 
 
+def normalize_base_url(url: str) -> str:
+    """
+    The server root. Also accepts the API address StartOS lists under
+    Interfaces (https://….local/api), since every request path starts with /api.
+    """
+    url = url.strip().rstrip("/")
+    if url.endswith("/api"):
+        url = url[: -len("/api")]
+    return url
+
+
 class BtctxClient:
     def __init__(
         self,
@@ -30,7 +41,7 @@ class BtctxClient:
         self._username = username
         self._password = password
         self._http = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
+            base_url=normalize_base_url(base_url),
             verify=verify,
             timeout=120.0,  # previews fetch historical prices
             transport=transport,

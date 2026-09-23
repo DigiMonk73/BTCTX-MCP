@@ -4,6 +4,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### StartOS package
+- The StartOS package now lives in this repository (`startos/`, start-sdk
+  2.0.9) and is mirrored to DigiMonk73/BTCTX-StartOS. Installs of the old
+  package (0.3.x through 0.8.0:1) update in place.
+- New actions: **Connect an AI Assistant** (MCP address, login, the StartOS
+  root CA, a ready-to-paste Claude Desktop config and `claude mcp add`
+  command) and **Recalculate Ledger**. Updating from before 0.8.0 raises a
+  Recalculate Ledger task.
+- New **MCP API** interface (`…/api`), which the MCP server accepts as
+  `BTCTX_URL`.
+- Fresh installs prompt for Show Credentials before the first start.
+- The database upgrade runs as its own startup step; the health check uses
+  `/api/health`.
+- The generated login moved from the app's volume to a separate package
+  volume; both are backed up.
+- Downgrades are refused (an older app can't open a migrated database).
+- New vector icon.
+
 ### Added
 - `GET /api/health` (no login): 200 when the database answers at the current
   schema, 503 otherwise, with the app version. Used by the StartOS package and
