@@ -67,6 +67,14 @@ All notable changes to BitcoinTX are documented in this file.
 - Docker frontend build stage: node:18 (EOL) → node:22
 - **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
 
+### Changed — Form 1099-DA boxes (IRS broker reporting, 2025+)
+- Exchange (River) sells are now reported in **Box H/K** for 2025 (on a
+  1099-DA, basis not reported) and in **Box G/J** from 2026 for lots bought on
+  the exchange on/after 2026-01-01 (covered, basis reported). Self-custody
+  spends and network fees stay in **I/L**. Each box gets its own Form 8949
+  page, and Schedule D now fills lines 1b, 2, 3, 8b, 9 and 10 as applicable
+  (previously only 3 and 10).
+
 ### Fixed
 - **Holding period off by one day.** Anything held 365+ days was long-term,
   so a sale on the one-year anniversary (or on day 365 in a leap year) got the

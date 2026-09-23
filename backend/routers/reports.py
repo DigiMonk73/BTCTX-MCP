@@ -92,9 +92,12 @@ def get_irs_reports(
         # Chunk each term by the year's table capacity and pair chunks onto
         # shared sheets — overflow gets additional copies, never page-3+ field
         # names (those don't exist in the template; pdftk would drop the rows).
+        # Each Form 8949 page carries exactly one checked box, so rows are
+        # grouped by box before chunking (e.g. 1099-DA sales in Box H and
+        # self-custody spends in Box I go on separate pages).
         rows_per_page = get_8949_field_config(year)["rows_per_page"]
-        short_chunks = [short_rows[i : i + rows_per_page] for i in range(0, len(short_rows), rows_per_page)]
-        long_chunks = [long_rows[i : i + rows_per_page] for i in range(0, len(long_rows), rows_per_page)]
+        short_chunks = _chunks_by_box(short_rows, rows_per_page)
+        long_chunks = _chunks_by_box(long_rows, rows_per_page)
 
         for short_chunk, long_chunk in zip_longest(short_chunks, long_chunks):
             field_data: Dict[str, str] = {}
@@ -175,6 +178,18 @@ def _merge_all_pdfs(pdf_list: List[bytes]) -> bytes:
     merged_stream = BytesIO()
     writer.write(merged_stream)
     return merged_stream.getvalue()
+
+
+def _chunks_by_box(rows: List[Form8949Row], size: int) -> List[List[Form8949Row]]:
+    """Split rows into page-sized chunks that never mix Form 8949 boxes."""
+    by_box: Dict[str, List[Form8949Row]] = {}
+    for row in rows:
+        by_box.setdefault(row.box, []).append(row)
+    return [
+        group[i : i + size]
+        for _, group in sorted(by_box.items())
+        for i in range(0, len(group), size)
+    ]
 
 
 def get_supported_years() -> List[int]:

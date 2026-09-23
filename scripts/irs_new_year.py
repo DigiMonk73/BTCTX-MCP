@@ -121,10 +121,10 @@ def verify(year: int, folder: Path) -> bool:
         printed = re.findall(r"\(([A-L])\)\s+(?:Short|Long)-term", reader.pages[page].extract_text())
         ok &= say(printed == config[key], f"Part {'I' if page == 0 else 'II'} boxes on form {printed} match config")
 
-    sd = map_schedule_d_fields({t: {"proceeds": Decimal(1), "cost": Decimal(1), "gain_loss": Decimal(0)}
-                                for t in ("short_term", "long_term")}, year=year)
+    one = {"proceeds": Decimal(1), "cost": Decimal(1), "gain_loss": Decimal(0)}
+    sd = map_schedule_d_fields({"lines": {ln: one for ln in ("1b", "2", "3", "8b", "9", "10")}}, year=year)
     sd_missing = sorted(set(sd) - field_names(folder / "f1040sd.pdf"))
-    ok &= say(not sd_missing, "Schedule D line 3 / line 10 fields exist"
+    ok &= say(not sd_missing, "Schedule D lines 1b, 2, 3, 8b, 9, 10 fields exist"
               + (f" — MISSING {sd_missing[:2]}" if sd_missing else ""))
 
     prev = [y for y in sorted(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit()) if y < year]

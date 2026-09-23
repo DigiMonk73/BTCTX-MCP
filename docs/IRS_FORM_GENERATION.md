@@ -499,12 +499,26 @@ the form, verified by `test_box_labels_match_template_text`). `generate_fdf()`
 writes values starting with `/` as PDF names (`/V /6`), which checkboxes need.
 Column (f) "Code(s)" is left blank — the box letter never goes there.
 
-### Note on 1099-DA
+### Form 1099-DA rules (how the app picks G–L)
 
-Starting with 2025 sales, US brokers (including River) issue Form 1099-DA.
-Disposals a broker reported belong in Box H/K (or G/J once basis reporting
-starts). The app currently puts every disposal in I/L; `basis_reported_flags`
-and `_determine_box()` are the hooks for broker-reported rows.
+`form_8949._broker_reporting()` decides per lot disposal; `_determine_box()`
+maps it to a box. Rules (Treas. Reg. §1.6045-1 final broker regulations; 2025
+Form 8949 / Schedule D):
+
+| Disposal | 2025 | 2026+ |
+|---|---|---|
+| Exchange **Sell** (River issues a 1099-DA) of a lot bought on the exchange on/after 2026-01-01 ("covered") | — | **G / J** (basis reported) |
+| Any other exchange Sell (pre-2026 lot, or BTC transferred in) | **H / K** (proceeds only) | **H / K** |
+| Self-custody spends, gifts' fees, network-fee disposals | **I / L** | **I / L** |
+
+- 1099-DA proceeds are net of transaction costs, matching the app's net Sell proceeds.
+- Transfers break the broker's basis chain (a lot created by a Transfer is noncovered).
+- Each box gets its own Form 8949 sheet (`reports._chunks_by_box`), and each
+  box pair its own Schedule D line: 1b (A/G), 2 (B/H), 3 (C/I), 8b (D/J),
+  9 (E/K), 10 (F/L) — `SCHEDULE_D_LINE_FOR_BOX`.
+- Compare against the 1099-DA when it arrives; if River reports something
+  differently (e.g. includes network fees), `basis_reported_flags` in
+  `build_form_8949_and_schedule_d` is the per-disposal override hook.
 
 ---
 

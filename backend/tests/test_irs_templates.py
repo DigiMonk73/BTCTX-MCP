@@ -10,7 +10,7 @@ rows and read the fields back:
     (pdftk silently drops unknown names -> blank forms with no error)
   - every value must land where it was written
   - exactly one box is checked per Part, and it is the right one
-  - Schedule D totals land on lines 3 and 10
+  - Schedule D totals land on lines 1b, 2, 3, 8b, 9 and 10
 
 Requires pdftk (skipped otherwise); CI installs it.
 """
@@ -136,16 +136,16 @@ def test_self_custody_btc_boxes():
 
 @needs_pdftk
 @pytest.mark.parametrize("year", YEARS)
-def test_schedule_d_lines_3_and_10_land(year):
-    totals = {
-        "short_term": {"proceeds": Decimal("1234.00"), "cost": Decimal("234.00"), "gain_loss": Decimal("1000.00")},
-        "long_term": {"proceeds": Decimal("5678.00"), "cost": Decimal("678.00"), "gain_loss": Decimal("5000.00")},
+def test_schedule_d_all_8949_lines_land(year):
+    """Lines 1b, 2, 3 (Part I) and 8b, 9, 10 (Part II) — one per 8949 box pair."""
+    lines = {
+        line: {"proceeds": Decimal(f"{100 * i + 1}.00"), "cost": Decimal(f"{10 * i}.00"),
+               "gain_loss": Decimal(f"{90 * i + 1}.00")}
+        for i, line in enumerate(("1b", "2", "3", "8b", "9", "10"), start=1)
     }
-    field_data = map_schedule_d_fields(totals, year=year)
+    field_data = map_schedule_d_fields({"lines": lines}, year=year)
+    assert len(field_data) == 24
     filled = _fill_without_flatten(get_template_path(year, "f1040sd.pdf"), field_data)
     for k, v in field_data.items():
         assert k in filled, f"{year} Schedule D field missing: {k}"
         assert (filled[k].get("/V") or "") == v, (k, v, filled[k].get("/V"))
-    row3 = [k for k in field_data if ".Row3[0]." in k]
-    row10 = [k for k in field_data if ".Row10[0]." in k]
-    assert len(row3) == 4 and len(row10) == 4

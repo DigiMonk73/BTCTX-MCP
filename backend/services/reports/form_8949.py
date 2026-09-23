@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
+from backend.constants import ACCOUNT_EXCHANGE_BTC
 
 logger = logging.getLogger(__name__)
 
@@ -113,13 +114,10 @@ def build_form_8949_and_schedule_d(
     rows_long: List[Form8949Row] = []
 
     for disp in disposals:
-        # If you do basis_reported_flags => A or C (short), D or F (long)
-        is_basis_reported = False
+        broker_reported, basis_reported = _broker_reporting(disp, year)
         if basis_reported_flags and disp.id in basis_reported_flags:
-            is_basis_reported = basis_reported_flags[disp.id]
-
-        # Decide box letter
-        box = _determine_box(disp.holding_period, is_basis_reported, year)
+            broker_reported, basis_reported = True, basis_reported_flags[disp.id]
+        box = _determine_box(disp.holding_period, basis_reported, year, broker_reported)
 
         # Format date_acquired
         if disp.lot and disp.lot.acquired_date:
@@ -164,50 +162,92 @@ def build_form_8949_and_schedule_d(
     }
 
 
-def _determine_box(holding_period: str, basis_reported: bool, year: int) -> str:
+# Form 1099-DA: brokers report gross proceeds for digital-asset sales from
+# 2025; basis only for "covered" assets — acquired on/after this date and held
+# in the same broker account until sold (Treas. Reg. 1.6045-1, final 2024).
+COVERED_DIGITAL_ASSET_START = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def _broker_reporting(disp: LotDisposal, year: int) -> Tuple[bool, bool]:
+    """
+    (reported on a 1099-DA?, basis reported?) for one lot disposal.
+
+    Only exchange Sells are broker-reported: that's what River (a US broker)
+    puts on Form 1099-DA. Network-fee disposals and spends/withdrawals from
+    self-custody aren't on any broker form. A Sell's basis is reported only
+    for covered lots: bought on the exchange (a Buy into Exchange BTC) on or
+    after 2026-01-01. BTC transferred in from elsewhere is noncovered — its
+    lot is created by a Transfer, and transfers break the broker's basis chain.
+    """
+    tx = disp.transaction
+    if year < 2025 or tx is None or tx.type != "Sell" or tx.from_account_id != ACCOUNT_EXCHANGE_BTC:
+        return False, False
+    lot = disp.lot
+    origin = lot.created_transaction if lot else None
+    acquired = lot.acquired_date if lot else None
+    if acquired is not None and acquired.tzinfo is None:
+        acquired = acquired.replace(tzinfo=timezone.utc)
+    covered = (
+        origin is not None
+        and origin.type == "Buy"
+        and origin.to_account_id == ACCOUNT_EXCHANGE_BTC
+        and acquired is not None
+        and acquired >= COVERED_DIGITAL_ASSET_START
+    )
+    return True, covered
+
+
+def _determine_box(holding_period: str, basis_reported: bool, year: int,
+                   broker_reported: bool = False) -> str:
     """
     Which Form 8949 checkbox applies to a BTC disposal.
 
-    Through 2024, crypto used the general boxes: A/C (short), D/F (long).
-    From 2025 the form has digital-asset boxes, and Box C/F explicitly
-    exclude digital assets:
-      G / J  digital assets on a 1099-DA with basis reported
-      I / L  digital assets NOT reported on a 1099-DA or 1099-B
-    Self-custody BTC with no broker form is I (short) / L (long).
+    Through 2024, crypto used the general boxes: A/C (short), D/F (long)
+    (A/D only when a 1099-B reported basis).
+    From 2025 the form has digital-asset boxes and Box C/F exclude them:
+      G / J  on a 1099-DA, basis reported
+      H / K  on a 1099-DA, basis NOT reported (every 2025 exchange sale)
+      I / L  not on a 1099-DA or 1099-B (self-custody spends, network fees)
     """
     long_term = holding_period.upper() == "LONG"
     if year >= 2025:
-        if basis_reported:
-            return "J" if long_term else "G"
+        if broker_reported:
+            if basis_reported:
+                return "J" if long_term else "G"
+            return "K" if long_term else "H"
         return "L" if long_term else "I"
     if basis_reported:
         return "D" if long_term else "A"
     return "F" if long_term else "C"
 
 
+# Schedule D line for each Form 8949 box (printed on Schedule D itself)
+SCHEDULE_D_LINE_FOR_BOX = {
+    "A": "1b", "G": "1b", "B": "2", "H": "2", "C": "3", "I": "3",
+    "D": "8b", "J": "8b", "E": "9", "K": "9", "F": "10", "L": "10",
+}
+
+
 def _build_schedule_d_data(short_rows: List[Form8949Row], long_rows: List[Form8949Row]) -> Dict[str, Dict[str, Decimal]]:
     """
-    Summarize short vs. long for schedule D lines 1b & 8b.
+    Schedule D totals: overall short/long, plus per line ("1b", "2", "3",
+    "8b", "9", "10") keyed by the rows' Form 8949 box.
     """
-    st_proceeds = sum(r.proceeds for r in short_rows)
-    st_cost = sum(r.cost for r in short_rows)
-    st_gain = sum(r.gain_loss for r in short_rows)
+    def totals(rows: List[Form8949Row]) -> Dict[str, Decimal]:
+        return {
+            "proceeds": Form8949Row._round(sum((r.proceeds for r in rows), Decimal("0"))),
+            "cost": Form8949Row._round(sum((r.cost for r in rows), Decimal("0"))),
+            "gain_loss": Form8949Row._round(sum((r.gain_loss for r in rows), Decimal("0"))),
+        }
 
-    lt_proceeds = sum(r.proceeds for r in long_rows)
-    lt_cost = sum(r.cost for r in long_rows)
-    lt_gain = sum(r.gain_loss for r in long_rows)
+    by_line: Dict[str, List[Form8949Row]] = {}
+    for r in short_rows + long_rows:
+        by_line.setdefault(SCHEDULE_D_LINE_FOR_BOX[r.box], []).append(r)
 
     return {
-        "short_term": {
-            "proceeds": Form8949Row._round(st_proceeds),
-            "cost": Form8949Row._round(st_cost),
-            "gain_loss": Form8949Row._round(st_gain),
-        },
-        "long_term": {
-            "proceeds": Form8949Row._round(lt_proceeds),
-            "cost": Form8949Row._round(lt_cost),
-            "gain_loss": Form8949Row._round(lt_gain),
-        }
+        "short_term": totals(short_rows),
+        "long_term": totals(long_rows),
+        "lines": {line: totals(rows) for line, rows in by_line.items()},
     }
 
 
@@ -262,50 +302,27 @@ def get_8949_field_config(year: int) -> Dict:
         }
 
 
-def get_schedule_d_field_config(year: int) -> Dict[str, str]:
+def get_schedule_d_field_config(year: int) -> Dict[str, List[str]]:
     """
-    Return year-specific field names for Schedule D.
-
-    IMPORTANT: Self-tracked crypto transactions (not reported on 1099-B/1099-DA) use:
-    - Line 3 (Box C or Box I) for short-term
-    - Line 10 (Box F or Box L) for long-term
-
-    Key differences by year:
-    - 2024: Row3 uses f1_15-f1_18, Row10 uses f1_35-f1_38
-    - 2025+: Same field numbers, different structure confirmed
-
-    Args:
-        year: Tax year (e.g., 2024, 2025)
-
-    Returns:
-        Dictionary mapping field purposes to actual field names
+    Field names for each Schedule D line the app fills, in column order
+    (d) proceeds, (e) cost, (g) adjustments, (h) gain or loss.
+    Lines 1b/2/3 are in Part I, 8b/9/10 in Part II. Only difference between
+    2024 and 2025: line 1b's field numbers are zero-padded in 2024.
     """
-    if year >= 2025:
-        return {
-            # Short-term (line 3 - Box C/I: not reported on 1099)
-            "short_proceeds": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_15[0]",
-            "short_cost": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_16[0]",
-            "short_adjustment": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_17[0]",
-            "short_gain_loss": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_18[0]",
-            # Long-term (line 10 - Box F/L: not reported on 1099)
-            "long_proceeds": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_35[0]",
-            "long_cost": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_36[0]",
-            "long_adjustment": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_37[0]",
-            "long_gain_loss": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_38[0]",
-        }
-    else:  # 2024 and earlier
-        return {
-            # Short-term (line 3 - Box C: not reported on 1099)
-            "short_proceeds": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_15[0]",
-            "short_cost": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_16[0]",
-            "short_adjustment": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_17[0]",
-            "short_gain_loss": "topmostSubform[0].Page1[0].Table_PartI[0].Row3[0].f1_18[0]",
-            # Long-term (line 10 - Box F: not reported on 1099)
-            "long_proceeds": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_35[0]",
-            "long_cost": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_36[0]",
-            "long_adjustment": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_37[0]",
-            "long_gain_loss": "topmostSubform[0].Page1[0].Table_PartII[0].Row10[0].f1_38[0]",
-        }
+    line_1b = ["07", "08", "09", "10"] if year < 2025 else ["7", "8", "9", "10"]
+    numbers = {
+        "1b": line_1b,
+        "2": ["11", "12", "13", "14"],
+        "3": ["15", "16", "17", "18"],
+        "8b": ["27", "28", "29", "30"],
+        "9": ["31", "32", "33", "34"],
+        "10": ["35", "36", "37", "38"],
+    }
+    config = {}
+    for line, nums in numbers.items():
+        part = "Table_PartI" if line in ("1b", "2", "3") else "Table_PartII"
+        config[line] = [f"topmostSubform[0].Page1[0].{part}[0].Row{line}[0].f1_{n}[0]" for n in nums]
+    return config
 
 
 ##############################################################################
@@ -430,34 +447,21 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
     return field_data
 
 
-def map_schedule_d_fields(schedule_d: Dict[str, Dict[str, Decimal]], year: int = 2024) -> Dict[str, str]:
+def map_schedule_d_fields(schedule_d: Dict, year: int = 2024) -> Dict[str, str]:
     """
-    Puts the short-term totals on Schedule D line 3 and long-term totals on
-    line 10 (Form 8949 boxes C/F through 2024, I/L from 2025 — transactions
-    not reported on a 1099), using the year's field names.
-
-    Args:
-        schedule_d: Dictionary with short_term and long_term totals
-        year: Tax year for field name selection
-
-    Returns:
-        Dictionary mapping field names to values
+    Fill each Schedule D line that has Form 8949 rows: line 1b (A/G), 2 (B/H),
+    3 (C/I), 8b (D/J), 9 (E/K), 10 (F/L). Adjustments (g) are blank.
+    Accepts the older {"short_term", "long_term"} shape (treated as lines 3/10).
     """
-    short_data = schedule_d["short_term"]
-    long_data = schedule_d["long_term"]
-
-    # Get year-specific field names
+    lines = schedule_d.get("lines")
+    if lines is None:
+        lines = {"3": schedule_d["short_term"], "10": schedule_d["long_term"]}
     config = get_schedule_d_field_config(year)
-
-    return {
-        # Short-term (line 1b)
-        config["short_proceeds"]: str(short_data["proceeds"]),
-        config["short_cost"]: str(short_data["cost"]),
-        config["short_adjustment"]: "",  # adjustments
-        config["short_gain_loss"]: str(short_data["gain_loss"]),
-        # Long-term (line 8b)
-        config["long_proceeds"]: str(long_data["proceeds"]),
-        config["long_cost"]: str(long_data["cost"]),
-        config["long_adjustment"]: "",
-        config["long_gain_loss"]: str(long_data["gain_loss"]),
-    }
+    fields: Dict[str, str] = {}
+    for line, t in lines.items():
+        proceeds, cost, adjustment, gain = config[line]
+        fields[proceeds] = str(t["proceeds"])
+        fields[cost] = str(t["cost"])
+        fields[adjustment] = ""
+        fields[gain] = str(t["gain_loss"])
+    return fields
