@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
-import { useToast } from '../contexts/ToastContext';
+import { useToast } from '../contexts/useToast';
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {

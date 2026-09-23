@@ -25,7 +25,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.types import TypeDecorator, String
-from sqlalchemy.exc import IntegrityError
 import bcrypt
 
 # ------------------------------------------------------------------
@@ -117,7 +116,7 @@ def create_tables():
     # ✅ Ensure all models are imported so Base.metadata is aware of them
     from backend.models.user import User
     from backend.models.account import Account
-    from backend.models.transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal
+    from backend.models.transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal  # noqa: F401
     from backend.models.app_setting import AppSetting  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

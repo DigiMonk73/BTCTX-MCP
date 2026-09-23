@@ -16,7 +16,7 @@ Requires: Backend running at http://127.0.0.1:8000
 
 import pytest
 import random
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional, Tuple
 from fastapi.testclient import TestClient
@@ -382,7 +382,7 @@ class TestVolumeStress:
 
         # First create BTC inventory
         for i in range(10):
-            tx = create_tx({
+            create_tx({
                 "type": "Buy",
                 "timestamp": base_date,
                 "from_account_id": EXCHANGE_USD,
@@ -396,7 +396,7 @@ class TestVolumeStress:
         # Now create 40 more transactions on the same day
         for i in range(40):
             if i % 2 == 0:
-                tx = create_tx({
+                create_tx({
                     "type": "Buy",
                     "timestamp": base_date,
                     "from_account_id": EXCHANGE_USD,
@@ -407,7 +407,7 @@ class TestVolumeStress:
                     "cost_basis_usd": "4000",
                 })
             else:
-                tx = create_tx({
+                create_tx({
                     "type": "Sell",
                     "timestamp": base_date,
                     "from_account_id": EXCHANGE_BTC,
@@ -545,15 +545,9 @@ class TestVolumeStress:
 
             years_data.append((year, buy_tx, sell_tx))
 
-        # Verify each year has disposals
-        disposals = get_disposals()
-        for year in [2023, 2024, 2025]:
-            year_disposals = [
-                d for d in disposals
-                if d.get("transaction", {}).get("timestamp", "").startswith(str(year))
-            ]
-            # Note: disposals don't always include transaction details via debug endpoint
-            # We mainly verify the multi-year transactions were created
+        # Every year's sale produced a disposal
+        disposal_tx_ids = {d.get("transaction_id") for d in get_disposals()}
+        assert all(sell_tx["id"] in disposal_tx_ids for _, _, sell_tx in years_data)
 
         assert len(years_data) == 3
 
@@ -1286,10 +1280,6 @@ class TestEdgeCases:
         """Transfer preserves original cost basis and acquisition date."""
         # Get initial lot info before transfer
         initial_lots = get_lots()
-        initial_exchange_lots = [
-            l for l in initial_lots
-            if Decimal(str(l.get("remaining_btc", 0))) > 0
-        ]
 
         # Transfer from Exchange to Wallet
         transfer_tx = create_tx({
@@ -1303,16 +1293,16 @@ class TestEdgeCases:
         })
         assert "error" not in transfer_tx
 
-        # Get lots after transfer
-        after_lots = get_lots()
-
-        # Should have a new lot in Wallet with same cost basis (pro-rated)
-        # The transfer creates a new lot with the transferred portion's cost basis
-        new_lots = [l for l in after_lots if l["id"] not in [ol["id"] for ol in initial_lots]]
-
-        # Note: Transfer creates new lot with pro-rated cost basis from source
-        # This test verifies the transfer was successful
-        assert "error" not in transfer_tx
+        # FIFO: the 0.25 comes from the oldest lot; the wallet lot inherits its
+        # acquisition date and a pro-rated share of its basis.
+        oldest = min(initial_lots, key=lambda lot: lot["acquired_date"])
+        new_lots = [lot for lot in get_lots() if lot["created_txn_id"] == transfer_tx["id"]]
+        assert len(new_lots) == 1
+        moved = new_lots[0]
+        assert Decimal(moved["total_btc"]) == Decimal("0.25")
+        assert moved["acquired_date"] == oldest["acquired_date"]
+        expected = Decimal(oldest["cost_basis_usd"]) * Decimal("0.25") / Decimal(oldest["total_btc"])
+        assert abs(Decimal(moved["cost_basis_usd"]) - expected) <= Decimal("0.01")
 
 
 # =============================================================================
@@ -1329,7 +1319,7 @@ class TestIRSFormValidation:
     def test_form_8949_short_term_created(self, funded_exchange):
         """Short-term disposals appear in Form 8949 data."""
         # Buy and sell within 1 year = short term
-        buy_tx = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 6, 1),
             "from_account_id": EXCHANGE_USD,
@@ -1359,7 +1349,7 @@ class TestIRSFormValidation:
     def test_form_8949_long_term_created(self, funded_exchange):
         """Long-term disposals appear in Form 8949 data."""
         # Buy and sell after 1 year = long term
-        buy_tx = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2023, 1, 1),
             "from_account_id": EXCHANGE_USD,
@@ -1390,7 +1380,7 @@ class TestIRSFormValidation:
         """15 disposals = 2 pages (14 per page), verify PDF generated."""
         # Create 15 buy/sell pairs
         for i in range(15):
-            buy = create_tx({
+            create_tx({
                 "type": "Buy",
                 "timestamp": build_timestamp(2024, 1, i+1),
                 "from_account_id": EXCHANGE_USD,
@@ -1401,7 +1391,7 @@ class TestIRSFormValidation:
                 "cost_basis_usd": "4000",
             })
 
-            sell = create_tx({
+            create_tx({
                 "type": "Sell",
                 "timestamp": build_timestamp(2024, 6, i+1),
                 "from_account_id": EXCHANGE_BTC,
@@ -1420,7 +1410,7 @@ class TestIRSFormValidation:
     def test_form_8949_multipage_30_disposals(self, funded_exchange):
         """30 disposals = 3 pages."""
         for i in range(30):
-            buy = create_tx({
+            create_tx({
                 "type": "Buy",
                 "timestamp": build_timestamp(2024, 1, (i % 28) + 1),
                 "from_account_id": EXCHANGE_USD,
@@ -1431,7 +1421,7 @@ class TestIRSFormValidation:
                 "cost_basis_usd": "2000",
             })
 
-            sell = create_tx({
+            create_tx({
                 "type": "Sell",
                 "timestamp": build_timestamp(2024, 6, (i % 28) + 1),
                 "from_account_id": EXCHANGE_BTC,
@@ -1533,9 +1523,7 @@ class TestIRSFormValidation:
         spent_disposals = [d for d in disposals if d.get("transaction_id") == spent_tx["id"]]
         assert len(spent_disposals) >= 1
 
-        # Spent should have non-zero gain (either positive or negative)
-        total_gain = sum(Decimal(str(d.get("realized_gain_usd", 0))) for d in spent_disposals)
-        # Just verify disposal was created with proper gain calculation
+        # Verify disposal was created with proper gain calculation
         assert spent_disposals[0].get("disposal_basis_usd") is not None
 
     # -------------------------------------------------------------------------
@@ -1565,7 +1553,7 @@ class TestIRSFormValidation:
 
     def test_form_8949_actual_date_single_lot(self, funded_exchange):
         """Sale consuming 1 lot shows actual acquisition date."""
-        buy_tx = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 3, 15, 10, 30),
             "from_account_id": EXCHANGE_USD,
@@ -1602,7 +1590,7 @@ class TestIRSFormValidation:
         total_cost = Decimal("0")
 
         for i in range(3):
-            buy = create_tx({
+            create_tx({
                 "type": "Buy",
                 "timestamp": build_timestamp(2024, 1, i+1),
                 "from_account_id": EXCHANGE_USD,
@@ -1613,7 +1601,7 @@ class TestIRSFormValidation:
                 "cost_basis_usd": "20000",
             })
 
-            sell = create_tx({
+            create_tx({
                 "type": "Sell",
                 "timestamp": build_timestamp(2024, 6, i+1),
                 "from_account_id": EXCHANGE_BTC,
@@ -1632,7 +1620,6 @@ class TestIRSFormValidation:
         short_term_disposals = [d for d in disposals if d.get("holding_period", "").upper() == "SHORT"]
 
         calc_proceeds = sum(Decimal(str(d.get("proceeds_usd_for_that_portion", 0))) for d in short_term_disposals)
-        calc_cost = sum(Decimal(str(d.get("disposal_basis_usd", 0))) for d in short_term_disposals)
 
         # Should match (within tolerance due to fees)
         assert calc_proceeds > 0, "Should have short-term proceeds"
@@ -1640,7 +1627,7 @@ class TestIRSFormValidation:
     def test_schedule_d_long_term_totals(self, funded_exchange):
         """Schedule D line 10 matches sum of 8949 Part II long-term gains."""
         # Create long-term transactions
-        buy = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2023, 1, 1),
             "from_account_id": EXCHANGE_USD,
@@ -1651,7 +1638,7 @@ class TestIRSFormValidation:
             "cost_basis_usd": "30000",
         })
 
-        sell = create_tx({
+        create_tx({
             "type": "Sell",
             "timestamp": build_timestamp(2024, 6, 1),  # >1 year later
             "from_account_id": EXCHANGE_BTC,
@@ -1730,7 +1717,7 @@ class TestIRSFormValidation:
 
     def test_form_usd_two_decimal_precision(self, funded_exchange):
         """USD amounts rounded to $X.XX."""
-        buy = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 6, 1),
             "from_account_id": EXCHANGE_USD,
@@ -1762,7 +1749,7 @@ class TestIRSFormValidation:
 
     def test_form_btc_eight_decimal_precision(self, funded_exchange):
         """BTC amounts show X.XXXXXXXX (8 decimals)."""
-        buy = create_tx({
+        create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 6, 1),
             "from_account_id": EXCHANGE_USD,
@@ -1805,7 +1792,7 @@ class TestIRSFormValidation:
     def test_empty_year_no_crash(self, clean_db):
         """Year with no transactions should not crash."""
         # Don't create any transactions, just try to generate report
-        pdf_bytes = get_irs_report_data(2024)
+        get_irs_report_data(2024)
 
         # Should either return empty PDF or handle gracefully
         # The API may return None or a minimal PDF
@@ -1975,8 +1962,6 @@ class TestBuyFromBank:
 
     def test_buy_from_bank_csv_import(self, clean_db):
         """CSV import with Buy from Bank should work."""
-        import io
-        import csv
         from backend.services.csv_import import parse_csv_file
 
         # Create CSV content with Buy from Bank

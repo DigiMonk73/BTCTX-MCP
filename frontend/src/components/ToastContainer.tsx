@@ -1,5 +1,5 @@
 import React from 'react';
-import { useToast } from '../contexts/ToastContext';
+import { useToast } from '../contexts/useToast';
 import Toast from './Toast';
 import '../styles/toast.css';
 

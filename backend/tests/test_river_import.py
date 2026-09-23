@@ -12,7 +12,7 @@ monthly Interest payouts) but never copied from a real account.
 import io
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,9 +20,7 @@ from fastapi.testclient import TestClient
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
-    STATUS_NEW,
     adapt_river_rows,
-    annotate_duplicates,
     parse_river_csv,
 )
 

@@ -31,11 +31,9 @@ import json
 import os
 import sys
 import tempfile
-import time
-from datetime import datetime
-from decimal import Decimal, ROUND_HALF_DOWN
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Tuple
 
 import pytest
 from fastapi.testclient import TestClient
@@ -188,7 +186,7 @@ def api_get(endpoint: str, **params) -> Tuple[int, Any]:
         r = CLIENT.get(f"/api/{endpoint}", params=params)
         try:
             return r.status_code, r.json()
-        except:
+        except Exception:
             return r.status_code, r.content
     except Exception as e:
         return 0, str(e)
@@ -200,7 +198,7 @@ def api_post(endpoint: str, data: dict) -> Tuple[int, Any]:
         r = CLIENT.post(f"/api/{endpoint}", json=data)
         try:
             return r.status_code, r.json()
-        except:
+        except Exception:
             return r.status_code, r.text
     except Exception as e:
         return 0, str(e)
@@ -212,7 +210,7 @@ def api_delete(endpoint: str) -> Tuple[int, Any]:
         r = CLIENT.delete(f"/api/{endpoint}")
         try:
             return r.status_code, r.json() if r.content else None
-        except:
+        except Exception:
             return r.status_code, r.text
     except Exception as e:
         return 0, str(e)

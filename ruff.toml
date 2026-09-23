@@ -1,8 +1,8 @@
-# Lint gate for pre-push and CI: only rules that catch real bugs
-# (syntax errors, undefined names, broken comparisons). Style-only rules
-# (unused imports etc.) are deliberately off to avoid churn.
+# Lint gate for pre-push and CI: all Pyflakes rules (undefined names, unused
+# imports/variables, redefinitions) plus syntax errors and bare `except:`.
+# Pure-style rules (line length, import order) stay off.
 target-version = "py310"
 extend-exclude = ["desktop/build", "desktop/dist", "desktop/.venv", "frontend"]
 
 [lint]
-select = ["E9", "F63", "F7", "F82"]
+select = ["E9", "E722", "F"]

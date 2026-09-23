@@ -9,7 +9,7 @@ No further changes needed for double-entry, but we confirm the layout is correct
 
 from __future__ import annotations
 from typing import List, TYPE_CHECKING
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import bcrypt
 from backend.database import Base

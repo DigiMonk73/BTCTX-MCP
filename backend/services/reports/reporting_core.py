@@ -13,14 +13,11 @@ from backend.models.transaction import (
     BitcoinLot,
     LotDisposal,
 )
-from backend.models.account import Account
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 
 # Services
 from backend.services.transaction import (
     recalculate_all_transactions,
-    recalculate_subsequent_transactions,  # default partial-lot approach (>=)
-    get_all_transactions,
     get_btc_price,                        # for fetching historical BTC price
 )
 
@@ -190,7 +187,7 @@ def _partial_relot_strictly_after(db: Session, boundary_dt: datetime):
     """
     logger.info(f"[Strict Partial Re-Lot] Excluding transactions after {boundary_dt.isoformat()}")
 
-    from backend.models.transaction import LedgerEntry, BitcoinLot, LotDisposal
+    from backend.models.transaction import LedgerEntry, BitcoinLot
     from backend.services.transaction import (
         build_ledger_entries_for_transaction,
         maybe_create_bitcoin_lot,
@@ -475,7 +472,6 @@ def _build_income_summary(txns: List[Transaction]) -> Dict[str, Any]:
 
 def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> List[Dict[str, Any]]:
     """Realized profit / loss / net on BTC for the tax year, from the lot disposals."""
-    from backend.models.transaction import LotDisposal
 
     gains = [
         Decimal(d.realized_gain_usd or 0)

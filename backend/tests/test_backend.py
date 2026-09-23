@@ -1,11 +1,9 @@
 import os
 print("PYTHONPATH:", os.getenv('PYTHONPATH'))
 
-import pytest
 from backend.models.user import User
 from backend.models.account import Account
 from backend.models.transaction import Transaction
-from backend.database import Base, engine
 
 print("All backend imports are working!")
 

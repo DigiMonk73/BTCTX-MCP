@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { downloadPdfWithAxios } from "../api";
-import { useToast } from "../contexts/ToastContext";
+import { useToast } from "../contexts/useToast";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
 import "../styles/reports.css"; // Our spinner CSS is also in here
 

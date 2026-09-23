@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import axios from "axios";
 import api from "../api";
-import { useToast } from "../contexts/ToastContext";
+import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { parseDecimal, formatUsd, parseTransaction } from "../utils/format";
 
@@ -196,6 +196,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   onUpdateStatusChange,     // new prop
 }) => {
   const toast = useToast();
+  const toastError = toast.error; // stable callback; `toast` itself changes per render
 
   // Set up react-hook-form
   const {
@@ -251,7 +252,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           setCurrentType(tx.type);
         })
         .catch(() => {
-          toast.error("Failed to load transaction data.");
+          toastError("Failed to load transaction data.");
         });
     } else {
       // If no transactionId => create mode
@@ -266,7 +267,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       });
       setCurrentType("");
     }
-  }, [transactionId, reset]);
+  }, [transactionId, reset, toastError]);
 
   /**
    * Notify parent about "dirty" form

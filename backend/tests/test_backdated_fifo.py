@@ -16,7 +16,6 @@ Expected Result:
 
 import requests
 import sys
-from datetime import datetime, timezone
 
 BASE_URL = "http://127.0.0.1:8000"
 DELETE_ALL = f"{BASE_URL}/api/transactions/delete_all"
@@ -166,12 +165,12 @@ def main():
 
     if abs(cost_basis_after - 30000) < 0.01:
         print("PASS: Backdated recalculation worked!")
-        print(f"  - Sell now uses Buy C ($30,000) instead of Buy A ($40,000)")
+        print("  - Sell now uses Buy C ($30,000) instead of Buy A ($40,000)")
         print(f"  - Realized gain changed from ${60000 - cost_basis_before:,.2f} to ${60000 - cost_basis_after:,.2f}")
         return 0
     else:
         print("FAIL: Backdated recalculation did NOT work!")
-        print(f"  - Expected cost basis: $30,000 (from Buy C)")
+        print("  - Expected cost basis: $30,000 (from Buy C)")
         print(f"  - Actual cost basis: ${cost_basis_after:,.2f}")
         print("  - The Sell is still using the wrong lot")
         return 1

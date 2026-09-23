@@ -27,13 +27,11 @@ from __future__ import annotations
 
 import argparse
 import ast
-import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 # Colors for terminal output
 class Colors:
@@ -220,7 +218,6 @@ def check_python39_compatibility() -> bool:
     parser, so syntax newer than 3.10 is caught without regex false alarms.
     (Name kept for callers; Python 3.9 support was dropped in 2026-09.)
     """
-    import ast
     project_root = Path(__file__).parent.parent.parent
     backend_dir = project_root / "backend"
 
@@ -261,14 +258,14 @@ def check_file_operations_use_data_volume() -> bool:
             content = py_file.read_text()
             for pattern in suspicious_patterns:
                 if re.search(pattern, content):
-                    # This is a heuristic - may have false positives
-                    pass  # For now, just note it
+                    violations.append(str(py_file.relative_to(project_root)))
         except Exception:
             pass
 
-    # This check is informational for now
-    record_result("Docker/StartOS Compatibility", "File operations review", True, "Manual review recommended")
-    return True
+    passed = not violations
+    details = "" if passed else f"hardcoded write path in: {', '.join(violations)}"
+    record_result("Docker/StartOS Compatibility", "File operations use data volume", passed, details)
+    return passed
 
 
 def check_absolute_paths_in_reports() -> bool:
@@ -544,9 +541,6 @@ def test_csv_roundtrip_format_check() -> bool:
 
     backup_content = backup_file.read_text()
     import_content = import_file.read_text()
-
-    # Extract CSV_COLUMNS from backup.py
-    backup_cols_match = re.search(r'CSV_COLUMNS\s*=\s*\[(.*?)\]', backup_content, re.DOTALL)
 
     # Check that common columns exist in both
     common_cols = ["date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd"]

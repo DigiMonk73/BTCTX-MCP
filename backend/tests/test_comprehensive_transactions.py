@@ -23,10 +23,8 @@ Requires: Backend running at http://127.0.0.1:8000
 
 import pytest
 import sys
-import json
 from decimal import Decimal, ROUND_HALF_DOWN
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Optional
 from fastapi.testclient import TestClient
 
 # =============================================================================
@@ -89,7 +87,7 @@ def create_tx(tx_data: Dict) -> Dict:
         error_detail = r.text
         try:
             error_detail = r.json()
-        except:
+        except Exception:
             pass
         return {"error": True, "status_code": r.status_code, "detail": error_detail}
     return r.json()
@@ -1985,7 +1983,7 @@ def test_complex_scenario():
 
     # Verify final state
     balances = get_balances()
-    gl = get_gains_and_losses()
+    get_gains_and_losses()
 
     # Exchange USD: 100000 - 20020 (buy1) - 25025 (buy2) + 34950 (sell) = 89905
     exch_usd = next((b["balance"] for b in balances if b["account_id"] == EXCHANGE_USD), 0)
@@ -2128,7 +2126,8 @@ if __name__ == "__main__":
     from backend.main import app
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    import tempfile, os
+    import tempfile
+    import os
 
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()

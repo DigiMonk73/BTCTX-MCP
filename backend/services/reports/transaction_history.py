@@ -33,7 +33,6 @@ NOTE: This module is referenced by the /simple_transaction_history route in 'rep
 which directly calls generate_transaction_history_report(...) to bypass advanced cost-basis logic.
 """
 
-import datetime
 import logging
 from io import BytesIO
 from decimal import Decimal

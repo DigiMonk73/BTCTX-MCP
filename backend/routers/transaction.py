@@ -21,7 +21,7 @@ Refactor Notes:
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime
 
 # The Pydantic schemas for transaction CRUD
 from backend.schemas.transaction import (

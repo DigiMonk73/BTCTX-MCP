@@ -8,7 +8,6 @@ We add optional validators to ensure 'currency' is one of ["USD","BTC"].
 
 from pydantic import BaseModel, field_validator, ConfigDict
 from typing import Optional
-from fastapi import HTTPException
 
 VALID_CURRENCIES = {"USD", "BTC"}
 

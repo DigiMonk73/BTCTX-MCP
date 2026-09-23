@@ -13,9 +13,8 @@ Requires: Backend running at http://127.0.0.1:8000
 
 import pytest
 import io
-import re
 from decimal import Decimal
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from pypdf import PdfReader
 from fastapi.testclient import TestClient

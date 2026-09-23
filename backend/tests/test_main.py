@@ -1,11 +1,4 @@
-import pytest
 from backend.models.user import User
-from backend.main import app
-from fastapi.testclient import TestClient
-
-
-def test_hello_world():
-    assert 1 + 1 == 2
 
 
 def test_user_model():
