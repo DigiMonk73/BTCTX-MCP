@@ -137,8 +137,8 @@ Legend: ✅ have today · 🆕 new · 🔧 fix
 
 ### 4.8 Presentation and docs (Start9 review checklist)
 - 🔧 `icon.svg` ≤ 40 KiB (ours is a 545 KB raster inside an SVG).
-- 🆕 i18n: `manifest/i18n.ts` + `i18n/` dictionary; en_US complete and
-  es_ES/de_DE/pl_PL/fr_FR (Start9 checks localization).
+- 🆕 i18n structure (`manifest/i18n.ts` + `i18n/` dictionary), **en_US only**
+  for now (decision 3); other locales can be added before a marketplace submission.
 - 🔧 `instructions.md` with the `## Documentation` link list Start9's
   support indexer parses; README as the AI/admin reference (no versions,
   "Quick Reference for AI Consumers"); `UPDATING.md`; `AGENTS.md`.
