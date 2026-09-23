@@ -46,10 +46,14 @@ Withdrawal: any account -> External
     Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
     Donation = gave to a charity (not a sale; fmv_usd auto-filled).
     Lost     = lost keys / hack / scam (capital loss).
-  Network fee: fee_amount in BTC, fee_currency = BTC, ON TOP of amount.
+  amount = what the recipient got. Network fee: fee_amount in BTC,
+  fee_currency = BTC, ON TOP of amount.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
-  amount = what ARRIVES at the destination; network fee (BTC) is on top.
+  amount = total that LEFT the source, network fee INCLUDED; the destination
+  receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
+  fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
+  (Note the difference from Withdrawal, where the fee is on top.)
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
 

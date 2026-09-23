@@ -47,7 +47,8 @@ class TransactionInput(BaseModel):
     amount: Decimal = Field(
         gt=0,
         description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
-                    "Transfer/Withdrawal: what arrives at the destination; the network fee is separate.",
+                    "Transfer: total that left the source INCLUDING the network fee. "
+                    "Withdrawal: what the recipient got; the network fee is on top.",
     )
     from_account: AccountName
     to_account: AccountName

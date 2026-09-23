@@ -305,9 +305,10 @@ def adapt_river_rows(
             # Tag=Withdrawal ⇒ the user told River it left their ecosystem.
             # Either way the user can flip it in the preview.
             # River's Sent Amount maps to `amount` (what the destination
-            # receives); the network fee, when River reports one, is on top —
-            # matching BitcoinTX Transfer semantics (amount + fee leaves the
-            # source account).
+            # receives); the network fee, when River reports one, is on top.
+            # Proposals keep River's numbers so the preview shows them as-is;
+            # ledger_amount() converts Transfers to BitcoinTX semantics (fee
+            # included) for dedup and at execute, after the user's edits.
             if not row.sent or row.sent <= 0:
                 warnings.append(CSVParseError(
                     row_number=row.row_number, column=None, severity="warning",
@@ -380,6 +381,28 @@ _COMPATIBLE_TYPES: Dict[str, Tuple[str, ...]] = {
 }
 
 
+def ledger_amount(
+    tx_type: str,
+    amount: Decimal,
+    fee_amount: Optional[Decimal],
+    fee_currency: Optional[str],
+) -> Decimal:
+    """
+    River amounts exclude the network fee. A BitcoinTX Transfer's amount is
+    what left the source, fee included (destination receives amount - fee),
+    so a BTC fee is added for Transfers. Withdrawals keep the fee on top.
+    """
+    if tx_type == "Transfer" and fee_amount and (fee_currency or "BTC").upper() == "BTC":
+        return amount + fee_amount
+    return amount
+
+
+def _proposal_ledger_amount(proposal: RiverProposal) -> Decimal:
+    return ledger_amount(
+        proposal.type, proposal.amount, proposal.fee_amount, proposal.fee_currency
+    )
+
+
 def _as_utc(ts: datetime) -> datetime:
     """SQLite returns naive datetimes; all app timestamps are UTC."""
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
@@ -439,7 +462,7 @@ def annotate_duplicates(
         best: Optional[Transaction] = None
         best_delta: Optional[timedelta] = None
         for tx in candidates(proposal):
-            if Decimal(tx.amount or 0) != proposal.amount:
+            if Decimal(tx.amount or 0) != _proposal_ledger_amount(proposal):
                 continue
             delta = abs(_as_utc(tx.timestamp) - proposal.timestamp)
             if best_delta is None or delta < best_delta:
@@ -467,7 +490,7 @@ def annotate_duplicates(
             tx_amount = Decimal(tx.amount or 0)
             if tx_amount <= 0:
                 continue
-            rel_diff = abs(tx_amount - proposal.amount) / tx_amount
+            rel_diff = abs(tx_amount - _proposal_ledger_amount(proposal)) / tx_amount
             if rel_diff > FUZZY_AMOUNT_TOLERANCE:
                 continue
             delta = abs(_as_utc(tx.timestamp) - proposal.timestamp)

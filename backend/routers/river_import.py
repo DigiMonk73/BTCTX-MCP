@@ -35,6 +35,7 @@ from backend.services.river_import import (
     RiverProposal,
     adapt_river_rows,
     annotate_duplicates,
+    ledger_amount,
     parse_river_csv,
 )
 
@@ -180,7 +181,9 @@ async def execute_river_import(
         str_row = {
             "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "type": row.type,
-            "amount": format(row.amount, "f"),
+            "amount": format(
+                ledger_amount(row.type, row.amount, row.fee_amount, row.fee_currency), "f"
+            ),
             "from_account": row.from_account,
             "to_account": row.to_account,
             "cost_basis_usd": format(row.cost_basis_usd, "f") if row.cost_basis_usd is not None else "",

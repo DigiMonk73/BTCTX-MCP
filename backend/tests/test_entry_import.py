@@ -65,8 +65,8 @@ BUY = {
     "cost_basis_usd": "10000.00", "fee_amount": "25.00", "fee_currency": "USD",
 }
 TO_COLD = {
-    # amount = BTC that arrives in cold storage; the network fee is on top
-    "date": "2023-01-12T15:00:00Z", "type": "Transfer", "amount": "0.4999",
+    # amount = BTC that left the exchange, fee included; 0.4999 arrives
+    "date": "2023-01-12T15:00:00Z", "type": "Transfer", "amount": "0.5",
     "from_account": "Exchange BTC", "to_account": "Wallet",
     "fee_amount": "0.0001", "fee_currency": "BTC",
 }

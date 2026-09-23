@@ -26,6 +26,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`mcp_server/tests/`).
 
 ### Fixed
+- **BTC Transfer fees counted two ways.** The ledger treated a Transfer's
+  `amount` as what left the source (fee included, as the UI's "amount sent"
+  field does), but cost-basis lots took `amount + fee` from the source. Lots
+  and balances drifted apart by every transfer fee, and sending a whole
+  balance failed with "Not enough BTC". Lots now use the ledger/UI convention;
+  a fee larger than the amount is rejected with a clear message. River
+  imports (whose amounts exclude the fee) are converted at execute and in
+  dedup, so re-imports still match. Dashboard balances do not change.
 - Sells created through CSV import or River import with a USD fee lost the fee
   from proceeds **again on every full recalculation** (any backdated insert,
   edit or delete), understating gains. The shared row validator now records

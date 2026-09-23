@@ -91,14 +91,14 @@ async def call(client, name, args=None, expect_error=False):
     return json.loads(text)  # the text block is what the model reads
 
 
-# A River buy, then the move to cold storage (fee on top of what arrives)
+# A River buy, then the whole balance to cold storage (amount includes the fee)
 BUY = {
     "date": "2024-01-15T14:00:00Z", "type": "Buy", "amount": "0.01",
     "from_account": "Bank", "to_account": "Exchange BTC",
     "cost_basis_usd": "420.00", "fee_amount": "4.20", "fee_currency": "USD",
 }
 TO_COLD = {
-    "date": "2024-01-16T09:00:00Z", "type": "Transfer", "amount": "0.0099",
+    "date": "2024-01-16T09:00:00Z", "type": "Transfer", "amount": "0.01",
     "from_account": "Exchange BTC", "to_account": "Wallet",
     "fee_amount": "0.0001", "fee_currency": "BTC",
 }

@@ -775,9 +775,17 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     if from_acct.currency != "BTC" or to_acct.currency != "BTC":
         return
 
+    # Transfer amount is what LEFT the source, fee included (the UI's
+    # "amount sent"); the destination receives amount - fee. This matches
+    # build_ledger_entries_for_transaction, so lots and balances agree.
     btc_outflow = Decimal(tx.amount or 0)
     fee_btc = Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal("0")
-    total_outflow = btc_outflow + fee_btc
+    if fee_btc > btc_outflow:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transfer fee {fee_btc} exceeds the amount sent {btc_outflow}"
+        )
+    total_outflow = btc_outflow
     if total_outflow <= 0:
         return
 
@@ -853,7 +861,7 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     if remaining_outflow > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Not enough BTC to transfer {btc_outflow} + fee {fee_btc}"
+            detail=f"Not enough BTC to transfer {btc_outflow} (including fee {fee_btc})"
         )
 
     # Create partial-lot(s) in the destination
@@ -1029,6 +1037,12 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
             raise HTTPException(
                 status_code=400,
                 detail="Transfer from BTC => fee must be BTC."
+            )
+        amount = tx_data.get("amount")  # absent on partial updates
+        if from_acct and from_acct.currency == "BTC" and amount is not None and fee_amt > Decimal(amount):
+            raise HTTPException(
+                status_code=400,
+                detail="Transfer fee exceeds the amount sent (amount includes the fee)."
             )
         if from_acct and from_acct.currency == "USD" and fee_cur != "USD":
             raise HTTPException(
