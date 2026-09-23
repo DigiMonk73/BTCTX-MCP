@@ -348,6 +348,11 @@ def _validate_row(
         tx_data["cost_basis_usd"] = cost_basis_usd
     if proceeds_usd is not None:
         tx_data["proceeds_usd"] = proceeds_usd
+        if tx_type == "Sell":
+            # Record the gross like the UI form does. Without it, every
+            # scorched-earth recalculation re-derives net proceeds from the
+            # already-net stored value and subtracts the USD fee again.
+            tx_data["gross_proceeds_usd"] = proceeds_usd
     if fee_amount is not None and fee_amount > 0:
         tx_data["fee_amount"] = fee_amount
         tx_data["fee_currency"] = fee_currency or _default_fee_currency(tx_type)

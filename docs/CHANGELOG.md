@@ -4,6 +4,34 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added — MCP server (AI-assisted entry)
+- **`mcp_server/`**: an MCP server (`btctx-mcp`) that lets an AI assistant
+  (Claude Desktop, Claude Code, any MCP client) add transactions from pasted
+  text or plain English: exchange emails, wallet history, explorer pages. Tools:
+  guide, preview, add, list, update, delete (single), portfolio, BTC price.
+  Runs locally over stdio and logs in to BitcoinTX with the user's credentials.
+  See `mcp_server/README.md`.
+- **JSON entry import API** (session-auth only):
+  `POST /api/import/entries/preview` and `POST /api/import/entries/execute`.
+  - Preview validates with the CSV importer's rules, dedups against the ledger
+    with the River engine (exact → skipped, near-match → flagged), auto-fills
+    FMV-derived USD values (Income/Interest/Reward basis, Spent proceeds,
+    Gift/Donation FMV), then **dry-runs the real create path and rolls it
+    back**: returns simulated realized gain/holding period per row, rejected
+    rows (e.g. not enough BTC), balances afterward, and existing sales whose
+    gains change due to backdating.
+  - Execute is atomic with the same exact-duplicate guard and returns the
+    created transaction ids.
+- 20 new backend tests (`test_entry_import.py`) + 9 MCP end-to-end tests
+  (`mcp_server/tests/`).
+
+### Fixed
+- Sells created through CSV import or River import with a USD fee lost the fee
+  from proceeds **again on every full recalculation** (any backdated insert,
+  edit or delete), understating gains. The shared row validator now records
+  `gross_proceeds_usd` as the UI form does. Sells imported before this fix may
+  already have understated proceeds — compare against exchange records.
+
 ---
 
 ## [v0.7.0] - 2026-06-10 - River CSV Import

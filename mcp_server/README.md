@@ -1,0 +1,115 @@
+# BitcoinTX MCP server
+
+Connect an AI assistant (Claude Desktop, Claude Code, or any MCP client) to
+your BitcoinTX ledger. Paste anything, like an exchange confirmation email, a
+wallet's transaction history, a block-explorer page or a CSV snippet, or just
+describe it ("moved 0.05 BTC from River to my Coldcard yesterday, fee was 2k
+sats"). The assistant turns it into transactions, shows you a dry-run preview
+with dedup and the resulting gain/loss, and saves them once you confirm.
+
+The server runs **on your computer** and talks to your BitcoinTX instance
+(Docker, StartOS or the macOS app) over its normal API, logging in with your
+BitcoinTX username and password. Nothing goes through a third party except
+what your AI client itself sends to its model.
+
+## Tools
+
+| Tool | What it does |
+|------|--------------|
+| `get_ledger_guide` | How to map real-world events onto BitcoinTX accounts, types and tax fields |
+| `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
+| `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
+| `list_transactions` | Search by date range, type and account |
+| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated) |
+| `get_portfolio` | Account balances, average cost basis, live BTC price |
+| `get_btc_price` | Historical daily or current BTC price |
+
+There is deliberately no bulk delete.
+
+## Requirements
+
+- BitcoinTX **v0.8.0 or later** (adds the `/api/import/entries` endpoints this server uses)
+- Python 3.10+ on the machine running your AI client
+
+## Install
+
+```bash
+# from a clone of this repo
+pip install ./mcp_server
+# or without cloning
+pip install "git+https://github.com/BitcoinTX-org/BTCTX-org.git#subdirectory=mcp_server"
+```
+
+This installs a `btctx-mcp` command. `uvx` works too:
+`uvx --from "git+https://github.com/BitcoinTX-org/BTCTX-org.git#subdirectory=mcp_server" btctx-mcp`.
+
+## Configure
+
+| Variable | Meaning |
+|----------|---------|
+| `BTCTX_URL` | Where BitcoinTX is reachable, e.g. `http://192.168.1.50`, `https://xyz.local`, `http://localhost:8000` |
+| `BTCTX_USERNAME` / `BTCTX_PASSWORD` | Your BitcoinTX login |
+| `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
+| `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |
+
+### Claude Desktop
+
+Settings → Developer → Edit Config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "bitcointx": {
+      "command": "btctx-mcp",
+      "env": {
+        "BTCTX_URL": "http://192.168.1.50",
+        "BTCTX_USERNAME": "admin",
+        "BTCTX_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+If Claude Desktop can't find `btctx-mcp`, use the full path from `which btctx-mcp`.
+
+### Claude Code
+
+```bash
+claude mcp add bitcointx \
+  -e BTCTX_URL=http://192.168.1.50 -e BTCTX_USERNAME=admin -e BTCTX_PASSWORD=your-password \
+  -- btctx-mcp
+```
+
+## Using it
+
+> Here's my River email: "You bought 0.00231 BTC for $150.00 (fee $1.49) on Mar 3"
+
+> I withdrew everything from River to my Trezor on March 10, network fee 1,800 sats
+
+> Got paid 250k sats for a logo design on 2024-05-02, went straight to cold storage
+
+The assistant asks when something tax-relevant is ambiguous (is that address
+your own wallet or someone else's? bank-funded or from your River cash
+balance?), previews, then saves once you confirm. Your AI client will also ask
+you to approve each tool call unless you tell it not to.
+
+## Security notes
+
+- Your BitcoinTX password lives in the MCP client config on your computer.
+  Anyone who can read that file can log in to BitcoinTX.
+- The server exposes read tools plus add/update/delete of single transactions.
+  Every write is visible in BitcoinTX, and daily backups (`scripts/backup-db.sh`)
+  still apply.
+
+## Development
+
+```bash
+# from the repo root
+pip install -r backend/requirements.txt ./mcp_server
+mkdir -p frontend/dist
+PYTHONPATH=$(pwd):$(pwd)/mcp_server pytest mcp_server/tests backend/tests/test_entry_import.py
+```
+
+The tests run an MCP client against this server, which calls the real FastAPI
+app in-process on a temporary database. Price lookups are stubbed.

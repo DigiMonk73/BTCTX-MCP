@@ -139,6 +139,8 @@ LotDisposal (FIFO consumption record)
 | `backend/services/reports/form_8949.py` | IRS Form 8949 data preparation |
 | `backend/services/reports/pdftk_path.py` | Centralized pdftk path resolution (macOS desktop compat) |
 | `backend/tests/conftest.py` | Shared test fixtures (isolated TestClient + temp DB) |
+| `backend/services/entry_import.py` | JSON entry import: validate, FMV autofill, dedup, dry-run simulation |
+| `mcp_server/btctx_mcp/server.py` | MCP server for AI-assisted transaction entry (see `mcp_server/README.md`) |
 | `scripts/backup-db.sh` | Daily SQLite backup with 60-day retention |
 | `Dockerfile` | Multi-stage build (Node for frontend, Python for backend) |
 
@@ -237,6 +239,18 @@ git push plebrick master --tags  # Sync backup at releases
 ---
 
 ## Recent Changes
+
+### Session: 2026-09-23 (MCP server — branch `claude/zealous-wright-nk7vol`)
+1. **MCP server** `mcp_server/` (package `btctx-mcp`, mcp SDK 2.x `MCPServer`, stdio): AI assistants add transactions from pasted text / plain English
+   - REST client only (never touches the DB); logs in with username/password because import endpoints are deliberately session-only (API-key clients stay locked out)
+   - Tools: get_ledger_guide, preview_transactions, add_transactions, list_transactions, update_transaction, delete_transaction, get_portfolio, get_btc_price. No bulk delete, by design
+   - `btctx_mcp/guide.py` is the domain prompt (account mapping, per-type fields, workflow); it's sent as the server instructions and returned by a tool
+2. **Backend**: `routers/entry_import.py` + `services/entry_import.py` + `schemas/entry_import.py` → `POST /api/import/entries/{preview,execute}`
+   - Reuses `csv_import._validate_row`, `river_import.annotate_duplicates`, `create_transaction_record`
+   - Preview = real create path in the request session, then `db.rollback()` (calls `ensure_fee_account_exists` first because it can commit)
+3. **Bug fix**: CSV/River Sells with USD fees re-subtracted the fee on every scorched-earth recalc (no `gross_proceeds_usd`); `_validate_row` now sets it
+4. **Known issue, NOT fixed (owner decision needed)**: Transfer fee semantics disagree. Lot logic (`maybe_transfer_bitcoin_lot`) and the River adapter treat `amount` as what arrives, with the fee on top. The ledger (`build_ledger_entries_for_transaction`) debits only `amount` and credits `amount - fee`, so ledger balances drift from lot balances by each transfer fee. The MCP guide follows the lot convention
+5. Tests: `backend/tests/test_entry_import.py` (20), `mcp_server/tests/test_server.py` (9, end-to-end MCP client → server → ASGI app)
 
 ### Session: 2026-06-10 (River CSV Import — branch `feature/river-import`)
 1. **River bitcoin-activity CSV import** (Phases 1–2 of docs/RIVER_IMPORT_PLAN.md)
