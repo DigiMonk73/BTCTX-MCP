@@ -26,6 +26,10 @@ def generate_fdf(field_data: dict) -> str:
 
     for key, value in field_data.items():
         escaped_key = key.replace("(", r"\(").replace(")", r"\)")
+        if value.startswith("/"):
+            # Checkbox/radio on-state: must be a PDF name, not a string
+            lines.append(f"<< /T ({escaped_key}) /V {value} >>")
+            continue
         escaped_value = value.replace("(", r"\(").replace(")", r"\)")
         lines.append(f"<< /T ({escaped_key}) /V ({escaped_value}) >>")
 

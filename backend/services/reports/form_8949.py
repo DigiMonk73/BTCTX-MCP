@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import List, Dict, Literal, Optional
+from typing import Tuple, List, Dict, Literal, Optional
 from sqlalchemy.orm import Session
 
 from backend.models import LotDisposal
@@ -37,7 +37,7 @@ class Form8949Row:
         cost: Decimal,              # col (e)
         gain_loss: Decimal,         # col (h)
         holding_period: Literal["SHORT", "LONG"],
-        box: Literal["A", "B", "C", "D", "E", "F"]
+        box: str  # checkbox letter for this row's Part (see _determine_box)
     ):
         self.description = description
         self.date_acquired = date_acquired
@@ -47,8 +47,9 @@ class Form8949Row:
         self.gain_loss = Decimal(gain_loss)
         self.holding_period = holding_period
         self.box = box
-        # For columns (f) and (g) (code & adjustment), we might not store them if your code
-        # doesn’t require adjustments. If you do, you can expand below.
+        # Columns (f) code and (g) adjustment stay blank: the app records no
+        # adjustments. The box letter is NOT a column (f) code — it's the
+        # checkbox at the top of the row's Part.
 
     def to_dict(self) -> Dict:
         """Convert to a dictionary with final, rounded decimal amounts."""
@@ -118,7 +119,7 @@ def build_form_8949_and_schedule_d(
             is_basis_reported = basis_reported_flags[disp.id]
 
         # Decide box letter
-        box = _determine_box(disp.holding_period, is_basis_reported)
+        box = _determine_box(disp.holding_period, is_basis_reported, year)
 
         # Format date_acquired
         if disp.lot and disp.lot.acquired_date:
@@ -163,15 +164,25 @@ def build_form_8949_and_schedule_d(
     }
 
 
-def _determine_box(holding_period: str, basis_reported: bool) -> Literal["A", "B", "C", "D", "E", "F"]:
+def _determine_box(holding_period: str, basis_reported: bool, year: int) -> str:
     """
-    short => A (if basis reported) or C (if not)
-    long => D (if basis reported) or F (if not)
+    Which Form 8949 checkbox applies to a BTC disposal.
+
+    Through 2024, crypto used the general boxes: A/C (short), D/F (long).
+    From 2025 the form has digital-asset boxes, and Box C/F explicitly
+    exclude digital assets:
+      G / J  digital assets on a 1099-DA with basis reported
+      I / L  digital assets NOT reported on a 1099-DA or 1099-B
+    Self-custody BTC with no broker form is I (short) / L (long).
     """
-    hp = holding_period.upper()
-    if hp == "LONG":
-        return "D" if basis_reported else "F"
-    return "A" if basis_reported else "C"
+    long_term = holding_period.upper() == "LONG"
+    if year >= 2025:
+        if basis_reported:
+            return "J" if long_term else "G"
+        return "L" if long_term else "I"
+    if basis_reported:
+        return "D" if long_term else "A"
+    return "F" if long_term else "C"
 
 
 def _build_schedule_d_data(short_rows: List[Form8949Row], long_rows: List[Form8949Row]) -> Dict[str, Dict[str, Decimal]]:
@@ -220,23 +231,34 @@ def get_8949_field_config(year: int) -> Dict:
     Returns:
         Dictionary with field naming configuration
     """
+    # Years whose templates were checked against this config (fields exist,
+    # values land, box order matches the printed form). A new year folder
+    # fails tests until it is added here — see docs/IRS_ANNUAL_FORM_UPDATE.md.
     if year >= 2025:
         return {
+            "verified_years": [2025],
             "table_name_page1": "Table_Line1_Part1",
             "table_name_page2": "Table_Line1_Part2",
             "row1_base_index": 3,  # Row 1 starts at field index 3
             "row1_zero_pad": True,  # f1_03, f1_04, ... f1_10
             "row2_plus_zero_pad": False,  # f1_11, f1_12, ... (no padding after row 1)
             "rows_per_page": 11,  # 2025 form shrank the table (was 14 rows)
+            # Checkbox widgets c1_1[0..5] / c2_1[0..5], top to bottom; the
+            # on-state of widget i is /(i+1). Verified against the PDF.
+            "boxes_part1": ["A", "B", "C", "G", "H", "I"],
+            "boxes_part2": ["D", "E", "F", "J", "K", "L"],
         }
     else:  # 2024 and earlier
         return {
+            "verified_years": [2024],
             "table_name_page1": "Table_Line1",
             "table_name_page2": "Table_Line1",  # Same table name for both pages
             "row1_base_index": 3,
             "row1_zero_pad": False,  # f1_3, f1_4, ...
             "row2_plus_zero_pad": False,
             "rows_per_page": 14,
+            "boxes_part1": ["A", "B", "C"],
+            "boxes_part2": ["D", "E", "F"],
         }
 
 
@@ -289,6 +311,22 @@ def get_schedule_d_field_config(year: int) -> Dict[str, str]:
 ##############################################################################
 # 4) FIELD-MAPPING HELPERS
 ##############################################################################
+def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
+    """
+    (field name, on-state) of the Part I/II checkbox for `box`.
+    The state is a PDF name like "/6"; generate_fdf writes it as a name.
+    """
+    config = get_8949_field_config(year)
+    boxes = config["boxes_part1"] if page == 1 else config["boxes_part2"]
+    if box not in boxes:
+        raise ValueError(f"Box {box} is not in Part {'I' if page == 1 else 'II'} of the {year} Form 8949")
+    i = boxes.index(box)
+    return (
+        f"topmostSubform[0].Page{page}[0].c{page}_1[{i}]",
+        f"/{i + 1}",
+    )
+
+
 def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: int = 2024) -> Dict[str, str]:
     """
     Fills the rows of ONE part of a Form 8949 sheet, using year-specific naming.
@@ -331,6 +369,14 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
 
     field_data: Dict[str, str] = {}
 
+    # One box per Part per sheet: every row on the page must share it
+    boxes = {r.box for r in rows}
+    if len(boxes) > 1:
+        raise ValueError(f"Rows for one Form 8949 page must share a box, got {sorted(boxes)}")
+    if boxes:
+        cb_name, cb_state = checkbox_field_for_box(boxes.pop(), page, year)
+        field_data[cb_name] = cb_state
+
     for i, row_obj in enumerate(rows, start=1):
         # row1 => base=3, row2 => base=11, row3 => base=19, etc.
         base_index = 3 + (i - 1) * 8
@@ -369,9 +415,9 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
         col_e = field_name(i, base_index + 4)
         field_data[col_e] = str(row_obj.cost)
 
-        # col (f) => offset=5 => code => store row_obj.box
+        # col (f) => offset=5 => adjustment code(s) => none recorded
         col_f = field_name(i, base_index + 5)
-        field_data[col_f] = row_obj.box
+        field_data[col_f] = ""
 
         # col (g) => offset=6 => adjustment => empty unless needed
         col_g = field_name(i, base_index + 6)
@@ -386,12 +432,9 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
 
 def map_schedule_d_fields(schedule_d: Dict[str, Dict[str, Decimal]], year: int = 2024) -> Dict[str, str]:
     """
-    Adapts short_term (line 1b) & long_term (line 8b) totals from 'schedule_d'
-    to year-specific fillable PDF field naming.
-
-    Field naming varies by year:
-    - 2024: Short-term row 1b uses f1_07, f1_08 (zero-padded)
-    - 2025+: Short-term row 1b uses f1_7, f1_8 (NOT zero-padded)
+    Puts the short-term totals on Schedule D line 3 and long-term totals on
+    line 10 (Form 8949 boxes C/F through 2024, I/L from 2025 — transactions
+    not reported on a 1099), using the year's field names.
 
     Args:
         schedule_d: Dictionary with short_term and long_term totals

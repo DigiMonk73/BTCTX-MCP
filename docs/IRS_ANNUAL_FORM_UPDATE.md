@@ -16,6 +16,24 @@ Throughout this document, `YYYY` means the new tax year (e.g., `2026`).
 
 ---
 
+## Quick path (usually all you need)
+
+```bash
+python scripts/irs_new_year.py YYYY          # download final forms, verify, install, test
+```
+
+The script refuses drafts and wrong-year PDFs, checks that every field name
+the app writes exists in the new template, checks the checkbox order against
+the boxes printed on the form, diffs field names against the previous year,
+and runs `backend/tests/test_irs_templates.py`. If it all matches, add `YYYY`
+to `verified_years` in `get_8949_field_config()` (the tests fail until you do —
+a person signs off once a year), rerun, then do **Step 6** (look at the PDF)
+and **Step 7**. If anything fails, the steps below explain what to change.
+
+The **IRS forms watch** workflow (`.github/workflows/irs-forms-watch.yml`)
+checks irs.gov weekly Nov–Mar and fails — emailing you — when final forms for
+the next year are published.
+
 ## How the multi-year system works (30-second refresher)
 
 - Templates live at `backend/assets/irs_templates/YYYY/f8949.pdf` and
@@ -124,12 +142,11 @@ Each row has 8 data fields = columns (a)–(h); the mapper computes
 or numbering scheme itself, `map_8949_rows_to_field_data()` needs work — that
 has not happened through 2025.
 
-Also check the **checkbox fields** (`c1_1`, `c2_1`, …): if the IRS adds new
-box letters (as 2025 added G–L for 1099-DA), decide whether `_determine_box()`
-needs updating. BitcoinTX currently always uses **Box C** (short-term) and
-**Box F** (long-term) — correct for self-tracked crypto with no 1099-B/DA. If
-brokers' 1099-DA reporting ever becomes relevant, that's a feature, not part
-of this runbook.
+Also check the **checkbox fields** (`c1_1`, `c2_1`, …) and the box letters
+printed next to them. The config's `boxes_part1` / `boxes_part2` must list the
+letters in the order printed on the form (a test enforces this). If the IRS
+changes which box applies to self-custody digital assets, update
+`_determine_box()` — 2025 moved crypto from C/F to **I/L**.
 
 ### What to look for in `f1040sd.pdf`
 
@@ -207,7 +224,8 @@ Verify with your eyes:
 - [ ] Rows land in the visible table cells (not shifted by one column/row)
 - [ ] Dates are MM/DD/YYYY, amounts have two decimals
 - [ ] Short-term rows are on Part I (page 1), long-term on Part II (page 2)
-- [ ] Box C checked on Part I, Box F on Part II
+- [ ] Exactly one box checked per Part: C/F for 2024, **I/L** for 2025+ (self-custody BTC)
+- [ ] Column (f) "Code(s)" is empty
 - [ ] Schedule D Line 3 and Line 10 totals match the 8949 column (d)/(e)/(h) sums
 - [ ] With more rows than `rows_per_page`, a second sheet appears and no rows vanish
 
@@ -230,7 +248,7 @@ Verify with your eyes:
 | Year | 8949 table names | Rows/page | Zero-padding | Schedule D fields | Notes |
 |------|------------------|-----------|--------------|-------------------|-------|
 | 2024 | `Table_Line1` (both pages) | **14** | none | Row3 `f1_15–18`, Row10 `f1_35–38` | baseline |
-| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | **11** | row 1 only (`f1_03`…`f1_10`) | identical to 2024 | Boxes G–L added (1099-DA) — not used by app |
+| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | **11** | row 1 only (`f1_03`…`f1_10`) | identical to 2024 | Boxes G–L added; C/F now exclude digital assets → app uses **I/L** |
 
 ---
 
@@ -242,6 +260,10 @@ Verify with your eyes:
 - **Field name written to a nonexistent field** → pdftk fills nothing for that
   key, silently. (2025 bug: continuous `f3_+` page numbering wrote to fields
   that don't exist.) The Step 6 visual check is the backstop.
+- **No box checked / box letter in column (f)** → through v0.7.0 the app never
+  set the Part checkboxes and wrote "C"/"F" into the adjustment-code column,
+  and kept using C/F in 2025 after the form reserved them for non-digital
+  assets. `test_irs_templates.py` now checks the right box per year.
 - **XFA forms** → IRS PDFs ship with XFA; `fill_pdf_with_pdftk()` already
   strips it (`drop_xfa`). If a future form won't fill at all, see the XFA
   section of [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).

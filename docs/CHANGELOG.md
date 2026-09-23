@@ -29,6 +29,14 @@ All notable changes to BitcoinTX are documented in this file.
   `test_disposal_proceeds.py` (11), and 10 MCP end-to-end tests
   (`mcp_server/tests/`).
 
+### IRS forms: yearly update tooling
+- `scripts/irs_new_year.py YYYY`: downloads the final forms, rejects drafts and
+  wrong-year PDFs, verifies field names and box order, diffs against the prior
+  year, installs, and runs the template tests.
+- A new year folder fails tests until its config is explicitly verified
+  (`verified_years`), so it can't silently inherit last year's layout.
+- `IRS forms watch` workflow checks irs.gov weekly Nov–Mar for new final forms.
+
 ### macOS desktop app
 - Listens on a fixed local port, `http://127.0.0.1:8765` (override with
   `BTCTX_DESKTOP_PORT`; falls back to a random port if taken), so the MCP
@@ -44,6 +52,13 @@ All notable changes to BitcoinTX are documented in this file.
 - **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
 
 ### Fixed
+- **IRS Form 8949 boxes.** No Part checkbox was ever checked (the IRS requires
+  one), and the box letter was written into column (f) "Code(s)", which is for
+  adjustment codes. For 2025 the app also used Box C/F, which the 2025 form
+  reserves for non-digital assets. Now exactly one box is checked per Part —
+  C/F for 2024, **I/L** (digital assets not on a 1099) for 2025+ — and column
+  (f) is blank. Verified by filling the real IRS templates and reading every
+  field back (`test_irs_templates.py`, runs for every bundled year).
 - **BTC Transfer fees counted two ways.** The ledger treated a Transfer's
   `amount` as what left the source (fee included, as the UI's "amount sent"
   field does), but cost-basis lots took `amount + fee` from the source. Lots

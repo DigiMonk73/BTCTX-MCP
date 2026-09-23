@@ -104,16 +104,16 @@ def get_8949_field_config(year: int) -> dict:
             "table_name_page1": "Table_Line1_Part1",
             "table_name_page2": "Table_Line1_Part2",
             "field_format": "{:02d}",  # Zero-padded
-            "checkboxes_short": ["A", "B", "C", "G", "H", "I"],
-            "checkboxes_long": ["D", "E", "F", "J", "K", "L"],
+            "boxes_part1": ["A", "B", "C", "G", "H", "I"],
+            "boxes_part2": ["D", "E", "F", "J", "K", "L"],
         }
     else:  # 2024 and earlier
         return {
             "table_name_page1": "Table_Line1",
             "table_name_page2": "Table_Line1",
             "field_format": "{}",  # Not zero-padded
-            "checkboxes_short": ["A", "B", "C"],
-            "checkboxes_long": ["D", "E", "F"],
+            "boxes_part1": ["A", "B", "C"],
+            "boxes_part2": ["D", "E", "F"],
         }
 ```
 
@@ -454,32 +454,21 @@ def _determine_box_2024(holding_period: str, basis_reported: bool):
 
 ### 2025 Checkboxes (NEW - Includes Form 1099-DA)
 
-| Box | Holding Period | Form Type | Basis Reported |
-|-----|----------------|-----------|----------------|
-| A | Short-term | 1099-B | Yes |
-| B | Short-term | 1099-B | No |
-| C | Short-term | No 1099-B/1099-DA | N/A |
-| **G** | Short-term | **1099-DA** | Yes |
-| **H** | Short-term | **1099-DA** | No |
-| **I** | Short-term | **1099-DA** | Unknown |
-| D | Long-term | 1099-B | Yes |
-| E | Long-term | 1099-B | No |
-| F | Long-term | No 1099-B/1099-DA | N/A |
-| **J** | Long-term | **1099-DA** | Yes |
-| **K** | Long-term | **1099-DA** | No |
-| **L** | Long-term | **1099-DA** | Unknown |
+Wording from the 2025 form itself. Note that Box C/F now **exclude digital
+assets** — crypto can no longer go in C/F.
+
+| Box | Holding Period | Meaning |
+|-----|----------------|---------|
+| A / D | Short / Long | Reported on 1099-B, basis reported |
+| B / E | Short / Long | Reported on 1099-B, basis not reported |
+| C / F | Short / Long | **Other than digital assets**, not on 1099-B or 1099-DA |
+| **G / J** | Short / Long | Reported on **1099-DA**, basis reported |
+| **H / K** | Short / Long | Reported on **1099-DA**, basis not reported |
+| **I / L** | Short / Long | **Digital assets not reported** on 1099-DA or 1099-B |
 
 ```python
-# 2025 Implementation (requires knowing if transaction was on 1099-DA)
-def _determine_box_2025(holding_period: str, basis_reported: bool, has_1099_da: bool = False):
-    if holding_period == "LONG":
-        if has_1099_da:
-            return "J" if basis_reported else "K"
-        return "D" if basis_reported else "F"
-    else:  # SHORT
-        if has_1099_da:
-            return "G" if basis_reported else "H"
-        return "A" if basis_reported else "C"
+# form_8949._determine_box(holding_period, basis_reported, year)
+# self-custody BTC with no broker form: 2024 -> C/F, 2025+ -> I/L
 ```
 
 ### Checkbox Field Names
@@ -501,11 +490,21 @@ topmostSubform[0].Page1[0].c1_1[4]  # Box H (NEW)
 topmostSubform[0].Page1[0].c1_1[5]  # Box I (NEW)
 ```
 
-### Note on 1099-DA Support
+### How the box is written
 
-For a self-custody Bitcoin tracker like BitcoinTX, users typically do NOT receive Form 1099-DA (which is issued by custodial exchanges). The app currently assumes Box C/F (no 1099 received).
+`map_8949_rows_to_field_data()` checks exactly one box per Part: the widget
+`c{page}_1[i]` whose on-state is `/(i+1)`, where `i` is the box's position in
+the year config's `boxes_part1` / `boxes_part2` (top-to-bottom order printed on
+the form, verified by `test_box_labels_match_template_text`). `generate_fdf()`
+writes values starting with `/` as PDF names (`/V /6`), which checkboxes need.
+Column (f) "Code(s)" is left blank — the box letter never goes there.
 
-Future enhancement could add a field to transactions indicating whether a 1099-DA was received, enabling proper box G-L selection.
+### Note on 1099-DA
+
+Starting with 2025 sales, US brokers (including River) issue Form 1099-DA.
+Disposals a broker reported belong in Box H/K (or G/J once basis reporting
+starts). The app currently puts every disposal in I/L; `basis_reported_flags`
+and `_determine_box()` are the hooks for broker-reported rows.
 
 ---
 

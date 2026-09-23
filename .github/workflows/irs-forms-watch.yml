@@ -1,0 +1,24 @@
+name: IRS forms watch
+
+# Weekly during tax-form season: fails (GitHub emails the repo owner) once
+# irs.gov publishes FINAL Form 8949 + Schedule D for a year the app doesn't
+# bundle yet. Then run: python scripts/irs_new_year.py <year>
+on:
+  schedule:
+    - cron: "0 14 * 11,12,1,2,3 1"   # Mondays 14:00 UTC, Nov–Mar
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r backend/requirements.txt
+      - name: Check irs.gov for new final forms
+        run: python scripts/irs_new_year.py --watch
