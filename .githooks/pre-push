@@ -30,8 +30,8 @@ step "Smoke test (real server, temp database)"
 "$PY" scripts/smoke_test.py || fail "smoke test"
 
 if [ -d frontend/node_modules ]; then
-  step "Frontend lint + type check"
-  (cd frontend && npm run lint --silent && npx tsc -b) || fail "frontend"
+  step "Frontend lint + type check + unit tests"
+  (cd frontend && npm run lint --silent && npx tsc -b && npm test --silent) || fail "frontend"
 else
   printf "\n– Frontend checks skipped (run 'npm ci' in frontend/ to enable)\n"
 fi

@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Frontend unit tests (Vitest) for the transaction form's mapping to and
+  from the API, run by the pre-push hook and CI. The mapping moved to
+  `frontend/src/utils/transactionForm.ts`.
+
 ### Changed
 - The complete tax report no longer rebuilds the ledger inside the request
   to take its start- and end-of-year snapshots (33 writes for a small ledger,

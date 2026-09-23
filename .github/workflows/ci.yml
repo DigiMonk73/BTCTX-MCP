@@ -42,7 +42,7 @@ jobs:
           pytest -q --durations=10
 
   frontend:
-    name: Frontend lint + build
+    name: Frontend lint + tests + build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -56,6 +56,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - name: Type check + production build
         run: npm run build
       - uses: actions/upload-artifact@v4

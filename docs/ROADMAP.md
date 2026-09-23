@@ -18,8 +18,8 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
 - [x] **Per-transaction 1099-DA override**: shipped in v0.8.0.
 - [x] **Reports without side effects**: year-boundary snapshots replay on an
       in-memory copy of the database.
-- [ ] **Frontend unit tests** (Vitest) for the transaction form's
-      field-to-API mapping, the part most likely to regress.
+- [x] **Frontend unit tests** (Vitest): form ↔ API mapping in
+      `frontend/src/utils/transactionForm.ts`.
 
 ## Later
 

@@ -32,7 +32,7 @@ smoke: frontend-dist
 
 lint:
 	$(PY) -m ruff check .
-	cd frontend && npm run lint && npx tsc -b
+	cd frontend && npm run lint && npx tsc -b && npm test
 
 audit-deps:
 	$(PY) -m pip_audit -r backend/requirements.txt -r requirements-dev.txt

@@ -17,7 +17,7 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript | secs |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping) | secs |
 | Unit + integration | `make test-fast` | ~285 tests: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, MCP tools | ~1.5 min |
 | Full suite | `make test` | Adds the 250-transaction stress tests (`@pytest.mark.slow`) | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
