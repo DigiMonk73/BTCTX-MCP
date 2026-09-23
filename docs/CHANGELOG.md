@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v0.8.0] - 2026-09-23 - MCP server, schema migrations, tax fixes
+
 ### Added — MCP server (AI-assisted entry)
 - **`mcp_server/`**: an MCP server (`btctx-mcp`) that lets an AI assistant
   (Claude Desktop, Claude Code, any MCP client) add transactions from pasted

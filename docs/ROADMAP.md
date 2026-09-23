@@ -2,22 +2,20 @@
 
 Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
 
-## Next release: v0.8.0
+## After v0.8.0
 
-Everything under "Unreleased" in the changelog: MCP server, tax timezone,
-Form 1099-DA boxes, pure-Python IRS forms, security fixes, calculation fixes.
-
-- [ ] Tag `v0.8.0` on `main` (CI builds the macOS app)
-- [ ] Upgrade path verified on a copy of a real v0.7 database: backup →
-      Recalculate Ledger → compare the 2024/2025 reports with the old ones
+- [ ] Upgrade your real v0.7 database with v0.8.0: backup → start (automatic
+      migration) → Recalculate Ledger → compare the 2024/2025 reports with
+      the old ones. (Upgrading a v0.7.0 database is covered by tests and CI;
+      this checks your actual data.)
 
 ## Soon
 
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
-- [x] **Schema migrations (Alembic)**: see CHANGELOG (Unreleased).
-- [x] **Per-transaction 1099-DA override**: see CHANGELOG (Unreleased).
+- [x] **Schema migrations (Alembic)**: shipped in v0.8.0.
+- [x] **Per-transaction 1099-DA override**: shipped in v0.8.0.
 - [ ] **Reports without side effects.** The complete tax report rebuilds the
       ledger to snapshot year-end balances; compute them from lots and
       disposals directly instead.
