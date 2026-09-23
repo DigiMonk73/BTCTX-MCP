@@ -38,11 +38,11 @@ There is deliberately no bulk delete.
 # from a clone of this repo
 pip install ./mcp_server
 # or without cloning
-pip install "git+https://github.com/BitcoinTX-org/BTCTX-org.git#subdirectory=mcp_server"
+pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
 ```
 
-This installs a `btctx-mcp` command. `uvx` works too:
-`uvx --from "git+https://github.com/BitcoinTX-org/BTCTX-org.git#subdirectory=mcp_server" btctx-mcp`.
+This installs a `btctx-mcp` command (the repo is private, so the git URL needs your GitHub login). `uvx` works too:
+`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp`.
 
 ## Configure
 
