@@ -61,6 +61,8 @@ frontend/temp_frontend/
 *.db
 *.sqlite3
 *.db-journal
+# Test fixture written by old app versions (backend/tests/test_migrations.py)
+!backend/tests/fixtures/*.db
 backend/bitcoin_tracker.db
 
 # --- Test Artifacts ---
@@ -73,7 +75,6 @@ pytest_cache/
 logs/  # Log directory (if used for Uvicorn or other services)
 
 # --- Optional Backend Artifacts ---
-migrations/
 backend/create_db.py
 
 # --- Git-Specific ---

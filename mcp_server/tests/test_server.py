@@ -17,9 +17,9 @@ from mcp import Client
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base, get_db
+from backend.database import get_db
 from backend.main import app
-from backend.tests.conftest import LOGIN_CREDS, _seed_test_db
+from backend.tests.conftest import LOGIN_CREDS, init_test_db
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient
 
@@ -36,8 +36,7 @@ def backend_db(monkeypatch):
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    _seed_test_db(engine)
+    init_test_db(engine)
     Session = sessionmaker(bind=engine)
 
     def override_get_db():

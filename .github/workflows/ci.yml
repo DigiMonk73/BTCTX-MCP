@@ -104,9 +104,32 @@ jobs:
         run: python scripts/smoke_test.py --url http://127.0.0.1:8080
       - name: Data lands on the /data volume
         run: docker exec btctx test -s /data/btctx.db -a -s /data/.btctx_secret_key
+      - name: Upgrade a v0.7.0 database (schema migrations)
+        run: |
+          docker volume create btctx-upgrade
+          docker run --rm -v btctx-upgrade:/data -v "$PWD/backend/tests/fixtures:/fx:ro" \
+            btctx:ci cp /fx/v0_7_0.db /data/btctx.db
+          start() {
+            docker run -d --name "$1" -p 8081:80 -v btctx-upgrade:/data btctx:ci
+            for i in $(seq 1 60); do
+              curl -sf -o /dev/null http://127.0.0.1:8081/ && return 0
+              sleep 2
+            done
+            docker logs "$1"; return 1
+          }
+          start btctx-up
+          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081
+          test "$(docker exec btctx-up sh -c 'ls /data/backups/*.db | wc -l')" = 1
+          # a restart on an up-to-date database changes nothing
+          docker rm -f btctx-up
+          start btctx-up2
+          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081
+          test "$(docker exec btctx-up2 sh -c 'ls /data/backups/*.db | wc -l')" = 1
       - name: Container logs on failure
         if: failure()
-        run: docker logs btctx
+        run: |
+          docker logs btctx || true
+          docker logs btctx-up || docker logs btctx-up2 || true
 
   audit:
     name: Dependency vulnerability audit

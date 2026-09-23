@@ -154,6 +154,26 @@ All notable changes to BitcoinTX are documented in this file.
   would have been used as-is; it is now rejected like the other public
   defaults, and the example leaves the key unset (auto-generated).
 
+### Added — schema migrations
+- The database schema is now managed by **Alembic migrations**
+  (`backend/migrations/`), run automatically at every start. Before this, new
+  tables were created on startup but new columns and indexes never reached
+  existing databases.
+- **Existing databases are adopted automatically**: checked against the v0.7.0
+  schema, repaired where that's safe (databases from before Jan 2026 get the
+  foreign-key indexes they never received), then upgraded. Verified against a
+  database written by the real v0.7.0 code, in tests and in the Docker image.
+- **Automatic backup** to a `backups/` folder next to the database before any
+  schema change (or restore). Upgrades run in a single transaction: a failure
+  leaves the database exactly as it was.
+- A database from a newer BitcoinTX is refused with a clear message instead of
+  being opened by older code.
+- **Restoring an older backup now upgrades it** before it replaces the live
+  database. Restores are validated first (wrong password, not a database, or
+  from a newer version leave the live data untouched), swapped in atomically,
+  and the database being replaced is kept in `backups/`. Encrypted backups are
+  now taken with SQLite's backup API (consistent even while the app writes).
+
 ### Added
 - **Settings → Recalculate Ledger** button (same as the MCP
   `recalculate_ledger` tool) for applying calculation fixes after an upgrade.

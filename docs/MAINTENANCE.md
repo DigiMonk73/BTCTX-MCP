@@ -134,6 +134,42 @@ Each was skipped deliberately; revisit when the unblock condition is met.
 
 ---
 
+## Database migrations
+
+The schema is owned by Alembic migrations in `backend/migrations/versions/`.
+Nothing calls `create_all()`: every start runs `backend/migrate.py`, which
+backs the database up to `<db dir>/backups/` and upgrades it when a newer
+revision exists. Restored backups are upgraded the same way before they
+replace the live database.
+
+**Changing the schema** (a new column, table or index):
+
+1. Change the model in `backend/models/`.
+2. Generate the migration against a scratch database at the current head:
+   ```bash
+   DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
+   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0004 -m "add foo to transactions"
+   ```
+   Use the next number as `--rev-id` (sequential ids keep the history readable).
+3. Read the generated file. Autogenerate misses renames (it emits drop + add,
+   which loses data) and server defaults; SQLite column changes run as
+   `batch_alter_table` (copy, swap), which `env.py` enables. A new NOT NULL
+   column needs a `server_default` or a data backfill step.
+4. `pytest backend/tests/test_migrations.py`. `test_models_and_migrations_agree`
+   fails until models and migrations describe the same schema, and the
+   v0.7.0 fixture tests prove old databases still upgrade.
+5. Mention it in `docs/CHANGELOG.md`.
+
+**Rules**
+
+- Never edit a migration that has been released; add a new one.
+- Migrations must not import from `backend/models` (models keep changing; a
+  migration is a frozen snapshot). Use `sa.` types and plain SQL.
+- Upgrades must preserve data. `downgrade()` is best effort and not run by
+  the app; going back a version means restoring the copy in `backups/`.
+- `backend/tests/fixtures/v0_7_0.db` was written by the real v0.7.0 code.
+  Don't regenerate it with current code.
+
 ## Deprecations
 
 Check for new deprecation warnings after any update:
@@ -154,5 +190,6 @@ and record anything you can't fix yet in the deferred table above.
 - [ ] Check for new deprecation warnings
 - [ ] Revisit the deferred table
 - [ ] `make check`
+- [ ] Schema changed? A migration exists and `test_migrations.py` passes
 - [ ] Yearly: `python scripts/irs_new_year.py YYYY`, bump `tzdata`
 - [ ] Update "Last reviewed" above

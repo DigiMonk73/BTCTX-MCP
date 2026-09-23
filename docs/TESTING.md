@@ -59,6 +59,15 @@ python scripts/smoke_test.py --url http://127.0.0.1:8080
 Only against an **empty** instance (a fresh Docker container, never your real
 data) — it creates transactions.
 
+## Schema migrations
+
+`backend/tests/test_migrations.py` checks that the migrations and the models
+describe the same schema, and upgrades a database written by the real v0.7.0
+code (`backend/tests/fixtures/v0_7_0.db`), including older variants and
+restored backups. CI also starts the Docker image on that database and checks
+the upgrade (`scripts/check_upgraded_instance.py`). Every test database is
+built by the migrations, not `create_all()`.
+
 ## Yearly IRS templates
 
 `python scripts/irs_new_year.py YEAR --check` verifies an installed year's

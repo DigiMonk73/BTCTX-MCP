@@ -64,7 +64,7 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 # ---------------------------------------------------------
 # Database import (needed before lifespan)
 # ---------------------------------------------------------
-from backend.database import create_tables, get_db
+from backend.database import init_db, get_db
 
 # ---------------------------------------------------------
 # Lifespan context manager for startup/shutdown
@@ -73,12 +73,10 @@ from backend.database import create_tables, get_db
 async def lifespan(app: FastAPI):
     """
     Lifespan context manager for startup/shutdown events.
-    Ensures tables are created when FastAPI starts.
+    Migrates the database schema and seeds defaults when FastAPI starts.
     """
     # Startup
-    logger.info("Running create_tables() at startup...")
-    create_tables()
-    logger.info("Database tables created or verified.")
+    init_db()
     yield
     # Shutdown (nothing needed currently)
 

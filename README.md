@@ -83,8 +83,10 @@ config, Docker and StartOS addresses, TLS options, and example prompts.
 ## Upgrading from BitcoinTX v0.7 or earlier
 
 1. Download an encrypted backup (Settings → Backup & Restore).
-2. Click **Settings → Recalculate Ledger** once.
-3. Check your **Tax Timezone** in Settings.
+2. Start the new version. It upgrades the database automatically and keeps a
+   copy of the old one in a `backups` folder next to it.
+3. Click **Settings → Recalculate Ledger** once.
+4. Check your **Tax Timezone** in Settings.
 
 This release changes how transfer fees, sale proceeds and the one-year
 holding period are calculated, so gains stored by older versions can change.

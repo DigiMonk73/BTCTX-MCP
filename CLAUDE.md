@@ -23,6 +23,9 @@ server for AI-assisted entry plus tax and security fixes. Work on `main`.
 
 - **Database paths, file storage, env vars, Docker**: read `docs/STARTOS_COMPATIBILITY.md`.
   Everything persistent lives in the directory of `DATABASE_FILE`.
+- **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
+  "Database migrations"). Never call `create_all()` in app code; the
+  `test_models_and_migrations_agree` test fails if models and migrations differ.
 - **Dependencies**: read `docs/MAINTENANCE.md`.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
   a `hiddenimports` entry in `desktop/BitcoinTX.spec`.
@@ -40,6 +43,13 @@ Transaction (user input)
 
 Fixed account IDs: Bank 1, Wallet 2, Exchange USD 3, Exchange BTC 4,
 BTC Fees 5, USD Fees 6, External 99.
+
+Schema: Alembic migrations in `backend/migrations/versions/` (0001 = the
+v0.7.0 schema). `backend/migrate.py` runs them at every start and on restored
+backups: fresh DBs are built from 0001, pre-migration DBs are repaired to the
+baseline and stamped, a copy goes to `<db dir>/backups/` before any change,
+and a schema newer than the code is refused. `database.create_tables` is an
+alias of `init_db` kept for the StartOS wrapper.
 
 Every create/update/delete runs `recalculate_all_transactions` ("scorched
 earth"): all ledger lines, lots and disposals are rebuilt in timestamp order.
@@ -70,6 +80,7 @@ So derived values must be recomputable from the Transaction row alone.
 | File | Purpose |
 |---|---|
 | `backend/main.py` | app, session middleware, router mounting, `get_current_user` |
+| `backend/migrate.py`, `backend/migrations/` | schema migrations run at startup, adoption of pre-migration DBs, pre-upgrade backups |
 | `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |

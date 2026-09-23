@@ -16,13 +16,7 @@ Form 1099-DA boxes, pure-Python IRS forms, security fixes, calculation fixes.
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
-- [ ] **Schema migrations (Alembic).** The schema is created by
-      `create_all`, which adds new tables but never alters existing ones, so a
-      new column can't reach existing databases. Adopt Alembic with a baseline
-      revision that matches today's schema, stamp existing databases on first
-      start, and run `upgrade head` at startup (Docker, StartOS and the Mac app
-      all start through `backend/main.py`). Take an automatic backup before
-      each upgrade. Prerequisite for the next item.
+- [x] **Schema migrations (Alembic)**: see CHANGELOG (Unreleased).
 - [ ] **Per-transaction 1099-DA override.** A column on Sell transactions
       recording what the broker actually reported (not on a 1099-DA /
       proceeds only / proceeds and basis), for when a real 1099-DA disagrees

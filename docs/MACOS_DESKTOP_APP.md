@@ -39,6 +39,11 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 |------|------------|
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
+| `backups/` | Copies of `btctx.db` taken automatically before a schema upgrade or a restore (mode 600) |
+
+A new app version upgrades the database schema on first launch (after copying
+it into `backups/`). Opening an older app version on a database a newer one
+already upgraded is refused with an error instead of risking your data.
 
 The desktop app does not hardcode a secret key. `backend/secret_key.py` uses
 `SECRET_KEY` from the environment if set (and not a known public default),

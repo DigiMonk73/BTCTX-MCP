@@ -8,12 +8,12 @@ never touch the production database.
 import os
 import pytest
 import tempfile
-import bcrypt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-from backend.database import Base, get_db
+from backend.database import get_db, seed_defaults
+from backend.migrate import upgrade_database
 from backend.main import app
 
 # Import all models so Base.metadata knows about them
@@ -58,40 +58,12 @@ def _stub_price_apis():
         yield
 
 
-def _seed_test_db(engine):
-    """Seed admin user and 6 core accounts (mirrors database.create_tables)."""
-    Session = sessionmaker(bind=engine)
-    db = Session()
-    try:
-        user = User(
-            username="admin",
-            password_hash=bcrypt.hashpw(b"password", bcrypt.gensalt()).decode("utf-8"),
-        )
-        db.add(user)
-        db.flush()
-
-        fixed_accounts = [
-            {"id": 1, "name": "Bank", "currency": "USD"},
-            {"id": 2, "name": "Wallet", "currency": "BTC"},
-            {"id": 3, "name": "Exchange USD", "currency": "USD"},
-            {"id": 4, "name": "Exchange BTC", "currency": "BTC"},
-            {"id": 5, "name": "BTC Fees", "currency": "BTC"},
-            {"id": 6, "name": "USD Fees", "currency": "USD"},
-        ]
-        for acct in fixed_accounts:
-            db.add(Account(
-                id=acct["id"],
-                name=acct["name"],
-                currency=acct["currency"],
-                user_id=user.id,
-            ))
-
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+def init_test_db(engine):
+    """Build the schema with the real migrations (not create_all) and seed
+    the default admin/password user and the six fixed accounts, exactly as a
+    fresh install does at startup."""
+    upgrade_database(engine, backup=False)
+    seed_defaults(engine)
 
 
 @pytest.fixture(scope="session")
@@ -103,8 +75,7 @@ def test_engine():
         f"sqlite:///{tmp.name}",
         connect_args={"check_same_thread": False},
     )
-    Base.metadata.create_all(bind=engine)
-    _seed_test_db(engine)
+    init_test_db(engine)
     yield engine
     engine.dispose()
     os.unlink(tmp.name)

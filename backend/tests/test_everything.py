@@ -808,8 +808,8 @@ def main():
     print()
 
     # Set up isolated test database and TestClient
-    from backend.tests.conftest import _seed_test_db
-    from backend.database import Base, get_db
+    from backend.tests.conftest import init_test_db
+    from backend.database import get_db
     from backend.main import app
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -817,8 +817,7 @@ def main():
     tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     tmp.close()
     engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    _seed_test_db(engine)
+    init_test_db(engine)
 
     TestSessionLocal = sessionmaker(bind=engine)
 

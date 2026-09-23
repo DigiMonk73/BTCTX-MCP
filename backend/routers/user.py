@@ -67,7 +67,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
     return new_user
 
-# Credentials every fresh install starts with (database.create_tables). While
+# Credentials every fresh install starts with (database.seed_defaults). While
 # they are unchanged, knowing them grants nothing an attacker doesn't have.
 DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "password"

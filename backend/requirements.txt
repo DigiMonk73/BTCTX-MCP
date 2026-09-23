@@ -6,6 +6,7 @@ uvicorn==0.53.0
 
 # Database
 sqlalchemy==2.0.54
+alembic==1.20.0  # schema migrations (backend/migrations/, run at startup)
 
 # Authentication
 bcrypt==5.0.0

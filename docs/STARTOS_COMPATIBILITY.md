@@ -32,8 +32,17 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
 /app/frontend/dist/    built React app
 /data/                 volume mount point (persistent)
   ├── btctx.db             SQLite database
-  └── .btctx_secret_key    per-install session signing key (mode 600)
+  ├── .btctx_secret_key    per-install session signing key (mode 600)
+  └── backups/             automatic copies taken before a schema upgrade
+                           or a restore (mode 600; only created when needed)
 ```
+
+On every start the app migrates `btctx.db` to the current schema
+(`backend/migrate.py`, scripts in `backend/migrations/`), copying it to
+`/data/backups/` first when there is anything to change. An update is
+therefore: pull the new image, restart. A newer database than the image
+understands (after a downgrade) is refused with a clear error rather than
+opened.
 
 ## Data persistence
 
@@ -90,7 +99,8 @@ Coordinate a wrapper release before changing any of these:
   when logged out.)
 - **App location:** code at `/app` in the image.
 - **DB initialization:** the wrapper calls `backend.database.create_tables()`
-  at install time (it creates tables and seeds the default admin user), then
+  at install time (now an alias of `init_db()`: it runs the schema migrations
+  and seeds the default admin user; safe to call on an existing database), then
   writes a random admin password into the `users` table (`username`,
   `password_hash`, bcrypt). Renaming that module/function or changing the
   `users` schema breaks the wrapper.

@@ -8,6 +8,8 @@ Build with: pyinstaller BitcoinTX.spec
 import sys
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_submodules
+
 # Get the project root (parent of desktop/)
 SPEC_DIR = Path(SPECPATH)
 PROJECT_ROOT = SPEC_DIR.parent
@@ -54,6 +56,13 @@ hidden_imports = [
     "pydantic.deprecated.decorator",
     "pydantic_core",
 
+    # Schema migrations: migration scripts under backend/migrations/ ship as
+    # data (backend_datas) and are loaded at runtime, so PyInstaller can't see
+    # what they import (alembic.op, alembic.context, ...).
+    *collect_submodules("alembic"),
+    "mako",
+    "mako.template",
+
     # SQLAlchemy
     "sqlalchemy",
     "sqlalchemy.dialects.sqlite",
@@ -92,6 +101,7 @@ hidden_imports = [
     "backend",
     "backend.main",
     "backend.database",
+    "backend.migrate",
     "backend.constants",
     "backend.models",
     "backend.models.user",

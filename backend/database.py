@@ -102,83 +102,73 @@ def get_db():
         db.close()
 
 # ------------------------------------------------------------------
-# 5) Table Initialization + User + Account Seeding
+# 5) Schema migrations + default user/account seeding
 # ------------------------------------------------------------------
-def create_tables():
-    """
-    Always creates all database tables and inserts:
-    - Default user 'admin' / 'password' (if none exists)
-    - Six core accounts (IDs 1–6) tied to that user
-    """
-    logger.info("Creating database tables...")
-    logger.debug("Starting create_tables()")
+FIXED_ACCOUNTS = [
+    {"id": 1, "name": "Bank", "currency": "USD"},
+    {"id": 2, "name": "Wallet", "currency": "BTC"},
+    {"id": 3, "name": "Exchange USD", "currency": "USD"},
+    {"id": 4, "name": "Exchange BTC", "currency": "BTC"},
+    {"id": 5, "name": "BTC Fees", "currency": "BTC"},
+    {"id": 6, "name": "USD Fees", "currency": "USD"},
+]
 
-    # ✅ Ensure all models are imported so Base.metadata is aware of them
+
+def seed_defaults(bind=None) -> None:
+    """
+    Default user 'admin' / 'password' (only if no user exists) and the six
+    fixed accounts (IDs 1-6), tied to the first user. Idempotent.
+    """
     from backend.models.user import User
     from backend.models.account import Account
-    from backend.models.transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal  # noqa: F401
-    from backend.models.app_setting import AppSetting  # noqa: F401
 
-    Base.metadata.create_all(bind=engine)
-    logger.debug("Executed Base.metadata.create_all to create tables")
-
-    db = SessionLocal()
+    db = sessionmaker(bind=bind or engine)()
     try:
-        # ✅ Insert default user if no user exists
-        user = db.query(User).first()
+        user = db.query(User).order_by(User.id).first()
         if not user:
             logger.info("No user found. Inserting default user: admin")
             user = User(
                 username="admin",
-                password_hash=bcrypt.hashpw(b"password", bcrypt.gensalt()).decode('utf-8'),
+                password_hash=bcrypt.hashpw(b"password", bcrypt.gensalt()).decode("utf-8"),
             )
             db.add(user)
-            db.flush()  # get user.id without commit yet
-        else:
-            logger.info(f"User already exists: {user.username}")
+            db.flush()
 
-        user_id = user.id
-
-        # ✅ Define six fixed accounts (IDs 1–6)
-        fixed_accounts = [
-            {"id": 1, "name": "Bank", "currency": "USD"},
-            {"id": 2, "name": "Wallet", "currency": "BTC"},
-            {"id": 3, "name": "Exchange USD", "currency": "USD"},
-            {"id": 4, "name": "Exchange BTC", "currency": "BTC"},
-            {"id": 5, "name": "BTC Fees", "currency": "BTC"},
-            {"id": 6, "name": "USD Fees", "currency": "USD"},
-        ]
-
-        for acct in fixed_accounts:
-            existing = db.query(Account).filter_by(id=acct["id"]).first()
+        for acct in FIXED_ACCOUNTS:
+            existing = db.get(Account, acct["id"])
             if existing:
                 existing.name = acct["name"]
                 existing.currency = acct["currency"]
-                existing.user_id = user_id
-                logger.debug(f"Updated account ID={acct['id']}")
+                existing.user_id = user.id
             else:
-                db.add(Account(
-                    id=acct["id"],
-                    name=acct["name"],
-                    currency=acct["currency"],
-                    user_id=user_id
-                ))
-                logger.debug(f"Inserted account ID={acct['id']}")
-
+                db.add(Account(user_id=user.id, **acct))
         db.commit()
-        logger.info("Tables created and seed data committed.")
 
-        # ✅ Final check
-        found_ids = {acct.id for acct in db.query(Account).all()}
-        expected_ids = {1, 2, 3, 4, 5, 6}
-        if missing := expected_ids - found_ids:
+        found_ids = {a.id for a in db.query(Account).all()}
+        if missing := {a["id"] for a in FIXED_ACCOUNTS} - found_ids:
             raise RuntimeError(f"Missing required account IDs: {missing}")
-    except Exception as e:
+    except Exception:
         db.rollback()
-        logger.error(f"create_tables failed: {e}")
         raise
     finally:
         db.close()
-        logger.debug("Closed session in create_tables")
 
-    logger.info("Database initialized.")
+
+def init_db(bind=None):
+    """
+    Startup: bring the schema up to date with migrations (backing the file up
+    first when there is something to migrate), then seed defaults.
+    Never uses create_all(): the migrations in backend/migrations/ are the
+    only thing that creates or changes tables.
+    """
+    from backend.migrate import upgrade_database
+
+    result = upgrade_database(bind or engine)
+    seed_defaults(bind)
+    logger.info("Database ready (schema %s).", result.to_revision)
+    return result
+
+
+# The StartOS wrapper calls backend.database.create_tables() at install time
+# (docs/STARTOS_COMPATIBILITY.md): keep this name.
+create_tables = init_db

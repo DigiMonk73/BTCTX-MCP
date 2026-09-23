@@ -21,11 +21,11 @@ from itsdangerous import TimestampSigner
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base, get_db
+from backend.database import get_db
 from backend.main import SECRET_KEY, app
 from backend.models.user import User
 from backend.secret_key import KEY_FILENAME, PUBLIC_DEFAULTS, load_secret_key
-from backend.tests.conftest import LOGIN_CREDS, _seed_test_db
+from backend.tests.conftest import LOGIN_CREDS, init_test_db
 
 
 def anon() -> TestClient:
@@ -69,8 +69,7 @@ class TestResetAccount:
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         tmp.close()
         engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
-        Base.metadata.create_all(bind=engine)
-        _seed_test_db(engine)  # admin / password, like a fresh install
+        init_test_db(engine)
         Session = sessionmaker(bind=engine)
 
         def override():
