@@ -27,6 +27,7 @@ venv.bak/
 
 # --- Environment Variables ---
 .env
+.btctx_secret_key
 .env.*
 .env_backup
 

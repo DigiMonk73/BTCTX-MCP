@@ -259,6 +259,24 @@ def delete_transaction_record(transaction_id: int, db: Session):
 # ------------------------------------------------------------------------------
 # Internal Helpers
 # ------------------------------------------------------------------------------
+def holding_period(acquired: datetime, disposed: datetime) -> str:
+    """
+    IRS rule (Pub. 544): long-term only if held MORE than one year, counting
+    from the day after acquisition — i.e. disposed after the one-year
+    anniversary date. Selling on the anniversary itself is short-term.
+    (Feb 29 acquisitions: anniversary is Feb 28, so long-term from Mar 1.)
+    """
+    from dateutil.relativedelta import relativedelta
+
+    def as_date(ts: datetime):
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc).date()
+
+    anniversary = as_date(acquired) + relativedelta(years=1)
+    return "LONG" if as_date(disposed) > anniversary else "SHORT"
+
+
 # Types whose proceeds are derived (net of fees) from the user's gross input
 GROSS_PROCEEDS_TYPES = ("Sell", "Withdrawal")
 
@@ -685,12 +703,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
         if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation"):
             disposal_gain = Decimal("0.0")
 
-        # Determine holding period
-        acquired_date = lot.acquired_date
-        if acquired_date.tzinfo is None:
-            acquired_date = acquired_date.replace(tzinfo=timezone.utc)
-        days_held = (tx.timestamp - acquired_date).days
-        hp = "LONG" if days_held >= 365 else "SHORT"
+        hp = holding_period(lot.acquired_date, tx.timestamp)
 
         disp = LotDisposal(
             lot_id=lot.id,
@@ -752,10 +765,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         tx.proceeds_usd = total_proceeds
 
     if earliest_date:
-        if earliest_date.tzinfo is None:
-            earliest_date = earliest_date.replace(tzinfo=timezone.utc)
-        days_held = (tx.timestamp - earliest_date).days
-        tx.holding_period = "LONG" if days_held >= 365 else "SHORT"
+        tx.holding_period = holding_period(earliest_date, tx.timestamp)
     else:
         tx.holding_period = None
 
@@ -887,11 +897,7 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
             proceeds_for_fee = (btc_unit_price * portion_for_fee).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
             realized_gain = proceeds_for_fee - disposal_basis
 
-            acquired_date = lot.acquired_date
-            if acquired_date.tzinfo is None:
-                acquired_date = acquired_date.replace(tzinfo=timezone.utc)
-            days_held = (tx.timestamp - acquired_date).days
-            hp = "LONG" if days_held >= 365 else "SHORT"
+            hp = holding_period(lot.acquired_date, tx.timestamp)
 
             disp = LotDisposal(
                 lot_id=lot.id,

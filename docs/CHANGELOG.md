@@ -43,6 +43,22 @@ All notable changes to BitcoinTX are documented in this file.
   server can connect. Still bound to localhost only.
 - PyInstaller spec lists the River/entry import modules; bundle version 0.8.0.
 
+### Security (account takeover — upgrade recommended)
+- **`/api/users` had no authentication.** Anyone who could reach the app
+  could list users, change the password, or delete the account. Changing or
+  deleting now requires being logged in as that user. First-run setup and
+  re-registration use `POST /api/users/reset-account`, which the server allows
+  only while the login is still the shipped `admin`/`password`, or with the
+  current password (previously the "override password" was checked only in
+  the browser). `GET /api/users/setup-status` is the only public user route.
+- **Forgeable login cookies.** Without a `SECRET_KEY` env var (the Docker and
+  StartOS default) sessions were signed with `default_secret_key`, published
+  in this repo, so anyone could mint a valid login cookie. The macOS app used
+  another published key. Now a random key is generated per install and stored
+  next to the database (`.btctx_secret_key`, mode 600); an explicit
+  `SECRET_KEY` still wins unless it is one of the published values.
+  Existing users are logged out once after upgrading.
+
 ### Security / dependencies
 - fastapi 0.141.1, starlette 1.7.0, pydantic 2.13.5, uvicorn 0.53.0 (starlette CVEs)
 - cryptography 50.0.1, pypdf 6.19.0, sqlalchemy 2.0.54, python-dotenv 1.2.3
@@ -52,6 +68,12 @@ All notable changes to BitcoinTX are documented in this file.
 - **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
 
 ### Fixed
+- **Holding period off by one day.** Anything held 365+ days was long-term,
+  so a sale on the one-year anniversary (or on day 365 in a leap year) got the
+  long-term rate. IRS rule: long-term only when held MORE than one year —
+  disposed after the anniversary date. Two old tests asserted the wrong
+  answer and were corrected. Run the recalculation once to update existing
+  sales.
 - **IRS Form 8949 boxes.** No Part checkbox was ever checked (the IRS requires
   one), and the box letter was written into column (f) "Code(s)", which is for
   adjustment codes. For 2025 the app also used Box C/F, which the 2025 form

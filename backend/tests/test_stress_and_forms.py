@@ -603,7 +603,7 @@ class TestEdgeCases:
         assert is_valid, msg
 
     def test_edge_holding_period_364_days_short(self, funded_exchange):
-        """Acquire Jan 1, sell Dec 31 = 364 days = SHORT term."""
+        """Acquire Jan 1 2024, sell Dec 31 2024 (365 days, leap year) = SHORT."""
         buy_tx = create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 1, 1, 12, 0),
@@ -632,14 +632,14 @@ class TestEdgeCases:
         disposals = get_disposals()
         sell_disposals = [d for d in disposals if d.get("transaction_id") == sell_tx["id"]]
         assert len(sell_disposals) == 1
-        # 2024 is a leap year: Jan 1 to Dec 31 = 365 days exactly
-        # But holding period threshold is >= 365, so this should be LONG
-        # Actually, let's recalculate: Jan 1 -> Dec 31 in a leap year = 366 - 1 = 365 days
+        # 365 days in a leap year, but held LESS than one year (the anniversary
+        # is Jan 1 2025). IRS: long-term needs MORE than one year -> SHORT.
         hp = sell_disposals[0].get("holding_period", "").upper()
-        assert hp == "LONG", f"Expected LONG (365 days in leap year), got {hp}"
+        assert hp == "SHORT", f"Expected SHORT (sold before the anniversary), got {hp}"
 
-    def test_edge_holding_period_365_days_long(self, funded_exchange):
-        """Acquire Jan 1, sell Jan 1 next year = 365 days = LONG term."""
+    def test_edge_holding_period_anniversary_is_short(self, funded_exchange):
+        """Acquire Jan 1 2024, sell on the anniversary Jan 1 2025 = exactly one year = SHORT.
+        IRS Pub. 544: long-term requires holding MORE than one year."""
         buy_tx = create_tx({
             "type": "Buy",
             "timestamp": build_timestamp(2024, 1, 1, 12, 0),
@@ -668,7 +668,7 @@ class TestEdgeCases:
         sell_disposals = [d for d in disposals if d.get("transaction_id") == sell_tx["id"]]
         assert len(sell_disposals) == 1
         hp = sell_disposals[0].get("holding_period", "").upper()
-        assert hp == "LONG", f"Expected LONG (366 days), got {hp}"
+        assert hp == "SHORT", f"Expected SHORT (sold on the anniversary), got {hp}"
 
     def test_edge_holding_period_366_days_long(self, funded_exchange):
         """Acquire Jan 1 2023, sell Jan 2 2024 = 366+ days = definitely LONG."""

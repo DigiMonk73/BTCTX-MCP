@@ -241,7 +241,7 @@ def main():
 
     # Set environment variables before importing backend
     os.environ["DATABASE_FILE"] = str(db_path)
-    os.environ["SECRET_KEY"] = "desktop-app-secret-key-change-in-production"
+    # SECRET_KEY: generated per install next to the database (backend/secret_key.py)
 
     # Set frontend path for bundled app
     if getattr(sys, 'frozen', False):

@@ -24,15 +24,10 @@ const RegisterPage: React.FC = () => {
   useEffect(() => {
     const checkDefaultAccount = async () => {
       try {
-        const res = await api.get("/users/");
-        const users = res.data as { id: number; username: string }[];
-        if (users.length > 0) {
-          // Determine if the current account is default (username "admin")
-          setIsDefault(users[0].username === "admin");
-        } else {
-          // No user found: assume default for safety.
-          setIsDefault(true);
-        }
+        const res = await api.get("/users/setup-status");
+        const status = res.data as { has_user: boolean; is_default: boolean };
+        // Still on the shipped admin/password login => first-run setup
+        setIsDefault(status.is_default || !status.has_user);
       } catch {
         // In case of error, assume registration is not allowed.
         setIsDefault(false);
@@ -58,9 +53,9 @@ const RegisterPage: React.FC = () => {
     // Check registration flow based on account state.
     if (isDefault === false) {
       // If the account is already registered (i.e. not default),
-      // require an override password to prevent unauthorized re-registration.
+      // require the current password (verified by the server).
       if (!overridePassword) {
-        setErrorMsg("Account is already registered. Please enter the override password to proceed.");
+        setErrorMsg("Account is already registered. Enter your current password to proceed.");
         setIsSubmitting(false);
         return;
       }
@@ -77,29 +72,20 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      // Continue with fetching the current user.
-      const res = await api.get("/users/");
-      const users = res.data as { id: number; username: string }[];
-      if (users.length === 0) {
-        setErrorMsg("No user found to update credentials.");
-        setIsSubmitting(false);
-        return;
-      }
-      const userId = users[0].id;
-
-      // Update the user's credentials.
-      await api.patch(`/users/${userId}`, {
-        username: username || undefined,
-        password: password || undefined,
+      // The server verifies authorization (default login, or the current
+      // password for an already-registered account), updates the
+      // credentials and clears transactions in one step.
+      await api.post("/users/reset-account", {
+        username,
+        password,
+        current_password: isDefault ? undefined : overridePassword,
       });
-
-      // Delete all transactions to "reset" the account.
-      await api.delete("/transactions/delete_all");
 
       toast.success("Registration successful! Your credentials have been updated.");
       navigate('/login');
-    } catch {
-      setErrorMsg("Failed to register. Please try again.");
+    } catch (err) {
+      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      setErrorMsg(detail || "Failed to register. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -145,10 +131,10 @@ const RegisterPage: React.FC = () => {
             />
           </div>
 
-          {/* If the account is already registered, require an override password */}
+          {/* If the account is already registered, require the current password */}
           {isDefault === false && (
             <div className="login-form-group">
-              <label htmlFor="override" className="login-label">Override Password</label>
+              <label htmlFor="override" className="login-label">Current Password</label>
               <input
                 id="override"
                 type="password"

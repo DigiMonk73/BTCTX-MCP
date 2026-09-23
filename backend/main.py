@@ -42,7 +42,11 @@ frontend_dist = os.environ.get(
 # ---------------------------------------------------------
 # Session Configuration
 # ---------------------------------------------------------
-SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")  # Fallback if not set
+from backend.database import DATABASE_FILE
+from backend.secret_key import load_secret_key
+
+# Signs the session cookie. Never a value from this repo — see secret_key.py
+SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
 API_KEY = os.getenv("API_KEY")
 
 # Default CORS origins if none specified (dev environment)
