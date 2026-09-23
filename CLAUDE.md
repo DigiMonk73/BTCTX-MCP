@@ -17,7 +17,8 @@ server for AI-assisted entry plus tax and security fixes. Work on `main`.
 | Frontend | `frontend/` | React + TypeScript + Vite, served from `frontend/dist` by the backend |
 | MCP server | `mcp_server/` | package `btctx-mcp`; talks to the backend over HTTP with a session login |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
-| Docker / StartOS | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`) |
+| Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
+| StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## Before you change…
 
