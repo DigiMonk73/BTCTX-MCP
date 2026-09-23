@@ -120,9 +120,11 @@ def verify(year: int, folder: Path, draft: bool = False) -> bool:
               + (f" — MISSING {len(missing)}, e.g. {missing[:2]}" if missing else ""))
 
     reader = PdfReader(str(folder / "f8949.pdf"))
-    for page, key in ((0, "boxes_part1"), (1, "boxes_part2")):
+    # IRS drafts open with a "the draft begins on the next page" cover sheet
+    first = 1 if "begins on the next page" in (reader.pages[0].extract_text() or "") else 0
+    for page, key in ((first, "boxes_part1"), (first + 1, "boxes_part2")):
         printed = re.findall(r"\(([A-L])\)\s+(?:Short|Long)-term", reader.pages[page].extract_text())
-        ok &= say(printed == config[key], f"Part {'I' if page == 0 else 'II'} boxes on form {printed} match config")
+        ok &= say(printed == config[key], f"Part {'I' if key == 'boxes_part1' else 'II'} boxes on form {printed} match config")
 
     one = {"proceeds": Decimal(1), "cost": Decimal(1), "gain_loss": Decimal(0)}
     sd = map_schedule_d_fields({"lines": {ln: one for ln in ("1b", "2", "3", "8b", "9", "10")}}, year=year)
