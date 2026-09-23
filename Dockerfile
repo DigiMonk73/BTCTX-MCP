@@ -28,12 +28,8 @@
     # Avoid caching pip packages
     ENV PIP_NO_CACHE_DIR=1
     
-    # Install system-level dependencies
-    RUN apt-get update && apt-get install -y --no-install-recommends \
-        pdftk \
-     && apt-get clean \
-     && rm -rf /var/lib/apt/lists/*
-    
+    # No system packages needed: IRS forms are filled in pure Python (pypdf)
+
     # Create the /app directory and /data for DB storage
     WORKDIR /app
     RUN mkdir -p /data && chmod 777 /data

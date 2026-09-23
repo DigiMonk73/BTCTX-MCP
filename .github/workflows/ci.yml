@@ -30,8 +30,6 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - name: Install pdftk (IRS form tests)
-        run: sudo apt-get update -q && sudo apt-get install -y -q pdftk-java
       - name: Install dependencies
         run: pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
       - name: Lint (bug-level)
@@ -80,7 +78,6 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: sudo apt-get update -q && sudo apt-get install -y -q pdftk-java
       - run: pip install -r backend/requirements.txt
       - run: python scripts/smoke_test.py
 

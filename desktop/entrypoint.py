@@ -23,31 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger("BitcoinTX")
 
 
-def extend_path_for_homebrew():
-    """
-    Extend PATH to include common Homebrew installation directories.
-
-    PyInstaller bundles don't inherit the full system PATH, so pdftk
-    (installed via Homebrew) won't be found. This must be called BEFORE
-    importing any backend modules that use pdftk.
-    """
-    homebrew_paths = [
-        "/opt/homebrew/bin",  # Apple Silicon
-        "/usr/local/bin",      # Intel Mac
-    ]
-
-    current_path = os.environ.get("PATH", "")
-    path_parts = current_path.split(os.pathsep) if current_path else []
-
-    # Prepend Homebrew paths if not already present
-    for hp in reversed(homebrew_paths):
-        if hp not in path_parts:
-            path_parts.insert(0, hp)
-
-    os.environ["PATH"] = os.pathsep.join(path_parts)
-    logger.info(f"Extended PATH for Homebrew: {os.environ['PATH']}")
-
-
 def get_application_support_dir() -> Path:
     """
     Returns the macOS Application Support directory for BitcoinTX.
@@ -133,12 +108,6 @@ def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
     return False
 
 
-def check_pdftk_available() -> bool:
-    """Check if pdftk is installed and available."""
-    from backend.services.reports.pdftk_path import is_pdftk_available
-    return is_pdftk_available()
-
-
 class DesktopAPI:
     """
     Python API exposed to JavaScript via pywebview's js_api.
@@ -214,6 +183,7 @@ class DesktopAPI:
             return {"success": False, "error": str(e)}
 
 
+
 def run_backend(port: int):
     """Run the FastAPI backend with Uvicorn."""
     import uvicorn
@@ -229,10 +199,6 @@ def run_backend(port: int):
 
 def main():
     """Main entry point for the desktop application."""
-    # IMPORTANT: Extend PATH for Homebrew FIRST, before any backend imports
-    # This ensures pdftk can be found in PyInstaller bundles
-    extend_path_for_homebrew()
-
     import webview
 
     # Set up data directory
@@ -250,11 +216,6 @@ def main():
         logger.info(f"Running from bundle, frontend at: {frontend_dist}")
     else:
         logger.info("Running in development mode")
-
-    # Check pdftk availability
-    pdftk_available = check_pdftk_available()
-    if not pdftk_available:
-        logger.warning("pdftk not found - IRS form generation will be unavailable")
 
     # Find a free port
     port = find_free_port()
@@ -292,16 +253,6 @@ def main():
     # Store window reference in the API
     api.set_window(window)
 
-    # Show pdftk warning after window loads (if needed)
-    def on_loaded():
-        if not pdftk_available:
-            webview.windows[0].evaluate_js('''
-                setTimeout(function() {
-                    if (confirm("pdftk is not installed.\\n\\nIRS form generation requires pdftk.\\nInstall with: brew install pdftk-java\\n\\nAll other features will work normally.\\n\\nClick OK to continue.")) {}
-                }, 2000);
-            ''')
-
-    window.events.loaded += on_loaded
 
     # Start the webview (blocks until window is closed)
     webview.start(debug=False)

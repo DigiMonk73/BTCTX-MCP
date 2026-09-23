@@ -21,7 +21,6 @@ Options:
 
 Requirements:
     - Backend running at http://127.0.0.1:8000 (for API tests)
-    - pdftk installed (for report tests)
 """
 
 from __future__ import annotations
@@ -383,18 +382,6 @@ def run_backdated_fifo_test() -> bool:
 # SECTION 3: REPORT GENERATION TESTS
 # =============================================================================
 
-def check_pdftk_installed() -> bool:
-    """Check if pdftk is installed (required for IRS forms)."""
-    try:
-        result = subprocess.run(["pdftk", "--version"], capture_output=True, timeout=5)
-        passed = result.returncode == 0
-        record_result("Report Generation", "pdftk installed", passed, "" if passed else "pdftk not found")
-        return passed
-    except Exception:
-        record_result("Report Generation", "pdftk installed", False, "pdftk not found")
-        return False
-
-
 def test_form_8949_generation() -> bool:
     """Test Form 8949 PDF generation."""
     try:
@@ -722,14 +709,11 @@ def run_api_tests(quick: bool = False) -> int:
     log("Report Generation Tests", "SECTION")
     print()
 
-    if not check_pdftk_installed():
-        log("pdftk not installed - skipping report tests", "WARN")
-    else:
-        if not quick:
-            if not test_form_8949_generation():
-                failures += 1
-            if not test_complete_tax_report():
-                failures += 1
+    if not quick:
+        if not test_form_8949_generation():
+            failures += 1
+        if not test_complete_tax_report():
+            failures += 1
 
     # CSV tests
     log("CSV Import/Export Tests", "SECTION")

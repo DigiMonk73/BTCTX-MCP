@@ -6,7 +6,6 @@ from typing import Dict, List
 from io import BytesIO
 from pypdf import PdfReader, PdfWriter
 import os
-import subprocess
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,10 +29,8 @@ from backend.services.reports.form_8949 import (
 )
 from itertools import zip_longest
 
-# Import pdftk-based utilities (remove ghostscript references)
-from backend.services.reports.pdftk_filler import fill_pdf_with_pdftk
-from backend.services.reports.pdf_utils import flatten_pdf_with_pdftk
-from backend.services.reports.pdftk_path import is_pdftk_available
+# Pure-Python form filling (pypdf) — no pdftk/Java needed
+from backend.services.reports.pdf_form_filler import fill_pdf_form
 
 reports_router = APIRouter()
 
@@ -63,14 +60,12 @@ def get_irs_reports(
     db: Session = Depends(get_db),
 ):
     """
-    Generates a combined PDF for Form 8949 and Schedule D,
-    using pdftk to remove XFA and flatten at each step.
-    Then merges all partial PDFs into a final flattened file.
+    Generates a combined PDF for Form 8949 and Schedule D: each sheet is
+    filled and flattened with pypdf (XFA removed), then all are merged.
 
     Supports multiple tax years - templates are selected based on the year parameter.
     """
     # 0) Pre-flight checks
-    _verify_pdftk_installed()
     _verify_templates_exist(year)
 
     # Get year-specific template paths
@@ -91,7 +86,7 @@ def get_irs_reports(
         # Page1 holds Part I (short-term) and Page2 holds Part II (long-term).
         # Chunk each term by the year's table capacity and pair chunks onto
         # shared sheets — overflow gets additional copies, never page-3+ field
-        # names (those don't exist in the template; pdftk would drop the rows).
+        # names (those don't exist in the template).
         # Each Form 8949 page carries exactly one checked box, so rows are
         # grouped by box before chunking (e.g. 1099-DA sales in Box H and
         # self-custody spends in Box I go on separate pages).
@@ -105,19 +100,16 @@ def get_irs_reports(
                 field_data.update(map_8949_rows_to_field_data(short_chunk, page=1, year=year))
             if long_chunk:
                 field_data.update(map_8949_rows_to_field_data(long_chunk, page=2, year=year))
-            pdf_bytes = fill_pdf_with_pdftk(path_form_8949, field_data)
+            pdf_bytes = fill_pdf_form(path_form_8949, field_data)
             partial_pdfs.append(pdf_bytes)
 
         # 4) Fill Schedule D totals using year-specific field names
         schedule_d_fields = map_schedule_d_fields(report_data["schedule_d"], year=year)
-        filled_sd_bytes = fill_pdf_with_pdftk(path_schedule_d, schedule_d_fields)
+        filled_sd_bytes = fill_pdf_form(path_schedule_d, schedule_d_fields)
         partial_pdfs.append(filled_sd_bytes)
 
         # 5) Merge partial PDFs in memory with pypdf
-        merged_pdf = _merge_all_pdfs(partial_pdfs)
-
-        # 6) Flatten the final merged PDF
-        final_pdf = flatten_pdf_with_pdftk(merged_pdf)
+        final_pdf = _merge_all_pdfs(partial_pdfs)  # sheets are already flattened
 
         logger.info(f"Successfully generated IRS reports for {year} ({len(final_pdf)} bytes)")
 
@@ -127,12 +119,6 @@ def get_irs_reports(
             headers={"Content-Disposition": f'attachment; filename=\"IRSReports_{year}.pdf\"'}
         )
 
-    except subprocess.CalledProcessError as e:
-        logger.error(f"pdftk failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"PDF generation failed: pdftk error - {str(e)}"
-        )
     except Exception as e:
         logger.error(f"IRS report generation failed: {e}", exc_info=True)
         raise HTTPException(
@@ -235,21 +221,6 @@ def get_template_path(year: int, form_name: str) -> str:
             detail=f"No {form_name} template available for tax year {year}. Supported years: {supported}"
         )
     return template_path
-
-
-def _verify_pdftk_installed():
-    """
-    Verify pdftk is installed and accessible.
-    Raises HTTPException with helpful message if not found.
-    """
-    if not is_pdftk_available():
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "pdftk is not installed or not in PATH. "
-                "Install with: brew install pdftk-java (macOS) or apt-get install pdftk (Linux)"
-            )
-        )
 
 
 def _verify_templates_exist(year: int):

@@ -199,8 +199,6 @@ def run(url: str, user: str, password: str, own_server: bool) -> None:
     r = c.get("/api/reports/irs_reports", params={"year": 2025})
     if r.status_code == 200:
         check("IRS Form 8949 / Schedule D PDF", r.content[:4] == b"%PDF")
-    elif "pdftk" in r.text.lower():
-        skip("IRS forms", "pdftk not installed")
     else:
         raise SmokeFailure(f"IRS forms failed: {r.status_code} {r.text[:200]}")
     r = c.get("/api/reports/simple_transaction_history", params={"year": 2025, "format": "csv"})

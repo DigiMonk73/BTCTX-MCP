@@ -20,7 +20,6 @@ Options:
 
 Requirements:
     - Backend running at http://127.0.0.1:8000
-    - pdftk installed (for IRS form tests)
 """
 
 from __future__ import annotations

@@ -12,13 +12,10 @@ rows and read the fields back:
   - exactly one box is checked per Part, and it is the right one
   - Schedule D totals land on lines 1b, 2, 3, 8b, 9 and 10
 
-Requires pdftk (skipped otherwise); CI installs it.
+Pure Python (pypdf) — no external tools needed.
 """
 
-import os
-import shutil
-import subprocess
-import tempfile
+import io
 from decimal import Decimal
 
 import pytest
@@ -32,23 +29,14 @@ from backend.services.reports.form_8949 import (
     map_8949_rows_to_field_data,
     map_schedule_d_fields,
 )
-from backend.services.reports.pdftk_filler import generate_fdf
-from backend.services.reports.pdftk_path import find_pdftk
+from backend.services.reports.pdf_form_filler import fill_pdf_form
 
 YEARS = get_supported_years()
-PDFTK = find_pdftk() or shutil.which("pdftk")
-needs_pdftk = pytest.mark.skipif(not PDFTK, reason="pdftk not installed")
 
 
 def _fill_without_flatten(template: str, field_data: dict) -> dict:
-    """Fill with pdftk (no flatten) and return the resulting PDF's fields."""
-    with tempfile.TemporaryDirectory() as d:
-        fdf, out = os.path.join(d, "data.fdf"), os.path.join(d, "out.pdf")
-        with open(fdf, "w", encoding="utf-8") as fh:
-            fh.write(generate_fdf(field_data))
-        subprocess.run([PDFTK, template, "fill_form", fdf, "output", out],
-                       check=True, capture_output=True)
-        return PdfReader(out).get_fields()
+    """Fill (keeping the form fields) and return the resulting PDF's fields."""
+    return PdfReader(io.BytesIO(fill_pdf_form(template, field_data, flatten=False))).get_fields()
 
 
 def _rows(year: int, hp: str, n: int):
@@ -79,7 +67,6 @@ def test_year_has_explicit_config(year):
     )
 
 
-@needs_pdftk
 @pytest.mark.parametrize("year", YEARS)
 def test_form_8949_full_page_lands_exactly(year):
     per_page = get_8949_field_config(year)["rows_per_page"]
@@ -95,12 +82,11 @@ def test_form_8949_full_page_lands_exactly(year):
     not_landed = [
         (k, v, filled[k].get("/V"))
         for k, v in field_data.items()
-        if not v.startswith("/") and (filled[k].get("/V") or "") != v
+        if (filled[k].get("/V") or "") != v
     ]
     assert not not_landed, f"{year}: values did not land: {not_landed[:3]}"
 
 
-@needs_pdftk
 @pytest.mark.parametrize("year", YEARS)
 def test_form_8949_checks_exactly_the_right_box(year):
     config = get_8949_field_config(year)
@@ -134,7 +120,6 @@ def test_self_custody_btc_boxes():
     assert (_determine_box("SHORT", False, 2025), _determine_box("LONG", False, 2025)) == ("I", "L")
 
 
-@needs_pdftk
 @pytest.mark.parametrize("year", YEARS)
 def test_schedule_d_all_8949_lines_land(year):
     """Lines 1b, 2, 3 (Part I) and 8b, 9, 10 (Part II) — one per 8949 box pair."""
@@ -149,3 +134,20 @@ def test_schedule_d_all_8949_lines_land(year):
     for k, v in field_data.items():
         assert k in filled, f"{year} Schedule D field missing: {k}"
         assert (filled[k].get("/V") or "") == v, (k, v, filled[k].get("/V"))
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_unknown_field_name_fails_loudly(year):
+    """A renamed IRS field must raise, never silently print a blank form."""
+    with pytest.raises(ValueError, match="not in"):
+        fill_pdf_form(get_template_path(year, "f8949.pdf"), {"topmostSubform[0].Page1[0].nope[0]": "x"})
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_flattened_output_has_no_form_fields_and_keeps_values(year):
+    config = get_8949_field_config(year)
+    field_data = map_8949_rows_to_field_data(_rows(year, "SHORT", config["rows_per_page"]), page=1, year=year)
+    reader = PdfReader(io.BytesIO(fill_pdf_form(get_template_path(year, "f8949.pdf"), field_data)))
+    assert not reader.get_fields()
+    text = reader.pages[0].extract_text()
+    assert "1000.00" in text and "600.00" in text and f"06/01/{year}" in text

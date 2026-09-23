@@ -67,6 +67,15 @@ All notable changes to BitcoinTX are documented in this file.
 - Docker frontend build stage: node:18 (EOL) → node:22
 - **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
 
+### Changed — no more pdftk (Java)
+- IRS forms are now filled and flattened in pure Python (pypdf). pdftk is no
+  longer needed on macOS (`brew install pdftk-java` step gone), in Docker
+  (image drops the Java runtime) or in CI. Output compared page-by-page with
+  pdftk: Schedule D pixel-identical, Form 8949 identical except sub-pixel
+  text placement in the description column.
+- A field name missing from an IRS template now raises an error instead of
+  being silently dropped (which produced blank forms).
+
 ### Changed — Form 1099-DA boxes (IRS broker reporting, 2025+)
 - Exchange (River) sells are now reported in **Box H/K** for 2025 (on a
   1099-DA, basis not reported) and in **Box G/J** from 2026 for lots bought on

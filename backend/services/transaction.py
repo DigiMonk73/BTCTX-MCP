@@ -16,8 +16,6 @@ Implementation Notes:
    from that timestamp forward, then also do the "scorched earth" re-lot to
    ensure consistency.
 
-No references to Ghostscript remain. This file remains compatible
-with your new pdftk-based system for filling/flattening IRS forms.
 """
 
 import logging

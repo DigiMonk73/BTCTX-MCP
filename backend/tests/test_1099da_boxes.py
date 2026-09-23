@@ -21,7 +21,6 @@ from backend.services.reports.form_8949 import (
     build_form_8949_and_schedule_d,
     map_schedule_d_fields,
 )
-from backend.services.reports.pdftk_path import find_pdftk
 
 CLIENT = None
 ENGINE = None
@@ -146,7 +145,6 @@ def test_schedule_d_lines_follow_boxes():
     assert not any(".Row2[0]." in k for k in fields)
 
 
-@pytest.mark.skipif(not find_pdftk(), reason="pdftk not installed")
 def test_2025_pdf_has_separate_pages_per_box():
     buy("2025-01-10")
     sell("2025-02-01", "0.1")                  # H

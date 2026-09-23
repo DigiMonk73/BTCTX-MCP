@@ -259,7 +259,7 @@ def get_8949_field_config(year: int) -> Dict:
     Return year-specific field configuration for Form 8949.
 
     The IRS changes field names between years. Key differences
-    (verified against pdftk dump_data_fields of the official templates):
+    (verified against the official templates' form fields):
     - 2024: Table_Line1 on both pages, fields start at f1_3 (not zero-padded),
       14 rows per page (f1_3..f1_114 / f2_3..f2_114)
     - 2025: Table_Line1_Part1/Part2, row-1 fields zero-padded (f1_03..f1_10),
@@ -352,8 +352,7 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
       page=1 => Part I (short-term) table on Page1, f1_* fields
       page=2 => Part II (long-term) table on Page2, f2_* fields
     Overflow beyond one sheet is handled by the caller filling additional
-    template copies — NOT by larger page numbers (f3_* fields don't exist;
-    pdftk would silently drop them).
+    template copies — NOT by larger page numbers (f3_* fields don't exist).
 
     Field naming varies by year:
     - 2024: Table_Line1, f1_3, f1_4, ... (not zero-padded), 14 rows/page

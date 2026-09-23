@@ -130,8 +130,7 @@ hidden_imports = [
     "backend.services.reports.complete_tax_report",
     "backend.services.reports.transaction_history",
     "backend.services.reports.reporting_core",
-    "backend.services.reports.pdf_utils",
-    "backend.services.reports.pdftk_filler",
+    "backend.services.reports.pdf_form_filler",
 
     # WebView
     "webview",
