@@ -102,7 +102,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         purpose=tx_data.get("purpose"),
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
-        # NEW OR MODIFIED FOR GROSS_PROCEEDS_USD: if front end sends it
+        # If the front end sends gross_proceeds_usd
         gross_proceeds_usd=tx_data.get("gross_proceeds_usd"),
         fmv_usd=tx_data.get("fmv_usd"),
         is_locked=tx_data.get("is_locked", False),
@@ -210,7 +210,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         tx.proceeds_usd = tx_data["proceeds_usd"]
     if "fmv_usd" in tx_data:
         tx.fmv_usd = tx_data["fmv_usd"]
-    # NEW OR MODIFIED FOR GROSS_PROCEEDS_USD: partial update of gross
+    # Partial update of gross_proceeds_usd
     if "gross_proceeds_usd" in tx_data:
         tx.gross_proceeds_usd = tx_data["gross_proceeds_usd"]
     elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
@@ -439,7 +439,6 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
                 entry_type="MAIN_OUT"
             ))
 
-        # NEW OR MODIFIED FOR GROSS_PROCEEDS_USD:
         # Check if user typed 'gross_proceeds_usd'; if present, derive net from that.
         gross_raw = tx_data.get("gross_proceeds_usd") or "0"
         gross_usd = Decimal(gross_raw)

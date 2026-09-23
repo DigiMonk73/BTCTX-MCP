@@ -56,7 +56,6 @@ if not os.path.exists(db_dir):
     logger.debug(f"Created directory: {db_dir}")
 
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_FILE}")
-print("DATABASE_URL used:", DATABASE_URL)
 logger.debug(f"DATABASE_URL: {DATABASE_URL}")
 
 # ------------------------------------------------------------------
@@ -112,7 +111,7 @@ def create_tables():
     - Default user 'admin' / 'password' (if none exists)
     - Six core accounts (IDs 1–6) tied to that user
     """
-    print("Creating database tables...")
+    logger.info("Creating database tables...")
     logger.debug("Starting create_tables()")
 
     # ✅ Ensure all models are imported so Base.metadata is aware of them
@@ -183,4 +182,4 @@ def create_tables():
         db.close()
         logger.debug("Closed session in create_tables")
 
-    print("✅ Database initialized successfully.")
+    logger.info("Database initialized.")

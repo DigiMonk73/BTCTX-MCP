@@ -2,7 +2,7 @@
 # (syntax errors, undefined names, broken comparisons). Style-only rules
 # (unused imports etc.) are deliberately off to avoid churn.
 target-version = "py310"
-extend-exclude = ["desktop/build", "desktop/dist", "desktop/.venv", "frontend", "baseline-pdfs"]
+extend-exclude = ["desktop/build", "desktop/dist", "desktop/.venv", "frontend"]
 
 [lint]
 select = ["E9", "F63", "F7", "F82"]
