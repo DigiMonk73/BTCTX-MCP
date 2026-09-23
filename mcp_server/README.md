@@ -74,6 +74,11 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
 
 If Claude Desktop can't find `btctx-mcp`, use the full path from `which btctx-mcp`.
 
+**macOS desktop app:** use `"BTCTX_URL": "http://127.0.0.1:8765"`. The app listens
+there (localhost only) while it's open, so keep BitcoinTX running when you use the
+AI. If port 8765 is taken, set `BTCTX_DESKTOP_PORT` for the app and use the same
+port here. Username/password are the ones you log in to the app with.
+
 ### Claude Code
 
 ```bash

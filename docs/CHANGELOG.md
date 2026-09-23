@@ -29,6 +29,12 @@ All notable changes to BitcoinTX are documented in this file.
   `test_disposal_proceeds.py` (11), and 10 MCP end-to-end tests
   (`mcp_server/tests/`).
 
+### macOS desktop app
+- Listens on a fixed local port, `http://127.0.0.1:8765` (override with
+  `BTCTX_DESKTOP_PORT`; falls back to a random port if taken), so the MCP
+  server can connect. Still bound to localhost only.
+- PyInstaller spec lists the River/entry import modules; bundle version 0.8.0.
+
 ### Security / dependencies
 - fastapi 0.141.1, starlette 1.7.0, pydantic 2.13.5, uvicorn 0.53.0 (starlette CVEs)
 - cryptography 50.0.1, pypdf 6.19.0, sqlalchemy 2.0.54, python-dotenv 1.2.3

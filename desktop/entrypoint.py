@@ -71,8 +71,29 @@ def get_resource_path(relative_path: str) -> Path:
     return base_path / relative_path
 
 
+# Fixed local port so external clients (the BitcoinTX MCP server) can find
+# the app at http://127.0.0.1:8765. Override with BTCTX_DESKTOP_PORT.
+DEFAULT_PORT = 8765
+
+
+def _port_is_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('127.0.0.1', port))
+        except OSError:
+            return False
+    return True
+
+
 def find_free_port() -> int:
-    """Find a free port for the backend server."""
+    """
+    Use the fixed port when available; otherwise fall back to a random free
+    port (the app still works, but MCP clients won't find it at the usual URL).
+    """
+    preferred = int(os.environ.get("BTCTX_DESKTOP_PORT", DEFAULT_PORT))
+    if _port_is_free(preferred):
+        return preferred
+    logger.warning(f"Port {preferred} is in use; using a random port (MCP clients won't connect)")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('127.0.0.1', 0))
         s.listen(1)
