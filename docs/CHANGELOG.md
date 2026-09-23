@@ -6,6 +6,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [v0.8.0] - 2026-09-23 - MCP server, schema migrations, tax fixes
 
+### Distribution
+- Multi-arch (amd64 + arm64) Docker image published to
+  `ghcr.io/digimonk73/btctx-mcp` on every push to main; `:v0.8.0` is fixed.
+  The StartOS package (DigiMonk73/BTCTX-StartOS v0.8.0:0) runs this image.
+- Tax year 2026: the IRS draft Form 8949 and Schedule D were checked against
+  the app (`scripts/irs_new_year.py --draft`, run weekly in CI): identical
+  field layout to 2025, every field the app fills exists, box order matches.
+
 ### Added — MCP server (AI-assisted entry)
 - **`mcp_server/`**: an MCP server (`btctx-mcp`) that lets an AI assistant
   (Claude Desktop, Claude Code, any MCP client) add transactions from pasted

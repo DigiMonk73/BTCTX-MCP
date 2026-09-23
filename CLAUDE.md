@@ -128,7 +128,8 @@ all Pyflakes rules and ESLint with zero warnings.
 3. Push to `main`. `.github/workflows/image.yml` publishes the multi-arch
    image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` the first time a VERSION is
    seen (never overwritten), plus `:main`. CI builds the macOS app.
-4. Tag `vX.Y.Z` (this cloud environment can't push tags; do it from GitHub).
+4. Push a branch `release/vX.Y.Z`: `.github/workflows/release.yml` creates
+   the tag and GitHub release from the CHANGELOG section (no tag push needed).
 5. StartOS: in DigiMonk73/BTCTX-StartOS pin the new image tag and add a
    `startos/versions/` entry.
    (`scripts/release-docker.sh` is the upstream project's Docker Hub script.)

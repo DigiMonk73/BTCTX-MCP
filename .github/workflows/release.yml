@@ -1,0 +1,36 @@
+name: Release
+
+# Push a branch named release/vX.Y.Z (matching VERSION) to publish the GitHub
+# release vX.Y.Z: the tag is created on that commit and the notes come from
+# the "## [vX.Y.Z]" section of docs/CHANGELOG.md. Branch-based so a release
+# doesn't depend on being able to push tags. Existing releases are left alone.
+on:
+  push:
+    branches: ['release/v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME#release/}"
+          VERSION="v$(tr -d '[:space:]' < VERSION)"
+          [ "$TAG" = "$VERSION" ] || { echo "branch $TAG doesn't match VERSION $VERSION"; exit 1; }
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already released; nothing to do"
+            exit 0
+          fi
+          awk -v tag="$TAG" '
+            $0 ~ "^## \\[" tag "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}
+          ' docs/CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "no CHANGELOG section for $TAG"; exit 1; }
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
