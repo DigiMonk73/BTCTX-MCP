@@ -115,6 +115,23 @@ def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
     return _attach_utc_and_build_read_model(new_tx)
 
 
+@router.post("/recalculate")
+def recalculate_ledger(db: Session = Depends(get_db)):
+    """
+    Rebuild every ledger line, lot and disposal from the transactions in
+    chronological order (the same "scorched earth" pass edits trigger).
+    Run once after upgrading so calculation fixes reach existing data.
+    """
+    try:
+        tx_service.recalculate_all_transactions(db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    count = len(tx_service.get_all_transactions(db))
+    return {"detail": f"Recalculated {count} transaction(s).", "transactions": count}
+
+
 @router.put("/{transaction_id}", response_model=TransactionRead)
 def update_transaction(transaction_id: int, tx: TransactionUpdate, db: Session = Depends(get_db)):
     """

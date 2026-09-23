@@ -87,6 +87,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     # 2 & 3) Validate transaction type and fee rules
     _enforce_transaction_type_rules(tx_data, db)
     _enforce_fee_rules(tx_data, db)
+    _record_gross_proceeds(tx_data)
 
     # 4) Insert Transaction
     now_utc = datetime.now(timezone.utc)
@@ -213,6 +214,9 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     # NEW OR MODIFIED FOR GROSS_PROCEEDS_USD: partial update of gross
     if "gross_proceeds_usd" in tx_data:
         tx.gross_proceeds_usd = tx_data["gross_proceeds_usd"]
+    elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
+        # A proceeds edit is user input, i.e. the new gross
+        tx.gross_proceeds_usd = tx_data["proceeds_usd"]
 
     tx.updated_at = datetime.now(timezone.utc)
 
@@ -255,6 +259,52 @@ def delete_transaction_record(transaction_id: int, db: Session):
 # ------------------------------------------------------------------------------
 # Internal Helpers
 # ------------------------------------------------------------------------------
+# Types whose proceeds are derived (net of fees) from the user's gross input
+GROSS_PROCEEDS_TYPES = ("Sell", "Withdrawal")
+
+
+def _record_gross_proceeds(tx_data: dict) -> None:
+    """
+    Record the user's proceeds as gross_proceeds_usd on create (the UI already
+    sends it for Sells). Stored proceeds_usd is overwritten with the NET value,
+    so without the gross every recalculation would net the fee again.
+    """
+    if (
+        tx_data.get("type") in GROSS_PROCEEDS_TYPES
+        and tx_data.get("gross_proceeds_usd") is None
+        and tx_data.get("proceeds_usd") is not None
+    ):
+        tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"]
+
+
+def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Session) -> Decimal:
+    """
+    Gross USD proceeds for a BTC Withdrawal, recorded on the transaction so
+    recalculation always starts from the same number.
+      - Spent with no proceeds given (River/CSV imports): FMV of the amount at
+        the day's price, fetched once.
+      - Rows saved before the gross was recorded: their proceeds_usd is net of
+        the BTC fee offset applied in maybe_dispose_lots_fifo; undo it once.
+    """
+    if tx.gross_proceeds_usd is not None:
+        return Decimal(tx.gross_proceeds_usd)
+
+    purpose = (tx.purpose or "").lower()
+    amount = Decimal(tx.amount or 0)
+    if tx.proceeds_usd is None:
+        if purpose != "spent":
+            return Decimal("0")
+        gross = (get_btc_price(tx.timestamp, db) * amount).quantize(Decimal("0.01"))
+    else:
+        gross = Decimal(tx.proceeds_usd)
+        has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
+        if purpose == "spent" and has_btc_fee and gross > 0 and amount > 0:
+            gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
+
+    tx.gross_proceeds_usd = gross
+    return gross
+
+
 def ensure_fee_account_exists(db: Session):
     """
     If 'BTC Fees' doesn't exist, create it.
@@ -396,13 +446,16 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
             # Also store the user's typed gross in DB
             tx.gross_proceeds_usd = gross_usd
         else:
-            # If user did NOT provide 'gross_proceeds_usd',
-            # fallback to old logic using 'proceeds_usd'
-            net_usd_in = proceeds_usd
-            if fee_currency == "USD":
-                net_usd_in = proceeds_usd - fee_amount
-                if net_usd_in < 0:
-                    net_usd_in = Decimal("0")
+            # No gross recorded. create_transaction_record always records it,
+            # so only rows saved before that reach here, and their stored
+            # proceeds_usd is ALREADY net of the USD fee. Keep it as the net
+            # and recover the gross once; re-subtracting the fee here is what
+            # used to shrink proceeds on every recalculation.
+            net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
+            if net_usd_in > 0:
+                tx.gross_proceeds_usd = (
+                    net_usd_in + fee_amount if fee_currency == "USD" else net_usd_in
+                )
             tx_data["proceeds_usd"] = str(net_usd_in)
             tx.proceeds_usd = net_usd_in
 
@@ -561,7 +614,10 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     # IMPORTANT: Use tx.proceeds_usd as the authoritative value if available,
     # since build_ledger_entries_for_transaction already calculated it correctly
     # from gross_proceeds_usd. This prevents degradation during recalculation.
-    if tx.proceeds_usd is not None:
+    # Withdrawals have no ledger-side net step, so they start from the gross.
+    if tx.type == "Withdrawal":
+        total_proceeds = _withdrawal_gross_proceeds(tx, btc_outflow, db)
+    elif tx.proceeds_usd is not None:
         total_proceeds = Decimal(tx.proceeds_usd)
     else:
         raw_proceeds = tx_data.get("proceeds_usd")

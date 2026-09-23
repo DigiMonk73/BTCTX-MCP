@@ -131,6 +131,8 @@ function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
         currency: getCurrencyFromAccountId(fromAcctId),
         amount: tx.amount,
         purpose: (tx.purpose ?? "N/A") as WithdrawalPurpose,
+        // Stored proceeds_usd is net of the BTC fee; edit the user's gross
+        proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
       };
     }
     case "Transfer": {

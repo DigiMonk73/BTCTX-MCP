@@ -22,7 +22,11 @@ All notable changes to BitcoinTX are documented in this file.
     gains change due to backdating.
   - Execute is atomic with the same exact-duplicate guard and returns the
     created transaction ids.
-- 20 new backend tests (`test_entry_import.py`) + 9 MCP end-to-end tests
+- **`POST /api/transactions/recalculate`** (and MCP tool `recalculate_ledger`):
+  rebuild all lots, disposals and gains from the transactions. **Run once after
+  upgrading** so the fixes below reach existing data.
+- New tests: `test_entry_import.py` (20), `test_transfer_fees.py` (5),
+  `test_disposal_proceeds.py` (11), and 10 MCP end-to-end tests
   (`mcp_server/tests/`).
 
 ### Fixed
@@ -34,11 +38,22 @@ All notable changes to BitcoinTX are documented in this file.
   a fee larger than the amount is rejected with a clear message. River
   imports (whose amounts exclude the fee) are converted at execute and in
   dedup, so re-imports still match. Dashboard balances do not change.
-- Sells created through CSV import or River import with a USD fee lost the fee
-  from proceeds **again on every full recalculation** (any backdated insert,
-  edit or delete), understating gains. The shared row validator now records
-  `gross_proceeds_usd` as the UI form does. Sells imported before this fix may
-  already have understated proceeds — compare against exchange records.
+- **Proceeds shrank on every recalculation.** Stored `proceeds_usd` is the
+  net value, but Sells from CSV/River/API (no `gross_proceeds_usd`) and every
+  Spent withdrawal with a BTC fee re-derived net from that already-net value,
+  losing the fee again on each backdated insert, edit or delete. The user's
+  gross is now always recorded on create and on proceeds edits, and rows
+  saved by older versions recover their gross on the next recalculation, so
+  they stop shrinking. (Losses that already happened can't be undone
+  automatically — compare old Sells/Spends against exchange records.)
+- **River/CSV "Spent" withdrawals without proceeds became fake losses.** They
+  were saved with $0 proceeds, realizing the full cost basis as a capital
+  loss. They are now valued at the day's BTC price (as the CSV importer's
+  warning always claimed), fetched once and stored. Existing rows are
+  repaired on the next recalculation. An explicit $0 entered in the form is
+  still respected.
+- The transaction edit form now loads a withdrawal's gross proceeds, so
+  re-saving an edit no longer nets the fee again.
 
 ---
 

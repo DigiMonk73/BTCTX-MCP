@@ -109,6 +109,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
+        "recalculate_ledger",
     }
 
 
@@ -182,6 +183,12 @@ async def test_update_and_delete(mcp_client):
     deleted = await call(mcp_client, "delete_transaction", {"transaction_id": tx_id})
     assert deleted["deleted"]["id"] == tx_id
     assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0
+
+
+async def test_recalculate_ledger(mcp_client):
+    await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
+    out = await call(mcp_client, "recalculate_ledger")
+    assert out["transactions"] == 2
 
 
 async def test_list_filters_by_date_and_type(mcp_client):

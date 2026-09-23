@@ -248,7 +248,7 @@ git push plebrick master --tags  # Sync backup at releases
 2. **Backend**: `routers/entry_import.py` + `services/entry_import.py` + `schemas/entry_import.py` → `POST /api/import/entries/{preview,execute}`
    - Reuses `csv_import._validate_row`, `river_import.annotate_duplicates`, `create_transaction_record`
    - Preview = real create path in the request session, then `db.rollback()` (calls `ensure_fee_account_exists` first because it can commit)
-3. **Bug fix**: CSV/River Sells with USD fees re-subtracted the fee on every scorched-earth recalc (no `gross_proceeds_usd`); `_validate_row` now sets it
+3. **Proceeds anchored on `gross_proceeds_usd`** (`transaction.py`: `_record_gross_proceeds`, `_withdrawal_gross_proceeds`, Sell legacy branch in `build_ledger_entries_for_transaction`): stored `proceeds_usd` is NET; recalcs must derive net from the gross, never from proceeds_usd. Create + proceeds edits record gross; legacy rows (gross NULL) recover it once. Spent withdrawals with no proceeds → day's FMV, stored. Tests: `test_disposal_proceeds.py`
 4. **Transfer fee semantics unified**: `amount` = what left the source, fee included (UI "amount sent"; ledger already did this). `maybe_transfer_bitcoin_lot` no longer adds the fee on top. River proposals keep River's net amounts; `river_import.ledger_amount()` converts Transfers at execute + dedup. Withdrawals keep fee ON TOP (unchanged). Tests: `test_transfer_fees.py`
 5. Tests: `backend/tests/test_entry_import.py` (20), `mcp_server/tests/test_server.py` (9, end-to-end MCP client → server → ASGI app)
 

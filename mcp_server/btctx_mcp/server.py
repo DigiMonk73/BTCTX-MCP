@@ -305,6 +305,15 @@ async def delete_transaction(transaction_id: int) -> Dict[str, Any]:
     return {"deleted": _compact(current)}
 
 
+@mcp.tool(annotations=ToolAnnotations(
+    read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
+async def recalculate_ledger() -> Dict[str, Any]:
+    """Rebuild all cost-basis lots, disposals and gains from the recorded transactions.
+    Needed once after upgrading BitcoinTX so calculation fixes apply to existing data;
+    otherwise only when the user asks. Transactions themselves are not changed."""
+    return await _call("POST", "/api/transactions/recalculate")
+
+
 def main() -> None:
     mcp.run()
 

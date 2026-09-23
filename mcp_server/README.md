@@ -23,6 +23,7 @@ what your AI client itself sends to its model.
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price |
 | `get_btc_price` | Historical daily or current BTC price |
+| `recalculate_ledger` | Rebuild lots and gains from your transactions (run once after upgrading BitcoinTX) |
 
 There is deliberately no bulk delete.
 
