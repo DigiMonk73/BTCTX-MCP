@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS, _require_auth
 from backend.schemas.entry_import import (
     CreatedTransaction,
@@ -62,7 +63,7 @@ async def preview_entries(
     _require_auth(request)
     _check_size(payload)
 
-    prepared = validate_rows(payload.rows)
+    prepared = validate_rows(payload.rows, get_tax_timezone(db))
     await autofill_fmv(prepared)
     mark_duplicates(prepared, db)
     affected, balances = simulate(prepared, db)
@@ -103,7 +104,7 @@ async def execute_entries(
     _require_auth(request)
     _check_size(payload)
 
-    prepared = validate_rows(payload.rows)
+    prepared = validate_rows(payload.rows, get_tax_timezone(db))
     invalid = [p.result for p in prepared if p.result.status == STATUS_INVALID]
     if invalid:
         msgs = [f"Row {r.row}: {'; '.join(r.errors)}" for r in invalid]

@@ -82,6 +82,9 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
     def wrap_text(text: str, style=wrapped_style) -> Paragraph:
         return Paragraph(text or "", style)
 
+    from zoneinfo import ZoneInfo
+    tax_tz = ZoneInfo(report_dict.get("tax_timezone") or "UTC")
+
     def iso_to_mmddyyyy(iso_str: str) -> str:
         """Convert ISO8601 to MM/DD/YYYY for more IRS-like display."""
         if not iso_str:
@@ -89,7 +92,10 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
         iso_str_fixed = iso_str.replace("Z", "+00:00")
         try:
             dt = datetime.datetime.fromisoformat(iso_str_fixed)
-            return dt.strftime("%m/%d/%Y")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=datetime.timezone.utc)
+            # Dates in the user's tax timezone, like the IRS forms
+            return dt.astimezone(tax_tz).strftime("%m/%d/%Y")
         except ValueError:
             return iso_str
 

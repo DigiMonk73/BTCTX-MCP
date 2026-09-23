@@ -16,3 +16,6 @@ from .account import Account
 
 # Models from transaction.py
 from .transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal
+
+# App-wide settings (tax timezone, ...)
+from .app_setting import AppSetting

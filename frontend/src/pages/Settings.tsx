@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import api from "../api";
 import RiverImport from "../components/RiverImport";
+import TaxTimezoneSetting from "../components/TaxTimezoneSetting";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
 import "../styles/settings.css";
 
@@ -458,6 +459,8 @@ const Settings: React.FC = () => {
             </div>
           </form>
         </div>
+
+        <TaxTimezoneSetting />
       </div>
 
       {/* ✅ Data Management */}

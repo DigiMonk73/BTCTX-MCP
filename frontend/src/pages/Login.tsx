@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import api from '../api';
 import { extractErrorMessage } from '../hooks/useApiCall';
 import "../styles/login.css";
+import { ensureTaxTimezone } from "../utils/taxTimezone";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -29,6 +30,8 @@ const LoginPage: React.FC = () => {
 
     try {
       await api.post("/login", { username, password });
+      // First login: adopt this computer's timezone for tax dates (changeable in Settings)
+      await ensureTaxTimezone();
       navigate("/dashboard");
     } catch (error) {
       const message = extractErrorMessage(error);

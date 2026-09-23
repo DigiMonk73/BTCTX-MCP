@@ -38,6 +38,7 @@ from backend.schemas.entry_import import (
     SimulatedResult,
 )
 from backend.services.bitcoin import get_historical_price
+from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
 from backend.services.river_import import (
@@ -84,20 +85,26 @@ def _dec_str(value: Optional[Decimal]) -> str:
     return format(value, "f") if value is not None else ""
 
 
-def _normalize_date(raw: str) -> str:
+def _normalize_date(raw: str, tz) -> str:
     """
-    Accept anything _validate_row accepts plus full ISO8601 (fractional
-    seconds, '+HH:MM' offsets). Returns a string _validate_row can parse.
+    Parse a user/AI-supplied date into a UTC string _validate_row accepts.
+    Explicit offsets / "Z" are honored. Without one, the time is local to
+    the tax timezone `tz`; a bare date (no time) means noon there, safely
+    inside that calendar day.
     """
     raw = (raw or "").strip()
-    if _parse_date(raw) is not None:
+    if not raw:
         return raw
     try:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
-        return raw  # let _validate_row report it
+        dt = _parse_date(raw)  # e.g. 01/15/2024 — returned as naive-UTC-tagged
+        if dt is None:
+            return raw  # let _validate_row report it
+        dt = dt.replace(tzinfo=None)
+    date_only = len(raw) <= 10 and ":" not in raw
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = local_noon_utc(dt.date(), tz) if date_only else dt.replace(tzinfo=tz)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -120,12 +127,12 @@ def normalized_view(tx_data: Dict[str, Any]) -> Dict[str, Optional[str]]:
     return view
 
 
-def validate_rows(rows: List[EntryRow]) -> List[PreparedRow]:
-    """Validate every row with the CSV importer's rules."""
+def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
+    """Validate every row with the CSV importer's rules (dates in tax timezone `tz`)."""
     prepared: List[PreparedRow] = []
     for i, row in enumerate(rows, start=1):
         str_row = {
-            "date": _normalize_date(row.date),
+            "date": _normalize_date(row.date, tz),
             "type": row.type or "",
             "amount": _dec_str(row.amount),
             "from_account": row.from_account or "",

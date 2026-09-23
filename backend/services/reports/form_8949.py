@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
 from backend.constants import ACCOUNT_EXCHANGE_BTC
+from backend.services.tax_time import format_tax_date, get_tax_timezone, tax_year_bounds
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,8 @@ def build_form_8949_and_schedule_d(
       }
     }
     """
-    start_date = datetime(year, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    tz = get_tax_timezone(db)
+    start_date, end_date = tax_year_bounds(year, tz)
 
     # Non-taxable disposal purposes that should NOT appear on Form 8949
     # Gifts, donations, and lost assets are reported separately, not as capital gains/losses
@@ -121,14 +122,14 @@ def build_form_8949_and_schedule_d(
 
         # Format date_acquired
         if disp.lot and disp.lot.acquired_date:
-            acquired_str = disp.lot.acquired_date.strftime("%m/%d/%Y")
+            acquired_str = format_tax_date(disp.lot.acquired_date, tz)
         else:
             acquired_str = ""
 
         # date_sold
         sold_str = ""
         if disp.transaction and disp.transaction.timestamp:
-            sold_str = disp.transaction.timestamp.strftime("%m/%d/%Y")
+            sold_str = format_tax_date(disp.transaction.timestamp, tz)
 
         # parse amounts
         proceeds_dec = Decimal(disp.proceeds_usd_for_that_portion or 0)

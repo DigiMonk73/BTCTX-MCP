@@ -119,6 +119,7 @@ def create_tables():
     from backend.models.user import User
     from backend.models.account import Account
     from backend.models.transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal
+    from backend.models.app_setting import AppSetting  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     logger.debug("Executed Base.metadata.create_all to create tables")

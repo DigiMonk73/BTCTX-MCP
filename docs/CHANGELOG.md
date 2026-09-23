@@ -67,6 +67,22 @@ All notable changes to BitcoinTX are documented in this file.
 - Docker frontend build stage: node:18 (EOL) → node:22
 - **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
 
+### Added — tax timezone
+- **Settings → Tax Timezone** (auto-set from your browser on first login;
+  `BTCTX_TIMEZONE` env var as a fallback). Tax years, Form 8949 dates,
+  holding-period anniversaries, the reports and year-to-date totals now use
+  it — a 10 pm Dec 31 sale in New York is no longer counted in the next
+  year. Timestamps are still stored in UTC. Changing it recalculates.
+- AI/MCP entries without a timezone are read in the tax timezone (a bare date
+  means midday that day).
+
+### Fixed — tax report placeholders
+- The complete tax report valued year-end BTC at a hardcoded demo price
+  ($94,153.13) and reported a hardcoded $4,000 profit in its asset summary.
+  It now uses the real Dec 31 price and the year's actual gains/losses, and
+  year-end holdings exclude activity after Dec 31.
+- The complete tax report dropped transactions in the last second of the year.
+
 ### Changed — no more pdftk (Java)
 - IRS forms are now filled and flattened in pure Python (pypdf). pdftk is no
   longer needed on macOS (`brew install pdftk-java` step gone), in Docker

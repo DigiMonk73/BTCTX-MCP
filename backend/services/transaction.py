@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
+from backend.services.tax_time import get_tax_timezone
 from backend.constants import (
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
@@ -257,22 +258,19 @@ def delete_transaction_record(transaction_id: int, db: Session):
 # ------------------------------------------------------------------------------
 # Internal Helpers
 # ------------------------------------------------------------------------------
-def holding_period(acquired: datetime, disposed: datetime) -> str:
+def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
     """
     IRS rule (Pub. 544): long-term only if held MORE than one year, counting
     from the day after acquisition — i.e. disposed after the one-year
     anniversary date. Selling on the anniversary itself is short-term.
     (Feb 29 acquisitions: anniversary is Feb 28, so long-term from Mar 1.)
+    Calendar dates are taken in the tax timezone `tz`.
     """
     from dateutil.relativedelta import relativedelta
+    from backend.services.tax_time import local_date
 
-    def as_date(ts: datetime):
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        return ts.astimezone(timezone.utc).date()
-
-    anniversary = as_date(acquired) + relativedelta(years=1)
-    return "LONG" if as_date(disposed) > anniversary else "SHORT"
+    anniversary = local_date(acquired, tz) + relativedelta(years=1)
+    return "LONG" if local_date(disposed, tz) > anniversary else "SHORT"
 
 
 # Types whose proceeds are derived (net of fees) from the user's gross input
@@ -701,7 +699,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
         if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation"):
             disposal_gain = Decimal("0.0")
 
-        hp = holding_period(lot.acquired_date, tx.timestamp)
+        hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))
 
         disp = LotDisposal(
             lot_id=lot.id,
@@ -763,7 +761,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         tx.proceeds_usd = total_proceeds
 
     if earliest_date:
-        tx.holding_period = holding_period(earliest_date, tx.timestamp)
+        tx.holding_period = holding_period(earliest_date, tx.timestamp, get_tax_timezone(db))
     else:
         tx.holding_period = None
 
@@ -895,7 +893,7 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
             proceeds_for_fee = (btc_unit_price * portion_for_fee).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
             realized_gain = proceeds_for_fee - disposal_basis
 
-            hp = holding_period(lot.acquired_date, tx.timestamp)
+            hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))
 
             disp = LotDisposal(
                 lot_id=lot.id,
@@ -941,21 +939,24 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     db.flush()
 
 
-def recalculate_all_transactions(db: Session):
+def recalculate_all_transactions(db: Session, until: datetime | None = None):
     """
     "Scorched Earth": remove all ledger lines, partial-lot disposals,
     and BitcoinLots. Then re-lot everything in chronological order.
+
+    With `until`, only transactions strictly before it are replayed — a
+    snapshot of lots/balances as of that instant (used for year-end
+    balances). Callers must run a full recalculation afterwards.
     """
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
     db.query(BitcoinLot).delete()
     db.flush()
 
-    all_txs = (
-        db.query(Transaction)
-        .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
-        .all()
-    )
+    query = db.query(Transaction)
+    if until is not None:
+        query = query.filter(Transaction.timestamp < until)
+    all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     for rec_tx in all_txs:
         sub_tx_data = {
             "from_account_id": rec_tx.from_account_id,

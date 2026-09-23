@@ -148,7 +148,8 @@ def get_ledger_guide() -> str:
 
 @mcp.tool(annotations=READ_ONLY)
 async def get_portfolio() -> Dict[str, Any]:
-    """Current balance of every account, average cost basis per BTC, and the live BTC price.
+    """Current balance of every account, average cost basis per BTC, the live BTC price, and
+    the user's tax timezone (dates without a timezone are interpreted in it).
     Useful to reconcile against what the user's cold wallet or exchange actually shows."""
     balances = await _call("GET", "/api/calculations/accounts/balances")
     avg = await _call("GET", "/api/calculations/average-cost-basis")
@@ -156,7 +157,9 @@ async def get_portfolio() -> Dict[str, Any]:
         price = await _call("GET", "/api/bitcoin/price")
     except ToolError:
         price = None
+    tz = await _call("GET", "/api/settings/tax-timezone")
     return {
+        "tax_timezone": tz.get("timezone"),
         "balances": [
             {"account": b["name"], "currency": b["currency"], "balance": b["balance"]}
             for b in balances

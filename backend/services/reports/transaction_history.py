@@ -91,15 +91,9 @@ def generate_transaction_history_report(
     3) Returns the resulting bytes (PDF) or CSV bytes (utf-8).
     """
 
-    # Determine date range
-    start_of_year = datetime.datetime(year, 1, 1)
-    now = datetime.datetime.now()
-    if year == now.year:
-        # current year => up to "today"
-        end_of_year = now
-    else:
-        # full year => up to Dec 31
-        end_of_year = datetime.datetime(year, 12, 31, 23, 59, 59)
+    # Tax-year range in the user's tax timezone (see services/tax_time.py)
+    from backend.services.tax_time import get_tax_timezone, tax_year_bounds
+    start_of_year, end_of_year = tax_year_bounds(year, get_tax_timezone(db))
 
     # Fetch transactions of valid types, strictly sorted
     valid_types = ["Deposit", "Withdrawal", "Transfer", "Buy", "Sell"]
@@ -108,7 +102,7 @@ def generate_transaction_history_report(
         .filter(
             Transaction.type.in_(valid_types),
             Transaction.timestamp >= start_of_year,
-            Transaction.timestamp <= end_of_year
+            Transaction.timestamp < end_of_year
         )
         .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
         .all()

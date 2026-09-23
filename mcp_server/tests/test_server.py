@@ -207,6 +207,7 @@ async def test_portfolio_and_price(mcp_client):
     balances = {b["account"]: b["balance"] for b in portfolio["balances"]}
     assert balances["Wallet"] > 0
     assert portfolio["btc_price_usd"] == 60000.0
+    assert portfolio["tax_timezone"] == "UTC"
 
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15"})
     assert price["usd"] == 50000.0

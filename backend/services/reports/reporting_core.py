@@ -14,6 +14,7 @@ from backend.models.transaction import (
     LotDisposal,
 )
 from backend.models.account import Account
+from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 
 # Services
 from backend.services.transaction import (
@@ -47,21 +48,27 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     # 1) Gather beginning-of-year balances (snapshot)
     # ---------------------------------------------------------
     start_of_year_data = _build_start_of_year_balances(db, year)
+    start_dt, end_dt = tax_year_bounds(year, get_tax_timezone(db))
 
     # ---------------------------------------------------------
-    # 2) "Scorched earth" re-lot for the entire year
+    # 1b) End-of-year snapshot: replay only transactions before the
+    #     year boundary, so later activity doesn't leak into 12/31 holdings
+    # ---------------------------------------------------------
+    recalculate_all_transactions(db, until=end_dt)
+    eoy_list = _build_end_of_year_balances(db, year)
+
+    # ---------------------------------------------------------
+    # 2) "Scorched earth" re-lot for the entire history
     # ---------------------------------------------------------
     recalculate_all_transactions(db)
 
     # ---------------------------------------------------------
     # 3) Filter transactions within that tax year
     # ---------------------------------------------------------
-    start_dt = datetime(year, 1, 1, tzinfo=timezone.utc)
-    end_dt   = datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
 
     txns = (
         db.query(Transaction)
-        .filter(Transaction.timestamp >= start_dt, Transaction.timestamp <= end_dt)
+        .filter(Transaction.timestamp >= start_dt, Transaction.timestamp < end_dt)
         .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
         .all()
     )
@@ -71,8 +78,7 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     # ---------------------------------------------------------
     gains_dict        = _build_capital_gains_summary(txns)
     income_dict       = _build_income_summary(txns)
-    asset_list        = _build_asset_summary(db, end_dt)
-    eoy_list          = _build_end_of_year_balances(db, end_dt)
+    asset_list        = _build_asset_summary(db, start_dt, end_dt)
     cap_gain_txs_sum  = _build_capital_gains_transactions_summary(txns)
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(db, txns)
     income_txs        = _build_income_transactions(txns)
@@ -85,6 +91,7 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     # ---------------------------------------------------------
     result = {
         "tax_year": year,
+        "tax_timezone": get_tax_timezone_name(db)[0],
         "report_date": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "period": f"{year}-01-01 to {year}-12-31",
 
@@ -124,7 +131,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]
     logger.info(f"Calculating start-of-year balances for {year}")
 
     # 1) Remove usage for any transaction with timestamp strictly after Jan 1
-    from_dt = datetime(year, 1, 1, tzinfo=timezone.utc)
+    from_dt, _ = tax_year_bounds(year, get_tax_timezone(db))
     _partial_relot_strictly_after(db, from_dt)
 
     # 2) Recreate any "Buy"/"Deposit" lots from prior to Jan 1 if a previous year’s
@@ -466,42 +473,48 @@ def _build_income_summary(txns: List[Transaction]) -> Dict[str, Any]:
     }
 
 
-def _build_asset_summary(db: Session, end_dt: datetime) -> List[Dict[str, Any]]:
-    """
-    Example placeholder: If you only track BTC, this might just show a single row
-    summarizing total net. Expand or adapt for multi-asset usage if needed.
-    """
-    # Hard-coded example of net profit/loss for the year
-    btc_profit = 4000.0
-    btc_loss   = 0.0
-    btc_net    = 4000.0
+def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> List[Dict[str, Any]]:
+    """Realized profit / loss / net on BTC for the tax year, from the lot disposals."""
+    from backend.models.transaction import LotDisposal
 
-    return [
-        {
-            "asset": "BTC",
-            "profit": btc_profit,
-            "loss": btc_loss,
-            "net": btc_net
-        }
+    gains = [
+        Decimal(d.realized_gain_usd or 0)
+        for d in db.query(LotDisposal)
+        .join(LotDisposal.transaction)
+        .filter(Transaction.timestamp >= start_dt, Transaction.timestamp < end_dt)
+        .all()
     ]
+    profit = sum((g for g in gains if g > 0), Decimal("0"))
+    loss = -sum((g for g in gains if g < 0), Decimal("0"))
+    return [{
+        "asset": "BTC",
+        "profit": float(profit),
+        "loss": float(loss),
+        "net": float(profit - loss),
+    }]
 
 
-def _build_end_of_year_balances(db: Session, end_dt: datetime) -> List[Dict[str, Any]]:
+def _build_end_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]]:
     """
-    Summarize leftover BTC (lots) as of 12/31. We use a fictional eoy_price=94153.13
-    here for demonstration. In production, fetch real historical prices for 12/31.
+    BTC still held at the end of `year`, valued at the Dec 31 BTC price.
+    Expects the lots to be a year-end snapshot (see generate_report_data).
     """
     open_lots = (
         db.query(BitcoinLot)
-        .filter(
-            BitcoinLot.remaining_btc > 0,
-            BitcoinLot.acquired_date <= end_dt
-        )
+        .filter(BitcoinLot.remaining_btc > 0)
         .order_by(BitcoinLot.acquired_date.asc())
         .all()
     )
 
-    eoy_price = Decimal("94153.13")  # Example only; replace with get_btc_price(...) if desired
+    dec31 = datetime(year, 12, 31, 12, tzinfo=timezone.utc)
+    try:
+        eoy_price = Decimal(get_btc_price(dec31, db)).quantize(Decimal("0.01"))
+        price_note = f"@ ${eoy_price:,} per BTC on {year}-12-31"
+    except Exception as exc:  # price APIs down: show holdings, flag the value
+        logger.warning("No BTC price for %s-12-31: %s", year, exc)
+        eoy_price = Decimal("0")
+        price_note = f"BTC price for {year}-12-31 unavailable — value not computed"
+
     rows = []
     total_btc = Decimal("0.0")
     total_cost = Decimal("0.0")
@@ -522,7 +535,7 @@ def _build_end_of_year_balances(db: Session, end_dt: datetime) -> List[Dict[str,
             "quantity": float(rem_btc),
             "cost": float(partial_cost),
             "value": float(cur_value),
-            "description": f"@ ${eoy_price} per BTC on {end_dt.date()}"
+            "description": price_note
         })
 
         total_btc += rem_btc

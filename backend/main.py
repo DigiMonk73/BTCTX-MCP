@@ -171,7 +171,7 @@ def get_current_user(
 # Routers (Transaction, User, Account, Calculation, Bitcoin, Reports, Debug)
 # ---------------------------------------------------------
 # (Mandatory) Routers (Transaction, User, Account, Calculation, Bitcoin, Reports)
-from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import
+from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings
 
 # Mandatory routers
 app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
@@ -184,6 +184,7 @@ app.include_router(backup.router, prefix="/api/backup", tags=["backup"], depende
 app.include_router(csv_import.router, prefix="/api/import", tags=["import"], dependencies=[Depends(get_current_user)])
 app.include_router(river_import.router, prefix="/api/import/river", tags=["import"], dependencies=[Depends(get_current_user)])
 app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=[Depends(get_current_user)])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
 
 # (Optional) Debug Router
 try:

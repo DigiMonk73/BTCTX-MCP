@@ -62,9 +62,11 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
 ## Units and dates
 - sats -> BTC: divide by 100,000,000 (50,000 sats = 0.0005 BTC).
 - BTC max 8 decimals, USD max 2. Send amounts as strings ("0.00125").
-- Dates: ISO 8601. Use UTC ("2024-03-05T14:30:00Z") or include the offset
-  ("2024-03-05T09:30:00-05:00"). A bare date ("2024-03-05") is fine when the
-  time is unknown. If the year is ambiguous, ask.
+- Dates: ISO 8601. Without a timezone, dates/times are read in the user's
+  tax timezone (see get_portfolio -> tax_timezone): "2024-03-05T09:30:00" is
+  9:30 there; a bare date ("2024-03-05") means midday that day — fine when the
+  time is unknown. Add "Z" or an offset only when the source states one
+  (e.g. exchange emails in UTC). If the year is ambiguous, ask.
 
 ## Common mappings
 - Exchange buy confirmation / recurring buy email -> Buy.

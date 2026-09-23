@@ -11,7 +11,7 @@ and now we compute a new "year_to_date_capital_gains" field by filtering disposa
 to only those whose Transaction timestamp is >= January 1 of the current year.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
@@ -212,8 +212,9 @@ def get_gains_and_losses(db: Session) -> dict:
     total_net_capital_gains = short_term_net + long_term_net
 
     # (NEW) Year-to-Date Gains logic
-    now_utc = datetime.now(timezone.utc)
-    start_of_year = datetime(now_utc.year, 1, 1, tzinfo=timezone.utc)
+    from backend.services.tax_time import get_tax_timezone, tax_year_bounds
+    tz = get_tax_timezone(db)
+    start_of_year, _ = tax_year_bounds(datetime.now(tz).year, tz)
 
     ytd_gain_sum = (
         db.query(func.coalesce(func.sum(LotDisposal.realized_gain_usd), 0))
