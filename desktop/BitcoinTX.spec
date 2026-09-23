@@ -31,6 +31,11 @@ frontend_datas = [
     (str(PROJECT_ROOT / "frontend" / "dist"), "frontend/dist"),
 ]
 
+# VERSION beside backend/, where backend/version.py looks for it
+version_datas = [
+    (str(PROJECT_ROOT / "VERSION"), "."),
+]
+
 # Hidden imports for all dependencies
 hidden_imports = [
     # FastAPI and dependencies
@@ -138,6 +143,8 @@ hidden_imports = [
     "backend.services.entry_import",
     "backend.services.tax_time",
     "backend.secret_key",
+    "backend.version",
+    "backend.cli",
     "backend.models.app_setting",
     "tzdata",
     "backend.services.reports",
@@ -155,7 +162,7 @@ a = Analysis(
     [str(SPEC_DIR / "entrypoint.py")],
     pathex=[str(PROJECT_ROOT)],
     binaries=[],
-    datas=backend_datas + frontend_datas,
+    datas=backend_datas + frontend_datas + version_datas,
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

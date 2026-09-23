@@ -5,11 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- `GET /api/health` (no login): 200 when the database answers at the current
+  schema, 503 otherwise, with the app version. Used by the StartOS package and
+  the CI container checks.
+- `python -m backend.cli` maintenance commands: `migrate` (schema upgrade +
+  defaults), `set-password [--username NAME] [--password-stdin]` (through the
+  app's own hashing; the password never goes on the command line) and
+  `recalculate` (rebuild the ledger). The StartOS package uses them instead of
+  editing SQLite directly.
 - Frontend unit tests (Vitest) for the transaction form's mapping to and
   from the API, run by the pre-push hook and CI. The mapping moved to
   `frontend/src/utils/transactionForm.ts`.
 
 ### Changed
+- Logging defaults to INFO instead of DEBUG; set `LOG_LEVEL` (DEBUG, INFO,
+  WARNING, ERROR) to change it.
+- Only the newest 5 automatic database copies (taken before a schema upgrade
+  or a restore) are kept in `<data dir>/backups/`; older ones are deleted.
+- The app version (`VERSION`) ships inside the Docker image and the macOS app.
 - The complete tax report no longer rebuilds the ledger inside the request
   to take its start- and end-of-year snapshots (33 writes for a small ledger,
   holding the database write lock, then discarded). The snapshots replay on

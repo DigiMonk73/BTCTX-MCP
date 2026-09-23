@@ -89,22 +89,31 @@ configured.
    under `/app`.
 4. Test path/storage changes in Docker, not just local dev.
 
-## Contracts the wrapper depends on
+## Contracts the StartOS package depends on
 
-Coordinate a wrapper release before changing any of these:
+Change these only together with the package (`startos/`):
 
-- **Entry point and port:** `backend.main:app`, plain HTTP on port 80. The
-  wrapper health-checks `http://localhost:80/` and treats any HTTP response as
-  healthy. (`GET /` serves the SPA without login; `/api/*` routes return 401
-  when logged out.)
-- **App location:** code at `/app` in the image.
-- **DB initialization:** the wrapper calls `backend.database.create_tables()`
-  at install time (now an alias of `init_db()`: it runs the schema migrations
-  and seeds the default admin user; safe to call on an existing database), then
-  writes a random admin password into the `users` table (`username`,
-  `password_hash`, bcrypt). Renaming that module/function or changing the
-  `users` schema breaks the wrapper.
-- **Volume:** data at `/data`, database path from `DATABASE_FILE`.
+- **Entry point and port:** `backend.main:app`, plain HTTP on port 80.
+- **Health:** `GET /api/health` (no login) answers 200 with
+  `{"status": "ok", "version", "schema"}` when the database is reachable at
+  the current schema, 503 otherwise. The package's health check requires 200.
+- **App location:** code at `/app` in the image, `VERSION` at `/app/VERSION`.
+- **Maintenance CLI** (`backend/cli.py`, run from `/app`):
+  - `python -m backend.cli migrate`: schema upgrade + default user/accounts;
+    the package runs it as a oneshot before the web server starts.
+  - `python -m backend.cli set-password [--username NAME] --password-stdin`:
+    sets the first user's password through the app's own bcrypt hashing
+    (also `BTCTX_NEW_PASSWORD` env); used on install and by Reset Login
+    Credentials. Never takes the password as an argument.
+  - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
+    Ledger action.
+  Each command migrates first, so it works on an empty volume. Exit 0 on
+  success, 1 with a message on stderr on failure.
+- **Logging:** `LOG_LEVEL` env (default INFO).
+- **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
+  newest 5 automatic copies are kept in `/data/backups/`.
+- `backend.database.create_tables()` stays as an alias of `init_db()` for
+  packages from before the CLI (0.8.0:1 and older).
 
 ### Image for this fork
 

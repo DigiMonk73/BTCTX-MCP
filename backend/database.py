@@ -30,7 +30,14 @@ import bcrypt
 # ------------------------------------------------------------------
 # 0) Logging Setup
 # ------------------------------------------------------------------
-logging.basicConfig(level=logging.DEBUG)
+def log_level_from_env() -> int:
+    """LOG_LEVEL env (DEBUG, INFO, WARNING, ERROR, CRITICAL); INFO if unset or unknown."""
+    name = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+    level = logging.getLevelName(name)
+    return level if isinstance(level, int) else logging.INFO
+
+
+logging.basicConfig(level=log_level_from_env())
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------

@@ -105,6 +105,14 @@ jobs:
         run: python scripts/smoke_test.py --url http://127.0.0.1:8080
       - name: Data lands on the /data volume
         run: docker exec btctx test -s /data/btctx.db -a -s /data/.btctx_secret_key
+      - name: Health endpoint and maintenance CLI (used by the StartOS package)
+        run: |
+          curl -sf http://127.0.0.1:8080/api/health | tee /dev/stderr | grep -q "\"version\":\"$(tr -d '[:space:]' < VERSION)\""
+          docker exec btctx python -m backend.cli migrate | grep -q "up to date"
+          echo "ci-password" | docker exec -i btctx python -m backend.cli set-password --password-stdin
+          curl -sf -o /dev/null -X POST http://127.0.0.1:8080/api/login -H 'content-type: application/json' \
+            -d '{"username":"admin","password":"ci-password"}'
+          docker exec btctx python -m backend.cli recalculate
       - name: Upgrade a v0.7.0 database (schema migrations)
         run: |
           docker volume create btctx-upgrade
@@ -171,6 +179,7 @@ jobs:
           "$APP" > app.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf -o /dev/null http://127.0.0.1:8765/; then
+              curl -sf http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'
               code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8765/api/import/entries/preview -H 'content-type: application/json' -d '{"rows":[]}')
               echo "entries endpoint (anonymous) -> $code"; test "$code" = "401"
               pkill -f BitcoinTX.app || true

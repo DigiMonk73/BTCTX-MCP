@@ -42,6 +42,8 @@ logger = logging.getLogger(__name__)
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 BASELINE = "0001"
 BACKUP_DIRNAME = "backups"
+# Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
+BACKUPS_KEPT = 5
 # Tables without which a database can't be a BitcoinTX ledger at all.
 CORE_TABLES = {"users", "accounts", "transactions"}
 
@@ -118,7 +120,32 @@ def backup_sqlite(db_path: Path, label: str) -> Path:
         dst.close()
         src.close()
     os.chmod(dest, 0o600)
+    prune_backups(db_path)
     return dest
+
+
+def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT) -> List[Path]:
+    """
+    Keep the newest `keep` copies of this database in <dir>/backups/ and
+    delete older ones. Only files this module wrote (<stem>-before-*.db) are
+    touched. Returns the deleted paths.
+    """
+    dest_dir = db_path.parent / BACKUP_DIRNAME
+    copies = sorted(
+        dest_dir.glob(f"{db_path.stem}-before-*.db"),
+        key=lambda p: (p.stat().st_mtime_ns, p.name),
+        reverse=True,
+    )
+    removed = []
+    for old in copies[keep:]:
+        try:
+            old.unlink()
+            removed.append(old)
+        except OSError as e:
+            logger.warning("Couldn't remove old database copy %s: %s", old, e)
+    if removed:
+        logger.info("Removed %d old database copies from %s", len(removed), dest_dir)
+    return removed
 
 
 # ---------------------------------------------------------------------------

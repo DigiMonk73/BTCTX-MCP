@@ -47,8 +47,9 @@
     COPY backend/requirements.txt .
     RUN pip install --no-cache-dir -r requirements.txt
     
-    # Copy the backend code
+    # Copy the backend code, and VERSION where backend/version.py reads it
     COPY backend/ ./backend
+    COPY VERSION ./VERSION
     
     # Copy the built frontend artifacts from the first stage
     COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

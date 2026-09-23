@@ -99,7 +99,8 @@ So derived values must be recomputable from the Transaction row alone.
 ## Security rules
 
 - All API routers require login except `POST /api/users/register`,
-  `GET /api/users/setup-status`, `POST /api/users/reset-account` and login.
+  `GET /api/users/setup-status`, `POST /api/users/reset-account`,
+  `GET /api/health` (status, version, schema only) and login.
   User routes may only touch the logged-in user.
 - `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
   default key anywhere.
