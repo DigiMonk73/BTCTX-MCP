@@ -24,9 +24,12 @@ from __future__ import annotations
 
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime, timezone
 from decimal import Decimal
+
+# backend.constants.BROKER_REPORTING_VALUES
+BrokerReporting = Literal["none", "proceeds", "basis"]
 
 # -------------------------------------------------
 # TRANSACTION TYPE ENUM
@@ -103,6 +106,13 @@ class TransactionBase(BaseModel):
     # Metadata for audit and tax purposes
     source: Optional[str] = None  # e.g., exchange name
     purpose: Optional[str] = None  # e.g., "Payment for services"
+    broker_reporting: Optional[BrokerReporting] = Field(
+        default=None,
+        description=(
+            "Sell/Withdrawal only: what your broker reported on Form 1099-DA "
+            "(none / proceeds / basis). Omit or null for automatic."
+        ),
+    )
 
     # Tax summary fields (USD)
     cost_basis_usd: Optional[Decimal] = Field(
@@ -191,6 +201,7 @@ class TransactionUpdate(BaseModel):
 
     source: Optional[str] = None
     purpose: Optional[str] = None
+    broker_reporting: Optional[BrokerReporting] = None  # send null to go back to automatic
 
     cost_basis_usd: Optional[Decimal] = None
     proceeds_usd: Optional[Decimal] = None

@@ -17,10 +17,7 @@ Form 1099-DA boxes, pure-Python IRS forms, security fixes, calculation fixes.
       `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
 - [x] **Schema migrations (Alembic)**: see CHANGELOG (Unreleased).
-- [ ] **Per-transaction 1099-DA override.** A column on Sell transactions
-      recording what the broker actually reported (not on a 1099-DA /
-      proceeds only / proceeds and basis), for when a real 1099-DA disagrees
-      with the default rules in `_broker_reporting()`.
+- [x] **Per-transaction 1099-DA override**: see CHANGELOG (Unreleased).
 - [ ] **Reports without side effects.** The complete tax report rebuilds the
       ledger to snapshot year-end balances; compute them from lots and
       disposals directly instead.

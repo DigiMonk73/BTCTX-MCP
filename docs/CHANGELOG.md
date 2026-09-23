@@ -154,6 +154,16 @@ All notable changes to BitcoinTX are documented in this file.
   would have been used as-is; it is now rejected like the other public
   defaults, and the example leaves the key unset (auto-generated).
 
+### Added — per-transaction Form 1099-DA override
+- A Sell or Spent withdrawal can record what the broker actually reported
+  ("Broker form" in the transaction form; `broker_reporting` in the API and
+  the MCP `update_transaction` tool): not on a broker form, proceeds only, or
+  proceeds and basis. That picks the Form 8949 box for that sale (2025+:
+  I/L, H/K, G/J; 2024 and earlier: C/F, B/E, A/D) instead of the default
+  rules. Left on Automatic, nothing changes.
+- The first real schema migration (0003): existing databases gain the column
+  automatically on upgrade.
+
 ### Added — schema migrations
 - The database schema is now managed by **Alembic migrations**
   (`backend/migrations/`), run automatically at every start. Before this, new

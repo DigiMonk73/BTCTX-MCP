@@ -18,7 +18,9 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   recalculates the whole ledger, so backdated entries come out right.
 - **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
-  tax report, and transaction history (PDF/CSV)
+  tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
+  says something different for a sale, record that on the transaction and the
+  right Form 8949 box follows.
 - **Imports**: River CSV export, generic CSV, and the AI route below
 - **AI entry (MCP)**: paste an exchange email or a wallet history, or type
   "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant

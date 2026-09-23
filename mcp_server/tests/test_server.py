@@ -177,6 +177,16 @@ async def test_update_and_delete(mcp_client):
         mcp_client, "update_transaction", {"transaction_id": sell_id, "proceeds_usd": "310.00"}
     )
     assert Decimal(updated["proceeds_usd"]) == Decimal("307.00")  # gross minus USD fee
+
+    # The user's 1099-DA says basis was reported for this sale; then undo it
+    updated = await call(
+        mcp_client, "update_transaction", {"transaction_id": sell_id, "broker_reporting": "basis"}
+    )
+    assert updated["broker_reporting"] == "basis"
+    updated = await call(
+        mcp_client, "update_transaction", {"transaction_id": sell_id, "broker_reporting": "automatic"}
+    )
+    assert "broker_reporting" not in updated
     await call(mcp_client, "delete_transaction", {"transaction_id": sell_id})
 
     deleted = await call(mcp_client, "delete_transaction", {"transaction_id": tx_id})

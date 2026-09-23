@@ -120,7 +120,8 @@ def _compact(tx: Dict[str, Any]) -> Dict[str, Any]:
         "to": ACCOUNT_NAMES.get(tx.get("to_account_id"), tx.get("to_account_id")),
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
-                "proceeds_usd", "fmv_usd", "realized_gain_usd", "holding_period"):
+                "proceeds_usd", "fmv_usd", "realized_gain_usd", "holding_period",
+                "broker_reporting"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
@@ -250,10 +251,14 @@ async def update_transaction(
     source: Optional[DepositSource] = None,
     purpose: Optional[WithdrawalPurpose] = None,
     fmv_usd: Optional[Decimal] = None,
+    broker_reporting: Optional[Literal["automatic", "none", "proceeds", "basis"]] = None,
 ) -> Dict[str, Any]:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
     recalculated, so gains on later sales may change. Confirm with the user first.
-    Changing type or accounts requires passing type, from_account and to_account together."""
+    Changing type or accounts requires passing type, from_account and to_account together.
+    broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
+    1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
+    broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic"."""
     changes: Dict[str, Any] = {}
     if date is not None:
         try:
@@ -278,6 +283,8 @@ async def update_transaction(
         changes["source"] = source
     if purpose is not None:
         changes["purpose"] = purpose
+    if broker_reporting is not None:
+        changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
     if not changes:
         raise ToolError("No changes given.")
 

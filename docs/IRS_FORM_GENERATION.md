@@ -121,6 +121,21 @@ Each disposal gets one checkbox letter, from `_broker_reporting()` (is it on a
   breaks the broker's basis chain.
 - From 2025, Boxes C/F exclude digital assets, so self-custody BTC moves to I/L.
 
+**Per-transaction override.** When a real 1099-DA (or, for 2024 and earlier,
+1099-B) disagrees with these rules, the user sets `broker_reporting` on that
+Sell or Spent withdrawal: in the transaction form ("Broker form"), with the
+MCP `update_transaction` tool, or via the API. It replaces
+`_broker_reporting()`'s answer for every disposal of that transaction:
+
+| `broker_reporting` | 2024 and earlier | 2025+ |
+|---|---|---|
+| `none` (not on a broker form) | C / F | I / L |
+| `proceeds` (basis not reported) | B / E | H / K |
+| `basis` (proceeds and basis) | A / D | G / J |
+| NULL (default) | rules above | rules above |
+
+Network-fee disposals belong to a Transfer and can't be overridden.
+
 **One box per sheet.** Each Part of a Form 8949 page can have only one box
 checked. `_chunks_by_box()` groups rows by box before cutting pages, so (for
 example) H sales and I spends go on separate sheets.

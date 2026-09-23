@@ -40,8 +40,8 @@ def _fill_without_flatten(template: str, field_data: dict) -> dict:
     return PdfReader(io.BytesIO(fill_pdf_form(template, field_data, flatten=False))).get_fields()
 
 
-def _rows(year: int, hp: str, n: int):
-    box = _determine_box(hp, False, year)
+def _rows(year: int, hp: str, n: int, box: str = None):
+    box = box or _determine_box(hp, False, year)
     return [
         Form8949Row(
             description=f"0.00{i:02d} BTC", date_acquired="01/15/2020",
@@ -102,6 +102,20 @@ def test_form_8949_checks_exactly_the_right_box(year):
         assert len(checked) == 1, f"{year} Part {page}: checked boxes = {checked}"
         expected = part_boxes.index(_determine_box(hp, False, year))
         assert checked[0].endswith(f"c{page}_1[{expected}]"), checked
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_every_box_letter_checks_its_own_widget(year):
+    """All boxes the form defines, not just the defaults: a 1099-DA override
+    (transactions.broker_reporting) can select any of them."""
+    config = get_8949_field_config(year)
+    for page, part_boxes, hp in ((1, config["boxes_part1"], "SHORT"), (2, config["boxes_part2"], "LONG")):
+        for index, box in enumerate(part_boxes):
+            field_data = map_8949_rows_to_field_data(_rows(year, hp, 1, box=box), page=page, year=year)
+            filled = _fill_without_flatten(get_template_path(year, "f8949.pdf"), field_data)
+            checked = [k for k, v in filled.items()
+                       if f"Page{page}[0].c{page}_1" in k and v.get("/V") not in (None, "/Off")]
+            assert len(checked) == 1 and checked[0].endswith(f"c{page}_1[{index}]"), (year, box, checked)
 
 
 @pytest.mark.parametrize("year", YEARS)

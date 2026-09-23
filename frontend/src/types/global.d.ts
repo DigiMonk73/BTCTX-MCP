@@ -185,6 +185,7 @@ declare global {
 
     // NEW: For Sell transactions, store gross proceeds typed by the user
     gross_proceeds_usd?: string | number; // <-- ADDED
+    broker_reporting?: BrokerReporting | null;
   }
 
   /**
@@ -213,6 +214,7 @@ declare global {
 
     // NEW: For Sell transactions, store gross proceeds typed by the user
     gross_proceeds_usd?: number; // <-- ADDED
+    broker_reporting?: BrokerReporting | null;
   }
 
   type SortMode = "TIMESTAMP_DESC" | "CREATION_DESC";
@@ -242,6 +244,7 @@ declare global {
 
     // NEW: For Sell transactions
     gross_proceeds_usd?: number; // <-- ADDED
+    broker_reporting?: BrokerReporting | null;
   }
 
   /**
@@ -268,6 +271,8 @@ declare global {
 
   type DepositSource = "N/A" | "MyBTC" | "Gift" | "Income" | "Interest" | "Reward";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
+  // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
+  type BrokerReporting = "none" | "proceeds" | "basis";
   type Currency = "USD" | "BTC";
 
   interface TransactionFormData {
@@ -302,6 +307,8 @@ declare global {
 
     // NEW: For Sell transactions, the user's typed gross proceeds
     grossProceedsUSD?: number; // <-- ADDED
+    // Form 1099-DA override; "" = automatic
+    brokerReporting?: BrokerReporting | "";
   }
 
   // Optional global props for TransactionForm if you want them globally

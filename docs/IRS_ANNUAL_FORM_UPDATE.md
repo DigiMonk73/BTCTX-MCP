@@ -236,10 +236,9 @@ Revisit them if any of these happens:
   means (read the box captions);
 - the broker regulations change the covered-asset start date or what counts as
   covered;
-- the 1099-DA you receive doesn't match what the app produced. For a
-  systematic difference, change `_broker_reporting()`. There is no
-  per-transaction override yet (it needs a schema migration; see
-  `docs/ROADMAP.md`).
+- the 1099-DA you receive doesn't match what the app produced. For one or a
+  few sales, set the transaction's "Broker form" (`broker_reporting`); for a
+  systematic difference, change `_broker_reporting()`.
 
 ---
 

@@ -35,3 +35,12 @@ ACCOUNT_NAME_TO_ID = {
     "usd fees": ACCOUNT_USD_FEES,
     "external": ACCOUNT_EXTERNAL,
 }
+
+# What a broker reported for a disposal on Form 1099-DA / 1099-B, set per
+# transaction to override the default rules in form_8949._broker_reporting:
+#   none      not on any broker form        -> Form 8949 box C/F (2024-), I/L (2025+)
+#   proceeds  proceeds only, basis not reported -> B/E, H/K
+#   basis     proceeds and basis reported   -> A/D, G/J
+BROKER_REPORTING_VALUES = ("none", "proceeds", "basis")
+# Only disposals the user initiates at a broker can carry an override.
+BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")

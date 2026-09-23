@@ -34,6 +34,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
+    BROKER_REPORTING_TYPES,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     # 2 & 3) Validate transaction type and fee rules
     _enforce_transaction_type_rules(tx_data, db)
     _enforce_fee_rules(tx_data, db)
+    _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
 
     # 4) Insert Transaction
@@ -100,6 +102,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         timestamp=tx_data.get("timestamp", now_utc),
         source=tx_data.get("source"),
         purpose=tx_data.get("purpose"),
+        broker_reporting=tx_data.get("broker_reporting"),
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
         # If the front end sends gross_proceeds_usd
@@ -204,6 +207,11 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         tx.source = tx_data["source"]
     if "purpose" in tx_data:
         tx.purpose = tx_data["purpose"]
+    if "broker_reporting" in tx_data:
+        _enforce_broker_reporting(tx_data.get("type", tx.type), tx_data["broker_reporting"])
+        tx.broker_reporting = tx_data["broker_reporting"]
+    elif tx.type not in BROKER_REPORTING_TYPES:
+        tx.broker_reporting = None  # type changed away from Sell/Withdrawal
     if "cost_basis_usd" in tx_data:
         tx.cost_basis_usd = tx_data["cost_basis_usd"]
     if "proceeds_usd" in tx_data:
@@ -1071,6 +1079,15 @@ def _verify_double_entry_balance_for_internal(tx: Transaction, db: Session):
                 status_code=400,
                 detail=f"Ledger not balanced for {currency}: {total}"
             )
+
+
+def _enforce_broker_reporting(tx_type, value) -> None:
+    """A 1099-DA override only makes sense on a Sell or Withdrawal."""
+    if value is not None and tx_type not in BROKER_REPORTING_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"broker_reporting can only be set on a Sell or Withdrawal, not a {tx_type}.",
+        )
 
 
 def _enforce_fee_rules(tx_data: dict, db: Session):

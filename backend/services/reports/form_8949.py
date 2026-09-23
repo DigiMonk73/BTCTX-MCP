@@ -179,6 +179,9 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> Tuple[bo
     The acquisition date is taken in the tax timezone, matching column (b).
     """
     tx = disp.transaction
+    if tx is not None and tx.broker_reporting:
+        # The user recorded what the broker actually reported: that wins.
+        return tx.broker_reporting != "none", tx.broker_reporting == "basis"
     if year < 2025 or tx is None or tx.type != "Sell" or tx.from_account_id != ACCOUNT_EXCHANGE_BTC:
         return False, False
     lot = disp.lot
@@ -199,8 +202,8 @@ def _determine_box(holding_period: str, basis_reported: bool, year: int,
     """
     Which Form 8949 checkbox applies to a BTC disposal.
 
-    Through 2024, crypto used the general boxes: A/C (short), D/F (long)
-    (A/D only when a 1099-B reported basis).
+    Through 2024, crypto used the general boxes: A/D on a 1099-B with basis,
+    B/E on a 1099-B without basis, C/F not on a 1099-B.
     From 2025 the form has digital-asset boxes and Box C/F exclude them:
       G / J  on a 1099-DA, basis reported
       H / K  on a 1099-DA, basis NOT reported (every 2025 exchange sale)
@@ -213,8 +216,10 @@ def _determine_box(holding_period: str, basis_reported: bool, year: int,
                 return "J" if long_term else "G"
             return "K" if long_term else "H"
         return "L" if long_term else "I"
-    if basis_reported:
-        return "D" if long_term else "A"
+    if broker_reported:
+        if basis_reported:
+            return "D" if long_term else "A"
+        return "E" if long_term else "B"
     return "F" if long_term else "C"
 
 

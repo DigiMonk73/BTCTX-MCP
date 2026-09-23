@@ -78,6 +78,14 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   someone else (Withdrawal + purpose) - never guess this.
 - Paid in BTC -> Deposit/Income. Exchange interest -> Deposit/Interest.
 
+## Broker forms (Form 1099-DA / 1099-B)
+By default the app assumes: exchange Sells are on a 1099-DA with proceeds only
+(2025), or with basis too for lots bought on the exchange from 2026 on; spends
+from self-custody and network fees are on no broker form. When the user has
+the actual 1099-DA and it differs for a sale, set broker_reporting on that
+transaction with update_transaction ("none", "proceeds", "basis", or
+"automatic" to undo). It only changes which Form 8949 box the sale lands in.
+
 ## Workflow (always)
 1. Parse the input into rows. Ask about anything tax-relevant you cannot
    determine (own wallet vs third party, gift vs payment, funding source,

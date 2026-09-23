@@ -169,3 +169,71 @@ def test_covered_cutoff_uses_tax_timezone_date():
         assert [(r["box"], r["date_acquired"]) for r in rows] == [("H", "12/31/2025")]
     finally:
         CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+
+
+# ---------------------------------------------------------------------------
+# Per-transaction override (transactions.broker_reporting, migration 0003)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("override, expected", [
+    (None, "H"), ("basis", "G"), ("proceeds", "H"), ("none", "I"),
+])
+def test_2025_sale_override(override, expected):
+    buy("2025-01-10")
+    s = tx(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=EXCHANGE_BTC,
+           to_account_id=EXCHANGE_USD, amount="0.1", gross_proceeds_usd="1000.00",
+           broker_reporting=override)
+    assert s["broker_reporting"] == override
+    assert boxes(report(2025)["short_term"]) == [expected]
+
+
+@pytest.mark.parametrize("override, short_box, long_box", [
+    (None, "C", "F"), ("proceeds", "B", "E"), ("basis", "A", "D"), ("none", "C", "F"),
+])
+def test_2024_override_uses_1099b_boxes(override, short_box, long_box):
+    buy("2022-06-01", amount="0.5")          # long-term lot
+    buy("2024-01-10", amount="0.5")          # short-term lot
+    for date in ("2024-03-01", "2024-04-01"):  # FIFO: first takes the 2022 lot, then the 2024 one
+        tx(type="Sell", timestamp=f"{date}T12:00:00Z", from_account_id=EXCHANGE_BTC,
+           to_account_id=EXCHANGE_USD, amount="0.5", gross_proceeds_usd="1000.00",
+           broker_reporting=override)
+    data = report(2024)
+    assert (boxes(data["short_term"]), boxes(data["long_term"])) == ([short_box], [long_box])
+
+
+def test_self_custody_spend_can_be_marked_broker_reported():
+    buy("2025-01-10")
+    to_wallet("2025-03-01", "0.5")
+    w = spend("2025-04-01", "0.1")
+    assert "I" in boxes(report(2025)["short_term"])
+    r = CLIENT.put(f"/api/transactions/{w['id']}", json={"broker_reporting": "proceeds"})
+    assert r.status_code == 200, r.text
+    assert boxes(report(2025)["short_term"]) == ["H", "I"]      # spend -> H, fee stays I
+    r = CLIENT.put(f"/api/transactions/{w['id']}", json={"broker_reporting": None})
+    assert r.status_code == 200 and r.json()["broker_reporting"] is None
+    assert boxes(report(2025)["short_term"]) == ["I"]          # back to automatic
+
+
+def test_override_rejected_on_other_types_and_bad_values():
+    r = CLIENT.post("/api/transactions", json=dict(
+        type="Deposit", timestamp="2025-01-01T12:00:00Z", from_account_id=EXTERNAL,
+        to_account_id=BANK, amount="100", fee_amount="0", fee_currency="USD",
+        source="N/A", broker_reporting="basis"))
+    assert r.status_code == 400 and "Sell or Withdrawal" in r.text
+    buy("2025-01-10")
+    r = CLIENT.post("/api/transactions", json=dict(
+        type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=EXCHANGE_BTC,
+        to_account_id=EXCHANGE_USD, amount="0.1", gross_proceeds_usd="1000.00",
+        broker_reporting="maybe"))
+    assert r.status_code == 422
+
+
+def test_changing_type_away_from_withdrawal_clears_the_override():
+    buy("2025-01-10")
+    to_wallet("2025-03-01", "0.5")
+    w = spend("2025-04-01", "0.1")
+    CLIENT.put(f"/api/transactions/{w['id']}", json={"broker_reporting": "none"})
+    r = CLIENT.put(f"/api/transactions/{w['id']}", json={
+        "type": "Transfer", "from_account_id": WALLET, "to_account_id": EXCHANGE_BTC, "fee_amount": "0", "fee_currency": "BTC",
+        "purpose": None, "proceeds_usd": None})
+    assert r.status_code == 200, r.text
+    assert r.json()["broker_reporting"] is None

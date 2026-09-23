@@ -97,13 +97,19 @@ def test_second_start_changes_nothing(tmp_path):
 # ---------------------------------------------------------------------------
 # Adopting databases from before migrations
 # ---------------------------------------------------------------------------
+def old_columns(table: str) -> str:
+    return ", ".join(row[1] for row in q(FIXTURE, f"PRAGMA table_info({table})"))
+
+
 def test_v0_7_0_database_is_backed_up_adopted_and_usable(v070):
-    before = q(v070, "SELECT * FROM transactions ORDER BY id")
+    cols = old_columns("transactions")
+    before = q(v070, f"SELECT {cols} FROM transactions ORDER BY id")
     result = init_db(engine_for(v070))
 
     assert result.adopted and result.repairs == []
     assert q(v070, "SELECT version_num FROM alembic_version") == [(head_revision(),)]
-    assert q(v070, "SELECT * FROM transactions ORDER BY id") == before
+    assert q(v070, f"SELECT {cols} FROM transactions ORDER BY id") == before
+    assert q(v070, "SELECT DISTINCT broker_reporting FROM transactions") == [(None,)]  # 0003
     # the backup is the untouched v0.7.0 file
     assert result.backup.parent == v070.parent / "backups"
     assert oct(result.backup.stat().st_mode & 0o777) == "0o600"
@@ -145,8 +151,8 @@ def test_pre_2026_database_gets_its_missing_indexes(v070):
 
     result = init_db(engine_for(v070))
     assert sorted(result.repairs) == sorted(f"created index {n}" for n in FK_INDEXES)
-    after = schema(v070)
-    assert {k: after[k] for k in schema(FIXTURE)} == schema(FIXTURE)
+    after, original = schema(v070), schema(FIXTURE)
+    assert {n: after[n] for n in FK_INDEXES} == {n: original[n] for n in FK_INDEXES}
 
 
 def test_missing_nullable_columns_are_added_and_data_kept(v070):

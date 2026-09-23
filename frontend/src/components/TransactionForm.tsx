@@ -91,6 +91,7 @@ function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
 
     // NEW: GROSS PROCEEDS FOR SELL
     grossProceedsUSD: tx.gross_proceeds_usd ?? 0,
+    brokerReporting: tx.broker_reporting ?? "",
   };
 
   // Helper to convert account_id => "Bank", "Wallet", "Exchange", etc.
@@ -218,6 +219,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       // NEW: Initialize "grossProceedsUSD"
       grossProceedsUSD: 0,
+      brokerReporting: "",
 
       // Default for Buy transactions: Exchange USD
       buyFromAccount: "Exchange",
@@ -263,6 +265,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         proceeds_usd: 0,
         fmv_usd: 0,
         grossProceedsUSD: 0,
+        brokerReporting: "",
         buyFromAccount: "Exchange",
       });
       setCurrentType("");
@@ -361,6 +364,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       proceeds_usd: 0,
       fmv_usd: 0,
       grossProceedsUSD: 0,
+      brokerReporting: "",
       buyFromAccount: "Exchange",
     });
   };
@@ -479,6 +483,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           break;
       }
 
+      // Form 1099-DA override: only sales and BTC spends reach a broker form
+      const brokerApplies =
+        data.type === "Sell" ||
+        (data.type === "Withdrawal" && data.currency === "BTC" && data.purpose === "Spent");
+      const broker_reporting =
+        brokerApplies && data.brokerReporting ? data.brokerReporting : null;
+
       // 5) Build payload
       const payload: Omit<ICreateTransactionPayload, "is_locked"> = {
         type: data.type,
@@ -494,6 +505,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         fmv_usd,
         source,
         purpose,
+        broker_reporting,
       };
 
       if (transactionId) {
@@ -581,6 +593,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
    * Renders form controls for each transaction type.
    * // NEW: For "Sell" we show "Gross Proceeds (USD)" instead of "Amount USD"
    */
+  // Form 1099-DA override (Sell, and Spent BTC withdrawals)
+  const renderBrokerReportingField = () => (
+    <div className="form-group">
+      <label>Broker form (1099-DA / 1099-B):</label>
+      <select className="form-control" {...register("brokerReporting")}>
+        <option value="">Automatic</option>
+        <option value="none">Not on a broker form</option>
+        <option value="proceeds">Proceeds only (no basis)</option>
+        <option value="basis">Proceeds and basis</option>
+      </select>
+      <small className="form-hint">
+        Picks the Form 8949 box. Leave on Automatic unless the form your broker
+        sent says otherwise.
+      </small>
+    </div>
+  );
+
   const renderDynamicFields = () => {
     switch (currentType) {
       case "Deposit": {
@@ -820,6 +849,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     </div>
                   )}
                 </div>
+
+                {purposeVal === "Spent" && renderBrokerReportingField()}
 
                 {/* FMV for Gift/Donation/Lost */}
                 {isSpecialPurpose && (
@@ -1115,6 +1146,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 {...register("fee", { valueAsNumber: true })}
               />
             </div>
+
+            {renderBrokerReportingField()}
           </>
         );
       }

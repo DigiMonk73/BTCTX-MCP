@@ -178,6 +178,15 @@ class Transaction(Base):
         nullable=True,
         doc="(Optional) withdrawal purpose, e.g. 'Spent', 'Donation'"
     )
+    broker_reporting = Column(
+        String,
+        nullable=True,
+        doc=(
+            "What the broker actually reported on Form 1099-DA/1099-B for this "
+            "Sell or Withdrawal: 'none', 'proceeds' or 'basis'. NULL = decide "
+            "automatically (form_8949._broker_reporting)."
+        ),
+    )
 
     # -------------------------------------------------------------------
     # RELATIONSHIPS

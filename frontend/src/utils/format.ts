@@ -114,6 +114,7 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     external_ref: rawTx.external_ref ?? undefined,
     source: rawTx.source ?? undefined,
     purpose: rawTx.purpose ?? undefined,
+    broker_reporting: rawTx.broker_reporting ?? null,
     fee_currency: rawTx.fee_currency ?? undefined,
     created_at: rawTx.created_at ?? undefined,
     updated_at: rawTx.updated_at ?? undefined,
