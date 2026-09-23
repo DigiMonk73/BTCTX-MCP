@@ -58,8 +58,11 @@ fi
 
 if $PUSH; then
   git -C "$DIR" push origin "HEAD:$BRANCH"
-  git -C "$DIR" push origin "refs/tags/$TAG" || echo "warning: couldn't push tag $TAG" >&2
-  echo "Pushed $BRANCH and $TAG."
+  if git -C "$DIR" push origin "refs/tags/$TAG"; then
+    echo "Pushed $BRANCH and $TAG."
+  else
+    echo "Pushed $BRANCH; warning: couldn't push tag $TAG (push it by hand)." >&2
+  fi
 else
   echo "Not pushed. Inspect $DIR, then: git -C $DIR push origin HEAD:$BRANCH $TAG"
 fi
