@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-09-23 - StartOS package in this repo, health check, maintenance CLI
+
 ### StartOS package
 - The StartOS package now lives in this repository (`startos/`, start-sdk
   2.0.9) and is mirrored to DigiMonk73/BTCTX-StartOS. Installs of the old
