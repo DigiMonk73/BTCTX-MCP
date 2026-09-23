@@ -4,6 +4,7 @@ tax year (later activity excluded), valued at the Dec 31 BTC price, and the
 asset summary is the year's real gains — no placeholder numbers.
 """
 
+from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker
 
 from backend.services.reports.reporting_core import generate_report_data
@@ -53,7 +54,42 @@ def test_year_end_snapshot_price_and_asset_summary(auth_client, test_engine):
     # 0.2 BTC: basis 8000, proceeds 12000 -> +4000 (real, not the old placeholder)
     assert summary["profit"] == 4000.0 and summary["loss"] == 0.0 and summary["net"] == 4000.0
 
-    # Live data is intact afterwards (full recalculation restored 2025 sale)
+    # Live data is intact afterwards (the 2025 sale still counts)
     balances = {b["name"]: b["balance"] for b in CLIENT.get("/api/calculations/accounts/balances").json()}
     assert abs(balances["Exchange BTC"] - 0.3) < 1e-9
+    CLIENT.delete("/api/transactions/delete_all")
+
+
+def _ledger_rows():
+    with ENGINE.connect() as conn:
+        return {
+            table: conn.exec_driver_sql(f"SELECT * FROM {table} ORDER BY id").fetchall()
+            for table in ("bitcoin_lots", "lot_disposals", "ledger_entries", "transactions")
+        }
+
+
+def test_building_the_report_does_not_touch_the_ledger(auth_client, test_engine):
+    """Year-boundary snapshots replay on a scratch copy, so building a report
+    writes nothing to the live database (it used to rebuild the whole ledger
+    inside the request, holding the write lock, then throw the result away)."""
+    _setup(auth_client, test_engine)
+    CLIENT.delete("/api/transactions/delete_all")
+    tx(type="Buy", timestamp="2024-01-10T12:00:00Z", from_account_id=1, to_account_id=4,
+       amount="1.0", cost_basis_usd="20000")
+    tx(type="Transfer", timestamp="2024-03-01T12:00:00Z", from_account_id=4, to_account_id=2,
+       amount="0.5", fee_amount="0.0001", fee_currency="BTC")
+    tx(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=4, to_account_id=3,
+       amount="0.2", gross_proceeds_usd="30000.00")
+    before = _ledger_rows()
+    db = sessionmaker(bind=ENGINE)()
+    flushes = []
+    event.listen(db, "after_flush", lambda *args: flushes.append(1))
+    try:
+        data = generate_report_data(db, 2024)
+    finally:
+        db.close()
+    assert flushes == []                      # no writes at all (no ledger rebuild)
+    assert _ledger_rows() == before
+    held = sum(r["quantity"] for r in data["end_of_year_balances"] if r["asset"].startswith("BTC"))
+    assert abs(held - 0.9999) < 1e-9          # 2025 sale excluded, only the fee left
     CLIENT.delete("/api/transactions/delete_all")

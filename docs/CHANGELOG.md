@@ -4,6 +4,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- The complete tax report no longer rebuilds the ledger inside the request
+  to take its start- and end-of-year snapshots (33 writes for a small ledger,
+  holding the database write lock, then discarded). The snapshots replay on
+  an in-memory copy of the database; the report writes nothing.
+
 ## [v0.8.0] - 2026-09-23 - MCP server, schema migrations, tax fixes
 
 ### Distribution

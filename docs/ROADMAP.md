@@ -16,9 +16,8 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       Expected around Dec 2026–Jan 2027.
 - [x] **Schema migrations (Alembic)**: shipped in v0.8.0.
 - [x] **Per-transaction 1099-DA override**: shipped in v0.8.0.
-- [ ] **Reports without side effects.** The complete tax report rebuilds the
-      ledger to snapshot year-end balances; compute them from lots and
-      disposals directly instead.
+- [x] **Reports without side effects**: year-boundary snapshots replay on an
+      in-memory copy of the database.
 - [ ] **Frontend unit tests** (Vitest) for the transaction form's
       field-to-API mapping, the part most likely to regress.
 

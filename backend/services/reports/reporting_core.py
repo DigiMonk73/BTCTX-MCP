@@ -1,11 +1,15 @@
 # FILE: backend/services/reports/reporting_core.py
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, Iterator, List
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
+import sqlite3
 
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 # Models
 from backend.models.transaction import (
@@ -24,40 +28,56 @@ from backend.services.transaction import (
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def _scratch_copy(db: Session) -> Iterator[Session]:
+    """
+    A throwaway in-memory copy of the database. Start/end-of-year snapshots
+    replay the ledger only up to a date; doing that on a copy means building
+    a report never rewrites (or even locks) the real ledger.
+    """
+    memory = sqlite3.connect(":memory:", check_same_thread=False)
+    raw = db.get_bind().raw_connection()
+    try:
+        raw.driver_connection.backup(memory)
+    finally:
+        raw.close()
+    engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
+    scratch = Session(bind=engine)
+    try:
+        yield scratch
+    finally:
+        scratch.close()
+        engine.dispose()
+        memory.close()
+
+
 def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     """
     Generates a comprehensive dictionary of data for the specified tax year (YYYY).
     This data can be passed to PDF generators or any other reporting interface.
 
     Pipeline:
-      1) Temporarily build "start_of_year_balances" by a partial-lot re-lot up to Jan 1,
-         leaving behind leftover BTC from any prior-year transactions.
-      2) Re-run a "scorched earth" re-lot for the entire year (Jan 1 through Dec 31).
-      3) Gather transactions for that year, build capital gains, income, leftover lots, etc.
-      4) Return a single dictionary with all sections.
-
-    This ensures you get an accurate opening BTC balance for Jan 1 and also a
-    fully re-lotted dataset for the entire year’s transactions.
+      1) Start- and end-of-year holdings: replay the ledger up to each year
+         boundary on a throwaway copy of the database (_scratch_copy).
+      2) Everything else reads the live ledger, which every write already
+         keeps fully recalculated. Building a report changes nothing.
     """
     logger.info(f"Begin building report data for tax_year={year}")
 
     # ---------------------------------------------------------
     # 1) Gather beginning-of-year balances (snapshot)
     # ---------------------------------------------------------
-    start_of_year_data = _build_start_of_year_balances(db, year)
     start_dt, end_dt = tax_year_bounds(year, get_tax_timezone(db))
+    with _scratch_copy(db) as scratch:
+        start_of_year_data = _build_start_of_year_balances(scratch, year)
 
     # ---------------------------------------------------------
     # 1b) End-of-year snapshot: replay only transactions before the
     #     year boundary, so later activity doesn't leak into 12/31 holdings
     # ---------------------------------------------------------
-    recalculate_all_transactions(db, until=end_dt)
-    eoy_list = _build_end_of_year_balances(db, year)
-
-    # ---------------------------------------------------------
-    # 2) "Scorched earth" re-lot for the entire history
-    # ---------------------------------------------------------
-    recalculate_all_transactions(db)
+    with _scratch_copy(db) as scratch:
+        recalculate_all_transactions(scratch, until=end_dt)
+        eoy_list = _build_end_of_year_balances(scratch, year)
 
     # ---------------------------------------------------------
     # 3) Filter transactions within that tax year
