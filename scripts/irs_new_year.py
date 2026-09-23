@@ -6,6 +6,7 @@ Add (or check) a tax year's IRS Form 8949 + Schedule D templates.
     python scripts/irs_new_year.py 2026 --check    # verify an already-installed year
     python scripts/irs_new_year.py 2026 --from-dir ~/Downloads   # use PDFs you downloaded
     python scripts/irs_new_year.py --watch         # CI: is a new final form out yet?
+    python scripts/irs_new_year.py --draft         # preview: check the IRS DRAFT forms now
 
 What it verifies (the things that silently break printed forms):
   1. It's the FINAL form for that year, not a draft or another year.
@@ -39,6 +40,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 TEMPLATES = ROOT / "backend" / "assets" / "irs_templates"
 FORMS = {"f8949.pdf": "8949", "f1040sd.pdf": "Schedule D"}
+DRAFT_URL = "https://www.irs.gov/pub/irs-dft/{stem}--dft.pdf"
 URLS = [
     "https://www.irs.gov/pub/irs-prior/{stem}--{year}.pdf",  # archive: unambiguous year
     "https://www.irs.gov/pub/irs-pdf/{stem}.pdf",            # current filing season
@@ -90,7 +92,7 @@ def field_names(path: Path) -> set[str]:
     return set((PdfReader(str(path)).get_fields() or {}).keys())
 
 
-def verify(year: int, folder: Path) -> bool:
+def verify(year: int, folder: Path, draft: bool = False) -> bool:
     from backend.services.reports.form_8949 import (
         Form8949Row, _determine_box, get_8949_field_config,
         map_8949_rows_to_field_data, map_schedule_d_fields,
@@ -103,7 +105,8 @@ def verify(year: int, folder: Path) -> bool:
         if not say(path.exists(), f"{label} template present ({name})"):
             return False
         ok &= say(form_year(path) == year, f"{label} is the {year} revision (form says {form_year(path)})")
-        ok &= say(not is_draft(path), f"{label} is final, not a draft")
+        if not draft:
+            ok &= say(not is_draft(path), f"{label} is final, not a draft")
 
     config = get_8949_field_config(year)
     tpl = field_names(folder / "f8949.pdf")
@@ -129,11 +132,42 @@ def verify(year: int, folder: Path) -> bool:
 
     prev = [y for y in sorted(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit()) if y < year]
     if prev:
-        before = field_names(TEMPLATES / str(prev[-1]) / "f8949.pdf")
-        added, removed = len(tpl - before), len(before - tpl)
-        print(f"  • 8949 field names vs {prev[-1]}: {added} added, {removed} removed"
-              + (" (identical layout)" if not added and not removed else " — review the diff"))
+        for name, label in FORMS.items():
+            new = field_names(folder / name)
+            before = field_names(TEMPLATES / str(prev[-1]) / name)
+            added, removed = sorted(new - before), sorted(before - new)
+            print(f"  • {label} field names vs {prev[-1]}: {len(added)} added, {len(removed)} removed"
+                  + (" (identical layout)" if not added and not removed else " — review the diff"))
+            if draft:
+                for tag, names in (("+", added), ("-", removed)):
+                    for n in names[:25]:
+                        print(f"      {tag} {n}")
     return ok
+
+
+def draft_check() -> int:
+    """Informational: run every check against the IRS's current DRAFT forms."""
+    have = max(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit())
+    with tempfile.TemporaryDirectory() as d:
+        folder = Path(d)
+        for name in FORMS:
+            url = DRAFT_URL.format(stem=name[:-4])
+            try:
+                with urllib.request.urlopen(url, timeout=60) as r, open(folder / name, "wb") as f:
+                    f.write(r.read())
+            except Exception as e:
+                print(f"  ✗ couldn't download {url}: {e}")
+                return 0
+        year = form_year(folder / "f8949.pdf")
+        sd_year = form_year(folder / "f1040sd.pdf")
+        print(f"IRS drafts on irs.gov: Form 8949 for {year}, Schedule D for {sd_year} (latest bundled: {have})")
+        if not year or year <= have:
+            print("No draft newer than the bundled forms; nothing to preview.")
+            return 0
+        print(f"\nChecking the {year} DRAFT against the app (drafts can still change)")
+        ok = verify(year, folder, draft=True)
+        print(f"\n{'✓ The app already fits the draft.' if ok else '✗ Differences above need a config change when the final form ships.'}")
+    return 0
 
 
 def watch() -> int:
@@ -154,9 +188,12 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="verify the installed templates only")
     ap.add_argument("--from-dir", type=Path, help="use f8949.pdf / f1040sd.pdf from this folder")
     ap.add_argument("--watch", action="store_true", help="CI: fail if a new final year is available")
+    ap.add_argument("--draft", action="store_true", help="preview: check the IRS draft forms (installs nothing)")
     a = ap.parse_args()
     if a.watch:
         return watch()
+    if a.draft:
+        return draft_check()
     if not a.year:
         ap.error("year is required")
 

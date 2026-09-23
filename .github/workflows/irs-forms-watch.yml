@@ -3,10 +3,17 @@ name: IRS forms watch
 # Weekly during tax-form season: fails (GitHub emails the repo owner) once
 # irs.gov publishes FINAL Form 8949 + Schedule D for a year the app doesn't
 # bundle yet. Then run: python scripts/irs_new_year.py <year>
+# It also previews the current IRS DRAFT forms against the app's field map
+# (log only), so layout changes show up months before the final release.
 on:
   schedule:
     - cron: "0 14 * 11,12,1,2,3 1"   # Mondays 14:00 UTC, Nov–Mar
   workflow_dispatch:
+  push:
+    paths:
+      - scripts/irs_new_year.py
+      - .github/workflows/irs-forms-watch.yml
+      - backend/services/reports/form_8949.py
 
 permissions:
   contents: read
@@ -20,5 +27,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r backend/requirements.txt
+      - name: Preview the IRS draft forms (informational)
+        run: python scripts/irs_new_year.py --draft
       - name: Check irs.gov for new final forms
         run: python scripts/irs_new_year.py --watch
