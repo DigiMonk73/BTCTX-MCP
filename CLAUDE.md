@@ -530,6 +530,12 @@ docker run -p 80:80 -v btctx-data:/data btctx
 
 > See [docs/STARTOS_COMPATIBILITY.md](docs/STARTOS_COMPATIBILITY.md) for full multi-arch build requirements.
 
+### Testing — see docs/TESTING.md (current source of truth)
+`make hooks` once; `make test-fast` / `make smoke` / `make check`. Suite is hermetic
+(conftest stubs BTC prices session-wide; no live server needed — the old
+TestAuthEndpoints live-server tests now use TestClient). CI: .github/workflows/ci.yml.
+The notes below predate this and are kept for history.
+
 ### Pytest Suite (IMPORTANT)
 
 **Tests are fully isolated** — they use FastAPI `TestClient` with a temporary SQLite database via `app.dependency_overrides[get_db]`. No running backend required, and the production database is never touched.

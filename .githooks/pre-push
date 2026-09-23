@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# BitcoinTX pre-push gate: blocks the push if anything fails.
+# Install once with:  make hooks      (or: git config core.hooksPath .githooks)
+# Skip in an emergency: git push --no-verify
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+PY="${BTCTX_PYTHON:-}"
+if [ -z "$PY" ]; then
+  for c in desktop/.venv/bin/python .venv/bin/python python3; do
+    if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then PY="$c"; break; fi
+  done
+fi
+
+step() { printf "\n\033[1m▶ %s\033[0m\n" "$1"; }
+fail() { printf "\n\033[31m✗ pre-push failed: %s\033[0m\n  (fix it, or bypass with: git push --no-verify)\n" "$1"; exit 1; }
+
+[ -d frontend/dist ] || mkdir -p frontend/dist   # app mounts it at import time
+
+step "Lint (bug-level Python checks)"
+"$PY" -m ruff check . || fail "ruff"
+
+step "Python tests (fast set; CI also runs the slow stress tests)"
+"$PY" -m pytest -m "not slow" -q -x -p no:cacheprovider || fail "pytest"
+
+step "Smoke test (real server, temp database)"
+"$PY" scripts/smoke_test.py || fail "smoke test"
+
+if [ -d frontend/node_modules ]; then
+  step "Frontend lint + type check"
+  (cd frontend && npm run lint --silent && npx tsc -b) || fail "frontend"
+else
+  printf "\n– Frontend checks skipped (run 'npm ci' in frontend/ to enable)\n"
+fi
+
+printf "\n\033[32m✓ All pre-push checks passed\033[0m\n"

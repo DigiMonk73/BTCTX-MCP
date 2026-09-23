@@ -292,6 +292,7 @@ def wallet_inventory(clean_db):
 # CLASS 1: VOLUME/STRESS TESTS
 # =============================================================================
 
+@pytest.mark.slow
 class TestVolumeStress:
     """Volume and stress testing for transaction handling and FIFO integrity."""
 

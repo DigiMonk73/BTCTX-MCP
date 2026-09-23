@@ -25,6 +25,38 @@ from backend.models.transaction import (      # noqa: F401
 
 LOGIN_CREDS = {"username": "admin", "password": "password"}
 
+# Deterministic BTC prices for the whole test session. Tests must never depend
+# on CoinGecko/Kraken/CoinDesk being reachable (CI runners, offline laptops).
+# Individual tests can still monkeypatch their own values on top.
+# Set BTCTX_LIVE_PRICES=1 to exercise the real price APIs.
+STUB_HISTORICAL_USD = 50000.0
+STUB_CURRENT_USD = 60000.0
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _stub_price_apis():
+    if os.environ.get("BTCTX_LIVE_PRICES") == "1":
+        yield
+        return
+
+    async def historical(date: str):
+        return {"USD": STUB_HISTORICAL_USD}
+
+    async def current():
+        return {"USD": STUB_CURRENT_USD}
+
+    import backend.services.bitcoin as bitcoin
+    import backend.routers.river_import as river_router
+    import backend.services.entry_import as entry_import
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(bitcoin, "get_historical_price", historical)
+        mp.setattr(bitcoin, "get_current_price", current)
+        # Modules that imported the function by name
+        mp.setattr(river_router, "get_historical_price", historical)
+        mp.setattr(entry_import, "get_historical_price", historical)
+        yield
+
 
 def _seed_test_db(engine):
     """Seed admin user and 6 core accounts (mirrors database.create_tables)."""
@@ -79,7 +111,7 @@ def test_engine():
 
 
 @pytest.fixture(scope="session")
-def auth_client(test_engine):
+def auth_client(test_engine, _stub_price_apis):
     """Authenticated TestClient using an isolated test database."""
     TestSessionLocal = sessionmaker(bind=test_engine)
 

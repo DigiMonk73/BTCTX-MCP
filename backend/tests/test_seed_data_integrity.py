@@ -71,15 +71,25 @@ def _ensure_test_data_exists(client, db):
         "proceeds_usd": "15000",
     })
 
-    # Refresh database session to see new data
-    db.expire_all()
+    # End the session's read transaction so it sees the API's writes
+    # (expire_all alone keeps SQLite's pre-seed snapshot)
+    db.rollback()
 
 
 @pytest.fixture(scope="module")
-def db_session(auth_client, test_db):
-    """Provide a database session with test data."""
-    _ensure_test_data_exists(auth_client, test_db)
-    yield test_db
+def db_session(auth_client, test_engine):
+    """
+    Provide a FRESH database session with test data. The shared session-scoped
+    test_db can hold stale identity-map rows from other modules (ledger IDs are
+    reused after delete/re-lot), which made balances read as zero.
+    """
+    from sqlalchemy.orm import sessionmaker
+    db = sessionmaker(bind=test_engine)()
+    try:
+        _ensure_test_data_exists(auth_client, db)
+        yield db
+    finally:
+        db.close()
 
 
 # ----------------------------

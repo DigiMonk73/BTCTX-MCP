@@ -1,0 +1,164 @@
+name: CI
+
+# Every push and pull request: lint, full Python suite, MCP tests, frontend,
+# end-to-end smoke test, Docker image + container smoke, dependency audit.
+# The macOS app build (10x-cost runner minutes) runs on pushes to main and
+# on demand from the Actions tab.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python tests (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11"]   # 3.10 = oldest supported, 3.11 = Docker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install pdftk (IRS form tests)
+        run: sudo apt-get update -q && sudo apt-get install -y -q pdftk-java
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+      - name: Lint (bug-level)
+        run: ruff check .
+      - name: Static compatibility checks
+        run: python backend/tests/pre_commit_tests.py --no-api
+      - name: Full test suite (incl. slow stress tests)
+        run: |
+          mkdir -p frontend/dist
+          pytest -q --durations=10
+
+  frontend:
+    name: Frontend lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - name: Type check + production build
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 3
+
+  smoke:
+    name: End-to-end smoke test
+    needs: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: sudo apt-get update -q && sudo apt-get install -y -q pdftk-java
+      - run: pip install -r backend/requirements.txt
+      - run: python scripts/smoke_test.py
+
+  docker:
+    name: Docker image + container smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t btctx:ci .
+      - name: Run container (throwaway volume)
+        run: |
+          docker run -d --name btctx -p 8080:80 btctx:ci
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:8080/ && exit 0
+            sleep 2
+          done
+          docker logs btctx; exit 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install httpx
+      - name: Smoke test the container (live prices)
+        run: python scripts/smoke_test.py --url http://127.0.0.1:8080
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs btctx
+
+  audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      # PYSEC-2026-1845: pytest tmpdir issue, test-only (see docs/MAINTENANCE.md)
+      - run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2026-1845
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cd frontend && npm audit --audit-level=high
+
+  macos-app:
+    name: macOS app build + launch check
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: [python, frontend]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build BitcoinTX.app
+        run: ./desktop/build-mac.sh
+      - name: Launch the bundled app and check its API answers on :8765
+        run: |
+          APP=desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
+          test -x "$APP"
+          "$APP" > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8765/api/import/entries/preview -H 'content-type: application/json' -d '{"rows":[]}')
+              echo "entries endpoint (anonymous) -> $code"; test "$code" = "401"
+              pkill -f BitcoinTX.app || true
+              exit 0
+            fi
+            sleep 2
+          done
+          cat app.log; cat ~/Library/Logs/BitcoinTX/*.log 2>/dev/null || true; exit 1
+      - name: Zip the app (keeps symlinks/permissions macOS needs)
+        run: ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BitcoinTX-macOS
+          path: BitcoinTX-macOS.zip
+          retention-days: 7

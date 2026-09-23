@@ -1,0 +1,5 @@
+# Test/CI tooling (not shipped in the app). Install with:
+#   pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+ruff==0.16.8
+pip-audit==2.10.1
+anyio>=4

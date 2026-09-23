@@ -25,7 +25,6 @@ from __future__ import annotations
 import sys
 import bcrypt
 import pytest
-import requests
 from pathlib import Path
 
 # Add backend to path for imports
@@ -160,20 +159,25 @@ class TestPasswordHashing:
 # INTEGRATION TESTS - Auth Endpoints
 # =============================================================================
 
-BASE_URL = "http://127.0.0.1:8000"
 
 class TestAuthEndpoints:
     """Test the authentication API endpoints."""
 
     @pytest.fixture
-    def session(self):
-        """Create a requests session for maintaining cookies."""
-        return requests.Session()
+    def session(self, auth_client):
+        """
+        A fresh, logged-out client (own cookie jar) against the isolated test
+        app — no live server on :8000 needed. auth_client ensures the temp-DB
+        override and seeded admin user are in place.
+        """
+        from fastapi.testclient import TestClient
+        from backend.main import app
+        return TestClient(app)
 
     def test_login_success(self, session):
         """Test successful login with correct credentials."""
         response = session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "admin", "password": "password"}
         )
 
@@ -185,7 +189,7 @@ class TestAuthEndpoints:
     def test_login_wrong_password(self, session):
         """Test login with wrong password."""
         response = session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "admin", "password": "wrongpassword"}
         )
 
@@ -194,7 +198,7 @@ class TestAuthEndpoints:
     def test_login_nonexistent_user(self, session):
         """Test login with non-existent username."""
         response = session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "nonexistent", "password": "password"}
         )
 
@@ -204,52 +208,52 @@ class TestAuthEndpoints:
         """Test that logout clears the session."""
         # First login
         login_response = session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "admin", "password": "password"}
         )
         assert login_response.status_code == 200
 
         # Access protected endpoint (should work)
-        protected_response = session.get(f"{BASE_URL}/api/backup/csv")
+        protected_response = session.get("/api/backup/csv")
         assert protected_response.status_code == 200
 
         # Logout
-        logout_response = session.post(f"{BASE_URL}/api/logout")
+        logout_response = session.post("/api/logout")
         assert logout_response.status_code == 200
 
         # Access protected endpoint again (should fail)
-        protected_response = session.get(f"{BASE_URL}/api/backup/csv")
+        protected_response = session.get("/api/backup/csv")
         assert protected_response.status_code == 401
 
     def test_session_persistence(self, session):
         """Test that session persists across requests."""
         # Login
         session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "admin", "password": "password"}
         )
 
         # Multiple requests should maintain auth
         for _ in range(3):
-            response = session.get(f"{BASE_URL}/api/backup/csv")
+            response = session.get("/api/backup/csv")
             assert response.status_code == 200
 
-    def test_protected_endpoint_without_auth(self):
+    def test_protected_endpoint_without_auth(self, session):
         """Test that protected endpoints require authentication."""
         # Fresh session without login
-        response = requests.get(f"{BASE_URL}/api/backup/csv")
+        response = session.get("/api/backup/csv")
         assert response.status_code == 401
 
     def test_protected_endpoint_with_auth(self, session):
         """Test that protected endpoints work with authentication."""
         # Login first
         session.post(
-            f"{BASE_URL}/api/login",
+            "/api/login",
             json={"username": "admin", "password": "password"}
         )
 
         # Now access protected endpoint
-        response = session.get(f"{BASE_URL}/api/backup/csv")
+        response = session.get("/api/backup/csv")
         assert response.status_code == 200
 
 
@@ -352,13 +356,4 @@ def run_tests():
 
 
 if __name__ == "__main__":
-    # Check if backend is running for integration tests
-    try:
-        requests.get(f"{BASE_URL}/api/accounts/", timeout=2)
-        print("Backend is running - will run all tests including integration tests")
-    except requests.exceptions.ConnectionError:
-        print("Backend not running - will only run unit tests")
-        print("Start backend with: uvicorn backend.main:app --port 8000")
-        print()
-
     sys.exit(run_tests())
