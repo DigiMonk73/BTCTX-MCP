@@ -123,7 +123,7 @@ all Pyflakes rules and ESLint with zero warnings.
 1. Update `docs/CHANGELOG.md` (move Unreleased to a version), bump the version
    in `desktop/BitcoinTX.spec` and `desktop/build-mac.sh` if they carry one.
 2. Minor bump when a new tax year's forms are added.
-3. Tag `vX.Y.Z` on `main` and push the tag. CI builds the macOS app on `main`.
+3. Tag `vX.Y.Z` on `main` and push the tag. CI builds the macOS app on every push.
 4. `scripts/release-docker.sh` pushes to the upstream Docker Hub image
    (`b1ackswan/btctx`) and enforces the StartOS tag contract; only run it for
    an image you publish there.

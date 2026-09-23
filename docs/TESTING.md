@@ -33,7 +33,7 @@ make hooks          # installs the pre-push gate
 - **On GitHub, every push/PR** (`.github/workflows/ci.yml`): Python 3.10 and 3.11
   full suite, frontend build, smoke test, Docker image build + smoke test
   against the running container, dependency audit.
-- **On pushes to `main`** (or manually from the Actions tab): builds the macOS
+- **On every branch push** (or manually from the Actions tab): builds the macOS
   app, launches it, checks its API answers on `127.0.0.1:8765`, and attaches the
   zipped `.app` to the run.
 

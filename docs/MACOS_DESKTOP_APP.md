@@ -125,7 +125,7 @@ Point the MCP server at the app with `BTCTX_URL=http://127.0.0.1:8765` (plus
 
 ## CI
 
-On pushes to `main` (or manually from the Actions tab), `.github/workflows/ci.yml`
+On every branch push (or manually from the Actions tab), `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest`, launches the bundled binary,
 checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the

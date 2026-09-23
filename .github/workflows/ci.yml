@@ -2,7 +2,7 @@ name: CI
 
 # Every push and pull request: lint, full Python suite, MCP tests, frontend,
 # end-to-end smoke test, Docker image + container smoke, dependency audit.
-# The macOS app build (slowest job) runs on pushes to main and on demand
+# The macOS app build (slowest job) runs on every branch push and on demand
 # from the Actions tab.
 on:
   push:
@@ -148,7 +148,9 @@ jobs:
 
   macos-app:
     name: macOS app build + launch check
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    # Every branch push (not PRs, which would build the same commit twice), so
+    # packaging breaks show up before a merge. Free on public repos.
+    if: github.event_name != 'pull_request'
     needs: [python, frontend]
     runs-on: macos-latest
     steps:
