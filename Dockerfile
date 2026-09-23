@@ -1,7 +1,9 @@
 # ------------------------------------------------------------------
 # Stage 1: Frontend Builder
 # ------------------------------------------------------------------
-    FROM node:22-slim AS frontend-builder
+    # Built on the build machine's own architecture: the output is static files,
+    # so a multi-arch build doesn't have to run npm under emulation.
+    FROM --platform=$BUILDPLATFORM node:22-slim AS frontend-builder
 
     # 1) Create and move into /app/frontend
     WORKDIR /app/frontend

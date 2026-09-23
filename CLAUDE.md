@@ -122,13 +122,16 @@ all Pyflakes rules and ESLint with zero warnings.
 
 ## Releasing
 
-1. Update `docs/CHANGELOG.md` (move Unreleased to a version), bump the version
-   in `desktop/BitcoinTX.spec` and `desktop/build-mac.sh` if they carry one.
+1. Update `docs/CHANGELOG.md` (move Unreleased to a version), bump `VERSION`
+   and the version in `desktop/BitcoinTX.spec`.
 2. Minor bump when a new tax year's forms are added.
-3. Tag `vX.Y.Z` on `main` and push the tag. CI builds the macOS app on every push.
-4. `scripts/release-docker.sh` pushes to the upstream Docker Hub image
-   (`b1ackswan/btctx`) and enforces the StartOS tag contract; only run it for
-   an image you publish there.
+3. Push to `main`. `.github/workflows/image.yml` publishes the multi-arch
+   image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` the first time a VERSION is
+   seen (never overwritten), plus `:main`. CI builds the macOS app.
+4. Tag `vX.Y.Z` (this cloud environment can't push tags; do it from GitHub).
+5. StartOS: in DigiMonk73/BTCTX-StartOS pin the new image tag and add a
+   `startos/versions/` entry.
+   (`scripts/release-docker.sh` is the upstream project's Docker Hub script.)
 
 ## Ending a session
 

@@ -106,6 +106,14 @@ Coordinate a wrapper release before changing any of these:
   `users` schema breaks the wrapper.
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`.
 
+### Image for this fork
+
+The wrapper at DigiMonk73/BTCTX-StartOS runs
+`ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`, published by
+`.github/workflows/image.yml` (amd64 + arm64) the first time `VERSION` on
+`main` holds a new version. Version tags are never overwritten. The contract
+below still applies to it.
+
 ### Docker tag contract
 
 The wrapper pins our image by version tag, and a daily job compares its pinned
