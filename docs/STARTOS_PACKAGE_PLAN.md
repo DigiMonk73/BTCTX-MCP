@@ -309,7 +309,7 @@ a CI run) in StartOS: **Sideload** in the top bar.
 - The mirror carries its own `.github/workflows` (from `startos/.github/`,
   inert here); its release workflow runs only on a `release/*` branch or by
   hand, so syncing never produces a second, differently signed s9pk.
-- The app repository has no LICENSE file; the package declares MIT (as the
-  wrapper always has). Start9's review checks that it matches upstream: add a
-  LICENSE to BTCTX-MCP (and check the upstream BitcoinTX-org license) before a
+- BTCTX-MCP now has an MIT `LICENSE`, matching the package's `license: 'MIT'`.
+  Upstream BitcoinTX-org/BTCTX publishes no LICENSE file; its code carries no
+  explicit license grant, which is worth settling with its authors before a
   marketplace submission.
