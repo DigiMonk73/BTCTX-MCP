@@ -256,6 +256,38 @@ def logout(request: Request, response: Response):
     return {"detail": "Logged out successfully"}
 
 # ---------------------------------------------------------
+# Health check (public: used by StartOS and container probes)
+# ---------------------------------------------------------
+from backend.migrate import current_revision, head_revision
+from backend.version import app_version
+
+@app.get("/api/health")
+def health(db: Session = Depends(get_db)):
+    """
+    200 when the database answers and its schema is at the version this code
+    expects; 503 otherwise. Reveals nothing about the ledger.
+    """
+    head = head_revision()
+    try:
+        schema = current_revision(db.connection())
+    except Exception as e:
+        logger.warning("Health check: database unreachable: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "detail": "database unreachable", "version": app_version()},
+        )
+    ok = schema == head
+    return JSONResponse(
+        status_code=200 if ok else 503,
+        content={
+            "status": "ok" if ok else "error",
+            "version": app_version(),
+            "schema": schema,
+            **({} if ok else {"detail": f"database schema is {schema}, expected {head}"}),
+        },
+    )
+
+# ---------------------------------------------------------
 # Production: Serve React/Vite frontend from dist/ at "/"
 # ---------------------------------------------------------
 from fastapi.staticfiles import StaticFiles

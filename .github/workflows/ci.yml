@@ -1,7 +1,8 @@
 name: CI
 
 # Every push and pull request: lint, full Python suite, MCP tests, frontend,
-# end-to-end smoke test, Docker image + container smoke, dependency audit.
+# end-to-end smoke test, Docker image + container smoke, StartOS package
+# checks and an x86_64 s9pk packed from this commit's image, dependency audit.
 # The macOS app build (slowest job) runs on every branch push and on demand
 # from the Actions tab.
 on:
@@ -105,6 +106,14 @@ jobs:
         run: python scripts/smoke_test.py --url http://127.0.0.1:8080
       - name: Data lands on the /data volume
         run: docker exec btctx test -s /data/btctx.db -a -s /data/.btctx_secret_key
+      - name: Health endpoint and maintenance CLI (used by the StartOS package)
+        run: |
+          curl -sf http://127.0.0.1:8080/api/health | tee /dev/stderr | grep -q "\"version\":\"$(tr -d '[:space:]' < VERSION)\""
+          docker exec btctx python -m backend.cli migrate | grep -q "up to date"
+          echo "ci-password" | docker exec -i btctx python -m backend.cli set-password --password-stdin
+          curl -sf -o /dev/null -X POST http://127.0.0.1:8080/api/login -H 'content-type: application/json' \
+            -d '{"username":"admin","password":"ci-password"}'
+          docker exec btctx python -m backend.cli recalculate
       - name: Upgrade a v0.7.0 database (schema migrations)
         run: |
           docker volume create btctx-upgrade
@@ -131,6 +140,68 @@ jobs:
         run: |
           docker logs btctx || true
           docker logs btctx-up || docker logs btctx-up2 || true
+
+  startos:
+    name: StartOS package checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: startos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startos/package-lock.json
+      - run: npm ci
+      - name: Format
+        run: npx prettier --check startos
+      - name: Type check
+        run: npm run check
+      - name: SDK lint
+        run: npm run lint
+      - name: Bundle
+        run: npm run build
+      - name: Manifest (id, version vs VERSION, image tag, upgrade paths)
+        run: node --no-deprecation scripts/check-manifest.mjs
+
+  startos-pack:
+    name: StartOS package pack (x86_64, image from this commit)
+    runs-on: ubuntu-latest
+    env:
+      START_CLI_VERSION: v2.1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startos/package-lock.json
+      - name: Tools (squashfs, start-cli, containerd image store)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q squashfs-tools squashfs-tools-ng
+          sudo curl -sSL -o /usr/local/bin/start-cli \
+            "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
+          sudo chmod +x /usr/local/bin/start-cli && start-cli --version
+          echo '{"features":{"containerd-snapshotter":true}}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+      - name: Build the image under the tag the manifest pins
+        run: docker build -t "ghcr.io/digimonk73/btctx-mcp:v$(tr -d '[:space:]' < VERSION)" .
+      - name: Pack (throwaway signing key, outside the checkout)
+        working-directory: startos
+        run: |
+          npm ci
+          mkdir -p ../../.startos
+          openssl genpkey -algorithm Ed25519 -out ../../.startos/build.key.pem
+          make x86
+          start-cli s9pk inspect btctx_x86_64.s9pk manifest \
+            | jq -e '.id == "btctx" and (.gitHash | endswith("-modified") | not)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: btctx-s9pk-x86_64
+          path: startos/btctx_x86_64.s9pk
+          retention-days: 7
 
   audit:
     name: Dependency vulnerability audit
@@ -171,6 +242,7 @@ jobs:
           "$APP" > app.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf -o /dev/null http://127.0.0.1:8765/; then
+              curl -sf http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'
               code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8765/api/import/entries/preview -H 'content-type: application/json' -d '{"rows":[]}')
               echo "entries endpoint (anonymous) -> $code"; test "$code" = "401"
               pkill -f BitcoinTX.app || true
@@ -179,10 +251,18 @@ jobs:
             sleep 2
           done
           cat app.log; exit 1
-      - name: Zip the app (keeps symlinks/permissions macOS needs)
-        run: ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
+      - name: Zip and unsigned .dmg (same steps as release.yml)
+        run: |
+          ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
+          mkdir dmg
+          cp -R desktop/dist/BitcoinTX.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname BitcoinTX -srcfolder dmg -ov -format UDZO BitcoinTX-macOS.dmg
+          hdiutil verify BitcoinTX-macOS.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: BitcoinTX-macOS
-          path: BitcoinTX-macOS.zip
+          path: |
+            BitcoinTX-macOS.zip
+            BitcoinTX-macOS.dmg
           retention-days: 7

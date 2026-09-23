@@ -4,12 +4,52 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### StartOS package
+- The StartOS package now lives in this repository (`startos/`, start-sdk
+  2.0.9) and is mirrored to DigiMonk73/BTCTX-StartOS. Installs of the old
+  package (0.3.x through 0.8.0:1) update in place.
+- New actions: **Connect an AI Assistant** (MCP address, login, the StartOS
+  root CA, a ready-to-paste Claude Desktop config and `claude mcp add`
+  command) and **Recalculate Ledger**. Updating from before 0.8.0 raises a
+  Recalculate Ledger task.
+- New **MCP API** interface (`…/api`), which the MCP server accepts as
+  `BTCTX_URL`.
+- Fresh installs prompt for Show Credentials before the first start.
+- The database upgrade runs as its own startup step; the health check uses
+  `/api/health`.
+- The generated login moved from the app's volume to a separate package
+  volume; both are backed up.
+- Downgrades are refused (an older app can't open a migrated database).
+- New vector icon.
+
+### Distribution
+- One release workflow (`release/vX.Y.Z` branch) produces the GHCR image, the
+  macOS app as an unsigned `.dmg` plus the `.zip`, and `btctx.s9pk`, all on one
+  GitHub release; the s9pk is signed with the `DEV_KEY` secret when it exists
+  and `startos/` is mirrored to BTCTX-StartOS when `MIRROR_TOKEN` exists
+  (`scripts/sync-startos-mirror.sh` by hand otherwise).
+- CI checks the package and packs an x86_64 s9pk from every commit's image;
+  a weekly job opens an issue when a newer start-sdk is on npm.
+
 ### Added
+- `GET /api/health` (no login): 200 when the database answers at the current
+  schema, 503 otherwise, with the app version. Used by the StartOS package and
+  the CI container checks.
+- `python -m backend.cli` maintenance commands: `migrate` (schema upgrade +
+  defaults), `set-password [--username NAME] [--password-stdin]` (through the
+  app's own hashing; the password never goes on the command line) and
+  `recalculate` (rebuild the ledger). The StartOS package uses them instead of
+  editing SQLite directly.
 - Frontend unit tests (Vitest) for the transaction form's mapping to and
   from the API, run by the pre-push hook and CI. The mapping moved to
   `frontend/src/utils/transactionForm.ts`.
 
 ### Changed
+- Logging defaults to INFO instead of DEBUG; set `LOG_LEVEL` (DEBUG, INFO,
+  WARNING, ERROR) to change it.
+- Only the newest 5 automatic database copies (taken before a schema upgrade
+  or a restore) are kept in `<data dir>/backups/`; older ones are deleted.
+- The app version (`VERSION`) ships inside the Docker image and the macOS app.
 - The complete tax report no longer rebuilds the ledger inside the request
   to take its start- and end-of-year snapshots (33 writes for a small ledger,
   holding the database write lock, then discarded). The snapshots replay on

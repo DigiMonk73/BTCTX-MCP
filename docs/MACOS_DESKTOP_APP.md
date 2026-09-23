@@ -131,9 +131,18 @@ checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the
 zipped `.app` as a build artifact.
 
+Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
+the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
+drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
+are unsigned and not notarized.
+
 ## Troubleshooting
 
-**App won't open (Gatekeeper).** The app is unsigned. Right-click → Open, or:
+**App won't open (Gatekeeper).** The app is unsigned. The first time,
+right-click (Control-click) it in Applications and choose **Open**. On macOS 15
+or later that no longer offers Open: try to open it once, then go to
+**System Settings → Privacy & Security** and click **Open Anyway**. Or clear
+the quarantine flag:
 ```bash
 xattr -cr /path/to/BitcoinTX.app
 ```

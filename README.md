@@ -121,3 +121,7 @@ conventions: [CLAUDE.md](CLAUDE.md).
 | AI | MCP server (Python `mcp` SDK, stdio) |
 
 BitcoinTX doesn't give tax advice. Check its output before you file.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

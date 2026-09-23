@@ -36,4 +36,12 @@ else
   printf "\n– Frontend checks skipped (run 'npm ci' in frontend/ to enable)\n"
 fi
 
+if [ -d startos/node_modules ]; then
+  step "StartOS package: format + type check + lint + bundle"
+  (cd startos && npx prettier --check startos >/dev/null && npm run check --silent && npm run lint --silent \
+    && npm run build --silent >/dev/null && node --no-deprecation scripts/check-manifest.mjs) || fail "startos package"
+else
+  printf "\n– StartOS package checks skipped (run 'npm ci' in startos/ to enable)\n"
+fi
+
 printf "\n\033[32m✓ All pre-push checks passed\033[0m\n"

@@ -17,7 +17,8 @@ server for AI-assisted entry plus tax and security fixes. Work on `main`.
 | Frontend | `frontend/` | React + TypeScript + Vite, served from `frontend/dist` by the backend |
 | MCP server | `mcp_server/` | package `btctx-mcp`; talks to the backend over HTTP with a session login |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
-| Docker / StartOS | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`) |
+| Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
+| StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## Before you change…
 
@@ -99,7 +100,8 @@ So derived values must be recomputable from the Transaction row alone.
 ## Security rules
 
 - All API routers require login except `POST /api/users/register`,
-  `GET /api/users/setup-status`, `POST /api/users/reset-account` and login.
+  `GET /api/users/setup-status`, `POST /api/users/reset-account`,
+  `GET /api/health` (status, version, schema only) and login.
   User routes may only touch the logged-in user.
 - `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
   default key anywhere.
@@ -122,17 +124,21 @@ all Pyflakes rules and ESLint with zero warnings.
 
 ## Releasing
 
-1. Update `docs/CHANGELOG.md` (move Unreleased to a version), bump `VERSION`
-   and the version in `desktop/BitcoinTX.spec`.
-2. Minor bump when a new tax year's forms are added.
-3. Push to `main`. `.github/workflows/image.yml` publishes the multi-arch
-   image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` the first time a VERSION is
-   seen (never overwritten), plus `:main`. CI builds the macOS app.
-4. Push a branch `release/vX.Y.Z`: `.github/workflows/release.yml` creates
-   the tag and GitHub release from the CHANGELOG section (no tag push needed).
-5. StartOS: in DigiMonk73/BTCTX-StartOS pin the new image tag and add a
-   `startos/versions/` entry.
-   (`scripts/release-docker.sh` is the upstream project's Docker Hub script.)
+Full steps, the package version and the signing/mirror secrets:
+`startos/UPDATING.md`. In short:
+
+1. Bump `VERSION`, the version in `desktop/BitcoinTX.spec`, the image tag in
+   `startos/startos/manifest/index.ts` and `startos/startos/versions/current.ts`
+   (`backend/tests/test_versions_agree.py` fails until they agree). Move the
+   CHANGELOG's Unreleased section to the version. Minor bump when a new tax
+   year's forms are added.
+2. Merge to `main`: `.github/workflows/image.yml` publishes
+   `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and `:main`.
+3. Push a branch `release/vX.Y.Z`: `.github/workflows/release.yml` builds the
+   macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
+   set), creates the tag and one GitHub release, and mirrors `startos/` to
+   DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set
+   (`scripts/sync-startos-mirror.sh` does it by hand).
 
 ## Ending a session
 
