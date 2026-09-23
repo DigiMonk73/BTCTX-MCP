@@ -1,6 +1,6 @@
 # StartOS package in the main repo — design plan
 
-Status: **proposal for review** (nothing built yet). Date: 2026-09-23.
+Status: **approved 2026-09-23** with the decisions in section 9 (nothing built yet).
 
 Goal: build the StartOS package (`btctx.s9pk`) from this repository, next to
 the macOS app and the Docker image, using everything the current StartOS SDK
@@ -203,19 +203,26 @@ builds to community-beta; you ask to promote to the community registry.
 
 Each step lands on a branch with CI green before merging.
 
-## 9. Decisions for you
+## 9. Decisions (made 2026-09-23)
 
-1. **Minimum StartOS: 0.4.0-beta.10.** What does your server run?
-2. **Icon:** (a) I draw a clean vector BitcoinTX icon (≤ 40 KiB), or (b) a
-   downsized copy of today's logo embedded in the SVG. Recommend (a).
-3. **Translations:** machine-quality es/de/pl/fr now (fixable later), or
-   English only until a marketplace submission. Recommend now — Start9 checks.
-4. **Secrets you create:** `DEV_KEY` (signing) and `MIRROR_TOKEN` (mirror).
-   OK to set these up?
-5. **Pre-upgrade copies:** keep the newest 5 and include them in StartOS
-   backups (recommended), or exclude `/data/backups/` from backups.
-6. **Mac app:** keep the zip for now, or add a `.dmg` (unsigned until you
-   have an Apple Developer ID).
+1. **Minimum StartOS 0.4.0-beta.10** — the owner is updating the server to the
+   latest StartOS. Build on start-sdk 2.0.9.
+2. **Icon:** draw a proper vector BitcoinTX icon, `icon.svg` ≤ 40 KiB (don't
+   wrap the existing raster logo).
+3. **English only (en_US)** for now: the app produces US tax forms. Keep every
+   user-facing string behind `i18n()` with an en_US dictionary so other
+   locales can be added later (Start9's marketplace review checks localization;
+   revisit before a submission).
+4. **Secrets later:** the owner will create `DEV_KEY` and `MIRROR_TOKEN` at home.
+   Until then: build and release as today (throwaway key per build; release
+   still works), make the workflows use `DEV_KEY` when present and fall back to
+   `start-cli s9pk init-workspace` key generation when absent, and run the mirror
+   step only when `MIRROR_TOKEN` exists (plus the manual sync script). Write
+   the exact setup steps for both secrets in `startos/UPDATING.md`.
+5. **Pre-upgrade copies:** app keeps the newest 5 in `/data/backups/`; they are
+   included in StartOS backups.
+6. **macOS:** release an unsigned `.dmg` (plus the zip). Document the
+   right-click → Open first-launch step for unsigned apps.
 
 ## 10. Not verified yet (tested during step 5)
 - `sdk.getSslCertificate` inside an action (for the root CA in "Connect an
