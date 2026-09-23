@@ -24,5 +24,7 @@ else
 fi
 
 test -s "$KEY" || { echo "no signing key at $KEY" >&2; exit 1; }
+# Informational only: keys written by `start-cli init-workspace` aren't in a
+# format openssl reads.
 echo "Signer public key:"
-openssl pkey -in "$KEY" -pubout
+openssl pkey -in "$KEY" -pubout 2>/dev/null || echo "(not readable by openssl; start-cli uses it as is)"
