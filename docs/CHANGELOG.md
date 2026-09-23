@@ -22,6 +22,15 @@ All notable changes to BitcoinTX are documented in this file.
 - Downgrades are refused (an older app can't open a migrated database).
 - New vector icon.
 
+### Distribution
+- One release workflow (`release/vX.Y.Z` branch) produces the GHCR image, the
+  macOS app as an unsigned `.dmg` plus the `.zip`, and `btctx.s9pk`, all on one
+  GitHub release; the s9pk is signed with the `DEV_KEY` secret when it exists
+  and `startos/` is mirrored to BTCTX-StartOS when `MIRROR_TOKEN` exists
+  (`scripts/sync-startos-mirror.sh` by hand otherwise).
+- CI checks the package and packs an x86_64 s9pk from every commit's image;
+  a weekly job opens an issue when a newer start-sdk is on npm.
+
 ### Added
 - `GET /api/health` (no login): 200 when the database answers at the current
   schema, 503 otherwise, with the app version. Used by the StartOS package and

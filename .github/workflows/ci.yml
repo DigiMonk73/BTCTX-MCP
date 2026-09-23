@@ -1,7 +1,8 @@
 name: CI
 
 # Every push and pull request: lint, full Python suite, MCP tests, frontend,
-# end-to-end smoke test, Docker image + container smoke, dependency audit.
+# end-to-end smoke test, Docker image + container smoke, StartOS package
+# checks and an x86_64 s9pk packed from this commit's image, dependency audit.
 # The macOS app build (slowest job) runs on every branch push and on demand
 # from the Actions tab.
 on:
@@ -139,6 +140,68 @@ jobs:
         run: |
           docker logs btctx || true
           docker logs btctx-up || docker logs btctx-up2 || true
+
+  startos:
+    name: StartOS package checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: startos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startos/package-lock.json
+      - run: npm ci
+      - name: Format
+        run: npx prettier --check startos
+      - name: Type check
+        run: npm run check
+      - name: SDK lint
+        run: npm run lint
+      - name: Bundle
+        run: npm run build
+      - name: Manifest (id, version vs VERSION, image tag, upgrade paths)
+        run: node --no-deprecation scripts/check-manifest.mjs
+
+  startos-pack:
+    name: StartOS package pack (x86_64, image from this commit)
+    runs-on: ubuntu-latest
+    env:
+      START_CLI_VERSION: v2.1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startos/package-lock.json
+      - name: Tools (squashfs, start-cli, containerd image store)
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q squashfs-tools squashfs-tools-ng
+          sudo curl -sSL -o /usr/local/bin/start-cli \
+            "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
+          sudo chmod +x /usr/local/bin/start-cli && start-cli --version
+          echo '{"features":{"containerd-snapshotter":true}}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+      - name: Build the image under the tag the manifest pins
+        run: docker build -t "ghcr.io/digimonk73/btctx-mcp:v$(tr -d '[:space:]' < VERSION)" .
+      - name: Pack (throwaway signing key, outside the checkout)
+        working-directory: startos
+        run: |
+          npm ci
+          mkdir -p ../../.startos
+          openssl genpkey -algorithm Ed25519 -out ../../.startos/build.key.pem
+          make x86
+          start-cli s9pk inspect btctx_x86_64.s9pk manifest \
+            | jq -e '.id == "btctx" and (.gitHash | endswith("-modified") | not)'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: btctx-s9pk-x86_64
+          path: startos/btctx_x86_64.s9pk
+          retention-days: 7
 
   audit:
     name: Dependency vulnerability audit
