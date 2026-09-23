@@ -251,10 +251,18 @@ jobs:
             sleep 2
           done
           cat app.log; exit 1
-      - name: Zip the app (keeps symlinks/permissions macOS needs)
-        run: ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
+      - name: Zip and unsigned .dmg (same steps as release.yml)
+        run: |
+          ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
+          mkdir dmg
+          cp -R desktop/dist/BitcoinTX.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname BitcoinTX -srcfolder dmg -ov -format UDZO BitcoinTX-macOS.dmg
+          hdiutil verify BitcoinTX-macOS.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: BitcoinTX-macOS
-          path: BitcoinTX-macOS.zip
+          path: |
+            BitcoinTX-macOS.zip
+            BitcoinTX-macOS.dmg
           retention-days: 7
