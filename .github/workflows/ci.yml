@@ -2,8 +2,8 @@ name: CI
 
 # Every push and pull request: lint, full Python suite, MCP tests, frontend,
 # end-to-end smoke test, Docker image + container smoke, dependency audit.
-# The macOS app build (10x-cost runner minutes) runs on pushes to main and
-# on demand from the Actions tab.
+# The macOS app build (slowest job) runs on pushes to main and on demand
+# from the Actions tab.
 on:
   push:
   pull_request:

@@ -41,7 +41,7 @@ pip install ./mcp_server
 pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
 ```
 
-This installs a `btctx-mcp` command (the repo is private, so the git URL needs your GitHub login). `uvx` works too:
+This installs a `btctx-mcp` command. `uvx` works too:
 `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp`.
 
 ## Configure
