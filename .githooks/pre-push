@@ -20,6 +20,9 @@ fail() { printf "\n\033[31m✗ pre-push failed: %s\033[0m\n  (fix it, or bypass 
 step "Lint (bug-level Python checks)"
 "$PY" -m ruff check . || fail "ruff"
 
+step "Static compatibility checks"
+"$PY" backend/tests/pre_commit_tests.py --no-api >/dev/null || { "$PY" backend/tests/pre_commit_tests.py --no-api | grep -E "✗|FAIL"; fail "static checks"; }
+
 step "Python tests (fast set; CI also runs the slow stress tests)"
 "$PY" -m pytest -m "not slow" -q -x -p no:cacheprovider || fail "pytest"
 

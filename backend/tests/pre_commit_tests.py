@@ -216,33 +216,27 @@ def check_no_hardcoded_localhost_urls() -> bool:
 
 def check_python39_compatibility() -> bool:
     """
-    Check for Python 3.9 compatibility issues:
-    - Union types (X | Y) require 'from __future__ import annotations' or typing.Union
+    Every backend file must parse as Python 3.10, the oldest supported
+    version (fastapi >= 0.130 requires it; Docker ships 3.11). Uses the real
+    parser, so syntax newer than 3.10 is caught without regex false alarms.
+    (Name kept for callers; Python 3.9 support was dropped in 2026-09.)
     """
+    import ast
     project_root = Path(__file__).parent.parent.parent
     backend_dir = project_root / "backend"
 
     violations = []
-
     for py_file in backend_dir.rglob("*.py"):
         if "__pycache__" in str(py_file):
             continue
-
         try:
-            content = py_file.read_text()
-
-            # Check if file uses union syntax (X | Y) in type hints
-            if re.search(r':\s*\w+\s*\|\s*\w+', content) or re.search(r'->\s*\w+\s*\|\s*\w+', content):
-                # Must have future annotations import
-                if 'from __future__ import annotations' not in content:
-                    violations.append(f"{py_file.relative_to(project_root)}: uses X|Y syntax without future annotations")
-        except Exception as e:
-            if VERBOSE:
-                log(f"Could not read {py_file}: {e}", "WARN")
+            ast.parse(py_file.read_text(), filename=str(py_file), feature_version=(3, 10))
+        except SyntaxError as e:
+            violations.append(f"{py_file.relative_to(project_root)}:{e.lineno}: {e.msg}")
 
     passed = len(violations) == 0
     details = "; ".join(violations[:2]) if violations else ""
-    record_result("Docker/StartOS Compatibility", "Python 3.9 compatibility", passed, details)
+    record_result("Docker/StartOS Compatibility", "Python 3.10 compatibility", passed, details)
     return passed
 
 
