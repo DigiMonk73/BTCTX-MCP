@@ -2,7 +2,7 @@
 backend/routers/river_import.py
 
 API endpoints for importing River bitcoin-activity CSV exports into a live
-ledger (merge with dedup). See docs/RIVER_IMPORT_PLAN.md.
+ledger (merge with dedup). See docs/archive/RIVER_IMPORT_PLAN.md.
 
 Unlike /api/import (the onboarding CSV import, which requires an empty
 database), this flow is designed for ongoing incremental imports.

@@ -23,6 +23,7 @@ PUBLIC_DEFAULTS = {
     "",
     "default_secret_key",
     "desktop-app-secret-key-change-in-production",
+    "replace_this_with_a_strong_random_value",  # .env.example placeholder
 }
 
 

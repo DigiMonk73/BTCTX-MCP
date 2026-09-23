@@ -27,6 +27,9 @@
     ENV PYTHONUNBUFFERED=1
     # Avoid caching pip packages
     ENV PIP_NO_CACHE_DIR=1
+    # Database (and the session key beside it) live on the /data volume.
+    # Without this the DB would land in /app/backend and vanish on update.
+    ENV DATABASE_FILE=/data/btctx.db
     
     # No system packages needed: IRS forms are filled in pure Python (pypdf)
 

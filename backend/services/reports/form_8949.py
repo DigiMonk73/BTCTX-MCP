@@ -1,15 +1,15 @@
 # FILE: backend/services/reports/form_8949.py
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Tuple, List, Dict, Literal, Optional
+from typing import Tuple, List, Dict, Literal
 from sqlalchemy.orm import Session
 
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
 from backend.constants import ACCOUNT_EXCHANGE_BTC
-from backend.services.tax_time import format_tax_date, get_tax_timezone, tax_year_bounds
+from backend.services.tax_time import format_tax_date, get_tax_timezone, local_date, tax_year_bounds
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,6 @@ class Form8949Row:
 def build_form_8949_and_schedule_d(
     year: int,
     db: Session,
-    basis_reported_flags: Optional[Dict[int, bool]] = None
 ) -> Dict:
     """
     Gathers all LotDisposals for the given tax year, separates short vs. long,
@@ -115,9 +114,7 @@ def build_form_8949_and_schedule_d(
     rows_long: List[Form8949Row] = []
 
     for disp in disposals:
-        broker_reported, basis_reported = _broker_reporting(disp, year)
-        if basis_reported_flags and disp.id in basis_reported_flags:
-            broker_reported, basis_reported = True, basis_reported_flags[disp.id]
+        broker_reported, basis_reported = _broker_reporting(disp, year, tz)
         box = _determine_box(disp.holding_period, basis_reported, year, broker_reported)
 
         # Format date_acquired
@@ -166,10 +163,10 @@ def build_form_8949_and_schedule_d(
 # Form 1099-DA: brokers report gross proceeds for digital-asset sales from
 # 2025; basis only for "covered" assets — acquired on/after this date and held
 # in the same broker account until sold (Treas. Reg. 1.6045-1, final 2024).
-COVERED_DIGITAL_ASSET_START = datetime(2026, 1, 1, tzinfo=timezone.utc)
+COVERED_DIGITAL_ASSET_START = date(2026, 1, 1)
 
 
-def _broker_reporting(disp: LotDisposal, year: int) -> Tuple[bool, bool]:
+def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> Tuple[bool, bool]:
     """
     (reported on a 1099-DA?, basis reported?) for one lot disposal.
 
@@ -179,6 +176,7 @@ def _broker_reporting(disp: LotDisposal, year: int) -> Tuple[bool, bool]:
     for covered lots: bought on the exchange (a Buy into Exchange BTC) on or
     after 2026-01-01. BTC transferred in from elsewhere is noncovered — its
     lot is created by a Transfer, and transfers break the broker's basis chain.
+    The acquisition date is taken in the tax timezone, matching column (b).
     """
     tx = disp.transaction
     if year < 2025 or tx is None or tx.type != "Sell" or tx.from_account_id != ACCOUNT_EXCHANGE_BTC:
@@ -186,14 +184,12 @@ def _broker_reporting(disp: LotDisposal, year: int) -> Tuple[bool, bool]:
     lot = disp.lot
     origin = lot.created_transaction if lot else None
     acquired = lot.acquired_date if lot else None
-    if acquired is not None and acquired.tzinfo is None:
-        acquired = acquired.replace(tzinfo=timezone.utc)
     covered = (
         origin is not None
         and origin.type == "Buy"
         and origin.to_account_id == ACCOUNT_EXCHANGE_BTC
         and acquired is not None
-        and acquired >= COVERED_DIGITAL_ASSET_START
+        and local_date(acquired, tz) >= COVERED_DIGITAL_ASSET_START
     )
     return True, covered
 
@@ -280,9 +276,7 @@ def get_8949_field_config(year: int) -> Dict:
             "verified_years": [2025],
             "table_name_page1": "Table_Line1_Part1",
             "table_name_page2": "Table_Line1_Part2",
-            "row1_base_index": 3,  # Row 1 starts at field index 3
             "row1_zero_pad": True,  # f1_03, f1_04, ... f1_10
-            "row2_plus_zero_pad": False,  # f1_11, f1_12, ... (no padding after row 1)
             "rows_per_page": 11,  # 2025 form shrank the table (was 14 rows)
             # Checkbox widgets c1_1[0..5] / c2_1[0..5], top to bottom; the
             # on-state of widget i is /(i+1). Verified against the PDF.
@@ -294,9 +288,7 @@ def get_8949_field_config(year: int) -> Dict:
             "verified_years": [2024],
             "table_name_page1": "Table_Line1",
             "table_name_page2": "Table_Line1",  # Same table name for both pages
-            "row1_base_index": 3,
             "row1_zero_pad": False,  # f1_3, f1_4, ...
-            "row2_plus_zero_pad": False,
             "rows_per_page": 14,
             "boxes_part1": ["A", "B", "C"],
             "boxes_part2": ["D", "E", "F"],
@@ -332,7 +324,7 @@ def get_schedule_d_field_config(year: int) -> Dict[str, List[str]]:
 def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
     """
     (field name, on-state) of the Part I/II checkbox for `box`.
-    The state is a PDF name like "/6"; generate_fdf writes it as a name.
+    The state is a PDF name like "/6" (fill_pdf_form sets it as the value).
     """
     config = get_8949_field_config(year)
     boxes = config["boxes_part1"] if page == 1 else config["boxes_part2"]

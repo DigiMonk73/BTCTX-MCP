@@ -17,8 +17,8 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | No syntax errors / undefined names (Python); ESLint + TypeScript (frontend) | secs |
-| Unit + integration | `make test-fast` | 225 tests: FIFO lots, gains, fees, imports, IRS forms, auth, MCP tools | ~1.5 min |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript | secs |
+| Unit + integration | `make test-fast` | ~285 tests: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, MCP tools | ~1.5 min |
 | Full suite | `make test` | Adds the 250-transaction stress tests (`@pytest.mark.slow`) | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
@@ -26,8 +26,9 @@ make hooks          # installs the pre-push gate
 
 ## When they run
 
-- **Before every `git push`** (`.githooks/pre-push`): lint, fast tests, smoke,
-  frontend lint + type check. A failure blocks the push. Emergency bypass:
+- **Before every `git push`** (`.githooks/pre-push`): lint, static
+  Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
+  smoke, frontend lint + type check. A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every push/PR** (`.github/workflows/ci.yml`): Python 3.10 and 3.11
   full suite, frontend build, smoke test, Docker image build + smoke test
@@ -57,3 +58,9 @@ python scripts/smoke_test.py --url http://127.0.0.1:8080
 
 Only against an **empty** instance (a fresh Docker container, never your real
 data) — it creates transactions.
+
+## Yearly IRS templates
+
+`python scripts/irs_new_year.py YEAR --check` verifies an installed year's
+templates; `backend/tests/test_irs_templates.py` runs the same checks for
+every bundled year on each test run. See docs/IRS_ANNUAL_FORM_UPDATE.md.

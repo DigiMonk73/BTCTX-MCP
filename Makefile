@@ -35,7 +35,7 @@ lint:
 	cd frontend && npm run lint && npx tsc -b
 
 audit-deps:
-	$(PY) -m pip_audit -r backend/requirements.txt --ignore-vuln PYSEC-2026-1845
+	$(PY) -m pip_audit -r backend/requirements.txt -r requirements-dev.txt
 	cd frontend && npm audit --audit-level=high
 
 check: lint test smoke audit-deps

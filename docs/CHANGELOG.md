@@ -138,6 +138,41 @@ All notable changes to BitcoinTX are documented in this file.
   still respected.
 - The transaction edit form now loads a withdrawal's gross proceeds, so
   re-saving an edit no longer nets the fee again.
+- **Docker data could be lost on update.** The image never set
+  `DATABASE_FILE`, so a plain `docker run -v …:/data` kept the database inside
+  the container. The image now defaults to `/data/btctx.db`; CI checks the
+  database and session key land on the volume. (StartOS was unaffected: its
+  wrapper sets the same path.)
+- **Form 1099-DA covered-lot cutoff** compared the acquisition time in UTC, so
+  a lot bought on the evening of Dec 31, 2025 in the US counted as covered
+  (Box G/J) while its printed acquisition date said 12/31/2025. It now uses
+  the tax-timezone date.
+- **Filled IRS forms were ~5 MB per Form 8949 sheet.** Flattening left the old
+  field appearance streams in the file. Output is now ~0.3 MB per sheet and
+  renders pixel-identically.
+- `.env.example`'s placeholder `SECRET_KEY` was a publicly known value that
+  would have been used as-is; it is now rejected like the other public
+  defaults, and the example leaves the key unset (auto-generated).
+
+### Added
+- **Settings → Recalculate Ledger** button (same as the MCP
+  `recalculate_ledger` tool) for applying calculation fixes after an upgrade.
+
+### Housekeeping
+- Removed legacy scripts that drove a live server (one sent `delete_all` to
+  port 8000), superseded IRS field-dump tools, `scripts/pre-commit.sh`,
+  `baseline-pdfs/`, `clean_env.py` and the legacy Makefile targets. Finished
+  design plans moved to `docs/archive/`.
+- Lint: ruff enforces all Pyflakes rules and ESLint runs with zero warnings.
+- Tests: two test files used soft assertions that logged failures without
+  failing (108 checks); they now fail properly, which exposed one wrong
+  holding-period expectation (fixed). Several tests that asserted nothing now
+  check what their names claim.
+- pytest moved out of `backend/requirements.txt` (it was installed in the
+  Docker image) into `requirements-dev.txt`, upgraded to 9.1.1; the dependency
+  audit now covers both files with no exceptions.
+- Docs rewritten for the current code: README, CLAUDE.md, IRS form
+  generation and yearly update, macOS app, StartOS, maintenance, testing.
 
 ---
 
@@ -235,7 +270,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Technical Notes
 - **Files Modified:** `backend/services/transaction.py`, `frontend/src/components/TransactionForm.tsx`
-- **Documentation:** `docs/edit-tx-bug-mac.md` - Full investigation and fix details
+- **Documentation:** `docs/archive/edit-tx-bug-mac.md` - Full investigation and fix details
 - **Tests:** All 135 pytest tests pass, 17/17 pre-commit tests pass
 
 ---
@@ -251,7 +286,7 @@ All notable changes to BitcoinTX are documented in this file.
   - FIFO cost basis tracking works correctly - lots land in Exchange BTC pool regardless of USD source
   - Backend validation relaxed to allow `from_account = Bank (1) OR Exchange USD (3)`
   - 5 new tests in `TestBuyFromBank` class covering basic flow, FIFO order, CSV import, backward compatibility
-  - Documentation: `docs/BUY_FROM_BANK_FEATURE.md`
+  - Documentation: `docs/archive/BUY_FROM_BANK_FEATURE.md`
 
 ### Technical Notes
 - **Risk Level:** LOW - FIFO logic uses `to_account_id` (unchanged), not `from_account_id`
@@ -316,7 +351,7 @@ All notable changes to BitcoinTX are documented in this file.
   - Replaced `.from_orm()` with `.model_validate()`
   - Replaced `.dict()` with `.model_dump()`
   - Eliminates all Pydantic deprecation warnings
-  - Documentation: `docs/PYDANTIC_MIGRATION.md`
+  - Documentation: `docs/archive/PYDANTIC_MIGRATION.md`
 
 ### Fixed
 - **pdftk path resolution for macOS desktop**: Added centralized `pdftk_path.py` module

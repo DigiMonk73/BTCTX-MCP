@@ -1,89 +1,119 @@
-# BitcoinTX – Bitcoin Portfolio & Tax Tracker
-btctx.us — website, downloads, and docs
+# BitcoinTX (with MCP) – Bitcoin Portfolio & Tax Tracker
 
-**BitcoinTX** is a free, open-source Bitcoin portfolio tracker and tax report generator.
+A self-hosted Bitcoin portfolio tracker and tax report generator, forked from
+[BitcoinTX-org/BTCTX](https://github.com/BitcoinTX-org/BTCTX). This fork adds an
+**MCP server** so an AI assistant can enter transactions for you, plus the
+tax and security fixes listed in [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
-It tracks your BTC and USD balances using **double-entry accounting** and helps you calculate FIFO-based capital gains, cost basis, and income for IRS reporting. It includes a full-featured dashboard, a manual transaction entry form, and exportable reports like Form 8949 and Schedule D.
+It tracks BTC and USD balances with **double-entry accounting**, computes
+FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
+and **Schedule D**, including the Form 1099-DA boxes that start with tax year 2025.
 
 <img width="1000" alt="Dashboard" src="docs/images/dashboard.png" />
 
-<img width="1000" alt="Transactions" src="docs/images/transactions.png" />
-
-<img width="1000" alt="Reports" src="docs/images/reports.png" />
-
-<img width="1000" alt="Settings" src="docs/images/settings.png" />
-
----
-
-## Project Goals
-
-- Track every Bitcoin transaction manually (no exchange sync)
-- Use **FIFO** for cost basis tracking
-- Produce IRS-compliant reports (PDF or CSV)
-- Full control and visibility — **self-hosted**
-- Clear architecture and documentation for developers
-
----
-
-## Tech Stack
-
-| Layer        | Tech                                      |
-| ------------ | ----------------------------------------- |
-| Frontend     | React + TypeScript + Vite                 |
-| Backend      | FastAPI + SQLAlchemy + SQLite             |
-| Deployment   | Docker (single container)                 |
-| Report Tools | pdftk, pypdf, ReportLab                   |
-| Bitcoin API  | CoinGecko (primary), Kraken, CoinDesk     |
-
----
-
 ## Features
 
-- **Dashboard**: BTC holdings, USD balance, realized/unrealized gains
-- **Transaction Form**: Deposits, Withdrawals, Transfers, Buys, Sells
-- **Double-Entry Ledger**: Every transaction creates linked debit/credit lines
-- **BTC Lots & FIFO Tracking**: Acquired BTC is consumed in order
-- **Reports**: IRS Form 8949, Schedule D, tax summaries, transaction history (PDF/CSV)
-- **BTC Tools**: Calculator and converter with historical BTC price support
-- **Session-based Auth**: Login system for single user with hashed password
+- **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
+- **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
+  recalculates the whole ledger, so backdated entries come out right.
+- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis
+- **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
+  tax report, and transaction history (PDF/CSV)
+- **Imports**: River CSV export, generic CSV, and the AI route below
+- **AI entry (MCP)**: paste an exchange email or a wallet history, or type
+  "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
+  previews the rows (duplicate check, fair market value, resulting gains) and
+  saves them once you confirm.
+- **Tax timezone** (Settings): decides which tax year a late-night Dec 31
+  transaction lands in, the dates on Form 8949, and when a lot turns long-term
+- **Encrypted backup/restore**, single-user login
 
----
+## Install
 
-## Quick Start
-
-### Docker (Recommended)
+### macOS app
 
 ```bash
-# Pull and run
-docker pull b1ackswan/btctx:latest
-docker run -d -p 80:80 -v btctx-data:/data b1ackswan/btctx:latest
-
-# Open http://localhost in your browser
+./desktop/build-mac.sh      # builds desktop/dist/BitcoinTX.app
 ```
 
-### Local Development
+See [docs/MACOS_DESKTOP_APP.md](docs/MACOS_DESKTOP_APP.md). The app keeps its
+data in `~/Library/Application Support/BitcoinTX`. While it's open it serves
+its window from `http://127.0.0.1:8765`, which is also the address the MCP
+server uses.
+
+### Docker
 
 ```bash
-# Clone the repo
-git clone https://github.com/BitcoinTX-org/BTCTX.git
-cd BTCTX
+docker build -t btctx .
+docker run -d -p 8080:80 -v btctx-data:/data btctx
+# open http://localhost:8080
+```
 
-# Backend setup (Python 3.9+)
-cp .env.example .env
+StartOS packaging: [docs/STARTOS_COMPATIBILITY.md](docs/STARTOS_COMPATIBILITY.md).
+
+### From source
+
+Requires Python 3.10+ and Node.js 20+.
+
+```bash
 pip install -r backend/requirements.txt
-
-# Frontend setup
-cd frontend && npm install && npm run build && cd ..
-
-# Run
-uvicorn backend.main:app --reload --port 8000
-# Open http://localhost:8000
+(cd frontend && npm ci && npm run build)
+uvicorn backend.main:app --port 8000     # open http://localhost:8000
 ```
 
-### Requirements
+A `.env` file is optional; see [.env.example](.env.example).
 
-- **Python 3.9+** (3.11 recommended)
-- **Node.js 18+** (for frontend build)
-- **pdftk** (for IRS form generation)
-  - macOS: `brew install pdftk-java`
-  - Linux: `apt-get install pdftk`
+### First login
+
+A fresh install starts with the account `admin` / `password`. The first
+screen lets you claim it with your own username and password. Do that before
+you expose the app on a network.
+
+## Connect an AI (MCP)
+
+```bash
+pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
+claude mcp add bitcointx -e BTCTX_URL=http://127.0.0.1:8765 \
+  -e BTCTX_USERNAME=you -e BTCTX_PASSWORD=your-password -- btctx-mcp
+```
+
+[mcp_server/README.md](mcp_server/README.md) covers the Claude Desktop
+config, Docker and StartOS addresses, TLS options, and example prompts.
+
+## Upgrading from BitcoinTX v0.7 or earlier
+
+1. Download an encrypted backup (Settings → Backup & Restore).
+2. Click **Settings → Recalculate Ledger** once.
+3. Check your **Tax Timezone** in Settings.
+
+This release changes how transfer fees, sale proceeds and the one-year
+holding period are calculated, so gains stored by older versions can change.
+
+## Yearly IRS forms
+
+`python scripts/irs_new_year.py 2026` downloads the year's final Form 8949
+and Schedule D, checks every field the app fills, and runs the form tests. A
+scheduled GitHub workflow flags when new forms are published. See
+[docs/IRS_ANNUAL_FORM_UPDATE.md](docs/IRS_ANNUAL_FORM_UPDATE.md).
+
+## Development
+
+```bash
+pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+make hooks        # pre-push gate: lint, static checks, fast tests, smoke test
+make test         # full hermetic suite (temp DB, stubbed prices, no network)
+make check        # everything CI runs except the Docker/macOS builds
+```
+
+Testing guide: [docs/TESTING.md](docs/TESTING.md). Architecture and
+conventions: [CLAUDE.md](CLAUDE.md).
+
+| Layer | Tech |
+|---|---|
+| Frontend | React + TypeScript + Vite |
+| Backend | FastAPI + SQLAlchemy + SQLite |
+| PDFs | pypdf (IRS form filling), ReportLab (reports) |
+| BTC prices | CoinGecko, Kraken, CoinDesk (fallback chain) |
+| AI | MCP server (Python `mcp` SDK, stdio) |
+
+BitcoinTX doesn't give tax advice. Check its output before you file.

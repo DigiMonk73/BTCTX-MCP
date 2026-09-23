@@ -73,6 +73,11 @@ def fill_pdf_form(template_path: str, field_data: Dict[str, str], flatten: bool 
 
     if flatten:
         del writer._root_object[NameObject("/AcroForm")]
+        # Flattening leaves the old widgets' appearance streams unreferenced
+        # (and uncompressed): ~4.8 MB per 8949 sheet instead of ~0.2 MB.
+        for page in writer.pages:
+            page.compress_content_streams()
+        writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
     else:
         writer.set_need_appearances_writer(True)
 

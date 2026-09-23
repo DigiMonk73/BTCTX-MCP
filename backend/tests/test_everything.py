@@ -18,8 +18,7 @@ Options:
     --skip-seed    Don't reset database, use existing data
     --verbose      Show detailed output
 
-Requirements:
-    - Backend running at http://127.0.0.1:8000
+Runs in-process on a temporary database (pytest, or directly as a script).
 """
 
 from __future__ import annotations
@@ -52,7 +51,7 @@ ACCOUNT_USD_FEES = 6
 ACCOUNT_EXTERNAL = 99
 
 # Test tracking
-class TestResults:
+class RunResults:
     def __init__(self):
         self.total = 0
         self.passed = 0
@@ -61,7 +60,7 @@ class TestResults:
         self.failures: List[str] = []
         self.warnings: List[str] = []
 
-RESULTS = TestResults()
+RESULTS = RunResults()
 VERBOSE = False
 
 # Authenticated TestClient (set by autouse fixture from conftest.py)
@@ -132,7 +131,7 @@ def assert_true(condition: bool, description: str) -> bool:
         RESULTS.failed += 1
         RESULTS.failures.append(description)
         log(description, "FAIL")
-        return False
+        raise AssertionError(description)
 
 
 def assert_equal(actual, expected, description: str, tolerance: float = 0.01) -> bool:
@@ -153,7 +152,7 @@ def assert_equal(actual, expected, description: str, tolerance: float = 0.01) ->
             msg = f"{description}: Expected {expected_f}, got {actual_f}"
             RESULTS.failures.append(msg)
             log(msg, "FAIL")
-            return False
+            raise AssertionError(msg)
     else:
         if actual == expected:
             RESULTS.passed += 1
@@ -167,7 +166,7 @@ def assert_equal(actual, expected, description: str, tolerance: float = 0.01) ->
             msg = f"{description}: Expected {expected}, got {actual}"
             RESULTS.failures.append(msg)
             log(msg, "FAIL")
-            return False
+            raise AssertionError(msg)
 
 
 def skip_test(description: str, reason: str):

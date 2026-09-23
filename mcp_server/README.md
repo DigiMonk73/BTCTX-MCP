@@ -23,7 +23,7 @@ what your AI client itself sends to its model.
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price |
 | `get_btc_price` | Historical daily or current BTC price |
-| `recalculate_ledger` | Rebuild lots and gains from your transactions (run once after upgrading BitcoinTX) |
+| `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 
 There is deliberately no bulk delete.
 
@@ -48,7 +48,7 @@ This installs a `btctx-mcp` command. `uvx` works too:
 
 | Variable | Meaning |
 |----------|---------|
-| `BTCTX_URL` | Where BitcoinTX is reachable, e.g. `http://192.168.1.50`, `https://xyz.local`, `http://localhost:8000` |
+| `BTCTX_URL` | Where BitcoinTX is reachable: macOS app `http://127.0.0.1:8765`; Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS its `https://….local` address; from source `http://localhost:8000` |
 | `BTCTX_USERNAME` / `BTCTX_PASSWORD` | Your BitcoinTX login |
 | `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
 | `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |
@@ -64,7 +64,7 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
       "command": "btctx-mcp",
       "env": {
         "BTCTX_URL": "http://192.168.1.50",
-        "BTCTX_USERNAME": "admin",
+        "BTCTX_USERNAME": "your-username",
         "BTCTX_PASSWORD": "your-password"
       }
     }
@@ -83,7 +83,7 @@ port here. Username/password are the ones you log in to the app with.
 
 ```bash
 claude mcp add bitcointx \
-  -e BTCTX_URL=http://192.168.1.50 -e BTCTX_USERNAME=admin -e BTCTX_PASSWORD=your-password \
+  -e BTCTX_URL=http://192.168.1.50 -e BTCTX_USERNAME=your-username -e BTCTX_PASSWORD=your-password \
   -- btctx-mcp
 ```
 
@@ -105,16 +105,16 @@ you to approve each tool call unless you tell it not to.
 - Your BitcoinTX password lives in the MCP client config on your computer.
   Anyone who can read that file can log in to BitcoinTX.
 - The server exposes read tools plus add/update/delete of single transactions.
-  Every write is visible in BitcoinTX, and daily backups (`scripts/backup-db.sh`)
-  still apply.
+  Every write is visible in BitcoinTX. Take a backup (Settings → Backup &
+  Restore, or `scripts/backup-db.sh` on a server) before a large import.
 
 ## Development
 
 ```bash
 # from the repo root
-pip install -r backend/requirements.txt ./mcp_server
+pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 mkdir -p frontend/dist
-PYTHONPATH=$(pwd):$(pwd)/mcp_server pytest mcp_server/tests backend/tests/test_entry_import.py
+pytest mcp_server/tests backend/tests/test_entry_import.py
 ```
 
 The tests run an MCP client against this server, which calls the real FastAPI

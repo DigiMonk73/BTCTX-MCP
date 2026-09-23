@@ -2,7 +2,7 @@
 backend/services/river_import.py
 
 Adapter + dedup engine for importing River bitcoin-activity CSV exports
-into a live ledger. See docs/RIVER_IMPORT_PLAN.md for the full design.
+into a live ledger. See docs/archive/RIVER_IMPORT_PLAN.md for the full design.
 
 River CSV columns:
     Date, Sent Amount, Sent Currency, Received Amount, Received Currency,

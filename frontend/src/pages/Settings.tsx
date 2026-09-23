@@ -265,6 +265,19 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleRecalculate = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await api.post<{ detail: string }>("/transactions/recalculate");
+      setMessage(res.data.detail);
+    } catch {
+      setMessage("Recalculation failed. Your data was not changed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleExportCsv = async () => {
     setLoading(true);
     setMessage("");
@@ -461,6 +474,19 @@ const Settings: React.FC = () => {
         </div>
 
         <TaxTimezoneSetting />
+
+        <div className="settings-option">
+          <div className="option-info">
+            <span className="settings-option-title">Recalculate Ledger</span>
+            <p className="settings-option-subtitle">
+              Rebuild all lots, balances and gains from your transactions. Run once after
+              upgrading BitcoinTX so calculation fixes apply to existing data.
+            </p>
+          </div>
+          <button onClick={handleRecalculate} disabled={loading} className="settings-button">
+            {loading ? "Processing..." : "Recalculate"}
+          </button>
+        </div>
       </div>
 
       {/* ✅ Data Management */}

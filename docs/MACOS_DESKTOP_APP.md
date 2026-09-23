@@ -1,460 +1,162 @@
-# macOS Desktop App Build Guide
+# macOS Desktop App
 
-> Complete documentation for building BitcoinTX as a native macOS application.
+BitcoinTX can be packaged as a standalone macOS app with **PyInstaller** and
+**pywebview**. The `.app` bundles the FastAPI backend, the built React frontend
+and a Python runtime, so end users need nothing else installed. IRS Form 8949 /
+Schedule D are filled in pure Python (pypdf), so there are no extra system
+tools to install either.
 
-**Version:** 0.6.0
-**Last Updated:** 2025-01-17
-**Branch:** `develop`
+Quick start for building: [desktop/README.md](../desktop/README.md).
 
----
-
-## Overview
-
-BitcoinTX can be packaged as a standalone macOS desktop application using **PyInstaller** and **pywebview**. The app bundles the entire FastAPI backend and React frontend into a single `.app` bundle that runs locally on the user's Mac.
-
-### Architecture
+## How it works
 
 ```
-BitcoinTX.app (Launch)
-        │
-        ▼
-   entrypoint.py
-        │
-        ├──► Start Uvicorn server (daemon thread)
-        │         │
-        │         ▼
-        │    FastAPI backend (127.0.0.1:{random_port})
-        │         │
-        │         ▼
-        │    SQLite database
-        │    (~Library/Application Support/BitcoinTX/btctx.db)
-        │
-        └──► Create pywebview window
-                  │
-                  ▼
-             Embedded WebKit browser
-             pointing to localhost backend
+BitcoinTX.app
+   └─ desktop/entrypoint.py
+        ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
+        ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
+        ├─ starts Uvicorn (backend.main:app) on 127.0.0.1:8765 in a daemon thread
+        ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
+        └─ opens a pywebview (WebKit) window on that URL
 ```
 
-### Key Features
+- **Port:** fixed at `127.0.0.1:8765` so external clients (e.g. the MCP
+  server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
+  variable. If the port is busy, the app falls back to a random free port and
+  logs a warning; the app still works, but MCP clients won't find it at the
+  usual URL.
+- **Localhost only:** the server binds to `127.0.0.1`, never to the network.
+- **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
+  method to JavaScript via pywebview's `js_api`. The frontend
+  (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
+  backup downloads, because WebKit in pywebview doesn't handle browser downloads.
 
-- **Self-contained**: No Python installation required for end users
-- **Data persistence**: Database stored in macOS Application Support folder
-- **Native feel**: Runs as a proper macOS app with dock icon
-- **Dark mode**: Full dark mode support
-- **Portable**: Single `.app` bundle (~61MB)
+## Data and secrets
 
----
+Everything lives in `~/Library/Application Support/BitcoinTX/`:
 
-## Directory Structure
+| File | What it is |
+|------|------------|
+| `btctx.db` | SQLite database (all your data) |
+| `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
 
-All desktop-related files are in the `/desktop` directory:
+The desktop app does not hardcode a secret key. `backend/secret_key.py` uses
+`SECRET_KEY` from the environment if set (and not a known public default),
+otherwise generates a random key once and stores it next to the database.
+Deleting the key file only logs everyone out; a new one is generated.
 
+```bash
+open ~/Library/Application\ Support/BitcoinTX/            # open in Finder
+sqlite3 ~/Library/Application\ Support/BitcoinTX/btctx.db  # inspect
 ```
-desktop/
-├── entrypoint.py       # Main launcher script
-├── BitcoinTX.spec      # PyInstaller configuration
-├── build-mac.sh        # Automated build script
-├── requirements.txt    # Desktop-specific dependencies
-├── README.md           # User-facing readme
-├── resources/          # App resources (icons, etc.)
-│   └── icon.icns       # App icon (optional)
-├── build/              # PyInstaller work directory (gitignored)
-├── dist/               # Built app output (gitignored)
-│   └── BitcoinTX.app   # The final macOS application
-└── .venv/              # Build virtual environment (gitignored)
+
+**Backups:** use the encrypted backup/restore in the app's Settings page, or
+quit the app and copy the whole `BitcoinTX` folder.
+
+## Building
+
+Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 22).
+
+```bash
+./desktop/build-mac.sh
 ```
 
----
+The script:
 
-## Prerequisites
+1. Finds a Python 3.10+ interpreter (`python3.13` … `python3.10`, `python3`)
+2. Creates/reuses `desktop/.venv` and installs `backend/requirements.txt` plus
+   `desktop/requirements.txt` (PyInstaller, pywebview)
+3. Builds the frontend (`npm ci && npm run build` in `frontend/`)
+4. Checks `desktop/resources/icon.icns` (warns if missing) and
+   `backend/assets/irs_templates/` (fails if missing)
+5. Runs `pyinstaller --clean --noconfirm BitcoinTX.spec`
+6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
+   (`brew install create-dmg`)
 
-### For Building
+Output: `desktop/dist/BitcoinTX.app`. Test with `open desktop/dist/BitcoinTX.app`.
 
-| Requirement | Version | Check Command |
-|-------------|---------|---------------|
-| Python | 3.10+ | `python3 --version` |
-| Node.js | 18+ | `node --version` |
-| npm | (comes with Node) | `npm --version` |
-
-### For End Users (Optional)
-
-| Requirement | Purpose | Install Command |
-|-------------|---------|-----------------|
-| pdftk-java | IRS form generation | `brew install pdftk-java` |
-
-> **Note:** The app will work without pdftk, but IRS Form 8949 and Schedule D generation will be disabled. A warning dialog appears at startup if pdftk is missing.
-
----
-
-## Building the App
-
-### Quick Build
+### Manual build
 
 ```bash
 cd desktop
-./build-mac.sh
-```
-
-The script will:
-1. Check prerequisites (Python 3.10+, Node.js 18+)
-2. Create a Python virtual environment
-3. Install all dependencies
-4. Build the React frontend
-5. Run PyInstaller to create the app bundle
-
-### Manual Build Steps
-
-If you need more control:
-
-```bash
-cd desktop
-
-# 1. Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-pip install -r ../backend/requirements.txt
-
-# 3. Build frontend
-cd ../frontend
-npm install
-npm run build
-cd ../desktop
-
-# 4. Run PyInstaller
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r ../backend/requirements.txt -r requirements.txt
+(cd ../frontend && npm ci && npm run build)
 pyinstaller --clean --noconfirm BitcoinTX.spec
 ```
 
-### Build Output
+### Run without bundling
 
-After a successful build:
-- **App location:** `desktop/dist/BitcoinTX.app`
-- **Size:** ~61MB
-- **Test:** `open dist/BitcoinTX.app`
-
----
-
-## Creating a DMG for Distribution
-
-The build script automatically creates a DMG if `create-dmg` is installed:
+With the venv active and `frontend/dist` built, from the repo root:
 
 ```bash
-# Install create-dmg (one-time)
-brew install create-dmg
-
-# Build app AND create DMG
-cd desktop
-./build-mac.sh
-# Output: dist/BitcoinTX.app and dist/BitcoinTX.dmg
+PYTHONPATH=. python desktop/entrypoint.py
 ```
 
-To create a DMG manually:
+(`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.)
 
-```bash
-create-dmg \
-  --volname "BitcoinTX" \
-  --window-pos 200 120 \
-  --window-size 600 400 \
-  --icon-size 100 \
-  --icon "BitcoinTX.app" 150 190 \
-  --app-drop-link 450 190 \
-  dist/BitcoinTX.dmg \
-  dist/BitcoinTX.app
-```
+In this mode the backend serves `frontend/dist` from the repo and still uses
+the Application Support database.
 
----
+## BitcoinTX.spec
 
-## Technical Details
+- **Datas:** the whole `backend/` package (including `assets/irs_templates/`)
+  and `frontend/dist/`.
+- **Hidden imports:** FastAPI/Starlette/Uvicorn internals, pydantic,
+  SQLAlchemy SQLite dialect, httpx, bcrypt, cryptography, pypdf, reportlab,
+  tzdata, pywebview, and the `backend.*` router/service/model modules.
+  **When you add a backend module or a dependency, add it here** or the bundled
+  app may fail at import time even though dev runs work.
+- **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
+- **Bundle:** `org.bitcointx.desktop`, version `0.8.0` (`CFBundleVersion` /
+  `CFBundleShortVersionString`; bump both on release), minimum macOS 10.15,
+  dark mode supported.
 
-### entrypoint.py
+## Using the MCP server with the Mac app
 
-The main launcher script (`desktop/entrypoint.py`) handles:
+Point the MCP server at the app with `BTCTX_URL=http://127.0.0.1:8765` (plus
+`BTCTX_USERNAME` / `BTCTX_PASSWORD`). The app must be running. See
+[mcp_server/README.md](../mcp_server/README.md).
 
-1. **Resource Path Resolution**
-   ```python
-   def get_resource_path(relative_path):
-       # Handles both development and PyInstaller bundle paths
-       if hasattr(sys, '_MEIPASS'):
-           return os.path.join(sys._MEIPASS, relative_path)
-       return os.path.join(os.path.dirname(__file__), '..', relative_path)
-   ```
+## CI
 
-2. **Data Directory Setup**
-   ```python
-   def get_application_support_dir():
-       # Returns ~/Library/Application Support/BitcoinTX/
-       home = os.path.expanduser('~')
-       return os.path.join(home, 'Library', 'Application Support', 'BitcoinTX')
-   ```
-
-3. **Dynamic Port Allocation**
-   ```python
-   def find_free_port():
-       # Finds an available port for the backend
-       with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-           s.bind(('', 0))
-           return s.getsockname()[1]
-   ```
-
-4. **Backend Startup with Health Check**
-   - Starts Uvicorn in a daemon thread
-   - Polls `/api/health` with exponential backoff (0.1s → 1s)
-   - Times out after 30 seconds
-
-5. **pywebview Window**
-   ```python
-   webview.create_window(
-       'BitcoinTX',
-       url,
-       width=1280,
-       height=800,
-       min_size=(800, 600),
-       resizable=True
-   )
-   ```
-
-### BitcoinTX.spec (PyInstaller Config)
-
-Key configuration sections:
-
-**Hidden Imports** - Required for dynamic imports:
-```python
-hiddenimports = [
-    'uvicorn.logging', 'uvicorn.loops', 'uvicorn.protocols',
-    'sqlalchemy.dialects.sqlite',
-    'pydantic', 'pydantic_core',
-    'backend.routers.*', 'backend.services.*', 'backend.models.*',
-    # ... many more
-]
-```
-
-**Data Collection** - Bundles these directories:
-```python
-datas = [
-    ('../backend', 'backend'),           # Entire backend
-    ('../frontend/dist', 'frontend/dist'), # Built frontend
-]
-```
-
-**Exclusions** - Reduces bundle size:
-```python
-excludes = ['pytest', 'tkinter', 'matplotlib', 'numpy', 'scipy', 'pandas']
-```
-
-**macOS Bundle Configuration**:
-```python
-app = BUNDLE(
-    name='BitcoinTX.app',
-    bundle_identifier='org.bitcointx.desktop',
-    info_plist={
-        'CFBundleVersion': '0.6.0',
-        'LSMinimumSystemVersion': '10.15',
-        'NSRequiresAquaSystemAppearance': False,  # Dark mode support
-    }
-)
-```
-
-### Backend Integration
-
-The backend (`backend/main.py`) was modified to support bundled operation:
-
-```python
-# Support for bundled frontend path
-frontend_dist = os.environ.get('BTCTX_FRONTEND_DIST')
-if frontend_dist is None:
-    frontend_dist = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
-```
-
-Environment variables set by entrypoint.py:
-- `DATABASE_FILE`: Path to SQLite database in Application Support
-- `SECRET_KEY`: Desktop app secret key
-- `BTCTX_FRONTEND_DIST`: Path to bundled frontend dist
-
-### File Downloads (pywebview API)
-
-The desktop app exposes a JavaScript API for file downloads that bypasses browser restrictions:
-
-**entrypoint.py** exposes:
-```python
-class Api:
-    def save_file(self, filename: str, data: str, file_type: str) -> dict:
-        # Opens native macOS save dialog
-        # Returns {"success": True, "path": "/saved/path"} or {"success": False, "error": "..."}
-```
-
-**Frontend** (`desktopDownload.ts`) detects and uses this API:
-```typescript
-export function isDesktopApp(): boolean {
-    return typeof window !== 'undefined' &&
-           'pywebview' in window &&
-           window.pywebview?.api?.save_file;
-}
-
-export async function downloadFile(blob: Blob, filename: string, fileType: string) {
-    if (isDesktopApp()) {
-        // Use native save dialog via pywebview
-        const base64 = await blobToBase64(blob);
-        return window.pywebview.api.save_file(filename, base64, fileType);
-    } else {
-        // Fall back to browser download
-        // ...
-    }
-}
-```
-
-This enables Settings page downloads (backups, CSV exports, templates) to work correctly in the desktop app.
-
----
-
-## Data Storage
-
-### Database Location
-
-User data is stored in the standard macOS Application Support folder:
-
-```
-~/Library/Application Support/BitcoinTX/
-└── btctx.db    # SQLite database
-```
-
-### Accessing User Data
-
-```bash
-# Open data folder in Finder
-open ~/Library/Application\ Support/BitcoinTX/
-
-# View database
-sqlite3 ~/Library/Application\ Support/BitcoinTX/btctx.db
-```
-
-### Backup
-
-To backup user data, copy the entire `BitcoinTX` folder from Application Support.
-
----
+On pushes to `main` (or manually from the Actions tab), `.github/workflows/ci.yml`
+runs `./desktop/build-mac.sh` on `macos-latest`, launches the bundled binary,
+checks it answers on `http://127.0.0.1:8765/` and that
+`/api/import/entries/preview` returns 401 without a login, then uploads the
+zipped `.app` as a build artifact.
 
 ## Troubleshooting
 
-### App Won't Open (Gatekeeper)
-
-macOS may block unsigned apps:
-
+**App won't open (Gatekeeper).** The app is unsigned. Right-click → Open, or:
 ```bash
-# Remove quarantine attribute
 xattr -cr /path/to/BitcoinTX.app
-
-# Or allow in System Preferences:
-# System Preferences → Security & Privacy → General → "Open Anyway"
 ```
 
-### pdftk Warning at Startup
+**Crashes or blank window.** Run the binary from Terminal to see its log output:
+```bash
+/path/to/BitcoinTX.app/Contents/MacOS/BitcoinTX
+```
+If the backend doesn't answer within 30 seconds the app logs
+"Backend failed to start" and exits. A missing hidden import in
+`BitcoinTX.spec` is the usual cause after adding a module.
 
-If you see "pdftk not found" warning:
+**MCP client can't connect.** Check the log for "Port 8765 is in use". Free the
+port, or set `BTCTX_DESKTOP_PORT` for the app and use the same port in
+`BTCTX_URL`.
+
+**Debugging PyInstaller:** `pyinstaller --debug=imports BitcoinTX.spec`.
+
+## App icon
+
+`desktop/resources/icon.icns` is checked in. To regenerate it from a
+1024×1024 PNG:
 
 ```bash
-# Install pdftk via Homebrew
-brew install pdftk-java
+mkdir icon.iconset
+for s in 16 32 128 256 512; do
+  sips -z $s $s icon.png --out icon.iconset/icon_${s}x${s}.png
+  sips -z $((s*2)) $((s*2)) icon.png --out icon.iconset/icon_${s}x${s}@2x.png
+done
+iconutil -c icns icon.iconset -o desktop/resources/icon.icns
 ```
-
-### App Crashes on Launch
-
-1. Check Console.app for crash logs
-2. Run from terminal to see output:
-   ```bash
-   /path/to/BitcoinTX.app/Contents/MacOS/BitcoinTX
-   ```
-
-### Backend Port Conflicts
-
-The app automatically finds a free port. If issues persist:
-1. Check for zombie processes: `ps aux | grep uvicorn`
-2. Kill any stale processes: `pkill -f uvicorn`
-
-### Blank Window
-
-If the window is blank:
-1. Wait for backend to start (can take a few seconds)
-2. Check if backend is running: `curl http://127.0.0.1:{port}/api/health`
-
----
-
-## Creating an App Icon
-
-If you don't have `resources/icon.icns`:
-
-1. Create a 1024x1024 PNG icon
-2. Convert to .icns:
-   ```bash
-   mkdir icon.iconset
-   sips -z 16 16     icon.png --out icon.iconset/icon_16x16.png
-   sips -z 32 32     icon.png --out icon.iconset/icon_16x16@2x.png
-   sips -z 32 32     icon.png --out icon.iconset/icon_32x32.png
-   sips -z 64 64     icon.png --out icon.iconset/icon_32x32@2x.png
-   sips -z 128 128   icon.png --out icon.iconset/icon_128x128.png
-   sips -z 256 256   icon.png --out icon.iconset/icon_128x128@2x.png
-   sips -z 256 256   icon.png --out icon.iconset/icon_256x256.png
-   sips -z 512 512   icon.png --out icon.iconset/icon_256x256@2x.png
-   sips -z 512 512   icon.png --out icon.iconset/icon_512x512.png
-   sips -z 1024 1024 icon.png --out icon.iconset/icon_512x512@2x.png
-   iconutil -c icns icon.iconset
-   mv icon.icns desktop/resources/
-   ```
-
----
-
-## Development Notes
-
-### Making Changes
-
-1. **Backend changes**: No special handling needed - backend is bundled as-is
-2. **Frontend changes**: Run `npm run build` before rebuilding the app
-3. **Desktop changes**: Edit files in `desktop/`, then rebuild
-
-### Testing During Development
-
-Run the entrypoint directly without building:
-
-```bash
-cd desktop
-source .venv/bin/activate
-python entrypoint.py
-```
-
-### Debugging PyInstaller Issues
-
-```bash
-# Build with debug output
-pyinstaller --debug=all BitcoinTX.spec
-
-# Check for missing imports
-pyinstaller --debug=imports BitcoinTX.spec
-```
-
-### Adding New Dependencies
-
-If you add new Python packages to the backend:
-
-1. Add to `backend/requirements.txt`
-2. Check if PyInstaller needs `hiddenimports` in `BitcoinTX.spec`
-3. Rebuild and test
-
----
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 0.5.4 | 2025-01-17 | Added Buy from Bank feature, build script auto-creates DMG |
-| 0.5.3 | 2025-01-17 | Initial macOS desktop app release with Settings/Reports download fixes |
-
----
-
-## Related Documentation
-
-- [Main README](../README.md) - Project overview
-- [CLAUDE.md](../CLAUDE.md) - AI assistant context
-- [CHANGELOG.md](CHANGELOG.md) - Version history
-- [desktop/README.md](../desktop/README.md) - Quick start guide

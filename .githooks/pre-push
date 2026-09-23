@@ -17,7 +17,7 @@ fail() { printf "\n\033[31m✗ pre-push failed: %s\033[0m\n  (fix it, or bypass 
 
 [ -d frontend/dist ] || mkdir -p frontend/dist   # app mounts it at import time
 
-step "Lint (bug-level Python checks)"
+step "Lint (Pyflakes + bare except)"
 "$PY" -m ruff check . || fail "ruff"
 
 step "Static compatibility checks"

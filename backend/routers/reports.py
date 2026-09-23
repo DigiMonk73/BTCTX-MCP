@@ -29,7 +29,7 @@ from backend.services.reports.form_8949 import (
 )
 from itertools import zip_longest
 
-# Pure-Python form filling (pypdf) — no pdftk/Java needed
+# Pure-Python form filling (pypdf)
 from backend.services.reports.pdf_form_filler import fill_pdf_form
 
 reports_router = APIRouter()
@@ -42,7 +42,7 @@ def get_complete_tax_report(
     """
     Generates a comprehensive tax report (PDF) that includes
     realized gains, income, fees, and balances.
-    Uses ReportLab and doesn't need pdftk.
+    Built with ReportLab.
     """
     report_dict = generate_report_data(db, year)
     pdf_bytes = generate_comprehensive_tax_report(report_dict)
@@ -135,8 +135,7 @@ def get_simple_transaction_history(
 ):
     """
     Exports a raw list of transactions (CSV or PDF).
-    Bypasses FIFO and gain/loss logic. This uses a custom
-    ReportLab or CSV approach that doesn't need pdftk.
+    Bypasses FIFO and gain/loss logic (ReportLab or CSV).
     """
     report_bytes = transaction_history.generate_transaction_history_report(db, year, format)
 

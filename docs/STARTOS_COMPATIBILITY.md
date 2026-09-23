@@ -1,481 +1,176 @@
-# StartOS Container Architecture & Data Persistence
+# Docker & StartOS: Container Layout and Data Persistence
 
-> **CRITICAL:** This document explains how BitcoinTX runs in Docker and StartOS containers. All developers (human or AI) MUST understand this before modifying database paths, file storage, or environment handling.
+> Read this before changing database paths, file storage, ports, or
+> environment handling. The StartOS wrapper depends on the contracts below.
 
-**Last Updated:** 2025-01-10
+## Two repositories
 
----
+| Repo | Contents | Produces |
+|------|----------|----------|
+| This repo ([BitcoinTX-org/btctx-org](https://github.com/BitcoinTX-org/btctx-org)) | Backend, frontend, `Dockerfile`, all app logic | Docker image `b1ackswan/btctx:vX.Y.Z` (+ `:latest`) |
+| Wrapper ([PlebRick/BTCTX-StartOS](https://github.com/PlebRick/BTCTX-StartOS)) | StartOS manifest, startup/backup procedures, actions; no app code | `.s9pk` package |
 
-## Table of Contents
+The wrapper tells StartOS how to run our image: which volume to mount, which
+environment variables to set, how to health-check, and how to back up. The
+wrapper-side details below describe that repo; check it for the current
+source.
 
-1. [Overview: Two Repositories](#overview-two-repositories)
-2. [How Data Persistence Works](#how-data-persistence-works)
-3. [The DATABASE_FILE Environment Variable](#the-database_file-environment-variable)
-4. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
-5. [Docker Image Requirements](#docker-image-requirements)
-6. [StartOS Wrapper Configuration](#startos-wrapper-configuration)
-7. [Testing Checklist](#testing-checklist)
+## The Docker image
 
----
+`Dockerfile` is a two-stage build:
 
-## Overview: Two Repositories
+1. `node:22-slim`: `npm ci && npm run build` in `frontend/`
+2. `python:3.11-slim`: `pip install -r backend/requirements.txt`, copies
+   `backend/` to `/app/backend` and the built frontend to `/app/frontend/dist`,
+   creates `/data`, sets `ENV DATABASE_FILE=/data/btctx.db`, and runs
+   `uvicorn backend.main:app --host 0.0.0.0 --port 80`.
 
-BitcoinTX uses a **two-repository architecture** for StartOS deployment:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  BTCTX-org (Main Application)                                   │
-│  https://github.com/BitcoinTX-org/BTCTX-org                     │
-│                                                                 │
-│  Contains:                                                      │
-│  - Python/FastAPI backend                                       │
-│  - React frontend                                               │
-│  - Dockerfile                                                   │
-│  - All application logic                                        │
-│                                                                 │
-│  Builds → Docker Hub: b1ackswan/btctx:vX.Y.Z (+ :latest)        │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-                    (Docker image is pulled by)
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  btctx-startos (StartOS Wrapper)                                │
-│  https://github.com/PlebRick/BTCTX-StartOS                      │
-│                                                                 │
-│  Contains:                                                      │
-│  - manifest.ts (package metadata, volume definitions)           │
-│  - procedures/main.ts (container startup, env vars)             │
-│  - procedures/backups.ts (backup/restore of volumes)            │
-│  - No application code - just orchestration                     │
-│                                                                 │
-│  Builds → .s9pk package for StartOS                             │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Key insight:** The main repo builds a Docker image. The wrapper repo tells StartOS how to run that image, including:
-- What volumes to mount
-- What environment variables to set
-- How to do health checks
-- How to backup/restore data
-
----
-
-## How Data Persistence Works
-
-### The Problem with Containers
-
-Docker containers are **ephemeral** - when the container is removed, all data inside it is lost. This includes:
-- The SQLite database
-- User settings
-- Any files written during runtime
-
-### The Solution: Volume Mounts
-
-StartOS solves this by mounting a **persistent volume** at `/data`:
-
-```typescript
-// From btctx-startos/startos/procedures/main.ts
-const mounts = sdk.Mounts.of().mountVolume({
-  volumeId: 'main',           // StartOS manages this volume
-  subpath: null,
-  mountpoint: '/data',        // Mounted inside container at /data
-  readonly: false,
-})
-```
-
-**What this means:**
-- StartOS creates a persistent storage area called `main`
-- This storage is mounted at `/data` inside the container
-- Files in `/data` survive container restarts and updates
-- Files OUTSIDE `/data` are lost when the container restarts
-
-### Visual Diagram
+No system packages are installed: IRS forms are filled in pure Python (pypdf).
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    StartOS Server                                │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Persistent Storage (survives restarts)                     ││
-│  │  Volume: "main"                                             ││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │  /data/btctx.db  ← SQLite database lives here          │││
-│  │  │  /data/...       ← Any other persistent files          │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  └──────────────────────────────────────│─────────────────────┘│
-│                                         │ mounted at /data      │
-│  ┌──────────────────────────────────────▼─────────────────────┐│
-│  │  Docker Container (ephemeral - rebuilt on updates)         ││
-│  │                                                            ││
-│  │  /app/backend/     ← Application code (read-only)          ││
-│  │  /app/frontend/    ← React build (read-only)               ││
-│  │  /data/            ← MOUNT POINT for persistent volume     ││
-│  │                                                            ││
-│  └────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
+/app/backend/          application code (ephemeral, replaced on update)
+/app/frontend/dist/    built React app
+/data/                 volume mount point (persistent)
+  ├── btctx.db             SQLite database
+  └── .btctx_secret_key    per-install session signing key (mode 600)
 ```
 
----
+## Data persistence
 
-## The DATABASE_FILE Environment Variable
+Containers are ephemeral: anything written outside a mounted volume is lost
+when the container is replaced. The image stores its data in `/data`, so mount a
+volume there. StartOS mounts its persistent volume (`main`) at `/data`.
 
-### Why It Exists
+### DATABASE_FILE
 
-The application needs to know where to store the database. Different environments use different paths:
+`backend/database.py` (and `backend/services/backup.py`, which must match)
+reads `DATABASE_FILE`; a relative path is resolved against the repo root.
 
-| Environment | Database Path | Who Sets It |
-|-------------|---------------|-------------|
-| Local development | `backend/bitcoin_tracker.db` | Default in code |
-| Docker (standalone) | `/data/btctx.db` | Docker run command |
-| StartOS | `/data/btctx.db` | StartOS wrapper |
+| Environment | Database path | Set by |
+|-------------|---------------|--------|
+| Local development | `backend/bitcoin_tracker.db` | Default in code (or `.env`) |
+| Docker (standalone) | `/data/btctx.db` | Image default (`ENV` in `Dockerfile`) |
+| StartOS | `/data/btctx.db` | Image default; the wrapper also sets the same value |
+| macOS app | `~/Library/Application Support/BitcoinTX/btctx.db` | `desktop/entrypoint.py` |
 
-### How StartOS Sets It
-
-The wrapper passes the environment variable when starting the container:
-
-```typescript
-// From btctx-startos/startos/procedures/main.ts
-return sdk.Daemons.of(effects).addDaemon('webui', {
-  subcontainer,
-  exec: {
-    command: ['uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '80'],
-    env: {
-      DATABASE_FILE: '/data/btctx.db',  // ← THIS IS CRITICAL
-    },
-  },
-  // ...
-})
-```
-
-### How Application Code Must Read It
-
-**CORRECT - Use the environment variable:**
-
-```python
-# backend/database.py (correct implementation)
-DATABASE_FILE_ENV = os.getenv("DATABASE_FILE", "backend/bitcoin_tracker.db")
-DATABASE_FILE = (
-    DATABASE_FILE_ENV if os.path.isabs(DATABASE_FILE_ENV)
-    else os.path.join(PROJECT_ROOT, DATABASE_FILE_ENV)
-)
-```
-
-```python
-# backend/services/backup.py (correct implementation)
-_DATABASE_FILE_ENV = os.getenv("DATABASE_FILE", "backend/bitcoin_tracker.db")
-_DATABASE_FILE = (
-    _DATABASE_FILE_ENV if os.path.isabs(_DATABASE_FILE_ENV)
-    else os.path.join(_PROJECT_ROOT, _DATABASE_FILE_ENV)
-)
-DB_PATH = Path(_DATABASE_FILE)
-```
-
-**WRONG - Hardcoded paths:**
-
-```python
-# DO NOT DO THIS - breaks in Docker/StartOS
-DB_PATH = Path("backend/bitcoin_tracker.db")  # WRONG!
-DB_PATH = Path("/app/backend/bitcoin_tracker.db")  # WRONG!
-```
-
----
-
-## Common Mistakes to Avoid
-
-### Mistake 1: Hardcoded Database Paths
-
-**Bug we fixed on 2025-01-10:** `backup.py` had a hardcoded path that didn't match where StartOS puts the database.
-
-```python
-# BEFORE (broken):
-DB_PATH = Path("backend/bitcoin_tracker.db")
-
-# AFTER (fixed):
-DB_PATH = Path(os.getenv("DATABASE_FILE", "backend/bitcoin_tracker.db"))
-```
-
-**Result:** Backup/restore was writing to a different file than the app was using.
-
-### Mistake 2: Writing Files Outside /data
-
-```python
-# WRONG - file will be lost on container restart
-with open("/app/exports/report.pdf", "wb") as f:
-    f.write(pdf_data)
-
-# RIGHT - temporary files are OK, or use /data for persistence
-with tempfile.NamedTemporaryFile() as f:
-    f.write(pdf_data)
-```
-
-### Mistake 3: Assuming Container Filesystem Persists
-
-```python
-# WRONG - assuming previous state exists
-if os.path.exists("/app/cache/prices.json"):
-    load_cached_prices()
-
-# RIGHT - use /data or fetch fresh data
-if os.path.exists("/data/cache/prices.json"):
-    load_cached_prices()
-```
-
-### Mistake 4: Not Testing in Docker
-
-Always test database operations in Docker before pushing:
+An `-e DATABASE_FILE=...` at run time still overrides the image default.
+Standalone run, with the data on a named volume:
 
 ```bash
-# Build and run with the same env var StartOS uses
-docker run -p 80:80 \
-  -e DATABASE_FILE=/data/btctx.db \
-  -v btctx-data:/data \
-  b1ackswan/btctx:latest
+docker build -t btctx . && docker run -d -p 8080:80 -v btctx-data:/data btctx
 ```
 
----
+Without a `-v` mount, `/data` lives in the container and is lost when the
+container is removed.
 
-## Docker Image Requirements
+### Session secret key
 
-### Required Elements in Dockerfile
+`backend/secret_key.py` uses the `SECRET_KEY` env var if set (ignoring known
+public placeholder values); otherwise it generates a random key once and stores
+it as `.btctx_secret_key` in the database's folder. In the container that is
+`/data/.btctx_secret_key`, so it
+persists across updates and is included in volume backups. Nothing needs to be
+configured.
 
-```dockerfile
-# Multi-arch compatible base image
-FROM python:3.11-slim
+### Rules
 
-# Create /data directory for the volume mount
-RUN mkdir -p /data && chmod 777 /data
+1. All persistent data goes under the directory of `DATABASE_FILE` (`/data`).
+2. Never hardcode a database path; derive it from `DATABASE_FILE`.
+3. Temporary files (report generation, uploads) use `tempfile`, not paths
+   under `/app`.
+4. Test path/storage changes in Docker, not just local dev.
 
-# Application must handle DATABASE_FILE env var
-# (no Dockerfile changes needed - handled in Python code)
+## Contracts the wrapper depends on
 
-# Expose port 80
-EXPOSE 80
-```
+Coordinate a wrapper release before changing any of these:
 
-### Build Command (Multi-Arch Required)
+- **Entry point and port:** `backend.main:app`, plain HTTP on port 80. The
+  wrapper health-checks `http://localhost:80/` and treats any HTTP response as
+  healthy. (`GET /` serves the SPA without login; `/api/*` routes return 401
+  when logged out.)
+- **App location:** code at `/app` in the image.
+- **DB initialization:** the wrapper calls `backend.database.create_tables()`
+  at install time (it creates tables and seeds the default admin user), then
+  writes a random admin password into the `users` table (`username`,
+  `password_hash`, bcrypt). Renaming that module/function or changing the
+  `users` schema breaks the wrapper.
+- **Volume:** data at `/data`, database path from `DATABASE_FILE`.
 
-Use the release script, which enforces the tag contract below:
+### Docker tag contract
+
+The wrapper pins our image by version tag, and a daily job compares its pinned
+tag with Docker Hub to detect releases. Every release must:
+
+1. **Use an exact version tag:** `b1ackswan/btctx:vX.Y.Z`, matching the git
+   release tag and `^v[0-9]+\.[0-9]+\.[0-9]+$` (no `-rc` / `-beta`).
+2. **Never overwrite a version tag.** If a build needs fixing, cut a new patch
+   version.
+3. **Be multi-arch:** `linux/amd64` and `linux/arm64` in one manifest list.
+4. **Treat `:latest` as convenience only:** push it with the version tag, never
+   on its own.
+
+`scripts/release-docker.sh` enforces all four (it refuses a bad tag pattern, a
+missing git tag, or a tag that already exists on Docker Hub):
 
 ```bash
-./scripts/release-docker.sh v0.6.0
+git tag vX.Y.Z && ./scripts/release-docker.sh vX.Y.Z
 ```
 
-Or manually:
-
-```bash
-# StartOS runs on ARM64 (Raspberry Pi) and x86_64
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t b1ackswan/btctx:vX.Y.Z \
-  -t b1ackswan/btctx:latest \
-  --push .
-```
-
-### Docker Tag Contract (Wrapper Dependency)
-
-The StartOS wrapper (PlebRick/BTCTX-StartOS) pins our image by **version tag**
-in its manifest, and a daily job compares its pinned tag against Docker Hub to
-detect new releases. Every release MUST satisfy:
-
-1. **Pinned version tag:** Push `b1ackswan/btctx:vX.Y.Z` where the tag exactly
-   matches the git release tag and `^v[0-9]+\.[0-9]+\.[0-9]+$`. No `-rc`/`-beta`
-   suffixes on the Docker tag — the wrapper's automation only recognizes that
-   exact pattern.
-2. **Immutable version tags:** Never re-push different bytes under an existing
-   `vX.Y.Z` tag. The wrapper's releases are reproducible builds that assume a
-   tag always resolves to the same image. If a build needs fixing, cut a new
-   patch version.
-3. **Multi-arch manifest:** `linux/amd64` AND `linux/arm64` in a single
-   manifest list (`docker buildx --platform linux/amd64,linux/arm64`). The
-   StartOS package packs both architectures from the one version tag.
-4. **`:latest` is convenience only:** Push it alongside the version tag if you
-   like, but nothing depends on it anymore — it must never be the only tag.
-
-### Container Filesystem Layout
-
-```
-/app/
-├── backend/
-│   ├── main.py              # FastAPI entry point
-│   ├── database.py          # Reads DATABASE_FILE env var
-│   ├── services/
-│   │   ├── backup.py        # MUST read DATABASE_FILE env var
-│   │   └── ...
-│   └── ...
-├── frontend/
-│   └── dist/                # Built React app
-└── /data/                   # VOLUME MOUNT POINT
-    └── btctx.db             # SQLite database (persistent)
-```
-
----
-
-## StartOS Wrapper Configuration
-
-### Key Files in btctx-startos Repository
+## Wrapper overview (PlebRick/BTCTX-StartOS)
 
 | File | Purpose |
 |------|---------|
-| `startos/manifest.ts` | Package metadata, volume declarations, architecture |
-| `startos/procedures/main.ts` | Container startup, ENV vars, health checks |
-| `startos/procedures/backups.ts` | Backup/restore configuration |
-| `startos/procedures/interfaces.ts` | Network ports and URLs |
-| `startos/procedures/versions/*.ts` | Version migration scripts |
-| `startos/procedures/actions/*.ts` | User actions (e.g., reset credentials) |
+| `startos/manifest.ts` | Package metadata, volume `main`, architectures |
+| `startos/procedures/main.ts` | Mounts `main` at `/data`, runs uvicorn with `DATABASE_FILE=/data/btctx.db`, health check |
+| `startos/procedures/backups.ts` | StartOS backup of the whole `main` volume |
+| `startos/procedures/interfaces.ts` | Network interfaces |
+| `startos/procedures/actions/*.ts` | Actions such as showing or resetting the admin credentials |
 
-### Wrapper Actions
+StartOS backups cover the whole volume (database and secret key). The app
+also has its own password-encrypted backup (Settings, or
+`POST /api/backup/download` / `/api/backup/restore`), which covers the
+database only.
 
-The wrapper includes useful StartOS actions:
+If the wrapper's `manifest.ts` declares only `aarch64`, the package won't
+install on x86_64 servers even though the image supports both; the fix belongs
+in the wrapper (`images.main.arch` and `hardwareRequirements.arch`).
 
-| Action | Purpose |
-|--------|---------|
-| `showDefaultCredentials` | Display the default admin/password credentials |
-| `resetCredentials` | Reset login to default (recovery if locked out) |
+## Testing checklist
 
-The reset action directly modifies the SQLite database to restore default credentials using bcrypt hashing.
-
-### Volume Declaration (manifest.ts)
-
-```typescript
-export const manifest = setupManifest({
-  // ...
-  volumes: ['main'],  // Declares a volume named "main"
-  // ...
-})
-```
-
-### Volume Mount + Environment (main.ts)
-
-```typescript
-// Mount the volume
-const mounts = sdk.Mounts.of().mountVolume({
-  volumeId: 'main',
-  mountpoint: '/data',
-  readonly: false,
-})
-
-// Pass DATABASE_FILE to the container
-return sdk.Daemons.of(effects).addDaemon('webui', {
-  exec: {
-    command: ['uvicorn', 'backend.main:app', '--host', '0.0.0.0', '--port', '80'],
-    env: {
-      DATABASE_FILE: '/data/btctx.db',
-    },
-  },
-})
-```
-
-### Backup Configuration (backups.ts)
-
-```typescript
-// This tells StartOS to backup the entire "main" volume
-export const { createBackup, restoreInit } = sdk.setupBackups(
-  async ({ effects }) => sdk.Backups.ofVolumes('main'),
-)
-```
-
-**Note:** This is the StartOS-level backup (backs up the whole volume). The app also has its own encrypted backup feature via `/api/backup/download` which exports just the database with password encryption.
-
----
-
-## Testing Checklist
-
-Before pushing changes that touch database paths or file storage:
-
-### 1. Verify DATABASE_FILE is Used
+CI (`.github/workflows/ci.yml`) already builds the image, checks that
+`btctx.db` and `.btctx_secret_key` are created in `/data`, and runs
+`scripts/smoke_test.py` against the running container. For changes to paths or
+storage, also check by hand:
 
 ```bash
-# Inside the container, check the path
-docker exec <container> python -c "
-from backend.services.backup import DB_PATH
-print('backup.py DB_PATH:', DB_PATH)
-"
-# Should print: /data/btctx.db
+docker build -t btctx:test .
+docker run -d --name btctx-test -p 8080:80 -v btctx-test-data:/data btctx:test
+
+# Database, key and backup service all point at /data
+docker exec btctx-test ls -la /data/
+docker exec btctx-test python -c "from backend.services.backup import DB_PATH; print(DB_PATH)"
+
+# End-to-end against the EMPTY test container (it creates transactions)
+python scripts/smoke_test.py --url http://127.0.0.1:8080
+
+# Persistence: data (and your login) survive a restart
+docker restart btctx-test
+
+# Clean up
+docker rm -f btctx-test && docker volume rm btctx-test-data
 ```
 
-### 2. Verify Database is in /data
+To test encrypted backup/restore by hand, log in first (backup routes need a
+session):
 
 ```bash
-docker exec <container> ls -la /data/
-# Should show: btctx.db
+curl -c jar -H 'content-type: application/json' \
+  -d '{"username":"admin","password":"..."}' http://localhost:8080/api/login
+curl -b jar -X POST -F password=test123 http://localhost:8080/api/backup/download -o backup.btx
+curl -b jar -X POST -F password=test123 -F file=@backup.btx http://localhost:8080/api/backup/restore
 ```
 
-### 3. Test Backup/Restore
-
-```bash
-# Download backup
-curl -X POST http://localhost:8080/api/backup/download \
-  -F "password=test123" -o backup.btx
-
-# Restore backup
-curl -X POST http://localhost:8080/api/backup/restore \
-  -F "password=test123" -F "file=@backup.btx"
-# Should return: {"message":"✅ Database successfully restored."}
-```
-
-### 4. Test Data Persistence
-
-```bash
-# Create data, stop container, restart, verify data exists
-docker stop btctx-test
-docker start btctx-test
-# Check if transactions/data still exist
-```
-
-### 5. Build Multi-Arch
-
-```bash
-# Preferred — enforces the Docker Tag Contract (pattern, immutability, multi-arch):
-./scripts/release-docker.sh vX.Y.Z
-
-# Manual equivalent:
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t b1ackswan/btctx:vX.Y.Z -t b1ackswan/btctx:latest --push .
-```
-
----
-
-## Known Issues & TODO
-
-### Wrapper Architecture Declaration
-
-**Issue:** The wrapper's `manifest.ts` currently only declares `aarch64` support, but the Docker image supports both architectures.
-
-```typescript
-// CURRENT (wrapper only allows ARM64):
-arch: ['aarch64']
-
-// SHOULD BE (to match Docker image):
-arch: ['aarch64', 'x86_64']
-```
-
-**Impact:** The package won't install on x86_64 StartOS servers even though the Docker image would work.
-
-**Fix location:** `startos/manifest.ts` in the wrapper repo - update both `images.main.arch` and `hardwareRequirements.arch`.
-
----
-
-## Summary: Critical Rules
-
-1. **All persistent data MUST go in `/data/`** - anything else is lost on restart
-2. **Always use `DATABASE_FILE` env var** - never hardcode database paths
-3. **Test in Docker before pushing** - local dev doesn't catch these bugs
-4. **Build multi-arch images** - StartOS runs on ARM64 and x86_64
-5. **Coordinate wrapper updates** - if you change ports, paths, or env vars, update the wrapper repo too
-6. **Follow the Docker Tag Contract** - pinned immutable `vX.Y.Z` tag on every release (see "Docker Tag Contract" above)
-7. **Don't break the wrapper's install/health hooks** (coordinate with a wrapper release before changing any of these):
-   - App code lives at `/app` in the image, and `backend.database.create_tables()`
-     seeds the database including the default admin user. The wrapper calls this
-     function directly at install time to initialize the DB, then sets a randomly
-     generated admin password in the `users` table (columns `username`,
-     `password_hash`, bcrypt). Renaming that module/function or changing the
-     users table schema is a breaking change for the wrapper.
-   - The server must keep serving plain HTTP on the port uvicorn binds — the
-     wrapper health-checks `http://localhost:80/` and treats any HTTP response
-     as healthy.
-
----
-
-## Quick Reference
+## Quick reference
 
 | What | Value |
 |------|-------|
@@ -483,8 +178,7 @@ arch: ['aarch64', 'x86_64']
 | Architectures | `linux/amd64`, `linux/arm64` |
 | Entry point | `backend.main:app` |
 | Port | 80 |
-| Data volume mount | `/data` |
-| Database path | `/data/btctx.db` |
-| Database env var | `DATABASE_FILE` |
-| Main repo | https://github.com/BitcoinTX-org/BTCTX-org |
-| Wrapper repo | https://github.com/PlebRick/BTCTX-StartOS |
+| Data volume | `/data` |
+| Database | `/data/btctx.db` (image default of `DATABASE_FILE`) |
+| Session key | `/data/.btctx_secret_key` (auto-generated) or `SECRET_KEY` env |
+| MCP server | Set `BTCTX_URL` to the StartOS address; see [mcp_server/README.md](../mcp_server/README.md) |

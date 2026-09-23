@@ -2,7 +2,7 @@
 """
 BitcoinTX Desktop Application Entry Point
 
-Starts the FastAPI backend on a free port and opens a pywebview window.
+Starts the FastAPI backend on 127.0.0.1:8765 (BTCTX_DESKTOP_PORT) and opens a pywebview window.
 Handles graceful shutdown and data directory management.
 """
 
@@ -217,7 +217,7 @@ def main():
     else:
         logger.info("Running in development mode")
 
-    # Find a free port
+    # Fixed port (so MCP clients know where to connect), random if taken
     port = find_free_port()
     logger.info(f"Starting backend on port {port}")
 

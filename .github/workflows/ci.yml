@@ -102,6 +102,8 @@ jobs:
       - run: pip install httpx
       - name: Smoke test the container (live prices)
         run: python scripts/smoke_test.py --url http://127.0.0.1:8080
+      - name: Data lands on the /data volume
+        run: docker exec btctx test -s /data/btctx.db -a -s /data/.btctx_secret_key
       - name: Container logs on failure
         if: failure()
         run: docker logs btctx
@@ -115,8 +117,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements-dev.txt
-      # PYSEC-2026-1845: pytest tmpdir issue, test-only (see docs/MAINTENANCE.md)
-      - run: pip-audit -r backend/requirements.txt --ignore-vuln PYSEC-2026-1845
+      - run: pip-audit -r backend/requirements.txt -r requirements-dev.txt
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -151,7 +152,7 @@ jobs:
             fi
             sleep 2
           done
-          cat app.log; cat ~/Library/Logs/BitcoinTX/*.log 2>/dev/null || true; exit 1
+          cat app.log; exit 1
       - name: Zip the app (keeps symlinks/permissions macOS needs)
         run: ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
       - uses: actions/upload-artifact@v4

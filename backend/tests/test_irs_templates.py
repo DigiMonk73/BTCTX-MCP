@@ -7,7 +7,7 @@ moment its PDFs are dropped in), fill the real template with a full page of
 rows and read the fields back:
 
   - every field name the app writes must exist in the template
-    (pdftk silently drops unknown names -> blank forms with no error)
+    (a renamed field must fail loudly, not print a blank form)
   - every value must land where it was written
   - exactly one box is checked per Part, and it is the right one
   - Schedule D totals land on lines 1b, 2, 3, 8b, 9 and 10
@@ -16,6 +16,7 @@ Pure Python (pypdf) — no external tools needed.
 """
 
 import io
+import os
 from decimal import Decimal
 
 import pytest
@@ -151,3 +152,14 @@ def test_flattened_output_has_no_form_fields_and_keeps_values(year):
     assert not reader.get_fields()
     text = reader.pages[0].extract_text()
     assert "1000.00" in text and "600.00" in text and f"06/01/{year}" in text
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_flattened_sheet_stays_small(year):
+    # Flattening orphans the widgets' appearance streams; unless they are
+    # dropped a full 8949 sheet is ~5 MB (a 20-sheet report ~100 MB).
+    config = get_8949_field_config(year)
+    field_data = map_8949_rows_to_field_data(_rows(year, "SHORT", config["rows_per_page"]), page=1, year=year)
+    template = get_template_path(year, "f8949.pdf")
+    size = len(fill_pdf_form(template, field_data))
+    assert size < 3 * os.path.getsize(template), f"{size // 1024} KB"

@@ -186,7 +186,7 @@ def assert_equal(actual, expected, description: str) -> bool:
             msg = f"{description}: Expected {expected_f}, got {actual_f}"
             log(msg, "FAIL")
             FAILURES.append(msg)
-            return False
+            raise AssertionError(msg)
     else:
         if actual == expected:
             TESTS_PASSED += 1
@@ -197,7 +197,7 @@ def assert_equal(actual, expected, description: str) -> bool:
             msg = f"{description}: Expected {expected}, got {actual}"
             log(msg, "FAIL")
             FAILURES.append(msg)
-            return False
+            raise AssertionError(msg)
 
 
 def assert_true(condition: bool, description: str) -> bool:
@@ -214,7 +214,7 @@ def assert_true(condition: bool, description: str) -> bool:
         msg = f"{description} (condition was False)"
         log(msg, "FAIL")
         FAILURES.append(msg)
-        return False
+        raise AssertionError(msg)
 
 
 def round_btc(value: float) -> float:
@@ -1700,8 +1700,8 @@ def test_gains_and_losses_fees():
 
 
 def test_holding_period_boundary():
-    """Test: Holding period exactly at 365 days boundary."""
-    log("TEST: Holding Period 365-Day Boundary", "TEST")
+    """Test: Holding period at the one-year anniversary boundary."""
+    log("TEST: Holding Period Anniversary Boundary", "TEST")
     delete_all_transactions()
 
     create_tx({
@@ -1754,8 +1754,9 @@ def test_holding_period_boundary():
         "cost_basis_usd": "20000"
     })
 
-    # Sell on Jan 1, 2024 (365 days exactly - LONG)
-    sell_long = create_tx({
+    # Sell on the anniversary, Jan 1, 2024: held exactly one year, which is
+    # not "more than one year" (IRS Pub. 544) -> still SHORT
+    sell_anniversary = create_tx({
         "type": "Sell",
         "timestamp": "2024-01-01T12:00:00Z",
         "from_account_id": EXCHANGE_BTC,
@@ -1765,9 +1766,23 @@ def test_holding_period_boundary():
         "fee_currency": "USD",
         "gross_proceeds_usd": "15000"
     })
+    anniversary_detail = get_transaction(sell_anniversary["id"])
+    assert_equal(anniversary_detail.get("holding_period"), "SHORT", "sold on the anniversary is SHORT term")
+
+    # Sell the day after the anniversary -> LONG
+    sell_long = create_tx({
+        "type": "Sell",
+        "timestamp": "2024-01-02T12:00:00Z",
+        "from_account_id": EXCHANGE_BTC,
+        "to_account_id": EXCHANGE_USD,
+        "amount": "0.3",
+        "fee_amount": "0",
+        "fee_currency": "USD",
+        "gross_proceeds_usd": "15000"
+    })
 
     long_detail = get_transaction(sell_long["id"])
-    assert_equal(long_detail.get("holding_period"), "LONG", "365 days is LONG term")
+    assert_equal(long_detail.get("holding_period"), "LONG", "day after the anniversary is LONG term")
 
 
 def test_income_btc_aggregation():
