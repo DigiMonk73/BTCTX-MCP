@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------
 # Stage 1: Frontend Builder
 # ------------------------------------------------------------------
-    FROM node:18-slim AS frontend-builder
+    FROM node:22-slim AS frontend-builder
 
     # 1) Create and move into /app/frontend
     WORKDIR /app/frontend

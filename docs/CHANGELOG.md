@@ -29,6 +29,14 @@ All notable changes to BitcoinTX are documented in this file.
   `test_disposal_proceeds.py` (11), and 10 MCP end-to-end tests
   (`mcp_server/tests/`).
 
+### Security / dependencies
+- fastapi 0.141.1, starlette 1.7.0, pydantic 2.13.5, uvicorn 0.53.0 (starlette CVEs)
+- cryptography 50.0.1, pypdf 6.19.0, sqlalchemy 2.0.54, python-dotenv 1.2.3
+- axios 1.20.0 (high-severity advisories), react-hook-form, react-router-dom,
+  eslint/typescript-eslint patch updates; `npm audit` clean
+- Docker frontend build stage: node:18 (EOL) → node:22
+- **Python 3.9 is no longer supported** (3.10+; Docker uses 3.11)
+
 ### Fixed
 - **BTC Transfer fees counted two ways.** The ledger treated a Transfer's
   `amount` as what left the source (fee included, as the UI's "amount sent"
