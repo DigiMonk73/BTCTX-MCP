@@ -20,9 +20,17 @@ column-mapping, specific-lot and multi-year items in `ROADMAP.md`.
   described to the owner **before** it is made, with what changes and whether a
   Recalculate Ledger is needed.
 - Never touch the owner's real data. Tests use temp databases and stubbed prices.
-- **Privacy maximalist.** The owner and the app's users are Bitcoiners: every
-  connection the app makes and every piece of data that leaves the machine needs
-  a reason, and local beats remote. A leak is a bug, not a nice-to-have.
+- **Privacy maximalist, but nothing breaks.** The owner and the app's users are
+  Bitcoiners: every connection the app makes and every piece of data that
+  leaves the machine needs a reason, and local beats remote. A leak is a bug.
+  But the app needs its outside data (live price, block height, historical
+  prices for income, spending and fees), and it must keep working out of the
+  box with no setup. So: pure wins (bundled fonts, caching, sending less) just
+  ship; anything that restricts a connection is an opt-in setting (own node,
+  proxy/Tor, live data off) with today's behavior as the default unless the
+  owner chooses otherwise; every privacy change has a fallback to today's
+  behavior when its better source is unavailable, and keeps the Phase 1 tests
+  green.
 - Keep `make check-fast` green on every push. New dependencies follow
   `docs/MAINTENANCE.md`.
 - Work on the session's branch. Merge to `main` and release only with the
@@ -146,8 +154,10 @@ or "deferred, owner OK").
      `CLAUDE.md` rule that derived values are recomputable from the Transaction
      row alone. Direction: a local daily price history (downloaded in bulk, not
      date by date; stored in the database via a migration; refreshed
-     incrementally), used by every historical lookup, and the fee's valuation
-     fixed on the transaction so recalculation never needs the network. Changes
+     incrementally), used by every historical lookup, falling back to today's
+     per-date lookup when a date isn't in it; and the fee's valuation fixed on
+     the transaction when it's saved, so recalculation never needs the
+     network. Changes
      tax figures where today's fallback was used: owner's OK and a Recalculate
      note.
    - **Live price and block height** are polled every 2 minutes
@@ -159,7 +169,10 @@ or "deferred, owner OK").
      The owner picks the defaults.
    - **The browser/webview makes no third-party requests at all:** enforce it
      with a Content-Security-Policy header (`default-src 'self'`) and a test
-     that the built frontend contains no external URLs.
+     that the built frontend contains no external URLs. This doesn't affect the
+     price and block-height lookups: the page gets those from the app's own
+     backend, which makes the outside calls. Links to outside pages (GitHub,
+     docs) still open.
    - **Headers and cookies:** the session cookie is set with
      `https_only=False` (`backend/main.py`), so it lacks `Secure` even when
      StartOS serves the app over HTTPS; add `Secure` when served over HTTPS,
