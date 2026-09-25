@@ -27,6 +27,11 @@ All notable changes to BitcoinTX are documented in this file.
 - The MCP `get_btc_price` tool says which moment its daily price is (00:00
   UTC) and to pass a transaction's UTC date.
 
+### Distribution
+- Releases signed with the `DEV_KEY` secret no longer fail to pack the s9pk
+  when the secret ends with a newline or carries trailing spaces: the key is
+  rewritten in the strict PEM form start-cli requires.
+
 ### AI assistant (MCP)
 - **Settings → Connect an AI Assistant**: a setup prompt to paste into your AI
   app, with this server's address and your username filled in and the MCP
