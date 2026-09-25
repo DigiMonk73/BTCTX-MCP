@@ -334,8 +334,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Form 1099-DA override (Sell, and Spent BTC withdrawals)
   const renderBrokerReportingField = () => (
     <div className="form-group">
-      <label>Broker form (1099-DA / 1099-B):</label>
-      <select className="form-control" {...register("brokerReporting")}>
+      <label htmlFor="tx-broker-reporting">Broker form (1099-DA / 1099-B):</label>
+      <select id="tx-broker-reporting" className="form-control" {...register("brokerReporting")}>
         <option value="">Automatic</option>
         <option value="none">Not on a broker form</option>
         <option value="proceeds">Proceeds only (no basis)</option>
@@ -372,8 +372,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <>
             {/* Account */}
             <div className="form-group">
-              <label>Account:</label>
+              <label htmlFor="tx-account">Account:</label>
               <select
+                id="tx-account"
                 className="form-control"
                 {...register("account", { required: true })}
               >
@@ -389,9 +390,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Currency */}
             <div className="form-group">
-              <label>Currency:</label>
+              <label htmlFor="tx-currency">Currency:</label>
               {account === "Exchange" ? (
                 <select
+                  id="tx-currency"
                   className="form-control"
                   {...register("currency", { required: true })}
                 >
@@ -401,6 +403,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </select>
               ) : (
                 <input
+                  id="tx-currency"
                   type="text"
                   className="form-control"
                   {...register("currency")}
@@ -414,8 +417,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount */}
             <div className="form-group">
-              <label>Amount:</label>
+              <label htmlFor="tx-amount">Amount:</label>
               <input
+                id="tx-amount"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -432,8 +436,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {/* Source */}
             {showSource && (
               <div className="form-group">
-                <label>Source:</label>
+                <label htmlFor="tx-source">Source:</label>
                 <select
+                  id="tx-source"
                   className="form-control"
                   {...register("source", { required: true })}
                 >
@@ -450,8 +455,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {/* Cost Basis if BTC deposit */}
             {showCostBasisField && (
               <div className="form-group">
-                <label>Cost Basis (USD):</label>
+                <label htmlFor="tx-cost-basis-usd">Cost Basis (USD):</label>
                 <input
+                  id="tx-cost-basis-usd"
                   type="number"
                   step="0.01"
                   className="form-control"
@@ -488,8 +494,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <>
             {/* Account */}
             <div className="form-group">
-              <label>Account:</label>
+              <label htmlFor="tx-account">Account:</label>
               <select
+                id="tx-account"
                 className="form-control"
                 {...register("account", { required: true })}
               >
@@ -505,9 +512,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Currency */}
             <div className="form-group">
-              <label>Currency:</label>
+              <label htmlFor="tx-currency">Currency:</label>
               {account === "Exchange" ? (
                 <select
+                  id="tx-currency"
                   className="form-control"
                   {...register("currency", { required: true })}
                 >
@@ -517,6 +525,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </select>
               ) : (
                 <input
+                  id="tx-currency"
                   type="text"
                   className="form-control"
                   {...register("currency")}
@@ -530,8 +539,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount */}
             <div className="form-group">
-              <label>Amount:</label>
+              <label htmlFor="tx-amount">Amount:</label>
               <input
+                id="tx-amount"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -548,8 +558,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {/* Purpose (BTC only) */}
             {showPurpose && (
               <div className="form-group">
-                <label>Purpose (BTC only):</label>
+                <label htmlFor="tx-purpose">Purpose (BTC only):</label>
                 <select
+                  id="tx-purpose"
                   className="form-control"
                   {...register("purpose", { required: true })}
                 >
@@ -564,8 +575,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Fee */}
             <div className="form-group">
-              <label>{feeLabel}:</label>
+              <label htmlFor="tx-fee">{feeLabel}:</label>
               <input
+                id="tx-fee"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -578,8 +590,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <>
                 {/* Proceeds */}
                 <div className="form-group">
-                  <label>Proceeds (USD):</label>
+                  <label htmlFor="tx-proceeds-usd">Proceeds (USD):</label>
                   <input
+                    id="tx-proceeds-usd"
                     type="number"
                     step="0.01"
                     className="form-control"
@@ -598,9 +611,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 {/* FMV for Gift/Donation/Lost */}
                 {isSpecialPurpose && (
                   <div className="form-group">
-                    <label>FMV (USD):</label>
+                    <label htmlFor="tx-fmv-usd">FMV (USD):</label>
                     <div className="form-input-row">
                       <input
+                        id="tx-fmv-usd"
                         type="number"
                         step="0.01"
                         className="form-control"
@@ -632,8 +646,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <>
             {/* From Account */}
             <div className="form-group">
-              <label>From Account:</label>
+              <label htmlFor="tx-from-account">From Account:</label>
               <select
+                id="tx-from-account"
                 className="form-control"
                 {...register("fromAccount", { required: true })}
               >
@@ -649,9 +664,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* From Currency */}
             <div className="form-group">
-              <label>From Currency:</label>
+              <label htmlFor="tx-from-currency">From Currency:</label>
               {fromAccount === "Exchange" ? (
                 <select
+                  id="tx-from-currency"
                   className="form-control"
                   {...register("fromCurrency", { required: true })}
                 >
@@ -661,6 +677,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </select>
               ) : (
                 <input
+                  id="tx-from-currency"
                   type="text"
                   className="form-control"
                   {...register("fromCurrency")}
@@ -674,8 +691,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount (From) */}
             <div className="form-group">
-              <label>Amount (From):</label>
+              <label htmlFor="tx-amount-from">Amount (From):</label>
               <input
+                id="tx-amount-from"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -691,8 +709,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* To Account */}
             <div className="form-group">
-              <label>To Account:</label>
+              <label htmlFor="tx-to-account">To Account:</label>
               <input
+                id="tx-to-account"
                 type="text"
                 className="form-control"
                 {...register("toAccount")}
@@ -702,8 +721,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* To Currency */}
             <div className="form-group">
-              <label>To Currency:</label>
+              <label htmlFor="tx-to-currency">To Currency:</label>
               <input
+                id="tx-to-currency"
                 type="text"
                 className="form-control"
                 {...register("toCurrency")}
@@ -713,8 +733,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount (To) */}
             <div className="form-group">
-              <label>Amount (To):</label>
+              <label htmlFor="tx-amount-to">Amount (To):</label>
               <input
+                id="tx-amount-to"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -731,8 +752,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {/* Fee auto-calc if BTC */}
             {fromCurr === "BTC" ? (
               <div className="form-group">
-                <label>Fee (BTC):</label>
+                <label htmlFor="tx-fee-btc">Fee (BTC):</label>
                 <input
+                  id="tx-fee-btc"
                   type="number"
                   step="0.00000001"
                   className="form-control"
@@ -747,8 +769,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </div>
             ) : (
               <div className="form-group">
-                <label>Fee (USD):</label>
+                <label htmlFor="tx-fee-usd">Fee (USD):</label>
                 <input
+                  id="tx-fee-usd"
                   type="number"
                   step="0.01"
                   className="form-control"
@@ -766,8 +789,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <>
             {/* Source Account: Bank or Exchange */}
             <div className="form-group">
-              <label>From Account:</label>
+              <label htmlFor="tx-from-account">From Account:</label>
               <select
+                id="tx-from-account"
                 className="form-control"
                 {...register("buyFromAccount", { required: true })}
               >
@@ -781,8 +805,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount USD */}
             <div className="form-group">
-              <label>Amount USD:</label>
+              <label htmlFor="tx-amount-usd">Amount USD:</label>
               <input
+                id="tx-amount-usd"
                 type="number"
                 step="0.01"
                 className="form-control"
@@ -798,8 +823,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount BTC */}
             <div className="form-group">
-              <label>Amount BTC:</label>
+              <label htmlFor="tx-amount-btc">Amount BTC:</label>
               <input
+                id="tx-amount-btc"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -815,8 +841,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Fee (USD) */}
             <div className="form-group">
-              <label>Fee (USD):</label>
+              <label htmlFor="tx-fee-usd">Fee (USD):</label>
               <input
+                id="tx-fee-usd"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -832,8 +859,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <>
             {/* Account = Exchange */}
             <div className="form-group">
-              <label>Account:</label>
+              <label htmlFor="tx-account">Account:</label>
               <input
+                id="tx-account"
                 type="text"
                 className="form-control"
                 value="Exchange"
@@ -844,8 +872,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Amount BTC */}
             <div className="form-group">
-              <label>Amount BTC:</label>
+              <label htmlFor="tx-amount-btc">Amount BTC:</label>
               <input
+                id="tx-amount-btc"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -861,8 +890,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* NEW: GROSS PROCEEDS (USD) */}
             <div className="form-group">
-              <label>Gross Proceeds (USD):</label>
+              <label htmlFor="tx-gross-proceeds-usd">Gross Proceeds (USD):</label>
               <input
+                id="tx-gross-proceeds-usd"
                 type="number"
                 step="0.01"
                 className="form-control"
@@ -881,8 +911,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Fee (USD) */}
             <div className="form-group">
-              <label>Fee (USD):</label>
+              <label htmlFor="tx-fee-usd">Fee (USD):</label>
               <input
+                id="tx-fee-usd"
                 type="number"
                 step="0.00000001"
                 className="form-control"
@@ -920,8 +951,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       <div className="form-fields-grid">
         {/* Transaction Type */}
         <div className="form-group">
-          <label>Transaction Type:</label>
+          <label htmlFor="tx-transaction-type">Transaction Type:</label>
           <select
+            id="tx-transaction-type"
             className="form-control"
             value={currentType}
             onChange={onTransactionTypeChange}
@@ -939,8 +971,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
         {/* Date & Time */}
         <div className="form-group">
-          <label>Date & Time:</label>
+          <label htmlFor="tx-date-time">Date & Time:</label>
           <input
+            id="tx-date-time"
             type="datetime-local"
             step="1"
             className="form-control"

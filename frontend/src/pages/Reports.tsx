@@ -112,8 +112,9 @@ const Reports: React.FC = () => {
 
       <div className="reports-section">
         <div className="input-group">
-          <label>Tax Year:</label>
+          <label htmlFor="report-tax-year">Tax Year:</label>
           <input
+            id="report-tax-year"
             type="text"
             className="report-year-input"
             placeholder="e.g. 2024"
@@ -125,8 +126,9 @@ const Reports: React.FC = () => {
              Removed the <select> for Format. 
              We now show a read-only field to reflect the auto-chosen format.
           */}
-          <label>Format:</label>
+          <label htmlFor="report-format">Format:</label>
           <input
+            id="report-format"
             type="text"
             className="report-format-input"
             readOnly

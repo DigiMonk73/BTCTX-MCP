@@ -453,6 +453,7 @@ const Settings: React.FC = () => {
               <input
                 type="text"
                 placeholder="New Username"
+                aria-label="New username"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
                 className="credential-input"
@@ -460,6 +461,7 @@ const Settings: React.FC = () => {
               <input
                 type="password"
                 placeholder="New Password"
+                aria-label="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="credential-input"
@@ -534,6 +536,7 @@ const Settings: React.FC = () => {
               <input
                 type="file"
                 id="csv-file-input"
+                aria-label="CSV file to import"
                 accept=".csv"
                 onChange={handleFileSelect}
                 className="csv-file-input"
@@ -702,8 +705,8 @@ const Settings: React.FC = () => {
               Upload a previously saved backup file and enter your password.
             </p>
             <div className="restore-input-row">
-              <input type="file" name="file" accept=".btx" required />
-              <input type="password" name="password" placeholder="Password" required className="credential-input" />
+              <input type="file" name="file" accept=".btx" required aria-label="Backup file" />
+              <input type="password" name="password" placeholder="Password" required className="credential-input" aria-label="Backup password" />
               <button type="submit" disabled={loading} className="settings-button">
                 {loading ? "Processing..." : "Restore"}
               </button>

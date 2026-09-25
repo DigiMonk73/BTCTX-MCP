@@ -233,6 +233,7 @@ const Transactions: React.FC = () => {
         <div className="sort-wrapper">
           <select
             className="sort-select"
+            aria-label="Sort transactions"
             value={sortMode}
             onChange={e => setSortMode(e.target.value as SortMode)}
           >
