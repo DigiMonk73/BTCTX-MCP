@@ -9,7 +9,7 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       the old ones. (Upgrading a v0.7.0 database is covered by tests and CI;
       this checks your actual data.)
 
-## Next: hardening, then a UI redesign
+## Next: hardening, then a visual polish
 
 Plan, phases and gates: [HARDENING_AND_REDESIGN_PLAN.md](HARDENING_AND_REDESIGN_PLAN.md).
 

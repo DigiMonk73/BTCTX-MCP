@@ -1,12 +1,12 @@
-# Hardening, then redesign: plan
+# Hardening, then a visual polish: plan
 
 Written 2026-09-25 at the end of the v0.9.1 session, for the sessions that carry
 it out. Read `CLAUDE.md` first; this file assumes it.
 
 **Goal.** First make BitcoinTX's calculations and flows provably solid (v0.9.2),
-then give the UI a modern, clean look without changing what it does (a later
-release). The owner wants to drop Koinly and rely on BitcoinTX's Form 8949, so
-correctness comes first.
+then polish the UI so it looks clean and current, keeping its theme, layout
+and behavior (a later release). The owner wants to drop Koinly and rely on
+BitcoinTX's Form 8949, so correctness comes first.
 
 **Not in scope.** New features. Functional changes other than bug fixes. The
 column-mapping, specific-lot and multi-year items in `ROADMAP.md`.
@@ -47,7 +47,7 @@ The three bugs are three patterns. Phase 2 hunts each one everywhere.
 ## Phase 1: click-through tests (lock the behavior)
 
 Write Playwright end-to-end tests of every user flow against the current UI,
-so the later redesign can prove it changed nothing.
+so the later polish can prove it changed nothing.
 
 - Tooling: `@playwright/test` as a frontend dev dependency, pinned to the
   version preinstalled in cloud sessions (`npx playwright --version`; launch with
@@ -55,7 +55,7 @@ so the later redesign can prove it changed nothing.
   Serve the real backend on a temp database with stubbed prices; reuse
   `serve()` from `scripts/smoke_test.py`. Add `make e2e` and a CI job.
 - Find elements by role and visible label (`getByRole`, `getByLabel`), never by
-  CSS class, so the tests survive the redesign. Where the current markup has no
+  CSS class, so the tests survive the polish. Where the current markup has no
   usable label, adding `aria-label`/`<label>` is allowed (accessibility only, no
   behavior change).
 - Run the edit and date tests with `timezoneId: 'America/Chicago'` and once in
@@ -164,35 +164,73 @@ Bug fixes only, plus the guide fix already on `main`. Changelog entries say
 which fixes change existing figures and whether Recalculate Ledger is needed
 (StartOS: raise the Recalculate task in the migration if so). Owner's OK first.
 
-## Phase 5: design system and mockups
+## Phase 5: polish direction and mockups
 
-Deliverables for the owner's approval, before any production code changes:
+**This is a polish, not a redesign.** The owner based the UI on River.com's
+web app and still likes the theme (near-black, gold accent) and the layout: left
+sidebar with logo, Sats Converter and calculator; top navigation; Dashboard
+cards; Transactions grouped by date; the Reports form; Settings sections. Keep
+all of that. Make it cleaner, closer to River's current web app: calmer cards,
+better buttons, no jumpy motion. Take River's style only (spacing, surfaces,
+button shapes, list rows), never its name, logo or wording.
 
-- **Tokens:** color (light and dark), type scale, spacing, radii, elevation,
-  motion. One accent; gains/losses never shown by color alone.
-- **Component inventory:** every control the app uses today (forms, selects,
-  date/time input, tables, dialogs, toasts, tabs, the sidebar) mapped to one
-  consistent set.
-- **Mockups** of the Dashboard, Transactions and the transaction form (Settings
-  if time allows), as an HTML page the owner can open.
-- **Standards:** WCAG 2.2 AA (contrast, keyboard use, visible focus, labels);
-  tabular (fixed-width) digits for BTC and USD, aligned in columns; consistent
-  number and date formats; loading, empty and error states on every screen;
-  respects reduced motion; works from the Mac app's minimum window (800×600) up,
-  and on a phone for StartOS users.
-- **Engine limit:** the Mac app runs in WebKit and supports macOS 10.15, whose
-  WebKit stops at Safari 15. Use only CSS that Safari 15 supports: no container
-  queries, `color-mix()`, CSS nesting or subgrid unless the build compiles them
-  away. Tailwind v4 needs Safari 16.4, so it is out unless the owner raises the
-  macOS minimum. Plain CSS with custom properties (what the app uses now), plus
-  headless React components where they save work, fits.
+What to fix, from the owner's screenshots of v0.9.1 and River (2026-09-25):
 
-**Gate 5:** owner approves the tokens and mockups.
+- **Motion (the "wonky" cards).** Dashboard cards jump on hover:
+  `.card:hover { transform: translateY(-2px) }` in `styles/dashboard.css`.
+  Buttons lift on hover (`accent-btn`, `settings-button`, `report-button`,
+  `login-btn`) and report radio buttons grow (`styles/reports.css`). Static
+  content never moves: hover changes color only, press may dim. Honor
+  `prefers-reduced-motion`. Use tabular (fixed-width) digits so figures don't
+  shift when the price refreshes, and keep space reserved while data loads so
+  cards don't jump in height.
+- **Cards.** One card style everywhere: a surface a shade lighter than the
+  background, no gold border, large radius (about 20px), generous padding.
+  Card titles in white, medium weight, not gold display type; section dividers
+  subtle or gone.
+- **Buttons.** A clear hierarchy, one style each, shared by every page:
+  primary (gold pill, dark text, one per view or section), secondary (subtle
+  surface pill), quiet (text or icon), destructive (red text or outline). Today
+  Settings shows eight gold primaries side by side, and each page defines its
+  own button class. Consistent heights and radius.
+- **Numbers.** Thousands separators (`$46,720.00`, not `$46720.00`); negatives
+  as `−$1,373.21`, not `$-1373.21`; amounts right-aligned in columns; USD first,
+  BTC on a muted second line where both show (River's list style); labels
+  without trailing colons. Gains and losses keep green/red but also show a sign.
+- **Transactions list.** River-style rows: a small icon badge for the type,
+  title (type and account) with a muted subtitle (time, and source or fee),
+  amounts right-aligned. Keep the Edit button, styled as a quiet button. "Add
+  Transaction" as the primary pill; "Sort by Date" as a secondary pill control.
+- **Navigation.** Active tab as a subtle filled pill instead of a gold-bordered
+  box. Logout stays where it is, styled as a normal item rather than red.
+- **Forms.** One input style (height, radius, gold focus ring), labels above
+  fields, no number-input spinner arrows in the Sats Converter. Reports' "Tax
+  Year" is a free-text box today; a select of the supported years is a small
+  behavior change: ask the owner first.
+- **Everywhere.** One text font (Inter) with the display font for page titles
+  only; muted gray for secondary text; WCAG 2.2 AA contrast and visible focus;
+  loading, empty and error states; works from the Mac app's minimum window
+  (800×600) up, and on a phone for StartOS users.
+- **Clean up while doing it.** 15 CSS files, about 3,900 lines, with
+  duplicated button, card and input rules. Move shared tokens and components
+  into `theme.css` (or one components file) and delete the duplicates.
 
-## Phase 6: build the redesign
+**Engine limit.** The Mac app runs in WebKit and supports macOS 10.15, whose
+WebKit stops at Safari 15. Use only CSS that Safari 15 supports: no container
+queries, `color-mix()`, CSS nesting or subgrid unless the build compiles them
+away. Tailwind v4 needs Safari 16.4, so it is out unless the owner raises the
+macOS minimum. Plain CSS with custom properties (what the app uses now) fits.
 
-Screen by screen, the Phase 1 tests passing unchanged at every step (only
-selectors that the redesign legitimately renames may change, and each such
-change is listed). Before/after screenshots of every screen for the owner.
-Check in the Mac app build (CI artifact) as well as Chromium. Release when the
-owner is happy; they choose the version number.
+**Deliverable for approval:** before/after mockups of the Dashboard and
+Transactions pages (and one Settings section), as an HTML page the owner can
+open, plus the token and button set.
+
+**Gate 5:** owner approves the direction.
+
+## Phase 6: apply the polish
+
+Page by page (shared styles first, then Dashboard, Transactions, the
+transaction form, Reports, Settings, Login, sidebar widgets), with the Phase 1
+tests passing unchanged at every step. Before/after screenshots of every page
+for the owner. Check the Mac app build (CI artifact) as well as Chromium.
+Release when the owner is happy; they choose the version number.
