@@ -4,6 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### AI assistant (MCP)
+- **Settings → Connect an AI Assistant**: a setup prompt to paste into your AI
+  app, with this server's address and your username filled in and the MCP
+  server pinned to this release, plus a ready-made Claude Desktop config and
+  `claude mcp add` command. Works for the macOS app, Docker and StartOS. The
+  password is never shown or put in the prompt: the AI writes a placeholder
+  you replace in the configuration file.
+- `mcp_server/AI_SETUP.md`: setup instructions written for an AI assistant
+  (Claude Code, Claude Desktop, Grok Build, other MCP clients), which the
+  prompt points to.
+
 ## [v0.9.0] - 2026-09-23 - StartOS package in this repo, health check, maintenance CLI
 
 ### StartOS package

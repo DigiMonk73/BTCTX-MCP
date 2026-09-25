@@ -119,9 +119,10 @@ the Application Support database.
 
 ## Using the MCP server with the Mac app
 
-Point the MCP server at the app with `BTCTX_URL=http://127.0.0.1:8765` (plus
-`BTCTX_USERNAME` / `BTCTX_PASSWORD`). The app must be running. See
-[mcp_server/README.md](../mcp_server/README.md).
+**Settings → Connect an AI Assistant** in the app has a setup prompt to paste
+into your AI app and ready-made configs, all filled in with
+`BTCTX_URL=http://127.0.0.1:8765` and your username. The app must be running
+while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 
 ## CI
 

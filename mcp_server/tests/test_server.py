@@ -8,8 +8,10 @@ Run from the repo root:
 
 import json
 import os
+import re
 import tempfile
 from decimal import Decimal
+from pathlib import Path
 
 import httpx
 import pytest
@@ -110,6 +112,15 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
         "recalculate_ledger",
     }
+
+
+async def test_ai_setup_guide_names_real_tools(mcp_client):
+    """AI_SETUP.md tells the AI which tools to call; they must exist."""
+    tools = {t.name for t in (await mcp_client.list_tools()).tools}
+    guide = (Path(__file__).parents[1] / "AI_SETUP.md").read_text()
+    named = set(re.findall(r"`([a-z]+_[a-z_]+)`", guide))
+    assert {"get_portfolio", "get_ledger_guide"} <= named
+    assert named <= tools
 
 
 async def test_preview_then_add_then_list(mcp_client):

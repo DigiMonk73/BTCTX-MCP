@@ -32,6 +32,19 @@ There is deliberately no bulk delete.
 - BitcoinTX **v0.8.0 or later** (adds the `/api/import/entries` endpoints this server uses)
 - Python 3.10+ on the machine running your AI client
 
+## Quick setup: let your AI do it
+
+In BitcoinTX, open **Settings → Connect an AI Assistant** and copy the setup
+prompt into your AI app. It carries your address and username and points the
+AI to [AI_SETUP.md](AI_SETUP.md), which tells it how to install the server in
+Claude Code, Claude Desktop, Grok Build or another MCP client. The password
+stays out of the chat: the AI writes `YOUR_BITCOINTX_PASSWORD` and you replace
+it in the configuration file. The same section has the Claude Desktop config
+and `claude mcp add` command ready to paste if you'd rather do it yourself.
+
+The AI app has to run on your computer (or on your network, for Docker and
+StartOS): cloud-hosted assistants such as Grok Bot can't reach BitcoinTX.
+
 ## Install
 
 ```bash

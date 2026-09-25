@@ -73,6 +73,12 @@ you expose the app on a network.
 
 ## Connect an AI (MCP)
 
+In BitcoinTX, open **Settings → Connect an AI Assistant**, copy the setup
+prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
+or any app that runs MCP servers on your computer). The AI sets itself up
+following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md); you type your
+password into its configuration yourself. Or by hand:
+
 ```bash
 pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
 claude mcp add bitcointx -e BTCTX_URL=http://127.0.0.1:8765 \
