@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v0.9.1] - 2026-09-25 - Connect an AI Assistant in Settings, River sell fee, edit time, income basis
+
 ### Fixes
 - **River import double-counted the fee on Sells.** River's Received Amount is
   what landed after River's fee (receipt: subtotal − fee = received), but it
