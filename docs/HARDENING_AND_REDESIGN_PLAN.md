@@ -125,8 +125,11 @@ or "deferred, owner OK").
    from the IRS rules in a test docstring) with exact expected 8949 rows,
    boxes and Schedule D lines, including transfers with fees, a sale spanning
    several lots, income, a spend and a year-boundary sale.
-6. **API and security.** Every route requires login except those listed in
-   `CLAUDE.md`; bad input (negative or huge amounts, too many decimals, future
+6. **API, security and privacy.** The only outside services the app should
+   contact are the BTC price sources (CoinGecko, Kraken, CoinDesk) and the
+   block-height lookup (mempool.space, blockstream.info, blockchain.info), each
+   sending no user data. Today the fonts also load from Google (fixed in Phase
+   5). Every route requires login except those listed in `CLAUDE.md`; bad input (negative or huge amounts, too many decimals, future
    dates, unknown accounts) is rejected with a clear message; backup/restore
    round-trips; the MCP server exposes no bulk delete.
 7. **Frontend robustness.** Double submit, a failed request, slow price
@@ -174,7 +177,57 @@ all of that. Make it cleaner, closer to River's current web app: calmer cards,
 better buttons, no jumpy motion. Take River's style only (spacing, surfaces,
 button shapes, list rows), never its name, logo or wording.
 
-What to fix, from the owner's screenshots of v0.9.1 and River (2026-09-25):
+**The session is the designer.** The owner is not a designer and has said so:
+the theme, the layout and the app's behavior are the brief; every design
+decision inside that is the session's to make, with a senior product
+designer's judgment and current (2026) best practice. Typeface, type scale,
+button design, color refinement, spacing, icons, component states, motion,
+microcopy: decide them, don't ask the owner to. The list further down is what
+the owner and the 2026-09-25 session happened to notice. It is a starting point,
+not the scope: audit every page and every state (empty, loading, error,
+disabled, focus, narrow window) and fix whatever a good designer would.
+
+Working with the owner:
+
+- **Show, don't ask.** Before/after screenshots side by side, with one plain
+  sentence per change saying why it's better. No design jargon.
+- **Recommend one direction.** Offer an alternative only for big, taste-driven
+  calls (a new typeface, a change to the gold), with your pick marked.
+- **Expect reactions, not specs** ("too bright", "I liked the old buttons").
+  Turn them into design changes yourself.
+
+What a designer reviews here (all of it, not only the fixes listed below):
+
+- **Typography.** Pick the typeface(s): Inter (current text face) is a sound UI
+  choice, but choose what serves this app best, including how figures read in
+  money columns (tabular digits, a clear 1 and 7). Then a type scale, weights,
+  line heights and heading letter-spacing. **Bundle the fonts with the app**:
+  today `frontend/index.html` loads Inter and Outfit from Google Fonts, so every
+  launch contacts Google and, offline or over Tor (StartOS), the text silently
+  falls back to another font. Self-host woff2 files or `@fontsource` packages
+  (Inter and Outfit are OFL-licensed).
+- **Color.** A neutral ramp for background, surfaces, borders and text on dark;
+  the gold tuned for contrast, with hover, pressed and disabled states; green,
+  red and amber tuned for a dark background.
+- **Spacing and layout.** A 4/8px spacing scale, consistent padding, aligned
+  edges and baselines, the Dashboard card grid, comfortable density for a
+  data-heavy app.
+- **Components.** Buttons (hierarchy, sizes, icon plus label); inputs, selects,
+  the date-time field and file pickers; radios, the Manual/Auto/Date segmented
+  control; lists and tables; cards; toasts; tabs. The browser's own
+  `window.confirm`/`prompt` dialogs (deletes, the backup password) may become
+  styled dialogs as long as the steps and outcomes stay the same.
+- **Icons.** One consistent, bundled set (for example Lucide, ISC license), used
+  where it helps scanning: transaction types, navigation, actions.
+- **Motion.** Minimal and purposeful: 150–200 ms color and opacity changes,
+  nothing that moves layout.
+- **Words.** Sentence case, clear verbs on buttons, one format each for
+  numbers, dates and times.
+- **Brand.** Keep the BitcoinTX name and logo. Refine how they're rendered
+  (size, spacing, the wordmark) only with the owner's OK.
+
+What the owner and the first session noticed, from screenshots of v0.9.1 and
+River (2026-09-25):
 
 - **Motion (the "wonky" cards).** Dashboard cards jump on hover:
   `.card:hover { transform: translateY(-2px) }` in `styles/dashboard.css`.
@@ -221,9 +274,9 @@ queries, `color-mix()`, CSS nesting or subgrid unless the build compiles them
 away. Tailwind v4 needs Safari 16.4, so it is out unless the owner raises the
 macOS minimum. Plain CSS with custom properties (what the app uses now) fits.
 
-**Deliverable for approval:** before/after mockups of the Dashboard and
-Transactions pages (and one Settings section), as an HTML page the owner can
-open, plus the token and button set.
+**Deliverable for approval:** a before/after page the owner can open: the
+Dashboard, Transactions, the transaction form and one Settings section, each
+change explained in a plain sentence, plus the type, color and button set.
 
 **Gate 5:** owner approves the direction.
 
