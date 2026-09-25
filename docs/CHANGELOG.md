@@ -4,6 +4,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### AI assistant (MCP)
+- `mcp_server/AI_SETUP.md` now tells the AI where the StartOS certificate
+  comes from (the **Connect an AI Assistant** action's Root CA certificate,
+  saved as `btctx-root-ca.crt`) and which password StartOS uses. The Settings
+  prompt on a StartOS address already said "the guide explains"; it didn't.
+
 ## [v0.9.1] - 2026-09-25 - Connect an AI Assistant in Settings, River sell fee, edit time, income basis
 
 ### Fixes

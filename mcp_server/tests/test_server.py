@@ -123,6 +123,15 @@ async def test_ai_setup_guide_names_real_tools(mcp_client):
     assert named <= tools
 
 
+async def test_ai_setup_guide_names_the_startos_certificate_file():
+    """The guide tells the AI what to save StartOS's root CA as; it must be the
+    file name the StartOS Connect an AI Assistant action tells the user."""
+    repo = Path(__file__).parents[2]
+    action = (repo / "startos/startos/actions/connectAi.ts").read_text()
+    [ca_file] = re.findall(r"const CA_FILE = '([^']+)'", action)
+    assert f"`{ca_file}`" in (repo / "mcp_server/AI_SETUP.md").read_text()
+
+
 async def test_preview_then_add_then_list(mcp_client):
     preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
     assert preview["ok"] is True

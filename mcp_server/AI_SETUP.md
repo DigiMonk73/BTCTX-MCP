@@ -15,7 +15,7 @@ with the values below. If you don't have them, ask.
 | `BTCTX_URL` | Where BitcoinTX answers. macOS app: `http://127.0.0.1:8765`. Docker: the host and port they published. StartOS: the **MCP API** address (`https://….local/api`) |
 | `BTCTX_USERNAME` | Their BitcoinTX username |
 | `BTCTX_PASSWORD` | Their BitcoinTX password. **Never ask for it in the chat.** Write `YOUR_BITCOINTX_PASSWORD` and have them replace it in the file themselves |
-| `BTCTX_CA_BUNDLE` | Only for an `https://` address on their network (StartOS): path to the root CA certificate file they saved |
+| `BTCTX_CA_BUNDLE` | Only for an `https://` address on their network (StartOS): full path to the server's root CA certificate file (section 1 says where to get it) |
 | Server command | `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`; use the ref from their prompt so the server matches their BitcoinTX version |
 
 Name the server `bitcointx`. Ask before installing software or editing any
@@ -26,13 +26,22 @@ file, and keep every other server already in a configuration file intact.
 1. **uv**: `uvx --version`. If it's missing, offer to install it: on a Mac
    `brew install uv`, otherwise `curl -LsSf https://astral.sh/uv/install.sh | sh`
    (Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`).
-2. **BitcoinTX is reachable**: `curl -s <BTCTX_URL without a trailing /api>/api/health`
+2. **The StartOS certificate** (only for an `https://….local` or IP address):
+   StartOS serves BitcoinTX with its own certificate, which this computer
+   doesn't trust yet. In StartOS, open BitcoinTX, run the action **Connect an
+   AI Assistant**, copy its **Root CA certificate** (the whole
+   `-----BEGIN CERTIFICATE-----` … `-----END CERTIFICATE-----` block) and save
+   it as `btctx-root-ca.crt` somewhere permanent, such as the home folder.
+   `BTCTX_CA_BUNDLE` is that file's full path. The same action also shows the
+   password and a ready-made configuration, which can be used instead of
+   section 2.
+3. **BitcoinTX is reachable**: `curl -s <BTCTX_URL without a trailing /api>/api/health`
    should return JSON with `"status": "ok"` and a `version` of 0.8.0 or later.
-   Add `--cacert <file>` for a StartOS address. If it doesn't answer: the Mac
-   app must be open; Docker and StartOS must be running and reachable from
-   this computer.
+   Add `--cacert <certificate file>` for a StartOS address. If it doesn't
+   answer: the Mac app must be open; Docker and StartOS must be running and
+   reachable from this computer.
 
-If you can't run commands (a chat app without a terminal), skip to step 2
+If you can't run commands (a chat app without a terminal), skip to section 2
 and give the user the steps to follow.
 
 ## 2. Add the server to the app you're running in
@@ -109,7 +118,9 @@ above.
 
 Tell the user the exact file and the text to replace
 (`YOUR_BITCOINTX_PASSWORD`), and that the file then holds their password:
-anyone who can read it can log in to BitcoinTX. If they insist on giving it to
+anyone who can read it can log in to BitcoinTX. On StartOS the password is the
+generated one from the **Show Credentials** action, unless they changed it in
+BitcoinTX (**Settings → Reset Username & Password**). If they insist on giving it to
 you in the chat, you may write it for them, but say that it has been sent to
 your AI provider.
 
