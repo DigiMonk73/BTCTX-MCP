@@ -154,8 +154,19 @@ class TestRiverAdapter:
         assert p.from_account == "Exchange BTC"
         assert p.to_account == "Exchange USD"
         assert p.amount == Decimal("0.00050000")
-        assert p.proceeds_usd == Decimal("55.00")
+        assert p.proceeds_usd == Decimal("55.55")  # Received 55.00 + fee 0.55
         assert p.fee_amount == Decimal("0.55")
+
+    def test_sell_proceeds_are_gross_of_the_usd_fee(self):
+        # River's Received Amount on a Sell is what landed in the account,
+        # after River's fee (receipt: subtotal - fee = received). BitcoinTX's
+        # proceeds_usd is the gross before fees, so gross = received + fee.
+        proposals, _, _ = adapt(["2026-07-31 20:16:07,0.01000000,BTC,990.00,USD,10.00,USD,Sell"])
+        assert proposals[0].proceeds_usd == Decimal("1000.00")
+
+    def test_sell_without_fee_keeps_received_as_proceeds(self):
+        proposals, _, _ = adapt(["2026-07-31 20:16:07,0.01000000,BTC,990.00,USD,,,Sell"])
+        assert proposals[0].proceeds_usd == Decimal("990.00")
 
     def test_interest_maps_to_deposit(self):
         proposals, _, _ = adapt(SYNTHETIC_ROWS)
@@ -342,6 +353,24 @@ class TestExecute:
         result2 = execute(rows)
         assert result2["imported_count"] == 0
         assert result2["skipped_existing"] == len(rows)
+
+    def test_sell_lands_at_rivers_received_amount(self):
+        """The fee is subtracted once: net proceeds (Form 8949) and the cash
+        credited to Exchange USD both equal River's Received Amount."""
+        delete_all_transactions()
+        data = preview([
+            "2026-07-01 12:00:00,1000.00,USD,0.01000000,BTC,,,Buy",
+            "2026-07-31 20:16:07,0.00500000,BTC,990.00,USD,10.00,USD,Sell",
+        ])
+        execute(proposals_to_execute_rows(data))
+
+        sell = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Sell")
+        assert Decimal(str(sell["gross_proceeds_usd"])) == Decimal("1000.00")
+        assert Decimal(str(sell["proceeds_usd"])) == Decimal("990.00")
+
+        balances = CLIENT.get("/api/calculations/accounts/balances").json()
+        exchange_usd = next(b for b in balances if b["account_id"] == 3)
+        assert round(exchange_usd["balance"], 2) == -10.00  # -1000 buy + 990 sell
 
     def test_funding_toggle_override_is_respected(self):
         delete_all_transactions()

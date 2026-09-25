@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_ID_TO_NAME
+from backend.constants import ACCOUNT_ID_TO_NAME, INCOME_SOURCES
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -56,9 +56,6 @@ logger = logging.getLogger(__name__)
 
 # Acquisitions before disposals for same-timestamp rows (mirrors execute_import)
 TYPE_ORDER = {"Deposit": 0, "Buy": 1, "Transfer": 2, "Sell": 3, "Withdrawal": 4}
-
-# Deposit sources that are ordinary income: basis = FMV at receipt
-INCOME_SOURCES = {"income", "interest", "reward"}
 
 STATUS_READY = "ready"
 STATUS_DUPLICATE = "duplicate"

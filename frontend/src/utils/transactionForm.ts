@@ -13,6 +13,21 @@ export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
 }
 
+/**
+ * toDatetimeLocal:
+ * The inverse of localDatetimeToIso: a moment as this computer's wall-clock
+ * time for a "datetime-local" input (e.g. "2026-07-31T15:16:07"), seconds
+ * included. Not toISOString(), which gives UTC wall time: the input would
+ * show it as local time and every save would shift it by the UTC offset.
+ */
+export function toDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
+
 // Hardcoded account IDs
 const BANK_ID = 1;
 const EXTERNAL_ID = 99;
@@ -80,7 +95,7 @@ export function mapTransactionToFormData(tx: ITransaction): TransactionFormData 
   // Common fields
   const baseData: TransactionFormData = {
     type: tx.type,
-    timestamp: new Date(tx.timestamp).toISOString().slice(0, 16), // for datetime-local
+    timestamp: toDatetimeLocal(new Date(tx.timestamp)), // local time, for datetime-local
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,

@@ -65,6 +65,12 @@ So derived values must be recomputable from the Transaction row alone.
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
   Unpriced "Spent" withdrawals get FMV proceeds.
+- **Income deposits** (source Income/Interest/Reward into a BTC account):
+  basis = market value at receipt, which is also the reported income. A blank
+  or 0 basis is filled from the daily price on create/update
+  (`_value_income_deposit`); no price → 422, never $0.
+- **River Sells**: River's Received Amount is net of River's fee, so
+  `proceeds_usd` (gross) = Received + fee.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,

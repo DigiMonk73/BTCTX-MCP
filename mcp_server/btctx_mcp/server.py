@@ -208,8 +208,12 @@ async def list_transactions(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
-    """BTC price in USD for a date (YYYY-MM-DD, daily price) or right now if no date is given.
-    Use it to value income, spending, or gifts when the user doesn't know the USD amount."""
+    """BTC price in USD for a date (YYYY-MM-DD): the daily price at 00:00 UTC that day,
+    or right now if no date is given. For a transaction, pass the UTC date of its time
+    (a 9 pm US Central sale on Jul 31 is Aug 1 UTC): that day's price is the nearest
+    daily price before it, and it's the one BitcoinTX uses when it values income or
+    spending. Use it to value income, spending, or gifts when the user doesn't know
+    the USD amount."""
     if date:
         data = await _call("GET", "/api/bitcoin/price/history", params={"date": date})
     else:

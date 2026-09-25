@@ -312,7 +312,7 @@ const RiverImport: React.FC = () => {
                     <th>From → To</th>
                     <th>Amount</th>
                     <th>Cost Basis</th>
-                    <th>Proceeds</th>
+                    <th>Proceeds (before fee)</th>
                     <th>Fee</th>
                   </tr>
                 </thead>

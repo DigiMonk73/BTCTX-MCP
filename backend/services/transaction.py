@@ -35,6 +35,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
+    INCOME_SOURCES,
 )
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
+    _value_income_deposit(tx_data, db)
 
     # 4) Insert Transaction
     now_utc = datetime.now(timezone.utc)
@@ -187,6 +189,15 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         _enforce_transaction_type_rules(tx_data, db)
     if any(k in tx_data for k in ("fee_amount", "fee_currency", "type")):
         _enforce_fee_rules(tx_data, db)
+    # An edit that leaves an income deposit without a basis (the form sends
+    # 0 for a blank one) values it, as on create.
+    if any(k in tx_data for k in ("cost_basis_usd", "source", "type")):
+        merged = {
+            k: tx_data.get(k, getattr(tx, k))
+            for k in ("type", "source", "to_account_id", "amount", "timestamp", "cost_basis_usd")
+        }
+        if _value_income_deposit(merged, db):
+            tx_data["cost_basis_usd"] = merged["cost_basis_usd"]
 
     # Step 3) Overwrite relevant fields
     if "from_account_id" in tx_data:
@@ -773,6 +784,76 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         tx.holding_period = None
 
     db.flush()
+
+
+def get_historical_btc_price(timestamp: datetime) -> Decimal:
+    """
+    The day's BTC price in USD for the timestamp's UTC date (the sources'
+    00:00 UTC daily price), with no fallback to the live price: for valuing
+    something received in the past, today's price would be wrong.
+    Raises 422 when no price is available.
+    """
+    import asyncio
+    import concurrent.futures
+    from backend.services.bitcoin import get_historical_price
+
+    if timestamp.tzinfo is not None:
+        timestamp = timestamp.astimezone(timezone.utc)
+    date_str = timestamp.strftime("%Y-%m-%d")
+
+    def _fetch():
+        """Run async price fetch in a new thread with its own event loop."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(get_historical_price(date_str))
+        finally:
+            loop.close()
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            price_data = executor.submit(_fetch).result(timeout=30)
+        return Decimal(str(price_data["USD"]))
+    except Exception as e:
+        logger.warning("Historical BTC price lookup failed for %s: %s", date_str, e)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Couldn't get the BTC price for {date_str}.",
+        )
+
+
+def _value_income_deposit(tx_data: dict, db: Session) -> bool:
+    """
+    An income deposit (source Income, Interest or Reward into a BTC account)
+    has a cost basis equal to its market value at receipt, which is also the
+    income on the tax report. Entered without one (blank, or the form's 0),
+    value it at the day's BTC price instead of saving $0; refuse to save when
+    no price is available. Returns True when it filled cost_basis_usd.
+    """
+    if tx_data.get("type") != "Deposit":
+        return False
+    if (tx_data.get("source") or "").lower() not in INCOME_SOURCES:
+        return False
+    if Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
+        return False
+    to_acct = db.get(Account, tx_data.get("to_account_id")) if tx_data.get("to_account_id") else None
+    amount = Decimal(tx_data.get("amount") or 0)
+    if not to_acct or to_acct.currency != "BTC" or amount <= 0:
+        return False
+
+    timestamp = tx_data.get("timestamp") or datetime.now(timezone.utc)
+    try:
+        price = get_historical_btc_price(timestamp)
+    except HTTPException as e:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{e.detail} Enter this {tx_data['source']} deposit's USD value "
+                "at receipt as its cost basis."
+            ),
+        )
+    tx_data["cost_basis_usd"] = (price * amount).quantize(Decimal("0.01"))
+    return True
 
 
 def get_btc_price(timestamp: datetime, db: Session) -> Decimal:

@@ -25,6 +25,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
+    INCOME_SOURCES,
 )
 
 # Valid transaction types (case-insensitive matching)
@@ -583,7 +584,17 @@ def _validate_type_specific(
             ))
 
     elif tx_type == "Deposit":
-        if cost_basis_usd is None:
+        if not cost_basis_usd and source and source.lower() in INCOME_SOURCES:
+            warnings.append(CSVParseError(
+                row_number=row_number,
+                column="cost_basis_usd",
+                message=(
+                    f"No cost_basis_usd for this {source} deposit. It will be valued at "
+                    "that day's BTC price (its market value at receipt, which is also the income)."
+                ),
+                severity="warning"
+            ))
+        elif cost_basis_usd is None:
             warnings.append(CSVParseError(
                 row_number=row_number,
                 column="cost_basis_usd",

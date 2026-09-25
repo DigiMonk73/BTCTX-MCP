@@ -279,12 +279,16 @@ def adapt_river_rows(
                     message="Sell row missing sent/received amount — skipped.",
                 ))
                 continue
+            # River's Received Amount is what landed after River's fee
+            # (receipt: subtotal - fee = received). BitcoinTX's proceeds_usd
+            # is the gross before fees, and the ledger subtracts the USD fee
+            # from it, so the gross is received + fee.
             proposals.append(RiverProposal(
                 row_number=row.row_number, timestamp=row.timestamp, river_tag=tag,
                 type="Sell", from_account_id=ACCOUNT_EXCHANGE_BTC,
                 to_account_id=ACCOUNT_EXCHANGE_USD,
                 amount=row.sent,
-                proceeds_usd=row.received,
+                proceeds_usd=row.received + _usd_fee(row),
                 fee_amount=row.fee, fee_currency="USD" if row.fee else None,
             ))
 

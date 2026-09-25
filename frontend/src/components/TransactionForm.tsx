@@ -10,6 +10,7 @@ import {
   buildTransactionPayload,
   localDatetimeToIso,
   mapTransactionToFormData,
+  toDatetimeLocal,
 } from "../utils/transactionForm";
 
 /**
@@ -38,7 +39,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   } = useForm<TransactionFormData>({
     defaultValues: {
       // Minimal defaults to start
-      timestamp: new Date().toISOString().slice(0, 16),
+      timestamp: toDatetimeLocal(new Date()),
       fee: 0,
       costBasisUSD: 0,
       proceeds_usd: 0,
@@ -86,7 +87,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     } else {
       // If no transactionId => create mode
       reset({
-        timestamp: new Date().toISOString().slice(0, 16),
+        timestamp: toDatetimeLocal(new Date()),
         fee: 0,
         costBasisUSD: 0,
         proceeds_usd: 0,
@@ -364,6 +365,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           account === "Wallet" ||
           (account === "Exchange" && currency === "BTC");
 
+        // Income: basis = market value at receipt (the server fills a blank one)
+        const isIncome = ["Income", "Interest", "Reward"].includes(watch("source") ?? "");
+
         return (
           <>
             {/* Account */}
@@ -454,7 +458,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   {...register("costBasisUSD", { valueAsNumber: true })}
                 />
                 <small className="form-hint">
-                  If you paid a miner fee in BTC externally, add its USD value here.
+                  {isIncome
+                    ? "Its USD value when you received it (also your income). Leave at 0 to use that day's BTC price."
+                    : "If you paid a miner fee in BTC externally, add its USD value here."}
                 </small>
               </div>
             )}
@@ -936,6 +942,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <label>Date & Time:</label>
           <input
             type="datetime-local"
+            step="1"
             className="form-control"
             {...register("timestamp", { required: "Date & Time is required" })}
           />

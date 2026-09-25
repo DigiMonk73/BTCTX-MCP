@@ -4,6 +4,27 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixes
+- **River import double-counted the fee on Sells.** River's Received Amount is
+  what landed after River's fee (receipt: subtotal − fee = received), but it
+  was stored as the gross, so the fee was subtracted a second time: proceeds
+  and the Exchange USD balance came out short by the fee. Proceeds are now
+  Received + fee. Sells imported before this fix keep the old figure; correct
+  them by setting the proceeds to Received + fee.
+- **Editing a transaction shifted its time by the UTC offset** (5 hours in
+  CDT): the edit form showed the UTC time as local time and saved it back as
+  local. It also dropped the seconds. A new transaction's default time had the
+  same mix-up. The form now shows and saves local time, seconds included.
+- **Income deposits entered without a cost basis were saved at $0**, which
+  left them out of the income on the tax report and overstated the gain when
+  the BTC was later sold. A Deposit with source Income, Interest or Reward
+  into a BTC account, entered by hand or by CSV with a blank or 0 basis, is
+  now valued at that day's BTC price, as River import and the MCP server
+  already did; it isn't saved when no price is available. Editing such a
+  deposit saved at $0 values it.
+- The MCP `get_btc_price` tool says which moment its daily price is (00:00
+  UTC) and to pass a transaction's UTC date.
+
 ### AI assistant (MCP)
 - **Settings → Connect an AI Assistant**: a setup prompt to paste into your AI
   app, with this server's address and your username filled in and the MCP

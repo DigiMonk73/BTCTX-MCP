@@ -44,3 +44,7 @@ ACCOUNT_NAME_TO_ID = {
 BROKER_REPORTING_VALUES = ("none", "proceeds", "basis")
 # Only disposals the user initiates at a broker can carry an override.
 BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")
+
+# Deposit sources that are ordinary income: the BTC's market value at receipt
+# is both its cost basis and the income on the tax report (lowercase).
+INCOME_SOURCES = frozenset({"income", "interest", "reward"})
