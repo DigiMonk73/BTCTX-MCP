@@ -20,6 +20,9 @@ column-mapping, specific-lot and multi-year items in `ROADMAP.md`.
   described to the owner **before** it is made, with what changes and whether a
   Recalculate Ledger is needed.
 - Never touch the owner's real data. Tests use temp databases and stubbed prices.
+- **Privacy maximalist.** The owner and the app's users are Bitcoiners: every
+  connection the app makes and every piece of data that leaves the machine needs
+  a reason, and local beats remote. A leak is a bug, not a nice-to-have.
 - Keep `make check-fast` green on every push. New dependencies follow
   `docs/MAINTENANCE.md`.
 - Work on the session's branch. Merge to `main` and release only with the
@@ -125,14 +128,55 @@ or "deferred, owner OK").
    from the IRS rules in a test docstring) with exact expected 8949 rows,
    boxes and Schedule D lines, including transfers with fees, a sale spanning
    several lots, income, a spend and a year-boundary sale.
-6. **API, security and privacy.** The only outside services the app should
-   contact are the BTC price sources (CoinGecko, Kraken, CoinDesk) and the
-   block-height lookup (mempool.space, blockstream.info, blockchain.info), each
-   sending no user data. Today the fonts also load from Google (fixed in Phase
-   5). Every route requires login except those listed in `CLAUDE.md`; bad input (negative or huge amounts, too many decimals, future
-   dates, unknown accounts) is rejected with a clear message; backup/restore
-   round-trips; the MCP server exposes no bulk delete.
-7. **Frontend robustness.** Double submit, a failed request, slow price
+6. **Privacy.** Inventory every outbound connection (backend, frontend, MCP
+   server, Mac app, StartOS package) and what each reveals. Known leads, found
+   2026-09-25:
+   - **Fonts come from Google** (`frontend/index.html` → fonts.googleapis.com):
+     every launch tells Google. Bundle the same Inter and Outfit files with the
+     app now (no visual change; OFL-licensed; woff2 or `@fontsource`).
+   - **Historical prices reveal your transaction dates.** Each lookup sends one
+     specific date, with your IP, to CoinGecko, then Kraken, then CoinDesk
+     (`services/bitcoin.py`, no cache). Worse, `recalculate_all_transactions`,
+     which runs on every save, re-prices every Transfer's BTC fee through
+     `get_btc_price` (`services/transaction.py`, fee disposal in the transfer
+     code), so those dates go out again on every save. That is also a
+     **correctness bug**: when the historical lookup fails, `get_btc_price` uses
+     today's live price, so a fee's proceeds and gain can change between
+     recalculations, and offline a save can fail outright. It breaks the
+     `CLAUDE.md` rule that derived values are recomputable from the Transaction
+     row alone. Direction: a local daily price history (downloaded in bulk, not
+     date by date; stored in the database via a migration; refreshed
+     incrementally), used by every historical lookup, and the fee's valuation
+     fixed on the transaction so recalculation never needs the network. Changes
+     tax figures where today's fallback was used: owner's OK and a Recalculate
+     note.
+   - **Live price and block height** are polled every 2 minutes
+     (`BtcConverter.tsx`, `hooks/useBtcPrice.ts`) from CoinGecko/Kraken and
+     blockchain.info/blockstream.info/mempool.space. Offer: your own node
+     (a self-hosted mempool/electrs URL; many StartOS users run one), a SOCKS
+     proxy or Tor for all outbound requests (none is supported today, so on
+     StartOS they go out over clearnet), and a switch to turn live data off.
+     The owner picks the defaults.
+   - **The browser/webview makes no third-party requests at all:** enforce it
+     with a Content-Security-Policy header (`default-src 'self'`) and a test
+     that the built frontend contains no external URLs.
+   - **Headers and cookies:** the session cookie is set with
+     `https_only=False` (`backend/main.py`), so it lacks `Secure` even when
+     StartOS serves the app over HTTPS; add `Secure` when served over HTTPS,
+     keep `SameSite`, and add `Referrer-Policy: no-referrer`,
+     `X-Content-Type-Options`, `frame-ancestors 'none'`.
+   - **At rest and in logs:** no telemetry or analytics anywhere; logs never
+     contain amounts, addresses or passwords; the database, secret key and
+     backups are owner-only files. Backup encryption derives its key with
+     PBKDF2-SHA256 at 100,000 iterations (`services/backup.py`); OWASP
+     recommends 600,000. Raise it with the count recorded in the backup file,
+     so older backups still restore (test both).
+7. **API and security.** Every route requires login except those listed in
+   `CLAUDE.md`; user routes touch only the logged-in user; bad input (negative
+   or huge amounts, too many decimals, future dates, unknown accounts) is
+   rejected with a clear message; backup/restore round-trips; the MCP server
+   exposes no bulk delete.
+8. **Frontend robustness.** Double submit, a failed request, slow price
    lookups, empty states. Found with the Phase 1 tests.
 
 This phase splits well across parallel agents (one per sweep). A multi-agent
@@ -141,29 +185,16 @@ workflow may be used only if the owner asks for one ("use a workflow").
 **Gate 2:** every sweep done; every finding fixed with a test, or deferred with
 the owner's OK.
 
-## Phase 3: reconcile the owner's real data
+## Phase 3: reconcile the owner's real data (done)
 
-The original request (2026-09-25): compare River's activity CSV and Koinly's
-capital gains reports with BitcoinTX, per transaction and per tax year; explain
-every difference (missing transaction, fee treatment, lot selection, price
-source, timezone/date); say which side is right; change data only with the
-owner's OK; if BitcoinTX calculates wrong, failing test then fix.
-
-This needs the owner's computer: the files are in `~/btctx-reconcile` on their
-Mac, plus a copy of `btctx.db` (Mac app: `~/Library/Application
-Support/BitcoinTX/btctx.db`). Run it in a local session (Claude Desktop, or
-`claude remote-control` in the repo). Never copy the files into the repo.
-
-Known difference to expect: Koinly may use FIFO across all wallets; BitcoinTX
-uses FIFO per account, which the IRS requires from 2025 (Treas. Reg.
-§1.1012-1(j), Rev. Proc. 2024-28). Check the lots each account held on
-2025-01-01 against what the filed returns imply.
-
-**Gate 3:** every difference explained and resolved or accepted by the owner.
+The owner reconciled River and Koinly against BitcoinTX with another AI
+assistant (Grok) in September 2026; the three v0.9.1 bugs came out of it. Skip
+this phase. If Phase 2 changes tax figures for existing data, the owner will
+re-check their own numbers.
 
 ## Phase 4: release v0.9.2
 
-Bug fixes only, plus the guide fix already on `main`. Changelog entries say
+Bug and privacy fixes only, plus the guide fix already on `main`. Changelog entries say
 which fixes change existing figures and whether Recalculate Ledger is needed
 (StartOS: raise the Recalculate task in the migration if so). Owner's OK first.
 
@@ -201,11 +232,8 @@ What a designer reviews here (all of it, not only the fixes listed below):
 - **Typography.** Pick the typeface(s): Inter (current text face) is a sound UI
   choice, but choose what serves this app best, including how figures read in
   money columns (tabular digits, a clear 1 and 7). Then a type scale, weights,
-  line heights and heading letter-spacing. **Bundle the fonts with the app**:
-  today `frontend/index.html` loads Inter and Outfit from Google Fonts, so every
-  launch contacts Google and, offline or over Tor (StartOS), the text silently
-  falls back to another font. Self-host woff2 files or `@fontsource` packages
-  (Inter and Outfit are OFL-licensed).
+  line heights and heading letter-spacing. Whatever you choose is **bundled with
+  the app** (Phase 2 already bundles today's fonts): never a font CDN.
 - **Color.** A neutral ramp for background, surfaces, borders and text on dark;
   the gold tuned for contrast, with hover, pressed and disabled states; green,
   red and amber tuned for a dark background.
