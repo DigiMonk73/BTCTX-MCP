@@ -2,7 +2,7 @@
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -169,4 +169,48 @@ export async function seedFunds(request: APIRequestContext) {
     type: "Buy", timestamp: "2023-01-10T18:00:00Z", from_account_id: 1, to_account_id: 4,
     amount: "1", cost_basis_usd: "20000.00", fee_amount: "0", fee_currency: "USD",
   });
+}
+
+/**
+ * A labelled figure on the page (e.g. "Bank (USD): $80000.00") as a number.
+ * Tolerates the formats the UI polish may bring: thousands separators, a
+ * Unicode minus, a sign before the $, no trailing colon on the label.
+ */
+export async function figure(page: Page, label: string): Promise<number> {
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const row = page.getByRole("paragraph").filter({ hasText: new RegExp(`^\\s*${esc}:?`) });
+  await expect(row).toHaveCount(1);
+  await expect(row).not.toContainText("Loading");
+  const text = (await row.innerText()).replace(new RegExp(`^\\s*${esc}:?`), "");
+  return parseFigure(text);
+}
+
+export function parseFigure(text: string): number {
+  const m = text.replace(/[,\s]/g, "").replace(/−/g, "-").match(/([+-]?)\$?([+-]?)(\d+(?:\.\d+)?)/);
+  if (!m) throw new Error(`no number in "${text}"`);
+  const neg = m[1] === "-" || m[2] === "-";
+  return (neg ? -1 : 1) * Number(m[3]);
+}
+
+/**
+ * A known ledger with hand-computed results (see dashboard.e2e.ts):
+ * $100k in, 1 BTC bought for $20k, sells short- and long-term, a transfer
+ * with a BTC fee and an income deposit.
+ */
+export async function seedKnownLedger(request: APIRequestContext) {
+  await seedFunds(request);
+  const tx = (d: TxPayload) => createTx(request, d);
+  await tx({ type: "Sell", timestamp: "2023-06-01T15:00:00Z", from_account_id: 4, to_account_id: 3,
+    amount: "0.25", gross_proceeds_usd: "7000", fee_amount: "20", fee_currency: "USD" });
+  await tx({ type: "Transfer", timestamp: "2023-07-01T15:00:00Z", from_account_id: 4, to_account_id: 2,
+    amount: "0.5", fee_amount: "0.0001", fee_currency: "BTC" });
+  await tx({ type: "Deposit", timestamp: "2024-02-01T15:00:00Z", from_account_id: 99, to_account_id: 2,
+    amount: "0.01", source: "Income", fee_amount: "0", fee_currency: "BTC" });
+  await tx({ type: "Sell", timestamp: "2024-03-01T15:00:00Z", from_account_id: 4, to_account_id: 3,
+    amount: "0.1", gross_proceeds_usd: "9000", fee_amount: "0", fee_currency: "USD" });
+}
+
+/** Text of a downloaded PDF, via pypdf (already a backend dependency). */
+export function pdfText(file: string): string {
+  return execFileSync(python(), [path.join(__dirname, "pdf_text.py"), file], { encoding: "utf8" });
 }

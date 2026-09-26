@@ -3,7 +3,7 @@
 // Run with `make e2e` or `npx playwright test` (build frontend/dist first).
 import { defineConfig, devices } from "@playwright/test";
 
-const tzSpecs = /(create|edit|dates)\.e2e\.ts/;
+const tzSpecs = /(create|edit|transactions-list)\.e2e\.ts/;
 
 export default defineConfig({
   testDir: "./e2e",
