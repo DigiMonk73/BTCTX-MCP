@@ -44,7 +44,8 @@ test("recalculate ledger leaves the figures unchanged", async ({ authedPage: pag
   await page.getByRole("button", { name: "Recalculate" }).click();
   await expect(page.getByText("Recalculated 6 transaction(s).")).toBeVisible();
   const after = await listTx(page.request);
-  const strip = (t: Record<string, unknown>[]) => t.map(({ updated_at: _u, ...rest }) => rest);
+  const strip = (t: Record<string, unknown>[]) =>
+    t.map((x) => Object.fromEntries(Object.entries(x).filter(([k]) => k !== "updated_at")));
   expect(strip(after)).toEqual(strip(before));
 });
 
