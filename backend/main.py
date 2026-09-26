@@ -66,6 +66,7 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 # ---------------------------------------------------------
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import require_login, session_user_id, start_session
+from backend.security_headers import SecurityHeadersMiddleware
 from backend.services import mcp_key
 
 
@@ -123,8 +124,15 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
     session_cookie="btc_session_id",
-    https_only=False  # Set to True in production if you serve over HTTPS
+    same_site="lax",
+    # Secure is added per request when it came over HTTPS (StartOS's proxy):
+    # backend/security_headers.py. A fixed https_only would break the plain
+    # HTTP installs (Mac app on 127.0.0.1, Docker on a LAN).
+    https_only=False,
 )
+# Outermost, so it also sees the session cookie: CSP, no-referrer, nosniff,
+# no framing, Secure cookie over HTTPS.
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------
 # CORS Middleware

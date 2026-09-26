@@ -46,3 +46,29 @@ first), **ok** (checked, no change), **deferred** (owner's OK recorded).
 | F37 | An empty username or password is accepted (an empty password silently keeps the old one); sessions stay valid after the credentials change. | `routers/user.py`, `services/user.py` | audit probe | bug (security) | fixed: empty values refused; sessions stamped with the password hash end on a change (the changing session is re-stamped); `test_security.py` |
 | F38 | `/docs`, `/redoc` and `/openapi.json` are public. | `main.py` | audit probe | bug (security, low) | fixed: only with DEBUG; `test_security.py` |
 | F39 | Smaller: dates before 2009-01-03 or years in the future are accepted; `source`/`purpose` have no length limit; error messages show `TxType.BUY`; `/api` (no slash) returns the web page. | various | audit probe | bug (low) | open |
+
+## Privacy inventory (sweep 6)
+
+Every connection BitcoinTX makes, and what it reveals:
+
+| Component | Connects to | Reveals | Status |
+|---|---|---|---|
+| Browser / Mac webview | fonts.googleapis.com, fonts.gstatic.com (until 0.9.1) | that BitcoinTX was opened, and your IP | **fixed**: Inter and Outfit ship with the app (Latin subsets); CSP `default-src 'self'` in browsers; e2e `privacy.e2e.ts` fails on any outside request |
+| Browser / Mac webview | only BitcoinTX's own address | nothing outside | enforced by CSP (browsers) and the e2e test |
+| Backend: live price | CoinGecko, then Kraken, then CoinDesk (`services/bitcoin.py`), when a page shows the price (the sats converter polls every 2 minutes) | your IP and that you use BitcoinTX, roughly when | **owner decision** (P2): own node / proxy / off, today's behavior as default |
+| Backend: block height | blockchain.info, blockstream.info, mempool.space (Dashboard) | same | **owner decision** (P2) |
+| Backend: historical prices | same price services, one date per lookup (income basis, spends without proceeds, FMV Refresh, imports; transfer fees on **every** recalculation) | **the dates of your transactions**, with your IP | **owner decision** (P1, with F14): a local daily price history, downloaded in bulk |
+| MCP server | the BitcoinTX backend only (`BTCTX_URL`, or the Mac app's key file) | nothing outside | ok |
+| Mac app launcher | 127.0.0.1 only | nothing | ok |
+| StartOS package | its own health check (localhost) | nothing | ok |
+
+| ID | What | Where | Evidence | Verdict | Fix / test |
+|---|---|---|---|---|---|
+| P1 | Historical prices are fetched date by date (revealing transaction dates), with no cache; transfer fees are re-priced on every save. | `services/bitcoin.py`, `services/transaction.py` | code reading | **owner decision** (bundled with F14) | open |
+| P2 | Live price and block height always go to public services; no own-node, proxy/Tor or off switch. | `services/bitcoin.py`, `BtcConverter.tsx` | code reading | **owner decision**: what the defaults should be | open |
+| P3 | Fonts from Google on every launch. | `frontend/index.html` | code reading | privacy | fixed: bundled (`@fontsource`, OFL); `test_privacy.py`, e2e `privacy.e2e.ts` |
+| P4 | No CSP, Referrer-Policy, nosniff or framing protection; the session cookie never had `Secure`, even over StartOS's HTTPS. | `backend/main.py` | code reading | security | fixed: `backend/security_headers.py` (CSP in browsers, not in the Mac app's webview); Secure over HTTPS; `test_privacy.py` |
+| P5 | The live database and exported backups were created with the default permissions (often world-readable). | `database.py`, `services/backup.py` | code reading | privacy | fixed: 0600; `test_privacy.py` |
+| P6 | Backups: PBKDF2-SHA256 at 100,000 iterations, no integrity check (a wrong password showed as a padding error). | `services/backup.py` | code reading | security | fixed: format v2 with a header, 600,000 iterations (recorded in the file) and an HMAC; v1 backups still restore; `test_privacy.py` |
+| P7 | A log line recorded a raw fee amount. Nothing else logs amounts, addresses or passwords (sweep). | `services/calculation.py` | sweep | privacy | fixed |
+| P8 | Docker image makes `/data` mode 777. The files in it (database, secret key, migration backups) are 0600 and the container has no other users. | `Dockerfile` | code reading | ok (no change: StartOS/Docker volume ownership depends on it) | — |

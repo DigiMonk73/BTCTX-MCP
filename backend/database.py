@@ -172,8 +172,22 @@ def init_db(bind=None):
 
     result = upgrade_database(bind or engine)
     seed_defaults(bind)
+    _make_owner_only(bind or engine)
     logger.info("Database ready (schema %s).", result.to_revision)
     return result
+
+
+def _make_owner_only(bind) -> None:
+    """The database holds the whole ledger: readable by its owner only
+    (0600), like the secret key and the migration backups beside it. SQLite
+    gives its journal files the database file's permissions."""
+    path = getattr(getattr(bind, "url", None), "database", None)
+    if not path or path == ":memory:" or not os.path.exists(path):
+        return
+    try:
+        os.chmod(path, 0o600)
+    except OSError as exc:  # e.g. a mounted volume that refuses chmod
+        logger.warning("Couldn't make the database owner-only: %s", exc)
 
 
 # The StartOS wrapper calls backend.database.create_tables() at install time

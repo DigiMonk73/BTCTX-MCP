@@ -75,6 +75,21 @@ All notable changes to BitcoinTX are documented in this file.
   reads it as. The tax report shows a gift's value as "not given" instead of
   $0 when none was entered.
 
+### Privacy
+- **Fonts ship with the app.** The page loaded Inter and Outfit from Google
+  Fonts, which told Google every time BitcoinTX opened. Nothing the page
+  loads comes from anywhere but BitcoinTX now, and in a browser a
+  Content-Security-Policy enforces it.
+- Responses now carry no-referrer, nosniff and no-framing headers, and the
+  session cookie is marked Secure when BitcoinTX is reached over HTTPS
+  (StartOS).
+- The database file and downloaded backups are readable by their owner only.
+- **Backups are stronger**: 600,000 PBKDF2 iterations (was 100,000) and an
+  integrity check, so a wrong password or a damaged file is reported clearly.
+  Backups made by earlier versions still restore. A backup made by 0.9.2
+  can't be restored by 0.9.1 or earlier.
+- A log message no longer includes a fee amount.
+
 ### AI assistant (MCP)
 - **The Mac app no longer needs your password in an AI app's settings.** It
   writes `~/Library/Application Support/BitcoinTX/mcp.json` (readable only by
