@@ -268,7 +268,7 @@ const Transactions: React.FC = () => {
             )}
 
             {dateGroups.map(([dayLabel, txArray]) => (
-              <div key={dayLabel} className="transactions-day-group">
+              <div key={dayLabel} className="transactions-day-group" role="list" aria-label={dayLabel}>
                 <h3 className="date-heading">{dayLabel}</h3>
                 {txArray.map(tx => {
                   const timeStr = new Date(tx.timestamp).toLocaleTimeString("en-US", {
@@ -292,7 +292,7 @@ const Transactions: React.FC = () => {
                   const disposalColor = tx.realized_gain_usd >= 0 ? "gain-green" : "loss-red";
 
                   return (
-                    <div key={tx.id} className="transaction-card">
+                    <div key={tx.id} className="transaction-card" role="listitem">
                       <span className="cell time-col">{timeStr}</span>
                       <span className="cell type-col">{tx.type}</span>
                       <span className="cell account-col">{accountLabel}</span>

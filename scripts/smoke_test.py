@@ -58,7 +58,10 @@ def skip(name: str, why: str) -> None:
 # Own server
 # ---------------------------------------------------------------------------
 def serve(port: int, db_path: str) -> None:
-    """Child-process entry: run the app with deterministic offline prices."""
+    """Child-process entry: run the app with deterministic offline prices.
+
+    Also used by the Playwright suite (frontend/e2e) to serve the app.
+    """
     os.environ["DATABASE_FILE"] = db_path
     sys.path.insert(0, str(ROOT))
 
@@ -68,12 +71,20 @@ def serve(port: int, db_path: str) -> None:
     async def current():
         return {"USD": 60000.0}
 
+    async def block_height():
+        return {"height": 900000}
+
+    async def time_series(days: int = 7):
+        return []
+
     import backend.services.bitcoin as bitcoin
     import backend.routers.river_import as river_router
     import backend.services.entry_import as entry_import
 
     bitcoin.get_historical_price = historical
     bitcoin.get_current_price = current
+    bitcoin.get_block_height = block_height
+    bitcoin.get_time_series = time_series
     river_router.get_historical_price = historical
     entry_import.get_historical_price = historical
 
