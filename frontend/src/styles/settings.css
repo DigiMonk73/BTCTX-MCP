@@ -32,6 +32,10 @@
    text, a field's width: 100% takes the whole row and leaves the text 0px. */
 .settings-option.stacked { flex-direction: column; align-items: stretch; gap: var(--space-3); }
 .settings-option.stacked .credential-update-form { width: 100%; }
+/* ...but no wider than a comfortable field: a username or a URL doesn't
+   need the whole card */
+.settings-option.stacked > .input,
+.settings-option.stacked .credential-update-form { max-width: 440px; }
 
 /* Username & password, tax timezone: a column of controls, top-aligned like
    the text (centred, it would rise above the row's title) */

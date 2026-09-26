@@ -4,17 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.1] - 2026-09-26 - Settings layout fix
+
 ### Fixes
-- **Settings layout** (windows wider than 900 px): "Your own mempool
-  server" and "Proxy for outside requests" squeezed their label and help
-  into a column one word wide with the field on top of it, and the Reset
-  Username & Password fields (and, less visibly, the Tax Timezone drop-down)
-  sat above their row. A field's `width: 100%` took the whole row beside
-  the text, and a column of controls taller than its text was centred on
-  it. Rows with text fields now put the label and help first and the fields
-  below at full width; Tax Timezone keeps its drop-down on the right, level
-  with its title. Other rows are unchanged. A click-through test checks
-  every Settings row at desktop, tablet and phone widths.
+- **Settings** (windows wider than 900 px): "Your own mempool server" and
+  "Proxy for outside requests" squeezed their label and help into a column
+  one word wide, with the field drawn on top; the Reset Username & Password
+  fields (and, slightly, the Tax Timezone drop-down) sat above their row.
+  Rows with text fields now show the label and help first and the fields
+  below, up to 440 px wide; Tax Timezone keeps its drop-down on the right,
+  level with its title. A click-through test checks every Settings row at
+  desktop, tablet and phone widths. (Layout only: no figures change.)
 
 ## [v1.0.0] - 2026-09-26 - Look and feel: the polish, ready for everyday use
 
