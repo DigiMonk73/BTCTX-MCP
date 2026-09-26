@@ -6,7 +6,7 @@ import "../styles/dashboard.css";
 // Numeric helpers
 import {
   parseDecimal,
-  formatUsd,
+  formatUsd, formatSignedUsd,
   formatBtc,
   parseGainsAndLosses,
 } from "../utils/format";
@@ -175,12 +175,9 @@ const Dashboard: React.FC = () => {
     }
     const gains = (currentBtcPrice - averageBtcCostBasis) * totalBTC;
     const isGain = gains >= 0;
-    const signSymbol = isGain ? "+" : "-";
-    const displayAmount = Math.abs(gains);
     return (
       <span className={isGain ? "text-gain" : "text-loss"}>
-        {signSymbol}
-        {formatUsd(displayAmount)}
+        {formatSignedUsd(gains)}
       </span>
     );
   };
@@ -288,13 +285,13 @@ const Dashboard: React.FC = () => {
           <p>
             <strong>Short-Term Gains:</strong>
             <span className={gainsAndLosses.short_term_gains > 0 ? "text-gain" : ""}>
-              {formatUsd(gainsAndLosses.short_term_gains)}
+              {formatSignedUsd(gainsAndLosses.short_term_gains)}
             </span>
           </p>
           <p>
             <strong>Short-Term Losses:</strong>
             <span className={gainsAndLosses.short_term_losses > 0 ? "text-loss" : ""}>
-              {formatUsd(gainsAndLosses.short_term_losses)}
+              {formatUsd(-gainsAndLosses.short_term_losses)}
             </span>
           </p>
           <p>
@@ -308,7 +305,7 @@ const Dashboard: React.FC = () => {
                   : ""
               }
             >
-              {formatUsd(gainsAndLosses.short_term_net)}
+              {formatSignedUsd(gainsAndLosses.short_term_net)}
             </span>
           </p>
 
@@ -317,13 +314,13 @@ const Dashboard: React.FC = () => {
           <p>
             <strong>Long-Term Gains:</strong>
             <span className={gainsAndLosses.long_term_gains > 0 ? "text-gain" : ""}>
-              {formatUsd(gainsAndLosses.long_term_gains)}
+              {formatSignedUsd(gainsAndLosses.long_term_gains)}
             </span>
           </p>
           <p>
             <strong>Long-Term Losses:</strong>
             <span className={gainsAndLosses.long_term_losses > 0 ? "text-loss" : ""}>
-              {formatUsd(gainsAndLosses.long_term_losses)}
+              {formatUsd(-gainsAndLosses.long_term_losses)}
             </span>
           </p>
           <p>
@@ -337,7 +334,7 @@ const Dashboard: React.FC = () => {
                   : ""
               }
             >
-              {formatUsd(gainsAndLosses.long_term_net)}
+              {formatSignedUsd(gainsAndLosses.long_term_net)}
             </span>
           </p>
 
@@ -354,7 +351,7 @@ const Dashboard: React.FC = () => {
                   : ""
               }
             >
-              {formatUsd(gainsAndLosses.total_net_capital_gains)}
+              {formatSignedUsd(gainsAndLosses.total_net_capital_gains)}
             </span>
           </p>
           <p>
@@ -368,7 +365,7 @@ const Dashboard: React.FC = () => {
                   : ""
               }
             >
-              {formatUsd(gainsAndLosses.year_to_date_capital_gains)}
+              {formatSignedUsd(gainsAndLosses.year_to_date_capital_gains)}
             </span>
           </p>
         </div>

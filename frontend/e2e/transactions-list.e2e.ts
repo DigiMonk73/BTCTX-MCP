@@ -40,24 +40,24 @@ test("rows show account, amounts, fee, source and gain", async ({ authedPage: pa
 
   const sell1 = rows.filter({ hasText: "Sell" }).filter({ hasText: /0\.25000000 BTC/ });
   await expect(sell1).toContainText("Exchange");
-  await expect(sell1).toContainText(/0\.25000000 BTC -> \$6,?980\.00/);
-  await expect(sell1).toContainText(/Fee: \$20\.00/);
-  await expect(sell1).toContainText(/Gain: \+\$1,?980\.00 \(\+39\.60%\) \(SHORT\)/);
+  await expect(sell1).toContainText(/\u22120\.25000000 BTC\s*\$6,980\.00/);
+  await expect(sell1).toContainText("Fee $20.00");
+  await expect(sell1).toContainText("Gain +$1,980.00 \u00b7 +39.60% \u00b7 Short-term");
 
   const sell2 = rows.filter({ hasText: "Sell" }).filter({ hasText: /0\.10000000 BTC/ });
-  await expect(sell2).toContainText(/Gain: \+\$7,?000\.00 \(\+350\.00%\) \(LONG\)/);
+  await expect(sell2).toContainText("Gain +$7,000.00 \u00b7 +350.00% \u00b7 Long-term");
 
   const transfer = rows.filter({ hasText: "Transfer" });
-  await expect(transfer).toContainText("Exchange -> Wallet");
+  await expect(transfer).toContainText("Exchange \u2192 Wallet");
   await expect(transfer).toContainText("0.50000000 BTC");
-  await expect(transfer).toContainText("Fee: 0.00010000 BTC");
+  await expect(transfer).toContainText("Fee 0.00010000 BTC");
 
   const income = rows.filter({ hasText: "Income" });
   await expect(income).toContainText("Wallet");
   await expect(income).toContainText("0.01000000 BTC");
 
   const buy = rows.filter({ hasText: "Buy" });
-  await expect(buy).toContainText(/\$20,?000\.00 -> 1\.00000000 BTC/);
+  await expect(buy).toContainText(/\+1\.00000000 BTC\s*\$20,000\.00/);
 });
 
 test("rows are grouped by the local day, with local times", async ({ authedPage: page }, info) => {

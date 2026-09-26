@@ -22,6 +22,9 @@ import "@fontsource/outfit/latin-700.css";
 import "@fontsource/outfit/latin-ext-700.css";
 import './styles/index.css'; // Minimal resets
 import './styles/theme.css'; // Design system tokens
+// Phase 5 polish direction: loaded last so it wins over the page stylesheets.
+import './styles/tokens.css';
+import './styles/components.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

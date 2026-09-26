@@ -471,7 +471,7 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="credential-submit-container">
-              <button type="submit" className="settings-button" disabled={loading}>
+              <button type="submit" className="settings-button primary" disabled={loading}>
                 {loading ? "Processing..." : "Update"}
               </button>
             </div>
@@ -550,7 +550,7 @@ const Settings: React.FC = () => {
               <button
                 onClick={handlePreviewImport}
                 disabled={loading || !csvFile}
-                className="settings-button"
+                className="settings-button primary"
               >
                 {loading ? "Processing..." : "Preview"}
               </button>
@@ -699,7 +699,7 @@ const Settings: React.FC = () => {
               Save a secure backup of all app data (encrypted SQLite file).
             </p>
           </div>
-          <button onClick={handleDownloadBackup} disabled={loading} className="settings-button">
+          <button onClick={handleDownloadBackup} disabled={loading} className="settings-button primary">
             {loading ? "Processing..." : "Download"}
           </button>
         </div>

@@ -123,7 +123,7 @@ const NetworkSettings: React.FC = () => {
       </div>
       <div className="credential-submit-container">
         <button
-          className="settings-button"
+          className="settings-button primary"
           onClick={save}
           disabled={saving || !changed}
           aria-label="Save privacy & network settings"

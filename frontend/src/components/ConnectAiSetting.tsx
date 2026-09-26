@@ -51,7 +51,7 @@ const CopyBlock: React.FC<{ label: string; text: string; rows: number }> = ({ la
   return (
     <div className="ai-copy-block">
       <textarea className="ai-copy-text" readOnly value={text} rows={rows} aria-label={label} />
-      <button type="button" className="settings-button" onClick={copy}>
+      <button type="button" className="settings-button primary" onClick={copy}>
         Copy
       </button>
     </div>

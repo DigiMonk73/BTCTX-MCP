@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, Minus, Plus, type LucideIcon } from "lucide-react";
 import TransactionPanel from "../components/TransactionPanel";
 import "../styles/transactions.css";
 import api from "../api";
 import {
   parseTransaction,
   formatUsd,
+  formatSignedUsd,
   formatBtc,
   parseDecimal,
   formatTimestamp,
@@ -40,37 +42,12 @@ function resolveDisplayAccount(tx: ITransaction): string {
     case "Withdrawal":
       return accountIdToName(from_account_id);
     case "Transfer":
-      return `${accountIdToName(from_account_id)} -> ${accountIdToName(to_account_id)}`;
+      return `${accountIdToName(from_account_id)} \u2192 ${accountIdToName(to_account_id)}`;
     case "Buy":
     case "Sell":
       return "Exchange";
     default:
       return "Unknown";
-  }
-}
-
-function formatAmount(tx: ITransaction): string {
-  const { type, amount, cost_basis_usd, proceeds_usd, from_account_id, to_account_id } = tx;
-  switch (type) {
-    case "Deposit":
-      if (to_account_id === 1 || to_account_id === 3) return formatUsd(amount);
-      return formatBtc(amount);
-    case "Withdrawal":
-      if (from_account_id === 1 || from_account_id === 3) return formatUsd(amount);
-      return formatBtc(amount);
-    case "Transfer":
-      if (from_account_id === 1 || from_account_id === 3) return formatUsd(amount);
-      return formatBtc(amount);
-    case "Buy":
-      return cost_basis_usd
-        ? `${formatUsd(cost_basis_usd)} -> ${formatBtc(amount)}`
-        : `${formatUsd(amount)}`;
-    case "Sell":
-      return proceeds_usd
-        ? `${formatBtc(amount)} -> ${formatUsd(proceeds_usd)}`
-        : `${formatBtc(amount)}`;
-    default:
-      return `${amount}`;
   }
 }
 
@@ -81,26 +58,49 @@ function formatExtra(tx: ITransaction): string {
   return "";
 }
 
-function buildDisposalLabel(tx: ITransaction): string {
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  Deposit: ArrowDown,
+  Withdrawal: ArrowUp,
+  Transfer: ArrowLeftRight,
+  Buy: Plus,
+  Sell: Minus,
+};
+
+const isUsdAccount = (id: number | null) => id === 1 || id === 3;
+
+/** The asset that moved (signed, as the account sees it) and its USD value. */
+function rowAmounts(tx: ITransaction): { primary: string; secondary: string } {
+  const { type, amount, cost_basis_usd, proceeds_usd, from_account_id, to_account_id } = tx;
+  const minus = "\u2212";
+  switch (type) {
+    case "Deposit":
+      return isUsdAccount(to_account_id)
+        ? { primary: `+${formatUsd(amount)}`, secondary: "" }
+        : { primary: `+${formatBtc(amount)}`, secondary: cost_basis_usd ? formatUsd(cost_basis_usd) : "" };
+    case "Withdrawal":
+      return isUsdAccount(from_account_id)
+        ? { primary: `${minus}${formatUsd(amount)}`, secondary: "" }
+        : { primary: `${minus}${formatBtc(amount)}`, secondary: proceeds_usd ? formatUsd(proceeds_usd) : "" };
+    case "Transfer":
+      return { primary: isUsdAccount(from_account_id) ? formatUsd(amount) : formatBtc(amount), secondary: "" };
+    case "Buy":
+      return { primary: `+${formatBtc(amount)}`, secondary: cost_basis_usd ? formatUsd(cost_basis_usd) : "" };
+    case "Sell":
+      return { primary: `${minus}${formatBtc(amount)}`, secondary: proceeds_usd ? formatUsd(proceeds_usd) : "" };
+    default:
+      return { primary: `${amount}`, secondary: "" };
+  }
+}
+
+function gainLabel(tx: ITransaction): string {
   if (tx.type !== "Sell" && tx.type !== "Withdrawal") return "";
   if (tx.cost_basis_usd == null || tx.realized_gain_usd == null) return "";
-
-  const costBasis = parseDecimal(tx.cost_basis_usd);
-  const gainVal = parseDecimal(tx.realized_gain_usd);
-  const hp = tx.holding_period ? ` (${tx.holding_period})` : "";
-  const label = gainVal >= 0 ? "Gain" : "Loss";
-
-  if (costBasis === 0) {
-    if (gainVal === 0) return "";
-    const sign = gainVal >= 0 ? "+" : "-";
-    return `${label}: ${sign}${formatUsd(Math.abs(gainVal))}${hp}`;
-  }
-  const gainPerc = (gainVal / costBasis) * 100;
-  const sign = gainVal >= 0 ? "+" : "-";
-  const absGain = Math.abs(gainVal);
-  const absPerc = Math.abs(gainPerc).toFixed(2);
-
-  return `${label}: ${sign}${formatUsd(absGain)} (${sign}${absPerc}%)${hp}`;
+  const gain = parseDecimal(tx.realized_gain_usd);
+  const basis = parseDecimal(tx.cost_basis_usd);
+  if (gain === 0 && basis === 0) return "";
+  const term = tx.holding_period === "LONG" ? "Long-term" : tx.holding_period === "SHORT" ? "Short-term" : "";
+  const pct = basis !== 0 ? `${gain >= 0 ? "+" : "\u2212"}${Math.abs((gain / basis) * 100).toFixed(2)}%` : "";
+  return [`${gain >= 0 ? "Gain" : "Loss"} ${formatSignedUsd(gain)}`, pct, term].filter(Boolean).join(" \u00b7 ");
 }
 
 /* --------------------------------------------------------------------------
@@ -277,30 +277,38 @@ const Transactions: React.FC = () => {
                   });
 
                   const accountLabel = resolveDisplayAccount(tx);
-                  const amountLabel = formatAmount(tx);
 
                   let feeLabel = "";
                   if (tx.fee_amount && tx.fee_amount !== 0) {
                     feeLabel =
                       tx.fee_currency === "BTC"
-                        ? `Fee: ${formatBtc(tx.fee_amount)}`
-                        : `Fee: ${formatUsd(tx.fee_amount)} ${tx.fee_currency || "USD"}`;
+                        ? `Fee ${formatBtc(tx.fee_amount)}`
+                        : `Fee ${formatUsd(tx.fee_amount)}`;
                   }
 
                   const extraLabel = formatExtra(tx);
-                  const disposalLabel = buildDisposalLabel(tx);
-                  const disposalColor = tx.realized_gain_usd >= 0 ? "gain-green" : "loss-red";
+                  const gain = gainLabel(tx);
+                  const gainColor = tx.realized_gain_usd >= 0 ? "gain-green" : "loss-red";
+                  const { primary, secondary } = rowAmounts(tx);
+                  const Icon = TYPE_ICONS[tx.type] ?? ArrowLeftRight;
+                  const subtitle = [timeStr, extraLabel, feeLabel].filter(Boolean).join(" \u00b7 ");
 
                   return (
-                    <div key={tx.id} className="transaction-card" role="listitem">
-                      <span className="cell time-col">{timeStr}</span>
-                      <span className="cell type-col">{tx.type}</span>
-                      <span className="cell account-col">{accountLabel}</span>
-                      <span className="cell amount-col">{amountLabel}</span>
-                      <span className="cell fee-col">{feeLabel}</span>
-                      <span className="cell extra-col">{extraLabel}</span>
-                      <span className={`cell disposal-col ${disposalColor}`}>
-                        {disposalLabel}
+                    <div key={tx.id} className="transaction-card tx-row" role="listitem">
+                      <span className={`tx-badge tx-badge-${tx.type.toLowerCase()}`} aria-hidden="true">
+                        <Icon size={18} strokeWidth={2} />
+                      </span>
+                      <span className="tx-main">
+                        <span className="tx-title">
+                          {tx.type}
+                          <span className="tx-account">{" \u00b7 "}{accountLabel}</span>
+                        </span>
+                        <span className="tx-sub">{subtitle}</span>
+                      </span>
+                      <span className={`tx-gain ${gainColor}`}>{gain}</span>
+                      <span className="tx-amounts">
+                        <span className="tx-primary">{primary}</span>
+                        {secondary && <span className="tx-secondary">{secondary}</span>}
                       </span>
                       <button
                         onClick={() => {

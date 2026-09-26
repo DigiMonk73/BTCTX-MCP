@@ -114,7 +114,7 @@ const LedgerReview: React.FC = () => {
           </ul>
           <p className="settings-option-subtitle">{check.action}</p>
           {check.key === "fee_value_off" && (
-            <button onClick={() => fixFees(check)} disabled={loading} className="settings-button">
+            <button onClick={() => fixFees(check)} disabled={loading} className="settings-button primary">
               Fix these
             </button>
           )}

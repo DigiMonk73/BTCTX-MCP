@@ -1,0 +1,530 @@
+/* ============================================
+   components.css - Phase 5 polish direction (prototype)
+   One card, one button set, one input style, calmer navigation and
+   transaction rows. Loaded last; overrides the page stylesheets so the
+   direction can be judged on the real app. Phase 6 folds this into the
+   page files and deletes what it replaces.
+============================================ */
+
+/* ---------- Base type ---------- */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Figures never shift as prices refresh */
+.card, .tx-row, .converter, .calculator, table, .form-control {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Motion: nothing moves, colors fade ---------- */
+.card, .card:hover, .card:active,
+button, button:hover, button:active,
+.header-nav-item, .header-nav-item:active,
+.transaction-card, .transaction-card:active {
+  transform: none !important;
+}
+button, a, input, select, textarea, .card, .transaction-card, .header-nav-item {
+  transition: var(--transition-color);
+}
+
+/* ---------- Layout ---------- */
+.sidebar {
+  background-color: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
+}
+.sidebar-title {
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.header {
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-6);
+}
+.main-content { padding: var(--space-6); }
+.dashboard {
+  padding: 0;
+  background-image: none;
+  min-height: 0;
+}
+
+/* ---------- Navigation: the active page is a filled pill ---------- */
+.header-nav { gap: var(--space-1); }
+.header-nav-item,
+.header-nav-item.logout-link {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 0 var(--space-4);
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+  background: transparent;
+}
+.header-nav-item:hover,
+.header-nav-item.logout-link:hover {
+  color: var(--color-text);
+  background-color: var(--color-surface-hover);
+}
+.header-nav-item.active,
+.header-nav-item.active:hover {
+  color: var(--color-text);
+  background-color: var(--color-raised);
+  box-shadow: none;
+}
+.header-nav-item.logout-link { margin-left: auto; }
+.header-nav { flex: 1; }
+
+/* ---------- Cards: one style everywhere ---------- */
+.card,
+.settings-container {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  padding: var(--space-6);
+}
+.card:hover, .card:active {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+.top-row, .bottom-row { gap: var(--space-4); margin-bottom: var(--space-4); }
+
+.card h3,
+.settings-section h3 {
+  font-family: var(--font-family);
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-text);
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: var(--space-4);
+}
+.card h4 { font-family: var(--font-family); font-size: var(--text-sm); font-weight: 600; }
+.card p {
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-2);
+  gap: var(--space-4);
+}
+.card p strong {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+.card p span { color: var(--color-text); text-align: right; }
+.card p span.text-gain, .card p span .text-gain { color: var(--color-success); }
+.card p span.text-loss, .card p span .text-loss { color: var(--color-error); }
+.card hr { border-top-color: var(--color-border); margin: var(--space-3) 0; }
+.income-fees-container p em { font-style: normal; color: var(--color-text-muted); font-size: var(--text-13); }
+
+/* The price: large and white; the watermark stays as a faint texture */
+.btc-price-value {
+  font-family: var(--font-family);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.btc-watermark { color: var(--color-accent); opacity: 0.04; }
+.btc-block-height { color: var(--color-text-muted); font-size: var(--text-13); }
+
+/* ---------- Page titles: Outfit only here ---------- */
+.settings-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  margin-bottom: var(--space-6);
+}
+
+/* ---------- Buttons: primary, secondary, quiet, destructive ---------- */
+.btn,
+.settings-button,
+.accent-btn,
+.add-transaction-btn,
+.save-button,
+.submit-button,
+.retry-btn,
+.refresh-button,
+.pagination-button,
+.discard-modal-actions button,
+input[type="file"]::file-selector-button {
+  height: var(--control-height);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Secondary: a surface pill (the default for settings actions) */
+.settings-button,
+.pagination-button,
+.refresh-button,
+.retry-btn,
+.discard-modal-actions button,
+.btn-secondary {
+  background: var(--color-raised);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+}
+.settings-button:hover,
+.pagination-button:hover:not(:disabled),
+.refresh-button:hover,
+.retry-btn:hover,
+.discard-modal-actions button:hover,
+.btn-secondary:hover {
+  background: #2c2c31;
+  box-shadow: none;
+}
+.settings-button:active,
+.pagination-button:active:not(:disabled),
+.btn-secondary:active { background: #34343a; }
+
+/* Primary: the gold pill, one per section */
+.settings-button.primary,
+.settings-button.import-confirm,
+.accent-btn,
+.add-transaction-btn,
+.save-button,
+.submit-button,
+.btn-primary,
+input[type="file"]::file-selector-button {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border: 1px solid transparent;
+}
+.settings-button.primary:hover,
+.settings-button.import-confirm:hover,
+.accent-btn:hover,
+.add-transaction-btn:hover,
+.save-button:hover,
+.submit-button:hover,
+.btn-primary:hover,
+input[type="file"]::file-selector-button:hover {
+  background: var(--color-accent-hover);
+  box-shadow: none;
+}
+.settings-button.primary:active,
+.accent-btn:active,
+.add-transaction-btn:active,
+.save-button:active,
+.submit-button:active,
+.btn-primary:active {
+  background: var(--color-accent-pressed);
+  box-shadow: none;
+}
+
+/* Disabled: dimmed, never a different shape */
+.settings-button:disabled,
+.accent-btn:disabled,
+.add-transaction-btn:disabled,
+.save-button:disabled,
+.submit-button:disabled,
+.pagination-button:disabled,
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Quiet: text only (Edit on each row) */
+.edit-button,
+.btn-quiet {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-13);
+  font-weight: 500;
+}
+.edit-button:hover,
+.edit-button:active,
+.btn-quiet:hover {
+  background: var(--color-raised);
+  color: var(--color-text);
+  border-color: transparent;
+}
+
+/* Destructive: red text on the secondary pill */
+.settings-button.danger,
+button.danger,
+.delete-button,
+.btn-danger {
+  background: var(--color-raised);
+  color: var(--color-error);
+  border: 1px solid var(--color-border-strong);
+}
+.settings-button.danger:hover,
+button.danger:hover,
+.delete-button:hover,
+.btn-danger:hover {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--color-error);
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
+/* Focus: one gold ring for every control */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Inputs: one style, labels above, a gold focus ring ---------- */
+.form-control,
+.credential-input,
+.sort-select,
+.page-size-select,
+.settings-section input[type="text"],
+.settings-section input[type="url"],
+.settings-section input[type="password"],
+.settings-section select,
+.date-price-row input,
+.converter input,
+.panel-body input {
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  box-shadow: none;
+}
+.form-control:focus,
+.credential-input:focus,
+.sort-select:focus,
+.page-size-select:focus,
+.settings-section input:focus,
+.settings-section select:focus,
+.converter input:focus,
+.panel-body input:focus {
+  border-color: var(--color-accent);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+select.form-control, .sort-select, .page-size-select, .settings-section select { padding-right: var(--space-2); }
+.sort-select {
+  width: auto;
+  font-weight: 500;
+}
+.form-group label,
+.panel-body label {
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+.form-group { margin-bottom: 0; }
+.form-fields-grid { gap: var(--space-4); }
+
+/* No spinner arrows on number fields */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+input[type="file"] {
+  background: transparent;
+  border: 1px dashed var(--color-border-input);
+  border-radius: var(--radius-control);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-13);
+  color: var(--color-text-secondary);
+}
+input[type="file"]::file-selector-button { height: var(--control-height-sm); margin-right: var(--space-3); }
+
+/* ---------- Settings: sections as quiet groups inside the card ---------- */
+.settings-container {
+  margin: 0;
+  max-width: 820px;
+}
+.settings-section {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-6) 0 var(--space-2);
+  margin: 0;
+}
+.settings-section:first-of-type { border-top: none; padding-top: 0; }
+.settings-section h3 { font-size: var(--text-base); margin-bottom: var(--space-2); }
+.settings-option {
+  border-top: none;
+  padding: var(--space-3) 0;
+  gap: var(--space-6);
+}
+.settings-option-title { font-size: var(--text-sm); font-weight: 500; }
+.settings-option-subtitle { font-size: var(--text-13); color: var(--color-text-muted); line-height: 1.5; }
+.settings-button { margin-left: 0; }
+
+/* ---------- Transactions ---------- */
+.transactions-page { padding: 0; background-image: none; }
+.transactions-header { margin-bottom: var(--space-6); }
+/* One list card; days are quiet labels inside it */
+.transactions-list {
+  gap: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-2);
+}
+.date-heading {
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-4) var(--space-3) var(--space-1);
+}
+.date-heading::after { display: none; }
+.transactions-day-group + .transactions-day-group { border-top: 1px solid var(--color-border); }
+
+.transaction-card.tx-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto minmax(150px, auto) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+}
+.transaction-card.tx-row:nth-child(odd),
+.transaction-card.tx-row:nth-child(even) { background: transparent; }
+.transaction-card.tx-row:hover { background: var(--color-surface-hover); border-color: transparent; }
+
+.tx-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-raised);
+  color: var(--color-text-secondary);
+}
+.tx-badge-buy, .tx-badge-deposit { color: var(--color-accent); }
+
+.tx-main { display: flex; flex-direction: column; min-width: 0; }
+.tx-title { font-size: var(--text-sm); font-weight: 500; color: var(--color-text); }
+.tx-account { color: var(--color-text-secondary); font-weight: 400; }
+.tx-sub {
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-gain { font-size: var(--text-13); white-space: nowrap; }
+.tx-gain.gain-green { color: var(--color-success); }
+.tx-gain.loss-red { color: var(--color-error); }
+
+.tx-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tx-primary { font-size: var(--text-sm); font-weight: 500; color: var(--color-text); white-space: nowrap; }
+.tx-secondary { font-size: var(--text-13); color: var(--color-text-muted); white-space: nowrap; }
+
+.pagination-info, .page-size-label { color: var(--color-text-muted); font-size: var(--text-13); }
+
+/* ---------- Transaction panel ---------- */
+.transaction-panel {
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  animation: fade-in 150ms ease;
+}
+.panel-header { padding: var(--space-5) var(--space-6); border-bottom-color: var(--color-border); }
+.panel-header h2 { font-family: var(--font-display); font-size: var(--text-xl); }
+.panel-body { padding: var(--space-6); }
+.panel-footer { padding: var(--space-4) var(--space-6); border-top-color: var(--color-border); }
+
+/* ---------- Sidebar tools ---------- */
+.converter { background: transparent; }
+.toggle-btn {
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+  height: var(--control-height-sm);
+}
+.toggle-btn.active { background: var(--color-raised); border-color: var(--color-border-input); color: var(--color-text); }
+.toggle-btn:hover { background: var(--color-surface-hover); }
+.calculator {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.calculator .display {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  text-align: right;
+}
+.buttons button {
+  background: var(--color-raised);
+  border: none;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+}
+.buttons button:hover { background: #2c2c31; }
+
+/* ---------- The Mac app's smallest window (800 × 600) ----------
+   Today the sidebar shrinks to 80px and clips the calculator. Keep the
+   tools, at a width they fit in. */
+@media (max-width: 1024px) {
+  :root { --sidebar-width: 232px; }
+  .sidebar { width: var(--sidebar-width); overflow: hidden; flex-shrink: 0; }
+  .sidebar-title { display: block; font-size: var(--text-2xl); }
+  .sidebar-tools { padding: var(--space-3); }
+  .converter, .calculator { display: flex; flex-direction: column; width: 100%; max-width: 208px; }
+  .converter { display: block; padding: 0; }
+  .calculator { height: 300px; }
+  .main-content { padding: var(--space-4); }
+  .header { padding: 0 var(--space-4); }
+  .header-nav-item, .header-nav-item.logout-link { padding: 0 var(--space-3); }
+  .card { min-width: 0; flex-basis: 100%; }
+  .transaction-card.tx-row {
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    grid-template-areas: "badge main amounts edit" "badge gain amounts edit";
+  }
+  .tx-row .tx-badge { grid-area: badge; }
+  .tx-row .tx-main { grid-area: main; }
+  .tx-row .tx-gain { grid-area: gain; }
+  .tx-row .tx-amounts { grid-area: amounts; }
+  .tx-row .edit-button { grid-area: edit; }
+  .transaction-panel { width: min(460px, 100vw - var(--sidebar-width)); }
+}
+
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .transaction-panel { width: 100vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transaction-panel, .transaction-panel-overlay { animation: none; }
+}
+
+/* Checkboxes in the accent (Safari 15.4+; older WebKit keeps the system blue) */
+input[type="checkbox"] { accent-color: var(--color-accent); width: 18px; height: 18px; }
