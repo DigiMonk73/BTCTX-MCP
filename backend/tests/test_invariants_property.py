@@ -114,7 +114,7 @@ def draw_ledger(data, max_ops: int) -> tuple[List[dict], Model]:
         elif op == "sell":
             sats = data.draw(st.integers(1000, m.exch), label="sell_sats")
             gross = Decimal(data.draw(st.integers(100, 10_000_000), label="sell_cents")) * CENT
-            fee = Decimal(data.draw(st.integers(0, 2000), label="sell_fee_cents")) * CENT
+            fee = min(gross, Decimal(data.draw(st.integers(0, 2000), label="sell_fee_cents")) * CENT)
             txs.append(dict(type="Sell", timestamp=ts, from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
                             amount=btc(sats), gross_proceeds_usd=str(gross), fee_amount=str(fee), fee_currency="USD"))
             m.exch -= sats

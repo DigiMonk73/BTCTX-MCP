@@ -19,9 +19,10 @@ Implementation Notes:
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
 from collections import defaultdict
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -30,6 +31,7 @@ from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, Lo
 from backend.models.account import Account
 from backend.services.tax_time import get_tax_timezone
 from backend.constants import (
+    ACCOUNT_WALLET,
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
@@ -85,7 +87,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     # 1) Ensure BTC Fees account
     ensure_fee_account_exists(db)
 
-    # 2 & 3) Validate transaction type and fee rules
+    # 2 & 3) Validate the input, the transaction type and fee rules
+    _validate_transaction(tx_data, db)
     _enforce_transaction_type_rules(tx_data, db)
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
@@ -166,6 +169,12 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     return new_tx
 
 
+_VALIDATED_FIELDS = (
+    "type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
+    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "source", "purpose",
+)
+
+
 def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
     Update an existing Transaction if not locked.
@@ -184,11 +193,19 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
     old_timestamp = tx.timestamp
 
-    # Step 2) Re-validate usage & fee rules if certain fields changed
+    # Step 2) Validate the transaction as it will be after the change (a
+    # partial edit was checked on the fields sent only, which failed with
+    # "Unknown transaction type: None" or let a mismatch through).
+    merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
+    merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
+    _validate_transaction(merged, db)
+    for key in ("type", "purpose", "source"):  # canonical spellings
+        if merged.get(key) != getattr(tx, key) or key in tx_data:
+            tx_data[key] = merged.get(key)
     if any(k in tx_data for k in ("type", "from_account_id", "to_account_id")):
-        _enforce_transaction_type_rules(tx_data, db)
-    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type")):
-        _enforce_fee_rules(tx_data, db)
+        _enforce_transaction_type_rules(merged, db)
+    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id")):
+        _enforce_fee_rules(merged, db)
     # An edit that leaves an income deposit without a basis (the form sends
     # 0 for a blank one) values it, as on create.
     if any(k in tx_data for k in ("cost_basis_usd", "source", "type")):
@@ -1170,6 +1187,106 @@ def _enforce_broker_reporting(tx_type, value) -> None:
             status_code=400,
             detail=f"broker_reporting can only be set on a Sell or Withdrawal, not a {tx_type}.",
         )
+
+
+# ------------------------------------------------------------------------------
+# Input validation (create, and the merged row on update)
+# ------------------------------------------------------------------------------
+USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXCHANGE_BTC, ACCOUNT_EXTERNAL}
+TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
+WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")
+DEPOSIT_SOURCES = ("MyBTC", "Gift", "Income", "Interest", "Reward", "N/A")
+GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
+MAX_TEXT = 64
+MAX_BTC = Decimal("21000000")
+
+
+def _canonical(value, choices) -> Optional[str]:
+    """The listed spelling of a case-insensitive match, else None."""
+    if value is None:
+        return None
+    lowered = str(value).strip().lower()
+    return next((c for c in choices if c.lower() == lowered), None)
+
+
+def _bad(detail: str):
+    raise HTTPException(status_code=422, detail=detail)
+
+
+def _validate_transaction(data: dict, db: Session) -> None:
+    """
+    Reject input the ledger would record wrongly, with a clear message; set
+    canonical spellings in `data`. Used on create, and on update with the
+    stored row merged with the change, so a partial edit is checked as a
+    whole transaction.
+    """
+    tx_type = data.get("type")
+    tx_type = getattr(tx_type, "value", tx_type)
+    if tx_type not in TX_TYPES:
+        _bad(f"Unknown transaction type: {tx_type}.")
+    data["type"] = tx_type
+
+    ts = data.get("timestamp")
+    if ts is None:
+        _bad("A date and time is required.")
+    ts_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    if ts_utc < GENESIS:
+        _bad("The date is before Bitcoin existed (3 January 2009).")
+    if ts_utc > datetime.now(timezone.utc) + timedelta(days=1):
+        _bad("The date is in the future.")
+
+    for key in ("from_account_id", "to_account_id"):
+        acct_id = data.get(key)
+        if acct_id is not None and acct_id not in USER_ACCOUNTS:
+            _bad(f"Unknown account id {acct_id}.")
+    from_acct = db.get(Account, data["from_account_id"]) if data.get("from_account_id") else None
+    to_acct = db.get(Account, data["to_account_id"]) if data.get("to_account_id") else None
+
+    amount = data.get("amount")
+    if amount is None or Decimal(amount) <= 0:
+        _bad("The amount must be more than 0.")
+    amount = Decimal(amount)
+    # The account the amount is counted in: the sender, or for a deposit the receiver.
+    main_acct = to_acct if tx_type in ("Deposit", "Buy") else from_acct
+    if main_acct is not None and main_acct.currency == "USD" and tx_type != "Buy":
+        if -amount.normalize().as_tuple().exponent > 2:
+            _bad("A USD amount can have at most 2 decimal places.")
+    if main_acct is not None and main_acct.currency == "BTC" and amount > MAX_BTC:
+        _bad("A BTC amount can't be more than 21,000,000.")
+
+    fee = Decimal(data.get("fee_amount") or 0)
+    if fee < 0:
+        _bad("The fee can't be negative.")
+    for key in ("cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd"):
+        if data.get(key) is not None and Decimal(data[key]) < 0:
+            _bad(f"{key} can't be negative.")
+
+    fee_cur = (data.get("fee_currency") or "").upper()
+    if fee > 0 and tx_type in ("Withdrawal", "Deposit"):
+        acct = from_acct if tx_type == "Withdrawal" else to_acct
+        if acct is not None and fee_cur and fee_cur != acct.currency:
+            _bad(f"A {tx_type.lower()} fee must be in {acct.currency}, the account's currency.")
+
+    if tx_type == "Sell":
+        gross = data.get("gross_proceeds_usd")
+        if gross is None:
+            gross = data.get("proceeds_usd")
+        if gross is None:
+            _bad("A sell needs its proceeds (gross_proceeds_usd).")
+        if fee > Decimal(gross):
+            _bad("The sell's fee is more than its proceeds.")
+
+    for key, choices in (("purpose", WITHDRAWAL_PURPOSES), ("source", DEPOSIT_SOURCES)):
+        value = data.get(key)
+        if value is not None and len(str(value)) > MAX_TEXT:
+            _bad(f"{key} is too long (at most {MAX_TEXT} characters).")
+        canonical = _canonical(value, choices)
+        if canonical:
+            data[key] = canonical
+
+    if tx_type == "Withdrawal" and from_acct is not None and from_acct.currency == "BTC":
+        if data.get("purpose") not in WITHDRAWAL_PURPOSES:
+            _bad("A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
 
 
 def _enforce_fee_rules(tx_data: dict, db: Session):

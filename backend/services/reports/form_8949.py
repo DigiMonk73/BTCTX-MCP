@@ -4,6 +4,7 @@ import logging
 from datetime import date, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Tuple, List, Dict, Literal
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.models import LotDisposal
@@ -96,7 +97,9 @@ def build_form_8949_and_schedule_d(
 
     # Non-taxable disposal purposes that should NOT appear on Form 8949
     # Gifts, donations, and lost assets are reported separately, not as capital gains/losses
-    NON_TAXABLE_PURPOSES = ('Gift', 'Donation', 'Lost')
+    # Compared lower-cased, as the ledger does: rows saved before input was
+    # normalized may say "gift" (they have $0 gain but used to print here).
+    NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
 
     disposals = (
         db.query(LotDisposal)
@@ -105,7 +108,7 @@ def build_form_8949_and_schedule_d(
           .filter(
               # Exclude non-taxable disposals (gifts, donations, lost assets)
               # These have a purpose field set; taxable disposals (Sell, Spent, Transfer fees) don't
-              (Transaction.purpose.is_(None)) | (~Transaction.purpose.in_(NON_TAXABLE_PURPOSES))
+              (Transaction.purpose.is_(None)) | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
           )
           .all()
     )
