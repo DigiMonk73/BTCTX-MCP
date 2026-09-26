@@ -51,6 +51,18 @@ def test_my_fix(auth_client):              # logged-in client, temp database
 
 Mark anything slower than ~5 s with `@pytest.mark.slow`.
 
+## Property tests and golden years
+
+- `backend/tests/test_invariants_property.py` (Hypothesis): random valid
+  ledgers must keep the tax invariants (balances = lots, gain = proceeds −
+  basis, basis conservation, holding periods, Form 8949 = Schedule D = the
+  complete report, recalculation and entry order change nothing). 8 examples
+  in the fast set, 120 in the slow set. A failure prints the smallest ledger
+  that breaks it.
+- `backend/tests/test_golden_years.py`: three tax years worked out by hand
+  in the docstring, with the exact Form 8949 rows, boxes and Schedule D lines.
+  If a change moves one of these numbers, it changes users' tax forms.
+
 ## Click-through tests (Playwright)
 
 Specs live in `frontend/e2e/*.e2e.ts`; the config is

@@ -143,3 +143,13 @@ def test_lowercase_gift_saved_before_normalizing_stays_off_form_8949(auth_client
     with sessionmaker(bind=test_engine)() as db:
         forms = build_form_8949_and_schedule_d(2024, db)
     assert forms["short_term"] == [] and forms["long_term"] == []
+
+
+def test_bare_api_path_is_a_json_404_not_the_web_page():
+    """F39: /api (no slash) returned the SPA's index.html."""
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    r = TestClient(app).get("/api")
+    assert r.status_code == 404 and r.headers["content-type"].startswith("application/json")

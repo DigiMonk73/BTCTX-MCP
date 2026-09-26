@@ -162,7 +162,8 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
 
     API routes (/api/*) are excluded - they should return proper JSON errors.
     """
-    if exc.status_code == 404 and not request.url.path.startswith("/api/"):
+    path = request.url.path
+    if exc.status_code == 404 and not (path == "/api" or path.startswith("/api/")):
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path, media_type="text/html")
