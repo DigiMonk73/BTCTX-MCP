@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 async function exportReport(page: Page, report: string, year: string) {
   await page.getByRole("link", { name: "Reports" }).click();
-  await page.getByLabel("Tax Year").fill(year);
+  await page.getByLabel("Tax Year").selectOption(year);
   await page.getByLabel(report).check();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export" }).click();
@@ -17,6 +17,25 @@ test("export needs a year", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Reports" }).click();
   await page.getByRole("button", { name: "Export" }).click();
   await expect(page.getByText("Please enter a valid year (e.g. 2024).")).toBeVisible();
+});
+
+test("the tax year is a list from the first transaction to this year; IRS forms only where they exist", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  await page.getByRole("link", { name: "Reports" }).click();
+  const year = page.getByLabel("Tax Year");
+  const thisYear = new Date().getFullYear();
+  await expect(year.locator("option").nth(1)).toHaveText(String(thisYear));
+  await expect(year.locator("option").last()).toHaveText("2023");
+  await expect(year.locator('option[value="2023"]')).toBeEnabled();
+
+  // IRS forms ship for 2024 and 2025 only: 2023 can't be picked for them.
+  await year.selectOption("2023");
+  await page.getByLabel("IRS Reports (Form 8949, Schedule D, etc.)").check();
+  await expect(year.locator('option[value="2023"]')).toBeDisabled();
+  await expect(page.getByText("IRS forms for 2023 aren't in this version of BitcoinTX yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export" })).toBeDisabled();
+  await year.selectOption("2024");
+  await expect(page.getByRole("button", { name: "Export" })).toBeEnabled();
 });
 
 test("complete tax report PDF", async ({ authedPage: page }) => {

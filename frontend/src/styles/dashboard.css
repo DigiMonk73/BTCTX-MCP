@@ -1,283 +1,102 @@
-/* Design tokens imported from theme.css */
+/* Dashboard: a two-column grid of cards; one column below 900px. */
 
-.dashboard {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  padding: 2rem;
-  min-height: 100vh;
-  /* Subtle gold gradient at top for atmosphere */
-  background-image: radial-gradient(
-    circle at 50% 0%,
-    rgba(229, 180, 90, 0.03) 0%,
-    transparent 50%
-  );
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  max-width: 1240px;
 }
 
-/* Each row of cards can wrap if the screen is too narrow */
-.top-row,
-.bottom-row {
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.dashboard .card { display: flex; flex-direction: column; min-width: 0; }
+
+/* Loading: the cards keep their size, so nothing jumps when data arrives */
+.dashboard-card-loading { min-height: 300px; }
+
+.dashboard-error { max-width: 640px; }
+
+/* Label on the left, figure on the right */
+.dashboard .card p {
   display: flex;
-  flex-wrap: wrap;         /* allows wrapping on smaller screens */
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  justify-content: flex-start;  /* left‐justify the cards */
-  align-items: stretch;    /* make cards equal height within row */
-}
-
-/* Cards:
-   - bigger min/max widths, so they start out larger & remain responsive. */
-.card {
-  flex: 1 1 0;           /* equal basis for all cards */
-  min-width: 360px;      /* bigger minimum than before */
-  max-width: 650px;      /* bigger maximum than before */
-  background-color: var(--color-panel);
-  padding: 1.5rem;
-  border-radius: var(--radius-xl);
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
-  border: 1px solid var(--color-border);
-}
-
-/* Card hover effect - gentle lift + subtle gold accent border */
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
-              0 0 0 1px rgba(229, 180, 90, 0.1);
-  border-color: rgba(229, 180, 90, 0.15);
-}
-/* Touch feedback */
-.card:active {
-  transform: translateY(0);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  border-color: rgba(229, 180, 90, 0.2);
-}
-
-/* BTC Price card - no special border, lets watermark provide brand presence */
-
-/* Card Titles */
-.card h3 {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  color: var(--color-accent);
-  margin-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 0.5rem;
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight);
-}
-
-/* Subheadings (Fees, etc.) */
-.card h4 {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  color: var(--color-text);
-  margin: 1rem 0 0.5rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
-/* Financial figures stay column-aligned as values change */
-.card p span,
-.card p em {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Standard text within cards */
-.card p {
-  margin: 0 0 0.75rem;
-  display: flex;
-  justify-content: space-between; /* label left, value right */
+  justify-content: space-between;
   align-items: baseline;
-  font-size: 1rem;
-  line-height: 1.5;
-  color: var(--color-text);
-  font-weight: 400;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
 }
-
-.card p strong {
-  font-weight: 600;
+.dashboard .card p strong {
+  font-weight: 400;
   color: var(--color-text-secondary);
 }
-
-/* Horizontal divider lines */
-.card hr {
+.dashboard .card p span {
+  color: var(--color-text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard .card p span.text-gain,
+.dashboard .card p span .text-gain { color: var(--color-success); }
+.dashboard .card p span.text-loss,
+.dashboard .card p span .text-loss { color: var(--color-error); }
+.dashboard .card p em {
+  font-style: normal;
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+}
+.dashboard .card hr {
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  margin: 0.75rem 0;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-3) 0;
 }
+.card-subtitle {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  margin: 0 0 var(--space-2);
+}
+.dashboard .card p.gifts-note { justify-content: flex-end; }
 
-/* Gains/loss text colors */
-.text-gain {
-  color: var(--color-success);
-}
-.text-loss {
-  color: var(--color-error);
-}
-
-/* Current Bitcoin Price card */
-.btc-price-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-/* Large, centered price in Bitcoin Orange */
+/* Current Bitcoin Price */
 .btc-price-large {
+  flex: 1;
   display: flex;
-  justify-content: center;
   align-items: center;
-  flex: 1;                 /* fill remaining vertical space */
-  position: relative;      /* for watermark positioning */
-  overflow: hidden;        /* contain watermark */
+  justify-content: center;
+  position: relative;
+  min-height: 160px;
+  overflow: hidden;
 }
-
-/* Bitcoin watermark - ambient brand texture (luxury paper feel) */
 .btc-watermark {
   position: absolute;
-  width: 85%;
-  height: 85%;
-  color: var(--color-bitcoin);
-  opacity: 0.05;
+  width: 80%;
+  height: 80%;
+  color: var(--color-accent);
+  opacity: 0.04;
   pointer-events: none;
-  z-index: 0;
 }
-
+.btc-watermark-mark { fill: var(--color-surface); }
 .btc-price-value {
-  font-family: var(--font-display);
-  font-size: 3rem;
-  font-weight: 700;
+  position: relative;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-semibold);
   letter-spacing: var(--tracking-tight);
   font-variant-numeric: tabular-nums;
-  color: var(--color-bitcoin);
-  position: relative;      /* above watermark */
-  z-index: 1;
+  color: var(--color-text);
 }
-
-/* Block height footer - bottom left of card */
 .btc-block-height {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
-  margin-top: auto;        /* push to bottom */
-  padding-top: 1rem;
 }
 
-.block-height-icon {
-  font-size: 1rem;
-}
-
-/* Gift note on its own row */
-.gifts-note {
-  justify-content: flex-end; /* right align the note if you prefer */
-}
-
-/* For "Income & Fees" italic text (like BTC amounts or note) */
-.income-fees-container p em {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  font-style: italic;
-}
-
-/* Error state */
-.dashboard-error {
-  color: var(--color-error);
-  padding: var(--space-8);
-}
-
-.dashboard-error h2 {
-  margin-bottom: var(--space-4);
-}
-
-/* Loading state */
-.dashboard-loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 50vh;
-}
-
-/* ===============================
-   Responsive Design
-=============================== */
-
-/* Medium screens (< 1024px) */
-@media (max-width: 1024px) {
-  .card {
-    min-width: 280px;
-    max-width: 100%;
-  }
-}
-
-/* Small screens (< 768px) */
-@media (max-width: 768px) {
-  .dashboard {
-    padding: var(--space-4);
-  }
-
-  .top-row,
-  .bottom-row {
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .card {
-    min-width: 100%;
-    max-width: 100%;
-  }
-
-  .btc-price-value {
-    font-size: 2rem;
-  }
-
-  .card h3 {
-    font-size: 1.1rem;
-  }
-
-  .card p {
-    font-size: 0.9rem;
-  }
-}
-
-/* Extra small screens (< 480px) */
+/* Phones: labels above their figures when the row gets tight */
 @media (max-width: 480px) {
-  .dashboard {
-    padding: var(--space-2);
-  }
-
-  .top-row,
-  .bottom-row {
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-
-  .card {
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    min-width: 0; /* Allow cards to shrink below 360px */
-  }
-
-  .card h3 {
-    font-size: 1rem;
-  }
-
-  .btc-price-value {
-    font-size: 1.5rem;
-  }
-
-  .card p {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-    font-size: 0.85rem;
-  }
-
-  .card p span {
-    font-weight: 500;
-  }
+  .dashboard .card { padding: var(--space-4); }
+  .btc-price-value { font-size: var(--text-2xl); }
 }

@@ -1,69 +1,53 @@
-/* Centers the calculator horizontally */
-.sidebar-calculator {
-  margin-top: 0rem;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
+/* Calculator (sidebar): raised keys; operators in gold text, = in gold. */
 
-/* 
-  The calculator box:
-  - Increased width and height to match the larger sidebar.
-*/
+.sidebar-calculator { width: 100%; }
 .calculator {
-  width: 250px;         /* Increased from 170px */
-  height: 350px;        /* Increased from 250px */
-  border: 1px solid #4a4b4b;
-  background: #1e1e1e;
-  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  padding: 12px;        /* Increased from 8px */
-  box-sizing: border-box;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
-
-/* Display at the top, center-justified text */
-.display {
-  text-align: center;
-  margin: 0 0 8px 0;   /* Increased from 6px */
-  padding: 8px;        /* Increased from 6px */
-  border: 1px solid #4a4b4b;
-  background: #2a2a2a;
-  font-size: 1em;      /* Increased from 0.8em */
-  color: #d4d4d4;
-  border-radius: 4px;
+.calculator .display {
+  height: var(--control-height);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-control);
+  background: var(--color-bg);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
 }
-
-/* 
-  Buttons laid out in a 4x5 grid:
-  - Adjusted to fit the larger container.
-*/
 .buttons {
-  flex: 1;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(5, 1fr);
-  gap: 6px;            /* Increased from 4px */
-  margin: 0;
+  gap: 6px;
 }
-
-/* Individual button styling */
 .buttons button {
-  padding: 8px;        /* Increased from 6px */
-  font-size: 1em;      /* Increased from 0.8em */
-  background: #333;
-  color: #d4d4d4;
-  border: 1px solid #4a4b4b;
-  border-radius: 4px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--color-raised);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  text-align: center;
-  transition: background 0.3s;
+  transition: var(--transition-color);
 }
+.buttons button:hover { background: var(--color-raised-hover); }
+.buttons button:active { background: var(--color-raised-active); }
+.buttons .calc-op { color: var(--color-accent); }
+.buttons .calc-eq { background: var(--color-accent); color: var(--color-on-accent); }
+.buttons .calc-eq:hover { background: var(--color-accent-hover); }
+.buttons .calc-eq:active { background: var(--color-accent-pressed); }
+.buttons .calc-clear { grid-column: span 4; height: var(--control-height-sm); color: var(--color-text-secondary); }
 
-/* Hover & active states */
-.buttons button:hover {
-  background: #4a4a4a;
-}
-.buttons button:active {
-  background: #555;
+@media (max-width: 1024px) {
+  .buttons button { height: 34px; }
 }

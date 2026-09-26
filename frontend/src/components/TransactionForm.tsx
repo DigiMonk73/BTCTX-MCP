@@ -335,15 +335,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
    */
   // Form 1099-DA override (Sell, and Spent BTC withdrawals)
   const renderBrokerReportingField = () => (
-    <div className="form-group">
-      <label htmlFor="tx-broker-reporting">Broker form (1099-DA / 1099-B):</label>
-      <select id="tx-broker-reporting" className="form-control" {...register("brokerReporting")}>
+    <div className="field">
+      <label htmlFor="tx-broker-reporting">Broker form (1099-DA / 1099-B)</label>
+      <select id="tx-broker-reporting" className="input" {...register("brokerReporting")}>
         <option value="">Automatic</option>
         <option value="none">Not on a broker form</option>
         <option value="proceeds">Proceeds only (no basis)</option>
         <option value="basis">Proceeds and basis</option>
       </select>
-      <small className="form-hint">
+      <small className="field-hint">
         Picks the Form 8949 box. Leave on Automatic unless the form your broker
         sent says otherwise.
       </small>
@@ -358,17 +358,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     const stored = watch("feeUSDStored");
     const manual = watch("feeUSDManual");
     return (
-      <div className="form-group">
-        <label htmlFor="tx-fee-value-usd">Fee value (USD):</label>
+      <div className="field">
+        <label htmlFor="tx-fee-value-usd">Fee value (USD)</label>
         <input
           id="tx-fee-value-usd"
           type="number"
           step="0.01"
           min="0"
-          className="form-control"
+          className="input"
           {...register("feeUSD", { valueAsNumber: true })}
         />
-        <small className="form-hint">
+        <small className="field-hint">
           {stored != null && !manual
             ? `Stored: ${formatUsd(stored)} (fee × that day's BTC price). Type a value to replace it.`
             : "Leave blank to use fee × that day's BTC price, or type what the fee was worth."}
@@ -400,11 +400,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return (
           <>
             {/* Account */}
-            <div className="form-group">
-              <label htmlFor="tx-account">Account:</label>
+            <div className="field">
+              <label htmlFor="tx-account">Account</label>
               <select
                 id="tx-account"
-                className="form-control"
+                className="input"
                 {...register("account", { required: true })}
               >
                 <option value="">Select Account</option>
@@ -413,17 +413,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <option value="Exchange">Exchange</option>
               </select>
               {errors.account && (
-                <span className="error-text">Please select an account</span>
+                <span className="field-error">Please select an account</span>
               )}
             </div>
 
             {/* Currency */}
-            <div className="form-group">
-              <label htmlFor="tx-currency">Currency:</label>
+            <div className="field">
+              <label htmlFor="tx-currency">Currency</label>
               {account === "Exchange" ? (
                 <select
                   id="tx-currency"
-                  className="form-control"
+                  className="input"
                   {...register("currency", { required: true })}
                 >
                   <option value="">Select Currency</option>
@@ -434,41 +434,41 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <input
                   id="tx-currency"
                   type="text"
-                  className="form-control"
+                  className="input"
                   {...register("currency")}
                   readOnly
                 />
               )}
               {errors.currency && (
-                <span className="error-text">Currency is required</span>
+                <span className="field-error">Currency is required</span>
               )}
             </div>
 
             {/* Amount */}
-            <div className="form-group">
-              <label htmlFor="tx-amount">Amount:</label>
+            <div className="field">
+              <label htmlFor="tx-amount">Amount</label>
               <input
                 id="tx-amount"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amount", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amount && (
-                <span className="error-text">Amount is required</span>
+                <span className="field-error">Amount is required</span>
               )}
             </div>
 
             {/* Source */}
             {showSource && (
-              <div className="form-group">
-                <label htmlFor="tx-source">Source:</label>
+              <div className="field">
+                <label htmlFor="tx-source">Source</label>
                 <select
                   id="tx-source"
-                  className="form-control"
+                  className="input"
                   {...register("source", { required: true })}
                 >
                   <option value="N/A">N/A</option>
@@ -483,13 +483,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Cost Basis if BTC deposit */}
             {showCostBasisField && (
-              <div className="form-group">
-                <label htmlFor="tx-cost-basis-usd">Cost Basis (USD):</label>
+              <div className="field">
+                <label htmlFor="tx-cost-basis-usd">Cost Basis (USD)</label>
                 <input
                   id="tx-cost-basis-usd"
                   type="number"
                   step="0.01"
-                  className="form-control"
+                  className="input"
                   aria-required={!isIncome}
                   {...register("costBasisUSD", {
                     valueAsNumber: true,
@@ -500,9 +500,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   })}
                 />
                 {errors.costBasisUSD && (
-                  <span className="error-text">{errors.costBasisUSD.message}</span>
+                  <span className="field-error">{errors.costBasisUSD.message}</span>
                 )}
-                <small className="form-hint">
+                <small className="field-hint">
                   {isIncome
                     ? "Its USD value when you received it (also your income). Leave blank to use that day's BTC price."
                     : "What this BTC cost you (type 0 if unknown). If you paid a miner fee in BTC externally, add its USD value."}
@@ -532,11 +532,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return (
           <>
             {/* Account */}
-            <div className="form-group">
-              <label htmlFor="tx-account">Account:</label>
+            <div className="field">
+              <label htmlFor="tx-account">Account</label>
               <select
                 id="tx-account"
-                className="form-control"
+                className="input"
                 {...register("account", { required: true })}
               >
                 <option value="">Select Account</option>
@@ -545,17 +545,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <option value="Exchange">Exchange</option>
               </select>
               {errors.account && (
-                <span className="error-text">Please select an account</span>
+                <span className="field-error">Please select an account</span>
               )}
             </div>
 
             {/* Currency */}
-            <div className="form-group">
-              <label htmlFor="tx-currency">Currency:</label>
+            <div className="field">
+              <label htmlFor="tx-currency">Currency</label>
               {account === "Exchange" ? (
                 <select
                   id="tx-currency"
-                  className="form-control"
+                  className="input"
                   {...register("currency", { required: true })}
                 >
                   <option value="">Select Currency</option>
@@ -566,41 +566,41 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <input
                   id="tx-currency"
                   type="text"
-                  className="form-control"
+                  className="input"
                   {...register("currency")}
                   readOnly
                 />
               )}
               {errors.currency && (
-                <span className="error-text">Currency is required</span>
+                <span className="field-error">Currency is required</span>
               )}
             </div>
 
             {/* Amount */}
-            <div className="form-group">
-              <label htmlFor="tx-amount">Amount:</label>
+            <div className="field">
+              <label htmlFor="tx-amount">Amount</label>
               <input
                 id="tx-amount"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amount", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amount && (
-                <span className="error-text">Amount is required</span>
+                <span className="field-error">Amount is required</span>
               )}
             </div>
 
             {/* Purpose (BTC only) */}
             {showPurpose && (
-              <div className="form-group">
-                <label htmlFor="tx-purpose">Purpose (BTC only):</label>
+              <div className="field">
+                <label htmlFor="tx-purpose">Purpose (BTC only)</label>
                 <select
                   id="tx-purpose"
-                  className="form-control"
+                  className="input"
                   {...register("purpose", { required: true })}
                 >
                   <option value="">Select Purpose</option>
@@ -613,13 +613,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
 
             {/* Fee */}
-            <div className="form-group">
-              <label htmlFor="tx-fee">{feeLabel}:</label>
+            <div className="field">
+              <label htmlFor="tx-fee">{feeLabel}</label>
               <input
                 id="tx-fee"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("fee", { valueAsNumber: true })}
               />
             </div>
@@ -629,23 +629,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             {showBtcFields && (
               <>
                 {/* Proceeds */}
-                <div className="form-group">
-                  <label htmlFor="tx-proceeds-usd">Proceeds (USD):</label>
+                <div className="field">
+                  <label htmlFor="tx-proceeds-usd">Proceeds (USD)</label>
                   <input
                     id="tx-proceeds-usd"
                     type="number"
                     step="0.01"
-                    className="form-control"
+                    className="input"
                     {...register("proceeds_usd", { valueAsNumber: true })}
                     readOnly={isSpecialPurpose}
                   />
                   {purposeVal === "Spent" && (proceedsUsdVal == null || Number.isNaN(proceedsUsdVal)) && (
-                    <small className="form-hint">
+                    <small className="field-hint">
                       Leave blank to use that day's BTC price as the proceeds.
                     </small>
                   )}
                   {purposeVal === "Spent" && proceedsUsdVal === 0 && (
-                    <div className="form-warning">
+                    <div className="field-warning">
                       <strong>Warning:</strong> You selected "Spent" but "Proceeds (USD)" is 0.
                     </div>
                   )}
@@ -655,25 +655,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
                 {/* FMV for Gift/Donation/Lost */}
                 {isSpecialPurpose && (
-                  <div className="form-group">
-                    <label htmlFor="tx-fmv-usd">FMV (USD):</label>
+                  <div className="field">
+                    <label htmlFor="tx-fmv-usd">FMV (USD)</label>
                     <div className="form-input-row">
                       <input
                         id="tx-fmv-usd"
                         type="number"
                         step="0.01"
-                        className="form-control"
+                        className="input"
                         {...register("fmv_usd", { valueAsNumber: true })}
                       />
                       <button
                         type="button"
                         onClick={handleRefreshFmv}
-                        className="refresh-button"
+                        className="btn btn-secondary"
                       >
                         Refresh
                       </button>
                     </div>
-                    <small className="form-hint">
+                    <small className="field-hint">
                       Estimated fair market value at the time of gift/donation/lost.
                     </small>
                   </div>
@@ -690,11 +690,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return (
           <>
             {/* From Account */}
-            <div className="form-group">
-              <label htmlFor="tx-from-account">From Account:</label>
+            <div className="field">
+              <label htmlFor="tx-from-account">From Account</label>
               <select
                 id="tx-from-account"
-                className="form-control"
+                className="input"
                 {...register("fromAccount", { required: true })}
               >
                 <option value="">Select From Account</option>
@@ -703,17 +703,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <option value="Exchange">Exchange</option>
               </select>
               {errors.fromAccount && (
-                <span className="error-text">From Account is required</span>
+                <span className="field-error">From Account is required</span>
               )}
             </div>
 
             {/* From Currency */}
-            <div className="form-group">
-              <label htmlFor="tx-from-currency">From Currency:</label>
+            <div className="field">
+              <label htmlFor="tx-from-currency">From Currency</label>
               {fromAccount === "Exchange" ? (
                 <select
                   id="tx-from-currency"
-                  className="form-control"
+                  className="input"
                   {...register("fromCurrency", { required: true })}
                 >
                   <option value="">Select Currency</option>
@@ -724,86 +724,86 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <input
                   id="tx-from-currency"
                   type="text"
-                  className="form-control"
+                  className="input"
                   {...register("fromCurrency")}
                   readOnly
                 />
               )}
               {errors.fromCurrency && (
-                <span className="error-text">From Currency is required</span>
+                <span className="field-error">From Currency is required</span>
               )}
             </div>
 
             {/* Amount (From) */}
-            <div className="form-group">
-              <label htmlFor="tx-amount-from">Amount (From):</label>
+            <div className="field">
+              <label htmlFor="tx-amount-from">Amount (From)</label>
               <input
                 id="tx-amount-from"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amountFrom", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amountFrom && (
-                <span className="error-text">Amount (From) is required</span>
+                <span className="field-error">Amount (From) is required</span>
               )}
             </div>
 
             {/* To Account */}
-            <div className="form-group">
-              <label htmlFor="tx-to-account">To Account:</label>
+            <div className="field">
+              <label htmlFor="tx-to-account">To Account</label>
               <input
                 id="tx-to-account"
                 type="text"
-                className="form-control"
+                className="input"
                 {...register("toAccount")}
                 readOnly
               />
             </div>
 
             {/* To Currency */}
-            <div className="form-group">
-              <label htmlFor="tx-to-currency">To Currency:</label>
+            <div className="field">
+              <label htmlFor="tx-to-currency">To Currency</label>
               <input
                 id="tx-to-currency"
                 type="text"
-                className="form-control"
+                className="input"
                 {...register("toCurrency")}
                 readOnly
               />
             </div>
 
             {/* Amount (To) */}
-            <div className="form-group">
-              <label htmlFor="tx-amount-to">Amount (To):</label>
+            <div className="field">
+              <label htmlFor="tx-amount-to">Amount (To)</label>
               <input
                 id="tx-amount-to"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amountTo", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amountTo && (
-                <span className="error-text">Amount (To) is required</span>
+                <span className="field-error">Amount (To) is required</span>
               )}
             </div>
 
             {/* Fee auto-calc if BTC */}
             {fromCurr === "BTC" ? (
               <>
-                <div className="form-group">
-                  <label htmlFor="tx-fee-btc">Fee (BTC):</label>
+                <div className="field">
+                  <label htmlFor="tx-fee-btc">Fee (BTC)</label>
                   <input
                     id="tx-fee-btc"
                     type="number"
                     step="0.00000001"
-                    className="form-control"
+                    className="input"
                     {...register("fee", { valueAsNumber: true })}
                     readOnly
                   />
@@ -811,13 +811,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 {renderFeeValueField()}
               </>
             ) : (
-              <div className="form-group">
-                <label htmlFor="tx-fee-usd">Fee (USD):</label>
+              <div className="field">
+                <label htmlFor="tx-fee-usd">Fee (USD)</label>
                 <input
                   id="tx-fee-usd"
                   type="number"
                   step="0.01"
-                  className="form-control"
+                  className="input"
                   defaultValue={0}
                   {...register("fee", { valueAsNumber: true })}
                 />
@@ -831,65 +831,65 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return (
           <>
             {/* Source Account: Bank or Exchange */}
-            <div className="form-group">
-              <label htmlFor="tx-from-account">From Account:</label>
+            <div className="field">
+              <label htmlFor="tx-from-account">From Account</label>
               <select
                 id="tx-from-account"
-                className="form-control"
+                className="input"
                 {...register("buyFromAccount", { required: true })}
               >
                 <option value="Exchange">Exchange USD</option>
                 <option value="Bank">Bank (auto-buy)</option>
               </select>
-              <small className="form-hint">
+              <small className="field-hint">
                 Select where the USD is coming from.
               </small>
             </div>
 
             {/* Amount USD */}
-            <div className="form-group">
-              <label htmlFor="tx-amount-usd">Amount USD:</label>
+            <div className="field">
+              <label htmlFor="tx-amount-usd">Amount USD</label>
               <input
                 id="tx-amount-usd"
                 type="number"
                 step="0.01"
-                className="form-control"
+                className="input"
                 {...register("amountUSD", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amountUSD && (
-                <span className="error-text">Amount USD is required</span>
+                <span className="field-error">Amount USD is required</span>
               )}
             </div>
 
             {/* Amount BTC */}
-            <div className="form-group">
-              <label htmlFor="tx-amount-btc">Amount BTC:</label>
+            <div className="field">
+              <label htmlFor="tx-amount-btc">Amount BTC</label>
               <input
                 id="tx-amount-btc"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amountBTC", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amountBTC && (
-                <span className="error-text">Amount BTC is required</span>
+                <span className="field-error">Amount BTC is required</span>
               )}
             </div>
 
             {/* Fee (USD) */}
-            <div className="form-group">
-              <label htmlFor="tx-fee-usd">Fee (USD):</label>
+            <div className="field">
+              <label htmlFor="tx-fee-usd">Fee (USD)</label>
               <input
                 id="tx-fee-usd"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("fee", { valueAsNumber: true })}
               />
             </div>
@@ -901,12 +901,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         return (
           <>
             {/* Account = Exchange */}
-            <div className="form-group">
-              <label htmlFor="tx-account">Account:</label>
+            <div className="field">
+              <label htmlFor="tx-account">Account</label>
               <input
                 id="tx-account"
                 type="text"
-                className="form-control"
+                className="input"
                 value="Exchange"
                 {...register("account")}
                 readOnly
@@ -914,52 +914,52 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </div>
 
             {/* Amount BTC */}
-            <div className="form-group">
-              <label htmlFor="tx-amount-btc">Amount BTC:</label>
+            <div className="field">
+              <label htmlFor="tx-amount-btc">Amount BTC</label>
               <input
                 id="tx-amount-btc"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("amountBTC", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.amountBTC && (
-                <span className="error-text">Amount BTC is required</span>
+                <span className="field-error">Amount BTC is required</span>
               )}
             </div>
 
             {/* NEW: GROSS PROCEEDS (USD) */}
-            <div className="form-group">
-              <label htmlFor="tx-gross-proceeds-usd">Gross Proceeds (USD):</label>
+            <div className="field">
+              <label htmlFor="tx-gross-proceeds-usd">Gross Proceeds (USD)</label>
               <input
                 id="tx-gross-proceeds-usd"
                 type="number"
                 step="0.01"
-                className="form-control"
+                className="input"
                 {...register("grossProceedsUSD", {
                   required: true,
                   valueAsNumber: true,
                 })}
               />
               {errors.grossProceedsUSD && (
-                <span className="error-text">Gross proceeds is required</span>
+                <span className="field-error">Gross proceeds is required</span>
               )}
-              <small className="form-hint">
+              <small className="field-hint">
                 The backend will subtract fees to calculate net proceeds.
               </small>
             </div>
 
             {/* Fee (USD) */}
-            <div className="form-group">
-              <label htmlFor="tx-fee-usd">Fee (USD):</label>
+            <div className="field">
+              <label htmlFor="tx-fee-usd">Fee (USD)</label>
               <input
                 id="tx-fee-usd"
                 type="number"
                 step="0.00000001"
-                className="form-control"
+                className="input"
                 {...register("fee", { valueAsNumber: true })}
               />
             </div>
@@ -985,19 +985,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     >
       {/* Optional spinner if isSubmitting */}
       {isSubmitting && (
-        <div className="spinner-container">
+        <div className="loading-row form-status">
           <div className="spinner"></div>
-          <p>Processing transaction...</p>
+          <span>Processing transaction…</span>
         </div>
       )}
 
       <div className="form-fields-grid">
         {/* Transaction Type */}
-        <div className="form-group">
-          <label htmlFor="tx-transaction-type">Transaction Type:</label>
+        <div className="field">
+          <label htmlFor="tx-transaction-type">Transaction Type</label>
           <select
             id="tx-transaction-type"
-            className="form-control"
+            className="input"
             value={currentType}
             onChange={onTransactionTypeChange}
             required
@@ -1013,17 +1013,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </div>
 
         {/* Date & Time */}
-        <div className="form-group">
-          <label htmlFor="tx-date-time">Date & Time:</label>
+        <div className="field">
+          <label htmlFor="tx-date-time">Date & Time</label>
           <input
             id="tx-date-time"
             type="datetime-local"
             step="1"
-            className="form-control"
+            className="input"
             {...register("timestamp", { required: "Date & Time is required" })}
           />
           {errors.timestamp && (
-            <span className="error-text">{errors.timestamp.message}</span>
+            <span className="field-error">{errors.timestamp.message}</span>
           )}
         </div>
 

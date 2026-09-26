@@ -1,552 +1,93 @@
-/* Design tokens imported from theme.css */
+/* Settings: one card; each section a group divided by a hairline; each
+   option a row with its text on the left and its controls on the right. */
 
-.settings-container {
-  margin: 2rem 0 2rem 2rem;
-  max-width: 800px;
-  background-color: var(--color-panel);
-  border-radius: var(--radius-xl);
-  padding: 1.5rem 1.5rem 1.5rem 1.5rem; /* Reduced top padding */
-  color: var(--color-text);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
+.settings-page { max-width: 860px; }
 
-.settings-title {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 2rem; /* Increased space below the title */
-}
-
-.settings-section {
-  background: #2c2c2e;
-  border-radius: var(--radius-lg);
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-}
-
-.settings-section h3 {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: var(--color-text-secondary);
-}
+.settings-section { padding: var(--space-6) 0 var(--space-2); border-top: 1px solid var(--color-border); }
+.settings-section:first-child { border-top: none; padding-top: 0; }
 
 .settings-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 0;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  gap: var(--space-6);
+  padding: var(--space-3) 0;
 }
-
-.settings-option:first-of-type {
-  border-top: none;
-}
-
-.option-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.settings-option-title {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
+.option-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.settings-option-title { font-size: var(--text-sm); font-weight: var(--font-medium); }
 .settings-option-subtitle {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  margin: 0.25rem 0 0;
+  margin: 2px 0 0;
+  font-size: var(--text-13);
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }
+.settings-note { font-size: var(--text-13); color: var(--color-text-muted); padding: var(--space-2) 0; }
+.settings-message { margin-top: var(--space-4); }
 
-.settings-button {
-  background: var(--color-accent);
-  color: #000;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-  margin-left: 1rem;
+/* Username & password, tax timezone, network fields: stacked controls */
+.credential-update-form { display: flex; flex-direction: column; gap: var(--space-3); width: 280px; flex-shrink: 0; }
+.credential-inputs { display: flex; flex-direction: column; gap: var(--space-2); }
+.credential-submit-container { display: flex; justify-content: flex-end; }
 
-  /* Flexible width with minimum */
-  min-width: 100px;
-  width: auto;
+/* Restore: file, password and button on one row */
+.restore-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.restore-input-row input[type="file"] { flex: 1 1 220px; }
+.restore-input-row .input { flex: 1 1 160px; width: auto; }
 
-  /* Handle text overflow */
-  white-space: nowrap;
-  text-align: center;
-  line-height: 1.3;
-
-  /* Button depth */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-.settings-button:hover {
-  background: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.settings-button:active {
-  transform: translateY(0);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.settings-button.danger {
-  background: var(--color-error);
-  color: #fff;
-}
-
-.settings-button.danger:hover {
-  background: var(--color-error-hover);
-}
-
-.settings-message {
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: var(--color-warning);
-}
-
-/* Nicer file input styling */
-input[type="file"] {
-  background-color: #2c2c2e;
-  color: var(--color-text);
-  border-radius: 4px;
-  padding: 0.45rem 0.5rem;
-  font-size: 0.9rem;
-  min-width: 180px;
-  flex: 1;
-  cursor: pointer;
-}
-
-input[type="file"]::file-selector-button {
-  background-color: var(--color-accent);
-  color: #000;
-  border: none;
-  padding: 0.35rem 0.75rem;
-  margin-right: 0.75rem;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-input[type="file"]::file-selector-button:hover {
-  background-color: var(--color-accent-hover);
-}
-
-.credential-update-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  max-width: 400px;
-}
-
-.credential-input {
-  background: linear-gradient(180deg, #2a2a2a 0%, #333 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem;
-  color: var(--color-text);
-  font-size: 1rem;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-}
-
-.credential-input:focus {
-  border-color: var(--color-accent);
-  background: linear-gradient(180deg, #333 0%, #3a3a3a 100%);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2),
-              var(--shadow-glow);
-  outline: none;
-}
-
-.credential-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.credential-submit-container {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.5rem;
-}
-
-/* 👇 Update file+password+button row for restore form */
-.restore-input-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.restore-input-row input[type="password"] {
-  flex: 1;
-  min-width: 140px;
-}
-
-.settings-note {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  margin-top: 0.5rem;
-  padding-left: 0.25rem;
-}
-
-/* CSV Import Styles */
-.import-section {
-  flex-wrap: wrap;
-}
-
-.import-controls {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.import-upload {
-  padding-top: 0;
-}
-
-.import-input-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.csv-file-input {
-  flex: 1;
-  min-width: 200px;
-}
-
+/* CSV import */
+.import-controls { display: flex; gap: var(--space-2); }
+.import-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.import-input-row input[type="file"] { flex: 1 1 240px; }
 .import-preview-container {
-  background: #1c1c1c;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 1rem;
-}
-
-.import-preview-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
 }
+.import-preview-header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+.import-preview-header h4 { margin: 0; font-size: var(--text-sm); font-weight: var(--font-semibold); }
+.import-preview-stats { font-size: var(--text-13); color: var(--color-text-muted); }
+.import-error-count { color: var(--color-error); }
+.import-warning-count { color: var(--color-warning); }
+.import-list ul { margin: var(--space-1) 0 0; padding-left: var(--space-5); }
+.import-preview-more { font-size: var(--text-13); color: var(--color-text-muted); }
+.import-actions { display: flex; gap: var(--space-2); }
 
-.import-preview-header h4 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.import-preview-stats {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-}
-
-.import-error-count {
-  color: var(--color-error);
-}
-
-.import-warning-count {
-  color: var(--color-warning);
-}
-
-.import-errors,
-.import-warnings {
-  padding: 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.import-errors {
-  background: rgba(255, 69, 58, 0.15);
-  border: 1px solid var(--color-error);
-}
-
-.import-warnings {
-  background: rgba(255, 159, 10, 0.15);
-  border: 1px solid var(--color-warning);
-}
-
-.import-errors ul,
-.import-warnings ul {
-  margin: 0.5rem 0 0 1rem;
-  padding: 0;
-}
-
-.import-error-item {
-  color: var(--color-error);
-}
-
-.import-warning-item {
-  color: var(--color-warning-muted);
-}
-
-.import-preview-table-container {
-  overflow-x: auto;
-  margin-bottom: 1rem;
-}
-
-.import-preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.import-preview-table th,
-.import-preview-table td {
-  padding: 0.5rem;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.import-preview-table th {
-  background: rgba(255, 255, 255, 0.05);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.import-preview-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.import-preview-table td:first-child {
-  color: var(--color-text-secondary);
-}
-
-.import-preview-more {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-  margin: 0.5rem 0 0;
-}
-
-.import-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-}
-
-.import-actions .settings-button {
-  margin-left: 0;
-}
-
-.import-confirm {
-  width: auto;
-  min-width: 150px;
-}
-
-/* ===============================
-   Responsive Design
-=============================== */
-
-/* Medium screens (< 1024px) */
-@media (max-width: 1024px) {
-  .settings-container {
-    margin: var(--space-4);
-    max-width: 100%;
-  }
-}
-
-/* Small screens (< 768px) */
-@media (max-width: 768px) {
-  .settings-container {
-    margin: var(--space-3);
-    padding: var(--space-4);
-  }
-
-  .settings-option {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-  }
-
-  .settings-button {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .credential-update-form {
-    max-width: 100%;
-  }
-
-  .restore-input-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .restore-input-row input[type="file"],
-  .restore-input-row input[type="password"],
-  .restore-input-row .settings-button {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .import-controls {
-    flex-direction: column;
-    width: 100%;
-  }
-
-  .import-controls .settings-button {
-    width: 100%;
-  }
-
-  .import-input-row {
-    flex-direction: column;
-  }
-
-  .csv-file-input {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .import-actions {
-    flex-direction: column;
-  }
-
-  .import-actions .settings-button {
-    width: 100%;
-  }
-}
-
-/* Extra small screens (< 480px) */
-@media (max-width: 480px) {
-  .settings-container {
-    margin: var(--space-2);
-    padding: var(--space-3);
-  }
-
-  .settings-title {
-    font-size: 1.25rem;
-    margin-bottom: var(--space-4);
-  }
-
-  .settings-section {
-    padding: var(--space-3);
-  }
-
-  .settings-section h3 {
-    font-size: 1rem;
-  }
-
-  .settings-option-title {
-    font-size: 0.9rem;
-  }
-
-  .settings-option-subtitle {
-    font-size: 0.8rem;
-  }
-
-  /* Touch targets */
-  .settings-button {
-    min-height: 44px;
-    padding: var(--space-3) var(--space-4);
-  }
-
-  .credential-input {
-    min-height: 44px;
-    padding: var(--space-3);
-  }
-
-  input[type="file"] {
-    min-height: 44px;
-  }
-
-  .import-preview-table {
-    font-size: 0.75rem;
-  }
-
-  .import-preview-table th,
-  .import-preview-table td {
-    padding: var(--space-2);
-  }
-}
 /* Connect an AI Assistant */
-.settings-option.ai-setup {
-  align-items: stretch;
-}
-
-.ai-copy-block {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin: var(--space-2) 0 var(--space-3);
-}
-
-.ai-copy-block .settings-button {
-  margin-left: 0;
-  min-width: 80px;
-}
-
+.settings-option.ai-setup { align-items: stretch; }
+.ai-copy-block { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-2) 0 var(--space-3); }
 .ai-copy-text {
   flex: 1;
   min-width: 0;
   resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-input);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
-
+.ai-setup-heading { display: block; margin-top: var(--space-3); }
 .ai-setup-manual summary {
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--font-medium);
   color: var(--color-text-secondary);
   margin-bottom: var(--space-2);
 }
+.ai-setup-manual code { font-family: var(--font-mono); font-size: 0.9em; }
+.ai-setup-manual a { color: var(--color-accent); }
+.ai-access-toggle { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); cursor: pointer; }
 
-.ai-setup-heading {
-  display: block;
-  margin-top: var(--space-3);
+/* Ledger review */
+.ledger-review-check { margin-top: var(--space-3); font-size: var(--text-13); }
+.ledger-review-check ul { margin: var(--space-1) 0; padding-left: var(--space-5); color: var(--color-text-secondary); }
+
+/* Narrow windows: controls drop under their text */
+@media (max-width: 900px) {
+  .settings-option { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .settings-option > .btn { align-self: flex-start; }
+  .credential-update-form { width: 100%; }
 }
-
-.ai-setup-manual code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.85em;
-}
-
-.ai-setup-manual a {
-  color: var(--color-accent);
-}
-
-/* Connect an AI Assistant → AI assistant access (Mac app) */
-.ai-access-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  cursor: pointer;
-}
-
-/* Ledger review (read-only list) */
-.ledger-review-check {
-  margin-top: 0.75rem;
-  font-size: 0.9rem;
-}
-
-.ledger-review-check ul {
-  margin: 0.4rem 0;
-  padding-left: 1.2rem;
-  line-height: 1.5;
+@media (max-width: 480px) {
+  .settings-container.card { padding: var(--space-4); }
+  .ai-copy-block { flex-direction: column; align-items: stretch; }
 }

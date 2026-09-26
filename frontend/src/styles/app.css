@@ -1,341 +1,119 @@
-/* ================================
-   app.css
-   Global layout, sidebar, header,
-   converter & calculator styling
+/* App layout: sidebar on the left, header and page on the right. */
 
-   Design tokens imported from theme.css
-================================= */
-
-/* Base font sizing & body defaults */
-body {
-  margin: 0;
-  padding: 0;
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-family);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-}
-
-/* Ensure form elements and links inherit the font family */
-a,
-button,
-input,
-select,
-textarea,
-option {
-  font-family: inherit;
-}
-
-/* Flex container for sidebar + main content */
 .app-container {
   display: flex;
-  min-height: 100vh; /* so the container spans full screen height */
+  min-height: 100vh;
   max-width: 100vw;
   overflow-x: hidden;
 }
 
-/* ===============================
-   2) Sidebar
-=============================== */
+/* ---------- Sidebar ---------- */
 .sidebar {
   width: var(--sidebar-width);
-  background-color: var(--color-panel);
+  flex-shrink: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  background-color: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
 }
-
-/* Example brand area at top */
 .sidebar-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4) var(--space-2);
 }
-
-.sidebar-logo {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
+.sidebar-logo { width: 48px; height: 48px; border-radius: 50%; }
 .sidebar-title {
   font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: bold;
-  letter-spacing: -0.03em;
-  color: var(--color-text);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
 }
-
-/* Divider line if desired */
-.sidebar-divider {
-  border-top: 1px solid var(--color-border-strong);
-  margin: 0 1rem;
-}
-
-/* ===============================
-   3) Tools Section in Sidebar
-   (Converter + Calculator)
-=============================== */
 .sidebar-tools {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--space-6);
+  padding: var(--space-4);
 }
 
-/* Grid of buttons */
-.buttons {
+/* ---------- Header ---------- */
+.content-area {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(5, 1fr);
-  gap: 4px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
-.buttons button {
-  background: var(--color-gray-800);
-  color: var(--color-gray-300);
-  border: 1px solid var(--color-border-input);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: background var(--transition-base), border-color var(--transition-base);
-}
-.buttons button:hover {
-  background: var(--color-gray-600);
-  border-color: var(--color-gray-500);
-}
-.buttons button:active {
-  background: var(--color-gray-500);
-  transform: scale(0.98);
-}
-
-/* ===============================
-   4) Header (Top)
-=============================== */
 .header {
-  background: #121212;
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
+  padding: 0 var(--space-6);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
 }
+.header-nav { flex: 1; display: flex; align-items: center; gap: var(--space-1); }
 
-/* Navigation links in header */
-.header-nav {
-  display: flex;
-  gap: 1.5rem;
-}
+/* The page you're on is a filled pill */
 .header-nav-item {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
   color: var(--color-text-secondary);
-  text-decoration: none;
-  padding: 0.5rem 0.75rem;
-  font-family: var(--font-family);
-  font-size: 1rem;
-  font-weight: 400;
-  border-radius: var(--radius-sm);
-  /* Reserve the underline slot so the active state doesn't shift layout */
-  box-shadow: inset 0 -2px 0 transparent;
-  transition: background-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  transition: var(--transition-color);
 }
-.header-nav-item:hover {
-  color: var(--color-text);
-  background-color: var(--color-surface-hover);
-}
-.header-nav-item:active {
-  color: var(--color-text);
-  background-color: var(--color-gray-800);
-  transform: scale(0.98);
-}
-.header-nav-item.active {
-  color: var(--color-accent);
-  background-color: var(--color-gray-800);
-  box-shadow: inset 0 -2px 0 var(--color-accent);
+.header-nav-item:hover { color: var(--color-text); background-color: var(--color-surface-hover); }
+.header-nav-item.active { color: var(--color-text); background-color: var(--color-raised); }
+.header-nav-item.logout-link { margin-left: auto; }
+
+/* ---------- Page ---------- */
+.main-content { flex: 1; min-width: 0; padding: var(--space-6); }
+
+/* Mac app: this session runs on another port (components/PortBanner.tsx) */
+.port-banner {
+  margin: var(--space-4) var(--space-6) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--color-warning-tint);
+  color: var(--color-warning);
+  font-size: var(--text-13);
 }
 
-/* ===============================
-   5) Main Content Area
-=============================== */
-.content-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0; /* Allow flex item to shrink below content size */
-  overflow-x: auto;
-}
-
-.main-content {
-  flex: 1;
-  padding: 1rem;
-  min-width: 0; /* Allow content to shrink */
-}
-
-/* ===============================
-   6) Reusable Buttons
-=============================== */
-.accent-btn {
-  background-color: var(--color-accent);
-  color: #000;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
-  /* Button depth */
-  box-shadow: var(--shadow-btn);
-}
-.accent-btn:hover {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-btn-hover);
-}
-.accent-btn:active {
-  transform: translateY(0);
-  box-shadow: var(--shadow-btn-active);
-}
-
-.logout-link {
-  color: #cf4655;  /* brighter red for better rendering on dark background */
-  font-family: var(--font-family);
-  font-size: 1rem;
-  font-weight: 400;
-  transition: background-color var(--transition-base), color var(--transition-base);
-}
-
-.logout-link:hover {
-  color: white;
-  background-color: #a3212e;
-}
-.logout-link:active {
-  color: white;
-  background-color: #c42636;
-  transform: scale(0.98);
-}
-
+/* Waiting for the session check */
 .auth-spinner-container {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: var(--color-bg);
 }
 
-.auth-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--color-text-secondary);
-  border-top-color: var(--color-bitcoin);
-  border-radius: 50%;
-  animation: spin 0.8s ease-in-out infinite;
-}
-
-/* @keyframes spin is now centralized in theme.css */
-
-/* ===============================
-   7) Responsive Design
-=============================== */
-
-/* Medium screens and below (< 1024px) - collapse sidebar */
+/* ---------- Narrower windows ---------- */
 @media (max-width: 1024px) {
-  .sidebar {
-    width: 80px;
-    overflow: hidden;
-  }
-
-  .sidebar-title {
-    display: none;
-  }
-
-  .sidebar-logo {
-    margin-right: 0;
-  }
-
-  .sidebar-tools {
-    padding: 0.5rem;
-  }
-
-  .converter,
-  .calculator {
-    display: none;
-  }
+  .sidebar-title { font-size: var(--text-2xl); }
+  .sidebar-tools { padding: var(--space-3); gap: var(--space-4); }
+  .header { padding: 0 var(--space-4); }
+  .header-nav-item { padding: 0 var(--space-3); }
+  .main-content { padding: var(--space-4); }
 }
 
-/* Small screens (< 768px) - hide sidebar completely */
+/* Phones (StartOS in a browser): no sidebar, the nav scrolls sideways */
 @media (max-width: 768px) {
-  .app-container {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    display: none;
-  }
-
-  .header {
-    flex-wrap: wrap;
-    height: auto;
-    padding: var(--space-3);
-    gap: var(--space-2);
-  }
-
-  .header-nav {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-2);
-    width: 100%;
-  }
-
-  .header-nav-item {
-    font-size: var(--text-sm);
-    padding: var(--space-3);
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-  }
-
-  /* Logout spans full width on its own row */
-  .header-nav-item.logout-link {
-    grid-column: 1 / -1;
-  }
-
-  .main-content {
-    padding: var(--space-3);
-  }
+  .app-container { flex-direction: column; }
+  .sidebar { display: none; }
+  .header { padding: 0 var(--space-2); overflow-x: auto; }
+  .header-nav { gap: 0; }
+  .header-nav-item { padding: 0 var(--space-3); flex-shrink: 0; }
+  .main-content { padding: var(--space-3); }
+  .header-nav-item.logout-link { margin-left: 0; }
+  .port-banner { margin: var(--space-3) var(--space-3) 0; }
 }
 
-/* Extra small screens (< 480px) */
-@media (max-width: 480px) {
-  .header-nav {
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--space-1);
-  }
-
-  .header-nav-item {
-    font-size: var(--text-xs);
-    padding: var(--space-2);
-    min-height: 44px;
-  }
-
-  .main-content {
-    padding: var(--space-2);
-  }
-}
-/* Mac app: this session runs on another port (components/PortBanner.tsx) */
-.port-banner {
-  margin: var(--space-3, 12px) var(--space-6, 24px) 0;
-  padding: var(--space-3, 12px) var(--space-4, 16px);
-  border: 1px solid var(--color-warning);
-  border-radius: var(--radius-md, 8px);
-  background: rgba(255, 159, 10, 0.1);
-  color: var(--color-text);
+@media (max-width: 420px) {
+  .header-nav-item { padding: 0 10px; font-size: var(--text-13); }
 }

@@ -1,5 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
+import { Blocks } from "lucide-react";
 import api from "../api"; // Centralized API client
 import "../styles/dashboard.css";
 
@@ -153,17 +154,30 @@ const Dashboard: React.FC = () => {
   // ------------------ 7) ERROR / LOADING HANDLING ------------------
   if (fetchError) {
     return (
-      <div className="dashboard-error">
-        <h2>Error Loading Data</h2>
-        <p>{fetchError}</p>
+      <div className="dashboard">
+        <div className="card dashboard-error" role="alert">
+          <h2 className="card-title">Couldn't load your dashboard</h2>
+          <p className="note note-error">{fetchError}</p>
+        </div>
       </div>
     );
   }
 
   if (balances === null || gainsAndLosses === null) {
     return (
-      <div className="dashboard">
-        <h2>Loading data...</h2>
+      <div className="dashboard" aria-busy="true">
+        <div className="dashboard-grid">
+          {["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"].map(
+            (title) => (
+              <div key={title} className="card dashboard-card-loading">
+                <h3 className="card-title">{title}</h3>
+                <div className="loading-row">
+                  <div className="spinner" /> Loading…
+                </div>
+              </div>
+            ),
+          )}
+        </div>
       </div>
     );
   }
@@ -186,43 +200,43 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard">
       {/* =================== TOP ROW: 2 CARDS =================== */}
-      <div className="top-row">
+      <div className="dashboard-grid">
         {/* (1) Portfolio Overview */}
         <div className="card portfolio-overview">
-          <h3>Portfolio Overview</h3>
+          <h3 className="card-title">Portfolio Overview</h3>
 
           {/* Label on left, value on right (like Gains & Losses) */}
           <p>
-            <strong>Bank (USD):</strong>
+            <strong>Bank (USD)</strong>
             <span>{formatUsd(bankBalance)}</span>
           </p>
           <p>
-            <strong>Exchange (USD):</strong>
+            <strong>Exchange (USD)</strong>
             <span>{formatUsd(exchangeUSDBalance)}</span>
           </p>
           <p>
-            <strong>Exchange (BTC):</strong>
+            <strong>Exchange (BTC)</strong>
             <span>{formatBtc(exchangeBTCBalance)}</span>
           </p>
           <p>
-            <strong>Wallet (BTC):</strong>
+            <strong>Wallet (BTC)</strong>
             <span>{formatBtc(walletBTCBalance)}</span>
           </p>
 
           <hr />
 
           <p>
-            <strong>Total BTC:</strong>
+            <strong>Total BTC</strong>
             <span>{formatBtc(totalBTC)}</span>
           </p>
           <p>
-            <strong>BTC Cost Basis:</strong>
+            <strong>BTC Cost Basis</strong>
             <span>
               {averageBtcCostBasis !== null ? formatUsd(averageBtcCostBasis) : "Loading..."}
             </span>
           </p>
           <p>
-            <strong>Unrealized Gains/Losses:</strong>
+            <strong>Unrealized Gains/Losses</strong>
             <span>{renderUnrealizedGains()}</span>
           </p>
         </div>
@@ -231,7 +245,7 @@ const Dashboard: React.FC = () => {
         <div className="card btc-price-container">
           {/* Title row with logo on the left, heading on the right */}
           <div className="btc-price-header">
-            <h3>Current Bitcoin Price</h3>
+            <h3 className="card-title">Current Bitcoin Price</h3>
           </div>
 
           {/* The big orange price in the center */}
@@ -245,7 +259,7 @@ const Dashboard: React.FC = () => {
             >
               <circle cx="32" cy="32" r="32" fill="currentColor" />
               <path
-                fill="#1c1c1c"
+                className="btc-watermark-mark"
                 d="M46.1 27.4c.6-4.1-2.5-6.3-6.8-7.8l1.4-5.6-3.4-.8-1.4 5.4c-.9-.2-1.8-.4-2.7-.7l1.4-5.5-3.4-.8-1.4 5.6c-.7-.2-1.5-.4-2.2-.5l-4.7-1.2-.9 3.6s2.5.6 2.5.6c1.4.3 1.6 1.2 1.6 1.9l-1.6 6.4c.1 0 .2 0 .3.1-.1 0-.2-.1-.3-.1l-2.2 9c-.2.4-.6 1.1-1.6.8 0 0-2.5-.6-2.5-.6l-1.7 3.9 4.4 1.1c.8.2 1.6.4 2.4.6l-1.4 5.7 3.4.8 1.4-5.6c.9.3 1.8.5 2.7.7l-1.4 5.5 3.4.8 1.4-5.6c5.9 1.1 10.3.7 12.2-4.7 1.5-4.3-.1-6.8-3.2-8.4 2.3-.5 4-2.1 4.4-5.2zm-7.9 11.1c-1.1 4.3-8.3 2-10.7 1.4l1.9-7.6c2.4.6 9.9 1.8 8.8 6.2zm1.1-11.2c-1 3.9-7 1.9-9 1.4l1.7-6.9c2 .5 8.4 1.4 7.3 5.5z"
               />
             </svg>
@@ -253,11 +267,7 @@ const Dashboard: React.FC = () => {
               <span className="btc-price-value">Loading...</span>
             ) : currentBtcPrice !== null ? (
               <span className="btc-price-value">
-                $
-                {currentBtcPrice.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {formatUsd(currentBtcPrice)}
               </span>
             ) : liveDataOff ? (
               <span className="btc-price-value" title="Settings → Privacy & network">Live data off</span>
@@ -269,33 +279,30 @@ const Dashboard: React.FC = () => {
           {/* Block height footer */}
           {blockHeight !== null && (
             <div className="btc-block-height">
-              <span className="block-height-icon">⛏</span>
+              <Blocks size={14} aria-hidden="true" />
               <span>Block Height: {blockHeight.toLocaleString()}</span>
             </div>
           )}
         </div>
-      </div>
 
-      {/* =================== BOTTOM ROW: 2 CARDS =================== */}
-      <div className="bottom-row">
         {/* (3) Realized Gains/Losses (FIFO) */}
         <div className="card realized-gains-container">
-          <h3>Realized Gains/Losses (FIFO)</h3>
+          <h3 className="card-title">Realized Gains/Losses (FIFO)</h3>
 
           <p>
-            <strong>Short-Term Gains:</strong>
+            <strong>Short-Term Gains</strong>
             <span className={gainsAndLosses.short_term_gains > 0 ? "text-gain" : ""}>
               {formatSignedUsd(gainsAndLosses.short_term_gains)}
             </span>
           </p>
           <p>
-            <strong>Short-Term Losses:</strong>
+            <strong>Short-Term Losses</strong>
             <span className={gainsAndLosses.short_term_losses > 0 ? "text-loss" : ""}>
               {formatUsd(-gainsAndLosses.short_term_losses)}
             </span>
           </p>
           <p>
-            <strong>Net Short-Term:</strong>
+            <strong>Net Short-Term</strong>
             <span
               className={
                 gainsAndLosses.short_term_net > 0
@@ -312,19 +319,19 @@ const Dashboard: React.FC = () => {
           <hr />
 
           <p>
-            <strong>Long-Term Gains:</strong>
+            <strong>Long-Term Gains</strong>
             <span className={gainsAndLosses.long_term_gains > 0 ? "text-gain" : ""}>
               {formatSignedUsd(gainsAndLosses.long_term_gains)}
             </span>
           </p>
           <p>
-            <strong>Long-Term Losses:</strong>
+            <strong>Long-Term Losses</strong>
             <span className={gainsAndLosses.long_term_losses > 0 ? "text-loss" : ""}>
               {formatUsd(-gainsAndLosses.long_term_losses)}
             </span>
           </p>
           <p>
-            <strong>Net Long-Term:</strong>
+            <strong>Net Long-Term</strong>
             <span
               className={
                 gainsAndLosses.long_term_net > 0
@@ -341,7 +348,7 @@ const Dashboard: React.FC = () => {
           <hr />
 
           <p>
-            <strong>Total Net Capital Gains:</strong>
+            <strong>Total Net Capital Gains</strong>
             <span
               className={
                 gainsAndLosses.total_net_capital_gains > 0
@@ -355,7 +362,7 @@ const Dashboard: React.FC = () => {
             </span>
           </p>
           <p>
-            <strong>Year to Date Gains:</strong>
+            <strong>Year to Date Gains</strong>
             <span
               className={
                 gainsAndLosses.year_to_date_capital_gains > 0
@@ -372,24 +379,24 @@ const Dashboard: React.FC = () => {
 
         {/* (4) Income & Fees */}
         <div className="card income-fees-container">
-          <h3>Income & Fees</h3>
+          <h3 className="card-title">Income & Fees</h3>
 
           <p>
-            <strong>Income (earned):</strong>
+            <strong>Income (earned)</strong>
             <span>
               {formatUsd(gainsAndLosses.income_earned)} (
               <em>{formatBtc(gainsAndLosses.income_btc)}</em>)
             </span>
           </p>
           <p>
-            <strong>Interest (earned):</strong>
+            <strong>Interest (earned)</strong>
             <span>
               {formatUsd(gainsAndLosses.interest_earned)} (
               <em>{formatBtc(gainsAndLosses.interest_btc)}</em>)
             </span>
           </p>
           <p>
-            <strong>Rewards (earned):</strong>
+            <strong>Rewards (earned)</strong>
             <span>
               {formatUsd(gainsAndLosses.rewards_earned)} (
               <em>{formatBtc(gainsAndLosses.rewards_btc)}</em>)
@@ -399,12 +406,12 @@ const Dashboard: React.FC = () => {
           <hr />
 
           <p>
-            <strong>Total Income:</strong>
+            <strong>Total Income</strong>
             <span>{formatUsd(gainsAndLosses.total_income)}</span>
           </p>
 
           <p>
-            <strong>Gifts (received):</strong>
+            <strong>Gifts (received)</strong>
             <span>
               {formatUsd(gainsAndLosses.gifts_received)} (
               <em>{formatBtc(gainsAndLosses.gifts_btc)}</em>)
@@ -416,24 +423,24 @@ const Dashboard: React.FC = () => {
 
           <hr />
 
-          <h4>Fees</h4>
+          <h4 className="card-subtitle">Fees</h4>
           <p>
-            <strong>Fees (USD):</strong>
+            <strong>Fees (USD)</strong>
             <span>{formatUsd(gainsAndLosses.fees.USD)}</span>
           </p>
           <p>
-            <strong>Fees (BTC):</strong>
+            <strong>Fees (BTC)</strong>
             <span>{formatBtc(gainsAndLosses.fees.BTC)}</span>
           </p>
 
           {isPriceLoading ? (
             <p>
-              <strong>Total Fees in USD (approx):</strong>
+              <strong>Total Fees in USD (approx)</strong>
               <span>Loading...</span>
             </p>
           ) : currentBtcPrice !== null ? (
             <p>
-              <strong>Total Fees in USD (approx):</strong>
+              <strong>Total Fees in USD (approx)</strong>
               <span>
                 {formatUsd(
                   gainsAndLosses.fees.USD + gainsAndLosses.fees.BTC * currentBtcPrice
@@ -442,7 +449,7 @@ const Dashboard: React.FC = () => {
             </p>
           ) : (
             <p>
-              <strong>Total Fees in USD:</strong>
+              <strong>Total Fees in USD</strong>
               <span>N/A</span>
             </p>
           )}

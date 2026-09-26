@@ -75,10 +75,10 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
           />
         </div>
 
-        <div className="panel-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
+        <div className="panel-footer">
           {/* Save button on the left */}
           <button
-            className="save-button"
+            className="btn btn-primary"
             type="submit"
             form="transaction-form"
             disabled={isUpdating}
@@ -86,15 +86,15 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
             {isUpdating
               ? "Saving..."
               : transactionId
-              ? "Update Transaction"
-              : "Save Transaction"}
+              ? "Update transaction"
+              : "Save transaction"}
           </button>
         
           {/* Delete button only if editing */}
           {transactionId && (
             <button
               type="button"
-              className="delete-button danger"
+              className="btn btn-danger"
               onClick={() => {
                 const confirmed = window.confirm("Are you sure you want to delete this transaction?");
                 if (confirmed) {
@@ -112,13 +112,13 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
 
       {showDiscardModal && (
         <div className="discard-modal">
-          <div className="discard-modal-content">
-            <h3>Discard changes?</h3>
+          <div className="discard-modal-content card" role="dialog" aria-modal="true">
+            <h3 className="card-title">Discard changes?</h3>
             <p>Your changes have not been saved. If you close this panel, they will be lost.</p>
             <div className="discard-modal-actions">
-              <button onClick={handleGoBack}>Go Back</button>
-              <button onClick={handleDiscardChanges} className="danger">
-                Discard Changes
+              <button type="button" onClick={handleGoBack} className="btn btn-secondary">Go back</button>
+              <button type="button" onClick={handleDiscardChanges} className="btn btn-danger">
+                Discard changes
               </button>
             </div>
           </div>

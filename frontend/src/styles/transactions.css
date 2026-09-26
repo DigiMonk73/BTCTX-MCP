@@ -1,417 +1,141 @@
-/* ==========================
-   transactions.css
-   Styling for the Transactions page:
-   - transaction list
-   - date headings
-   - row styles
-   - pagination
-========================== */
+/* Transactions: one list card, days as small labels, River-style rows. */
 
-/* 1) Transactions Page Container */
-.transactions-page {
-  background-color: transparent;
-  color: var(--color-text);
-  padding: 1rem;
-  /* Subtle gold gradient at top for atmosphere */
-  background-image: radial-gradient(
-    circle at 50% 0%,
-    rgba(229, 180, 90, 0.03) 0%,
-    transparent 50%
-  );
-}
+.transactions-page { max-width: 1240px; }
 
-/* Header (Add Transaction + sort dropdown) */
 .transactions-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
 
-.add-transaction-btn {
-  background-color: var(--color-accent);
-  color: #000;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-  /* Button depth */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-.add-transaction-btn:hover {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-.add-transaction-btn:active {
-  transform: translateY(0);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+/* A select that reads as a secondary pill */
+.select-pill {
+  width: auto;
+  border-radius: var(--radius-pill);
+  background: var(--color-raised);
+  border-color: var(--color-border-strong);
+  font-weight: var(--font-medium);
+  padding: 0 var(--space-3) 0 var(--space-4);
 }
 
-/* Sort dropdown styling (if used) */
-.sort-wrapper {
-  display: flex;
-  align-items: center;
-}
-.sort-select {
-  background-color: var(--color-accent);
-  color: #000;
-  border: none;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font-size: 1rem;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-.sort-select:hover {
-  background-color: var(--color-accent-hover);
-}
-.sort-select:active {
-  background-color: var(--color-accent-hover);
-}
-
-/* 2) Error/Retry styling */
-.error-section {
-  color: var(--color-error);
-  margin-top: 1rem;
-}
-.retry-btn {
-  background-color: var(--color-gray-500);
-  color: #fff;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-base);
-}
-.retry-btn:hover {
-  background-color: var(--color-gray-600);
-}
-
-/* 3) Transactions List & Date Groups */
 .transactions-list {
   display: flex;
   flex-direction: column;
-  gap: 2rem; /* space between date groups */
-}
-.transactions-day-group {
-  /* each date group can be separated or left alone */
-}
-
-/* Date heading (e.g. "Mar 15, 2025") */
-.date-heading {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: var(--tracking-tight);
-  color: var(--color-text-dim);
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-/* Hairline that carries the eye across the group */
-.date-heading::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, var(--color-border-strong), transparent);
-}
-
-/* 4) Transaction Row / Card */
-.transaction-card {
-  display: grid;
-  /* Flexible columns that adapt to available space */
-  grid-template-columns:
-    minmax(60px, 80px)   /* time-col */
-    minmax(50px, 70px)   /* type-col */
-    minmax(80px, 120px)  /* account-col */
-    minmax(150px, 1fr)   /* amount-col */
-    minmax(80px, 120px)  /* fee-col */
-    minmax(0, 1fr)       /* extra col */
-    minmax(150px, 1fr)   /* disposal col */
-    45px;                /* edit button */
-
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-
-  /* 
-    5) Alternating row colors:
-    We'll color them differently using nth-child. 
-    No direct background here, so nth-child can do it.
-  */
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.4rem;
-  font-size: 1rem;
-  font-variant-numeric: tabular-nums;
-  transition: background-color var(--transition-base), border-color var(--transition-base);
-}
-
-/* Alternating row background */
-.transaction-card:nth-child(odd) {
-  background-color: var(--color-surface);
-}
-.transaction-card:nth-child(even) {
-  background-color: var(--color-surface-hover);
-}
-
-/* Hover effect */
-.transaction-card:hover {
-  background-color: var(--color-surface-active);
-  border-color: rgba(229, 180, 90, 0.18);
-}
-/* Touch feedback */
-.transaction-card:active {
-  background-color: var(--color-surface-active);
-}
-
-/* Some columns might wrap text if long */
-.account-col {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-/* Gains in green, losses in red */
-.gain-green {
-  color: var(--color-success-muted);
-}
-.loss-red {
-  color: var(--color-error-muted);
-}
-
-/* Edit button on right */
-.edit-button {
-  background-color: var(--color-gray-800);
-  color: #fff;
-  border: 1px solid var(--color-gray-500);
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color var(--transition-base), color var(--transition-base), border-color var(--transition-base);
-}
-.edit-button:hover {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #000;
-}
-.edit-button:active {
-  background-color: var(--color-accent);
-  color: #000;
-  transform: scale(0.98);
-}
-
-/* 6) Responsive Layout
-   For smaller screens, rearrange into a simpler 2-col grid
-*/
-@media (max-width: 800px) {
-  .transaction-card {
-    grid-template-columns: 1fr 45px;
-    gap: 0.5rem;
-    padding: var(--space-3);
-  }
-
-  /* Add labels for mobile view via ::before pseudo-elements */
-  .time-col::before {
-    content: "Time: ";
-    color: var(--color-text-muted);
-    font-weight: 500;
-  }
-  .type-col::before {
-    content: "Type: ";
-    color: var(--color-text-muted);
-    font-weight: 500;
-  }
-  .account-col::before {
-    content: "Account: ";
-    color: var(--color-text-muted);
-    font-weight: 500;
-  }
-  .amount-col::before {
-    content: "Amount: ";
-    color: var(--color-text-muted);
-    font-weight: 500;
-  }
-
-  /* Place each column in its own row */
-  .time-col {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .type-col {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .account-col {
-    grid-column: 1;
-    grid-row: 3;
-  }
-  .amount-col {
-    grid-column: 1;
-    grid-row: 4;
-  }
-  .fee-col {
-    grid-column: 1;
-    grid-row: 5;
-  }
-  .extra-col {
-    grid-column: 1;
-    grid-row: 6;
-  }
-  .disposal-col {
-    grid-column: 1;
-    grid-row: 7;
-  }
-  /* The edit button spans first rows for better touch */
-  .edit-button {
-    grid-column: 2;
-    grid-row: 1 / 4;
-    align-self: start;
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-2);
-  }
-}
-
-/* 6b) Extra small screens (< 480px) */
-@media (max-width: 480px) {
-  .transactions-page {
-    padding: var(--space-2);
-  }
-
-  .transactions-header {
-    flex-direction: column;
-    gap: var(--space-3);
-    align-items: stretch;
-  }
-
-  .add-transaction-btn {
-    width: 100%;
-    min-height: 44px;
-    padding: var(--space-3);
-  }
-
-  .sort-wrapper {
-    width: 100%;
-  }
-
-  .sort-select {
-    width: 100%;
-    min-height: 44px;
-    padding: var(--space-3);
-  }
-
-  .transaction-card {
-    font-size: var(--text-sm);
-    padding: var(--space-2);
-  }
-
-  .date-heading {
-    font-size: var(--text-sm);
-  }
-
-  .pagination-button {
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .page-size-container {
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  .page-size-select {
-    width: 100%;
-    min-height: 44px;
-  }
-}
-
-/* 7) Pagination styling */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 1rem;
-}
-
-/* Buttons for pagination controls */
-.pagination-button {
-  background-color: var(--color-gray-800);
-  color: #fff;
-  border: 1px solid var(--color-gray-500);
-  margin: 0 0.5rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background-color var(--transition-base), border-color var(--transition-base);
-}
-
-.pagination-button:hover {
-  background-color: var(--color-gray-600);
-  border-color: var(--color-gray-400);
-}
-.pagination-button:active:not(:disabled) {
-  background-color: var(--color-gray-500);
-  transform: scale(0.98);
-}
-
-/* Disabled state: fade out & disallow clicks */
-.pagination-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Page info text */
-.pagination-info {
-  margin: 0 var(--space-4);
-  color: var(--color-text);
-}
-
-/* Pagination wrapper */
-.pagination-wrapper {
-  margin-top: var(--space-4);
-}
-
-/* Page size selector */
-.page-size-container {
-  margin-top: var(--space-4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.page-size-label {
-  font-weight: var(--font-medium);
-  color: var(--color-text);
-}
-
-.page-size-select {
-  background-color: var(--color-gray-800);
-  color: var(--color-text);
-  border: 1px solid var(--color-gray-500);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-card);
   padding: var(--space-2);
-  cursor: pointer;
+}
+.transactions-status {
+  padding: var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.transactions-status.loading-row { flex-direction: row; align-items: center; }
+.transactions-list.empty-state { align-items: center; gap: var(--space-2); }
+
+.transactions-day-group + .transactions-day-group { border-top: 1px solid var(--color-border); }
+.date-heading {
+  margin: 0;
+  padding: var(--space-4) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
-/* Refreshing state */
-.refreshing-container {
-  text-align: center;
-  margin-bottom: var(--space-5);
+/* ---------- A row ---------- */
+.tx-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto minmax(150px, auto) auto;
+  grid-template-areas: "badge main gain amounts edit";
+  align-items: center;
+  column-gap: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  transition: var(--transition-color);
 }
+.tx-row:hover { background: var(--color-surface-hover); }
 
-.refreshing-container p {
-  margin-top: var(--space-2);
+.tx-badge {
+  grid-area: badge;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-raised);
   color: var(--color-text-secondary);
+}
+/* Money coming in gets the accent */
+.tx-badge-buy, .tx-badge-deposit { color: var(--color-accent); }
+
+.tx-main { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
+.tx-title { font-weight: var(--font-medium); }
+.tx-account { color: var(--color-text-secondary); font-weight: 400; }
+.tx-sub {
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-gain { grid-area: gain; font-size: var(--text-13); white-space: nowrap; }
+.tx-amounts {
+  grid-area: amounts;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.tx-primary { font-weight: var(--font-medium); white-space: nowrap; }
+.tx-secondary { font-size: var(--text-13); color: var(--color-text-muted); white-space: nowrap; }
+.tx-edit { grid-area: edit; }
+
+/* ---------- Pagination ---------- */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.pagination-pages { display: flex; align-items: center; gap: var(--space-3); }
+.pagination-info,
+.pagination-size label { color: var(--color-text-muted); font-size: var(--text-13); }
+.pagination-size { display: flex; align-items: center; gap: var(--space-2); }
+.pagination-size .input { width: auto; }
+
+/* ---------- Narrower windows: the gain moves under the title ---------- */
+@media (max-width: 1100px) {
+  .tx-row {
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "badge main amounts edit"
+      "badge gain amounts edit";
+    row-gap: 2px;
+  }
+  .tx-gain { justify-self: start; }
+}
+
+/* Phones: Edit drops below the amounts */
+@media (max-width: 480px) {
+  .transactions-header { flex-wrap: wrap; }
+  .tx-row {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "badge main amounts"
+      "badge gain edit";
+    column-gap: var(--space-3);
+  }
+  .tx-gain { white-space: normal; }
+  .tx-edit { justify-self: end; }
+  .pagination { justify-content: center; }
 }

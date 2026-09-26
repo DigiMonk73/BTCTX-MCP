@@ -53,13 +53,13 @@ const LoginPage: React.FC = () => {
         <h1 className="login-title">Welcome to BitcoinTX</h1>
       </div>
 
-      <div className="login-card">
-        <h2 className="login-card-title">Sign In</h2>
+      <div className="card login-card">
+        <h2 className="login-card-title">Sign in</h2>
 
         <form onSubmit={handleSubmit} className="login-form">
           {/* ---------- USERNAME FIELD ---------- */}
-          <div className="login-form-group">
-            <label htmlFor="username" className="login-label">
+          <div className="field">
+            <label htmlFor="username" className="field-label">
               Username
             </label>
             <input
@@ -68,23 +68,23 @@ const LoginPage: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="login-input"
+              className="input"
             />
           </div>
 
           {/* ---------- PASSWORD FIELD WITH 'SHOW PASSWORD' TEXT ABOVE THE LABEL ---------- */}
-          <div className="login-form-group">
+          <div className="field">
             {/* Row for label + show/hide link */}
             <div className="password-label-row">
-              <label htmlFor="password" className="login-label">
+              <label htmlFor="password" className="field-label">
                 Password
               </label>
               <button
                 type="button"
-                className="toggle-password-btn"
+                className="link toggle-password-btn"
                 onClick={toggleShowPassword}
               >
-                {showPassword ? "Hide Password" : "Show Password"}
+                {showPassword ? "Hide password" : "Show password"}
               </button>
             </div>
 
@@ -95,24 +95,24 @@ const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="login-input"
+              className="input"
             />
           </div>
 
           <button
             type="submit"
-            className="accent-btn login-btn"
+            className="btn btn-primary btn-block"
             disabled={isSubmitting}
           >
-            {isSubmitting ? "Logging in..." : "Log In"}
+            {isSubmitting ? "Logging in…" : "Log in"}
           </button>
-          {errorMsg && <div className="login-error-msg">{errorMsg}</div>}
+          {errorMsg && <div className="note note-error login-error-msg" role="alert">{errorMsg}</div>}
         </form>
 
         <div className="login-create-account">
           <span className="create-account-text">Don’t have an account?</span>
-          <Link to="/register" className="create-account-link">
-            Create Account
+          <Link to="/register" className="link">
+            Create account
           </Link>
         </div>
       </div>

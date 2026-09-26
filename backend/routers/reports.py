@@ -34,6 +34,31 @@ from backend.services.reports.pdf_form_filler import fill_pdf_form
 
 reports_router = APIRouter()
 
+
+@reports_router.get("/years")
+def get_report_years(db: Session = Depends(get_db)) -> Dict[str, List[int]]:
+    """
+    The years the Reports page offers: `ledger_years` from the first
+    transaction's tax year (in the tax timezone) to this year, newest first,
+    and `form_years`, the years this version has IRS Form 8949 / Schedule D
+    templates for.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import func
+
+    from backend.models.transaction import Transaction
+    from backend.services.tax_time import get_tax_timezone, local_date
+
+    tz = get_tax_timezone(db)
+    this_year = datetime.now(timezone.utc).astimezone(tz).year
+    first = db.query(func.min(Transaction.timestamp)).scalar()
+    first_year = min(local_date(first, tz).year, this_year) if first else this_year
+    return {
+        "ledger_years": list(range(this_year, first_year - 1, -1)),
+        "form_years": get_supported_years(),
+    }
+
 @reports_router.get("/complete_tax_report")
 def get_complete_tax_report(
     year: int,

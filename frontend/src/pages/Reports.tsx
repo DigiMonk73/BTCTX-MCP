@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { downloadPdfWithAxios } from "../api";
+import React, { useEffect, useState } from "react";
+import api, { downloadPdfWithAxios } from "../api";
 import { useToast } from "../contexts/useToast";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
-import "../styles/reports.css"; // Our spinner CSS is also in here
+import "../styles/reports.css";
 
 // Hardcoded base URL for your FastAPI server:
 const API_BASE = "/api";
@@ -12,23 +12,40 @@ const REPORTS = [
   {
     key: "completeTax",
     label: "Complete Tax Report",
+    description: "Gains, income, fees and year-end balances in one PDF.",
     endpoint: "/reports/complete_tax_report",
     pdfOnly: true,
+    needsForms: false,
   },
   {
     key: "irsReports",
     label: "IRS Reports (Form 8949, Schedule D, etc.)",
+    description: "The filled IRS forms, ready to file or hand to your preparer.",
     endpoint: "/reports/irs_reports",
     pdfOnly: true,
+    needsForms: true,
   },
   {
-    
     key: "transactionHistory",
     label: "Transaction History",
+    description: "Every transaction in the year as a CSV spreadsheet.",
     endpoint: "/reports/simple_transaction_history",
     pdfOnly: false,
+    needsForms: false,
   },
 ];
+
+interface ReportYears {
+  ledger_years: number[];
+  form_years: number[] | null; // null: unknown, nothing is disabled
+}
+
+// If the year list can't be loaded, offer every year back to 2010.
+function fallbackYears(): ReportYears {
+  const years: number[] = [];
+  for (let y = new Date().getFullYear(); y >= 2010; y--) years.push(y);
+  return { ledger_years: years, form_years: null };
+}
 
 const Reports: React.FC = () => {
   // Default to Complete Tax (PDF)
@@ -40,7 +57,21 @@ const Reports: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
 
+  const [years, setYears] = useState<ReportYears | null>(null);
+
   const toast = useToast();
+
+  useEffect(() => {
+    api
+      .get<ReportYears>("/reports/years")
+      .then((r) => setYears(r.data))
+      .catch(() => setYears(fallbackYears()));
+  }, []);
+
+  const reportDef = REPORTS.find((r) => r.key === selectedReport);
+  const hasForms = (year: number) =>
+    !reportDef?.needsForms || years?.form_years == null || years.form_years.includes(year);
+  const missingForms = taxYear !== "" && !hasForms(Number(taxYear));
 
   const handleExport = async () => {
     // Basic validation
@@ -48,7 +79,6 @@ const Reports: React.FC = () => {
       toast.warning("Please enter a valid year (e.g. 2024).");
       return;
     }
-    const reportDef = REPORTS.find((r) => r.key === selectedReport);
     if (!reportDef) {
       toast.error("Invalid report selection.");
       return;
@@ -104,54 +134,45 @@ const Reports: React.FC = () => {
   // ------------------------------------------------------------
 
   return (
-    <div className="reports-container">
-      <h2 className="reports-title">Reports</h2>
-      <p className="reports-description">
-        Generate or view financial and tax reports. ...
-      </p>
+    <div className="reports-page">
+      <h2 className="page-title">Reports</h2>
 
-      <div className="reports-section">
-        <div className="input-group">
-          <label htmlFor="report-tax-year">Tax Year:</label>
-          <input
-            id="report-tax-year"
-            type="text"
-            className="report-year-input"
-            placeholder="e.g. 2024"
-            value={taxYear}
-            onChange={(e) => setTaxYear(e.target.value)}
-          />
-
-          {/* 
-             Removed the <select> for Format. 
-             We now show a read-only field to reflect the auto-chosen format.
-          */}
-          <label htmlFor="report-format">Format:</label>
-          <input
-            id="report-format"
-            type="text"
-            className="report-format-input"
-            readOnly
-            value={format}
-          />
-
-          {/*
-          // Original <select> block for reference (commented out):
-          // <select
-          //   value={format}
-          //   onChange={(e) => setFormat(e.target.value)}
-          //   className="report-format-select"
-          // >
-          //   <option value="pdf">PDF</option>
-          //   <option value="csv">CSV</option>
-          // </select>
-          */}
+      <div className="card reports-card">
+        <div className="reports-fields">
+          <div className="field">
+            <label htmlFor="report-tax-year">Tax year</label>
+            <select
+              id="report-tax-year"
+              className="input"
+              value={taxYear}
+              onChange={(e) => setTaxYear(e.target.value)}
+              disabled={years === null}
+            >
+              <option value="">{years === null ? "Loading…" : "Choose a year"}</option>
+              {years?.ledger_years.map((y) => (
+                <option key={y} value={String(y)} disabled={!hasForms(y)}>
+                  {y}
+                  {hasForms(y) ? "" : " (no IRS forms yet)"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="report-format">Format</label>
+            <input id="report-format" type="text" className="input report-format" readOnly value={format} />
+          </div>
         </div>
+        {missingForms && (
+          <p className="note note-warning" role="status">
+            IRS forms for {taxYear} aren't in this version of BitcoinTX yet. The Complete Tax Report
+            and Transaction History work for any year.
+          </p>
+        )}
 
-        {/* Radio buttons for which report */}
-        <div className="report-selection">
+        <fieldset className="report-choices">
+          <legend className="field-label">Report</legend>
           {REPORTS.map((r) => (
-            <div key={r.key} className="report-radio">
+            <label key={r.key} htmlFor={r.key} className={`report-choice${selectedReport === r.key ? " selected" : ""}`}>
               <input
                 type="radio"
                 id={r.key}
@@ -160,35 +181,29 @@ const Reports: React.FC = () => {
                 checked={selectedReport === r.key}
                 onChange={() => {
                   setSelectedReport(r.key);
-                  // If transactionHistory => CSV, else PDF
-                  if (r.key === "transactionHistory") {
-                    setFormat("csv");
-                  } else {
-                    setFormat("pdf");
-                  }
+                  // Transaction History is a CSV; the others are PDFs
+                  setFormat(r.key === "transactionHistory" ? "csv" : "pdf");
                 }}
               />
-              <label htmlFor={r.key}>{r.label}</label>
-            </div>
+              <span className="report-choice-text">
+                <span className="report-choice-title">{r.label}</span>
+                <span className="report-choice-description">{r.description}</span>
+              </span>
+            </label>
           ))}
-        </div>
+        </fieldset>
 
-        {/* Export Button */}
         <div className="report-actions">
-          <button className="report-button" onClick={handleExport}>
+          {isLoading && (
+            <div className="loading-row" role="status">
+              <div className="spinner" />
+              {progress > 0 ? `Downloading… ${progress}%` : "Downloading…"}
+            </div>
+          )}
+          <button type="button" className="btn btn-primary" onClick={handleExport} disabled={isLoading || missingForms}>
             Export
           </button>
         </div>
-
-        {/* Spinner + progress UI pinned to bottom-left of the card */}
-        {isLoading && (
-          <div className="downloading-overlay">
-            <span>
-              {progress > 0 ? `Downloading... ${progress}%` : "Downloading..."}
-            </span>
-            <div className="spinner" />
-          </div>
-        )}
       </div>
     </div>
   );

@@ -103,58 +103,58 @@ const RegisterPage: React.FC = () => {
         <h1 className="login-title">Welcome to BitcoinTX</h1>
       </div>
 
-      <div className="login-card">
-        <h2 className="login-card-title">Register Account</h2>
+      <div className="card login-card">
+        <h2 className="login-card-title">Register account</h2>
 
         <form onSubmit={handleRegister} className="login-form">
-          <div className="login-form-group">
-            <label htmlFor="username" className="login-label">New Username</label>
+          <div className="field">
+            <label htmlFor="username" className="field-label">New Username</label>
             <input
               id="username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
-              className="login-input"
+              className="input"
             />
           </div>
 
-          <div className="login-form-group">
-            <label htmlFor="password" className="login-label">New Password</label>
+          <div className="field">
+            <label htmlFor="password" className="field-label">New Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="login-input"
+              className="input"
             />
           </div>
 
           {/* If the account is already registered, require the current password */}
           {isDefault === false && (
-            <div className="login-form-group">
-              <label htmlFor="override" className="login-label">Current Password</label>
+            <div className="field">
+              <label htmlFor="override" className="field-label">Current Password</label>
               <input
                 id="override"
                 type="password"
                 value={overridePassword}
                 onChange={e => setOverridePassword(e.target.value)}
                 required
-                className="login-input"
+                className="input"
               />
             </div>
           )}
 
-          <button type="submit" className="accent-btn login-btn" disabled={isSubmitting}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting}>
             {isSubmitting ? "Processing..." : "Register"}
           </button>
-          {errorMsg && <div className="login-error-msg">{errorMsg}</div>}
+          {errorMsg && <div className="note note-error login-error-msg" role="alert">{errorMsg}</div>}
         </form>
 
         <div className="login-create-account">
           <span className="create-account-text">Already have an account?</span>
-          <Link to="/login" className="create-account-link">Log In</Link>
+          <Link to="/login" className="link">Log in</Link>
         </div>
       </div>
     </div>

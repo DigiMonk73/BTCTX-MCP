@@ -4,6 +4,40 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Look and feel
+Same app, same layout, calmer. No tax figure changes; no Recalculate Ledger
+needed.
+- **Numbers** have thousands separators and a real minus sign ($80,000.00,
+  −$1,373.21); gains and losses carry a sign. Dashboard labels lose their
+  trailing colons.
+- **Transactions** is one list: an icon for each type, the type and account
+  over a grey line with the time, source and fee, the gain written out
+  ("Gain +$7,000.00 · +350.00% · Long-term"), and the BTC that moved on the
+  right with its dollar value under it.
+- **Reports**: Tax year is a drop-down, from your first transaction's year to
+  this year. Years without IRS forms in this version can't be picked for the
+  IRS Reports (the Complete Tax Report and Transaction History work for any
+  year). New `GET /api/reports/years`.
+- **One set of buttons** everywhere: a gold primary (one per section), grey
+  secondary, quiet text, and red-text destructive. Settings no longer shows
+  eight gold buttons side by side.
+- **One input style** with a gold focus ring, labels above, no spinner arrows
+  on number fields; file pickers, checkboxes and the Manual/Auto/Date switch
+  match.
+- **Nothing moves on hover.** Cards and buttons no longer lift, the report
+  choices no longer grow, the transaction panel and toasts fade instead of
+  sliding; Reduce Motion is honored.
+- **Colors** checked for WCAG AA contrast: gains and losses in the list were
+  4.0:1 and 2.7:1 and are now 8.4:1 and 6.4:1; field borders went from 1.75:1
+  to 3.2:1.
+- **Small windows**: at the Mac app's 800 × 600 the sidebar keeps the Sats
+  Converter and a whole calculator (it used to cut the calculator in half);
+  on a phone the sidebar hides and the pages stack.
+- Icons from Lucide (ISC license, `lucide-react` 1.48.0), bundled with the
+  app. The stylesheets went from about 3,900 lines to 1,300: shared tokens in
+  `styles/theme.css`, shared buttons, inputs and cards in
+  `styles/components.css`, and page files that only lay them out.
+
 ## [v0.9.2] - 2026-09-26 - Hardening: price history, withdrawal fees, Ledger review, privacy settings
 
 ### Before you upgrade: what changes existing figures

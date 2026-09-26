@@ -50,8 +50,8 @@ const CopyBlock: React.FC<{ label: string; text: string; rows: number }> = ({ la
   };
   return (
     <div className="ai-copy-block">
-      <textarea className="ai-copy-text" readOnly value={text} rows={rows} aria-label={label} />
-      <button type="button" className="settings-button primary" onClick={copy}>
+      <textarea className="input ai-copy-text" readOnly value={text} rows={rows} aria-label={label} />
+      <button type="button" className="btn btn-primary" onClick={copy}>
         Copy
       </button>
     </div>
@@ -123,7 +123,7 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
           Let AI assistants use BitcoinTX
         </label>
       </div>
-      <button type="button" className="settings-button" onClick={reset} disabled={busy}>
+      <button type="button" className="btn btn-secondary" onClick={reset} disabled={busy}>
         Reset key
       </button>
     </div>
@@ -159,7 +159,7 @@ const ConnectAiSetting: React.FC = () => {
 
   return (
     <div className="settings-section" role="region" aria-label="Connect an AI Assistant">
-      <h3>Connect an AI Assistant</h3>
+      <h3 className="section-title">Connect an AI Assistant</h3>
       {access?.available && <AiAccessControls access={access} onChange={setAccess} />}
       <div className="settings-option ai-setup">
         <div className="option-info">

@@ -2,7 +2,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import App from './App';
 // Fonts ship with the app (OFL): no request to a font CDN, which told Google
 // every time BitcoinTX opened. Latin and Latin Extended only; other scripts
 // fall back to the system font.
@@ -20,11 +19,12 @@ import "@fontsource/outfit/latin-600.css";
 import "@fontsource/outfit/latin-ext-600.css";
 import "@fontsource/outfit/latin-700.css";
 import "@fontsource/outfit/latin-ext-700.css";
+// Styles first, so the page stylesheets App pulls in come after the shared
+// ones and only have to lay them out.
 import './styles/index.css'; // Minimal resets
-import './styles/theme.css'; // Design system tokens
-// Phase 5 polish direction: loaded last so it wins over the page stylesheets.
-import './styles/tokens.css';
-import './styles/components.css';
+import './styles/theme.css'; // Design tokens
+import './styles/components.css'; // Shared buttons, inputs, cards
+import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
