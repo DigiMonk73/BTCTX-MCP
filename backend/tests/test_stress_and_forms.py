@@ -119,6 +119,13 @@ def get_lots() -> List[Dict]:
     return r.json()
 
 
+def _gains() -> Dict:
+    """The dashboard's realized gains and losses."""
+    r = CLIENT.get("/api/calculations/gains-and-losses")
+    assert r.status_code == 200, r.text
+    return {k: Decimal(str(v)) for k, v in r.json().items() if isinstance(v, (int, float, str))}
+
+
 def get_disposals() -> List[Dict]:
     """Get all lot disposals via debug endpoint."""
     r = CLIENT.get("/api/debug/disposals")
@@ -1226,8 +1233,10 @@ class TestEdgeCases:
             gain = Decimal(str(d.get("realized_gain_usd", 0)))
             assert gain == Decimal("0"), f"Donation should have $0 gain, got {gain}"
 
-    def test_edge_withdrawal_lost_capital_loss(self, btc_inventory):
-        """Lost withdrawal = proceeds $0, results in capital loss (negative gain)."""
+    def test_edge_withdrawal_lost_no_gain_or_loss(self, btc_inventory):
+        """Lost withdrawal: proceeds $0 and gain $0, like a Gift. It is not on
+        Form 8949, so the dashboard must not count a loss for it either."""
+        before = _gains()
         withdrawal_tx = create_tx({
             "type": "Withdrawal",
             "timestamp": build_timestamp(2024, 12, 1),
@@ -1244,10 +1253,11 @@ class TestEdgeCases:
         lost_disposals = [d for d in disposals if d.get("transaction_id") == withdrawal_tx["id"]]
         assert len(lost_disposals) >= 1
 
-        # Lost assets: proceeds = 0, so gain = 0 - cost_basis = negative (capital loss)
         total_gain = sum(Decimal(str(d.get("realized_gain_usd", 0))) for d in lost_disposals)
-        # This should be a loss (negative gain) since proceeds=0 but there was cost basis
-        assert total_gain < 0, f"Lost should have negative gain (loss), got {total_gain}"
+        assert total_gain == 0, f"Lost should have no gain or loss, got {total_gain}"
+        after = _gains()
+        for key in ("short_term_losses", "long_term_losses", "total_net_capital_gains"):
+            assert after[key] == before[key], f"dashboard {key} changed: {before[key]} -> {after[key]}"
 
     # -------------------------------------------------------------------------
     # Transfer Edge Cases

@@ -24,6 +24,7 @@ what your AI client itself sends to its model.
 | `get_portfolio` | Account balances, average cost basis, live BTC price |
 | `get_btc_price` | Historical daily or current BTC price |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
+| `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review) |
 
 There is deliberately no bulk delete.
 
@@ -59,9 +60,19 @@ This installs a `btctx-mcp` command. `uvx` works too:
 
 ## Configure
 
+**The BitcoinTX Mac app (0.9.2+): nothing to configure.** With no
+`BTCTX_USERNAME`/`BTCTX_PASSWORD` set, the server reads
+`~/Library/Application Support/BitcoinTX/mcp.json`, which the app writes when
+it starts (owner-only): its address and an AI assistant key, never your
+password. Keep BitcoinTX open while you use the AI. **Settings → Connect an AI
+Assistant** turns this access off or resets the key (the server picks up a
+new key by itself). `BTCTX_MCP_FILE` points at another file.
+
+**A server install (StartOS, Docker, from source):**
+
 | Variable | Meaning |
 |----------|---------|
-| `BTCTX_URL` | Where BitcoinTX is reachable: macOS app `http://127.0.0.1:8765`; Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000` |
+| `BTCTX_URL` | Where BitcoinTX is reachable: Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000` |
 | `BTCTX_USERNAME` / `BTCTX_PASSWORD` | Your BitcoinTX login |
 | `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
 | `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |
@@ -87,10 +98,9 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
 
 If Claude Desktop can't find `btctx-mcp`, use the full path from `which btctx-mcp`.
 
-**macOS desktop app:** use `"BTCTX_URL": "http://127.0.0.1:8765"`. The app listens
-there (localhost only) while it's open, so keep BitcoinTX running when you use the
-AI. If port 8765 is taken, set `BTCTX_DESKTOP_PORT` for the app and use the same
-port here. Username/password are the ones you log in to the app with.
+**macOS desktop app:** leave out `env` entirely:
+`{"mcpServers": {"bitcointx": {"command": "btctx-mcp"}}}`. The server finds the
+running app and its key by itself.
 
 ### Claude Code
 

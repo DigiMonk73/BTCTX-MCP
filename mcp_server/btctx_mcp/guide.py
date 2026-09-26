@@ -35,6 +35,9 @@ Deposit: External -> any account
     MyBTC    = user's own BTC arriving from somewhere untracked;
                cost_basis_usd = what they originally paid (ask if unknown).
     Gift     = received as a gift; cost_basis_usd = the giver's basis.
+    MyBTC, Gift and N/A deposits REQUIRE cost_basis_usd; the ledger refuses
+    them without one. If the user truly doesn't know it, 0 is allowed, but
+    say that all of it becomes gain when sold, and let them choose.
     Income   = paid in BTC for work/goods.   \\
     Interest = exchange interest.             > basis = FMV at receipt,
     Reward   = mining, sats-back, bonuses.   /  auto-filled if omitted.
@@ -45,15 +48,19 @@ Withdrawal: any account -> External
                received (auto-filled from the day's price if omitted).
     Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
     Donation = gave to a charity (not a sale; fmv_usd auto-filled).
-    Lost     = lost keys / hack / scam (capital loss).
+    Lost     = lost keys / hack / scam (no gain or loss recorded; not on
+               Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
-  fee_currency = BTC, ON TOP of amount.
+  fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
+  was received for amount; the fee is recorded as its own small disposal.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination
   receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
   fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
+  A BTC fee's USD value is stored as fee x that day's price; pass fee_usd
+  only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
 

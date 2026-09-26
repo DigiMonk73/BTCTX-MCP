@@ -42,7 +42,7 @@ def _no_network(monkeypatch):
         return {"USD": 100000.0}
 
     monkeypatch.setattr(
-        "backend.routers.river_import.get_historical_price", fake_historical
+        "backend.services.bitcoin.get_historical_price", fake_historical
     )
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price",
@@ -372,6 +372,26 @@ class TestExecute:
         exchange_usd = next(b for b in balances if b["account_id"] == 3)
         assert round(exchange_usd["balance"], 2) == -10.00  # -1000 buy + 990 sell
 
+    def test_buy_sent_amount_is_before_rivers_fee(self, test_engine):
+        """F19: River's Sent Amount on a Buy is the subtotal; the fee is on
+        top. In real exports Sent + Fee is the round amount the owner chose
+        ($19.80 + $0.20 = $20, $495.05 + $4.95 = $500). Basis and the cash
+        debited are therefore Sent + Fee."""
+        delete_all_transactions()
+        data = preview(["2026-02-01 13:27:05,19.80,USD,0.00025138,BTC,0.20,USD,Buy"])
+        execute(proposals_to_execute_rows(data))
+
+        from sqlalchemy import text
+
+        buy = CLIENT.get("/api/transactions").json()[0]
+        assert Decimal(str(buy["cost_basis_usd"])) == Decimal("19.80")  # River's subtotal, as entered
+        with test_engine.connect() as con:  # the lot's basis adds the USD fee
+            lot_basis = con.execute(text("SELECT cost_basis_usd FROM bitcoin_lots")).scalar()
+        assert Decimal(str(lot_basis)) == Decimal("20.00")
+        balances = CLIENT.get("/api/calculations/accounts/balances").json()
+        exchange_usd = next(b for b in balances if b["account_id"] == 3)
+        assert round(exchange_usd["balance"], 2) == -20.00
+
     def test_funding_toggle_override_is_respected(self):
         delete_all_transactions()
         # The recurrence heuristic needs the full file: all five $25 buys
@@ -429,3 +449,14 @@ class TestExecute:
 
         txs = CLIENT.get("/api/transactions").json()
         assert len(txs) == 0
+
+
+def test_a_fee_in_an_unexpected_currency_is_flagged():
+    """F21: River's Fee Currency column was ignored (forced by row type)."""
+    proposals, errors, warnings = adapt([
+        "2026-02-03 15:30:00,148.50,USD,0.00180000,BTC,0.00001,BTC,Buy",
+        "2026-02-15 10:00:00,0.00100000,BTC,,,0.50,USD,",
+        "2026-02-16 10:00:00,0.00100000,BTC,,,0.00000500,BTC,",
+    ])
+    flagged = sorted(w.row_number for w in warnings if w.column == "Fee Currency")
+    assert flagged == [2, 3]

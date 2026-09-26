@@ -30,6 +30,17 @@ export function parseDecimal(value?: string | number): number {
 }
 
 /**
+ * A number the user may leave blank: null for blank (undefined, null, "" or
+ * NaN, which is what an empty number input gives), so the API can tell
+ * "not given" from 0.
+ */
+export function optionalDecimal(value?: string | number | null): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : parseFloat(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+/**
  * --------------------------------------------------------------------------
  * 2) Numeric Formatting
  * --------------------------------------------------------------------------
@@ -115,6 +126,8 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     source: rawTx.source ?? undefined,
     purpose: rawTx.purpose ?? undefined,
     broker_reporting: rawTx.broker_reporting ?? null,
+    fee_usd: rawTx.fee_usd == null ? null : parseDecimal(rawTx.fee_usd),
+    fee_usd_manual: rawTx.fee_usd_manual ?? false,
     fee_currency: rawTx.fee_currency ?? undefined,
     created_at: rawTx.created_at ?? undefined,
     updated_at: rawTx.updated_at ?? undefined,

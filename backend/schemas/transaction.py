@@ -47,32 +47,39 @@ class TxType(str, Enum):
 # -------------------------------------------------
 # These enforce IRS-compatible precision: BTC up to 8 decimals, USD up to 2.
 
+def _decimal_places(value: Decimal) -> int:
+    """Decimal places of the value itself, whatever its notation ("1E-9" has 9)."""
+    if not value.is_finite():
+        raise ValueError("Amount must be a finite number.")
+    exponent = value.normalize().as_tuple().exponent
+    return -exponent if exponent < 0 else 0
+
+
+def _integer_digits(value: Decimal) -> int:
+    whole = abs(value).to_integral_value(rounding="ROUND_DOWN")
+    return len(str(int(whole))) if whole else 1
+
+
 def validate_btc_decimal(value: Decimal) -> Decimal:
     """
-    Enforces max 8 decimal places for BTC amounts and max 18 total digits.
-    Aligns with Bitcoin precision standards and IRS reporting needs.
+    At most 8 decimal places (a satoshi) and 10 integer digits (the database
+    column holds 18 digits with 8 decimals; a bigger value used to be saved
+    and then break every listing). Checked on the number, not its text, so
+    exponent notation ("1E-9") can't slip through.
     """
-    s = str(value)
-    if '.' in s:
-        integer_part, frac_part = s.split('.', 1)
-        if len(frac_part) > 8:
-            raise ValueError("BTC amount cannot exceed 8 decimal places.")
-        if len(integer_part.replace('-', '')) > 10:  # 10 + 8 = 18 digits total
-            raise ValueError("BTC amount cannot exceed 18 total digits.")
+    if _decimal_places(value) > 8:
+        raise ValueError("BTC amount cannot exceed 8 decimal places.")
+    if _integer_digits(value) > 10:
+        raise ValueError("Amount is too large.")
     return value
 
+
 def validate_usd_decimal(value: Decimal) -> Decimal:
-    """
-    Enforces max 2 decimal places for USD amounts and max 18 total digits.
-    Matches standard accounting practices and IRS requirements for USD.
-    """
-    s = str(value)
-    if '.' in s:
-        integer_part, frac_part = s.split('.', 1)
-        if len(frac_part) > 2:
-            raise ValueError("USD amount cannot exceed 2 decimal places.")
-        if len(integer_part.replace('-', '')) > 16:  # 16 + 2 = 18
-            raise ValueError("USD amount cannot exceed 18 total digits.")
+    """At most 2 decimal places (cents) and 16 integer digits."""
+    if _decimal_places(value) > 2:
+        raise ValueError("USD amount cannot exceed 2 decimal places.")
+    if _integer_digits(value) > 16:
+        raise ValueError("USD amount is too large.")
     return value
 
 # -------------------------------------------------
@@ -135,6 +142,13 @@ class TransactionBase(BaseModel):
         description="Fair market value for non-sale disposals (Gift, Donation, Lost)."
     
     )
+    fee_usd: Optional[Decimal] = Field(
+        default=None,
+        description=(
+            "USD value of a transfer's or withdrawal's BTC fee. Leave out to use "
+            "fee x that day's price; a value you give is kept."
+        ),
+    )
     realized_gain_usd: Optional[Decimal] = Field(
         default=None,
         description="Realized gain/loss in USD for IRS Form 8949."
@@ -166,7 +180,7 @@ class TransactionBase(BaseModel):
             return validate_btc_decimal(v)
         return v
 
-    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd")
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
     def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
         if v is not None:
             return validate_usd_decimal(v)
@@ -180,10 +194,12 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     """
-    Schema for creating a new transaction. Type is required, other fields optional.
+    Schema for creating a new transaction. Type and timestamp are required
+    (a missing timestamp used to fail with a 500); the rest is validated per
+    type by the service (services/transaction._validate_transaction).
     Integrates with FastAPI/SwaggerUI via TxType enum dropdown.
     """
-    pass  # Inherits all fields from TransactionBase, no additional fields needed
+    timestamp: datetime
 
 class TransactionUpdate(BaseModel):
     """
@@ -207,6 +223,7 @@ class TransactionUpdate(BaseModel):
     proceeds_usd: Optional[Decimal] = None
     gross_proceeds_usd: Optional[Decimal] = None
     fmv_usd: Optional[Decimal] = None
+    fee_usd: Optional[Decimal] = None  # send null to go back to the day's price
     realized_gain_usd: Optional[Decimal] = None
     holding_period: Optional[str] = None
 
@@ -237,7 +254,7 @@ class TransactionUpdate(BaseModel):
             return validate_btc_decimal(v)
         return v
 
-    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd",)
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
     def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
         if v is not None:
             return validate_usd_decimal(v)
@@ -256,6 +273,7 @@ class TransactionRead(TransactionBase):
     """
     id: int
     is_locked: bool  # Prevents edits after tax filing
+    fee_usd_manual: bool = False  # fee_usd was typed by the user
     created_at: datetime
     updated_at: datetime
 

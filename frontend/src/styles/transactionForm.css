@@ -164,12 +164,6 @@
   transform: scale(0.98);
 }
 
-/* Approximate value display (e.g., ~$USD) */
-.approx-value {
-  color: var(--color-text-secondary, #999);
-  font-size: 0.85rem;
-}
-
 /* Spinner container for processing state */
 .spinner-container {
   text-align: center;

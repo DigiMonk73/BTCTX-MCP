@@ -673,10 +673,10 @@ def test_withdrawal_btc_donation():
 
 
 def test_withdrawal_btc_lost():
-    """Test: Withdrawal BTC as Lost (capital loss equal to cost basis).
+    """Test: Withdrawal BTC as Lost: no gain or loss, like a Gift.
 
-    Lost BTC should result in a capital loss: proceeds = $0, so
-    gain = $0 - cost_basis = negative (a deductible loss).
+    Form 8949 leaves Lost out, so the ledger records no loss either (it used
+    to record a loss of the basis that only the dashboard counted).
     """
     log("TEST: Withdrawal BTC (Lost)", "TEST")
     delete_all_transactions()
@@ -706,13 +706,9 @@ def test_withdrawal_btc_lost():
 
     assert_true("error" not in lost_tx, "Lost withdrawal created")
 
-    # Lost BTC should show a capital loss equal to cost basis
     lost_detail = get_transaction(lost_tx["id"])
     realized_gain = float(lost_detail.get("realized_gain_usd") or 0)
-
-    # Cost basis for 0.1 BTC at $40,000/BTC = $4,000
-    # Proceeds = $0, so loss = $0 - $4,000 = -$4,000
-    assert_equal(realized_gain, -4000.0, "Lost BTC results in capital loss")
+    assert_equal(realized_gain, 0.0, "Lost BTC has no realized gain or loss")
 
 
 def test_transfer_btc_with_fee():

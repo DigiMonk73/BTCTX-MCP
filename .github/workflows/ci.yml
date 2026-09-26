@@ -1,8 +1,9 @@
 name: CI
 
 # Every push and pull request: lint, full Python suite, MCP tests, frontend,
-# end-to-end smoke test, Docker image + container smoke, StartOS package
-# checks and an x86_64 s9pk packed from this commit's image, dependency audit.
+# end-to-end smoke test, Playwright click-through tests (Chromium, WebKit),
+# Docker image + container smoke, StartOS package checks and an x86_64 s9pk
+# packed from this commit's image, dependency audit.
 # The macOS app build (slowest job) runs on every branch push and on demand
 # from the Actions tab.
 on:
@@ -82,6 +83,57 @@ jobs:
           cache: pip
       - run: pip install -r backend/requirements.txt
       - run: python scripts/smoke_test.py
+
+  e2e:
+    # Playwright click-through tests of every UI flow against the real
+    # backend (temp database, stubbed prices). Chromium runs in a US and a
+    # UTC+ timezone; WebKit (the Mac app's engine) runs the US set.
+    name: Click-through tests (${{ matrix.browser }})
+    needs: frontend
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      E2E_SKIP_BUILD: "1"
+      BTCTX_PYTHON: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+        working-directory: frontend
+      - name: Run (Chromium, Chicago + Tokyo)
+        if: matrix.browser == 'chromium'
+        run: npx playwright test --project=chicago --project=tokyo
+        working-directory: frontend
+      - name: Run (WebKit, Chicago)
+        if: matrix.browser == 'webkit'
+        run: E2E_WEBKIT=1 npx playwright test --project=webkit
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
 
   docker:
     name: Docker image + container smoke

@@ -174,3 +174,71 @@ it("does not modify the form values it is given", () => {
   buildTransactionPayload(form);
   expect(JSON.stringify(form)).toBe(snapshot);
 });
+
+describe("blank means not given (F1)", () => {
+  const form = (fields: Partial<TransactionFormData>) =>
+    ({ timestamp: "2025-03-01T12:00", fee: 0, ...fields }) as TransactionFormData;
+
+  it("a Spent withdrawal with blank proceeds sends null, not $0", () => {
+    const body = buildTransactionPayload(
+      form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: NaN }),
+    );
+    expect(body.proceeds_usd).toBeNull();
+    expect(body.fmv_usd).toBeNull();
+  });
+
+  it("a typed 0 stays 0", () => {
+    const body = buildTransactionPayload(
+      form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: 0 }),
+    );
+    expect(body.proceeds_usd).toBe(0);
+  });
+
+  it("an income deposit with a blank basis sends null", () => {
+    const body = buildTransactionPayload(
+      form({ type: "Deposit", account: "Wallet", currency: "BTC", amount: 0.01, source: "Income", costBasisUSD: undefined }),
+    );
+    expect(body.cost_basis_usd).toBeNull();
+  });
+
+  it("types that don't take a basis send none", () => {
+    const body = buildTransactionPayload(
+      form({ type: "Transfer", fromAccount: "Wallet", fromCurrency: "BTC", toAccount: "Exchange", toCurrency: "BTC", amountFrom: 0.5 }),
+    );
+    expect(body.cost_basis_usd).toBeNull();
+  });
+});
+
+describe("a BTC fee's USD value (F14)", () => {
+  const transfer = {
+    type: "Transfer" as TransactionType,
+    from_account_id: 4,
+    to_account_id: 2,
+    amount: 0.1,
+    fee_amount: 0.0002,
+    fee_currency: "BTC",
+  };
+
+  it("an edit that doesn't touch it leaves it out, so the stored value is kept", () => {
+    const body = roundTrip({ ...transfer, fee_usd: 11.11, fee_usd_manual: false });
+    expect("fee_usd" in body).toBe(false);
+  });
+
+  it("a typed value is sent and shown again when editing", () => {
+    const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }));
+    expect(form.feeUSD).toBe(7.77);
+    expect(buildTransactionPayload(form).fee_usd).toBe(7.77);
+  });
+
+  it("clearing a typed value sends null (back to the day's price)", () => {
+    const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }));
+    form.feeUSD = NaN;
+    expect(buildTransactionPayload(form).fee_usd).toBeNull();
+  });
+
+  it("USD fees never carry one", () => {
+    const body = roundTrip({ type: "Transfer", from_account_id: 1, to_account_id: 3, amount: 100,
+      fee_amount: 1, fee_currency: "USD" });
+    expect("fee_usd" in body).toBe(false);
+  });
+});

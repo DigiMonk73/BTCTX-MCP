@@ -1,6 +1,10 @@
-import httpx
-from datetime import datetime, date as date_cls, timezone, timedelta
+import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
+
+from backend.services import outbound
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------
 # API endpoints for primary and backup services
@@ -35,15 +39,37 @@ COINDESK_HISTORICAL_URL = (
 
 
 # ---------------------------------------------------------------------
+# 0) The owner's own mempool server (Settings -> Privacy & network)
+# ---------------------------------------------------------------------
+async def _from_own_node(path: str, parse):
+    """Ask the owner's mempool server; None if none is set or it fails."""
+    base = outbound.current().mempool_url
+    if not base:
+        return None
+    try:
+        async with outbound.async_client() as client:
+            resp = await client.get(base + path)
+            resp.raise_for_status()
+            return parse(resp)
+    except Exception as exc:
+        logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
+        return None
+
+
+# ---------------------------------------------------------------------
 # 1) Current Bitcoin Price (live)
 # ---------------------------------------------------------------------
 async def get_current_price():
     """
-    Fetch the current Bitcoin price in USD from multiple sources,
-    using CoinGecko as primary, then Kraken, then CoinDesk if needed.
-    Raises HTTP 502 if all fail.
+    Fetch the current Bitcoin price in USD: the owner's own mempool server
+    first if one is set, then (unless live data is off) CoinGecko, Kraken,
+    CoinDesk. Raises 503 when live data is off, 502 if all fail.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    node = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
+    if node is not None:
+        return node
+    outbound.require_live_data()
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko API for current price
         try:
             resp = await client.get(COINGECKO_PRICE_URL)
@@ -119,15 +145,22 @@ async def get_historical_price(date: str):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    # Disallow future dates
-    if target_date > date_cls.today():
+    # Live data off: no public service is asked (price_history then has
+    # only its stored days).
+    outbound.require_live_data()
+
+    # Disallow future dates. Callers pass UTC dates, so compare with today in
+    # UTC: the server's local date (the Mac app runs in the user's zone) is a
+    # day behind UTC every evening in the Americas, and today's price was
+    # refused then.
+    if target_date > datetime.now(timezone.utc).date():
         raise HTTPException(status_code=400, detail="Date cannot be in the future.")
 
     # Format dates for each API
     coingecko_date = target_date.strftime("%d-%m-%Y")  # DD-MM-YYYY for CoinGecko
     coindesk_date = target_date.strftime("%Y-%m-%d")   # YYYY-MM-DD for CoinDesk
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko API for single-day historical price
         try:
             resp = await client.get(COINGECKO_HISTORY_URL.format(date=coingecko_date))
@@ -167,10 +200,9 @@ async def get_historical_price(date: str):
                                 # Use the open price at 00:00 UTC of that day
                                 price = float(entry[1])
                                 return {"USD": price}
-                        # If exact timestamp not found, fallback to the first entry's open
-                        if ohlc_data:
-                            price = float(ohlc_data[0][1])
-                            return {"USD": price}
+                        # No candle for that day: Kraken only returns its
+                        # latest 720 days, whatever `since` asks for. Its
+                        # first candle is another day's price, so don't use it.
             except Exception:
                 pass
 
@@ -215,7 +247,8 @@ async def get_time_series(days: int = 7):
       ]
     The 'time' is a UNIX timestamp in milliseconds (UTC), and 'price' is in USD.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    outbound.require_live_data()
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko
         try:
             url = COINGECKO_TIMESERIES_URL.format(days=days)
@@ -286,11 +319,16 @@ MEMPOOL_HEIGHT_URL = "https://mempool.space/api/blocks/tip/height"
 
 async def get_block_height():
     """
-    Fetch the current Bitcoin block height from multiple sources,
-    using Blockchain.info as primary, then Blockstream, then Mempool.space.
-    Raises HTTP 502 if all fail.
+    Fetch the current Bitcoin block height: the owner's own mempool server
+    first if one is set, then (unless live data is off) Blockchain.info,
+    Blockstream, Mempool.space. Raises 503 when live data is off, 502 if all
+    fail.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    node = await _from_own_node("/api/blocks/tip/height", lambda r: {"height": int(r.text.strip())})
+    if node is not None:
+        return node
+    outbound.require_live_data()
+    async with outbound.async_client() as client:
         # 1. Try Blockchain.info
         try:
             resp = await client.get(BLOCKCHAIN_INFO_HEIGHT_URL)

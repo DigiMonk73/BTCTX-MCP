@@ -108,6 +108,40 @@ class TestResetAccount:
         right = dict(payload, current_password="real-password")
         assert anon().post("/api/users/reset-account", json=right).status_code == 200
 
+    def test_sessions_end_when_the_account_is_reset(self, fresh_app):
+        """F37: a session stayed valid after reset-account took over the login."""
+        old = anon()
+        assert old.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+        assert old.get("/api/transactions").status_code == 200
+        r = anon().post("/api/users/reset-account", json={"username": "me", "password": "n3w-passw0rd"})
+        assert r.status_code == 200
+        assert old.get("/api/transactions").status_code == 401
+
+    def test_password_change_ends_other_sessions_not_this_one(self, fresh_app):
+        mine, other = anon(), anon()
+        for c in (mine, other):
+            assert c.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+        r = mine.patch("/api/users/1", json={"password": "another-passw0rd"})
+        assert r.status_code == 200, r.text
+        assert mine.get("/api/transactions").status_code == 200
+        assert other.get("/api/transactions").status_code == 401
+
+    def test_empty_credentials_are_refused(self, fresh_app):
+        """F37: an empty password was accepted and silently kept the old one."""
+        r = anon().post("/api/users/reset-account", json={"username": "me", "password": ""})
+        assert r.status_code == 422
+        me = anon()
+        me.post("/api/login", json={"username": "admin", "password": "password"})
+        assert me.patch("/api/users/1", json={"password": "  "}).status_code == 422
+        assert me.patch("/api/users/1", json={"username": ""}).status_code == 422
+
+    def test_the_account_cant_be_deleted(self, fresh_app):
+        """F36: this failed with a 500 (the ledger's accounts need their owner)."""
+        me = anon()
+        me.post("/api/login", json={"username": "admin", "password": "password"})
+        r = me.delete("/api/users/1")
+        assert r.status_code == 409 and "Settings" in r.json()["detail"]
+
     def test_admin_username_rejected(self, fresh_app):
         r = anon().post("/api/users/reset-account", json={"username": "admin", "password": "n3w-passw0rd"})
         assert r.status_code == 400
@@ -137,3 +171,49 @@ class TestSessionSecret:
         monkeypatch.setenv("SECRET_KEY", "an-operator-supplied-secret-value-1234567890")
         assert load_secret_key(str(tmp_path)) == "an-operator-supplied-secret-value-1234567890"
         assert not (tmp_path / KEY_FILENAME).exists()
+
+
+def test_api_key_cannot_download_or_restore_backups(auth_client, monkeypatch):
+    """
+    Backup download and restore are login-only (the router says so): an API
+    key must not be able to take a copy of the database or replace it. Both
+    endpoints used to skip the check.
+    """
+    from fastapi.testclient import TestClient
+
+    import backend.main as main
+
+    monkeypatch.setattr(main, "API_KEY", "test-api-key")
+    key_only = TestClient(main.app)  # no session cookie
+    headers = {"X-API-Key": "test-api-key"}
+    assert key_only.get("/api/transactions", headers=headers).status_code == 200
+
+    r = key_only.post("/api/backup/download", data={"password": "pw"}, headers=headers)
+    assert r.status_code == 401
+    r = key_only.post(
+        "/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")}, headers=headers
+    )
+    assert r.status_code == 401
+
+
+def test_api_key_cannot_delete_everything_debug_or_change_the_tax_timezone(auth_client, monkeypatch):
+    """F31/F32: delete-all, the debug routes and the tax timezone accepted the
+    optional API key; they are login-only now."""
+    import backend.main as main
+
+    monkeypatch.setattr(main, "API_KEY", "test-api-key")
+    key_only = TestClient(main.app)
+    headers = {"X-API-Key": "test-api-key"}
+    assert key_only.get("/api/transactions", headers=headers).status_code == 200
+    assert key_only.delete("/api/transactions/delete_all", headers=headers).status_code == 403
+    assert key_only.get("/api/debug/lots", headers=headers).status_code == 401
+    r = key_only.put("/api/settings/tax-timezone", json={"timezone": "Asia/Tokyo"}, headers=headers)
+    assert r.status_code == 403
+    assert auth_client.get("/api/settings/tax-timezone").json()["timezone"] != "Asia/Tokyo"
+
+
+def test_api_docs_are_not_public():
+    """F38: /docs, /redoc and /openapi.json described every endpoint to anyone."""
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        r = anon().get(path)
+        assert r.status_code != 200 or "openapi" not in r.text.lower(), path

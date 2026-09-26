@@ -26,7 +26,7 @@ from backend.schemas.river_import import (
     RiverProposalOut,
 )
 from backend.schemas.csv_import import CSVParseError
-from backend.services.bitcoin import get_historical_price
+from backend.services import price_history
 from backend.services.csv_import import _validate_row, execute_import
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
@@ -45,7 +45,7 @@ router = APIRouter()
 
 
 async def _autofill_fmv_basis(
-    proposals: List[RiverProposal], warnings: List[CSVParseError]
+    proposals: List[RiverProposal], warnings: List[CSVParseError], db: Session
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
@@ -61,8 +61,7 @@ async def _autofill_fmv_basis(
         date_str = proposal.timestamp.strftime("%Y-%m-%d")
         if date_str not in price_cache:
             try:
-                price_data = await get_historical_price(date_str)
-                price_cache[date_str] = Decimal(str(price_data["USD"]))
+                price_cache[date_str] = await price_history.daily_price_async(db, proposal.timestamp)
             except Exception as exc:
                 price_cache[date_str] = None
                 logger.warning("FMV lookup failed for %s: %s", date_str, exc)
@@ -129,7 +128,8 @@ async def preview_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    await _autofill_fmv_basis(proposals, warnings)
+    await _autofill_fmv_basis(proposals, warnings, db)
+    db.commit()  # keep the prices it looked up (nothing else is written)
     annotate_duplicates(proposals, db)
 
     new_count = sum(1 for p in proposals if p.status == STATUS_NEW)

@@ -9,7 +9,7 @@ Refactored to use 'password' instead of 'password_hash' for creation,
 so hashing happens behind the scenes in create_user().
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional
 
 class UserBase(BaseModel):
@@ -32,6 +32,15 @@ class UserUpdate(BaseModel):
     """
     username: Optional[str] = None
     password: Optional[str] = None
+
+    @field_validator("username", "password")
+    @classmethod
+    def not_blank(cls, v: Optional[str]) -> Optional[str]:
+        """An empty value used to be accepted (an empty password silently
+        kept the old one); leave the field out to keep it."""
+        if v is not None and not v.strip():
+            raise ValueError("can't be empty")
+        return v
 
 class UserRead(UserBase):
     """

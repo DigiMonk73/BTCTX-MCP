@@ -9,6 +9,7 @@ it works on an empty volume too.
     python -m backend.cli migrate
     python -m backend.cli set-password [--username NAME] [--password-stdin]
     python -m backend.cli recalculate
+    python -m backend.cli review [--fix-fee-prices]
 
 set-password reads the new password from stdin with --password-stdin, else
 from the BTCTX_NEW_PASSWORD environment variable; never from the command line,
@@ -107,6 +108,31 @@ def cmd_recalculate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_review(args: argparse.Namespace) -> int:
+    """
+    The Ledger review (backend/services/review.py). Read-only, except with
+    --fix-fee-prices: then every transfer fee it flags is set to that day's
+    price and the ledger is recalculated.
+    """
+    _init_db()
+    from backend.database import SessionLocal
+    from backend.services.review import apply_fee_prices, build_review, fee_price_changes, format_text
+
+    db = SessionLocal()
+    try:
+        if args.fix_fee_prices:
+            changes = apply_fee_prices(db, [c["id"] for c in fee_price_changes(db)])
+            for c in changes:
+                print(f"  #{c['id']}  fee value ${c['old']} -> ${c['new']}")
+            print(f"Fixed {len(changes)} fee value(s)" + (" and recalculated." if changes else "."))
+        else:
+            print(format_text(build_review(db)), end="")
+            db.commit()  # downloaded prices only
+    finally:
+        db.close()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m backend.cli", description="BitcoinTX maintenance commands")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -125,6 +151,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "recalculate", help="rebuild every ledger line, lot and disposal from the transactions"
     ).set_defaults(func=cmd_recalculate)
+
+    rp = sub.add_parser("review", help="list transactions to check after upgrading (read-only)")
+    rp.add_argument(
+        "--fix-fee-prices", action="store_true",
+        help="set the transfer fees it flags to that day's price and recalculate (changes figures)",
+    )
+    rp.set_defaults(func=cmd_review)
     return parser
 
 

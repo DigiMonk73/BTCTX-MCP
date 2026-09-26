@@ -56,13 +56,16 @@ def backend_db(monkeypatch):
     async def fake_current():
         return {"USD": 60000.0}
 
-    monkeypatch.setattr("backend.services.entry_import.get_historical_price", fake_historical)
+    async def no_bulk_history(start, end):
+        return {}
+
+    monkeypatch.setattr("backend.services.price_history.fetch_range", no_bulk_history)
     monkeypatch.setattr("backend.services.bitcoin.get_historical_price", fake_historical)
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price", lambda timestamp, db: Decimal("50000")
     )
-    yield
+    yield engine
     app.dependency_overrides.clear()
     engine.dispose()
     os.unlink(tmp.name)
@@ -110,7 +113,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
-        "recalculate_ledger",
+        "recalculate_ledger", "review_ledger",
     }
 
 
@@ -218,6 +221,32 @@ async def test_recalculate_ledger(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     out = await call(mcp_client, "recalculate_ledger")
     assert out["transactions"] == 2
+
+
+async def test_review_ledger_lists_a_zero_basis_deposit(mcp_client, backend_db):
+    """Read-only: a MyBTC deposit saved with $0 basis before v0.9.2 is listed."""
+    from sqlalchemy import text
+
+    added = await call(mcp_client, "add_transactions", {"transactions": [BUY]})
+    assert added
+    with backend_db.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, source, cost_basis_usd, is_locked)"
+            " VALUES ('Deposit', '2024-02-01 12:00:00', 99, 2, '0.5', '0', 'BTC', 'MyBTC', '0', 0)"))
+    out = await call(mcp_client, "review_ledger")
+    assert out["read_only"] is True
+    check = next(c for c in out["checks"] if c["key"] == "deposit_without_basis")
+    assert check["count"] == 1 and check["items"][0]["source"] == "MyBTC"
+
+
+async def test_a_transfer_fee_value_is_stored_or_taken_as_given(mcp_client):
+    await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD, {
+        **TO_COLD, "date": "2024-01-17T09:00:00Z", "from_account": "Wallet", "to_account": "Exchange BTC",
+        "amount": "0.005", "fee_usd": "4.44"}]})
+    transfers = (await call(mcp_client, "list_transactions", {"type": "Transfer"}))["transactions"]
+    values = sorted(t["fee_usd"] for t in transfers)
+    assert values == ["4.44", "5.00"]  # typed; 0.0001 x $50,000
 
 
 async def test_list_filters_by_date_and_type(mcp_client):

@@ -9,6 +9,16 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       the old ones. (Upgrading a v0.7.0 database is covered by tests and CI;
       this checks your actual data.)
 
+## v0.9.3
+
+- [ ] **River sends with a network fee (F20)**: does River's "Sent Amount"
+      include the fee? Check what the destination received from the
+      2026-02-08 send (0.02353629 → fee on top, today's code is right;
+      0.02353311 → Sent includes the fee and the importer counts it twice).
+      See `HARDENING_FINDINGS.md` F20.
+- [ ] **StartOS own node**: offer the local mempool app as "Your own mempool
+      server" in Settings → Privacy & network.
+
 ## Next: hardening, then a visual polish
 
 Plan, phases and gates: [HARDENING_AND_REDESIGN_PLAN.md](HARDENING_AND_REDESIGN_PLAN.md).

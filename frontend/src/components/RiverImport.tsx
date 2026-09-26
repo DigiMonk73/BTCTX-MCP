@@ -203,7 +203,7 @@ const RiverImport: React.FC = () => {
   };
 
   return (
-    <div className="settings-section river-import">
+    <div className="settings-section river-import" role="region" aria-label="Import from River">
       <h3>Import from River</h3>
 
       <div className="settings-option">
@@ -219,6 +219,7 @@ const RiverImport: React.FC = () => {
           <input
             type="file"
             id="river-csv-input"
+            aria-label="River CSV file"
             accept=".csv"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="csv-file-input"
@@ -344,6 +345,7 @@ const RiverImport: React.FC = () => {
                               disabled={loading}
                               onChange={(e) => handleTypeChange(row, e.target.value)}
                               className="river-select"
+                              aria-label="Transaction type"
                             >
                               {p.type_choices.map((t) => (
                                 <option key={t} value={t}>{t}</option>

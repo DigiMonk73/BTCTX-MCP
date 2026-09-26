@@ -12,14 +12,35 @@ import socket
 import threading
 import time
 import logging
+import logging.handlers
 import base64
 from pathlib import Path
 
-# Setup logging before any other imports
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running
+
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+
+def setup_logging() -> None:
+    """
+    Log to stderr and, on macOS, to ~/Library/Logs/BitcoinTX/BitcoinTX.log
+    (rotating): a Finder-launched app has no terminal, so without the file
+    nothing it logs (such as why it couldn't use its port) is kept.
+    """
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if sys.platform == "darwin":
+        log_dir = Path.home() / "Library" / "Logs" / "BitcoinTX"
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            handlers.append(logging.handlers.RotatingFileHandler(
+                log_dir / "BitcoinTX.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+            ))
+        except OSError as exc:
+            print(f"BitcoinTX: no log file ({exc})", file=sys.stderr)
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, handlers=handlers)
+
+
+setup_logging()
 logger = logging.getLogger("BitcoinTX")
 
 
@@ -44,36 +65,6 @@ def get_resource_path(relative_path: str) -> Path:
         # Running in development
         base_path = Path(__file__).parent.parent
     return base_path / relative_path
-
-
-# Fixed local port so external clients (the BitcoinTX MCP server) can find
-# the app at http://127.0.0.1:8765. Override with BTCTX_DESKTOP_PORT.
-DEFAULT_PORT = 8765
-
-
-def _port_is_free(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind(('127.0.0.1', port))
-        except OSError:
-            return False
-    return True
-
-
-def find_free_port() -> int:
-    """
-    Use the fixed port when available; otherwise fall back to a random free
-    port (the app still works, but MCP clients won't find it at the usual URL).
-    """
-    preferred = int(os.environ.get("BTCTX_DESKTOP_PORT", DEFAULT_PORT))
-    if _port_is_free(preferred):
-        return preferred
-    logger.warning(f"Port {preferred} is in use; using a random port (MCP clients won't connect)")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        s.listen(1)
-        port = s.getsockname()[1]
-    return port
 
 
 def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
@@ -184,17 +175,12 @@ class DesktopAPI:
 
 
 
-def run_backend(port: int):
-    """Run the FastAPI backend with Uvicorn."""
+def run_backend(sock: socket.socket):
+    """Run the FastAPI backend with Uvicorn on an already-bound socket."""
     import uvicorn
 
-    uvicorn.run(
-        "backend.main:app",
-        host="127.0.0.1",
-        port=port,
-        log_level="warning",
-        access_log=False,
-    )
+    config = uvicorn.Config("backend.main:app", log_level="warning", access_log=False)
+    uvicorn.Server(config).run(sockets=[sock])
 
 
 def main():
@@ -217,14 +203,33 @@ def main():
     else:
         logger.info("Running in development mode")
 
-    # Fixed port (so MCP clients know where to connect), random if taken
-    port = find_free_port()
+    # Fixed port, so MCP clients know where to connect. Another port only if
+    # the user chooses it in the dialog, never silently.
+    preferred = preferred_port()
+    if running_instance(preferred):
+        logger.info(f"BitcoinTX already answers on port {preferred}; not starting a second copy")
+        tell_already_running(preferred)
+        return
+    sock, fallback = choose_socket(preferred)
+    if sock is None:
+        logger.info("Quit: port unavailable")
+        return
+    port = sock.getsockname()[1]
+    os.environ["BTCTX_DESKTOP"] = "1"
+    os.environ["BTCTX_DESKTOP_PREFERRED_PORT"] = str(preferred)
+    os.environ["BTCTX_DESKTOP_ACTUAL_PORT"] = str(port)
+    os.environ["BTCTX_DESKTOP_URL"] = f"http://127.0.0.1:{port}"
+    # The AI assistant key file (backend/services/mcp_key.py): the MCP server
+    # reads the URL and key from here, so its config holds no password or port.
+    os.environ["BTCTX_MCP_FILE"] = str(app_support / "mcp.json")
+    if fallback:
+        logger.warning(f"Using port {port} for this session instead of {preferred} (user's choice)")
     logger.info(f"Starting backend on port {port}")
 
     # Start backend in a daemon thread
     backend_thread = threading.Thread(
         target=run_backend,
-        args=(port,),
+        args=(sock,),
         daemon=True,
         name="BackendThread"
     )

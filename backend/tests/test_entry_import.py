@@ -28,7 +28,7 @@ def _no_network(monkeypatch):
         return {"USD": PRICE}
 
     monkeypatch.setattr(
-        "backend.services.entry_import.get_historical_price", fake_historical
+        "backend.services.bitcoin.get_historical_price", fake_historical
     )
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price",
@@ -156,14 +156,17 @@ class TestAutofill:
         assert res["autofilled_fields"] == ["proceeds_usd"]
         assert Decimal(res["normalized"]["proceeds_usd"]) == Decimal("1000.00")
 
-    def test_mybtc_deposit_is_not_autofilled(self):
+    def test_mybtc_deposit_needs_a_basis_and_is_not_autofilled(self):
+        """F15: the AI can't save a MyBTC deposit without a basis (it used to be $0)."""
         dep = {
             "date": "2024-03-01", "type": "Deposit", "amount": "0.001",
             "from_account": "External", "to_account": "Wallet", "source": "MyBTC",
         }
         res = preview([dep])["results"][0]
-        assert res["autofilled_fields"] == []
-        assert any("cost_basis_usd" in w for w in res["warnings"])
+        assert res["status"] == "invalid" and res["autofilled_fields"] == []
+        assert any("cost basis (0 if it's unknown)" in e for e in res["errors"])
+        res = preview([{**dep, "cost_basis_usd": "0"}])["results"][0]
+        assert res["status"] == "ready" and res["normalized"]["cost_basis_usd"] == "0"
 
 
 class TestDedup:

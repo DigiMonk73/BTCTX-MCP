@@ -17,10 +17,12 @@ from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
-from backend.services.transaction import create_transaction_record
+from backend.services.transaction import DEPOSIT_BASIS_REQUIRED, create_transaction_record
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
+from backend.services.tax_time import local_noon_utc
 from backend.constants import (
     ACCOUNT_NAME_TO_ID,
+    ACCOUNT_WALLET,
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
@@ -57,12 +59,14 @@ class ParseResult:
         return len(self.errors) == 0 and len(self.transactions) > 0
 
 
-def parse_csv_file(content: bytes) -> ParseResult:
+def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
     """
     Parse CSV content and return structured data with errors/warnings.
 
     Args:
         content: Raw bytes of the CSV file
+        tz: the tax timezone; dates without a timezone are local to it, and a
+            date alone means noon there (as the MCP entry import does)
 
     Returns:
         ParseResult containing transactions, previews, errors, and warnings
@@ -131,7 +135,7 @@ def parse_csv_file(content: bytes) -> ParseResult:
         normalized_row = {k.lower().strip(): v.strip() if v else "" for k, v in row.items() if k}
 
         # Validate and parse the row
-        tx_data, preview, row_errors, row_warnings = _validate_row(normalized_row, row_number)
+        tx_data, preview, row_errors, row_warnings = _validate_row(normalized_row, row_number, tz)
 
         result.errors.extend(row_errors)
         result.warnings.extend(row_warnings)
@@ -163,7 +167,8 @@ def parse_csv_file(content: bytes) -> ParseResult:
 
 def _validate_row(
     row: Dict[str, str],
-    row_number: int
+    row_number: int,
+    tz=timezone.utc,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[CSVRowPreview], List[CSVParseError], List[CSVParseError]]:
     """
     Validate a single CSV row.
@@ -186,7 +191,7 @@ def _validate_row(
         ))
         return None, None, errors, warnings
 
-    timestamp = _parse_date(date_str)
+    timestamp = _parse_date(date_str, tz)
     if timestamp is None:
         errors.append(CSVParseError(
             row_number=row_number,
@@ -308,9 +313,11 @@ def _validate_row(
         return None, None, errors, warnings
 
     # Parse optional fields
-    cost_basis_usd = _parse_decimal(row.get("cost_basis_usd", ""), 2)
-    proceeds_usd = _parse_decimal(row.get("proceeds_usd", ""), 2)
-    fee_amount = _parse_decimal(row.get("fee_amount", ""), 8)
+    cost_basis_usd = _optional_decimal(row, "cost_basis_usd", 2, row_number, errors)
+    proceeds_usd = _optional_decimal(row, "proceeds_usd", 2, row_number, errors)
+    fee_amount = _optional_decimal(row, "fee_amount", 8, row_number, errors)
+    if errors:
+        return None, None, errors, warnings
     fee_currency = row.get("fee_currency", "").strip().upper() or None
     source = row.get("source", "").strip() or None
     purpose = row.get("purpose", "").strip() or None
@@ -328,7 +335,8 @@ def _validate_row(
 
     # Type-specific validation
     type_specific_errors, type_specific_warnings = _validate_type_specific(
-        tx_type, cost_basis_usd, proceeds_usd, fee_currency, source, purpose, row_number
+        tx_type, cost_basis_usd, proceeds_usd, fee_currency, source, purpose, row_number, from_account_id,
+        to_account_id,
     )
     errors.extend(type_specific_errors)
     warnings.extend(type_specific_warnings)
@@ -356,7 +364,7 @@ def _validate_row(
             tx_data["gross_proceeds_usd"] = proceeds_usd
     if fee_amount is not None and fee_amount > 0:
         tx_data["fee_amount"] = fee_amount
-        tx_data["fee_currency"] = fee_currency or _default_fee_currency(tx_type)
+        tx_data["fee_currency"] = fee_currency or _default_fee_currency(tx_type, from_account_id)
     if source:
         tx_data["source"] = source
     if purpose:
@@ -382,33 +390,38 @@ def _validate_row(
     return tx_data, preview, errors, warnings
 
 
-def _parse_date(date_str: str) -> Optional[datetime]:
-    """
-    Parse a date string into a UTC datetime.
-    Supports ISO8601 and common date formats.
-    """
-    formats = [
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S UTC",
-        "%Y-%m-%d",
-        "%m/%d/%Y %H:%M:%S",
-        "%m/%d/%Y",
-    ]
+_DATE_FORMATS = [
+    # (format, has a timezone, date only)
+    ("%Y-%m-%dT%H:%M:%SZ", True, False),
+    ("%Y-%m-%dT%H:%M:%S%z", True, False),
+    ("%Y-%m-%d %H:%M:%S UTC", True, False),
+    ("%Y-%m-%dT%H:%M:%S", False, False),
+    ("%Y-%m-%d %H:%M:%S", False, False),
+    ("%Y-%m-%d", False, True),
+    ("%m/%d/%Y %H:%M:%S", False, False),
+    ("%m/%d/%Y", False, True),
+]
 
-    for fmt in formats:
+
+def _parse_date(date_str: str, tz=timezone.utc) -> Optional[datetime]:
+    """
+    Parse a date string into a UTC datetime. A time without a timezone is
+    local to `tz` (the tax timezone), and a date alone means noon there.
+    They used to be read as UTC, so "2024-01-01" became Dec 31 2023 in a US
+    tax timezone (another tax year). "Z", an offset or " UTC" is honored.
+    """
+    for fmt, has_tz, date_only in _DATE_FORMATS:
         try:
             dt = datetime.strptime(date_str, fmt)
-            # Ensure UTC timezone
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt = dt.astimezone(timezone.utc)
-            return dt
         except ValueError:
             continue
+        if fmt.endswith("Z") or fmt.endswith(" UTC"):
+            dt = dt.replace(tzinfo=timezone.utc)
+        if date_only:
+            return local_noon_utc(dt.date(), tz)
+        if not has_tz:
+            dt = dt.replace(tzinfo=tz)
+        return dt.astimezone(timezone.utc)
 
     return None
 
@@ -416,7 +429,8 @@ def _parse_date(date_str: str) -> Optional[datetime]:
 def _parse_decimal(value: str, max_decimals: int) -> Optional[Decimal]:
     """
     Parse a string to Decimal with validation.
-    Returns None if parsing fails or value is empty.
+    Returns None if parsing fails or value is empty. Decimal places are
+    counted on the number, so "1E-9" doesn't pass as 0 decimals.
     """
     if not value:
         return None
@@ -426,14 +440,41 @@ def _parse_decimal(value: str, max_decimals: int) -> Optional[Decimal]:
 
     try:
         d = Decimal(value)
-        # Check decimal places
-        if "." in value:
-            decimal_places = len(value.split(".")[1])
-            if decimal_places > max_decimals:
-                return None
-        return d
     except InvalidOperation:
         return None
+    if not d.is_finite():
+        return None
+    exponent = d.normalize().as_tuple().exponent
+    if exponent < 0 and -exponent > max_decimals:
+        return None
+    return d
+
+
+def _optional_decimal(
+    row: Dict[str, str], column: str, max_decimals: int, row_number: int, errors: List[CSVParseError]
+) -> Optional[Decimal]:
+    """
+    An optional number: None when blank. A value that isn't a valid number
+    is an error (it used to be dropped silently, e.g. a basis of "1.123"
+    became "no basis").
+    """
+    raw = (row.get(column) or "").strip()
+    if not raw:
+        return None
+    value = _parse_decimal(raw, max_decimals)
+    if value is None:
+        errors.append(CSVParseError(
+            row_number=row_number,
+            column=column,
+            message=f"Invalid {column} '{raw}': a number with at most {max_decimals} decimal places.",
+            severity="error",
+        ))
+    elif value < 0:
+        errors.append(CSVParseError(
+            row_number=row_number, column=column, message=f"{column} can't be negative.", severity="error",
+        ))
+        return None
+    return value
 
 
 def _validate_accounts_for_type(
@@ -545,7 +586,9 @@ def _validate_type_specific(
     fee_currency: Optional[str],
     source: Optional[str],
     purpose: Optional[str],
-    row_number: int
+    row_number: int,
+    from_account_id: Optional[int] = None,
+    to_account_id: Optional[int] = None,
 ) -> Tuple[List[CSVParseError], List[CSVParseError]]:
     """Validate type-specific field requirements."""
     errors = []
@@ -594,15 +637,24 @@ def _validate_type_specific(
                 ),
                 severity="warning"
             ))
-        elif cost_basis_usd is None:
-            warnings.append(CSVParseError(
+        elif cost_basis_usd is None and to_account_id in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC):
+            # F15: blank used to mean $0 basis; the ledger now refuses it.
+            errors.append(CSVParseError(
                 row_number=row_number,
                 column="cost_basis_usd",
-                message="No cost_basis_usd provided for Deposit. Will default to $0 (gift/unknown basis).",
-                severity="warning"
+                message=DEPOSIT_BASIS_REQUIRED,
+                severity="error"
             ))
 
     elif tx_type == "Withdrawal":
+        from_btc = from_account_id in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
+        if from_btc and (purpose or "").lower() not in ("spent", "gift", "donation", "lost"):
+            errors.append(CSVParseError(
+                row_number=row_number,
+                column="purpose",
+                message="A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.",
+                severity="error"
+            ))
         if purpose and purpose.lower() in ("spent",) and proceeds_usd is None:
             warnings.append(CSVParseError(
                 row_number=row_number,
@@ -612,20 +664,26 @@ def _validate_type_specific(
             ))
 
     elif tx_type == "Transfer":
-        if fee_currency and fee_currency != "BTC":
+        # The fee is paid from the account sending: BTC between BTC accounts,
+        # USD between Bank and Exchange USD (it used to insist on BTC).
+        expected = "BTC" if from_account_id in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC) else "USD"
+        if fee_currency and fee_currency != expected:
             errors.append(CSVParseError(
                 row_number=row_number,
                 column="fee_currency",
-                message="Transfer fee must be in BTC.",
+                message=f"A transfer from this account pays its fee in {expected}.",
                 severity="error"
             ))
 
     return errors, warnings
 
 
-def _default_fee_currency(tx_type: str) -> str:
-    """Return the default fee currency for a transaction type."""
+def _default_fee_currency(tx_type: str, from_account_id: Optional[int] = None) -> str:
+    """The fee currency when the row leaves it blank: USD for Buy/Sell and
+    for moves out of a USD account, else BTC."""
     if tx_type in ("Buy", "Sell"):
+        return "USD"
+    if from_account_id in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD):
         return "USD"
     return "BTC"
 
@@ -826,7 +884,7 @@ def generate_template_csv() -> str:
     writer.writerow([
         "2024-03-25T10:00:00Z", "Withdrawal", "0.03", "Wallet", "External",
         "", "", "", "",
-        "", "Lost", "Lost access to BTC (capital loss)"
+        "", "Lost", "Lost access to BTC (no gain or loss; not on Form 8949)"
     ])
 
     return output.getvalue()

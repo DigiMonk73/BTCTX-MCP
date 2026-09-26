@@ -124,6 +124,7 @@ hidden_imports = [
     "backend.routers.river_import",
     "backend.routers.entry_import",
     "backend.routers.settings",
+    "backend.routers.review",
     "backend.schemas",
     "backend.schemas.user",
     "backend.schemas.account",
@@ -142,10 +143,20 @@ hidden_imports = [
     "backend.services.river_import",
     "backend.services.entry_import",
     "backend.services.tax_time",
+    "backend.services.desktop",
+    "backend.services.mcp_key",
+    "backend.services.review",
+    "backend.services.price_history",
+    "backend.services.outbound",
+    "socksio",
+    "httpcore._async.socks_proxy",
     "backend.secret_key",
+    "backend.session_auth",
+    "backend.security_headers",
     "backend.version",
     "backend.cli",
     "backend.models.app_setting",
+    "backend.models.btc_price",
     "tzdata",
     "backend.services.reports",
     "backend.services.reports.form_8949",
@@ -154,13 +165,16 @@ hidden_imports = [
     "backend.services.reports.reporting_core",
     "backend.services.reports.pdf_form_filler",
 
+    # Desktop entrypoint helpers (desktop/)
+    "desktop_ports",
+
     # WebView
     "webview",
 ]
 
 a = Analysis(
     [str(SPEC_DIR / "entrypoint.py")],
-    pathex=[str(PROJECT_ROOT)],
+    pathex=[str(PROJECT_ROOT), str(SPEC_DIR)],
     binaries=[],
     datas=backend_datas + frontend_datas + version_datas,
     hiddenimports=hidden_imports,
@@ -221,8 +235,8 @@ app = BUNDLE(
         "CFBundleName": "BitcoinTX",
         "CFBundleDisplayName": "BitcoinTX",
         "CFBundleIdentifier": "org.bitcointx.desktop",
-        "CFBundleVersion": "0.9.1",
-        "CFBundleShortVersionString": "0.9.1",
+        "CFBundleVersion": "0.9.2",
+        "CFBundleShortVersionString": "0.9.2",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "10.15",
         "NSRequiresAquaSystemAppearance": False,  # Support dark mode

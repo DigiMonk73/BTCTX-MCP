@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 class EntryRow(BaseModel):
     """One proposed transaction. Same fields as a CSV template row."""
-    date: str = Field(..., description="ISO8601 date or datetime; UTC when no offset is given.")
+    date: str = Field(..., description="ISO8601 date or datetime; without an offset it is in the tax timezone, and a date alone means noon there.")
     type: str
     amount: Decimal
     from_account: str
@@ -32,6 +32,7 @@ class EntryRow(BaseModel):
     source: Optional[str] = None
     purpose: Optional[str] = None
     fmv_usd: Optional[Decimal] = None
+    fee_usd: Optional[Decimal] = None  # a BTC fee's USD value; omitted = fee x that day's price
 
 
 class EntryRequest(BaseModel):

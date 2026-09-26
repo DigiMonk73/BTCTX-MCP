@@ -202,26 +202,12 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
     # =====================================================
     # 2) Capital Gains Summary
     # =====================================================
-    short_term = {"proceeds": 0.0, "basis": 0.0, "gain": 0.0}
-    long_term = {"proceeds": 0.0, "basis": 0.0, "gain": 0.0}
-    num_disposals = 0
-
-    cg_transactions = report_dict.get("capital_gains_transactions", [])
-    for tx in cg_transactions:
-        if tx.get("asset") == "BTC":
-            num_disposals += 1
-            holding = (tx.get("holding_period") or "").lower()
-            proceeds = tx.get("proceeds", 0.0)
-            cost = tx.get("cost", 0.0)
-            gain = tx.get("gain_loss", 0.0)
-            if holding.startswith("short"):
-                short_term["proceeds"] += proceeds
-                short_term["basis"] += cost
-                short_term["gain"] += gain
-            else:
-                long_term["proceeds"] += proceeds
-                long_term["basis"] += cost
-                long_term["gain"] += gain
+    # From the Form 8949 disposals (reporting_core._build_capital_gains_summary)
+    summary = report_dict.get("capital_gains_summary") or {}
+    empty = {"proceeds": 0.0, "basis": 0.0, "gain": 0.0, "profits": 0.0, "losses": 0.0}
+    short_term = {**empty, **summary.get("short_term", {})}
+    long_term = {**empty, **summary.get("long_term", {})}
+    num_disposals = summary.get("number_of_disposals", 0)
 
     story.append(Paragraph(f"{tax_year} Capital Gains Summary", heading_style))
     story.append(Spacer(1, 0.1 * inch))
@@ -236,11 +222,11 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
          fmt_usd(short_term["basis"]),
          fmt_usd(long_term["basis"])],
         ["Profits, Before Losses",
-         fmt_usd(max(short_term["gain"], 0)),
-         fmt_usd(max(long_term["gain"], 0))],
+         fmt_usd(short_term["profits"]),
+         fmt_usd(long_term["profits"])],
         ["Losses",
-         fmt_usd(-min(short_term["gain"], 0)),
-         fmt_usd(-min(long_term["gain"], 0))],
+         fmt_usd(short_term["losses"]),
+         fmt_usd(long_term["losses"])],
         ["Net Gains",
          fmt_usd(short_term["gain"]),
          fmt_usd(long_term["gain"])],
@@ -458,8 +444,8 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
                 proceeds_str = fmt_usd(proceeds_val)
 
                 # The new FMV field from the table (Transaction.fmv_usd)
-                fmv_val = item.get("fmv_usd", 0.0)
-                fmv_str = fmt_usd(fmv_val)
+                fmv_val = item.get("fmv_usd")
+                fmv_str = fmt_usd(fmv_val) if fmv_val is not None else "not given"
 
                 row_type = item.get("type", "")  # e.g., "Gift", "Donation", "Lost"
 

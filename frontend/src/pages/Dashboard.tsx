@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useEffect, useState } from "react";
 import api from "../api"; // Centralized API client
 import "../styles/dashboard.css";
@@ -29,6 +30,8 @@ const Dashboard: React.FC = () => {
   const [currentBtcPrice, setCurrentBtcPrice] = useState<number | null>(null);
   const [isPriceLoading, setIsPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState<number | null>(null);
+  // Settings → Privacy & network: live data turned off (the server answers 503)
+  const [liveDataOff, setLiveDataOff] = useState(false);
 
   // ------------------ 2) FETCH LIVE BTC PRICE ------------------
   useEffect(() => {
@@ -40,8 +43,9 @@ const Dashboard: React.FC = () => {
           setCurrentBtcPrice(res.data.USD);
         }
       })
-      .catch(() => {
-        // Price fetch failed silently - will show as null
+      .catch((err) => {
+        // Price fetch failed - shown as "Error", or "Live data off" by choice
+        if (axios.isAxiosError(err) && err.response?.status === 503) setLiveDataOff(true);
       })
       .finally(() => {
         setIsPriceLoading(false);
@@ -258,6 +262,8 @@ const Dashboard: React.FC = () => {
                   maximumFractionDigits: 2,
                 })}
               </span>
+            ) : liveDataOff ? (
+              <span className="btc-price-value" title="Settings → Privacy & network">Live data off</span>
             ) : (
               <span className="btc-price-value">Error</span>
             )}

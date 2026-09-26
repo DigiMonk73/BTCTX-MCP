@@ -194,7 +194,8 @@ def get_gains_and_losses(db: Session) -> dict:
                 elif currency == "btc":
                     fees_btc += fee_amt
             except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse fee_amount {tx.fee_amount} for tx {tx.id}: {e}")
+                # No amounts in logs.
+                logger.warning(f"Failed to parse the fee of transaction {tx.id}: {type(e).__name__}")
 
     # --------------------- 4) Final Summaries & YTD Gains Logic ---------------------
     income_earned, income_btc = deposit_usd["income"], deposit_btc["income"]

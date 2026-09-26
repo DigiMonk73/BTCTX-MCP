@@ -37,7 +37,7 @@ from backend.schemas.entry_import import (
     EntryRow,
     SimulatedResult,
 )
-from backend.services.bitcoin import get_historical_price
+from backend.services import price_history
 from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
@@ -115,7 +115,7 @@ def normalized_view(tx_data: Dict[str, Any]) -> Dict[str, Optional[str]]:
         "from_account": ACCOUNT_ID_TO_NAME[tx_data["from_account_id"]],
         "to_account": ACCOUNT_ID_TO_NAME[tx_data["to_account_id"]],
     }
-    for key in ("cost_basis_usd", "proceeds_usd", "fee_amount", "fmv_usd"):
+    for key in ("cost_basis_usd", "proceeds_usd", "fee_amount", "fmv_usd", "fee_usd"):
         if tx_data.get(key) is not None:
             view[key] = _dec_str(tx_data[key])
     for key in ("fee_currency", "source", "purpose"):
@@ -144,6 +144,13 @@ def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
         }
         tx_data, _preview, errors, warnings = _validate_row(str_row, i)
         error_msgs = [e.message for e in errors]
+
+        if tx_data is not None and row.fee_usd is not None:
+            fee_usd = _parse_decimal(_dec_str(row.fee_usd), 2)
+            if fee_usd is None or fee_usd < 0:
+                error_msgs.append("fee_usd must be a USD amount with at most 2 decimals.")
+            else:
+                tx_data["fee_usd"] = fee_usd
 
         if tx_data is not None and row.fmv_usd is not None:
             fmv = _parse_decimal(_dec_str(row.fmv_usd), 2)
@@ -185,7 +192,7 @@ def _autofill_target(tx_data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-async def autofill_fmv(prepared: List[PreparedRow]) -> None:
+async def autofill_fmv(prepared: List[PreparedRow], db: Session) -> None:
     """
     Fill FMV-derived USD values the tax math needs but the caller omitted:
       - Income/Interest/Reward deposits: cost basis = FMV at receipt
@@ -204,8 +211,7 @@ async def autofill_fmv(prepared: List[PreparedRow]) -> None:
         date_str = p.tx_data["timestamp"].strftime("%Y-%m-%d")
         if date_str not in price_cache:
             try:
-                price_data = await get_historical_price(date_str)
-                price_cache[date_str] = Decimal(str(price_data["USD"]))
+                price_cache[date_str] = await price_history.daily_price_async(db, p.tx_data["timestamp"])
             except Exception as exc:
                 logger.warning("FMV lookup failed for %s: %s", date_str, exc)
                 price_cache[date_str] = None

@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.services.tax_time import get_tax_timezone
-from backend.routers.csv_import import MAX_ROWS, _require_auth
+from backend.routers.csv_import import MAX_ROWS
+from backend.services.mcp_key import require_login_or_key
 from backend.schemas.entry_import import (
     CreatedTransaction,
     EntryExecuteResponse,
@@ -60,11 +61,12 @@ async def preview_entries(
     existing transactions, and simulate the write (then roll it back).
     Nothing is saved.
     """
-    _require_auth(request)
+    require_login_or_key(request, db)
     _check_size(payload)
 
     prepared = validate_rows(payload.rows, get_tax_timezone(db))
-    await autofill_fmv(prepared)
+    await autofill_fmv(prepared, db)
+    db.commit()  # keep the prices it looked up (nothing else is written yet)
     mark_duplicates(prepared, db)
     affected, balances = simulate(prepared, db)
 
@@ -101,7 +103,7 @@ async def execute_entries(
     expected to have removed any the user rejected after preview.
     Any invalid row or ledger rejection aborts the whole batch.
     """
-    _require_auth(request)
+    require_login_or_key(request, db)
     _check_size(payload)
 
     prepared = validate_rows(payload.rows, get_tax_timezone(db))
@@ -113,7 +115,8 @@ async def execute_entries(
             detail += f" ...and {len(msgs) - 5} more"
         raise HTTPException(status_code=400, detail=detail + ". No transactions were saved.")
 
-    await autofill_fmv(prepared)
+    await autofill_fmv(prepared, db)
+    db.commit()  # keep the prices it looked up (nothing else is written yet)
     mark_duplicates(prepared, db, exact_only=True)
     skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
 

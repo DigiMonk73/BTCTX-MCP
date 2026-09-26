@@ -1,0 +1,2 @@
+[console_scripts]
+btctx-mcp = btctx_mcp.server:main

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import api from "../api";
 import ConnectAiSetting from "../components/ConnectAiSetting";
+import LedgerReview from "../components/LedgerReview";
+import NetworkSettings from "../components/NetworkSettings";
 import RiverImport from "../components/RiverImport";
 import TaxTimezoneSetting from "../components/TaxTimezoneSetting";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
@@ -425,7 +427,7 @@ const Settings: React.FC = () => {
       <h2 className="settings-title">Settings</h2>
 
       {/* ✅ Account Section */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Account">
         <h3>Account</h3>
 
         {/* Logout */}
@@ -453,6 +455,7 @@ const Settings: React.FC = () => {
               <input
                 type="text"
                 placeholder="New Username"
+                aria-label="New username"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
                 className="credential-input"
@@ -460,6 +463,7 @@ const Settings: React.FC = () => {
               <input
                 type="password"
                 placeholder="New Password"
+                aria-label="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="credential-input"
@@ -490,11 +494,15 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      <LedgerReview />
+
+      <NetworkSettings />
+
       {/* ✅ Connect an AI Assistant (MCP) */}
       <ConnectAiSetting />
 
       {/* ✅ Data Management */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Data Management">
         <h3>Data Management</h3>
 
         <div className="settings-option">
@@ -534,6 +542,7 @@ const Settings: React.FC = () => {
               <input
                 type="file"
                 id="csv-file-input"
+                aria-label="CSV file to import"
                 accept=".csv"
                 onChange={handleFileSelect}
                 className="csv-file-input"
@@ -668,7 +677,7 @@ const Settings: React.FC = () => {
       <RiverImport />
 
       {/* ✅ Backup & Restore */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Backup & Restore">
         <h3>Backup & Restore</h3>
 
         <div className="settings-option">
@@ -702,8 +711,8 @@ const Settings: React.FC = () => {
               Upload a previously saved backup file and enter your password.
             </p>
             <div className="restore-input-row">
-              <input type="file" name="file" accept=".btx" required />
-              <input type="password" name="password" placeholder="Password" required className="credential-input" />
+              <input type="file" name="file" accept=".btx" required aria-label="Backup file" />
+              <input type="password" name="password" placeholder="Password" required className="credential-input" aria-label="Backup password" />
               <button type="submit" disabled={loading} className="settings-button">
                 {loading ? "Processing..." : "Restore"}
               </button>

@@ -1,9 +1,20 @@
-from fastapi import APIRouter, Query
-from backend.services import bitcoin
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.services import bitcoin, outbound, price_history
 
 router = APIRouter(
     tags=["Bitcoin"]
 )
+
+
+def _live_or_own_node() -> None:
+    """503 when live data is off and there's no own mempool server to ask."""
+    if not outbound.current().mempool_url:
+        outbound.require_live_data()
 
 @router.get("/price", summary="Get current Bitcoin price in USD")
 async def get_current_bitcoin_price():
@@ -12,19 +23,27 @@ async def get_current_bitcoin_price():
     Leverages fallback logic in services/bitcoin.py.
     Raises HTTP 502 if all providers fail.
     """
+    _live_or_own_node()
     return await bitcoin.get_current_price()
 
 
 @router.get("/price/history", summary="Get historical Bitcoin price (one date)")
-async def get_historical_bitcoin_price(date: str):
+def get_historical_bitcoin_price(date: str, db: Session = Depends(get_db)):
     """
-    Endpoint to retrieve Bitcoin price (USD) for a specific date.
-    Format: YYYY-MM-DD
-    
-    If you only need multi‐day time‐series,
-    you can remove or rename this single‐day route.
+    The BTC price (USD) for a UTC day (YYYY-MM-DD): its 00:00 UTC price from
+    the local price history, the same one the server uses for income, spends
+    and fees (services/price_history.py). 400 for a bad or future date, 422
+    when no price is available.
     """
-    return await bitcoin.get_historical_price(date)
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    if day > datetime.now(timezone.utc).date():
+        raise HTTPException(status_code=400, detail="Date cannot be in the future.")
+    price = price_history.daily_price(db, day)
+    db.commit()  # keep a newly downloaded price
+    return {"USD": float(price)}
 
 
 @router.get("/price/history/timeseries", summary="Get multi-day BTC price data")
@@ -38,6 +57,7 @@ async def get_btc_price_time_series(
     The services/bitcoin.py should have get_time_series(days)
     that fetches from CoinGecko (fallback to Kraken, etc.).
     """
+    outbound.require_live_data()
     return await bitcoin.get_time_series(days)
 
 
@@ -48,4 +68,5 @@ async def get_current_block_height():
     Uses Blockchain.info as primary, with Blockstream and Mempool.space as fallbacks.
     Raises HTTP 502 if all providers fail.
     """
+    _live_or_own_node()
     return await bitcoin.get_block_height()

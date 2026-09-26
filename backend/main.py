@@ -64,7 +64,36 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 # ---------------------------------------------------------
 # Database import (needed before lifespan)
 # ---------------------------------------------------------
-from backend.database import init_db, get_db
+from backend.database import init_db, get_db, SessionLocal
+from backend.session_auth import require_login, session_user_id, start_session
+from backend.security_headers import SecurityHeadersMiddleware
+from backend.services import mcp_key
+
+
+def _load_network_settings() -> None:
+    """Privacy & network settings (live data, own mempool server, proxy)."""
+    from backend.services import outbound
+
+    db = SessionLocal()
+    try:
+        outbound.load(db)
+    except Exception:
+        logger.exception("Could not read the network settings; using the defaults")
+    finally:
+        db.close()
+
+
+def _sync_mcp_key() -> None:
+    """Mac app: write mcp.json (the AI assistant key) for this run."""
+    if not mcp_key.enabled():
+        return
+    db = SessionLocal()
+    try:
+        mcp_key.sync(db)
+    except Exception:
+        logger.exception("Could not write the AI assistant key file")
+    finally:
+        db.close()
 
 # ---------------------------------------------------------
 # Lifespan context manager for startup/shutdown
@@ -77,6 +106,8 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     init_db()
+    _load_network_settings()
+    _sync_mcp_key()
     yield
     # Shutdown (nothing needed currently)
 
@@ -92,7 +123,12 @@ app = FastAPI(
     version="1.0",
     debug=os.getenv("DEBUG", "false").lower() == "true",
     redirect_slashes=True,
-    lifespan=lifespan
+    lifespan=lifespan,
+    # The interactive API docs describe every endpoint to anyone who asks;
+    # only with DEBUG.
+    docs_url="/docs" if os.getenv("DEBUG", "false").lower() == "true" else None,
+    redoc_url="/redoc" if os.getenv("DEBUG", "false").lower() == "true" else None,
+    openapi_url="/openapi.json" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
 
 # ---------------------------------------------------------
@@ -102,8 +138,15 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
     session_cookie="btc_session_id",
-    https_only=False  # Set to True in production if you serve over HTTPS
+    same_site="lax",
+    # Secure is added per request when it came over HTTPS (StartOS's proxy):
+    # backend/security_headers.py. A fixed https_only would break the plain
+    # HTTP installs (Mac app on 127.0.0.1, Docker on a LAN).
+    https_only=False,
 )
+# Outermost, so it also sees the session cookie: CSP, no-referrer, nosniff,
+# no framing, Secure cookie over HTTPS.
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------
 # CORS Middleware
@@ -133,7 +176,8 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
 
     API routes (/api/*) are excluded - they should return proper JSON errors.
     """
-    if exc.status_code == 404 and not request.url.path.startswith("/api/"):
+    path = request.url.path
+    if exc.status_code == 404 and not (path == "/api" or path.startswith("/api/")):
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path, media_type="text/html")
@@ -150,26 +194,39 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
 def get_current_user(
     request: Request,
     x_api_key: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
 ) -> str:
     """
-    Dual-mode auth dependency: session cookie OR API key.
-    - Browser/frontend: uses session cookie (user_id in session)
-    - Programmatic access (e.g., Telegram bot): uses X-API-Key header
+    Auth dependency: session cookie, API key, or (Mac app only) the AI
+    assistant key.
+    - Browser/frontend: session cookie (user_id in session)
+    - Programmatic access (e.g., Telegram bot): X-API-Key header
+    - The local MCP server: Authorization: Bearer <key from mcp.json>
+      (backend/services/mcp_key.py; this computer only)
     """
-    # Session auth (browser/frontend)
-    user_id = request.session.get("user_id")
+    # Session auth (browser/frontend); a session from before a password
+    # change is cleared (backend/session_auth.py)
+    user_id = session_user_id(request, db)
     if user_id:
         return user_id
     # API key auth (programmatic access)
     if API_KEY and x_api_key and hmac.compare_digest(x_api_key, API_KEY):
         return "api_key_user"
-    raise HTTPException(status_code=401, detail="Not authenticated")
+    if mcp_key.request_has_valid_key(request, db):
+        return "mcp_key"
+    detail = getattr(request.state, "mcp_key_refusal", None) or "Not authenticated"
+    raise HTTPException(status_code=401, detail=detail)
+
+def require_login_dependency(request: Request, db: Session = Depends(get_db)) -> int:
+    """A logged-in session only: no API key, no AI assistant key (debug routes)."""
+    return require_login(request, db)
+
 
 # ---------------------------------------------------------
 # Routers (Transaction, User, Account, Calculation, Bitcoin, Reports, Debug)
 # ---------------------------------------------------------
 # (Mandatory) Routers (Transaction, User, Account, Calculation, Bitcoin, Reports)
-from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings
+from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings, review
 
 # Mandatory routers
 app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
@@ -183,11 +240,12 @@ app.include_router(csv_import.router, prefix="/api/import", tags=["import"], dep
 app.include_router(river_import.router, prefix="/api/import/river", tags=["import"], dependencies=[Depends(get_current_user)])
 app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=[Depends(get_current_user)])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
+app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=[Depends(get_current_user)])
 
 # (Optional) Debug Router
 try:
     from backend.routers import debug
-    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(get_current_user)])
+    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
@@ -244,7 +302,7 @@ def login(
     if not user.verify_password(login_req.password):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
-    request.session["user_id"] = user.id
+    start_session(request, user)
     return {"detail": f"Logged in as {user.username}"}
 
 @app.post("/api/logout")

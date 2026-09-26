@@ -76,14 +76,18 @@ you expose the app on a network.
 In BitcoinTX, open **Settings → Connect an AI Assistant**, copy the setup
 prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
 or any app that runs MCP servers on your computer). The AI sets itself up
-following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md); you type your
-password into its configuration yourself. Or by hand:
+following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). With the Mac app
+no password or address goes anywhere: the app writes a private key file the
+MCP server reads by itself. Or by hand, for the Mac app:
 
 ```bash
-pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
-claude mcp add bitcointx -e BTCTX_URL=http://127.0.0.1:8765 \
-  -e BTCTX_USERNAME=you -e BTCTX_PASSWORD=your-password -- btctx-mcp
+claude mcp add --scope user bitcointx -- \
+  uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp
 ```
+
+A server install (StartOS, Docker) uses `BTCTX_URL`, `BTCTX_USERNAME` and
+`BTCTX_PASSWORD` instead; you type the password into the configuration
+yourself.
 
 [mcp_server/README.md](mcp_server/README.md) covers the Claude Desktop
 config, Docker and StartOS addresses, TLS options, and example prompts.

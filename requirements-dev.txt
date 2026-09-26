@@ -1,6 +1,7 @@
 # Test/CI tooling (not shipped in the app). Install with:
 #   pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 pytest==9.1.1
+hypothesis==6.168.1  # property tests (backend/tests/test_invariants_property.py)
 ruff==0.16.8
 pip-audit==2.10.1
 anyio>=4

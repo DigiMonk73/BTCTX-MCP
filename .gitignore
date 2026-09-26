@@ -99,3 +99,7 @@ docs/*.csv
 
 # --- StartOS packaging workspace (keep it above the repo; see startos/UPDATING.md) ---
 .startos/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/

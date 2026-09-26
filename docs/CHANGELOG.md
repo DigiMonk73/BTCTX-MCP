@@ -4,6 +4,185 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v0.9.2] - 2026-09-26 - Hardening: price history, withdrawal fees, Ledger review, privacy settings
+
+### Before you upgrade: what changes existing figures
+Upgrading changes no stored figure. Two fixes change figures **the next time
+the ledger is recalculated**, which is Recalculate Ledger (Settings) *or any
+add, edit or delete*:
+- **Lost** withdrawals: their loss becomes $0 (like a gift).
+- **Withdrawals with a BTC network fee**: the fee becomes its own small
+  disposal at its value; a spend's proceeds no longer have the fee taken out.
+Back up first, then open **Settings → Ledger review**: "Figures that
+Recalculate Ledger would change" lists each affected transaction, old -> new,
+without changing anything (`python -m backend.cli review` prints the same).
+Transfer fees that look priced at the live price are fixed only when you
+press **Fix these**. New entries only: a BTC deposit that isn't income needs
+a basis (0 allowed); blank Spent proceeds are valued at the day's price.
+
+### Added
+- **Ledger review** (Settings, `GET /api/review`, `python -m backend.cli
+  review`, and the AI assistant tool `review_ledger`): a read-only list of
+  saved transactions worth a second look after this upgrade: Spent
+  withdrawals saved with $0 proceeds, Lost withdrawals still carrying a loss,
+  and BTC deposits (not income) with a $0 or blank cost basis. Each row says
+  what looks odd and what would change. It changes nothing.
+- **Local BTC price history.** Every past-day valuation (income, spends,
+  gifts, network fees, the form's price Refresh, import autofill) reads one
+  stored daily price. A missing day is filled by one download of about
+  1,000 days around it (Bitstamp, then Coinbase, then Kraken), so requests no
+  longer name individual transaction dates, and stored days work offline.
+- **Fee value (USD)** on transfers and BTC withdrawals: a BTC network fee's
+  dollar value is stored when you save it (fee x that day's price), or you can
+  type it; a typed value is kept. Also `fee_usd` in the API and the AI tools.
+
+### Fixes
+- **The Mac app could come up on a random port after a quick relaunch**, and
+  then AI assistants couldn't reach it (they look on 127.0.0.1:8765). The
+  check that decided "port busy" failed while the previous run's connections
+  were still closing (TIME_WAIT), and one failed check meant a random port for
+  the whole session, silently. The app now binds 8765 itself the way the
+  server does, retries for up to 10 seconds, and never switches ports on its
+  own: if another program really holds the port, a dialog offers Retry, Use
+  Another Port (this session, with a banner saying AI assistants can't
+  connect) or Quit. Opening the app twice brings the running copy forward. The
+  app now keeps a log at `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
+
+- **A "Spent" withdrawal entered with blank proceeds was saved at $0**, a
+  loss of its whole cost basis, instead of its value at that day's BTC price
+  (the rule for spends without proceeds, which imports already followed): the
+  form sent 0 for a blank. Blank now means "not given" everywhere in the form:
+  Spent proceeds, a gift's FMV and an income deposit's basis start blank and
+  are filled from that day's price; a 0 you type stays 0. New entries only.
+  Spends saved before with $0 can't be told apart from a real $0:
+  the new Ledger review lists them (read-only) so you can check.
+- **A BTC deposit that isn't income now needs its cost basis.** A MyBTC,
+  Gift or N/A deposit left blank was saved with a $0 basis, so all of it
+  became gain when sold (the CSV import only warned). The form, the API and
+  the CSV, River and AI imports now ask for it; type 0 if it's really
+  unknown. Income, Interest and Reward deposits are still valued at the day's
+  price. New entries only; the Ledger review lists existing ones with a $0 or
+  blank basis.
+- **"Lost" withdrawals no longer count as a capital loss.** They recorded a
+  loss of their cost basis, which the dashboard and the tax report's summary
+  included, although Form 8949 leaves Lost out. They are now treated like a
+  Gift: no gain, no loss. **Run Recalculate Ledger** (Settings) to update
+  Lost withdrawals saved before; the Ledger review lists them.
+- The transfer form showed the network fee's USD value at a made-up
+  $30,000 price; the estimate is gone. The sats converter rounded BTC to 5
+  decimals (1,000 sats); it now shows every satoshi.
+- **Backup download and restore didn't check for a login.** Their router is
+  meant to be login-only, but both endpoints skipped the check, so a client
+  with the optional `API_KEY` could download or replace the whole database.
+  Both now need a login.
+
+- **Stricter input, clear messages.** The API, CSV and AI imports now refuse
+  what the ledger would record wrongly: amounts of 0 or less, negative fees,
+  basis or proceeds, more decimals than a satoshi (or a cent for USD accounts,
+  exponent notation included), amounts too large to store (one used to be
+  saved and then break the transaction list), unknown accounts, dates before
+  3 January 2009 or in the future, a BTC withdrawal without a purpose (it got
+  $0 proceeds: a loss of its whole basis on Form 8949), a Sell without
+  proceeds, a fee in the wrong currency. A malformed optional number in an
+  import is now an error instead of being dropped. An edit is checked as the
+  whole transaction.
+- **Form 8949 left out "Gift"/"Donation"/"Lost" only when capitalized exactly
+  that way**; a "gift" entered through the API or an import printed on the
+  form with its basis. Purposes are now stored in one spelling and matched in
+  any case.
+- **The complete tax report's capital-gains summary could disagree with Form
+  8949 and Schedule D**: it totaled whole transactions by their first lot's
+  holding period (a sale across short- and long-term lots went all to one
+  side), left out transfer fees and counted the basis of gifts. It is now
+  built from the same disposals as the forms. The forms themselves were right.
+- **CSV import dates**: a date without a timezone was read as UTC, so
+  "2024-01-01" landed on 31 December 2023 in a US tax timezone. Dates now
+  follow the tax timezone (Settings), and a date alone means noon that day.
+  A USD transfer's fee can be imported (it used to insist on BTC). The CSV
+  instructions PDF said to include fees in a Buy's basis and gave the Sell
+  proceeds after fees; both are before the fee (the fee column is applied
+  once).
+- **The Mac app refused today's price in the evening** in the Americas (it
+  compared a UTC date with the local date): an income deposit left blank got
+  an error and FMV Refresh failed.
+- **Security**: deleting every transaction, the debug routes and the tax
+  timezone setting are login-only (the optional `API_KEY` reached them).
+  Changing the password or resetting the account now ends every other
+  session (you'll be asked to log in once after upgrading). Empty usernames
+  and passwords are refused. The API docs pages are off unless DEBUG is set.
+- **A past value could be priced at today's price, or another day's.** When
+  the day's price lookup failed, a transfer's network fee (on every
+  recalculation) and a Spent withdrawal without proceeds used the live price,
+  silently, so old gains could change and saving failed offline. And for
+  dates more than about two years back, the lookup could return a price from
+  about two years later (the Kraken fallback took the first day it returned).
+  Now only the exact day's price is used; if there is none, BitcoinTX says so
+  and asks for the value, never $0 or today's price. A fee's dollar value is
+  stored with the transaction, so recalculating never prices it again.
+  **Existing figures don't change on upgrade**: stored fee values are kept.
+  The Ledger review lists transfer fees more than 5% off that day's price
+  (probably priced live), with a **Fix these** button (or
+  `python -m backend.cli review --fix-fee-prices`) that changes only those and
+  recalculates, and income deposits more than 5% off, for you to check.
+- **A withdrawal's network fee is now its own disposal**, as a transfer's
+  always was (it's a small sale of BTC at its value). A spend's proceeds are
+  what you received for the BTC spent; before, the fee was taken out of them
+  (a $1,000 spend with a fee reported $990.10). A gift's, donation's or lost
+  withdrawal's network fee now shows on Form 8949 too. **This changes
+  existing figures once the ledger is recalculated** (Recalculate Ledger, or
+  any add, edit or delete). Settings → Ledger review lists every transaction
+  whose figures would change, old -> new, before you do.
+- **Double-clicking Save added the transaction twice.** It now saves once.
+- River import checked against a real River export: a Buy's Sent Amount is
+  the subtotal with River's fee on top (basis = Sent + Fee), and timestamps
+  are UTC, both as BitcoinTX reads them. Whether a send's Sent Amount
+  includes the network fee is still being checked (v0.9.3).
+- The River import warns when a row's Fee Currency isn't what BitcoinTX
+  reads it as. The tax report shows a gift's value as "not given" instead of
+  $0 when none was entered.
+
+### Privacy
+- **Fonts ship with the app.** The page loaded Inter and Outfit from Google
+  Fonts, which told Google every time BitcoinTX opened. Nothing the page
+  loads comes from anywhere but BitcoinTX now, and in a browser a
+  Content-Security-Policy enforces it.
+- Responses now carry no-referrer, nosniff and no-framing headers, and the
+  session cookie is marked Secure when BitcoinTX is reached over HTTPS
+  (StartOS).
+- The database file and downloaded backups are readable by their owner only.
+- **Backups are stronger**: 600,000 PBKDF2 iterations (was 100,000) and an
+  integrity check, so a wrong password or a damaged file is reported clearly.
+  Backups made by earlier versions still restore. A backup made by 0.9.2
+  can't be restored by 0.9.1 or earlier.
+- A log message no longer includes a fee amount.
+- **Settings → Privacy & network.** Turn live data off (BitcoinTX then asks
+  no public service for anything: no live price or block height, and past
+  prices come only from those already stored), use your own mempool server
+  for the live price and block height, and send every outside request
+  through a proxy such as Tor (`socks5h://127.0.0.1:9050`). Public services
+  stay the default.
+
+### AI assistant (MCP)
+- **The Mac app no longer needs your password in an AI app's settings.** It
+  writes `~/Library/Application Support/BitcoinTX/mcp.json` (readable only by
+  you) with its address and an AI assistant key, and the MCP server reads it
+  by itself. Setup is one line with nothing secret in it (Settings → Connect an
+  AI Assistant). The key works only from this computer and never for backup,
+  restore, imports or deleting everything. Settings can turn AI access off or
+  reset the key; the MCP server picks up a new key by itself. StartOS and
+  Docker keep the username/password setup.
+- **If you set up the MCP server with your password before:** remove the
+  `BTCTX_URL`, `BTCTX_USERNAME` and `BTCTX_PASSWORD` lines from its
+  configuration (for Grok Build, `~/.grok/config.toml`), or remove the server
+  and add it again with the new one-line command. Check that a read such as
+  `get_portfolio` works, then change your BitcoinTX password, since the old
+  one sat in a plain-text file.
+
+### Tests
+- Playwright click-through tests of every UI flow (`make e2e`, run in CI in
+  Chromium in a US and a UTC+ timezone, and in WebKit). Form controls got
+  proper labels for this (accessibility only). See `docs/TESTING.md`.
+
 ### AI assistant (MCP)
 - `mcp_server/AI_SETUP.md` now tells the AI where the StartOS certificate
   comes from (the **Connect an AI Assistant** action's Root CA certificate,
