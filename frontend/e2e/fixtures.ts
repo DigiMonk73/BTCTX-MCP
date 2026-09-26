@@ -122,6 +122,7 @@ function macAppEnv(dir: string, port: number): Record<string, string> {
     BTCTX_DESKTOP: "1",
     BTCTX_DESKTOP_PREFERRED_PORT: String(port),
     BTCTX_DESKTOP_ACTUAL_PORT: String(port),
+    BTCTX_DESKTOP_URL: `http://127.0.0.1:${port}`,
     BTCTX_MCP_FILE: path.join(dir, "mcp.json"),
   };
 }

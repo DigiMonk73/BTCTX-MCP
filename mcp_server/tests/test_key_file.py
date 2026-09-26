@@ -33,6 +33,7 @@ def desktop(monkeypatch, tmp_path, backend_db):  # noqa: F811
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     monkeypatch.setenv("BTCTX_DESKTOP_PREFERRED_PORT", "8765")
     monkeypatch.setenv("BTCTX_DESKTOP_ACTUAL_PORT", "8765")
+    monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:8765")
     monkeypatch.setenv("BTCTX_MCP_FILE", str(key_file))
     with _db() as db:
         mcp_key.sync(db)

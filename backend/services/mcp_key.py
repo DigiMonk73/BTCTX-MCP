@@ -91,10 +91,9 @@ def _write_file(path: Path, token: str) -> None:
     from backend.version import app_version
 
     info = desktop_info()
-    port = info["port"]
     data = {
-        "url": f"http://127.0.0.1:{port}" if port else None,
-        "port": port,
+        "url": info["url"],
+        "port": info["port"],
         "pid": os.getpid(),
         "version": app_version(),
         "token": token,

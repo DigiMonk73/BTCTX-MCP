@@ -7,6 +7,7 @@ import api from "../api";
 
 interface DesktopInfo {
   desktop: boolean;
+  url: string | null;
   port: number | null;
   preferred_port: number | null;
   port_fallback: boolean;
