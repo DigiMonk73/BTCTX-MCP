@@ -145,6 +145,7 @@ hidden_imports = [
     "backend.services.desktop",
     "backend.services.mcp_key",
     "backend.secret_key",
+    "backend.session_auth",
     "backend.version",
     "backend.cli",
     "backend.models.app_setting",

@@ -32,11 +32,13 @@ def get_tax_timezone_setting(db: Session = Depends(get_db)):
 
 
 @router.put("/tax-timezone")
-def put_tax_timezone_setting(payload: TaxTimezone, db: Session = Depends(get_db)):
+def put_tax_timezone_setting(payload: TaxTimezone, request: Request, db: Session = Depends(get_db)):
     """
     Save the tax timezone and recalculate: holding periods are decided on
-    calendar dates in this timezone, so stored results may change.
+    calendar dates in this timezone, so stored results may change. Login
+    only: it moves tax years, so no API key or AI assistant key.
     """
+    _require_login(request)
     try:
         set_tax_timezone(db, payload.timezone)
         recalculate_all_transactions(db)
@@ -61,8 +63,9 @@ def get_desktop_info():
 # key can't turn its own access back on or mint a new one.
 # ---------------------------------------------------------------------------
 def _require_login(request: Request) -> None:
+    """A logged-in session (get_current_user already checked it is current)."""
     if not request.session.get("user_id"):
-        raise HTTPException(status_code=403, detail="Changing AI assistant access needs a login.")
+        raise HTTPException(status_code=403, detail="This setting can only be changed while logged in.")
 
 
 class AiAccess(BaseModel):

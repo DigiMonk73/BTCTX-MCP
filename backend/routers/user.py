@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 # Pydantic schemas for user creation, reading, and updating
 from backend.schemas.user import UserCreate, UserRead, UserUpdate
@@ -15,8 +15,8 @@ from backend.services.user import (
     get_user_by_username,
     create_user,
     update_user as update_user_service,
-    delete_user as delete_user_service
 )
+from backend.session_auth import require_login, start_session
 
 # Database session provider
 from backend.database import get_db
@@ -73,16 +73,13 @@ DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "password"
 
 
-def _session_user_id(request: Request) -> int:
+def _session_user_id(request: Request, db: Session) -> int:
     """Logged-in user's id from the session cookie, or 401."""
-    user_id = request.session.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    return user_id
+    return require_login(request, db)
 
 
-def _require_self(user_id: int, request: Request) -> None:
-    if _session_user_id(request) != user_id:
+def _require_self(user_id: int, request: Request, db: Session) -> None:
+    if _session_user_id(request, db) != user_id:
         raise HTTPException(status_code=403, detail="You can only change your own account.")
 
 
@@ -104,6 +101,13 @@ class AccountReset(BaseModel):
     username: str
     password: str
     current_password: Optional[str] = None
+
+    @field_validator("username", "password")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("can't be empty")
+        return v
 
 
 @router.post("/reset-account")
@@ -135,7 +139,7 @@ def reset_account(payload: AccountReset, db: Session = Depends(get_db)):
 @router.get("/", response_model=List[UserRead])
 def get_users(request: Request, db: Session = Depends(get_db)):
     """List users (logged-in only)."""
-    _session_user_id(request)
+    _session_user_id(request, db)
     return get_all_users(db)
 
 
@@ -145,25 +149,27 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
     Change your own username and/or password: PATCH /api/users/{user_id}.
     Requires being logged in as that user.
     """
-    _require_self(user_id, request)
+    _require_self(user_id, request, db)
     updated_user = update_user_service(user_id, user_data, db)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found.")
+    # Other sessions end with the old password; this one carries on.
+    start_session(request, updated_user)
     return updated_user
 
 
 @router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
     """
-    Delete your own account: DELETE /api/users/{user_id}. Clears the session.
-    Requires being logged in as that user.
+    BitcoinTX has exactly one account, which owns the ledger's accounts, so
+    it can't be deleted (this used to fail with a 500). Settings → Reset
+    Username & Password changes the login; reset-account starts over.
     """
-    _require_self(user_id, request)
-    success = delete_user_service(user_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found or cannot be deleted.")
-    request.session.clear()
-    return
+    _require_self(user_id, request, db)
+    raise HTTPException(
+        status_code=409,
+        detail="The account can't be deleted. Change its username and password in Settings instead.",
+    )
 
 
 @router.get("/protected")

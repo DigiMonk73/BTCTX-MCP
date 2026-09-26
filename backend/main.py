@@ -65,6 +65,7 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 # Database import (needed before lifespan)
 # ---------------------------------------------------------
 from backend.database import init_db, get_db, SessionLocal
+from backend.session_auth import require_login, session_user_id, start_session
 from backend.services import mcp_key
 
 
@@ -107,7 +108,12 @@ app = FastAPI(
     version="1.0",
     debug=os.getenv("DEBUG", "false").lower() == "true",
     redirect_slashes=True,
-    lifespan=lifespan
+    lifespan=lifespan,
+    # The interactive API docs describe every endpoint to anyone who asks;
+    # only with DEBUG.
+    docs_url="/docs" if os.getenv("DEBUG", "false").lower() == "true" else None,
+    redoc_url="/redoc" if os.getenv("DEBUG", "false").lower() == "true" else None,
+    openapi_url="/openapi.json" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
 
 # ---------------------------------------------------------
@@ -175,8 +181,9 @@ def get_current_user(
     - The local MCP server: Authorization: Bearer <key from mcp.json>
       (backend/services/mcp_key.py; this computer only)
     """
-    # Session auth (browser/frontend)
-    user_id = request.session.get("user_id")
+    # Session auth (browser/frontend); a session from before a password
+    # change is cleared (backend/session_auth.py)
+    user_id = session_user_id(request, db)
     if user_id:
         return user_id
     # API key auth (programmatic access)
@@ -186,6 +193,11 @@ def get_current_user(
         return "mcp_key"
     detail = getattr(request.state, "mcp_key_refusal", None) or "Not authenticated"
     raise HTTPException(status_code=401, detail=detail)
+
+def require_login_dependency(request: Request, db: Session = Depends(get_db)) -> int:
+    """A logged-in session only: no API key, no AI assistant key (debug routes)."""
+    return require_login(request, db)
+
 
 # ---------------------------------------------------------
 # Routers (Transaction, User, Account, Calculation, Bitcoin, Reports, Debug)
@@ -209,7 +221,7 @@ app.include_router(settings.router, prefix="/api/settings", tags=["settings"], d
 # (Optional) Debug Router
 try:
     from backend.routers import debug
-    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(get_current_user)])
+    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
@@ -266,7 +278,7 @@ def login(
     if not user.verify_password(login_req.password):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
-    request.session["user_id"] = user.id
+    start_session(request, user)
     return {"detail": f"Logged in as {user.username}"}
 
 @app.post("/api/logout")

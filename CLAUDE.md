@@ -112,8 +112,12 @@ So derived values must be recomputable from the Transaction row alone.
   User routes may only touch the logged-in user.
 - `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
   default key anywhere.
-- The debug router and `DELETE /api/transactions/delete_all` exist and are
-  auth-protected; tests use them, the MCP server must not expose bulk delete.
+- The debug router, `DELETE /api/transactions/delete_all` and
+  `PUT /api/settings/tax-timezone` are login-only (never the `API_KEY` or the
+  AI assistant key); tests use the first two, the MCP server must not expose
+  bulk delete. Sessions carry a stamp of the password hash
+  (`backend/session_auth.py`): changing the password or resetting the account
+  ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
 - Mac app only: the MCP server authenticates with the AI assistant key from
   `mcp.json` (`backend/services/mcp_key.py`), never a password. The key works
   only from localhost, only when `BTCTX_DESKTOP`/`BTCTX_MCP_FILE` are set, and
