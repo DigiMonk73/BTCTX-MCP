@@ -80,7 +80,7 @@ const ConnectAiSetting: React.FC = () => {
   );
 
   return (
-    <div className="settings-section">
+    <div className="settings-section" role="region" aria-label="Connect an AI Assistant">
       <h3>Connect an AI Assistant</h3>
       <div className="settings-option ai-setup">
         <div className="option-info">

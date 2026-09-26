@@ -54,7 +54,7 @@ const Calculator: React.FC = () => {
 
   return (
     <div className="calculator">
-      <div className="display">{display}</div>
+      <div className="display" role="status" aria-label="Calculator display">{display}</div>
       <div className="buttons">
         {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '=', '+'].map((btn, index) => (
           <button

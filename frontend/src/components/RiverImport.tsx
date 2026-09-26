@@ -203,7 +203,7 @@ const RiverImport: React.FC = () => {
   };
 
   return (
-    <div className="settings-section river-import">
+    <div className="settings-section river-import" role="region" aria-label="Import from River">
       <h3>Import from River</h3>
 
       <div className="settings-option">

@@ -425,7 +425,7 @@ const Settings: React.FC = () => {
       <h2 className="settings-title">Settings</h2>
 
       {/* ✅ Account Section */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Account">
         <h3>Account</h3>
 
         {/* Logout */}
@@ -496,7 +496,7 @@ const Settings: React.FC = () => {
       <ConnectAiSetting />
 
       {/* ✅ Data Management */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Data Management">
         <h3>Data Management</h3>
 
         <div className="settings-option">
@@ -671,7 +671,7 @@ const Settings: React.FC = () => {
       <RiverImport />
 
       {/* ✅ Backup & Restore */}
-      <div className="settings-section">
+      <div className="settings-section" role="region" aria-label="Backup & Restore">
         <h3>Backup & Restore</h3>
 
         <div className="settings-option">

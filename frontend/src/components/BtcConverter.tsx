@@ -199,18 +199,21 @@ const BtcConverter: React.FC = () => {
       <div className="price-toggle">
         <button
           className={mode === "manual" ? "toggle-btn active" : "toggle-btn"}
+          aria-pressed={mode === "manual"}
           onClick={() => handleModeChange("manual")}
         >
           Manual
         </button>
         <button
           className={mode === "auto" ? "toggle-btn active" : "toggle-btn"}
+          aria-pressed={mode === "auto"}
           onClick={() => handleModeChange("auto")}
         >
           Auto
         </button>
         <button
           className={mode === "date" ? "toggle-btn active" : "toggle-btn"}
+          aria-pressed={mode === "date"}
           onClick={() => handleModeChange("date")}
         >
           Date
