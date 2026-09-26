@@ -1,5 +1,5 @@
 // FILE: frontend/src/components/TransactionForm.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import axios from "axios";
 import api from "../api";
@@ -59,6 +59,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Local state
   const [currentType, setCurrentType] = useState<TransactionType | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set synchronously: the state above only disables the button on the next
+  // render, so a double click used to save the transaction twice.
+  const submittingRef = useRef(false);
 
   // Watch various fields
   const accountVal = watch("account");
@@ -238,6 +241,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
    *  will use to compute net (proceeds_usd).
    */
   const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       const payload = buildTransactionPayload(data);
@@ -299,6 +304,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         toast.error(`An unexpected error occurred while ${action}ing the transaction.`);
       }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

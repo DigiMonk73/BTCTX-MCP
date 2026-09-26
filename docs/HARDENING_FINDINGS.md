@@ -46,6 +46,8 @@ first), **ok** (checked, no change), **deferred** (owner's OK recorded).
 | F37 | An empty username or password is accepted (an empty password silently keeps the old one); sessions stay valid after the credentials change. | `routers/user.py`, `services/user.py` | audit probe | bug (security) | fixed: empty values refused; sessions stamped with the password hash end on a change (the changing session is re-stamped); `test_security.py` |
 | F38 | `/docs`, `/redoc` and `/openapi.json` are public. | `main.py` | audit probe | bug (security, low) | fixed: only with DEBUG; `test_security.py` |
 | F39 | Smaller: dates before 2009-01-03 or years in the future are accepted; `source`/`purpose` have no length limit; error messages show `TxType.BUY`; `/api` (no slash) returns the web page. | various | audit probe | bug (low) | open |
+| F40 | A double-clicked Save created the transaction twice: the button disables only after a re-render. | `components/TransactionForm.tsx` | e2e `robustness.e2e.ts` (fails on the old code: 2 transactions) | bug | fixed: a synchronous guard |
+| F41 | Frontend robustness (sweep 8): a refused save keeps the form and its values; a failed list load shows Retry; a slow or failing price service leaves the dashboard usable; a failed report says so. | UI | e2e `robustness.e2e.ts` | ok | — |
 
 ## Privacy inventory (sweep 6)
 

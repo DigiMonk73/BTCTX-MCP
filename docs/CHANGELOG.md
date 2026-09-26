@@ -71,6 +71,7 @@ All notable changes to BitcoinTX are documented in this file.
   Changing the password or resetting the account now ends every other
   session (you'll be asked to log in once after upgrading). Empty usernames
   and passwords are refused. The API docs pages are off unless DEBUG is set.
+- **Double-clicking Save added the transaction twice.** It now saves once.
 - The River import warns when a row's Fee Currency isn't what BitcoinTX
   reads it as. The tax report shows a gift's value as "not given" instead of
   $0 when none was entered.
