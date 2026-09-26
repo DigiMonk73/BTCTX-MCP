@@ -109,44 +109,16 @@ def cmd_recalculate(args: argparse.Namespace) -> int:
 
 
 def cmd_review(args: argparse.Namespace) -> int:
-    """
-    Read-only: transactions worth a second look after the v0.9.2 fixes.
-    - Spent withdrawals saved with $0 proceeds: before v0.9.2 the form sent
-      0 for a blank, so a spend meant to be valued at the day's price was
-      saved at $0 (a loss of its whole basis). A real $0 looks the same, so
-      only you can tell; set the proceeds (or clear them) to fix one.
-    - Lost withdrawals: they no longer carry a loss; Recalculate Ledger
-      removes the old loss from the stored figures.
-    """
+    """Read-only: the Ledger review (backend/services/review.py)."""
     _init_db()
     from backend.database import SessionLocal
-    from backend.models.transaction import Transaction
+    from backend.services.review import build_review, format_text
 
     db = SessionLocal()
     try:
-        withdrawals = (
-            db.query(Transaction)
-            .filter(Transaction.type == "Withdrawal")
-            .order_by(Transaction.timestamp)
-            .all()
-        )
+        print(format_text(build_review(db)), end="")
     finally:
         db.close()
-    spends = [
-        t for t in withdrawals
-        if (t.purpose or "").lower() == "spent" and t.gross_proceeds_usd is not None and t.gross_proceeds_usd == 0
-    ]
-    lost = [t for t in withdrawals if (t.purpose or "").lower() == "lost"]
-
-    def line(t) -> str:
-        return f"  #{t.id}  {t.timestamp:%Y-%m-%d %H:%M} UTC  {t.amount} BTC  gain {t.realized_gain_usd}"
-
-    print(f"Spent withdrawals with $0 proceeds: {len(spends)}")
-    for t in spends:
-        print(line(t))
-    print(f"Lost withdrawals (loss removed by Recalculate Ledger): {len(lost)}")
-    for t in lost:
-        print(line(t))
     return 0
 
 

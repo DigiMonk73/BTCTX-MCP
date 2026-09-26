@@ -222,6 +222,15 @@ async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
 
 
 @mcp.tool(annotations=READ_ONLY)
+async def review_ledger() -> Dict[str, Any]:
+    """Read-only Ledger review: saved transactions worth a second look (Spent withdrawals
+    saved with $0 proceeds, Lost withdrawals still carrying a loss, non-income BTC deposits
+    with a $0 or blank cost basis). Each item has its id, date, what looks odd and what would
+    change. Changes nothing; show it to the user and let them decide what to edit."""
+    return await _call("GET", "/api/review")
+
+
+@mcp.tool(annotations=READ_ONLY)
 async def preview_transactions(transactions: List[TransactionInput]) -> Dict[str, Any]:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
     flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,

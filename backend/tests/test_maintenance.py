@@ -264,8 +264,9 @@ def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, c
     monkeypatch.setattr(database, "init_db", lambda: init_db(engine))
     assert backend_cli.main(["review"]) == 0
     out = capsys.readouterr().out
-    assert "Spent withdrawals with $0 proceeds: 1\n  #1 " in out
-    assert "Lost withdrawals (loss removed by Recalculate Ledger): 1\n  #4 " in out
+    assert "Spent withdrawals saved with $0 proceeds: 1\n  #1 " in out
+    assert "Lost withdrawals still carrying a loss: 1\n  #4 " in out
+    assert "BTC deposits (not income) with a $0 or blank cost basis: 0" in out
     assert q(db, "SELECT COUNT(*), SUM(id) FROM transactions") == before  # read-only
 
 # ---------------------------------------------------------------------------

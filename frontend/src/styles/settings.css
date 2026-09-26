@@ -538,3 +538,15 @@ input[type="file"]::file-selector-button:hover {
   margin-top: 8px;
   cursor: pointer;
 }
+
+/* Ledger review (read-only list) */
+.ledger-review-check {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.ledger-review-check ul {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}

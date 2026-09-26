@@ -211,3 +211,22 @@ test("server installs keep the username/password setup and no key controls", asy
   await expect(ai.getByLabel("Let AI assistants use BitcoinTX")).toHaveCount(0);
   await expect(ai.getByRole("button", { name: "Reset key" })).toHaveCount(0);
 });
+
+test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  await openSettings(page);
+  const review = page.getByRole("region", { name: "Ledger review" });
+  await expect(review.getByText("Nothing to review.")).toBeVisible();
+
+  const spend = await createTx(page.request, {
+    type: "Withdrawal", timestamp: "2024-06-01T15:00:07Z", from_account_id: 2, to_account_id: 99,
+    amount: "0.01", proceeds_usd: "0", fee_amount: "0", fee_currency: "BTC", purpose: "Spent",
+  });
+  const before = await listTx(page.request);
+  await review.getByRole("button", { name: "Check again" }).click();
+  const list = review.getByRole("list", { name: "Spent withdrawals saved with $0 proceeds" });
+  await expect(list.getByRole("listitem")).toHaveCount(1);
+  await expect(list).toContainText(`#${spend.id} · `);
+  await expect(list).toContainText("Withdrawal (Spent) · 0.01000000 BTC");
+  expect(await listTx(page.request)).toEqual(before);
+});

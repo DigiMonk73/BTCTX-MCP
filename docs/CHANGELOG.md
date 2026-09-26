@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Ledger review** (Settings, `GET /api/review`, `python -m backend.cli
+  review`, and the AI assistant tool `review_ledger`): a read-only list of
+  saved transactions worth a second look after this upgrade: Spent
+  withdrawals saved with $0 proceeds, Lost withdrawals still carrying a loss,
+  and BTC deposits (not income) with a $0 or blank cost basis. Each row says
+  what looks odd and what would change. It changes nothing.
+
 ### Fixes
 - **The Mac app could come up on a random port after a quick relaunch**, and
   then AI assistants couldn't reach it (they look on 127.0.0.1:8765). The
@@ -23,12 +31,12 @@ All notable changes to BitcoinTX are documented in this file.
   Spent proceeds, a gift's FMV and an income deposit's basis start blank and
   are filled from that day's price; a 0 you type stays 0. New entries only.
   Spends saved before with $0 can't be told apart from a real $0:
-  `python -m backend.cli review` lists them (read-only) so you can check.
+  the new Ledger review lists them (read-only) so you can check.
 - **"Lost" withdrawals no longer count as a capital loss.** They recorded a
   loss of their cost basis, which the dashboard and the tax report's summary
   included, although Form 8949 leaves Lost out. They are now treated like a
   Gift: no gain, no loss. **Run Recalculate Ledger** (Settings) to update
-  Lost withdrawals saved before; `python -m backend.cli review` lists them.
+  Lost withdrawals saved before; the Ledger review lists them.
 - The transfer form showed the network fee's USD value at a made-up
   $30,000 price; the estimate is gone. The sats converter rounded BTC to 5
   decimals (1,000 sats); it now shows every satoshi.

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import api from "../api";
 import ConnectAiSetting from "../components/ConnectAiSetting";
+import LedgerReview from "../components/LedgerReview";
 import RiverImport from "../components/RiverImport";
 import TaxTimezoneSetting from "../components/TaxTimezoneSetting";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
@@ -491,6 +492,8 @@ const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <LedgerReview />
 
       {/* ✅ Connect an AI Assistant (MCP) */}
       <ConnectAiSetting />
