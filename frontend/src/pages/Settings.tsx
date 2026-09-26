@@ -443,7 +443,7 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Reset Username & Password */}
-        <div className="settings-option">
+        <div className="settings-option stacked">
           <div className="option-info">
             <span className="settings-option-title">Reset Username &amp; Password</span>
             <p className="settings-option-subtitle">

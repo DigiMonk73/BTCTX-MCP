@@ -83,7 +83,7 @@ const NetworkSettings: React.FC = () => {
           onChange={(e) => setLiveData(e.target.checked)}
         />
       </div>
-      <div className="settings-option">
+      <div className="settings-option stacked">
         <div className="option-info">
           <label className="settings-option-title" htmlFor="net-mempool-url">
             Your own mempool server
@@ -102,7 +102,7 @@ const NetworkSettings: React.FC = () => {
           onChange={(e) => setMempoolUrl(e.target.value)}
         />
       </div>
-      <div className="settings-option">
+      <div className="settings-option stacked">
         <div className="option-info">
           <label className="settings-option-title" htmlFor="net-proxy-url">
             Proxy for outside requests
