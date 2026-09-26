@@ -123,7 +123,7 @@ the Application Support database.
   **When you add a backend module or a dependency, add it here** or the bundled
   app may fail at import time even though dev runs work.
 - **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
-- **Bundle:** `org.bitcointx.desktop`, version `0.9.1` (`CFBundleVersion` /
+- **Bundle:** `org.bitcointx.desktop`, version `0.9.2` (`CFBundleVersion` /
   `CFBundleShortVersionString`; bump both on release), minimum macOS 10.15,
   dark mode supported.
 

@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v0.9.2] - 2026-09-26 - Hardening: price history, withdrawal fees, Ledger review, privacy settings
+
 ### Before you upgrade: what changes existing figures
 Upgrading changes no stored figure. Two fixes change figures **the next time
 the ledger is recalculated**, which is Recalculate Ledger (Settings) *or any
@@ -131,6 +133,10 @@ a basis (0 allowed); blank Spent proceeds are valued at the day's price.
   any add, edit or delete). Settings → Ledger review lists every transaction
   whose figures would change, old -> new, before you do.
 - **Double-clicking Save added the transaction twice.** It now saves once.
+- River import checked against a real River export: a Buy's Sent Amount is
+  the subtotal with River's fee on top (basis = Sent + Fee), and timestamps
+  are UTC, both as BitcoinTX reads them. Whether a send's Sent Amount
+  includes the network fee is still being checked (v0.9.3).
 - The River import warns when a row's Fee Currency isn't what BitcoinTX
   reads it as. The tax report shows a gift's value as "not given" instead of
   $0 when none was entered.
