@@ -138,8 +138,10 @@ test("export as CSV", async ({ authedPage: page }) => {
   expect(text).toContain("Transfer");
 });
 
-test("connect an AI assistant: prompt and configs name this server and user", async ({ authedPage: page, context, baseURL }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("connect an AI assistant: prompt and configs name this server and user", async ({ authedPage: page, context, baseURL, browserName }) => {
+  // WebKit has no clipboard permissions to grant; read the clipboard back in Chromium only.
+  const canReadClipboard = browserName === "chromium";
+  if (canReadClipboard) await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openSettings(page);
   await expect(page.getByRole("heading", { name: "Connect an AI Assistant" })).toBeVisible();
   const prompt = page.getByLabel("Setup prompt");
@@ -148,7 +150,9 @@ test("connect an AI assistant: prompt and configs name this server and user", as
   const promptBlock = page.getByRole("button", { name: "Copy" }).first();
   await promptBlock.click();
   await expect(page.getByText("Setup prompt copied.")).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await prompt.inputValue());
+  if (canReadClipboard) {
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await prompt.inputValue());
+  }
 
   await page.getByText("Set it up yourself").click();
   await expect(page.getByLabel("Claude Desktop config")).toHaveValue(/btctx/i);
