@@ -4,6 +4,20 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Before you upgrade: what changes existing figures
+Upgrading changes no stored figure. Two fixes change figures **the next time
+the ledger is recalculated**, which is Recalculate Ledger (Settings) *or any
+add, edit or delete*:
+- **Lost** withdrawals: their loss becomes $0 (like a gift).
+- **Withdrawals with a BTC network fee**: the fee becomes its own small
+  disposal at its value; a spend's proceeds no longer have the fee taken out.
+Back up first, then open **Settings → Ledger review**: "Figures that
+Recalculate Ledger would change" lists each affected transaction, old -> new,
+without changing anything (`python -m backend.cli review` prints the same).
+Transfer fees that look priced at the live price are fixed only when you
+press **Fix these**. New entries only: a BTC deposit that isn't income needs
+a basis (0 allowed); blank Spent proceeds are valued at the day's price.
+
 ### Added
 - **Ledger review** (Settings, `GET /api/review`, `python -m backend.cli
   review`, and the AI assistant tool `review_ledger`): a read-only list of
