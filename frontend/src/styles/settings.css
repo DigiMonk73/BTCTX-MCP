@@ -1,5 +1,6 @@
 /* Settings: one card; each section a group divided by a hairline; each
-   option a row with its text on the left and its controls on the right. */
+   option a row with its text on the left and its controls on the right,
+   except rows with text fields (.stacked), which put the fields below. */
 
 .settings-page { max-width: 860px; }
 
@@ -13,7 +14,10 @@
   gap: var(--space-6);
   padding: var(--space-3) 0;
 }
-.option-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+/* The text starts at the top of its row, so a column of controls taller than
+   it lines up with the title. An auto margin, not align-self: in a column
+   (stacked or narrow) layout it does nothing. */
+.option-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-bottom: auto; }
 .settings-option-title { font-size: var(--text-sm); font-weight: var(--font-medium); }
 .settings-option-subtitle {
   margin: 2px 0 0;
@@ -24,8 +28,18 @@
 .settings-note { font-size: var(--text-13); color: var(--color-text-muted); padding: var(--space-2) 0; }
 .settings-message { margin-top: var(--space-4); }
 
-/* Username & password, tax timezone, network fields: stacked controls */
-.credential-update-form { display: flex; flex-direction: column; gap: var(--space-3); width: 280px; flex-shrink: 0; }
+/* Text-field rows: the text, then the fields at full width. Beside the
+   text, a field's width: 100% takes the whole row and leaves the text 0px. */
+.settings-option.stacked { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+.settings-option.stacked .credential-update-form { width: 100%; }
+/* ...but no wider than a comfortable field: a username or a URL doesn't
+   need the whole card */
+.settings-option.stacked > .input,
+.settings-option.stacked .credential-update-form { max-width: 440px; }
+
+/* Username & password, tax timezone: a column of controls, top-aligned like
+   the text (centred, it would rise above the row's title) */
+.credential-update-form { display: flex; flex-direction: column; gap: var(--space-3); width: 280px; flex-shrink: 0; margin-bottom: auto; }
 .credential-inputs { display: flex; flex-direction: column; gap: var(--space-2); }
 .credential-submit-container { display: flex; justify-content: flex-end; }
 
