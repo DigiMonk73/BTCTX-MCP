@@ -20,7 +20,10 @@ from .transaction import Transaction, LedgerEntry, BitcoinLot, LotDisposal
 # App-wide settings (tax timezone, ...)
 from .app_setting import AppSetting
 
+# Daily BTC price history
+from .btc_price import BtcPriceDaily
+
 __all__ = [
     "Base", "User", "Account", "Transaction", "LedgerEntry",
-    "BitcoinLot", "LotDisposal", "AppSetting",
+    "BitcoinLot", "LotDisposal", "AppSetting", "BtcPriceDaily",
 ]

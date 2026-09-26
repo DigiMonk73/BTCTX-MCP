@@ -58,6 +58,8 @@ Transfer: between the user's own accounts, same currency
   receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
   fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
+  A BTC fee's USD value is stored as fee x that day's price; pass fee_usd
+  only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
 

@@ -186,6 +186,8 @@ declare global {
     // NEW: For Sell transactions, store gross proceeds typed by the user
     gross_proceeds_usd?: string | number; // <-- ADDED
     broker_reporting?: BrokerReporting | null;
+    fee_usd?: string | number | null; // a BTC fee's stored USD value
+    fee_usd_manual?: boolean;         // typed by the user
   }
 
   /**
@@ -215,6 +217,8 @@ declare global {
     // NEW: For Sell transactions, store gross proceeds typed by the user
     gross_proceeds_usd?: number; // <-- ADDED
     broker_reporting?: BrokerReporting | null;
+    fee_usd?: number | null;
+    fee_usd_manual?: boolean;
   }
 
   type SortMode = "TIMESTAMP_DESC" | "CREATION_DESC";
@@ -245,6 +249,9 @@ declare global {
     // NEW: For Sell transactions
     gross_proceeds_usd?: number; // <-- ADDED
     broker_reporting?: BrokerReporting | null;
+    // A BTC fee's USD value: a number is kept as typed; null = go back to the
+    // day's price; left out = keep what's stored (or price a new fee).
+    fee_usd?: number | null;
   }
 
   /**
@@ -309,6 +316,10 @@ declare global {
     grossProceedsUSD?: number; // <-- ADDED
     // Form 1099-DA override; "" = automatic
     brokerReporting?: BrokerReporting | "";
+    // A BTC fee's USD value, typed by the user; blank = that day's price
+    feeUSD?: number;
+    feeUSDManual?: boolean; // the stored value was typed (clearing it sends null)
+    feeUSDStored?: number;  // the stored value, shown as a hint
   }
 
   // Optional global props for TransactionForm if you want them globally

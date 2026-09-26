@@ -208,3 +208,37 @@ describe("blank means not given (F1)", () => {
     expect(body.cost_basis_usd).toBeNull();
   });
 });
+
+describe("a BTC fee's USD value (F14)", () => {
+  const transfer = {
+    type: "Transfer" as TransactionType,
+    from_account_id: 4,
+    to_account_id: 2,
+    amount: 0.1,
+    fee_amount: 0.0002,
+    fee_currency: "BTC",
+  };
+
+  it("an edit that doesn't touch it leaves it out, so the stored value is kept", () => {
+    const body = roundTrip({ ...transfer, fee_usd: 11.11, fee_usd_manual: false });
+    expect("fee_usd" in body).toBe(false);
+  });
+
+  it("a typed value is sent and shown again when editing", () => {
+    const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }));
+    expect(form.feeUSD).toBe(7.77);
+    expect(buildTransactionPayload(form).fee_usd).toBe(7.77);
+  });
+
+  it("clearing a typed value sends null (back to the day's price)", () => {
+    const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }));
+    form.feeUSD = NaN;
+    expect(buildTransactionPayload(form).fee_usd).toBeNull();
+  });
+
+  it("USD fees never carry one", () => {
+    const body = roundTrip({ type: "Transfer", from_account_id: 1, to_account_id: 3, amount: 100,
+      fee_amount: 1, fee_currency: "USD" });
+    expect("fee_usd" in body).toBe(false);
+  });
+});

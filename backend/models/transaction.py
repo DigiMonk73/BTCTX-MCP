@@ -27,6 +27,7 @@ from sqlalchemy import (
     Boolean,
     Numeric,
     ForeignKey,
+    false as sa_false,
     func
 )
 from sqlalchemy.orm import relationship
@@ -186,6 +187,22 @@ class Transaction(Base):
             "Sell or Withdrawal: 'none', 'proceeds' or 'basis'. NULL = decide "
             "automatically (form_8949._broker_reporting)."
         ),
+    )
+    fee_usd = Column(
+        Numeric(18, 2),
+        nullable=True,
+        doc=(
+            "USD value of a BTC fee, stored when the transaction is saved "
+            "(fee x that day's price, or typed by the user) so recalculation "
+            "never prices it again. NULL for USD fees and no fee."
+        ),
+    )
+    fee_usd_manual = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc="True when the user typed fee_usd: it is kept when the fee or date changes.",
     )
 
     # -------------------------------------------------------------------

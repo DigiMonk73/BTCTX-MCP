@@ -90,3 +90,66 @@ def test_review_needs_login():
     from backend.main import app
 
     assert TestClient(app).get("/api/review").status_code == 401
+
+
+@pytest.fixture
+def priced(auth_client, test_engine):
+    """A transfer whose fee value came from the live price (12.00 where the
+    day's price gives 10.00), one with a typed value, and an income deposit
+    valued at another day's price (F42)."""
+    auth_client.delete("/api/transactions/delete_all")
+    post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
+    assert post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+                amount="100000", fee_amount="0", fee_currency="USD", source="N/A").status_code == 200
+    assert post(type="Buy", timestamp="2024-01-03T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+                amount="1", cost_basis_usd="40000", fee_amount="0", fee_currency="USD").status_code == 200
+    live = post(type="Transfer", timestamp="2024-05-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
+                amount="0.1", fee_amount="0.0002", fee_currency="BTC").json()
+    typed = post(type="Transfer", timestamp="2024-05-02T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
+                 amount="0.1", fee_amount="0.0002", fee_currency="BTC", fee_usd="12.00").json()
+    income = post(type="Deposit", timestamp="2024-05-03T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+                  amount="0.01", fee_amount="0", fee_currency="BTC", source="Income", cost_basis_usd="620").json()
+    with test_engine.begin() as con:  # as an older version saved it
+        con.execute(text("UPDATE transactions SET fee_usd = '12.00' WHERE id = :id"), {"id": live["id"]})
+    assert auth_client.post("/api/transactions/recalculate").status_code == 200
+    yield live["id"], typed["id"], income["id"]
+    auth_client.delete("/api/transactions/delete_all")
+
+
+def fee_proceeds(test_engine, tx_id):
+    with test_engine.connect() as con:
+        return con.execute(text("SELECT SUM(proceeds_usd_for_that_portion) FROM lot_disposals"
+                                " WHERE transaction_id = :id"), {"id": tx_id}).scalar()
+
+
+def test_review_flags_live_priced_fees_and_off_income_values(auth_client, priced):
+    live, typed, income = priced
+    review = auth_client.get("/api/review").json()
+    assert ids(review, "fee_value_off") == [live]  # a typed value is the owner's
+    item = next(c for c in review["checks"] if c["key"] == "fee_value_off")["items"][0]
+    assert "$12.00 -> $10.00" in item["change"]
+    assert ids(review, "income_value_off") == [income]
+    assert review["no_price_for"] == []
+
+
+def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_client, test_engine, priced,
+                                                                      monkeypatch):
+    live, typed, income = priced
+    from fastapi.testclient import TestClient
+
+    from backend.main import app
+
+    monkeypatch.setattr("backend.main.API_KEY", "k" * 40)
+    anonymous = TestClient(app)
+    r = anonymous.post("/api/review/fee-prices", json={"ids": [live]}, headers={"X-API-Key": "k" * 40})
+    assert r.status_code == 401
+    assert str(fee_proceeds(test_engine, live)) == "12"
+
+    r = auth_client.post("/api/review/fee-prices", json={"ids": [live, typed, income]})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"changed": [{"id": live, "old": "12.00", "new": "10.00"}], "recalculated": True}
+    txs = {t["id"]: t for t in auth_client.get("/api/transactions").json()}
+    assert txs[live]["fee_usd"] == "10.00" and txs[typed]["fee_usd"] == "12.00"
+    assert txs[income]["cost_basis_usd"] == "620.00"
+    assert str(fee_proceeds(test_engine, live)) == "10"
+    assert ids(auth_client.get("/api/review").json(), "fee_value_off") == []

@@ -142,6 +142,13 @@ class TransactionBase(BaseModel):
         description="Fair market value for non-sale disposals (Gift, Donation, Lost)."
     
     )
+    fee_usd: Optional[Decimal] = Field(
+        default=None,
+        description=(
+            "USD value of a transfer's or withdrawal's BTC fee. Leave out to use "
+            "fee x that day's price; a value you give is kept."
+        ),
+    )
     realized_gain_usd: Optional[Decimal] = Field(
         default=None,
         description="Realized gain/loss in USD for IRS Form 8949."
@@ -173,7 +180,7 @@ class TransactionBase(BaseModel):
             return validate_btc_decimal(v)
         return v
 
-    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd")
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
     def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
         if v is not None:
             return validate_usd_decimal(v)
@@ -216,6 +223,7 @@ class TransactionUpdate(BaseModel):
     proceeds_usd: Optional[Decimal] = None
     gross_proceeds_usd: Optional[Decimal] = None
     fmv_usd: Optional[Decimal] = None
+    fee_usd: Optional[Decimal] = None  # send null to go back to the day's price
     realized_gain_usd: Optional[Decimal] = None
     holding_period: Optional[str] = None
 
@@ -246,7 +254,7 @@ class TransactionUpdate(BaseModel):
             return validate_btc_decimal(v)
         return v
 
-    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd",)
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
     def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
         if v is not None:
             return validate_usd_decimal(v)
@@ -265,6 +273,7 @@ class TransactionRead(TransactionBase):
     """
     id: int
     is_locked: bool  # Prevents edits after tax filing
+    fee_usd_manual: bool = False  # fee_usd was typed by the user
     created_at: datetime
     updated_at: datetime
 

@@ -18,6 +18,17 @@ Checks:
 - deposit_without_basis (F15): a BTC deposit that isn't income (source
   MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
+- fee_value_off (F14): a transfer's BTC fee whose stored USD value is more
+  than 5% away from fee x that day's price: most likely valued at the live
+  price when the day's lookup failed. apply_fee_prices() fixes the ones the
+  owner picks (login only), then recalculates.
+- income_value_off (F42): an income deposit whose basis is more than 5%
+  away from amount x that day's price. Before v0.9.2 a lookup for a date
+  more than about two years back could return another day's price. Only
+  the owner knows whether a typed value is right, so nothing fixes these.
+
+The price checks read the local price history (and fill it from the
+network if a day is missing); a day with no price is skipped and counted.
 """
 
 from __future__ import annotations
@@ -29,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_WALLET, INCOME_SOURCES
 from backend.models.transaction import Transaction
+from backend.services import price_history
 from backend.services.tax_time import as_utc, get_tax_timezone
 
 BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
@@ -47,7 +59,20 @@ CHECKS: Dict[str, tuple] = {
         "BTC deposits (not income) with a $0 or blank cost basis",
         "If you know what the BTC cost, edit the deposit's cost basis.",
     ),
+    "fee_value_off": (
+        "Transfer fees valued far from that day's price (probably at the live price)",
+        "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
+        "price and recalculates.",
+    ),
+    "income_value_off": (
+        "Income deposits valued far from that day's price",
+        "If the value didn't come from your records, edit the deposit's cost basis "
+        "(or clear it to use the day's price).",
+    ),
 }
+
+TOLERANCE = Decimal("0.05")
+CENT = Decimal("0.01")
 
 
 def _money(value) -> str | None:
@@ -66,6 +91,55 @@ def _item(t: Transaction, tz, issue: str, change: str) -> Dict[str, Any]:
         "issue": issue,
         "change": change,
     }
+
+
+def _day_price(db: Session, t: Transaction, missing: List[int]):
+    try:
+        return price_history.daily_price(db, t.timestamp)
+    except Exception:
+        missing.append(t.id)
+        return None
+
+
+def _off(stored, expected: Decimal) -> bool:
+    return expected > 0 and abs(Decimal(stored) - expected) > expected * TOLERANCE
+
+
+def fee_price_changes(db: Session, ids=None) -> List[Dict[str, Any]]:
+    """Transfers whose stored (not typed) fee value is off the day's price: {id, old, new}."""
+    q = db.query(Transaction).filter(Transaction.type == "Transfer", Transaction.fee_usd.isnot(None),
+                                     Transaction.fee_usd_manual.is_(False))
+    if ids is not None:
+        q = q.filter(Transaction.id.in_(list(ids)))
+    changes = []
+    for t in q.order_by(Transaction.timestamp, Transaction.id).all():
+        if (t.fee_currency or "").upper() != "BTC" or not t.fee_amount:
+            continue
+        try:
+            price = price_history.daily_price(db, t.timestamp)
+        except Exception:
+            continue
+        expected = (price * Decimal(t.fee_amount)).quantize(CENT)
+        if _off(t.fee_usd, expected):
+            changes.append({"id": t.id, "old": Decimal(t.fee_usd), "new": expected, "price": price})
+    return changes
+
+
+def apply_fee_prices(db: Session, ids) -> List[Dict[str, Any]]:
+    """
+    Set the picked transfers' fee values to the day's price and recalculate.
+    Only rows the review flags change; typed values never do. Commits.
+    """
+    from backend.services.transaction import recalculate_all_transactions
+
+    changes = fee_price_changes(db, ids)
+    for change in changes:
+        tx = db.get(Transaction, change["id"])
+        tx.fee_usd = change["new"]
+    if changes:
+        recalculate_all_transactions(db)
+    db.commit()
+    return changes
 
 
 def _is_zero_or_blank(value) -> bool:
@@ -103,6 +177,31 @@ def build_review(db: Session) -> Dict[str, Any]:
                 t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
                 "A basis you enter lowers the gain when this BTC is sold by the same amount.",
             ))
+    missing: List[int] = []
+    for change in fee_price_changes(db):
+        t = db.get(Transaction, change["id"])
+        found["fee_value_off"].append(_item(
+            t, tz, f"Fee {t.fee_amount} BTC stored as ${_money(change['old'])}; at that day's price "
+                   f"(${_money(change['price'])}) it is ${_money(change['new'])}.",
+            f"Fee value ${_money(change['old'])} -> ${_money(change['new'])}; the fee's gain changes by "
+            f"${_money(change['new'] - change['old'])}.",
+        ))
+    for t in rows:
+        if not (t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS
+                and (t.source or "").lower() in INCOME_SOURCES and t.cost_basis_usd):
+            continue
+        price = _day_price(db, t, missing)
+        if price is None:
+            continue
+        expected = (price * Decimal(t.amount)).quantize(CENT)
+        if _off(t.cost_basis_usd, expected):
+            found["income_value_off"].append(_item(
+                t, tz, f"Basis ${_money(t.cost_basis_usd)}; at that day's price (${_money(price)}) "
+                       f"it is ${_money(expected)}.",
+                f"Basis (and the income reported) ${_money(t.cost_basis_usd)} -> ${_money(expected)} "
+                "if you change it.",
+            ))
+
     checks = [
         {"key": key, "title": title, "action": action, "count": len(found[key]), "items": found[key]}
         for key, (title, action) in CHECKS.items()
@@ -112,6 +211,7 @@ def build_review(db: Session) -> Dict[str, Any]:
         "timezone": tz.key,
         "total": sum(c["count"] for c in checks),
         "checks": checks,
+        "no_price_for": missing,
     }
 
 

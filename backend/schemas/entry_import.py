@@ -32,6 +32,7 @@ class EntryRow(BaseModel):
     source: Optional[str] = None
     purpose: Optional[str] = None
     fmv_usd: Optional[Decimal] = None
+    fee_usd: Optional[Decimal] = None  # a BTC fee's USD value; omitted = fee x that day's price
 
 
 class EntryRequest(BaseModel):

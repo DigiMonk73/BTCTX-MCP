@@ -11,6 +11,14 @@ All notable changes to BitcoinTX are documented in this file.
   withdrawals saved with $0 proceeds, Lost withdrawals still carrying a loss,
   and BTC deposits (not income) with a $0 or blank cost basis. Each row says
   what looks odd and what would change. It changes nothing.
+- **Local BTC price history.** Every past-day valuation (income, spends,
+  gifts, network fees, the form's price Refresh, import autofill) reads one
+  stored daily price. A missing day is filled by one download of about
+  1,000 days around it (Bitstamp, then Coinbase, then Kraken), so requests no
+  longer name individual transaction dates, and stored days work offline.
+- **Fee value (USD)** on transfers and BTC withdrawals: a BTC network fee's
+  dollar value is stored when you save it (fee x that day's price), or you can
+  type it; a typed value is kept. Also `fee_usd` in the API and the AI tools.
 
 ### Fixes
 - **The Mac app could come up on a random port after a quick relaunch**, and
@@ -86,6 +94,20 @@ All notable changes to BitcoinTX are documented in this file.
   Changing the password or resetting the account now ends every other
   session (you'll be asked to log in once after upgrading). Empty usernames
   and passwords are refused. The API docs pages are off unless DEBUG is set.
+- **A past value could be priced at today's price, or another day's.** When
+  the day's price lookup failed, a transfer's network fee (on every
+  recalculation) and a Spent withdrawal without proceeds used the live price,
+  silently, so old gains could change and saving failed offline. And for
+  dates more than about two years back, the lookup could return a price from
+  about two years later (the Kraken fallback took the first day it returned).
+  Now only the exact day's price is used; if there is none, BitcoinTX says so
+  and asks for the value, never $0 or today's price. A fee's dollar value is
+  stored with the transaction, so recalculating never prices it again.
+  **Existing figures don't change on upgrade**: stored fee values are kept.
+  The Ledger review lists transfer fees more than 5% off that day's price
+  (probably priced live), with a **Fix these** button (or
+  `python -m backend.cli review --fix-fee-prices`) that changes only those and
+  recalculates, and income deposits more than 5% off, for you to check.
 - **Double-clicking Save added the transaction twice.** It now saves once.
 - The River import warns when a row's Fee Currency isn't what BitcoinTX
   reads it as. The tax report shows a gift's value as "not given" instead of

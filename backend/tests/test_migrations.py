@@ -142,6 +142,32 @@ def test_v0_7_0_database_is_backed_up_adopted_and_usable(v070):
             app.dependency_overrides[get_db] = previous
 
 
+def test_0004_stores_each_transfer_fee_at_the_value_it_already_had(v070):
+    """Upgrading changes no figure: a transfer's BTC fee gets the USD value
+    its fee disposal already carries, and recalculation reuses it."""
+    disposals = "SELECT SUM(proceeds_usd_for_that_portion) FROM lot_disposals d " \
+                "JOIN transactions t ON t.id = d.transaction_id WHERE t.type = 'Transfer'"
+    (before,), = q(v070, disposals)
+    # Make the stored value differ from any price the tests stub, so a
+    # re-priced fee would show.
+    con = sqlite3.connect(str(v070))
+    con.execute("UPDATE lot_disposals SET proceeds_usd_for_that_portion = '4.21' WHERE transaction_id ="
+                " (SELECT id FROM transactions WHERE type = 'Transfer')")
+    con.commit()
+    con.close()
+    init_db(engine_for(v070))
+    assert q(v070, "SELECT fee_usd, fee_usd_manual FROM transactions WHERE type = 'Transfer'") == [(4.21, 0)]
+    assert q(v070, "SELECT COUNT(*) FROM transactions WHERE type != 'Transfer' AND fee_usd IS NOT NULL") == [(0,)]
+    assert before is not None
+
+    from backend.services.transaction import recalculate_all_transactions
+
+    with sessionmaker(bind=engine_for(v070))() as db:
+        recalculate_all_transactions(db)
+        db.commit()
+    assert q(v070, disposals) == [(4.21,)]
+
+
 def test_pre_2026_database_gets_its_missing_indexes(v070):
     con = sqlite3.connect(str(v070))
     for name in FK_INDEXES:  # added to the models in Jan 2026 (v0.5.x DBs lack them)

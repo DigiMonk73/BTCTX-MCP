@@ -77,16 +77,17 @@ def serve(port: int, db_path: str) -> None:
     async def time_series(days: int = 7):
         return []
 
+    async def no_bulk_history(start, end):
+        return {}
+
     import backend.services.bitcoin as bitcoin
-    import backend.routers.river_import as river_router
-    import backend.services.entry_import as entry_import
+    import backend.services.price_history as price_history
 
     bitcoin.get_historical_price = historical
     bitcoin.get_current_price = current
     bitcoin.get_block_height = block_height
     bitcoin.get_time_series = time_series
-    river_router.get_historical_price = historical
-    entry_import.get_historical_price = historical
+    price_history.fetch_range = no_bulk_history
 
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=port, log_level="warning")

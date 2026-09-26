@@ -350,6 +350,33 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     </div>
   );
 
+  // A BTC fee's USD value (transfers and BTC withdrawals): stored with the
+  // transaction; blank = fee x that day's price; a typed value is kept.
+  const renderFeeValueField = () => {
+    const fee = watch("fee");
+    if (!fee || Number.isNaN(fee) || fee <= 0) return null;
+    const stored = watch("feeUSDStored");
+    const manual = watch("feeUSDManual");
+    return (
+      <div className="form-group">
+        <label htmlFor="tx-fee-value-usd">Fee value (USD):</label>
+        <input
+          id="tx-fee-value-usd"
+          type="number"
+          step="0.01"
+          min="0"
+          className="form-control"
+          {...register("feeUSD", { valueAsNumber: true })}
+        />
+        <small className="form-hint">
+          {stored != null && !manual
+            ? `Stored: ${formatUsd(stored)} (fee × that day's BTC price). Type a value to replace it.`
+            : "Leave blank to use fee × that day's BTC price, or type what the fee was worth."}
+        </small>
+      </div>
+    );
+  };
+
   const renderDynamicFields = () => {
     switch (currentType) {
       case "Deposit": {
@@ -596,6 +623,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 {...register("fee", { valueAsNumber: true })}
               />
             </div>
+            {showBtcFields && renderFeeValueField()}
 
             {/* For BTC withdrawals: proceeds + FMV */}
             {showBtcFields && (
@@ -768,17 +796,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
             {/* Fee auto-calc if BTC */}
             {fromCurr === "BTC" ? (
-              <div className="form-group">
-                <label htmlFor="tx-fee-btc">Fee (BTC):</label>
-                <input
-                  id="tx-fee-btc"
-                  type="number"
-                  step="0.00000001"
-                  className="form-control"
-                  {...register("fee", { valueAsNumber: true })}
-                  readOnly
-                />
-              </div>
+              <>
+                <div className="form-group">
+                  <label htmlFor="tx-fee-btc">Fee (BTC):</label>
+                  <input
+                    id="tx-fee-btc"
+                    type="number"
+                    step="0.00000001"
+                    className="form-control"
+                    {...register("fee", { valueAsNumber: true })}
+                    readOnly
+                  />
+                </div>
+                {renderFeeValueField()}
+              </>
             ) : (
               <div className="form-group">
                 <label htmlFor="tx-fee-usd">Fee (USD):</label>

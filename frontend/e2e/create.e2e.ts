@@ -192,6 +192,8 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   expect(tx).toMatchObject({ type: "Transfer", from_account_id: 4, to_account_id: 2, fee_currency: "BTC" });
   expect(Number(tx.amount)).toBe(0.5);
   expect(Number(tx.fee_amount)).toBe(0.0001);
+  // The fee's USD value is stored with it: 0.0001 x that day's $50,000.
+  expect(tx).toMatchObject({ fee_usd: "5.00", fee_usd_manual: false });
 
   const balances = await (await page.request.get("/api/calculations/accounts/balances")).json();
   const by = Object.fromEntries(balances.map((b: { name: string; balance: string }) => [b.name, Number(b.balance)]));
@@ -276,4 +278,18 @@ test("a sell larger than the balance is refused with a message", async ({ authed
   await page.getByRole("button", { name: "Save Transaction" }).click();
   await expect(page.getByText(/Failed to create transaction/)).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(2);
+});
+
+test("a transfer's fee value can be typed and is kept", async ({ authedPage: page }) => {
+  await seedFunds(page.request);
+  await openAddForm(page, "Transfer");
+  await setWhen(page);
+  await page.getByLabel("From Account").selectOption("Exchange");
+  await page.getByLabel("From Currency").selectOption("BTC");
+  await page.getByLabel("Amount (From)").fill("0.5");
+  await page.getByLabel("Amount (To)").fill("0.4999");
+  await page.getByLabel("Fee value (USD)").fill("6.25");
+  await saveForm(page);
+  const tx = await lastTx(page);
+  expect(tx).toMatchObject({ fee_usd: "6.25", fee_usd_manual: true });
 });

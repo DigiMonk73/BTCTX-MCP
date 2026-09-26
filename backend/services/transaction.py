@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
+from backend.services import price_history
 from backend.services.tax_time import get_tax_timezone
 from backend.constants import (
     ACCOUNT_WALLET,
@@ -94,6 +95,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
     _value_income_deposit(tx_data, db)
+    _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
 
     # 4) Insert Transaction
     now_utc = datetime.now(timezone.utc)
@@ -113,6 +115,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         # If the front end sends gross_proceeds_usd
         gross_proceeds_usd=tx_data.get("gross_proceeds_usd"),
         fmv_usd=tx_data.get("fmv_usd"),
+        fee_usd=tx_data.get("fee_usd"),
+        fee_usd_manual=tx_data.get("fee_usd_manual", False),
         is_locked=tx_data.get("is_locked", False),
         created_at=now_utc,
         updated_at=now_utc
@@ -215,6 +219,15 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         }
         if _value_income_deposit(merged, db):
             tx_data["cost_basis_usd"] = merged["cost_basis_usd"]
+
+    # A BTC fee's USD value: a typed one is kept; otherwise it is priced again
+    # when the fee or the date changes (fee_usd sent as null clears a typed one).
+    if "fee_usd" in tx_data or (not tx.fee_usd_manual and _fee_inputs_changed(tx, tx_data)):
+        fee = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "fee_amount", "fee_currency", "timestamp")}
+        fee["fee_usd"] = tx_data["fee_usd"] if "fee_usd" in tx_data else (
+            tx.fee_usd if tx.fee_usd_manual else None)
+        _value_btc_fee(fee, db, manual=fee["fee_usd"] is not None)
+        tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
 
     # Step 3) Overwrite relevant fields
     if "from_account_id" in tx_data:
@@ -804,40 +817,82 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     db.flush()
 
 
-def get_historical_btc_price(timestamp: datetime) -> Decimal:
+FEE_VALUED_TYPES = ("Transfer", "Withdrawal")
+
+
+def _has_btc_fee(data: dict) -> bool:
+    return (
+        data.get("type") in FEE_VALUED_TYPES
+        and (data.get("fee_currency") or "").upper() == "BTC"
+        and Decimal(data.get("fee_amount") or 0) > 0
+    )
+
+
+def _fee_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     """
-    The day's BTC price in USD for the timestamp's UTC date (the sources'
-    00:00 UTC daily price), with no fallback to the live price: for valuing
-    something received in the past, today's price would be wrong.
-    Raises 422 when no price is available.
+    Whether an edit really changes what a fee's value depends on. The form
+    sends every field on each edit; an unchanged fee keeps its stored value.
     """
-    import asyncio
-    import concurrent.futures
-    from backend.services.bitcoin import get_historical_price
+    def utc(ts):
+        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
 
-    if timestamp.tzinfo is not None:
-        timestamp = timestamp.astimezone(timezone.utc)
-    date_str = timestamp.strftime("%Y-%m-%d")
+    if "type" in tx_data and getattr(tx_data["type"], "value", tx_data["type"]) != tx.type:
+        return True
+    if "fee_currency" in tx_data and (tx_data["fee_currency"] or "").upper() != (tx.fee_currency or "").upper():
+        return True
+    if "fee_amount" in tx_data and Decimal(tx_data["fee_amount"] or 0) != Decimal(tx.fee_amount or 0):
+        return True
+    if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
+        return utc(tx_data["timestamp"]).astimezone(timezone.utc).date() != \
+            utc(tx.timestamp).astimezone(timezone.utc).date()
+    return False
 
-    def _fetch():
-        """Run async price fetch in a new thread with its own event loop."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(get_historical_price(date_str))
-        finally:
-            loop.close()
 
+def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
+    """
+    Set data["fee_usd"] / data["fee_usd_manual"]: the USD value of a
+    transfer's or withdrawal's BTC fee, stored with the transaction so
+    recalculation never prices it again. A typed value (manual) is kept;
+    otherwise fee x that day's price. No BTC fee: no value.
+    """
+    if not _has_btc_fee(data):
+        data["fee_usd"], data["fee_usd_manual"] = None, False
+        return
+    if manual:
+        data["fee_usd"] = Decimal(data["fee_usd"]).quantize(Decimal("0.01"))
+        data["fee_usd_manual"] = True
+        return
+    ts = data.get("timestamp") or datetime.now(timezone.utc)
     try:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            price_data = executor.submit(_fetch).result(timeout=30)
-        return Decimal(str(price_data["USD"]))
-    except Exception as e:
-        logger.warning("Historical BTC price lookup failed for %s: %s", date_str, e)
+        price = get_btc_price(ts, db)
+    except HTTPException as e:
         raise HTTPException(
             status_code=422,
-            detail=f"Couldn't get the BTC price for {date_str}.",
+            detail=f"{e.detail} (for the network fee: enter its value in USD as fee_usd)",
         )
+    data["fee_usd"] = (price * Decimal(data["fee_amount"])).quantize(Decimal("0.01"))
+    data["fee_usd_manual"] = False
+
+
+def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
+    """
+    The fee's stored USD value. A row saved before values were stored (and
+    not filled by migration 0004) is priced once from the price history and
+    the value kept, so later recalculations don't price it again.
+    """
+    if tx.fee_usd is None:
+        tx.fee_usd = (get_btc_price(tx.timestamp, db) * fee_btc).quantize(Decimal("0.01"))
+        tx.fee_usd_manual = False
+    return Decimal(tx.fee_usd)
+
+
+def get_historical_btc_price(timestamp: datetime, db: Session) -> Decimal:
+    """
+    The day's BTC price in USD for the timestamp's UTC date, from the local
+    price history (services/price_history.py). Never today's live price.
+    Raises 422 when no price is available.
+    """
+    return price_history.daily_price(db, timestamp)
 
 
 def _value_income_deposit(tx_data: dict, db: Session) -> bool:
@@ -861,7 +916,7 @@ def _value_income_deposit(tx_data: dict, db: Session) -> bool:
 
     timestamp = tx_data.get("timestamp") or datetime.now(timezone.utc)
     try:
-        price = get_historical_btc_price(timestamp)
+        price = get_historical_btc_price(timestamp, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
@@ -876,59 +931,12 @@ def _value_income_deposit(tx_data: dict, db: Session) -> bool:
 
 def get_btc_price(timestamp: datetime, db: Session) -> Decimal:
     """
-    Fetch the historical BTC price in USD at the given timestamp.
-    Uses the bitcoin service directly (no HTTP calls to self).
-    If historical fails, fallback to live price.
+    The BTC price in USD for the timestamp's UTC day, from the local price
+    history. It used to fall back to the live price when the day's lookup
+    failed, which valued past fees and spends at today's price; now a
+    missing price is a 422 (services/price_history.py).
     """
-    import asyncio
-    import concurrent.futures
-    from backend.services.bitcoin import get_historical_price, get_current_price
-
-    timestamp_str = timestamp.strftime("%Y-%m-%d")
-
-    def _fetch_historical():
-        """Run async price fetch in a new thread with its own event loop."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(get_historical_price(timestamp_str))
-        finally:
-            loop.close()
-
-    def _fetch_current():
-        """Run async price fetch in a new thread with its own event loop."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(get_current_price())
-        finally:
-            loop.close()
-
-    try:
-        # Run in a thread pool to avoid event loop conflicts
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(_fetch_historical)
-            price_data = future.result(timeout=30)
-            if "USD" in price_data:
-                return Decimal(str(price_data["USD"]))
-    except Exception as e:
-        # Fallback to live price
-        try:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(_fetch_current)
-                live_price_data = future.result(timeout=30)
-                if "USD" in live_price_data:
-                    return Decimal(str(live_price_data["USD"]))
-        except Exception:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to fetch BTC price: {str(e)}"
-            )
-
-    raise HTTPException(
-        status_code=500,
-        detail="Failed to fetch BTC price: No USD price returned"
-    )
+    return price_history.daily_price(db, timestamp)
 
 
 def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
@@ -971,6 +979,7 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
 
     remaining_outflow = total_outflow
     remaining_fee = fee_btc
+    fee_proceeds_so_far = Decimal("0")
     transfers_for_destination = []
 
     for lot in lots:
@@ -992,11 +1001,18 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
         portion_for_fee = min(btc_to_use, remaining_fee)
         portion_for_dest = btc_to_use - portion_for_fee
 
-        # Fee disposal
+        # Fee disposal, at the fee's stored USD value (split by BTC when the
+        # fee spans lots; the last part takes the remainder so the parts add
+        # up to fee_usd exactly).
         if portion_for_fee > 0:
             disposal_basis = (cost_per_btc * portion_for_fee).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-            btc_unit_price = get_btc_price(tx.timestamp, db)
-            proceeds_for_fee = (btc_unit_price * portion_for_fee).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            fee_usd = _stored_fee_usd(tx, fee_btc, db)
+            if portion_for_fee == remaining_fee:
+                proceeds_for_fee = fee_usd - fee_proceeds_so_far
+            else:
+                proceeds_for_fee = (fee_usd * portion_for_fee / fee_btc).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            fee_proceeds_so_far += proceeds_for_fee
             realized_gain = proceeds_for_fee - disposal_basis
 
             hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))
@@ -1258,7 +1274,7 @@ def _validate_transaction(data: dict, db: Session) -> None:
     fee = Decimal(data.get("fee_amount") or 0)
     if fee < 0:
         _bad("The fee can't be negative.")
-    for key in ("cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd"):
+    for key in ("cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd"):
         if data.get(key) is not None and Decimal(data[key]) < 0:
             _bad(f"{key} can't be negative.")
 

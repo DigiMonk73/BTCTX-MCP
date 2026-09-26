@@ -28,7 +28,7 @@ def _no_network(monkeypatch):
         return {"USD": PRICE}
 
     monkeypatch.setattr(
-        "backend.services.entry_import.get_historical_price", fake_historical
+        "backend.services.bitcoin.get_historical_price", fake_historical
     )
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price",

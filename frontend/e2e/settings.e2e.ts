@@ -1,10 +1,11 @@
 // Settings: timezone, recalculation, credentials, delete, backup and
 // restore, CSV export, and the Connect an AI Assistant prompt.
 import {
-  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, USER, PASSWORD,
+  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 async function openSettings(page: Page) {
@@ -229,4 +230,26 @@ test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: 
   await expect(list).toContainText(`#${spend.id} · `);
   await expect(list).toContainText("Withdrawal (Spent) · 0.01000000 BTC");
   expect(await listTx(page.request)).toEqual(before);
+});
+
+test("ledger review fixes a live-priced transfer fee after asking", async ({ app, authedPage: page }) => {
+  await seedKnownLedger(page.request); // its transfer fee: 0.0001 x $50,000 = $5.00
+  const transfer = (await listTx(page.request)).find((t) => t.type === "Transfer")!;
+  // As an older version saved it when the day's lookup failed: at the live price.
+  execFileSync(python(), ["-c",
+    "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); " +
+    "c.execute('UPDATE transactions SET fee_usd=6.00 WHERE id=?', (int(sys.argv[2]),)); c.commit()",
+    path.join(app.dir, "e2e.db"), String(transfer.id)]);
+  await page.request.post("/api/transactions/recalculate");
+
+  const dialogs = acceptDialogs(page);
+  await openSettings(page);
+  const review = page.getByRole("region", { name: "Ledger review" });
+  const title = "Transfer fees valued far from that day's price (probably at the live price)";
+  await expect(review.getByRole("list", { name: title })).toContainText("$6.00 -> $5.00");
+  await review.getByRole("button", { name: "Fix these" }).click();
+  await expect(review.getByText("Nothing to review.")).toBeVisible();
+  expect(dialogs[0]).toContain("Set 1 transfer fee value(s) to that day's BTC price");
+  const fixed = (await listTx(page.request)).find((t) => t.id === transfer.id)!;
+  expect(fixed.fee_usd).toBe("5.00");
 });

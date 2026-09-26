@@ -45,17 +45,29 @@ def _stub_price_apis():
     async def current():
         return {"USD": STUB_CURRENT_USD}
 
+    async def no_bulk_history(start, end):
+        return {}  # every day then comes from the single-day stub above
+
     import backend.services.bitcoin as bitcoin
-    import backend.routers.river_import as river_router
-    import backend.services.entry_import as entry_import
+    import backend.services.price_history as price_history
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(bitcoin, "get_historical_price", historical)
         mp.setattr(bitcoin, "get_current_price", current)
-        # Modules that imported the function by name
-        mp.setattr(river_router, "get_historical_price", historical)
-        mp.setattr(entry_import, "get_historical_price", historical)
+        mp.setattr(price_history, "fetch_range", no_bulk_history)
         yield
+
+
+@pytest.fixture(autouse=True)
+def _empty_price_history(request):
+    """Each test starts with no stored BTC prices, so a price a test stubs
+    isn't hidden by one an earlier test stored for the same day."""
+    if "test_engine" in request.fixturenames:
+        from sqlalchemy import text
+
+        with request.getfixturevalue("test_engine").begin() as con:
+            con.execute(text("DELETE FROM btc_price_daily"))
+    yield
 
 
 def init_test_db(engine):

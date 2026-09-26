@@ -71,6 +71,11 @@ So derived values must be recomputable from the Transaction row alone.
   (`_value_income_deposit`); no price → 422, never $0.
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
+- **Prices**: every past-day valuation goes through
+  `services/price_history.daily_price` (table `btc_price_daily`, the UTC day's
+  00:00 price; bulk download on a miss). Never today's live price, never $0:
+  no price is a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
+  at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
@@ -93,6 +98,8 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
+| `backend/services/price_history.py`, `outbound.py` | stored daily BTC prices; the only HTTP client factory for outside services |
+| `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |

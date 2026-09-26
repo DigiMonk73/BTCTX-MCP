@@ -1,6 +1,7 @@
-import httpx
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
+
+from backend.services import outbound
 
 # ---------------------------------------------------------------------
 # API endpoints for primary and backup services
@@ -43,7 +44,7 @@ async def get_current_price():
     using CoinGecko as primary, then Kraken, then CoinDesk if needed.
     Raises HTTP 502 if all fail.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko API for current price
         try:
             resp = await client.get(COINGECKO_PRICE_URL)
@@ -130,7 +131,7 @@ async def get_historical_price(date: str):
     coingecko_date = target_date.strftime("%d-%m-%Y")  # DD-MM-YYYY for CoinGecko
     coindesk_date = target_date.strftime("%Y-%m-%d")   # YYYY-MM-DD for CoinDesk
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko API for single-day historical price
         try:
             resp = await client.get(COINGECKO_HISTORY_URL.format(date=coingecko_date))
@@ -170,10 +171,9 @@ async def get_historical_price(date: str):
                                 # Use the open price at 00:00 UTC of that day
                                 price = float(entry[1])
                                 return {"USD": price}
-                        # If exact timestamp not found, fallback to the first entry's open
-                        if ohlc_data:
-                            price = float(ohlc_data[0][1])
-                            return {"USD": price}
+                        # No candle for that day: Kraken only returns its
+                        # latest 720 days, whatever `since` asks for. Its
+                        # first candle is another day's price, so don't use it.
             except Exception:
                 pass
 
@@ -218,7 +218,7 @@ async def get_time_series(days: int = 7):
       ]
     The 'time' is a UNIX timestamp in milliseconds (UTC), and 'price' is in USD.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with outbound.async_client() as client:
         # 1. Try CoinGecko
         try:
             url = COINGECKO_TIMESERIES_URL.format(days=days)
@@ -293,7 +293,7 @@ async def get_block_height():
     using Blockchain.info as primary, then Blockstream, then Mempool.space.
     Raises HTTP 502 if all fail.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    async with outbound.async_client() as client:
         # 1. Try Blockchain.info
         try:
             resp = await client.get(BLOCKCHAIN_INFO_HEIGHT_URL)

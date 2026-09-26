@@ -51,7 +51,7 @@ def _status(date: str) -> int:
 
 
 def test_todays_utc_date_is_not_the_future_west_of_utc(pago_pago, monkeypatch):
-    monkeypatch.setattr("backend.services.bitcoin.httpx.AsyncClient", _Offline)
+    monkeypatch.setattr("backend.services.outbound.async_client", _Offline)
     today_utc = datetime.now(timezone.utc).date()
     assert _status(today_utc.isoformat()) == 502  # looked up (offline here), not refused
     tomorrow_utc = today_utc + timedelta(days=1)

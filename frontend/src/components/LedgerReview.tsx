@@ -53,6 +53,24 @@ const LedgerReview: React.FC = () => {
     void load();
   }, [load]);
 
+  // Only the fee values have a fix here: it changes tax figures, so ask first.
+  const fixFees = async (check: ReviewCheck) => {
+    const ok = window.confirm(
+      `Set ${check.count} transfer fee value(s) to that day's BTC price and recalculate the ledger?\n\n` +
+        "This changes the fees' gains on your tax reports. Back up first (Settings → Backup).",
+    );
+    if (!ok) return;
+    setLoading(true);
+    try {
+      await api.post("/review/fee-prices", { ids: check.items.map((i) => i.id) });
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+    await load();
+  };
+
   const found = review?.checks.filter((c) => c.count > 0) ?? [];
 
   return (
@@ -70,7 +88,7 @@ const LedgerReview: React.FC = () => {
           {loading ? "Checking..." : "Check again"}
         </button>
       </div>
-      {failed && <p className="settings-option-subtitle">Could not load the review.</p>}
+      {failed && <p className="settings-option-subtitle">The review could not be loaded or applied.</p>}
       {review && review.total === 0 && (
         <p className="settings-option-subtitle">Nothing to review.</p>
       )}
@@ -89,6 +107,11 @@ const LedgerReview: React.FC = () => {
             ))}
           </ul>
           <p className="settings-option-subtitle">{check.action}</p>
+          {check.key === "fee_value_off" && (
+            <button onClick={() => fixFees(check)} disabled={loading} className="settings-button">
+              Fix these
+            </button>
+          )}
         </div>
       ))}
       {review && review.total > 0 && (

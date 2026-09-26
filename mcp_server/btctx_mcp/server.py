@@ -62,6 +62,9 @@ class TransactionInput(BaseModel):
     purpose: Optional[WithdrawalPurpose] = Field(default=None, description="Required for BTC withdrawals.")
     fmv_usd: Optional[Decimal] = Field(
         default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
+    fee_usd: Optional[Decimal] = Field(
+        default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x that "
+                                  "day's price is stored).")
 
 
 _client: Optional[BtctxClient] = None
@@ -120,7 +123,7 @@ def _compact(tx: Dict[str, Any]) -> Dict[str, Any]:
         "to": ACCOUNT_NAMES.get(tx.get("to_account_id"), tx.get("to_account_id")),
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
-                "proceeds_usd", "fmv_usd", "realized_gain_usd", "holding_period",
+                "proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
                 "broker_reporting"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
@@ -264,6 +267,7 @@ async def update_transaction(
     source: Optional[DepositSource] = None,
     purpose: Optional[WithdrawalPurpose] = None,
     fmv_usd: Optional[Decimal] = None,
+    fee_usd: Optional[Decimal] = None,
     broker_reporting: Optional[Literal["automatic", "none", "proceeds", "basis"]] = None,
 ) -> Dict[str, Any]:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
@@ -271,7 +275,8 @@ async def update_transaction(
     Changing type or accounts requires passing type, from_account and to_account together.
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
-    broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic"."""
+    broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
+    fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
     changes: Dict[str, Any] = {}
     if date is not None:
         try:
@@ -285,7 +290,7 @@ async def update_transaction(
     if to_account is not None:
         changes["to_account_id"] = ACCOUNT_IDS[to_account]
     for key, val in (("amount", amount), ("cost_basis_usd", cost_basis_usd),
-                     ("fee_amount", fee_amount), ("fmv_usd", fmv_usd)):
+                     ("fee_amount", fee_amount), ("fmv_usd", fmv_usd), ("fee_usd", fee_usd)):
         if val is not None:
             changes[key] = format(val, "f")
     if proceeds_usd is not None:
