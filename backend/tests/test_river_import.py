@@ -429,3 +429,14 @@ class TestExecute:
 
         txs = CLIENT.get("/api/transactions").json()
         assert len(txs) == 0
+
+
+def test_a_fee_in_an_unexpected_currency_is_flagged():
+    """F21: River's Fee Currency column was ignored (forced by row type)."""
+    proposals, errors, warnings = adapt([
+        "2026-02-03 15:30:00,148.50,USD,0.00180000,BTC,0.00001,BTC,Buy",
+        "2026-02-15 10:00:00,0.00100000,BTC,,,0.50,USD,",
+        "2026-02-16 10:00:00,0.00100000,BTC,,,0.00000500,BTC,",
+    ])
+    flagged = sorted(w.row_number for w in warnings if w.column == "Fee Currency")
+    assert flagged == [2, 3]

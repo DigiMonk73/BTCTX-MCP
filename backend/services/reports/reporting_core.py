@@ -18,6 +18,7 @@ from backend.models.transaction import (
     LotDisposal,
 )
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
+from backend.services.reports.form_8949 import taxable_disposals
 
 # Services
 from backend.services.transaction import (
@@ -93,11 +94,12 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     # ---------------------------------------------------------
     # 4) Build each needed section
     # ---------------------------------------------------------
-    gains_dict        = _build_capital_gains_summary(txns)
+    disposals         = taxable_disposals(db, start_dt, end_dt)
+    gains_dict        = _build_capital_gains_summary(disposals)
     income_dict       = _build_income_summary(txns)
     asset_list        = _build_asset_summary(db, start_dt, end_dt)
-    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(txns)
-    cap_gain_txs_det  = _build_capital_gains_transactions_detailed(db, txns)
+    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals)
+    cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
     income_txs        = _build_income_transactions(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
     expense_list      = _build_expenses_list(txns)
@@ -392,65 +394,34 @@ def _restore_buy_deposit_lots_before(db: Session, boundary_dt: datetime):
         logger.info("[Restore Pre-Boundary Lots] No older lots needed restoring.")
 
 
-def _build_capital_gains_summary(txns: List[Transaction]) -> Dict[str, Any]:
+def _build_capital_gains_summary(disposals: List[LotDisposal]) -> Dict[str, Any]:
     """
-    Summarizes short-term vs. long-term gains across all Sell/Withdrawal transactions
-    in the given list. Each transaction holds cost_basis_usd, proceeds_usd, and
-    realized_gain_usd, along with a holding_period ("SHORT" or "LONG").
+    Short- and long-term totals from the Form 8949 disposals (form_8949.
+    taxable_disposals), each lot slice in its own holding period. It used to
+    total whole Sell/Withdrawal transactions by their first lot's holding
+    period, leave out transfer fees and add the basis of gifts, so it could
+    disagree with Form 8949 and Schedule D.
     """
-    from decimal import Decimal
+    zero = Decimal("0")
+    terms = {t: {"proceeds": zero, "basis": zero, "gain": zero, "profits": zero, "losses": zero}
+             for t in ("short_term", "long_term")}
+    for d in disposals:
+        t = terms["long_term" if (d.holding_period or "").upper() == "LONG" else "short_term"]
+        gain = d.realized_gain_usd or zero
+        t["proceeds"] += d.proceeds_usd_for_that_portion or zero
+        t["basis"] += d.disposal_basis_usd or zero
+        t["gain"] += gain
+        t["profits" if gain > 0 else "losses"] += abs(gain)
 
-    total_st_proceeds = Decimal("0.0")
-    total_st_basis    = Decimal("0.0")
-    total_st_gain     = Decimal("0.0")
+    def out(t):
+        return {k: float(v) for k, v in t.items()}
 
-    total_lt_proceeds = Decimal("0.0")
-    total_lt_basis    = Decimal("0.0")
-    total_lt_gain     = Decimal("0.0")
-
-    disposal_count = 0
-
-    for tx in txns:
-        if tx.type not in ("Sell", "Withdrawal"):
-            continue
-        if tx.realized_gain_usd is None:
-            continue
-
-        disposal_count += 1
-        proceeds = tx.proceeds_usd or Decimal("0.0")
-        basis    = tx.cost_basis_usd or Decimal("0.0")
-        gain     = tx.realized_gain_usd or Decimal("0.0")
-
-        if tx.holding_period == "LONG":
-            total_lt_proceeds += proceeds
-            total_lt_basis    += basis
-            total_lt_gain     += gain
-        else:
-            total_st_proceeds += proceeds
-            total_st_basis    += basis
-            total_st_gain     += gain
-
-    total_proceeds = total_st_proceeds + total_lt_proceeds
-    total_basis    = total_st_basis    + total_lt_basis
-    net_gains      = total_st_gain     + total_lt_gain
-
+    total = {k: terms["short_term"][k] + terms["long_term"][k] for k in ("proceeds", "basis", "gain")}
     return {
-        "number_of_disposals": disposal_count,
-        "short_term": {
-            "proceeds": float(total_st_proceeds),
-            "basis":    float(total_st_basis),
-            "gain":     float(total_st_gain),
-        },
-        "long_term": {
-            "proceeds": float(total_lt_proceeds),
-            "basis":    float(total_lt_basis),
-            "gain":     float(total_lt_gain),
-        },
-        "total": {
-            "proceeds": float(total_proceeds),
-            "basis":    float(total_basis),
-            "gain":     float(net_gains),
-        }
+        "number_of_disposals": len(disposals),
+        "short_term": out(terms["short_term"]),
+        "long_term": out(terms["long_term"]),
+        "total": out(total),
     }
 
 
@@ -493,13 +464,7 @@ def _build_income_summary(txns: List[Transaction]) -> Dict[str, Any]:
 def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> List[Dict[str, Any]]:
     """Realized profit / loss / net on BTC for the tax year, from the lot disposals."""
 
-    gains = [
-        Decimal(d.realized_gain_usd or 0)
-        for d in db.query(LotDisposal)
-        .join(LotDisposal.transaction)
-        .filter(Transaction.timestamp >= start_dt, Transaction.timestamp < end_dt)
-        .all()
-    ]
+    gains = [Decimal(d.realized_gain_usd or 0) for d in taxable_disposals(db, start_dt, end_dt)]
     profit = sum((g for g in gains if g > 0), Decimal("0"))
     loss = -sum((g for g in gains if g < 0), Decimal("0"))
     return [{
@@ -569,66 +534,45 @@ def _build_end_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]]:
     return rows
 
 
-def _build_capital_gains_transactions_summary(txns: List[Transaction]) -> List[Dict[str, Any]]:
-    """
-    One line per Sell/Withdrawal transaction. Perfect for a "summary" in PDFs:
-      date_sold, date_acquired (if multiple lots => '(multiple lots)'),
-      cost basis, proceeds, realized gain, etc.
-    """
-    results = []
-    for tx in txns:
-        if tx.type not in ("Sell", "Withdrawal"):
-            continue
-        if not tx.realized_gain_usd:
-            continue
+def _disposal_row(d: LotDisposal) -> Dict[str, Any]:
+    tx = d.transaction
+    lot = d.lot
+    return {
+        "date_sold": tx.timestamp.isoformat() if tx and tx.timestamp else "",
+        "date_acquired": lot.acquired_date.isoformat() if lot and lot.acquired_date else "",
+        "asset": "BTC",
+        "type": "Transfer fee" if tx and tx.type == "Transfer" else (tx.type if tx else ""),
+        "amount": float(d.disposed_btc or 0),
+        "cost": float(d.disposal_basis_usd or 0),
+        "proceeds": float(d.proceeds_usd_for_that_portion or 0),
+        "gain_loss": float(d.realized_gain_usd or 0),
+        "holding_period": d.holding_period or "",
+    }
 
-        row = {
-            "date_sold": tx.timestamp.isoformat() if tx.timestamp else "",
-            "date_acquired": "(multiple lots)",
+
+def _build_capital_gains_transactions_summary(disposals: List[LotDisposal]) -> List[Dict[str, Any]]:
+    """
+    One line per Form 8949 disposal (a sale across lots gives one line per
+    lot, each in its own holding period), including transfer fees.
+    """
+    return [_disposal_row(d) for d in disposals]
+
+
+def _build_capital_gains_transactions_detailed(disposals: List[LotDisposal]) -> List[Dict[str, Any]]:
+    """The same lines under the per-lot field names older callers use."""
+    return [
+        {
+            "date_sold": row["date_sold"],
+            "date_acquired": row["date_acquired"],
             "asset": "BTC",
-            "amount": float(tx.amount or 0),
-            "cost": float(tx.cost_basis_usd or 0),
-            "proceeds": float(tx.proceeds_usd or 0),
-            "gain_loss": float(tx.realized_gain_usd or 0),
-            "holding_period": tx.holding_period or "",
+            "amount_disposed": row["amount"],
+            "disposal_basis_usd": row["cost"],
+            "proceeds_usd_for_that_portion": row["proceeds"],
+            "realized_gain_usd": row["gain_loss"],
+            "holding_period": row["holding_period"],
         }
-        results.append(row)
-    return results
-
-
-def _build_capital_gains_transactions_detailed(db: Session, txns: List[Transaction]) -> List[Dict[str, Any]]:
-    """
-    Granular, per-lot breakdown of each Sell/Withdrawal. If a transaction disposed
-    multiple lots, each disposal is its own line. Great for 8949 or line-level detail.
-    """
-    results: List[Dict[str, Any]] = []
-    disposal_txs = [t for t in txns if t.type in ("Sell", "Withdrawal")]
-
-    for tx in disposal_txs:
-        lot_usages = tx.lot_disposals
-        if not lot_usages:
-            continue
-
-        for disp in lot_usages:
-            lot = disp.lot
-            date_sold_str = tx.timestamp.isoformat() if tx.timestamp else ""
-            date_acquired_str = ""
-            if lot and lot.acquired_date:
-                date_acquired_str = lot.acquired_date.isoformat()
-
-            row = {
-                "date_sold": date_sold_str,
-                "date_acquired": date_acquired_str,
-                "asset": "BTC",
-                "amount_disposed": float(disp.disposed_btc or 0),
-                "disposal_basis_usd": float(disp.disposal_basis_usd or 0),
-                "proceeds_usd_for_that_portion": float(disp.proceeds_usd_for_that_portion or 0),
-                "realized_gain_usd": float(disp.realized_gain_usd or 0),
-                "holding_period": disp.holding_period or "",
-            }
-            results.append(row)
-
-    return results
+        for row in map(_disposal_row, disposals)
+    ]
 
 
 def _build_income_transactions(txns: List[Transaction]) -> List[Dict[str, Any]]:
@@ -690,7 +634,9 @@ def _build_gifts_donations_lost(txns: List[Transaction]) -> List[Dict[str, Any]]
                 "asset": "BTC",
                 "amount": float(tx.amount or 0),
                 "proceeds_usd": float(tx.proceeds_usd or 0),
-                "fmv_usd": float(tx.fmv_usd or 0),
+                # None when no value was given or priced: shown as "not given",
+                # not as $0 (which reads like a worthless gift).
+                "fmv_usd": float(tx.fmv_usd) if tx.fmv_usd is not None else None,
                 "type": tx.purpose,
             }
             results.append(row)

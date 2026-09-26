@@ -37,6 +37,44 @@ All notable changes to BitcoinTX are documented in this file.
   with the optional `API_KEY` could download or replace the whole database.
   Both now need a login.
 
+- **Stricter input, clear messages.** The API, CSV and AI imports now refuse
+  what the ledger would record wrongly: amounts of 0 or less, negative fees,
+  basis or proceeds, more decimals than a satoshi (or a cent for USD accounts,
+  exponent notation included), amounts too large to store (one used to be
+  saved and then break the transaction list), unknown accounts, dates before
+  3 January 2009 or in the future, a BTC withdrawal without a purpose (it got
+  $0 proceeds: a loss of its whole basis on Form 8949), a Sell without
+  proceeds, a fee in the wrong currency. A malformed optional number in an
+  import is now an error instead of being dropped. An edit is checked as the
+  whole transaction.
+- **Form 8949 left out "Gift"/"Donation"/"Lost" only when capitalized exactly
+  that way**; a "gift" entered through the API or an import printed on the
+  form with its basis. Purposes are now stored in one spelling and matched in
+  any case.
+- **The complete tax report's capital-gains summary could disagree with Form
+  8949 and Schedule D**: it totaled whole transactions by their first lot's
+  holding period (a sale across short- and long-term lots went all to one
+  side), left out transfer fees and counted the basis of gifts. It is now
+  built from the same disposals as the forms. The forms themselves were right.
+- **CSV import dates**: a date without a timezone was read as UTC, so
+  "2024-01-01" landed on 31 December 2023 in a US tax timezone. Dates now
+  follow the tax timezone (Settings), and a date alone means noon that day.
+  A USD transfer's fee can be imported (it used to insist on BTC). The CSV
+  instructions PDF said to include fees in a Buy's basis and gave the Sell
+  proceeds after fees; both are before the fee (the fee column is applied
+  once).
+- **The Mac app refused today's price in the evening** in the Americas (it
+  compared a UTC date with the local date): an income deposit left blank got
+  an error and FMV Refresh failed.
+- **Security**: deleting every transaction, the debug routes and the tax
+  timezone setting are login-only (the optional `API_KEY` reached them).
+  Changing the password or resetting the account now ends every other
+  session (you'll be asked to log in once after upgrading). Empty usernames
+  and passwords are refused. The API docs pages are off unless DEBUG is set.
+- The River import warns when a row's Fee Currency isn't what BitcoinTX
+  reads it as. The tax report shows a gift's value as "not given" instead of
+  $0 when none was entered.
+
 ### AI assistant (MCP)
 - **The Mac app no longer needs your password in an AI app's settings.** It
   writes `~/Library/Application Support/BitcoinTX/mcp.json` (readable only by

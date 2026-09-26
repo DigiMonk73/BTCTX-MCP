@@ -36,6 +36,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+from backend.services.reports.reporting_core import generate_report_data
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
 SAT = Decimal("0.00000001")
@@ -70,7 +71,9 @@ def draw_ledger(data, max_ops: int) -> tuple[List[dict], Model]:
 
     def when() -> str:
         nonlocal t
-        days = data.draw(st.integers(1, 220), label="gap_days")
+        # Up to 60 days apart: 25 operations stay within the past (future
+        # dates are refused), and holding periods still cross one year.
+        days = data.draw(st.integers(1, 60), label="gap_days")
         minutes = data.draw(st.integers(0, 24 * 60 - 1), label="minutes")
         t = t + timedelta(days=days, minutes=minutes)
         if t.month == 2 and t.day == 29:  # keep anniversaries unambiguous
@@ -271,6 +274,14 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
                 (Decimal(str(forms["schedule_d"][t]["gain_loss"])) for t in ("short_term", "long_term")), Decimal(0)
             )
             assert form_gain == sum((d.realized_gain_usd for d in taxable), Decimal(0)), year
+
+            # The complete tax report's summary = Schedule D, term by term.
+            summary = generate_report_data(db, year)["capital_gains_summary"]
+            for term in ("short_term", "long_term"):
+                sched = forms["schedule_d"][term]
+                assert Decimal(str(summary[term]["proceeds"])) == Decimal(str(sched["proceeds"])), (year, term)
+                assert Decimal(str(summary[term]["basis"])) == Decimal(str(sched["cost"])), (year, term)
+                assert Decimal(str(summary[term]["gain"])) == Decimal(str(sched["gain_loss"])), (year, term)
 
 
 def run_property(ledger: Ledger, data, max_ops: int, shuffle: bool) -> None:

@@ -75,6 +75,31 @@ class Form8949Row:
 ##############################################################################
 # 2) BUILDING 8949 DATA FROM DB
 ##############################################################################
+# Compared lower-cased, as the ledger does: rows saved before input was
+# normalized may say "gift" (they have $0 gain but used to print here).
+# Gifts, donations and lost assets are reported separately, not as gains.
+NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
+
+
+def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
+    """
+    The lot disposals that go on Form 8949 for [start, end): sales, spends
+    and transfer fees; not gifts, donations or lost coins. The complete tax
+    report's capital-gains sections use the same list, so they can't
+    disagree with the forms.
+    """
+    return (
+        db.query(LotDisposal)
+          .join(LotDisposal.transaction)
+          .filter(Transaction.timestamp >= start, Transaction.timestamp < end)
+          .filter(
+              (Transaction.purpose.is_(None)) | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
+          )
+          .order_by(Transaction.timestamp, LotDisposal.id)
+          .all()
+    )
+
+
 def build_form_8949_and_schedule_d(
     year: int,
     db: Session,
@@ -95,23 +120,7 @@ def build_form_8949_and_schedule_d(
     tz = get_tax_timezone(db)
     start_date, end_date = tax_year_bounds(year, tz)
 
-    # Non-taxable disposal purposes that should NOT appear on Form 8949
-    # Gifts, donations, and lost assets are reported separately, not as capital gains/losses
-    # Compared lower-cased, as the ledger does: rows saved before input was
-    # normalized may say "gift" (they have $0 gain but used to print here).
-    NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
-
-    disposals = (
-        db.query(LotDisposal)
-          .join(LotDisposal.transaction)
-          .filter(Transaction.timestamp >= start_date, Transaction.timestamp < end_date)
-          .filter(
-              # Exclude non-taxable disposals (gifts, donations, lost assets)
-              # These have a purpose field set; taxable disposals (Sell, Spent, Transfer fees) don't
-              (Transaction.purpose.is_(None)) | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
-          )
-          .all()
-    )
+    disposals = taxable_disposals(db, start_date, end_date)
 
     rows_short: List[Form8949Row] = []
     rows_long: List[Form8949Row] = []

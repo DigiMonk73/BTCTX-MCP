@@ -248,6 +248,18 @@ def adapt_river_rows(
 
     outlay_counts = _recurring_outlays(rows)
 
+    def check_fee_currency(row, expected: str) -> None:
+        """River's Fee Currency is taken as `expected` for this kind of row;
+        say so when the file says otherwise instead of ignoring it."""
+        if row.fee and row.fee_currency and row.fee_currency != expected:
+            warnings.append(CSVParseError(
+                row_number=row.row_number, column="Fee Currency", severity="warning",
+                message=(
+                    f"Fee Currency is {row.fee_currency}, but a fee on this kind of row is in {expected}; "
+                    f"it was read as {row.fee} {expected}. Check the fee before importing."
+                ),
+            ))
+
     for row in rows:
         tag = row.tag
 
@@ -261,6 +273,7 @@ def adapt_river_rows(
             # Funding heuristic: a recurring no-fee outlay is an auto-buy
             # pulled from the bank via ACH; anything else defaults to the
             # River cash balance. Always user-overridable in the preview.
+            check_fee_currency(row, "USD")
             recurring = outlay_counts.get(_buy_outlay(row), 0) >= RECURRING_BUY_THRESHOLD
             from_id = ACCOUNT_BANK if (recurring and not row.fee) else ACCOUNT_EXCHANGE_USD
             proposals.append(RiverProposal(
@@ -279,6 +292,7 @@ def adapt_river_rows(
                     message="Sell row missing sent/received amount — skipped.",
                 ))
                 continue
+            check_fee_currency(row, "USD")
             # River's Received Amount is what landed after River's fee
             # (receipt: subtotal - fee = received). BitcoinTX's proceeds_usd
             # is the gross before fees, and the ledger subtracts the USD fee
@@ -319,6 +333,7 @@ def adapt_river_rows(
                     message="BTC send row missing amount — skipped.",
                 ))
                 continue
+            check_fee_currency(row, "BTC")
             if tag == "Withdrawal":
                 proposals.append(RiverProposal(
                     row_number=row.row_number, timestamp=row.timestamp, river_tag=tag,

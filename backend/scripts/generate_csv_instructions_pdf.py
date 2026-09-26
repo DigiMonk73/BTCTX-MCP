@@ -107,6 +107,12 @@ def generate_csv_instructions_pdf():
     )
 
     # Table styles
+    cell_style = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=8.5, leading=10.5)
+
+    def wrap_cells(rows):
+        """Body cells as Paragraphs so long text wraps inside its column."""
+        return [rows[0]] + [[Paragraph(str(c).replace("\n", "<br/>"), cell_style) for c in row] for row in rows[1:]]
+
     table_style = TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#4a4a4a")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -188,21 +194,21 @@ def generate_csv_instructions_pdf():
 
     columns_data = [
         ["Column", "Required", "Description"],
-        ["date", "Yes", "Transaction date/time (ISO8601 preferred)"],
+        ["date", "Yes", "Date/time (ISO8601 preferred). Without a timezone it is in your tax timezone (Settings); a date alone means noon"],
         ["type", "Yes", "Transaction type: Deposit, Withdrawal, Transfer, Buy, Sell"],
-        ["amount", "Yes", "BTC amount (positive number, up to 8 decimals)"],
+        ["amount", "Yes", "BTC (up to 8 decimals), or USD for Bank/Exchange USD rows. Transfer: what left the account, fee included. Withdrawal: what the recipient got, fee on top"],
         ["from_account", "Yes", "Source account name"],
         ["to_account", "Yes", "Destination account name"],
-        ["cost_basis_usd", "Conditional", "USD cost (required for Buy; optional for Deposit)"],
-        ["proceeds_usd", "Conditional", "USD proceeds (required for Sell; for Spent withdrawals)"],
-        ["fee_amount", "No", "Transaction fee amount"],
-        ["fee_currency", "No", "Fee currency: USD or BTC"],
+        ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). Deposit: optional; Income/Interest/Reward blank = that day's value"],
+        ["proceeds_usd", "Conditional", "Sell: gross USD, before the fee (the fee is subtracted). Spent withdrawal: value received; blank = that day's value"],
+        ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
+        ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
         ["source", "No", "For Deposits: N/A, MyBTC, Gift, Income, Interest, Reward"],
         ["purpose", "Conditional", "For Withdrawals: Spent, Gift, Donation, Lost"],
         ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ]
 
-    col_table = Table(columns_data, colWidths=[1.3*inch, 0.9*inch, 4.5*inch])
+    col_table = Table(wrap_cells(columns_data), colWidths=[1.3*inch, 0.9*inch, 4.5*inch])
     col_table.setStyle(table_style)
     story.append(col_table)
 
@@ -280,19 +286,21 @@ def generate_csv_instructions_pdf():
         ["Type", "From Account", "To Account", "Required Fields"],
         ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd (optional, defaults to $0)"],
         ["Withdrawal", "Wallet or\nExchange BTC", "External", "purpose required;\nproceeds_usd for \"Spent\""],
-        ["Transfer", "Wallet or\nExchange BTC", "Wallet or\nExchange BTC", "Fee must be BTC if specified;\naccounts must be different"],
+        ["Transfer", "Any account", "Another account,\nsame currency", "Fee in the sending account's currency;\naccounts must be different"],
         ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],
         ["Sell", "Exchange BTC", "Exchange USD", "proceeds_usd required;\nfee must be USD"],
     ]
 
-    rules_table = Table(rules_data, colWidths=[1.0*inch, 1.3*inch, 1.3*inch, 3.1*inch])
+    rules_table = Table(wrap_cells(rules_data), colWidths=[1.0*inch, 1.3*inch, 1.3*inch, 3.1*inch])
     rules_table.setStyle(table_style)
     story.append(rules_table)
 
     # === Date Formats ===
     story.append(Paragraph("Supported Date Formats", heading1_style))
     story.append(Paragraph(
-        "The following date formats are accepted. ISO8601 with timezone is recommended:",
+        "The following date formats are accepted. ISO8601 with timezone is recommended. "
+        "A date or time without a timezone is read in your tax timezone (Settings), and a "
+        "date alone means noon that day, so it stays in the right tax year:",
         normal_style
     ))
 
@@ -366,8 +374,8 @@ def generate_csv_instructions_pdf():
         ["\"Database has X existing transactions\"", "Delete all transactions from Settings before importing"],
         ["\"Invalid transaction type\"", "Use exactly: Deposit, Withdrawal, Transfer, Buy, or Sell"],
         ["\"Invalid account name\"", "Use exactly: Bank, Wallet, Exchange USD, Exchange BTC, or External"],
-        ["\"cost_basis_usd required for Buy\"", "Add the USD amount spent (including fees)"],
-        ["\"proceeds_usd required for Sell\"", "Add the USD amount received"],
+        ["\"cost_basis_usd required for Buy\"", "Add the USD paid for the BTC, before the fee"],
+        ["\"proceeds_usd required for Sell\"", "Add the gross USD, before the fee"],
         ["\"purpose required for Withdrawal\"", "Add purpose: Spent, Gift, Donation, or Lost"],
         ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
         ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],

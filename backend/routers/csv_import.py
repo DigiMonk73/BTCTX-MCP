@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.services.tax_time import get_tax_timezone
 from backend.schemas.csv_import import (
     CSVPreviewResponse,
     CSVImportResponse,
@@ -165,7 +166,7 @@ async def preview_import(
     content = await _read_validated_csv(file)
 
     # Parse CSV
-    result = parse_csv_file(content)
+    result = parse_csv_file(content, get_tax_timezone(db))
 
     # Check row limit
     if len(result.transactions) > MAX_ROWS:
@@ -211,7 +212,7 @@ async def execute_csv_import(
     content = await _read_validated_csv(file)
 
     # Parse CSV
-    result = parse_csv_file(content)
+    result = parse_csv_file(content, get_tax_timezone(db))
 
     # Check for errors
     if not result.can_import:
