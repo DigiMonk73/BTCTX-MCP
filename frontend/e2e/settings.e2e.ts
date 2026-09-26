@@ -276,3 +276,34 @@ test("privacy & network: live data off shows on the dashboard; bad proxy refused
   await page.getByRole("link", { name: "Dashboard" }).click();
   await expect(page.getByText("Live data off")).toBeVisible();
 });
+
+test("settings rows: text fields sit under their text, and no control rises above its row", async ({ authedPage: page }) => {
+  await openSettings(page);
+  const textField = 'input:not([type]), input[type="text"], input[type="url"], input[type="password"], textarea';
+  // Desktop, the tablet sidebar layout, and a phone.
+  for (const width of [1280, 960, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const problems = await page.locator(".settings-option").evaluateAll((rows, textField) =>
+      rows.flatMap((row) => {
+        const title = row.querySelector(".settings-option-title");
+        if (!title) return [];
+        const name = title.textContent?.trim();
+        const texts = [title, row.querySelector(".settings-option-subtitle")].filter((t) => t !== null);
+        const out: string[] = [];
+        for (const t of texts) {
+          if (t.scrollWidth > t.clientWidth + 1) out.push(`${name}: text squeezed into ${t.clientWidth}px`);
+        }
+        const titleTop = title.getBoundingClientRect().top;
+        const textBottom = Math.max(...texts.map((t) => t.getBoundingClientRect().bottom));
+        for (const control of Array.from(row.querySelectorAll("input, select, textarea, button"))) {
+          const box = control.getBoundingClientRect();
+          if (!box.width && !box.height) continue; // inside a closed <details>
+          const label = control.getAttribute("aria-label") || control.id || control.textContent?.trim();
+          if (box.top < titleTop - 1) out.push(`${name}: "${label}" starts above the title`);
+          if (control.matches(textField) && box.top < textBottom - 1) out.push(`${name}: "${label}" is beside or over the text`);
+        }
+        return out;
+      }), textField);
+    expect(problems, `at ${width}px wide`).toEqual([]);
+  }
+});
