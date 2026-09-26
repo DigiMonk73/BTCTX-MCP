@@ -59,6 +59,8 @@ const Calculator: React.FC = () => {
         {['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '=', '+'].map((btn, index) => (
           <button
             key={index}
+            type="button"
+            className={btn === '=' ? 'calc-eq' : ['+', '-', '*', '/'].includes(btn) ? 'calc-op' : undefined}
             onClick={() => {
               if (btn === '=') handleEqualClick();
               else if (['+', '-', '*', '/'].includes(btn)) {
@@ -71,7 +73,7 @@ const Calculator: React.FC = () => {
             {btn}
           </button>
         ))}
-        <button onClick={handleClearClick}>C</button>
+        <button type="button" className="calc-clear" onClick={handleClearClick}>C</button>
       </div>
     </div>
   );

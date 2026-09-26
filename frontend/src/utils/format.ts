@@ -51,7 +51,22 @@ export function optionalDecimal(value?: string | number | null): number | null {
  *  - e.g. 50 => "$50.00"
  */
 export function formatUsd(amount: number): string {
-  return `$${amount.toFixed(2)}`;
+  const abs = Math.abs(amount).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  // A real minus sign (U+2212), and none on an amount that rounds to 0.00.
+  const negative = amount < 0 && abs !== "0.00";
+  return `${negative ? "\u2212" : ""}$${abs}`;
+}
+
+/**
+ * USD with its sign always shown, for gains and losses.
+ *  - e.g. 1373.21 => "+$1,373.21", -1373.21 => "−$1,373.21", 0 => "$0.00"
+ */
+export function formatSignedUsd(amount: number): string {
+  const text = formatUsd(amount);
+  return amount > 0 && text !== "$0.00" ? `+${text}` : text;
 }
 
 /**

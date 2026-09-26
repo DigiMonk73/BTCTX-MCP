@@ -70,7 +70,7 @@ test("a failed report says so", async ({ authedPage: page }) => {
     route.fulfill({ status: 500, body: '{"detail":"boom"}', contentType: "application/json" }),
   );
   await page.getByRole("link", { name: "Reports" }).click();
-  await page.getByLabel("Tax Year").fill("2024");
+  await page.getByLabel("Tax Year").selectOption("2024");
   await page.getByRole("button", { name: "Export" }).click();
   await expect(page.getByText("Failed to generate the report. Please try again.")).toBeVisible();
 });

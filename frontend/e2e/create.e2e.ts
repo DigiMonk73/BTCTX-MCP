@@ -254,7 +254,7 @@ test("sell with a USD fee: proceeds net of the fee, short-term gain", async ({ a
   expect(Number(tx.proceeds_usd)).toBe(6980);
   expect(Number(tx.cost_basis_usd)).toBe(5000);
   expect(Number(tx.realized_gain_usd)).toBe(1980);
-  await expect(page.getByRole("listitem").filter({ hasText: "Sell" })).toContainText("Gain: +$1980.00");
+  await expect(page.getByRole("listitem").filter({ hasText: "Sell" })).toContainText("Gain +$1,980.00");
 });
 
 test("sell with the 1099-DA override", async ({ authedPage: page }) => {

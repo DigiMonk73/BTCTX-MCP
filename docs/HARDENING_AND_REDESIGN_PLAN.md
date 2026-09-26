@@ -328,3 +328,9 @@ transaction form, Reports, Settings, Login, sidebar widgets), with the Phase 1
 tests passing unchanged at every step. Before/after screenshots of every page
 for the owner. Check the Mac app build (CI artifact) as well as Chromium.
 Release when the owner is happy; they choose the version number.
+
+**Status (2026-09-26): done and released as v1.0.0** (owner's choice of
+version). Gate 5 and Gate 6 approved; review page with every page before and
+after at 1280×800, 800×600 and phone size. Reports' Tax year became a
+drop-down (owner OK). Browser confirm/prompt dialogs stay; styled dialogs are
+on the roadmap.

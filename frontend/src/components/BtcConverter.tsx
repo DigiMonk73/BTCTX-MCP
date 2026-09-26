@@ -199,23 +199,26 @@ const BtcConverter: React.FC = () => {
       <div className="converter-title">Sats Converter</div>
 
       {/* Three mode buttons */}
-      <div className="price-toggle">
+      <div className="segmented price-toggle">
         <button
-          className={mode === "manual" ? "toggle-btn active" : "toggle-btn"}
+          type="button"
+          className={mode === "manual" ? "active" : undefined}
           aria-pressed={mode === "manual"}
           onClick={() => handleModeChange("manual")}
         >
           Manual
         </button>
         <button
-          className={mode === "auto" ? "toggle-btn active" : "toggle-btn"}
+          type="button"
+          className={mode === "auto" ? "active" : undefined}
           aria-pressed={mode === "auto"}
           onClick={() => handleModeChange("auto")}
         >
           Auto
         </button>
         <button
-          className={mode === "date" ? "toggle-btn active" : "toggle-btn"}
+          type="button"
+          className={mode === "date" ? "active" : undefined}
           aria-pressed={mode === "date"}
           onClick={() => handleModeChange("date")}
         >
@@ -226,9 +229,10 @@ const BtcConverter: React.FC = () => {
       {/* Manual mode: editable price input */}
       {mode === "manual" && (
         <div className="manual-price-row">
-          <label htmlFor="manualPrice">BTC Price (USD)</label>
+          <label htmlFor="manualPrice" className="field-label">BTC price (USD)</label>
           <input
             id="manualPrice"
+            className="input input-sm"
             type="number"
             value={btcPrice}
             onChange={(e) => {
@@ -251,7 +255,7 @@ const BtcConverter: React.FC = () => {
       {/* Auto mode: show live price */}
       {mode === "auto" && (
         <div className="auto-price-row">
-          <p>
+          <p className="btc-price">
             BTC Price: $
             {btcPrice.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -265,9 +269,10 @@ const BtcConverter: React.FC = () => {
       {mode === "date" && (
         <div className="date-price-row">
           <div className="date-input-row">
-            <label htmlFor="datePicker">Select Date</label>
+            <label htmlFor="datePicker" className="field-label">Select date</label>
             <input
               id="datePicker"
+            className="input input-sm"
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
@@ -285,27 +290,30 @@ const BtcConverter: React.FC = () => {
 
       {/* Conversion fields */}
       <div className="converter-row">
-        <label htmlFor="usdInput">USD</label>
+        <label className="field-label" htmlFor="usdInput">USD</label>
         <input
           id="usdInput"
+          className="input"
           type="number"
           value={usdValue}
           onChange={(e) => handleUsdChange(e.target.value)}
         />
       </div>
       <div className="converter-row">
-        <label htmlFor="btcInput">BTC</label>
+        <label className="field-label" htmlFor="btcInput">BTC</label>
         <input
           id="btcInput"
+          className="input"
           type="number"
           value={btcValue}
           onChange={(e) => handleBtcChange(e.target.value)}
         />
       </div>
       <div className="converter-row">
-        <label htmlFor="satsInput">Sats</label>
+        <label className="field-label" htmlFor="satsInput">Sats</label>
         <input
           id="satsInput"
+          className="input"
           type="number"
           value={satsValue}
           onChange={(e) => handleSatsChange(e.target.value)}

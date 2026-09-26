@@ -423,12 +423,13 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="settings-container">
-      <h2 className="settings-title">Settings</h2>
+    <div className="settings-page">
+      <h2 className="page-title">Settings</h2>
+      <div className="card settings-container">
 
       {/* ✅ Account Section */}
       <div className="settings-section" role="region" aria-label="Account">
-        <h3>Account</h3>
+        <h3 className="section-title">Account</h3>
 
         {/* Logout */}
         <div className="settings-option">
@@ -436,7 +437,7 @@ const Settings: React.FC = () => {
             <span className="settings-option-title">Logout</span>
             <p className="settings-option-subtitle">Sign out of your account.</p>
           </div>
-          <button onClick={handleLogout} disabled={loading} className="settings-button">
+          <button onClick={handleLogout} disabled={loading} className="btn btn-secondary">
             {loading ? "Processing..." : "Logout"}
           </button>
         </div>
@@ -458,7 +459,7 @@ const Settings: React.FC = () => {
                 aria-label="New username"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                className="credential-input"
+                className="input"
               />
               <input
                 type="password"
@@ -466,12 +467,12 @@ const Settings: React.FC = () => {
                 aria-label="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="credential-input"
+                className="input"
               />
             </div>
 
             <div className="credential-submit-container">
-              <button type="submit" className="settings-button" disabled={loading}>
+              <button type="submit" className="btn btn-primary" disabled={loading}>
                 {loading ? "Processing..." : "Update"}
               </button>
             </div>
@@ -488,7 +489,7 @@ const Settings: React.FC = () => {
               upgrading BitcoinTX so calculation fixes apply to existing data.
             </p>
           </div>
-          <button onClick={handleRecalculate} disabled={loading} className="settings-button">
+          <button onClick={handleRecalculate} disabled={loading} className="btn btn-secondary">
             {loading ? "Processing..." : "Recalculate"}
           </button>
         </div>
@@ -503,7 +504,7 @@ const Settings: React.FC = () => {
 
       {/* ✅ Data Management */}
       <div className="settings-section" role="region" aria-label="Data Management">
-        <h3>Data Management</h3>
+        <h3 className="section-title">Data Management</h3>
 
         <div className="settings-option">
           <div className="option-info">
@@ -512,7 +513,7 @@ const Settings: React.FC = () => {
               Remove all transaction history. This action cannot be undone.
             </p>
           </div>
-          <button onClick={handleDeleteTransactions} disabled={loading} className="settings-button danger">
+          <button onClick={handleDeleteTransactions} disabled={loading} className="btn btn-danger">
             {loading ? "Processing..." : "Delete"}
           </button>
         </div>
@@ -526,10 +527,10 @@ const Settings: React.FC = () => {
             </p>
           </div>
           <div className="import-controls">
-            <button onClick={handleDownloadTemplate} disabled={loading} className="settings-button">
+            <button onClick={handleDownloadTemplate} disabled={loading} className="btn btn-secondary">
               {loading ? "..." : "Template"}
             </button>
-            <button onClick={handleDownloadInstructions} disabled={loading} className="settings-button">
+            <button onClick={handleDownloadInstructions} disabled={loading} className="btn btn-secondary">
               {loading ? "..." : "Instructions"}
             </button>
           </div>
@@ -550,7 +551,7 @@ const Settings: React.FC = () => {
               <button
                 onClick={handlePreviewImport}
                 disabled={loading || !csvFile}
-                className="settings-button"
+                className="btn btn-primary"
               >
                 {loading ? "Processing..." : "Preview"}
               </button>
@@ -576,7 +577,7 @@ const Settings: React.FC = () => {
 
             {/* Errors */}
             {csvPreview.errors.length > 0 && (
-              <div className="import-errors">
+              <div className="note note-error import-list">
                 <strong>Errors (must fix before import):</strong>
                 <ul>
                   {csvPreview.errors.slice(0, 10).map((err, idx) => (
@@ -593,7 +594,7 @@ const Settings: React.FC = () => {
 
             {/* Warnings */}
             {csvPreview.warnings.length > 0 && (
-              <div className="import-warnings">
+              <div className="note note-warning import-list">
                 <strong>Warnings (import will proceed):</strong>
                 <ul>
                   {csvPreview.warnings.slice(0, 5).map((warn, idx) => (
@@ -610,8 +611,8 @@ const Settings: React.FC = () => {
 
             {/* Preview Table */}
             {csvPreview.transactions.length > 0 && (
-              <div className="import-preview-table-container">
-                <table className="import-preview-table">
+              <div className="table-scroll">
+                <table className="table">
                   <thead>
                     <tr>
                       <th>Row</th>
@@ -652,14 +653,14 @@ const Settings: React.FC = () => {
               <button
                 onClick={handleExecuteImport}
                 disabled={loading || !csvPreview.can_import}
-                className="settings-button import-confirm"
+                className="btn btn-primary"
               >
                 {loading ? "Importing..." : `Import ${csvPreview.valid_rows} Transactions`}
               </button>
               <button
                 onClick={handleCancelPreview}
                 disabled={loading}
-                className="settings-button"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
@@ -678,7 +679,7 @@ const Settings: React.FC = () => {
 
       {/* ✅ Backup & Restore */}
       <div className="settings-section" role="region" aria-label="Backup & Restore">
-        <h3>Backup & Restore</h3>
+        <h3 className="section-title">Backup & Restore</h3>
 
         <div className="settings-option">
           <div className="option-info">
@@ -687,7 +688,7 @@ const Settings: React.FC = () => {
               Export all transactions as a CSV file (unencrypted, editable).
             </p>
           </div>
-          <button onClick={handleExportCsv} disabled={loading} className="settings-button">
+          <button onClick={handleExportCsv} disabled={loading} className="btn btn-secondary">
             {loading ? "Processing..." : "Export CSV"}
           </button>
         </div>
@@ -699,7 +700,7 @@ const Settings: React.FC = () => {
               Save a secure backup of all app data (encrypted SQLite file).
             </p>
           </div>
-          <button onClick={handleDownloadBackup} disabled={loading} className="settings-button">
+          <button onClick={handleDownloadBackup} disabled={loading} className="btn btn-primary">
             {loading ? "Processing..." : "Download"}
           </button>
         </div>
@@ -712,8 +713,8 @@ const Settings: React.FC = () => {
             </p>
             <div className="restore-input-row">
               <input type="file" name="file" accept=".btx" required aria-label="Backup file" />
-              <input type="password" name="password" placeholder="Password" required className="credential-input" aria-label="Backup password" />
-              <button type="submit" disabled={loading} className="settings-button">
+              <input type="password" name="password" placeholder="Password" required className="input" aria-label="Backup password" />
+              <button type="submit" disabled={loading} className="btn btn-secondary">
                 {loading ? "Processing..." : "Restore"}
               </button>
             </div>
@@ -721,7 +722,8 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {message && <p className="settings-message">{message}</p>}
+      {message && <p className="note settings-message" role="status">{message}</p>}
+      </div>
     </div>
   );
 };

@@ -27,7 +27,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   if (loading) {
     return (
       <div className="auth-spinner-container">
-        <div className="auth-spinner" />
+        <div className="spinner spinner-lg" role="status" aria-label="Loading" />
       </div>
     );
   }

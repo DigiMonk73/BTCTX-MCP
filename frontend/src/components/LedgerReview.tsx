@@ -76,7 +76,7 @@ const LedgerReview: React.FC = () => {
 
   return (
     <div className="settings-section" role="region" aria-label="Ledger review">
-      <h3>Ledger Review</h3>
+      <h3 className="section-title">Ledger Review</h3>
       <div className="settings-option">
         <div className="option-info">
           <span className="settings-option-title">Transactions to check</span>
@@ -85,7 +85,7 @@ const LedgerReview: React.FC = () => {
             changes your ledger.
           </p>
         </div>
-        <button onClick={load} disabled={loading} className="settings-button">
+        <button onClick={load} disabled={loading} className="btn btn-secondary">
           {loading ? "Checking..." : "Check again"}
         </button>
       </div>
@@ -114,7 +114,7 @@ const LedgerReview: React.FC = () => {
           </ul>
           <p className="settings-option-subtitle">{check.action}</p>
           {check.key === "fee_value_off" && (
-            <button onClick={() => fixFees(check)} disabled={loading} className="settings-button">
+            <button onClick={() => fixFees(check)} disabled={loading} className="btn btn-primary">
               Fix these
             </button>
           )}

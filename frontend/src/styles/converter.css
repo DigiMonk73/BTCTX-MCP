@@ -1,164 +1,19 @@
-/* src/styles/converter.css */
+/* Sats Converter (sidebar) */
 
-/* Centers the converter horizontally */
-.sidebar-converter {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin-top: 0;
-}
-
-.converter {
-  width: 300px;          /* Increased from 190px */
-  border: none;          /* no gold border */
-  background-color: #1c1c1c;
-  border-radius: 8px;
-  padding: 15px;         /* Increased from 10px */
-  font-size: 1rem;       /* Increased from 0.8rem */
-}
-
-/* Title */
+.sidebar-converter { width: 100%; }
+.converter { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; }
 .converter-title {
-  color: var(--color-text);
-  font-size: 1.2rem;     /* Increased from 1rem */
-  margin-bottom: 1.5rem; /* Increased from 1rem */
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
   text-align: center;
 }
-
-.price-toggle {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1.5rem; /* Increased from 1.5rem */
-}
-
-.auto-price-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;              /* Increased from 5px */
-  white-space: nowrap;
-  margin-bottom: 1rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  margin: 0 0.1rem;      /* Reduced from 0.2rem to fit three buttons */
-  padding: 0.3rem;       /* Reduced from 0.4rem to fit smaller width */
-  font-size: 0.8rem;     /* Reduced from 0.9rem to fit text */
-  border: 1px solid var(--color-border-input);
-  border-radius: var(--radius-sm);
-  background: var(--color-gray-800);
-  color: var(--color-gray-300);
-  cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
-  text-align: center;
-}
-
-/* Remove margin for first and last buttons to avoid extra spacing */
-.toggle-btn:first-child {
-  margin-left: 0;
-}
-
-.toggle-btn:last-child {
-  margin-right: 0;
-}
-
-.toggle-btn.active {
-  background-color: #4a4a4a;
-  border-color: var(--color-accent);
-  color: #fff;
-}
-
-.toggle-btn:hover {
-  background: #4a4a4a;
-}
-.toggle-btn:active {
-  background: #555;
-  transform: scale(0.98);
-}
-
-.manual-price-row,
 .converter-row,
-.date-price-row {
-  display: flex;
-  flex-direction: column;
-  margin-top: 0rem;
-  margin-bottom: 1.5rem; /* Increased from 1rem */
-}
-
-.manual-price-row label,
-.converter-row label,
-.date-price-row label {
-  margin-bottom: 0.3rem; /* Increased from 0.25rem */
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;     /* Increased from 0.75rem */
-}
-
-.manual-price-row input,
-.converter-row input,
-.date-price-row input {
-  width: 100%;
-  max-width: 300px;      /* Limit width for better appearance */
-  padding: 0.4rem;       /* Increased from 0.3rem */
-  font-size: 0.9rem;     /* Increased from 0.75rem */
-  border: 1px solid #444;
-  border-radius: 4px;
-  background-color: #2a2a2a;
-  color: #d4d4d4;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.manual-price-row input:focus,
-.converter-row input:focus,
-.date-price-row input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-glow);
-}
-
-/* Specific styling for date-price-row */
-/* Outer container for date mode */
-.date-price-row {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;           /* Increased from 0.5rem for more space */
-  align-items: flex-start; /* Ensures left alignment of children */
-}
-
-/* Inner row for label and date input */
-.date-price-row .date-input-row {
-  display: flex;
-  justify-content: space-between; /* Label left, input right */
-  align-items: center;    /* Vertically center label and input */
-  width: 100%;            /* Full width to maximize spacing */
-}
-
-/* Label styling */
-.date-price-row label {
-  margin-bottom: 0;       /* No margin since it’s on the same row as input */
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-/* Date input styling */
-.date-price-row input[type="date"] {
-  width: 100%;
-  max-width: 150px;       /* Compact size for date picker */
-  padding: 0.5rem;        /* Consistent padding */
-  background-color: #333; /* Preserved color */
-  border: 1px solid #555; /* Preserved border */
-  border-radius: 6px;     /* Preserved rounded corners */
-  color: #d4d4d4;
-}
-
-/* Style the date picker icon */
-.date-price-row input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8);    /* Preserved lighter calendar icon */
-}
-
-/* Price text styling */
-.date-price-row .btc-price {
-  color: var(--color-text);
-  font-size: 0.9rem;
+.manual-price-row,
+.date-input-row { display: flex; flex-direction: column; gap: 6px; }
+.date-price-row { display: flex; flex-direction: column; gap: var(--space-2); }
+.btc-price {
   margin: 0;
-  text-align: left;       /* Explicitly left-aligned */
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
 }

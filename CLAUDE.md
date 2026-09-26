@@ -114,6 +114,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
+| `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 

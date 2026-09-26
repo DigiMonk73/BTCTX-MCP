@@ -204,7 +204,7 @@ const RiverImport: React.FC = () => {
 
   return (
     <div className="settings-section river-import" role="region" aria-label="Import from River">
-      <h3>Import from River</h3>
+      <h3 className="section-title">Import from River</h3>
 
       <div className="settings-option">
         <div className="option-info">
@@ -227,7 +227,7 @@ const RiverImport: React.FC = () => {
           <button
             onClick={handlePreview}
             disabled={loading || !file}
-            className="settings-button"
+            className="btn btn-secondary"
           >
             {loading && !preview ? "Processing..." : "Preview"}
           </button>
@@ -238,12 +238,12 @@ const RiverImport: React.FC = () => {
         <div className="river-preview">
           {/* Summary strip */}
           <div className="river-summary">
-            <span className="river-chip river-chip-new">{preview.new_count} new</span>
-            <span className="river-chip river-chip-matched">
+            <span className="badge badge-accent">{preview.new_count} new</span>
+            <span className="badge">
               {preview.matched_count} already in ledger
             </span>
             {preview.discrepancy_count > 0 && (
-              <span className="river-chip river-chip-review">
+              <span className="badge badge-warning">
                 {preview.discrepancy_count} need review
               </span>
             )}
@@ -252,7 +252,7 @@ const RiverImport: React.FC = () => {
 
           {/* Parse errors */}
           {preview.errors.length > 0 && (
-            <div className="import-errors">
+            <div className="note note-error import-list">
               <strong>Errors:</strong>
               <ul>
                 {preview.errors.slice(0, 10).map((err, idx) => (
@@ -266,7 +266,7 @@ const RiverImport: React.FC = () => {
 
           {/* Warnings */}
           {preview.warnings.length > 0 && (
-            <div className="import-warnings">
+            <div className="note note-warning import-list">
               <strong>Warnings:</strong>
               <ul>
                 {preview.warnings.slice(0, 5).map((warn, idx) => (
@@ -302,8 +302,8 @@ const RiverImport: React.FC = () => {
 
           {/* Editable grid */}
           {visibleRows.length > 0 && (
-            <div className="import-preview-table-container river-table-container">
-              <table className="import-preview-table river-table">
+            <div className="table-scroll river-table-container">
+              <table className="table river-table">
                 <thead>
                   <tr>
                     <th className="river-col-include">Import</th>
@@ -344,7 +344,7 @@ const RiverImport: React.FC = () => {
                               value={row.type}
                               disabled={loading}
                               onChange={(e) => handleTypeChange(row, e.target.value)}
-                              className="river-select"
+                              className="input input-sm river-select"
                               aria-label="Transaction type"
                             >
                               {p.type_choices.map((t) => (
@@ -359,7 +359,7 @@ const RiverImport: React.FC = () => {
                               value={row.purpose}
                               disabled={loading}
                               onChange={(e) => updateRow(p.row_number, { purpose: e.target.value })}
-                              className="river-select river-select-secondary"
+                              className="input input-sm river-select"
                               aria-label="Withdrawal purpose"
                             >
                               {WITHDRAWAL_PURPOSES.map((x) => (
@@ -372,7 +372,7 @@ const RiverImport: React.FC = () => {
                               value={row.source}
                               disabled={loading}
                               onChange={(e) => updateRow(p.row_number, { source: e.target.value })}
-                              className="river-select river-select-secondary"
+                              className="input input-sm river-select"
                               aria-label="Deposit source"
                             >
                               {DEPOSIT_SOURCES.map((x) => (
@@ -383,16 +383,14 @@ const RiverImport: React.FC = () => {
                         </td>
                         <td className="river-cell-accounts">
                           {p.funding_choices.length > 1 && !isMatched ? (
-                            <span className="river-funding-toggle" role="group" aria-label="Buy funding source">
+                            <span className="segmented river-funding-toggle" role="group" aria-label="Buy funding source">
                               {p.funding_choices.map((acct) => (
                                 <button
                                   key={acct}
                                   type="button"
                                   disabled={loading}
-                                  className={
-                                    "river-funding-option" +
-                                    (row.fromAccount === acct ? " is-active" : "")
-                                  }
+                                  className={row.fromAccount === acct ? "active" : undefined}
+                                  aria-pressed={row.fromAccount === acct}
                                   onClick={() => updateRow(p.row_number, { fromAccount: acct })}
                                 >
                                   {acct}
@@ -415,7 +413,7 @@ const RiverImport: React.FC = () => {
                                 value={row.costBasisUsd}
                                 disabled={loading}
                                 onChange={(e) => updateRow(p.row_number, { costBasisUsd: e.target.value })}
-                                className="river-num-input"
+                                className="input input-sm river-num-input"
                                 aria-label="Cost basis (USD)"
                               />
                               {p.basis_autofilled && row.costBasisUsd === String(p.cost_basis_usd) && (
@@ -439,7 +437,7 @@ const RiverImport: React.FC = () => {
                               value={row.feeAmount}
                               disabled={loading}
                               onChange={(e) => updateRow(p.row_number, { feeAmount: e.target.value })}
-                              className="river-num-input"
+                              className="input input-sm river-num-input"
                               placeholder="0"
                               aria-label="Fee (BTC)"
                             />
@@ -458,7 +456,7 @@ const RiverImport: React.FC = () => {
           {preview.matched_count > 0 && (
             <button
               type="button"
-              className="river-show-matched"
+              className="link river-show-matched"
               onClick={() => setShowMatched((v) => !v)}
             >
               {showMatched
@@ -471,11 +469,11 @@ const RiverImport: React.FC = () => {
             <button
               onClick={handleExecute}
               disabled={loading || importableRows.length === 0}
-              className="settings-button import-confirm"
+              className="btn btn-primary"
             >
               {loading ? "Importing..." : `Import ${importableRows.length} Transaction(s)`}
             </button>
-            <button onClick={reset} disabled={loading} className="settings-button">
+            <button onClick={reset} disabled={loading} className="btn btn-secondary">
               Cancel
             </button>
           </div>

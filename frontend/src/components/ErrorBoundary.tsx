@@ -54,7 +54,7 @@ class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="error-boundary">
-          <div className="error-boundary-content">
+          <div className="card error-boundary-content">
             <h1 className="error-boundary-title">Something went wrong</h1>
             <p className="error-boundary-message">
               We're sorry, but something unexpected happened. Please try refreshing the page.
@@ -72,13 +72,13 @@ class ErrorBoundary extends Component<Props, State> {
 
             <div className="error-boundary-actions">
               <button
-                className="error-boundary-button primary"
+                className="btn btn-primary"
                 onClick={this.handleReload}
               >
                 Refresh Page
               </button>
               <button
-                className="error-boundary-button secondary"
+                className="btn btn-secondary"
                 onClick={this.handleGoHome}
               >
                 Go to Dashboard

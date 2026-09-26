@@ -51,7 +51,7 @@ const TaxTimezoneSetting: React.FC = () => {
       </div>
       <div className="credential-update-form">
         <select
-          className="credential-input"
+          className="input"
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
           aria-label="Tax timezone"
@@ -64,7 +64,7 @@ const TaxTimezoneSetting: React.FC = () => {
         </select>
         <div className="credential-submit-container">
           <button
-            className="settings-button"
+            className="btn btn-secondary"
             onClick={save}
             disabled={saving || !selected || selected === current}
           >

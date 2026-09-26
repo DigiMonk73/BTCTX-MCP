@@ -63,7 +63,7 @@ const NetworkSettings: React.FC = () => {
 
   return (
     <div className="settings-section" role="region" aria-label="Privacy & network">
-      <h3>Privacy &amp; Network</h3>
+      <h3 className="section-title">Privacy &amp; Network</h3>
       <div className="settings-option">
         <div className="option-info">
           <label className="settings-option-title" htmlFor="net-live-data">
@@ -95,7 +95,7 @@ const NetworkSettings: React.FC = () => {
         </div>
         <input
           id="net-mempool-url"
-          className="credential-input"
+          className="input"
           type="url"
           placeholder="http://umbrel.local:3006"
           value={mempoolUrl}
@@ -114,7 +114,7 @@ const NetworkSettings: React.FC = () => {
         </div>
         <input
           id="net-proxy-url"
-          className="credential-input"
+          className="input"
           type="text"
           placeholder="socks5h://127.0.0.1:9050"
           value={proxyUrl}
@@ -123,7 +123,7 @@ const NetworkSettings: React.FC = () => {
       </div>
       <div className="credential-submit-container">
         <button
-          className="settings-button"
+          className="btn btn-primary"
           onClick={save}
           disabled={saving || !changed}
           aria-label="Save privacy & network settings"
