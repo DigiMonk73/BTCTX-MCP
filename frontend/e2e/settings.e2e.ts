@@ -3,8 +3,9 @@
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, USER, PASSWORD,
 } from "./fixtures";
-import type { Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { request as playwrightRequest, type Page } from "@playwright/test";
+import { readFileSync, statSync } from "node:fs";
+import path from "node:path";
 
 async function openSettings(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
@@ -157,4 +158,56 @@ test("connect an AI assistant: prompt and configs name this server and user", as
   await page.getByText("Set it up yourself").click();
   await expect(page.getByLabel("Claude Desktop config")).toHaveValue(/btctx/i);
   await expect(page.getByLabel("Claude Code command")).toHaveValue(/claude mcp add/);
+});
+
+test.describe("Mac app: AI assistant key instead of a password", () => {
+  test.use({ appMode: "mac" });
+
+  test("key file, access switch, reset, and a setup with no secrets", async ({ authedPage: page, app }) => {
+    const keyFile = path.join(app.dir, "mcp.json");
+    const first = JSON.parse(readFileSync(keyFile, "utf8"));
+    expect(first.url).toBe(app.url);
+    expect(statSync(keyFile).mode & 0o777).toBe(0o600);
+
+    await openSettings(page);
+    const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+    const prompt = ai.getByLabel("Setup prompt");
+    await expect(prompt).toHaveValue(/finds it by itself/);
+    for (const secret of ["BTCTX_PASSWORD", "BTCTX_USERNAME", "BTCTX_URL", USER]) {
+      await expect(prompt).not.toHaveValue(new RegExp(secret));
+    }
+    await ai.getByText("Set it up yourself").click();
+    await expect(ai.getByLabel("Grok Build command")).toHaveValue(/^grok mcp add bitcointx -- uvx/);
+    await expect(ai.getByLabel("Claude Code command")).not.toHaveValue(/-e /);
+
+    const key = { Authorization: `Bearer ${first.token}` };
+    const anon = await playwrightRequest.newContext({ baseURL: app.url });
+    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(200);
+
+    const toggle = ai.getByLabel("Let AI assistants use BitcoinTX");
+    await expect(toggle).toBeChecked();
+    await toggle.uncheck();
+    await expect(page.getByText("AI assistant access is off.")).toBeVisible();
+    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
+    await toggle.check();
+    await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
+
+    acceptDialogs(page);
+    await ai.getByRole("button", { name: "Reset key" }).click();
+    await expect(page.getByText("AI assistant key reset.")).toBeVisible();
+    const second = JSON.parse(readFileSync(keyFile, "utf8"));
+    expect(second.token).not.toBe(first.token);
+    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
+    const newKey = { Authorization: `Bearer ${second.token}` };
+    expect((await anon.get("/api/transactions", { headers: newKey })).status()).toBe(200);
+    await anon.dispose();
+  });
+});
+
+test("server installs keep the username/password setup and no key controls", async ({ authedPage: page }) => {
+  await openSettings(page);
+  const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+  await expect(ai.getByLabel("Setup prompt")).toHaveValue(/BTCTX_PASSWORD: don't ask me for it/);
+  await expect(ai.getByLabel("Let AI assistants use BitcoinTX")).toHaveCount(0);
+  await expect(ai.getByRole("button", { name: "Reset key" })).toHaveCount(0);
 });

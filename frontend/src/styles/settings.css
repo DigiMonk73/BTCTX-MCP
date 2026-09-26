@@ -529,3 +529,12 @@ input[type="file"]::file-selector-button:hover {
 .ai-setup-manual a {
   color: var(--color-accent);
 }
+
+/* Connect an AI Assistant → AI assistant access (Mac app) */
+.ai-access-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+}

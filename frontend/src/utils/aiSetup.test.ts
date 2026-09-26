@@ -5,6 +5,7 @@ import {
   claudeCodeCommand,
   claudeDesktopConfig,
   gitRef,
+  grokCommand,
   needsCaBundle,
   serverEnv,
 } from "./aiSetup";
@@ -85,5 +86,41 @@ describe("claudeCodeCommand", () => {
 
   it("quotes a username with a quote in it for the shell", () => {
     expect(claudeCodeCommand({ ...mac, username: "o'neil" })).toContain(`BTCTX_USERNAME='o'\\''neil'`);
+  });
+});
+
+describe("the Mac app (key file, no password)", () => {
+  const keyMode = { ...mac, keyMode: true };
+  const outputs = [
+    buildAiPrompt(keyMode),
+    claudeDesktopConfig(keyMode),
+    claudeCodeCommand(keyMode),
+    grokCommand(keyMode),
+  ];
+
+  it("puts no password, username, address or port in any configuration", () => {
+    for (const text of outputs) {
+      expect(text).not.toContain("BTCTX_PASSWORD");
+      expect(text).not.toContain(PASSWORD_PLACEHOLDER);
+      expect(text).not.toContain("BTCTX_USERNAME");
+      expect(text).not.toContain("BTCTX_URL");
+      expect(text).not.toContain("8765");
+      expect(text).not.toContain("satoshi");
+    }
+    expect(serverEnv(keyMode)).toEqual({});
+    expect(JSON.parse(claudeDesktopConfig(keyMode)).mcpServers.bitcointx.env).toBeUndefined();
+  });
+
+  it("is one command pinned to this release", () => {
+    expect(claudeCodeCommand(keyMode)).toBe(
+      "claude mcp add --scope user bitcointx \\\n  -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
+    );
+    expect(grokCommand(keyMode)).toBe(
+      "grok mcp add bitcointx -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
+    );
+  });
+
+  it("tells the AI not to ask for the password", () => {
+    expect(buildAiPrompt(keyMode)).toMatch(/don't ask me for my password/);
   });
 });

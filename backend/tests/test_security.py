@@ -137,3 +137,26 @@ class TestSessionSecret:
         monkeypatch.setenv("SECRET_KEY", "an-operator-supplied-secret-value-1234567890")
         assert load_secret_key(str(tmp_path)) == "an-operator-supplied-secret-value-1234567890"
         assert not (tmp_path / KEY_FILENAME).exists()
+
+
+def test_api_key_cannot_download_or_restore_backups(auth_client, monkeypatch):
+    """
+    Backup download and restore are login-only (the router says so): an API
+    key must not be able to take a copy of the database or replace it. Both
+    endpoints used to skip the check.
+    """
+    from fastapi.testclient import TestClient
+
+    import backend.main as main
+
+    monkeypatch.setattr(main, "API_KEY", "test-api-key")
+    key_only = TestClient(main.app)  # no session cookie
+    headers = {"X-API-Key": "test-api-key"}
+    assert key_only.get("/api/transactions", headers=headers).status_code == 200
+
+    r = key_only.post("/api/backup/download", data={"password": "pw"}, headers=headers)
+    assert r.status_code == 401
+    r = key_only.post(
+        "/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")}, headers=headers
+    )
+    assert r.status_code == 401

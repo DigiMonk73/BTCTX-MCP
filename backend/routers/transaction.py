@@ -18,7 +18,7 @@ Refactor Notes:
  - Otherwise, we've retained your existing create, update, and delete endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -32,6 +32,7 @@ from backend.schemas.transaction import (
 
 # The service layer that handles double-entry creation, BTC lots, FIFO disposal, etc.
 from backend.services import transaction as tx_service
+from backend.services.mcp_key import bearer_token
 
 # The FastAPI "dependency" for getting a database session
 from backend.database import get_db
@@ -149,11 +150,14 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, db: Session =
 
 
 @router.delete("/delete_all", status_code=204)
-def delete_all_transactions_endpoint(db: Session = Depends(get_db)):
+def delete_all_transactions_endpoint(request: Request, db: Session = Depends(get_db)):
     """
     Delete all transactions from the database. This will remove all Transaction records,
     and cascade delete associated LedgerEntries, BitcoinLots, and LotDisposals.
+    Never with the AI assistant key: bulk delete needs a login.
     """
+    if not request.session.get("user_id") and bearer_token(request.headers.get("authorization")):
+        raise HTTPException(status_code=403, detail="Deleting everything needs a login.")
     # 204 No Content: the deleted count is intentionally not returned.
     tx_service.delete_all_transactions(db)
 

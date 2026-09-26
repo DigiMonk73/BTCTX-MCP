@@ -114,6 +114,10 @@ So derived values must be recomputable from the Transaction row alone.
   default key anywhere.
 - The debug router and `DELETE /api/transactions/delete_all` exist and are
   auth-protected; tests use them, the MCP server must not expose bulk delete.
+- Mac app only: the MCP server authenticates with the AI assistant key from
+  `mcp.json` (`backend/services/mcp_key.py`), never a password. The key works
+  only from localhost, only when `BTCTX_DESKTOP`/`BTCTX_MCP_FILE` are set, and
+  never for backup/restore, CSV/River import, delete-all or the key settings.
 
 ## Testing (see `docs/TESTING.md`)
 

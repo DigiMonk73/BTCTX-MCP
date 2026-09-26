@@ -218,6 +218,9 @@ def main():
     os.environ["BTCTX_DESKTOP"] = "1"
     os.environ["BTCTX_DESKTOP_PREFERRED_PORT"] = str(preferred)
     os.environ["BTCTX_DESKTOP_ACTUAL_PORT"] = str(port)
+    # The AI assistant key file (backend/services/mcp_key.py): the MCP server
+    # reads the URL and key from here, so its config holds no password or port.
+    os.environ["BTCTX_MCP_FILE"] = str(app_support / "mcp.json")
     if fallback:
         logger.warning(f"Using port {port} for this session instead of {preferred} (user's choice)")
     logger.info(f"Starting backend on port {port}")

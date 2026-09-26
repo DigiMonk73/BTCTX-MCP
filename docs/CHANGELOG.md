@@ -16,6 +16,27 @@ All notable changes to BitcoinTX are documented in this file.
   connect) or Quit. Opening the app twice brings the running copy forward. The
   app now keeps a log at `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
 
+- **Backup download and restore didn't check for a login.** Their router is
+  meant to be login-only, but both endpoints skipped the check, so a client
+  with the optional `API_KEY` could download or replace the whole database.
+  Both now need a login.
+
+### AI assistant (MCP)
+- **The Mac app no longer needs your password in an AI app's settings.** It
+  writes `~/Library/Application Support/BitcoinTX/mcp.json` (readable only by
+  you) with its address and an AI assistant key, and the MCP server reads it
+  by itself. Setup is one line with nothing secret in it (Settings → Connect an
+  AI Assistant). The key works only from this computer and never for backup,
+  restore, imports or deleting everything. Settings can turn AI access off or
+  reset the key; the MCP server picks up a new key by itself. StartOS and
+  Docker keep the username/password setup.
+- **If you set up the MCP server with your password before:** remove the
+  `BTCTX_URL`, `BTCTX_USERNAME` and `BTCTX_PASSWORD` lines from its
+  configuration (for Grok Build, `~/.grok/config.toml`), or remove the server
+  and add it again with the new one-line command. Check that a read such as
+  `get_portfolio` works, then change your BitcoinTX password, since the old
+  one sat in a plain-text file.
+
 ### Tests
 - Playwright click-through tests of every UI flow (`make e2e`, run in CI in
   Chromium in a US and a UTC+ timezone, and in WebKit). Form controls got

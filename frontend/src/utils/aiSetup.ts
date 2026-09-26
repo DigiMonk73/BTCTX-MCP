@@ -3,10 +3,14 @@
  * AI app so it installs the BitcoinTX MCP server itself, and ready-made
  * configurations for doing it by hand.
  *
- * The password is never filled in. The app can't show it (only its hash is
- * stored), and a prompt pasted into an AI chat is sent to the AI provider, so
- * every configuration carries a placeholder the user replaces on their own
- * computer.
+ * Mac app (keyMode): no URL, username or password at all. The app writes
+ * its address and an AI assistant key to a private file the MCP server reads
+ * (backend/services/mcp_key.py), so the configuration holds no secret.
+ *
+ * Server installs (StartOS, Docker): the password is never filled in. The app
+ * can't show it (only its hash is stored), and a prompt pasted into an AI chat
+ * is sent to the AI provider, so every configuration carries a placeholder the
+ * user replaces on their own computer.
  */
 
 export const REPO_URL = "https://github.com/DigiMonk73/BTCTX-MCP";
@@ -20,6 +24,8 @@ export interface AiSetupInput {
   username: string;
   /** App version from /api/health; pins the MCP server to the same release. */
   version?: string;
+  /** The Mac app: the MCP server finds the app and its key by itself. */
+  keyMode?: boolean;
 }
 
 /** The release tag matching this app, or main when the version is unknown. */
@@ -52,7 +58,8 @@ export function needsCaBundle(url: string): boolean {
   return host.endsWith(".local") || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith("[");
 }
 
-export function serverEnv({ url, username }: AiSetupInput): Record<string, string> {
+export function serverEnv({ url, username, keyMode }: AiSetupInput): Record<string, string> {
+  if (keyMode) return {};
   const env: Record<string, string> = {
     BTCTX_URL: url,
     BTCTX_USERNAME: username,
@@ -64,6 +71,21 @@ export function serverEnv({ url, username }: AiSetupInput): Record<string, strin
 
 /** The prompt the user pastes into their AI app. */
 export function buildAiPrompt(input: AiSetupInput): string {
+  if (input.keyMode) {
+    return [
+      "Connect yourself to my BitcoinTX ledger (a self-hosted Bitcoin portfolio and tax tracker) " +
+        `by adding its MCP server, btctx-mcp, to the AI app I'm using with you, under the name "${SERVER_NAME}".`,
+      "",
+      `Follow this setup guide: ${setupGuideUrl(input.version)}`,
+      "",
+      "BitcoinTX is the Mac app on this computer. The MCP server finds it by itself, so it needs no " +
+        "URL, username or password: don't add any to the configuration, and don't ask me for my password.",
+      `- Server command: uvx --from "${serverSource(input.version)}" btctx-mcp`,
+      "",
+      "If you can't change your own configuration, give me the exact steps instead. " +
+        "Once it's connected, call get_portfolio to confirm it works (BitcoinTX must be open).",
+    ].join("\n");
+  }
   const lines = [
     "Connect yourself to my BitcoinTX ledger (a self-hosted Bitcoin portfolio and tax tracker) " +
       `by adding its MCP server, btctx-mcp, to the AI app I'm using with you, under the name "${SERVER_NAME}".`,
@@ -93,12 +115,13 @@ export function buildAiPrompt(input: AiSetupInput): string {
 
 /** Claude Desktop: Settings → Developer → Edit Config. */
 export function claudeDesktopConfig(input: AiSetupInput): string {
+  const env = serverEnv(input);
   const config = {
     mcpServers: {
       [SERVER_NAME]: {
         command: "uvx",
         args: ["--from", serverSource(input.version), "btctx-mcp"],
-        env: serverEnv(input),
+        ...(Object.keys(env).length ? { env } : {}),
       },
     },
   };
@@ -117,4 +140,9 @@ export function claudeCodeCommand(input: AiSetupInput): string {
     ...env,
     `-- uvx --from ${shellQuote(serverSource(input.version))} btctx-mcp`,
   ].join(" \\\n  ");
+}
+
+/** Grok Build (Mac app): one command, nothing secret in it. */
+export function grokCommand(input: AiSetupInput): string {
+  return `grok mcp add ${SERVER_NAME} -- uvx --from ${shellQuote(serverSource(input.version))} btctx-mcp`;
 }

@@ -130,9 +130,16 @@ the Application Support database.
 ## Using the MCP server with the Mac app
 
 **Settings → Connect an AI Assistant** in the app has a setup prompt to paste
-into your AI app and ready-made configs, all filled in with
-`BTCTX_URL=http://127.0.0.1:8765` and your username. The app must be running
-while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
+into your AI app and one-line commands with no password, username or port.
+At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
+(0600, in a 0700 folder): the app's URL, port, pid, version and an **AI
+assistant key** (`backend/services/mcp_key.py`). The MCP server reads it and
+sends the key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
+database (`app_settings`); the key stays the same across restarts and after a
+restore. It's accepted only from 127.0.0.1, only while AI access is on, and
+never for backup/restore, CSV import, delete-all or the key settings
+themselves. Settings can turn access off or reset the key. The app must be
+running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 
 ## CI
 

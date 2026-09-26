@@ -64,7 +64,21 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 # ---------------------------------------------------------
 # Database import (needed before lifespan)
 # ---------------------------------------------------------
-from backend.database import init_db, get_db
+from backend.database import init_db, get_db, SessionLocal
+from backend.services import mcp_key
+
+
+def _sync_mcp_key() -> None:
+    """Mac app: write mcp.json (the AI assistant key) for this run."""
+    if not mcp_key.enabled():
+        return
+    db = SessionLocal()
+    try:
+        mcp_key.sync(db)
+    except Exception:
+        logger.exception("Could not write the AI assistant key file")
+    finally:
+        db.close()
 
 # ---------------------------------------------------------
 # Lifespan context manager for startup/shutdown
@@ -77,6 +91,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     init_db()
+    _sync_mcp_key()
     yield
     # Shutdown (nothing needed currently)
 
@@ -150,11 +165,15 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
 def get_current_user(
     request: Request,
     x_api_key: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
 ) -> str:
     """
-    Dual-mode auth dependency: session cookie OR API key.
-    - Browser/frontend: uses session cookie (user_id in session)
-    - Programmatic access (e.g., Telegram bot): uses X-API-Key header
+    Auth dependency: session cookie, API key, or (Mac app only) the AI
+    assistant key.
+    - Browser/frontend: session cookie (user_id in session)
+    - Programmatic access (e.g., Telegram bot): X-API-Key header
+    - The local MCP server: Authorization: Bearer <key from mcp.json>
+      (backend/services/mcp_key.py; this computer only)
     """
     # Session auth (browser/frontend)
     user_id = request.session.get("user_id")
@@ -163,7 +182,10 @@ def get_current_user(
     # API key auth (programmatic access)
     if API_KEY and x_api_key and hmac.compare_digest(x_api_key, API_KEY):
         return "api_key_user"
-    raise HTTPException(status_code=401, detail="Not authenticated")
+    if mcp_key.request_has_valid_key(request, db):
+        return "mcp_key"
+    detail = getattr(request.state, "mcp_key_refusal", None) or "Not authenticated"
+    raise HTTPException(status_code=401, detail=detail)
 
 # ---------------------------------------------------------
 # Routers (Transaction, User, Account, Calculation, Bitcoin, Reports, Debug)

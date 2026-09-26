@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 import io
 import os
 import shutil
@@ -16,8 +17,11 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
+from backend.services import mcp_key
 from backend.services.backup import make_backup, restore_backup
 from backend.constants import ACCOUNT_ID_TO_NAME
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -53,6 +57,7 @@ def _require_auth(request: Request):
 # === POST /api/backup/download ===
 @router.post("/download", response_class=StreamingResponse)
 def download_encrypted_backup(
+    request: Request,
     background_tasks: BackgroundTasks,
     password: str = Form(...),
     db: Session = Depends(get_db),
@@ -61,6 +66,7 @@ def download_encrypted_backup(
     Download an encrypted backup of the database.
     Uses BackgroundTasks to clean up temp file after streaming completes.
     """
+    _require_auth(request)
     with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
         temp_path = Path(temp_file.name)
         make_backup(password, temp_path)
@@ -91,6 +97,7 @@ def restore_encrypted_backup(
     Restore the database from an encrypted backup file.
     Clears the session after restore since the user_id may no longer be valid.
     """
+    _require_auth(request)
     temp_path = None
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
@@ -98,6 +105,14 @@ def restore_encrypted_backup(
             temp_path = Path(temp_file.name)
 
         restore_backup(password, temp_path)
+        # The restored database has its own record of the AI assistant key;
+        # keep the key the MCP server already has (Mac app only).
+        if mcp_key.enabled():
+            db.close()  # a fresh connection sees the restored file
+            try:
+                mcp_key.sync(db)
+            except Exception:
+                logger.exception("Could not re-sync the AI assistant key after restore")
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()

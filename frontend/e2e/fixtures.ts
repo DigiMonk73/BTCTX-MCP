@@ -41,14 +41,16 @@ export interface App {
   dir: string;
 }
 
-async function startApp(): Promise<{ app: App; proc: ChildProcess; log: string[] }> {
+async function startApp(
+  extraEnv: (dir: string, port: number) => Record<string, string>,
+): Promise<{ app: App; proc: ChildProcess; log: string[] }> {
   const dir = mkdtempSync(path.join(os.tmpdir(), "btctx-e2e-"));
   const port = await freePort();
   const log: string[] = [];
   const proc = spawn(
     python(),
     ["scripts/smoke_test.py", "--serve", String(port), path.join(dir, "e2e.db")],
-    { cwd: REPO, env: { ...process.env, PYTHONUNBUFFERED: "1" } },
+    { cwd: REPO, env: { ...process.env, PYTHONUNBUFFERED: "1", ...extraEnv(dir, port) } },
   );
   proc.stdout?.on("data", (d) => log.push(String(d)));
   proc.stderr?.on("data", (d) => log.push(String(d)));
@@ -111,16 +113,31 @@ export function acceptDialogs(page: Page, promptText = "") {
   return seen;
 }
 
+/**
+ * The server's environment as the Mac app's launcher sets it (port, key
+ * file in the test's temp dir). Use with test.use({ appMode: "mac" }).
+ */
+function macAppEnv(dir: string, port: number): Record<string, string> {
+  return {
+    BTCTX_DESKTOP: "1",
+    BTCTX_DESKTOP_PREFERRED_PORT: String(port),
+    BTCTX_DESKTOP_ACTUAL_PORT: String(port),
+    BTCTX_MCP_FILE: path.join(dir, "mcp.json"),
+  };
+}
+
 type Fixtures = {
+  /** "mac": run the server as the Mac app does (see macAppEnv). */
+  appMode: "server" | "mac";
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
 };
 
 export const test = base.extend<Fixtures>({
-  // eslint-disable-next-line no-empty-pattern
-  app: async ({}, use, testInfo) => {
-    const { app, proc, log } = await startApp();
+  appMode: ["server", { option: true }],
+  app: async ({ appMode }, use, testInfo) => {
+    const { app, proc, log } = await startApp(appMode === "mac" ? macAppEnv : () => ({}));
     await use(app);
     proc.kill();
     if (testInfo.status !== testInfo.expectedStatus) {
