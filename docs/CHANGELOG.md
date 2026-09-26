@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.0] - 2026-09-26 - Look and feel: the polish, ready for everyday use
+
 ### Look and feel
 Same app, same layout, calmer. No tax figure changes; no Recalculate Ledger
 needed.
