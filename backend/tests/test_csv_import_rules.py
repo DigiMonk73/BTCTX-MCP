@@ -74,3 +74,18 @@ def test_a_btc_withdrawal_needs_a_purpose():
     assert not r.errors, messages(r)
     r = parse("2024-01-05,Withdrawal,100,Bank,External,,,,,,,")  # USD: no purpose needed
     assert not r.errors, messages(r)
+
+
+def test_a_btc_deposit_that_isnt_income_needs_a_basis():
+    """F15: a blank basis on a MyBTC/Gift deposit was a warning and saved as $0."""
+    r = parse(
+        "2024-01-05,Deposit,0.1,External,Wallet,,,,,MyBTC,,",
+        "2024-01-05,Deposit,0.1,External,Exchange BTC,,,,,Gift,,",
+    )
+    assert messages(r) == ["Enter this deposit's cost basis (0 if it's unknown)."] * 2
+    r = parse(
+        "2024-01-05,Deposit,0.1,External,Wallet,0,,,,MyBTC,,",       # a stated 0 is fine
+        "2024-01-05,Deposit,0.1,External,Wallet,,,,,Income,,",       # income: priced later
+        "2024-01-05,Deposit,100,External,Bank,,,,,,,",               # USD: no basis
+    )
+    assert not r.errors, messages(r)

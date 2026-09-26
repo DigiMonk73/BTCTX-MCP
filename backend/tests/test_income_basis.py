@@ -68,11 +68,33 @@ def test_entered_basis_is_kept():
     assert basis(deposit(cost_basis_usd="4.10").json()) == Decimal("4.10")
 
 
-def test_non_income_deposit_keeps_zero_basis():
-    # A gift or an unknown-origin deposit legitimately has no basis here.
-    r = deposit(source="Gift", to_account_id=WALLET)
+@pytest.mark.parametrize("source", ["Gift", "MyBTC", "N/A", None])
+def test_non_income_deposit_needs_a_basis_but_zero_is_allowed(source):
+    """F15: blank used to be saved as $0 basis (all gain when sold). A
+    stated 0 (a gift or unknown origin) is still accepted."""
+    r = deposit(source=source, to_account_id=WALLET)
+    assert r.status_code == 422 and "cost basis (0 if it's unknown)" in r.text, r.text
+    r = deposit(source=source, to_account_id=WALLET, cost_basis_usd="0")
     assert r.status_code == 200, r.text
     assert basis(r.json()) == Decimal("0")
+
+
+def test_a_usd_deposit_needs_no_basis():
+    r = deposit(source="N/A", to_account_id=1, amount="100", fee_currency="USD")
+    assert r.status_code == 200, r.text
+
+
+def test_editing_a_legacy_blank_basis_deposit_asks_for_the_basis(test_engine):
+    """An old deposit saved blank must get its basis when it's next edited."""
+    from sqlalchemy import text
+
+    tx = deposit(source="MyBTC", to_account_id=WALLET, cost_basis_usd="0").json()
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET cost_basis_usd = NULL WHERE id = :id"), {"id": tx["id"]})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"amount": "0.002"})
+    assert r.status_code == 422 and "cost basis" in r.text
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"amount": "0.002", "cost_basis_usd": "150"})
+    assert r.status_code == 200 and basis(r.json()) == Decimal("150")
 
 
 def test_income_is_reported_at_market_value(test_engine):

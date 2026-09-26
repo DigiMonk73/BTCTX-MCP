@@ -35,6 +35,9 @@ Deposit: External -> any account
     MyBTC    = user's own BTC arriving from somewhere untracked;
                cost_basis_usd = what they originally paid (ask if unknown).
     Gift     = received as a gift; cost_basis_usd = the giver's basis.
+    MyBTC, Gift and N/A deposits REQUIRE cost_basis_usd; the ledger refuses
+    them without one. If the user truly doesn't know it, 0 is allowed, but
+    say that all of it becomes gain when sold, and let them choose.
     Income   = paid in BTC for work/goods.   \\
     Interest = exchange interest.             > basis = FMV at receipt,
     Reward   = mining, sats-back, bonuses.   /  auto-filled if omitted.

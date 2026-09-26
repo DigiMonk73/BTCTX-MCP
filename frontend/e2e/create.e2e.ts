@@ -40,6 +40,23 @@ test.describe("BTC deposits", () => {
     });
   }
 
+  test("a MyBTC deposit needs its basis stated; 0 is accepted", async ({ authedPage: page }) => {
+    await openAddForm(page, "Deposit");
+    await setWhen(page);
+    await page.getByLabel("Account").selectOption("Wallet");
+    await page.getByLabel("Amount").fill("0.25");
+    await page.getByLabel("Source").selectOption("MyBTC");
+    await page.getByRole("button", { name: "Save Transaction" }).click();
+    await expect(page.getByText("Enter this deposit's cost basis (type 0 if unknown).")).toBeVisible();
+    expect(await listTx(page.request)).toHaveLength(0);
+
+    await page.getByLabel("Cost Basis (USD)").fill("0");
+    await saveForm(page);
+    const tx = await lastTx(page);
+    expect(tx).toMatchObject({ source: "MyBTC" });
+    expect(Number(tx.cost_basis_usd)).toBe(0);
+  });
+
   for (const source of ["Income", "Interest", "Reward"]) {
     test(`deposit ${source} with a blank basis gets the day's value`, async ({ authedPage: page }) => {
       await openAddForm(page, "Deposit");

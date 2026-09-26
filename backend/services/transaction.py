@@ -1199,6 +1199,7 @@ DEPOSIT_SOURCES = ("MyBTC", "Gift", "Income", "Interest", "Reward", "N/A")
 GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
+DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
 
 
 def _canonical(value, choices) -> Optional[str]:
@@ -1287,6 +1288,13 @@ def _validate_transaction(data: dict, db: Session) -> None:
     if tx_type == "Withdrawal" and from_acct is not None and from_acct.currency == "BTC":
         if data.get("purpose") not in WITHDRAWAL_PURPOSES:
             _bad("A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
+
+    # F15: a BTC deposit that isn't income (MyBTC, Gift, N/A...) needs its
+    # cost basis stated; blank used to mean $0, all gain when it's sold.
+    # Income is valued at the day's price instead (_value_income_deposit).
+    if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
+            and (data.get("source") or "").lower() not in INCOME_SOURCES and data.get("cost_basis_usd") is None:
+        _bad(DEPOSIT_BASIS_REQUIRED)
 
 
 def _enforce_fee_rules(tx_data: dict, db: Session):

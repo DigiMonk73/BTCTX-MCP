@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
-from backend.services.transaction import create_transaction_record
+from backend.services.transaction import DEPOSIT_BASIS_REQUIRED, create_transaction_record
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
@@ -335,7 +335,8 @@ def _validate_row(
 
     # Type-specific validation
     type_specific_errors, type_specific_warnings = _validate_type_specific(
-        tx_type, cost_basis_usd, proceeds_usd, fee_currency, source, purpose, row_number, from_account_id
+        tx_type, cost_basis_usd, proceeds_usd, fee_currency, source, purpose, row_number, from_account_id,
+        to_account_id,
     )
     errors.extend(type_specific_errors)
     warnings.extend(type_specific_warnings)
@@ -587,6 +588,7 @@ def _validate_type_specific(
     purpose: Optional[str],
     row_number: int,
     from_account_id: Optional[int] = None,
+    to_account_id: Optional[int] = None,
 ) -> Tuple[List[CSVParseError], List[CSVParseError]]:
     """Validate type-specific field requirements."""
     errors = []
@@ -635,12 +637,13 @@ def _validate_type_specific(
                 ),
                 severity="warning"
             ))
-        elif cost_basis_usd is None:
-            warnings.append(CSVParseError(
+        elif cost_basis_usd is None and to_account_id in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC):
+            # F15: blank used to mean $0 basis; the ledger now refuses it.
+            errors.append(CSVParseError(
                 row_number=row_number,
                 column="cost_basis_usd",
-                message="No cost_basis_usd provided for Deposit. Will default to $0 (gift/unknown basis).",
-                severity="warning"
+                message=DEPOSIT_BASIS_REQUIRED,
+                severity="error"
             ))
 
     elif tx_type == "Withdrawal":

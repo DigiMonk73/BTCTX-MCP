@@ -32,6 +32,13 @@ All notable changes to BitcoinTX are documented in this file.
   are filled from that day's price; a 0 you type stays 0. New entries only.
   Spends saved before with $0 can't be told apart from a real $0:
   the new Ledger review lists them (read-only) so you can check.
+- **A BTC deposit that isn't income now needs its cost basis.** A MyBTC,
+  Gift or N/A deposit left blank was saved with a $0 basis, so all of it
+  became gain when sold (the CSV import only warned). The form, the API and
+  the CSV, River and AI imports now ask for it; type 0 if it's really
+  unknown. Income, Interest and Reward deposits are still valued at the day's
+  price. New entries only; the Ledger review lists existing ones with a $0 or
+  blank basis.
 - **"Lost" withdrawals no longer count as a capital loss.** They recorded a
   loss of their cost basis, which the dashboard and the tax report's summary
   included, although Form 8949 leaves Lost out. They are now treated like a

@@ -463,12 +463,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   type="number"
                   step="0.01"
                   className="form-control"
-                  {...register("costBasisUSD", { valueAsNumber: true })}
+                  aria-required={!isIncome}
+                  {...register("costBasisUSD", {
+                    valueAsNumber: true,
+                    // Not income: the basis must be stated (0 allowed); blank used to mean $0.
+                    validate: (v) =>
+                      isIncome || (v !== undefined && !Number.isNaN(v)) ||
+                      "Enter this deposit's cost basis (type 0 if unknown).",
+                  })}
                 />
+                {errors.costBasisUSD && (
+                  <span className="error-text">{errors.costBasisUSD.message}</span>
+                )}
                 <small className="form-hint">
                   {isIncome
                     ? "Its USD value when you received it (also your income). Leave blank to use that day's BTC price."
-                    : "If you paid a miner fee in BTC externally, add its USD value here."}
+                    : "What this BTC cost you (type 0 if unknown). If you paid a miner fee in BTC externally, add its USD value."}
                 </small>
               </div>
             )}
