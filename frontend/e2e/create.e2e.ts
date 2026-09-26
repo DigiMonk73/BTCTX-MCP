@@ -48,7 +48,8 @@ test.describe("BTC deposits", () => {
       await page.getByLabel("Currency").selectOption("BTC");
       await page.getByLabel("Amount").fill("0.01");
       await page.getByLabel("Source").selectOption(source);
-      await page.getByLabel("Cost Basis (USD)").fill("");
+      // Blank by default (it used to show 0).
+      await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
       await saveForm(page);
 
       const tx = await lastTx(page);
@@ -93,10 +94,7 @@ test.describe("withdrawals", () => {
   });
 
   test("Spent without proceeds is valued at the day's price", async ({ authedPage: page }) => {
-    // Finding F1 (docs/HARDENING_FINDINGS.md): the form sends proceeds 0, not
-    // "missing", so the spend is saved with $0 proceeds (a loss of the whole
-    // basis) instead of its market value. Remove test.fail when fixed.
-    test.fail();
+    // Finding F1: the form used to send 0 for a blank, saving $0 proceeds.
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
     await setWhen(page);
@@ -110,12 +108,15 @@ test.describe("withdrawals", () => {
     expect(Number(tx.gross_proceeds_usd)).toBe(0.1 * HISTORICAL_PRICE);
   });
 
-  test("Spent with 0 proceeds shows a warning", async ({ authedPage: page }) => {
+  test("Spent proceeds start blank; a typed 0 shows a warning", async ({ authedPage: page }) => {
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
     await page.getByLabel("Account").selectOption("Exchange");
     await page.getByLabel("Currency").selectOption("BTC");
     await page.getByLabel("Purpose").selectOption("Spent");
+    await expect(page.getByLabel("Proceeds (USD)")).toHaveValue("");
+    await expect(page.getByText("Leave blank to use that day's BTC price as the proceeds.")).toBeVisible();
+    await page.getByLabel("Proceeds (USD)").fill("0");
     await expect(page.getByText(/You selected "Spent" but "Proceeds \(USD\)" is 0/)).toBeVisible();
   });
 
@@ -137,9 +138,8 @@ test.describe("withdrawals", () => {
       expect(tx).toMatchObject({ type: "Withdrawal", purpose });
       expect(Number(tx.fmv_usd)).toBe(0.1 * HISTORICAL_PRICE);
       expect(Number(tx.proceeds_usd ?? 0)).toBe(0);
-      // Today a Lost withdrawal carries a loss of its basis on the transaction
-      // (Form 8949 leaves it out): finding F2, docs/HARDENING_FINDINGS.md.
-      expect(Number(tx.realized_gain_usd ?? 0)).toBe(purpose === "Lost" ? -2000 : 0);
+      // No gain or loss for any of them (Lost too, finding F2).
+      expect(Number(tx.realized_gain_usd ?? 0)).toBe(0);
     });
   }
 
@@ -167,6 +167,8 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   await page.getByLabel("Amount (From)").fill("0.5");
   await page.getByLabel("Amount (To)").fill("0.4999");
   await expect(page.getByLabel("Fee (BTC)")).toHaveValue("0.0001");
+  // No made-up USD estimate next to the fee (it used a fixed $30,000: F4).
+  await expect(page.getByText(/~ \$/)).toHaveCount(0);
   await saveForm(page);
 
   const tx = await lastTx(page);

@@ -711,10 +711,11 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
             partial_proceeds = (ratio * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
 
         disposal_gain = partial_proceeds - disposal_basis
-        # If Gift/Donation => override gain to 0 (no taxable event for giver)
-        # Note: "Lost" is NOT included here - lost BTC results in a capital loss
-        # (proceeds=0, gain = 0 - cost_basis = negative loss, which is deductible)
-        if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation"):
+        # Gift/Donation/Lost => no gain or loss: not a sale, and not on Form
+        # 8949 (form_8949.NON_TAXABLE_PURPOSES). Lost used to carry a loss of
+        # its basis here, which the dashboard and the tax report's summary
+        # counted although the forms leave it out (owner decision 2026-09-26).
+        if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation", "lost"):
             disposal_gain = Decimal("0.0")
 
         hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))

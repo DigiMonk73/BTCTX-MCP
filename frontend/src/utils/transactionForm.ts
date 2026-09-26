@@ -2,7 +2,7 @@
 //
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
-import { parseDecimal } from "./format";
+import { optionalDecimal, parseDecimal } from "./format";
 
 /**
  * localDatetimeToIso:
@@ -206,15 +206,6 @@ export function buildTransactionPayload(
 ): Omit<ICreateTransactionPayload, "is_locked"> {
   data = { ...data }; // never modify the caller's form values
 
-  // 1) If BTC withdrawal & user didn't provide proceeds, default to 0
-  if (
-    data.type === "Withdrawal" &&
-    data.currency === "BTC" &&
-    !data.proceeds_usd
-  ) {
-    data.proceeds_usd = 0;
-  }
-
   // 2) from/to IDs
   const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data);
 
@@ -226,9 +217,11 @@ export function buildTransactionPayload(
   let feeCurrency: Currency = "USD";
   let source: string | undefined;
   let purpose: string | undefined;
-  let cost_basis_usd = 0;
-  let proceeds_usd: number | undefined;
-  let fmv_usd: number | undefined;
+  // null = not given: the server fills what it can (an income deposit's
+  // basis, a Spent withdrawal's proceeds, a gift's FMV) from that day's price.
+  let cost_basis_usd: number | null = null;
+  let proceeds_usd: number | null | undefined;
+  let fmv_usd: number | null | undefined;
   let gross_proceeds_usd: number | undefined; // <-- new
 
   switch (data.type) {
@@ -240,7 +233,7 @@ export function buildTransactionPayload(
         data.currency === "BTC" &&
         (data.account === "Wallet" || data.account === "Exchange")
       ) {
-        cost_basis_usd = parseDecimal(data.costBasisUSD);
+        cost_basis_usd = optionalDecimal(data.costBasisUSD);
       }
       break;
 
@@ -248,8 +241,8 @@ export function buildTransactionPayload(
       amount = parseDecimal(data.amount);
       feeCurrency = data.currency === "BTC" ? "BTC" : "USD";
       purpose = data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A";
-      proceeds_usd = parseDecimal(data.proceeds_usd);
-      fmv_usd = parseDecimal(data.fmv_usd);
+      proceeds_usd = optionalDecimal(data.proceeds_usd);
+      fmv_usd = optionalDecimal(data.fmv_usd);
       break;
 
     case "Transfer":

@@ -236,6 +236,38 @@ def test_cli_recalculate_rebuilds_the_ledger(tmp_path, monkeypatch, capsys):
     assert q(db, "SELECT COUNT(*) FROM bitcoin_lots")[0][0] > 0
 
 
+
+def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, capsys):
+    """Read-only list of what to check after v0.9.2 (F1 and F2)."""
+    import backend.database as database
+    from backend import cli as backend_cli
+
+    db = tmp_path / "btctx.db"
+    engine = engine_for(db)
+    init_db(engine)
+    con = sqlite3.connect(str(db))
+    rows = [  # id, purpose, gross proceeds
+        (1, "Spent", "0.00"), (2, "Spent", "5000.00"), (3, "Spent", None), (4, "Lost", None), (5, "Gift", None),
+    ]
+    for tx_id, purpose, gross in rows:
+        con.execute(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount,"
+            " fee_amount, fee_currency, purpose, gross_proceeds_usd, is_locked)"
+            " VALUES (?, 'Withdrawal', '2024-05-01 12:00:00', 2, 99, '0.1', '0', 'BTC', ?, ?, 0)",
+            (tx_id, purpose, gross),
+        )
+    con.commit()
+    before = q(db, "SELECT COUNT(*), SUM(id) FROM transactions")
+    con.close()
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(database, "init_db", lambda: init_db(engine))
+    assert backend_cli.main(["review"]) == 0
+    out = capsys.readouterr().out
+    assert "Spent withdrawals with $0 proceeds: 1\n  #1 " in out
+    assert "Lost withdrawals (loss removed by Recalculate Ledger): 1\n  #4 " in out
+    assert q(db, "SELECT COUNT(*), SUM(id) FROM transactions") == before  # read-only
+
 # ---------------------------------------------------------------------------
 # LOG_LEVEL
 # ---------------------------------------------------------------------------

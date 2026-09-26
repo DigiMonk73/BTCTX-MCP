@@ -39,6 +39,16 @@ test("converter, auto mode: live price", async ({ authedPage: page }) => {
   await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("50000000");
 });
 
+test("converter keeps BTC to the satoshi (F6)", async ({ authedPage: page }) => {
+  // $1 at $60,000 = 0.0000166666… BTC; it used to show 0.00002 (5 decimals).
+  await page.getByLabel("USD", { exact: true }).fill("1");
+  await expect(page.getByLabel("BTC", { exact: true })).toHaveValue("0.00001667");
+  await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("1666");
+  await page.getByLabel("Sats", { exact: true }).fill("1");
+  await expect(page.getByLabel("BTC", { exact: true })).toHaveValue("0.00000001");
+  await expect(page.getByLabel("USD", { exact: true })).toHaveValue("0");
+});
+
 test("converter, manual mode: your own price", async ({ authedPage: page }) => {
   await page.getByRole("button", { name: "Manual" }).click();
   await expect(page.getByRole("button", { name: "Manual" })).toHaveAttribute("aria-pressed", "true");

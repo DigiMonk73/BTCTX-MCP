@@ -16,6 +16,22 @@ All notable changes to BitcoinTX are documented in this file.
   connect) or Quit. Opening the app twice brings the running copy forward. The
   app now keeps a log at `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
 
+- **A "Spent" withdrawal entered with blank proceeds was saved at $0**, a
+  loss of its whole cost basis, instead of its value at that day's BTC price
+  (the rule for spends without proceeds, which imports already followed): the
+  form sent 0 for a blank. Blank now means "not given" everywhere in the form:
+  Spent proceeds, a gift's FMV and an income deposit's basis start blank and
+  are filled from that day's price; a 0 you type stays 0. New entries only.
+  Spends saved before with $0 can't be told apart from a real $0:
+  `python -m backend.cli review` lists them (read-only) so you can check.
+- **"Lost" withdrawals no longer count as a capital loss.** They recorded a
+  loss of their cost basis, which the dashboard and the tax report's summary
+  included, although Form 8949 leaves Lost out. They are now treated like a
+  Gift: no gain, no loss. **Run Recalculate Ledger** (Settings) to update
+  Lost withdrawals saved before; `python -m backend.cli review` lists them.
+- The transfer form showed the network fee's USD value at a made-up
+  $30,000 price; the estimate is gone. The sats converter rounded BTC to 5
+  decimals (1,000 sats); it now shows every satoshi.
 - **Backup download and restore didn't check for a login.** Their router is
   meant to be login-only, but both endpoints skipped the check, so a client
   with the optional `API_KEY` could download or replace the whole database.

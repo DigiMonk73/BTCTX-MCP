@@ -235,9 +235,9 @@ declare global {
     timestamp: string;    // ISO8601
     fee_amount: number;
     fee_currency: Currency;
-    cost_basis_usd: number;
-    proceeds_usd?: number; // optional for certain types
-    fmv_usd?: number;
+    cost_basis_usd: number | null; // null = not given (server fills an income basis)
+    proceeds_usd?: number | null;  // null = not given (Spent: that day's value)
+    fmv_usd?: number | null;
     source?: string;
     purpose?: string;
     is_locked: boolean;   // only on creation

@@ -30,6 +30,17 @@ export function parseDecimal(value?: string | number): number {
 }
 
 /**
+ * A number the user may leave blank: null for blank (undefined, null, "" or
+ * NaN, which is what an empty number input gives), so the API can tell
+ * "not given" from 0.
+ */
+export function optionalDecimal(value?: string | number | null): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : parseFloat(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+/**
  * --------------------------------------------------------------------------
  * 2) Numeric Formatting
  * --------------------------------------------------------------------------

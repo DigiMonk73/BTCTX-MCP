@@ -41,9 +41,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       // Minimal defaults to start
       timestamp: toDatetimeLocal(new Date()),
       fee: 0,
-      costBasisUSD: 0,
-      proceeds_usd: 0,
-      fmv_usd: 0,
+      // Blank, not 0: a blank income basis or Spent proceeds means "use that
+      // day's BTC price" (the server fills it); 0 would be saved as $0.
+      costBasisUSD: undefined,
+      proceeds_usd: undefined,
+      fmv_usd: undefined,
 
       // NEW: Initialize "grossProceedsUSD"
       grossProceedsUSD: 0,
@@ -56,7 +58,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   // Local state
   const [currentType, setCurrentType] = useState<TransactionType | "">("");
-  const [feeInUsdDisplay, setFeeInUsdDisplay] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Watch various fields
@@ -66,7 +67,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const amountFromVal = watch("amountFrom") || 0;
   const amountToVal = watch("amountTo") || 0;
   const purposeVal = watch("purpose");
-  const proceedsUsdVal = watch("proceeds_usd") || 0;
+  const proceedsUsdVal = watch("proceeds_usd");
 
   /**
    * Load existing transaction if we have a transactionId
@@ -89,9 +90,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       reset({
         timestamp: toDatetimeLocal(new Date()),
         fee: 0,
-        costBasisUSD: 0,
-        proceeds_usd: 0,
-        fmv_usd: 0,
+        costBasisUSD: undefined,
+        proceeds_usd: undefined,
+        fmv_usd: undefined,
         grossProceedsUSD: 0,
         brokerReporting: "",
         buyFromAccount: "Exchange",
@@ -162,12 +163,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       if (calcFee < 0) {
         setValue("fee", 0);
       } else {
-        const feeBtc = Number(calcFee.toFixed(8));
-        setValue("fee", feeBtc);
-        // Show approximate USD
-        const mockBtcPrice = 30000; // or some dynamic price
-        const approxUsd = feeBtc * mockBtcPrice;
-        setFeeInUsdDisplay(Number(approxUsd.toFixed(2)));
+        setValue("fee", Number(calcFee.toFixed(8)));
       }
     }
   }, [currentType, fromCurrencyVal, amountFromVal, amountToVal, setValue]);
@@ -188,9 +184,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       ...currentValues,
       type: newType,
       fee: 0,
-      costBasisUSD: 0,
-      proceeds_usd: 0,
-      fmv_usd: 0,
+      costBasisUSD: undefined,
+      proceeds_usd: undefined,
+      fmv_usd: undefined,
       grossProceedsUSD: 0,
       brokerReporting: "",
       buyFromAccount: "Exchange",
@@ -465,7 +461,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 />
                 <small className="form-hint">
                   {isIncome
-                    ? "Its USD value when you received it (also your income). Leave at 0 to use that day's BTC price."
+                    ? "Its USD value when you received it (also your income). Leave blank to use that day's BTC price."
                     : "If you paid a miner fee in BTC externally, add its USD value here."}
                 </small>
               </div>
@@ -599,6 +595,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     {...register("proceeds_usd", { valueAsNumber: true })}
                     readOnly={isSpecialPurpose}
                   />
+                  {purposeVal === "Spent" && (proceedsUsdVal == null || Number.isNaN(proceedsUsdVal)) && (
+                    <small className="form-hint">
+                      Leave blank to use that day's BTC price as the proceeds.
+                    </small>
+                  )}
                   {purposeVal === "Spent" && proceedsUsdVal === 0 && (
                     <div className="form-warning">
                       <strong>Warning:</strong> You selected "Spent" but "Proceeds (USD)" is 0.
@@ -761,11 +762,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   {...register("fee", { valueAsNumber: true })}
                   readOnly
                 />
-                {feeInUsdDisplay > 0 && (
-                  <small className="approx-value">
-                    (~ ${feeInUsdDisplay} USD)
-                  </small>
-                )}
               </div>
             ) : (
               <div className="form-group">

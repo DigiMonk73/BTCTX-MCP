@@ -28,7 +28,10 @@ const BtcConverter: React.FC = () => {
   const [lastChangedField, setLastChangedField] = useState<Field>(null);
 
   // Small helper to round BTC to 5 decimal places
-  const round = (num: number) => Math.round(num * 100_000) / 100_000;
+  // BTC to the satoshi (8 decimals), USD to the cent.
+  // As a plain decimal: 1 sat is "0.00000001", never "1e-8".
+  const roundBtc = (num: number) => num.toFixed(8).replace(/\.?0+$/, "");
+  const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
   // ---------------------------------------------------------------------------
   // 3) Auto Mode: Fetch live price periodically
@@ -117,7 +120,7 @@ const BtcConverter: React.FC = () => {
       const btcNum = btcPrice ? usdNum / btcPrice : 0;
       const satsNum = btcNum * 100_000_000;
 
-      setBtcValue(btcNum ? round(btcNum).toString() : "");
+      setBtcValue(btcNum ? roundBtc(btcNum) : "");
       setSatsValue(satsNum ? Math.floor(satsNum).toString() : "");
 
       if (updateLastField) {
@@ -134,7 +137,7 @@ const BtcConverter: React.FC = () => {
       const usdNum = btcNum * btcPrice;
       const satsNum = btcNum * 100_000_000;
 
-      setUsdValue(usdNum ? round(usdNum).toString() : "");
+      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
       setSatsValue(satsNum ? Math.floor(satsNum).toString() : "");
 
       if (updateLastField) {
@@ -151,8 +154,8 @@ const BtcConverter: React.FC = () => {
       const btcNum = satsNum / 100_000_000;
       const usdNum = btcNum * btcPrice;
 
-      setBtcValue(btcNum ? round(btcNum).toString() : "");
-      setUsdValue(usdNum ? round(usdNum).toString() : "");
+      setBtcValue(btcNum ? roundBtc(btcNum) : "");
+      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
 
       if (updateLastField) {
         setLastChangedField("SATS");

@@ -45,7 +45,8 @@ Withdrawal: any account -> External
                received (auto-filled from the day's price if omitted).
     Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
     Donation = gave to a charity (not a sale; fmv_usd auto-filled).
-    Lost     = lost keys / hack / scam (capital loss).
+    Lost     = lost keys / hack / scam (no gain or loss recorded; not on
+               Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount.
 Transfer: between the user's own accounts, same currency
