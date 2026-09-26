@@ -1,5 +1,5 @@
 import httpx
-from datetime import datetime, date as date_cls, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 
 # ---------------------------------------------------------------------
@@ -119,8 +119,11 @@ async def get_historical_price(date: str):
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    # Disallow future dates
-    if target_date > date_cls.today():
+    # Disallow future dates. Callers pass UTC dates, so compare with today in
+    # UTC: the server's local date (the Mac app runs in the user's zone) is a
+    # day behind UTC every evening in the Americas, and today's price was
+    # refused then.
+    if target_date > datetime.now(timezone.utc).date():
         raise HTTPException(status_code=400, detail="Date cannot be in the future.")
 
     # Format dates for each API
