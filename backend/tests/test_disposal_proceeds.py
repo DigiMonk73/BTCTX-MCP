@@ -64,13 +64,15 @@ def force_recalc(n=3):
         buy(month=i + 1, amount="0.001", year=2022)
 
 
-def forget_gross(tx_id):
-    """Simulate a row saved before gross_proceeds_usd was always recorded."""
+def forget_gross(tx_id, old_net=None):
+    """Simulate a row saved before gross_proceeds_usd was always recorded
+    (with the net proceeds that version stored, if given)."""
     db = sessionmaker(bind=ENGINE)()
     try:
-        db.query(Transaction).filter(Transaction.id == tx_id).update(
-            {Transaction.gross_proceeds_usd: None}
-        )
+        values = {Transaction.gross_proceeds_usd: None}
+        if old_net is not None:
+            values[Transaction.proceeds_usd] = Decimal(old_net)
+        db.query(Transaction).filter(Transaction.id == tx_id).update(values)
         db.commit()
     finally:
         db.close()
@@ -80,6 +82,15 @@ SPENT = dict(type="Withdrawal", timestamp="2024-06-01T00:00:00Z",
              from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL,
              amount="0.01", fee_amount="0.0001", fee_currency="BTC",
              purpose="Spent", proceeds_usd="1000.00")
+# Since v0.9.2 the network fee is its own disposal (owner decision, F24):
+#   spend: 0.01 BTC, proceeds 1,000.00 (no fee cut), basis 0.01 x 20,000 = 200.00
+#   fee:   0.0001 BTC, proceeds 0.0001 x 100,000 = 10.00, basis 2.00
+#   the transaction's own figures are the spend's (as for a transfer, the fee
+#   is its fee_usd, and its 8.00 gain is on Form 8949): proceeds 1,000.00,
+#   gain 800.00.
+# (Before: 1,000 spread over 0.0101 BTC minus the fee at the spend's own
+# price, 990.10 proceeds and a 788.10 gain.)
+SPENT_PROCEEDS, SPENT_GAIN = Decimal("1000.00"), Decimal("800.00")
 
 
 class TestSpentWithdrawals:
@@ -87,7 +98,8 @@ class TestSpentWithdrawals:
         buy()
         tx = post(**SPENT)
         net = Decimal(get(tx["id"])["proceeds_usd"])
-        assert net == Decimal("990.10")  # fee offset applied once
+        assert net == SPENT_PROCEEDS
+        assert Decimal(get(tx["id"])["realized_gain_usd"]) == SPENT_GAIN
         force_recalc()
         after = get(tx["id"])
         assert Decimal(after["proceeds_usd"]) == net
@@ -96,10 +108,10 @@ class TestSpentWithdrawals:
     def test_legacy_row_stops_shrinking_and_recovers_gross(self):
         buy()
         tx = post(**SPENT)
-        forget_gross(tx["id"])  # old data: proceeds_usd already net, no gross
+        forget_gross(tx["id"], "990.10")  # old data: proceeds_usd net of the fee offset, no gross
         force_recalc()
         after = get(tx["id"])
-        assert Decimal(after["proceeds_usd"]) == Decimal("990.10")
+        assert Decimal(after["proceeds_usd"]) == SPENT_PROCEEDS  # 990.10 x 0.0101 / 0.01
         assert Decimal(after["gross_proceeds_usd"]) == Decimal("1000.00")
 
     def test_missing_proceeds_valued_at_market_once(self):
@@ -138,13 +150,31 @@ class TestSpentWithdrawals:
         assert r.status_code == 200, r.text
         after = r.json()
         assert Decimal(after["gross_proceeds_usd"]) == Decimal("2000.00")
-        assert Decimal(after["proceeds_usd"]) == Decimal("1980.20")
+        assert Decimal(after["proceeds_usd"]) == Decimal("2000.00")  # no fee cut
 
-    def test_gift_ignores_proceeds(self):
+    def test_gift_ignores_proceeds_but_its_fee_is_a_disposal(self):
         buy()
         tx = post(**dict(SPENT, purpose="Gift", proceeds_usd="0"))
-        force_recalc(1)
+        # The gift: no gain. Its network fee is a disposal (F24): 0.0001 BTC
+        # at $100,000 = 10.00 proceeds, basis 0.0001 x 20,000 = 2.00.
         assert Decimal(get(tx["id"])["realized_gain_usd"]) == Decimal("0")
+        assert fee_gain(tx["id"]) == Decimal("8.00")
+        force_recalc(1)
+        # FIFO now takes the fee from the backdated lot (0.001 BTC for
+        # $2,000): basis 0.0001 x 2,000,000 = 200.00, gain 10.00 - 200.00.
+        assert Decimal(get(tx["id"])["realized_gain_usd"]) == Decimal("0")
+        assert fee_gain(tx["id"]) == Decimal("-190.00")
+
+
+def fee_gain(tx_id):
+    from backend.models.transaction import LotDisposal
+
+    db = sessionmaker(bind=ENGINE)()
+    try:
+        return sum((d.realized_gain_usd for d in db.query(LotDisposal).filter_by(transaction_id=tx_id, is_fee=True)),
+                   Decimal(0))
+    finally:
+        db.close()
 
 
 SELL = dict(type="Sell", timestamp="2024-06-01T00:00:00Z",
@@ -182,7 +212,7 @@ class TestRecalculateEndpoint:
         buy()
         spent = post(**SPENT)
         sell = post(**SELL, proceeds_usd="5000.00")
-        forget_gross(spent["id"])
+        forget_gross(spent["id"], "990.10")
         forget_gross(sell["id"])
 
         r = CLIENT.post("/api/transactions/recalculate")

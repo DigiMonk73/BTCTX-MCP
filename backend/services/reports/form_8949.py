@@ -84,7 +84,7 @@ NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
 def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
     """
     The lot disposals that go on Form 8949 for [start, end): sales, spends
-    and transfer fees; not gifts, donations or lost coins. The complete tax
+    and network fees (a gift's fee too); not gifts, donations or lost coins. The complete tax
     report's capital-gains sections use the same list, so they can't
     disagree with the forms.
     """
@@ -93,7 +93,9 @@ def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
           .join(LotDisposal.transaction)
           .filter(Transaction.timestamp >= start, Transaction.timestamp < end)
           .filter(
-              (Transaction.purpose.is_(None)) | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
+              LotDisposal.is_fee
+              | (Transaction.purpose.is_(None))
+              | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
           )
           .order_by(Transaction.timestamp, LotDisposal.id)
           .all()
@@ -191,6 +193,8 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> Tuple[bo
     The acquisition date is taken in the tax timezone, matching column (b).
     """
     tx = disp.transaction
+    if disp.is_fee:
+        return False, False  # a network fee is never on a broker form
     if tx is not None and tx.broker_reporting:
         # The user recorded what the broker actually reported: that wins.
         return tx.broker_reporting != "none", tx.broker_reporting == "basis"

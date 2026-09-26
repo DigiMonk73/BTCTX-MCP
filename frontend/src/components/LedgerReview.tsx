@@ -24,6 +24,7 @@ interface LedgerReviewResponse {
   timezone: string;
   total: number;
   checks: ReviewCheck[];
+  recalc_error?: string | null;
 }
 
 /**
@@ -89,6 +90,11 @@ const LedgerReview: React.FC = () => {
         </button>
       </div>
       {failed && <p className="settings-option-subtitle">The review could not be loaded or applied.</p>}
+      {review?.recalc_error && (
+        <p className="settings-option-subtitle">
+          Recalculate Ledger would stop with: {review.recalc_error}
+        </p>
+      )}
       {review && review.total === 0 && (
         <p className="settings-option-subtitle">Nothing to review.</p>
       )}

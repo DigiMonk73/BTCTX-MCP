@@ -55,7 +55,7 @@ const CASES: Array<{
     name: "Transfer with a BTC fee: change the amount received",
     tx: { type: "Transfer", timestamp: TS, from_account_id: 4, to_account_id: 2, amount: "0.5",
       fee_amount: "0.0001", fee_currency: "BTC" },
-    field: "Amount (To)", value: "0.4998", changes: { fee_amount: 0.0002 },
+    field: "Amount (To)", value: "0.4998", changes: { fee_amount: 0.0002, fee_usd: "10.00" }, // the fee changed, so it is valued again
   },
   {
     name: "Buy: change the fee",

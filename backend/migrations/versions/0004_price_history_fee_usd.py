@@ -4,6 +4,8 @@
   price the sources publish). Every historical valuation reads it first, so
   the same day always gets the same price and recalculation never needs the
   network.
+- lot_disposals.is_fee: marks a BTC network fee's disposal (taxable even
+  when its withdrawal is a gift). Existing transfer disposals are all fees.
 - transactions.fee_usd / fee_usd_manual: a BTC fee's USD value, stored once
   when the transaction is saved (typed by the user when fee_usd_manual).
   Recalculation reads it instead of pricing the fee again.
@@ -39,6 +41,14 @@ def upgrade() -> None:
         "transactions",
         sa.Column("fee_usd_manual", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
+    op.add_column(
+        "lot_disposals",
+        sa.Column("is_fee", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
+    op.execute(
+        "UPDATE lot_disposals SET is_fee = 1 WHERE transaction_id IN "
+        "(SELECT id FROM transactions WHERE type = 'Transfer')"
+    )
     op.execute(
         """
         UPDATE transactions
@@ -54,6 +64,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_column("lot_disposals", "is_fee")
     with op.batch_alter_table("transactions") as batch_op:
         batch_op.drop_column("fee_usd_manual")
         batch_op.drop_column("fee_usd")

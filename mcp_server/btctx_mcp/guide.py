@@ -51,7 +51,8 @@ Withdrawal: any account -> External
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
                Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
-  fee_currency = BTC, ON TOP of amount.
+  fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
+  was received for amount; the fee is recorded as its own small disposal.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination

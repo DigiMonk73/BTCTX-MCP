@@ -108,6 +108,14 @@ All notable changes to BitcoinTX are documented in this file.
   (probably priced live), with a **Fix these** button (or
   `python -m backend.cli review --fix-fee-prices`) that changes only those and
   recalculates, and income deposits more than 5% off, for you to check.
+- **A withdrawal's network fee is now its own disposal**, as a transfer's
+  always was (it's a small sale of BTC at its value). A spend's proceeds are
+  what you received for the BTC spent; before, the fee was taken out of them
+  (a $1,000 spend with a fee reported $990.10). A gift's, donation's or lost
+  withdrawal's network fee now shows on Form 8949 too. **This changes
+  existing figures once the ledger is recalculated** (Recalculate Ledger, or
+  any add, edit or delete). Settings → Ledger review lists every transaction
+  whose figures would change, old -> new, before you do.
 - **Double-clicking Save added the transaction twice.** It now saves once.
 - The River import warns when a row's Fee Currency isn't what BitcoinTX
   reads it as. The tax report shows a gift's value as "not given" instead of

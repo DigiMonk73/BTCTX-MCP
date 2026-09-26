@@ -46,6 +46,15 @@ Tax timezone America/New_York. Historical BTC price stubbed at $50,000
   May  1  Spend 0.1 BTC from the Wallet for $9,000: lot W (acquired Feb 1
           2023), basis 2,300.00, gain 6,700.00, long-term. Self-custody:
           box L, Schedule D line 10.
+  Jun  1  Spend 0.01 BTC from the Wallet for $1,000 with a 0.0001 BTC network
+          fee on top. The fee is its own disposal (F24), from lot W first:
+          - fee:   0.0001 BTC, proceeds 0.0001 x 50,000 = 5.00, basis
+                   0.0001 x 23,000 = 2.30, gain 2.70;
+          - spend: 0.01 BTC, proceeds 1,000.00 (no fee cut), basis 230.00,
+                   gain 770.00.
+          Both long-term, box L.
+  Line 10: 9,000 + 1,000 + 5 = 10,005.00; 2,300 + 230 + 2.30 = 2,532.30;
+          gain 7,472.70.
 """
 
 from decimal import Decimal
@@ -90,6 +99,8 @@ LEDGER = [
          amount="0.05", gross_proceeds_usd="4000", fee_amount="0", fee_currency="USD"),
     dict(type="Withdrawal", timestamp="2025-05-01T16:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
          amount="0.1", proceeds_usd="9000", fee_amount="0", fee_currency="BTC", purpose="Spent"),
+    dict(type="Withdrawal", timestamp="2025-06-01T16:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+         amount="0.01", proceeds_usd="1000", fee_amount="0.0001", fee_currency="BTC", purpose="Spent"),
 ]
 
 
@@ -120,8 +131,12 @@ EXPECTED = {
     },
     2025: {
         "short_term": [row("0.05000000 BTC", "01/10/2025", "04/01/2025", "4000.00", "5000.00", "-1000.00", "SHORT", "H")],
-        "long_term": [row("0.10000000 BTC", "02/01/2023", "05/01/2025", "9000.00", "2300.00", "6700.00", "LONG", "L")],
-        "lines": {"2": totals("4000.00", "5000.00", "-1000.00"), "10": totals("9000.00", "2300.00", "6700.00")},
+        "long_term": [
+            row("0.10000000 BTC", "02/01/2023", "05/01/2025", "9000.00", "2300.00", "6700.00", "LONG", "L"),
+            row("0.00010000 BTC", "02/01/2023", "06/01/2025", "5.00", "2.30", "2.70", "LONG", "L"),
+            row("0.01000000 BTC", "02/01/2023", "06/01/2025", "1000.00", "230.00", "770.00", "LONG", "L"),
+        ],
+        "lines": {"2": totals("4000.00", "5000.00", "-1000.00"), "10": totals("10005.00", "2532.30", "7472.70")},
     },
 }
 
@@ -158,7 +173,7 @@ def test_golden_year(golden, year):
     got = _normalize(forms)
     want = EXPECTED[year]
     assert got["short_term"] == sorted(want["short_term"], key=lambda r: (r["date_sold"][-4:], r["date_sold"], r["date_acquired"][-4:], r["date_acquired"], r["description"]))
-    assert got["long_term"] == want["long_term"]
+    assert got["long_term"] == sorted(want["long_term"], key=lambda r: (r["date_sold"][-4:], r["date_sold"], r["date_acquired"][-4:], r["date_acquired"], r["description"]))
     assert got["lines"] == want["lines"]
 
 
@@ -167,6 +182,6 @@ def test_golden_income_and_balances(golden, auth_client):
     income = next(t for t in txs if t["source"] == "Income")
     assert D(income["cost_basis_usd"]) == D("1000.00")
     balances = {b["name"]: D(str(b["balance"])) for b in auth_client.get("/api/calculations/accounts/balances").json()}
-    # Wallet: 0.5998 - 0.01 + 0.02 - 0.1 - 0.1 = 0.4098; Exchange BTC: 0.2 - 0.05 = 0.15
-    assert balances["Wallet"] == D("0.4098")
+    # Wallet: 0.5998 - 0.01 + 0.02 - 0.1 - 0.1 - 0.0101 = 0.3997; Exchange BTC: 0.2 - 0.05 = 0.15
+    assert balances["Wallet"] == D("0.3997")
     assert balances["Exchange BTC"] == D("0.15")

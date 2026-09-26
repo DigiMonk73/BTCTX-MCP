@@ -347,16 +347,20 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
       - Spent with no proceeds given (River/CSV imports): FMV of the amount at
         the day's price, fetched once.
       - Rows saved before the gross was recorded: their proceeds_usd is net of
-        the BTC fee offset applied in maybe_dispose_lots_fifo; undo it once.
+        the BTC fee offset versions before 0.9.2 applied; undo it once. The
+        gross is what was received for the amount spent (the fee is its own
+        disposal now).
     """
     if tx.gross_proceeds_usd is not None:
         return Decimal(tx.gross_proceeds_usd)
 
     purpose = (tx.purpose or "").lower()
     amount = Decimal(tx.amount or 0)
+    if purpose != "spent":
+        # Gift/Donation/Lost have no proceeds. Their stored proceeds_usd is the
+        # network fee's (its own disposal), never a gross to recover.
+        return Decimal("0")
     if tx.proceeds_usd is None:
-        if purpose != "spent":
-            return Decimal("0")
         gross = (get_btc_price(tx.timestamp, db) * amount).quantize(Decimal("0.01"))
     else:
         gross = Decimal(tx.proceeds_usd)
@@ -658,25 +662,27 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
 def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     """
     For a Sell/Withdrawal from a BTC account, do FIFO disposal of partial lots.
-    - If purpose=Gift/Donation/Lost => forced proceeds=0
-    - If purpose=Spent => user-supplied proceeds + BTC fee offset
-    - Otherwise, if proceeds_usd is None or invalid, default to 0
+    - The proceeds are for the amount sold or spent: a Sell's net proceeds,
+      a Spent withdrawal's full proceeds (no fee cut).
+    - Gift/Donation/Lost => the amount carries no proceeds and no gain.
+    - A withdrawal's BTC network fee is its own disposal (like a transfer's),
+      at the fee's stored USD value, taxable whatever the purpose. It uses the
+      oldest BTC first, then the amount follows.
     """
     from_acct = db.get(Account, tx.from_account_id)
     if not from_acct or from_acct.currency != "BTC":
         return
 
-    btc_outflow = Decimal(tx.amount or 0)
-    if (tx.fee_currency or "").upper() == "BTC":
-        btc_outflow += Decimal(tx.fee_amount or 0)
+    amount_btc = Decimal(tx.amount or 0)
+    fee_btc = Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal("0")
+    btc_outflow = amount_btc + fee_btc
     if btc_outflow <= 0:
         return
 
-    # 1) Safely parse proceeds. Default to 0 if None/invalid
-    # IMPORTANT: Use tx.proceeds_usd as the authoritative value if available,
-    # since build_ledger_entries_for_transaction already calculated it correctly
-    # from gross_proceeds_usd. This prevents degradation during recalculation.
-    # Withdrawals have no ledger-side net step, so they start from the gross.
+    # 1) Proceeds for the amount. Use tx.proceeds_usd as the authoritative
+    # value for a Sell (build_ledger_entries_for_transaction derived it from
+    # gross_proceeds_usd). Withdrawals have no ledger-side net step, so they
+    # start from the gross.
     if tx.type == "Withdrawal":
         total_proceeds = _withdrawal_gross_proceeds(tx, btc_outflow, db)
     elif tx.proceeds_usd is not None:
@@ -691,20 +697,15 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
             except (ValueError, TypeError, InvalidOperation):
                 total_proceeds = Decimal("0")
 
-    # 2) Check purpose for forced 0 or "Spent" logic
+    # 2) Gift/Donation/Lost => no gain or loss on the amount: not a sale, and
+    # not on Form 8949 (form_8949.NON_TAXABLE_PURPOSES). Lost used to carry a
+    # loss of its basis, which the dashboard and the tax report's summary
+    # counted although the forms leave it out (owner decision 2026-09-26).
     purpose_lower = (tx.purpose or "").lower()
-    if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation", "lost"):
+    not_a_sale = tx.type == "Withdrawal" and purpose_lower in ("gift", "donation", "lost")
+    if not_a_sale:
         total_proceeds = Decimal("0")
-    elif tx.type == "Withdrawal" and purpose_lower == "spent":
-        fee_btc = Decimal(tx.fee_amount or 0)
-        fee_cur = (tx.fee_currency or "").upper()
-        if fee_btc > 0 and fee_cur == "BTC" and btc_outflow > 0 and total_proceeds > 0:
-            implied_price = total_proceeds / btc_outflow
-            fee_in_usd = fee_btc * implied_price
-            net_proceeds = total_proceeds - fee_in_usd
-            if net_proceeds < 0:
-                net_proceeds = Decimal("0")
-            total_proceeds = net_proceeds
+    fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
 
     # 3) FIFO disposal across lots (account-specific)
     # Only consume lots from the account we're selling/withdrawing from
@@ -718,54 +719,46 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
         .order_by(BitcoinLot.acquired_date.asc())
         .all()
     )
-    remaining_outflow = btc_outflow
-    total_outflow = btc_outflow
+    tz = get_tax_timezone(db)
+    remaining_fee = fee_btc
+    remaining_amount = amount_btc
+    fee_proceeds_so_far = Decimal("0")
 
-    for lot in lots:
-        if remaining_outflow <= 0:
-            break
-        if lot.remaining_btc <= 0:
-            continue
-
-        can_use = min(lot.remaining_btc, remaining_outflow)
-        cost_per_btc = (
-            lot.cost_basis_usd / lot.total_btc
-            if lot.total_btc
-            else Decimal("0")
-        )
-        disposal_basis = (cost_per_btc * can_use).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-
-        partial_proceeds = Decimal("0")
-        if total_outflow > 0:
-            ratio = can_use / total_outflow
-            partial_proceeds = (ratio * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-
-        disposal_gain = partial_proceeds - disposal_basis
-        # Gift/Donation/Lost => no gain or loss: not a sale, and not on Form
-        # 8949 (form_8949.NON_TAXABLE_PURPOSES). Lost used to carry a loss of
-        # its basis here, which the dashboard and the tax report's summary
-        # counted although the forms leave it out (owner decision 2026-09-26).
-        if tx.type == "Withdrawal" and purpose_lower in ("gift", "donation", "lost"):
-            disposal_gain = Decimal("0.0")
-
-        hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))
-
-        disp = LotDisposal(
+    def dispose(lot, qty, proceeds, gain_zero, is_fee):
+        cost_per_btc = lot.cost_basis_usd / lot.total_btc if lot.total_btc else Decimal("0")
+        basis = (cost_per_btc * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+        db.add(LotDisposal(
             lot_id=lot.id,
             transaction_id=tx.id,
-            disposed_btc=can_use,
-            disposal_basis_usd=disposal_basis,
-            proceeds_usd_for_that_portion=partial_proceeds,
-            realized_gain_usd=disposal_gain,
-            holding_period=hp
-        )
-        db.add(disp)
+            disposed_btc=qty,
+            disposal_basis_usd=basis,
+            proceeds_usd_for_that_portion=proceeds,
+            realized_gain_usd=Decimal("0.0") if gain_zero else proceeds - basis,
+            holding_period=holding_period(lot.acquired_date, tx.timestamp, tz),
+            is_fee=is_fee,
+        ))
+        lot.remaining_btc -= qty
 
-        lot.remaining_btc -= can_use
-        remaining_outflow -= can_use
+    for lot in lots:
+        if remaining_fee <= 0 and remaining_amount <= 0:
+            break
+        if remaining_fee > 0 and lot.remaining_btc > 0:
+            qty = min(lot.remaining_btc, remaining_fee)
+            if qty == remaining_fee:  # last part takes the remainder: the parts add up to fee_usd
+                proceeds = fee_usd - fee_proceeds_so_far
+            else:
+                proceeds = (fee_usd * qty / fee_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            fee_proceeds_so_far += proceeds
+            dispose(lot, qty, proceeds, gain_zero=False, is_fee=True)
+            remaining_fee -= qty
+        if remaining_amount > 0 and lot.remaining_btc > 0:
+            qty = min(lot.remaining_btc, remaining_amount)
+            proceeds = (qty / amount_btc * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            dispose(lot, qty, proceeds, gain_zero=not_a_sale, is_fee=False)
+            remaining_amount -= qty
 
     # Validate that we had enough BTC to complete the disposal
-    if remaining_outflow > Decimal("0.00000001"):  # 1 satoshi tolerance for rounding
+    if remaining_fee + remaining_amount > Decimal("0.00000001"):  # 1 satoshi tolerance for rounding
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to {tx.type.lower()} {btc_outflow:.8f} BTC"
@@ -779,11 +772,14 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     Summarize partial-lot disposals (Sell/Withdrawal). Overwrite
     tx.cost_basis_usd, tx.proceeds_usd, tx.realized_gain_usd, holding_period
     based on the earliest acquisition date among those partial-lot disposals.
+    The figures are for the amount sold or spent; a network fee's disposal
+    is left out, as for a transfer (its value is tx.fee_usd, its gain is on
+    Form 8949 and in the gain totals).
     """
     disposals = (
         db.query(LotDisposal)
         .options(joinedload(LotDisposal.lot))
-        .filter(LotDisposal.transaction_id == tx.id)
+        .filter(LotDisposal.transaction_id == tx.id, LotDisposal.is_fee.is_(False))
         .all()
     )
     if not disposals:
@@ -1024,7 +1020,8 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
                 disposal_basis_usd=disposal_basis,
                 proceeds_usd_for_that_portion=proceeds_for_fee,
                 realized_gain_usd=realized_gain,
-                holding_period=hp
+                holding_period=hp,
+                is_fee=True,
             )
             db.add(disp)
             remaining_fee -= portion_for_fee

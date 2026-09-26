@@ -81,7 +81,8 @@ def test_review_dates_are_in_the_tax_timezone(auth_client, test_engine, ledger):
             set_tax_timezone(db, before)
             db.commit()
     assert review["timezone"] == "America/New_York"
-    assert review["checks"][0]["items"][0]["date"] == "2023-12-31 22:00"
+    spend = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")
+    assert spend["items"][0]["date"] == "2023-12-31 22:00"
 
 
 def test_review_needs_login():
@@ -153,3 +154,47 @@ def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_clie
     assert txs[income]["cost_basis_usd"] == "620.00"
     assert str(fee_proceeds(test_engine, live)) == "10"
     assert ids(auth_client.get("/api/review").json(), "fee_value_off") == []
+
+
+def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_client, test_engine):
+    """After upgrading, rows computed by the old rules are listed old -> new
+    (here a spend whose fee was cut from its proceeds, and a Lost withdrawal
+    with a loss), and nothing is written."""
+    auth_client.delete("/api/transactions/delete_all")
+    post = lambda **b: auth_client.post("/api/transactions", json=b).json()  # noqa: E731
+    try:
+        post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+             amount="100000", fee_amount="0", fee_currency="USD", source="N/A")
+        post(type="Buy", timestamp="2024-01-03T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+             amount="1", cost_basis_usd="20000", fee_amount="0", fee_currency="USD")
+        spend = post(type="Withdrawal", timestamp="2024-06-01T12:00:00Z", from_account_id=EXCH_BTC,
+                     to_account_id=EXTERNAL, amount="0.01", proceeds_usd="1000", fee_amount="0.0001",
+                     fee_currency="BTC", purpose="Spent")
+        lost = post(type="Withdrawal", timestamp="2024-07-01T12:00:00Z", from_account_id=EXCH_BTC,
+                    to_account_id=EXTERNAL, amount="0.05", fee_amount="0", fee_currency="BTC", purpose="Lost")
+        with test_engine.begin() as con:  # the figures v0.9.1 stored
+            con.execute(text("UPDATE transactions SET proceeds_usd = '990.10', realized_gain_usd = '788.10'"
+                             " WHERE id = :id"), {"id": spend["id"]})
+            con.execute(text("UPDATE transactions SET realized_gain_usd = '-1000.00' WHERE id = :id"),
+                        {"id": lost["id"]})
+        with test_engine.connect() as con:
+            before = con.execute(text("SELECT * FROM transactions ORDER BY id")).all()
+            disposals = con.execute(text("SELECT * FROM lot_disposals ORDER BY id")).all()
+
+        review = auth_client.get("/api/review").json()
+        assert review["recalc_error"] is None
+        check = next(c for c in review["checks"] if c["key"] == "recalc_changes")
+        by_id = {i["id"]: i for i in check["items"]}
+        assert set(by_id) == {spend["id"], lost["id"]}
+        # The spend: 1,000.00 for 0.01 BTC, basis 200, gain 800. Its fee: 0.0001 x
+        # $50,000 = 5.00, basis 2.00, gain 3.00. Taxable gain 803.00. (The
+        # disposals weren't touched above, so they already show the new rule.)
+        assert by_id[spend["id"]]["changes"] == {"proceeds_usd": ["990.10", "1000.00"],
+                                                 "realized_gain_usd": ["788.10", "800.00"]}
+        assert by_id[lost["id"]]["changes"] == {"realized_gain_usd": ["-1000.00", "0.00"]}
+
+        with test_engine.connect() as con:
+            assert con.execute(text("SELECT * FROM transactions ORDER BY id")).all() == before
+            assert con.execute(text("SELECT * FROM lot_disposals ORDER BY id")).all() == disposals
+    finally:
+        auth_client.delete("/api/transactions/delete_all")

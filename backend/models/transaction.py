@@ -421,6 +421,17 @@ class LotDisposal(Base):
         nullable=True,
         doc="Holding period of the disposed BTC, e.g., 'SHORT' or 'LONG' (1 year threshold)."
     )
+    is_fee = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "A BTC network fee's disposal (a transfer's or a withdrawal's): taxable "
+            "at the fee's value even when the withdrawal itself is a gift, and "
+            "never on a broker form."
+        ),
+    )
 
     # Relationship to the lot from which BTC is disposed
     lot = relationship(

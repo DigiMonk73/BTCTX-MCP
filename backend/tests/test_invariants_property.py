@@ -23,6 +23,7 @@ The fast set runs a few examples; the slow profile (CI) runs many more.
 from __future__ import annotations
 
 import random
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -228,10 +229,16 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
         assert left[WALLET] == balances["Wallet"]
         assert left[EXCH_BTC] == balances["Exchange BTC"]
 
-        # Disposals: gain = proceeds - basis; non-taxable purposes carry nothing.
+        # Disposals: gain = proceeds - basis; a gift/donation/lost amount carries
+        # nothing, but its network fee is a disposal like any other (F24); a
+        # transaction's fee disposals add up to its stored fee value.
+        fee_parts = defaultdict(Decimal)
         for d in disposals:
             tx = txs_db[d.transaction_id]
-            if tx.type == "Withdrawal" and (tx.purpose or "").lower() in NON_TAXABLE:
+            if d.is_fee:
+                fee_parts[tx.id] += d.proceeds_usd_for_that_portion
+                assert d.realized_gain_usd == d.proceeds_usd_for_that_portion - d.disposal_basis_usd, d.id
+            elif tx.type == "Withdrawal" and (tx.purpose or "").lower() in NON_TAXABLE:
                 assert d.proceeds_usd_for_that_portion == 0 and d.realized_gain_usd == 0, (tx.purpose, d.id)
             else:
                 assert d.realized_gain_usd == d.proceeds_usd_for_that_portion - d.disposal_basis_usd, d.id
@@ -241,6 +248,8 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             anniversary = acquired.replace(year=acquired.year + 1)
             expected = "LONG" if sold > anniversary else "SHORT"
             assert d.holding_period == expected, (acquired, sold, d.holding_period)
+        for tx_id, total in fee_parts.items():
+            assert total == txs_db[tx_id].fee_usd, (tx_id, total, txs_db[tx_id].fee_usd)
 
         # Basis conservation (rounding: at most a cent per operation).
         acquired_basis = sum(
@@ -267,8 +276,8 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             taxable = [
                 d for d in disposals
                 if local_date(txs_db[d.transaction_id].timestamp, tz).year == year
-                and not (txs_db[d.transaction_id].type == "Withdrawal"
-                         and (txs_db[d.transaction_id].purpose or "").lower() in NON_TAXABLE)
+                and (d.is_fee or not (txs_db[d.transaction_id].type == "Withdrawal"
+                                      and (txs_db[d.transaction_id].purpose or "").lower() in NON_TAXABLE))
             ]
             form_gain = sum(
                 (Decimal(str(forms["schedule_d"][t]["gain_loss"])) for t in ("short_term", "long_term")), Decimal(0)

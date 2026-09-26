@@ -27,6 +27,13 @@ Checks:
   more than about two years back could return another day's price. Only
   the owner knows whether a typed value is right, so nothing fixes these.
 
+- recalc_changes: every transaction whose stored figures Recalculate Ledger
+  would change (proceeds, basis, gain), old -> new. Found by running the
+  recalculation and rolling it back. After an upgrade this is where the
+  fixes that change existing figures show up (Lost at $0 gain, a
+  withdrawal's network fee as its own disposal), before anything moves.
+  Any add, edit or delete recalculates everything too.
+
 The price checks read the local price history (and fill it from the
 network if a day is missing); a day with no price is skipped and counted.
 """
@@ -36,10 +43,11 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Dict, List
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_WALLET, INCOME_SOURCES
-from backend.models.transaction import Transaction
+from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.tax_time import as_utc, get_tax_timezone
 
@@ -47,6 +55,11 @@ BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 # key -> (title, what the owner can do)
 CHECKS: Dict[str, tuple] = {
+    "recalc_changes": (
+        "Figures that Recalculate Ledger would change",
+        "Back up first, then run Recalculate Ledger (Settings) when you agree. Adding, editing or "
+        "deleting any transaction also recalculates everything.",
+    ),
     "zero_proceeds_spend": (
         "Spent withdrawals saved with $0 proceeds",
         "If you didn't really get $0, edit the proceeds (or clear them to use the day's price).",
@@ -146,9 +159,52 @@ def _is_zero_or_blank(value) -> bool:
     return value is None or Decimal(value) == 0
 
 
+FIGURES = ("proceeds_usd", "cost_basis_usd", "realized_gain_usd")
+
+
+def simulate_recalculation(db: Session):
+    """
+    What Recalculate Ledger would change: {id: {field: (old, new)}}, or an
+    error message. Runs it and rolls everything back (the session must have
+    nothing else pending).
+    """
+    from backend.services.transaction import recalculate_all_transactions
+
+    def snapshot():
+        figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
+        for tx_id, gain in db.query(LotDisposal.transaction_id, func.sum(LotDisposal.realized_gain_usd)) \
+                .group_by(LotDisposal.transaction_id):
+            if tx_id in figures:
+                figures[tx_id]["taxable_gain"] = gain
+        return figures
+
+    before = snapshot()
+    try:
+        recalculate_all_transactions(db)
+        db.flush()
+        after = snapshot()
+    except Exception as exc:  # e.g. a missing price: say so, change nothing
+        db.rollback()
+        return None, str(getattr(exc, "detail", exc))
+    db.rollback()
+
+    def same(a, b):
+        return (a is None and b is None) or (a is not None and b is not None and Decimal(a) == Decimal(b))
+
+    changes = {}
+    for tx_id, old in before.items():
+        new = after.get(tx_id, {})
+        diff = {f: (old.get(f), new.get(f)) for f in FIGURES + ("taxable_gain",)
+                if not same(old.get(f), new.get(f))}
+        if diff:
+            changes[tx_id] = diff
+    return changes, None
+
+
 def build_review(db: Session) -> Dict[str, Any]:
-    """Every check's items, in date order. Read-only."""
+    """Every check's items, in date order. Changes no transaction."""
     tz = get_tax_timezone(db)
+    moved, recalc_error = simulate_recalculation(db)
     rows: List[Transaction] = (
         db.query(Transaction)
         .filter(Transaction.type.in_(("Withdrawal", "Deposit")))
@@ -177,6 +233,16 @@ def build_review(db: Session) -> Dict[str, Any]:
                 t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
                 "A basis you enter lowers the gain when this BTC is sold by the same amount.",
             ))
+    names = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized_gain_usd": "gain",
+             "taxable_gain": "taxable gain incl. network fees"}
+    for tx_id, diff in sorted((moved or {}).items(),
+                              key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
+        t = db.get(Transaction, tx_id)
+        parts = [f"{names[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}" for f, (old, new) in diff.items()]
+        item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
+        item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
+        found["recalc_changes"].append(item)
+
     missing: List[int] = []
     for change in fee_price_changes(db):
         t = db.get(Transaction, change["id"])
@@ -212,6 +278,7 @@ def build_review(db: Session) -> Dict[str, Any]:
         "total": sum(c["count"] for c in checks),
         "checks": checks,
         "no_price_for": missing,
+        "recalc_error": recalc_error,
     }
 
 
