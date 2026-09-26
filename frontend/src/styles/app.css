@@ -330,3 +330,12 @@ option {
     padding: var(--space-2);
   }
 }
+/* Mac app: this session runs on another port (components/PortBanner.tsx) */
+.port-banner {
+  margin: var(--space-3, 12px) var(--space-6, 24px) 0;
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md, 8px);
+  background: rgba(255, 159, 10, 0.1);
+  color: var(--color-text);
+}

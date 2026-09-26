@@ -142,6 +142,7 @@ hidden_imports = [
     "backend.services.river_import",
     "backend.services.entry_import",
     "backend.services.tax_time",
+    "backend.services.desktop",
     "backend.secret_key",
     "backend.version",
     "backend.cli",
@@ -154,13 +155,16 @@ hidden_imports = [
     "backend.services.reports.reporting_core",
     "backend.services.reports.pdf_form_filler",
 
+    # Desktop entrypoint helpers (desktop/)
+    "desktop_ports",
+
     # WebView
     "webview",
 ]
 
 a = Analysis(
     [str(SPEC_DIR / "entrypoint.py")],
-    pathex=[str(PROJECT_ROOT)],
+    pathex=[str(PROJECT_ROOT), str(SPEC_DIR)],
     binaries=[],
     datas=backend_datas + frontend_datas + version_datas,
     hiddenimports=hidden_imports,

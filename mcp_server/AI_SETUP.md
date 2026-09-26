@@ -132,7 +132,7 @@ always `preview_transactions` before `add_transactions`.
 
 | Error | Cause |
 |---|---|
-| `Cannot reach BitcoinTX at …` | Wrong `BTCTX_URL`, or BitcoinTX isn't running. The Mac app logs "Port 8765 is in use" when another program has the port; it then needs `BTCTX_DESKTOP_PORT` and the same port in `BTCTX_URL` |
+| `Cannot reach BitcoinTX at …` | Wrong `BTCTX_URL`, or BitcoinTX isn't running. If the Mac app shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it |
 | `BitcoinTX login failed` | The placeholder is still there, or the username or password is wrong |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | No `/api/import/entries` endpoint | BitcoinTX is older than 0.8.0: update it |

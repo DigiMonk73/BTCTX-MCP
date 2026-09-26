@@ -1,8 +1,9 @@
 """
 backend/routers/settings.py
 
-App settings (logged-in only). Currently: the tax timezone, which decides
-tax-year boundaries, Form 8949 dates and holding-period anniversaries.
+App settings (logged-in only): the tax timezone, which decides tax-year
+boundaries, Form 8949 dates and holding-period anniversaries; and what the
+Mac app's launcher reports (port, whether this session is on another port).
 Mounted at /api/settings.
 """
 
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.services.desktop import desktop_info
 from backend.services.tax_time import get_tax_timezone_name, set_tax_timezone
 from backend.services.transaction import recalculate_all_transactions
 
@@ -45,3 +47,9 @@ def put_tax_timezone_setting(payload: TaxTimezone, db: Session = Depends(get_db)
         db.rollback()
         raise
     return {"timezone": payload.timezone, "source": "setting"}
+
+
+@router.get("/desktop")
+def get_desktop_info():
+    """Mac app details for the UI; {"desktop": false, ...} everywhere else."""
+    return desktop_info()

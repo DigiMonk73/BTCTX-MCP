@@ -15,16 +15,26 @@ BitcoinTX.app
    └─ desktop/entrypoint.py
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
-        ├─ starts Uvicorn (backend.main:app) on 127.0.0.1:8765 in a daemon thread
+        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward, exits
+        ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
+        ├─ starts Uvicorn (backend.main:app) on that socket in a daemon thread
         ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
         └─ opens a pywebview (WebKit) window on that URL
 ```
 
 - **Port:** fixed at `127.0.0.1:8765` so external clients (e.g. the MCP
   server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
-  variable. If the port is busy, the app falls back to a random free port and
-  logs a warning; the app still works, but MCP clients won't find it at the
-  usual URL.
+  variable. The listening socket itself is bound (with `SO_REUSEADDR`, like
+  Uvicorn) and passed to Uvicorn, so connections left in TIME_WAIT by the
+  previous run don't block it (the v0.9.1 bug: a probe without
+  `SO_REUSEADDR` said "busy" and the app silently took a random port). If
+  another program really holds the port for 10 seconds, a dialog offers
+  Retry, Use Another Port (this session only; a banner says AI assistants
+  can't connect) or Quit. It never switches ports silently.
+- **One copy:** a second launch finds the first on the port, brings it
+  forward and exits instead of starting a second backend.
+- **Log file:** `~/Library/Logs/BitcoinTX/BitcoinTX.log` (rotating, 1 MB × 3),
+  including every port decision and its errno.
 - **Localhost only:** the server binds to `127.0.0.1`, never to the network.
 - **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
   method to JavaScript via pywebview's `js_api`. The frontend
@@ -148,7 +158,8 @@ the quarantine flag:
 xattr -cr /path/to/BitcoinTX.app
 ```
 
-**Crashes or blank window.** Run the binary from Terminal to see its log output:
+**Crashes or blank window.** Read `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or
+run the binary from Terminal to see the same output:
 ```bash
 /path/to/BitcoinTX.app/Contents/MacOS/BitcoinTX
 ```
@@ -156,9 +167,10 @@ If the backend doesn't answer within 30 seconds the app logs
 "Backend failed to start" and exits. A missing hidden import in
 `BitcoinTX.spec` is the usual cause after adding a module.
 
-**MCP client can't connect.** Check the log for "Port 8765 is in use". Free the
-port, or set `BTCTX_DESKTOP_PORT` for the app and use the same port in
-`BTCTX_URL`.
+**MCP client can't connect.** If the app shows the "running on port N this
+session" banner, another program had port 8765 when it started: quit
+BitcoinTX, close that program (`lsof -nP -iTCP:8765 -sTCP:LISTEN` names it) and
+reopen. The log records each attempt ("Port 8765 unavailable … EADDRINUSE").
 
 **Debugging PyInstaller:** `pyinstaller --debug=imports BitcoinTX.spec`.
 

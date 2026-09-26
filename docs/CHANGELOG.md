@@ -4,6 +4,23 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixes
+- **The Mac app could come up on a random port after a quick relaunch**, and
+  then AI assistants couldn't reach it (they look on 127.0.0.1:8765). The
+  check that decided "port busy" failed while the previous run's connections
+  were still closing (TIME_WAIT), and one failed check meant a random port for
+  the whole session, silently. The app now binds 8765 itself the way the
+  server does, retries for up to 10 seconds, and never switches ports on its
+  own: if another program really holds the port, a dialog offers Retry, Use
+  Another Port (this session, with a banner saying AI assistants can't
+  connect) or Quit. Opening the app twice brings the running copy forward. The
+  app now keeps a log at `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
+
+### Tests
+- Playwright click-through tests of every UI flow (`make e2e`, run in CI in
+  Chromium in a US and a UTC+ timezone, and in WebKit). Form controls got
+  proper labels for this (accessibility only). See `docs/TESTING.md`.
+
 ### AI assistant (MCP)
 - `mcp_server/AI_SETUP.md` now tells the AI where the StartOS certificate
   comes from (the **Connect an AI Assistant** action's Root CA certificate,
