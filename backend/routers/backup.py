@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
-from backend.services import mcp_key
+from backend.services import mcp_key, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.constants import ACCOUNT_ID_TO_NAME
 
@@ -105,6 +105,12 @@ def restore_encrypted_backup(
             temp_path = Path(temp_file.name)
 
         restore_backup(password, temp_path)
+        # The restored database carries its own network settings.
+        db.close()  # a fresh connection sees the restored file
+        try:
+            outbound.load(db)
+        except Exception:
+            logger.exception("Could not read the network settings after restore")
         # The restored database has its own record of the AI assistant key;
         # keep the key the MCP server already has (Mac app only).
         if mcp_key.enabled():

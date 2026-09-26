@@ -4,11 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import bitcoin, price_history
+from backend.services import bitcoin, outbound, price_history
 
 router = APIRouter(
     tags=["Bitcoin"]
 )
+
+
+def _live_or_own_node() -> None:
+    """503 when live data is off and there's no own mempool server to ask."""
+    if not outbound.current().mempool_url:
+        outbound.require_live_data()
 
 @router.get("/price", summary="Get current Bitcoin price in USD")
 async def get_current_bitcoin_price():
@@ -17,6 +23,7 @@ async def get_current_bitcoin_price():
     Leverages fallback logic in services/bitcoin.py.
     Raises HTTP 502 if all providers fail.
     """
+    _live_or_own_node()
     return await bitcoin.get_current_price()
 
 
@@ -50,6 +57,7 @@ async def get_btc_price_time_series(
     The services/bitcoin.py should have get_time_series(days)
     that fetches from CoinGecko (fallback to Kraken, etc.).
     """
+    outbound.require_live_data()
     return await bitcoin.get_time_series(days)
 
 
@@ -60,4 +68,5 @@ async def get_current_block_height():
     Uses Blockchain.info as primary, with Blockstream and Mempool.space as fallbacks.
     Raises HTTP 502 if all providers fail.
     """
+    _live_or_own_node()
     return await bitcoin.get_block_height()

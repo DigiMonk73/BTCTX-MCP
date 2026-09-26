@@ -103,7 +103,8 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
-| `backend/services/price_history.py`, `outbound.py` | stored daily BTC prices; the only HTTP client factory for outside services |
+| `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`), bulk download on a miss |
+| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (live data off, own mempool server, proxy) |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |

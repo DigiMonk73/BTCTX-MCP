@@ -29,11 +29,11 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
   await openSettings(page);
   const select = page.getByLabel("Tax timezone");
   await expect(select).toHaveValue("America/Chicago");
-  await expect(page.getByRole("button", { name: "Save" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(2);
 
   await select.selectOption("Asia/Tokyo");
-  await page.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Tax timezone set to Asia/Tokyo. Gains were recalculated.")).toBeVisible();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(1);
   expect((await historyCsv(page, 2025)).match(/Sell/g)).toHaveLength(1);
@@ -252,4 +252,27 @@ test("ledger review fixes a live-priced transfer fee after asking", async ({ app
   expect(dialogs[0]).toContain("Set 1 transfer fee value(s) to that day's BTC price");
   const fixed = (await listTx(page.request)).find((t) => t.id === transfer.id)!;
   expect(fixed.fee_usd).toBe("5.00");
+});
+
+test("privacy & network: live data off shows on the dashboard; bad proxy refused", async ({ authedPage: page }) => {
+  await openSettings(page);
+  const net = page.getByRole("region", { name: "Privacy & network" });
+  const save = net.getByRole("button", { name: "Save privacy & network settings" });
+  await expect(net.getByLabel("Live data")).toBeChecked();
+  await expect(save).toBeDisabled();
+
+  await net.getByLabel("Proxy for outside requests").fill("ftp://127.0.0.1:9050");
+  await save.click();
+  await expect(page.getByText(/The proxy must look like socks5:\/\/host:port/)).toBeVisible();
+
+  await net.getByLabel("Proxy for outside requests").fill("socks5h://127.0.0.1:9050");
+  await net.getByLabel("Live data").uncheck();
+  await save.click();
+  await expect(page.getByText("Privacy & network settings saved.")).toBeVisible();
+  expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
+    live_data: false, mempool_url: null, proxy_url: "socks5h://127.0.0.1:9050",
+  });
+
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  await expect(page.getByText("Live data off")).toBeVisible();
 });

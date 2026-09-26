@@ -117,6 +117,8 @@ async def fetch_range(start: date, end: date) -> Dict[date, tuple]:
     with a non-positive price are dropped. Empty when every source fails.
     """
     today = datetime.now(timezone.utc).date()
+    if not outbound.live_data_on():
+        return {}  # live data off: no public service is asked
     async with outbound.async_client() as client:
         for name, fetch in BULK_SOURCES:
             try:

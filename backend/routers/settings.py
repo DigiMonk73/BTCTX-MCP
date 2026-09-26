@@ -7,12 +7,14 @@ Mac app's launcher reports (port, whether this session is on another port).
 Mounted at /api/settings.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import mcp_key
+from backend.services import mcp_key, outbound
 from backend.services.desktop import desktop_info
 from backend.services.tax_time import get_tax_timezone_name, set_tax_timezone
 from backend.services.transaction import recalculate_all_transactions
@@ -105,3 +107,25 @@ def reset_ai_key(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="AI assistant keys exist only in the Mac app.")
     mcp_key.rotate(db)
     return _ai_access_state(db)
+
+
+# ---------------------------------------------------------------------------
+# Privacy & network (services/outbound.py): anyone logged in can read it;
+# changing it is login only, never with the API key or the AI assistant key.
+# ---------------------------------------------------------------------------
+class NetworkSettingsIn(BaseModel):
+    live_data: bool = True
+    mempool_url: Optional[str] = Field(default=None, max_length=300)
+    proxy_url: Optional[str] = Field(default=None, max_length=300)
+
+
+@router.get("/network")
+def get_network_settings():
+    return outbound.as_dict()
+
+
+@router.put("/network")
+def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Session = Depends(get_db)):
+    _require_login(request)
+    outbound.save(db, payload.live_data, payload.mempool_url, payload.proxy_url)
+    return outbound.as_dict()

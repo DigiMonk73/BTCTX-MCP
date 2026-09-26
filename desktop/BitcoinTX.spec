@@ -148,6 +148,8 @@ hidden_imports = [
     "backend.services.review",
     "backend.services.price_history",
     "backend.services.outbound",
+    "socksio",
+    "httpcore._async.socks_proxy",
     "backend.secret_key",
     "backend.session_auth",
     "backend.security_headers",

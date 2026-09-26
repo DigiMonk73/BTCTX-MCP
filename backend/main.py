@@ -70,6 +70,19 @@ from backend.security_headers import SecurityHeadersMiddleware
 from backend.services import mcp_key
 
 
+def _load_network_settings() -> None:
+    """Privacy & network settings (live data, own mempool server, proxy)."""
+    from backend.services import outbound
+
+    db = SessionLocal()
+    try:
+        outbound.load(db)
+    except Exception:
+        logger.exception("Could not read the network settings; using the defaults")
+    finally:
+        db.close()
+
+
 def _sync_mcp_key() -> None:
     """Mac app: write mcp.json (the AI assistant key) for this run."""
     if not mcp_key.enabled():
@@ -93,6 +106,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     init_db()
+    _load_network_settings()
     _sync_mcp_key()
     yield
     # Shutdown (nothing needed currently)

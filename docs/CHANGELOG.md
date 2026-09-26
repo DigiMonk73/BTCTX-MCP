@@ -135,6 +135,12 @@ All notable changes to BitcoinTX are documented in this file.
   Backups made by earlier versions still restore. A backup made by 0.9.2
   can't be restored by 0.9.1 or earlier.
 - A log message no longer includes a fee amount.
+- **Settings → Privacy & network.** Turn live data off (BitcoinTX then asks
+  no public service for anything: no live price or block height, and past
+  prices come only from those already stored), use your own mempool server
+  for the live price and block height, and send every outside request
+  through a proxy such as Tor (`socks5h://127.0.0.1:9050`). Public services
+  stay the default.
 
 ### AI assistant (MCP)
 - **The Mac app no longer needs your password in an AI app's settings.** It
