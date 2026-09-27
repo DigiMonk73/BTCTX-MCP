@@ -199,7 +199,8 @@ test.describe("Mac app: AI assistant key instead of a password", () => {
     await expect(page.getByText("AI assistant access is off.")).toBeVisible();
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
     await toggle.check();
-    await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
+    // The first "on" toast may still be showing: check the newest.
+    await expect(page.getByText("AI assistants can use BitcoinTX.").last()).toBeVisible();
 
     acceptDialogs(page);
     await ai.getByRole("button", { name: "Reset key" }).click();
