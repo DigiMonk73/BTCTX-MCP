@@ -35,8 +35,11 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   your computer ([below](#connect-an-ai-mcp)).
 - **Ledger Review** (Settings): a read-only list of saved entries worth a
   second look, including every figure a recalculation would change
-- **Stored price history**: past-day BTC prices are kept locally, so reports
-  work offline and lookups don't reveal your transaction dates
+- **Stored price history**: past-day BTC prices are stored locally and
+  stored days work offline. A missing day is filled by one download of about
+  1,000 days, so most lookups don't reach an outside service at all; if that
+  download fails, BitcoinTX asks for the single day. Turn Live data off to
+  send none
 - **Privacy & Network** (Settings): turn live data off, use your own mempool
   server, or send outside requests through a proxy such as Tor
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
@@ -193,7 +196,8 @@ conventions: [CLAUDE.md](CLAUDE.md).
 | Frontend | React + TypeScript + Vite |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | PDFs | pypdf (IRS form filling), ReportLab (reports) |
-| BTC prices | Stored daily history (Bitstamp, Coinbase, Kraken); live price from your mempool server or CoinGecko, Kraken, CoinDesk |
+| BTC prices | Stored daily history (bulk download from Bitstamp, Coinbase, Kraken; a single missing day from CoinGecko, Kraken, CoinDesk if that fails); live price from your mempool server or CoinGecko, Kraken, CoinDesk |
+| Block height | Your mempool server, or Blockchain.info, Blockstream, mempool.space |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 
 BitcoinTX doesn't give tax advice. Check its output before you file.

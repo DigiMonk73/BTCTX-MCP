@@ -1,5 +1,9 @@
 # What BitcoinTX needs from its StartOS package (app-side inventory)
 
+> Archived: describes v0.8.0 (no health endpoint, `API_KEY`, password login
+> for AI). For the current package see `startos/README.md` and
+> `docs/STARTOS_COMPATIBILITY.md`.
+
 Source of truth: DigiMonk73/BTCTX-MCP @ main (6a773f2), wrapper DigiMonk73/BTCTX-StartOS @ 325492e (v0.8.0:1, start-sdk 2.0.9).
 
 ## Runtime facts

@@ -83,7 +83,7 @@ None.
 
 ## Network Access and Interfaces
 
-One HTTP port with two interfaces. StartOS terminates TLS; the app serves plain HTTP on port 80 inside the container. BitcoinTX makes outbound requests only for the BTC price and block height (CoinGecko, Kraken, CoinDesk, blockchain.info, Blockstream, mempool.space) and for missing past daily prices (Bitstamp, Coinbase, Kraken). In the app's **Settings → Privacy & Network** the owner can turn live data off, use their own mempool server, or route requests through a proxy such as Tor.
+One HTTP port with two interfaces. StartOS terminates TLS; the app serves plain HTTP on port 80 inside the container. BitcoinTX makes outbound requests only for the live BTC price (CoinGecko, Kraken, CoinDesk), the block height (Blockchain.info, Blockstream, mempool.space) and missing past daily prices: one bulk download of about 1,000 days (Bitstamp, Coinbase, Kraken), or, if that fails, the single day (CoinGecko, Kraken, CoinDesk). In the app's **Settings → Privacy & Network** the owner can turn live data off, use their own mempool server, or route requests through a proxy such as Tor.
 
 | Interface | Id      | Type | Port | Path   | Description                                          |
 | --------- | ------- | ---- | ---- | ------ | ---------------------------------------------------- |

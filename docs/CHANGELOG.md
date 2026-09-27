@@ -51,6 +51,18 @@ because the old one sat in that file. Mac app users: nothing to do.
 - The MCP README no longer says a local model means "nothing leaves your
   computer": what the AI reads stays there, but BitcoinTX still looks up
   prices unless Live data is off. It also says a preview can look up prices.
+- **Correction:** v0.9.2 said past-day price requests "no longer name
+  individual transaction dates", and the README said lookups "don't reveal
+  your transaction dates". A missing day is filled by one download of about
+  1,000 days, but if that download fails BitcoinTX asks CoinGecko, Kraken or
+  CoinDesk for the single day, which names it. The README now says so; Live
+  data off sends no request at all.
+- The StartOS listing says BitcoinTX sends your ledger nowhere (instead of
+  "your ledger stays on your server", which a cloud AI would contradict), in
+  all five languages. The README and StartOS docs list every outside service
+  (single-day fallback and block-height sources included).
+- `docs/startos-research/btctx-requirements.md` (it described v0.8.0) moved to
+  `docs/archive/`.
 
 ### Development
 - Work now happens on `develop`; `main` holds released code only and moves

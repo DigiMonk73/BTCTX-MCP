@@ -168,7 +168,7 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
   await expect(page.getByLabel("Claude Code command")).toHaveValue(/claude mcp add/);
 });
 
-test.describe("Mac app: AI assistant key instead of a password", () => {
+test.describe("Mac app: AI key file instead of a password", () => {
   test.use({ appMode: "mac" });
 
   test("key file, access switch, reset, and a setup with no secrets", async ({ authedPage: page, app }) => {
