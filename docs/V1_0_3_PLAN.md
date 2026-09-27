@@ -11,6 +11,19 @@ plan is built yet. The owner's decisions (section 1) were recorded the same
 day: backup option A, `API_KEY` removed, a password in the connector's config
 refused, and no PyPI (the connector installs from GitHub `main`).
 
+**Status (2026-09-27): Parts A, B and C are built and pushed to `develop`**
+(commits `ae10330`..`951f206`; one addition beyond the plan: a restore keeps
+the current AI key and switch, so an old backup can't bring back a revoked
+key). Section 9 done the same day: `make check`-level tests and the full
+e2e suite green; the manual Docker run (9.3 a-d) passed with the real
+connector over stdio (password config refused with no request sent; key
+works for portfolio, preview, add, list, backup, a 2nd backup within a
+minute is 429; restore, delete-all, network, River import, key and switch
+settings and .btx download all 403; revoked key 401; AI off 401 with the
+message; backup file mode 600 in /data/backups; key never in the logs).
+Left: section 10 (release), which moves `main` and publishes, so it waits
+for the owner's go-ahead.
+
 **How to use it.** Section 1 holds the decisions (all made). Work on
 `develop` (`CLAUDE.md`, "Branches"). Start a session with:
 
