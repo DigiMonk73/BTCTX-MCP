@@ -1066,7 +1066,7 @@ Run with: `pytest backend/tests/test_password_migration.py -v`
 
 ### Infrastructure
 - Docker image published to `b1ackswan/btctx:latest`
-- All repositories synced (BitcoinTX-org, PlebRick backup)
+- All repositories synced
 
 ---
 

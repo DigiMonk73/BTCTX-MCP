@@ -7,9 +7,8 @@ history belongs in `docs/CHANGELOG.md`.
 
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
 (double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
-This repo, **DigiMonk73/BTCTX-MCP**, forks
-[BitcoinTX-org/BTCTX](https://github.com/BitcoinTX-org/BTCTX) and adds an MCP
-server for AI-assisted entry plus tax and security fixes. Work on `main`.
+This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
+for AI-assisted entry. Work on `main`.
 
 | Part | Where | Notes |
 |---|---|---|

@@ -314,6 +314,3 @@ a CI run) in StartOS: **Sideload** in the top bar.
   inert here); its release workflow runs only on a `release/*` branch or by
   hand, so syncing never produces a second, differently signed s9pk.
 - BTCTX-MCP now has an MIT `LICENSE`, matching the package's `license: 'MIT'`.
-  Upstream BitcoinTX-org/BTCTX publishes no LICENSE file; its code carries no
-  explicit license grant, which is worth settling with its authors before a
-  marketplace submission.

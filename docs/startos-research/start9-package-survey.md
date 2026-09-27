@@ -214,7 +214,7 @@ From `start-technologies/projects/start-sdk/docs/src/publishing.md`:
 - Naming: ids are lowercase-hyphenated; `btctx` is fine. Title/icon must represent the upstream (never an invented logo).
 - Review process timing/criteria beyond the above: not documented (unverified).
 
-Implication for BitcoinTX: `packageRepo` = DigiMonk73/BTCTX-StartOS already fits. Upstream is the fork image `ghcr.io/digimonk73/btctx-mcp`; license MIT matches. The fork-of-app concern does not apply (wrapper pulls an image).
+Implication for BitcoinTX: `packageRepo` = DigiMonk73/BTCTX-StartOS already fits. Upstream is the app image `ghcr.io/digimonk73/btctx-mcp`; license MIT matches. The fork-of-app concern does not apply (wrapper pulls an image).
 
 ## 4. Packages living inside an application's own repository
 

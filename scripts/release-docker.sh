@@ -3,7 +3,7 @@
 # release-docker.sh — build and push the BitcoinTX Docker image for a release.
 #
 # Enforces the Docker Tag Contract that the StartOS wrapper
-# (PlebRick/BTCTX-StartOS) depends on — see docs/STARTOS_COMPATIBILITY.md,
+# (DigiMonk73/BTCTX-StartOS) depends on — see docs/STARTOS_COMPATIBILITY.md,
 # "Docker Tag Contract":
 #   1. Version tag matches ^v[0-9]+\.[0-9]+\.[0-9]+$ exactly (no -rc/-beta)
 #   2. Version tags are immutable — refuses to overwrite an existing Hub tag

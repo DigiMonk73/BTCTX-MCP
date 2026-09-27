@@ -1,9 +1,8 @@
-# BitcoinTX (with MCP) – Bitcoin Portfolio & Tax Tracker
+# BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
-A self-hosted Bitcoin portfolio tracker and tax report generator, forked from
-[BitcoinTX-org/BTCTX](https://github.com/BitcoinTX-org/BTCTX). This fork adds an
-**MCP server** so an AI assistant can enter transactions for you, plus the
-tax and security fixes listed in [docs/CHANGELOG.md](docs/CHANGELOG.md).
+A self-hosted Bitcoin portfolio tracker and tax report generator, with an
+**MCP server** so an AI assistant can enter transactions for you. What changed
+in each release: [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 It tracks BTC and USD balances with **double-entry accounting**, computes
 FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
