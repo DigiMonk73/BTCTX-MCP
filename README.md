@@ -9,7 +9,13 @@ It tracks BTC and USD balances with **double-entry accounting**, computes
 FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
 and **Schedule D**, including the Form 1099-DA boxes that start with tax year 2025.
 
-<img width="1000" alt="Dashboard" src="docs/images/dashboard.png" />
+<img width="1000" alt="Dashboard: balances, cost basis, realized and unrealized gains, income and fees" src="docs/images/dashboard.png" />
+
+| Transactions | Reports | Connect an AI Assistant |
+|---|---|---|
+| <img alt="Transactions list with gains per sale" src="docs/images/transactions.png" /> | <img alt="Reports: complete tax report, Form 8949 and Schedule D, transaction history" src="docs/images/reports.png" /> | <img alt="Settings: AI assistant privacy note, access switch and setup prompt" src="docs/images/settings.png" /> |
+
+<sub>Screenshots use a demo ledger.</sub>
 
 ## Features
 
