@@ -18,7 +18,7 @@ PUSH=false
 if [ "${1:-}" = "--push" ]; then PUSH=true; shift; fi
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 URL="${MIRROR_URL:-https://github.com/DigiMonk73/BTCTX-StartOS.git}"
-BRANCH="${MIRROR_BRANCH:-master}"
+BRANCH="${MIRROR_BRANCH:-main}"
 DIR="${1:-$(mktemp -d)/BTCTX-StartOS}"
 
 if [ -n "$(git -C "$ROOT" status --porcelain -- startos)" ]; then

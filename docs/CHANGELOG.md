@@ -9,6 +9,8 @@ All notable changes to BitcoinTX are documented in this file.
   release on the StartOS mirror (DigiMonk73/BTCTX-StartOS), marked Latest,
   so the mirror's releases page stays current with no work in that repo
   (`scripts/mirror-startos-release.sh`).
+- The mirror's only branch is now `main` (was `master`, plus four stale
+  branches); the sync script and the mirror's CI follow it.
 
 ## [v1.0.1] - 2026-09-26 - Settings layout fix
 
