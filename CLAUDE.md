@@ -94,8 +94,13 @@ So derived values must be recomputable from the Transaction row alone.
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every past-day valuation goes through
   `services/price_history.daily_price` (table `btc_price_daily`, the UTC day's
-  00:00 price; bulk download on a miss). Never today's live price, never $0:
-  no price is a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
+  00:00 price). Nothing is asked until the owner picks a price source
+  (`services/outbound.py`: off / public / own mempool, optional fallback).
+  **No request may name the day**: the own mempool server is asked for its
+  whole history (hourly 00:00 rows kept), public sites for the whole history
+  in fixed blocks once, then only the latest days; the tests check the URLs.
+  Stored days never change. Never today's live price, never $0: no price is
+  a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
@@ -119,8 +124,8 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
-| `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`), bulk download on a miss |
-| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (live data off, own mempool server, proxy) |
+| `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
+| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites) |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |

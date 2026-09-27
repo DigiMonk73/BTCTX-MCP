@@ -35,13 +35,16 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   your computer ([below](#connect-an-ai-mcp)).
 - **Ledger Review** (Settings): a read-only list of saved entries worth a
   second look, including every figure a recalculation would change
-- **Stored price history**: past-day BTC prices are stored locally and
-  stored days work offline. A missing day is filled by one download of about
-  1,000 days, so most lookups don't reach an outside service at all; if that
-  download fails, BitcoinTX asks for the single day. Turn Live data off to
-  send none
-- **Privacy & Network** (Settings): turn live data off, use your own mempool
-  server, or send outside requests through a proxy such as Tor
+- **Your own node for prices**: point BitcoinTX at your own mempool server
+  (Settings → Privacy & Network) and the live price, block height and past
+  prices come from it; no public site is contacted. A fresh install contacts
+  nothing until you choose where prices come from (your mempool, public price
+  sites, or off)
+- **Past prices that don't give away your dates**: they're stored locally.
+  From public sites, the whole daily history comes in one download that's
+  the same for every install, then only "the latest days": no request ever
+  names one of your dates. A VPN or a Tor proxy hides your IP address from
+  the sites
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
@@ -198,7 +201,7 @@ conventions: [CLAUDE.md](CLAUDE.md).
 | Frontend | React + TypeScript + Vite |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | PDFs | pypdf (IRS form filling), ReportLab (reports) |
-| BTC prices | Stored daily history (bulk download from Bitstamp, Coinbase, Kraken; a single missing day from CoinGecko, Kraken, CoinDesk if that fails); live price from your mempool server or CoinGecko, Kraken, CoinDesk |
+| BTC prices | Your mempool server, or public sites: past days from one download of the whole daily history (Bitstamp, else Coinbase), then the latest days (Bitstamp, Kraken or Coinbase); live price from CoinGecko or Kraken |
 | Block height | Your mempool server, or Blockchain.info, Blockstream, mempool.space |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 

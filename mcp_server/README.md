@@ -15,9 +15,10 @@ settings.
 
 **What the AI's model sees:** everything the tools return (transactions,
 balances, gains, the review list) and everything you paste into the chat.
-The MCP server itself sends nothing anywhere else. BitcoinTX looks up prices
-from outside services when a preview fills in a value, unless Live data is
-off (Settings → Privacy & Network). Your AI app sends the conversation to its
+The MCP server itself sends nothing anywhere else. When a preview fills in a
+value, BitcoinTX asks only the price source you chose in Settings → Privacy &
+Network (your own mempool server, public price sites, or nothing), and no
+request names a transaction date. Your AI app sends the conversation to its
 model. With a cloud AI that is the provider's servers;
 see [Privacy: cloud or local model](#privacy-cloud-or-local-model).
 
@@ -30,7 +31,7 @@ see [Privacy: cloud or local model](#privacy-cloud-or-local-model).
 | `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
 | `list_transactions` | Search by date range, type and account |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in) and `fee_usd` |
-| `get_portfolio` | Account balances, average cost basis, live BTC price (when live data is on in Settings → Privacy & Network), tax timezone |
+| `get_portfolio` | Account balances, average cost basis, live BTC price (from the price source chosen in Settings → Privacy & Network), tax timezone |
 | `get_btc_price` | Historical daily or current BTC price |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; fee-value fixes are made in Settings |
@@ -78,9 +79,9 @@ on the model behind your AI app, not on this server:
   handled under its privacy terms. Your AI key is not sent: it stays in the
   configuration on your computer.
 - **Local model:** what the AI reads stays on your machine. BitcoinTX itself
-  still contacts price services unless Live data is off (Settings → Privacy &
-  Network). Use an app that runs MCP servers with a model on your own
-  machine, for example
+  asks only the price source you chose (your own mempool server or public
+  price sites; Settings → Privacy & Network). Use an app that runs MCP
+  servers with a model on your own machine, for example
   [LM Studio](https://lmstudio.ai/docs/app/mcp) (0.3.17 or later) or
   [Goose](https://goose-docs.ai/) with [Ollama](https://ollama.com/).
 
