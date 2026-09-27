@@ -12,7 +12,7 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 | Transactions | Reports | Connect an AI Assistant |
 |---|---|---|
-| <img alt="Transactions list with gains per sale" src="docs/images/transactions.png" /> | <img alt="Reports: complete tax report, Form 8949 and Schedule D, transaction history" src="docs/images/reports.png" /> | <img alt="Settings: AI assistant privacy note, access switch and setup prompt" src="docs/images/settings.png" /> |
+| <img alt="Transactions list with gains per sale" src="docs/images/transactions.png" /> | <img alt="Reports: complete tax report, Form 8949 and Schedule D, transaction history" src="docs/images/reports.png" /> | <img alt="Settings: AI privacy note, AI access switch and setup prompt" src="docs/images/settings.png" /> |
 
 <sub>Screenshots use a demo ledger.</sub>
 

@@ -4,7 +4,9 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-### Security: AI keys for every edition
+## [v1.0.3] - 2026-09-27 - Security: AI keys for every edition
+
+### AI keys instead of passwords
 - **The AI connector no longer uses your password.** On Docker and StartOS,
   **Settings → Connect an AI Assistant** now has the **Let AI assistants use
   BitcoinTX** switch (off by default) and **Create AI key**: a key shown
