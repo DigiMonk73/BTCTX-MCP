@@ -5,15 +5,16 @@ Lets an AI assistant add, find and correct transactions in a BitcoinTX
 ledger from pasted text or plain English. Talks to a running BitcoinTX
 instance over its REST API; run it locally over stdio from any MCP client.
 
-Environment (none needed for the Mac app: without a username and password the
-server reads the app's AI assistant key file):
+Environment (none needed for the Mac app: without BTCTX_AI_KEY the server
+reads the app's AI key file):
   BTCTX_URL          BitcoinTX base URL (default http://localhost:80)
-  BTCTX_USERNAME     BitcoinTX login (server installs: Docker, StartOS)
-  BTCTX_PASSWORD     BitcoinTX password
+  BTCTX_AI_KEY       the AI key created in BitcoinTX Settings (Docker, StartOS)
   BTCTX_MCP_FILE     the Mac app's key file, if not in the default place
                      (~/Library/Application Support/BitcoinTX/mcp.json)
   BTCTX_VERIFY_TLS   "false" to accept a self-signed certificate
   BTCTX_CA_BUNDLE    path to a CA bundle for a private certificate
+BTCTX_PASSWORD is no longer used: while it is set, every tool says to replace
+it with BTCTX_AI_KEY (btctx_mcp/client.py).
 """
 
 from __future__ import annotations
@@ -344,6 +345,16 @@ async def recalculate_ledger() -> Dict[str, Any]:
     Needed once after upgrading BitcoinTX so calculation fixes apply to existing data;
     otherwise only when the user asks. Transactions themselves are not changed."""
     return await _call("POST", "/api/transactions/recalculate")
+
+
+@mcp.tool(annotations=ToolAnnotations(
+    read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False))
+async def backup_ledger() -> Dict[str, Any]:
+    """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
+    backups folder), as a safety net. Offer it before a large import or before deleting or
+    changing many entries. BitcoinTX keeps the newest 3 such copies and makes at most one a
+    minute; only the file name comes back. Restoring a copy is done by the user, not by you."""
+    return await _call("POST", "/api/backup/ai-copy")
 
 
 def main() -> None:

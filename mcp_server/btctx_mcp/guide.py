@@ -120,4 +120,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    the user what it lists; let them decide what to change. Fee-value fixes
    are made by the user in Settings -> Ledger Review. Call recalculate_ledger
    only when the user asks for it.
+6. Before a large import or before deleting or changing many entries, offer
+   backup_ledger (a copy of the database kept on the user's server).
+7. If BitcoinTX refuses because the AI key can't do something, that is on
+   purpose (logging in, passwords, restoring, file imports, deleting
+   everything, settings): tell the user to do it in BitcoinTX itself.
 """

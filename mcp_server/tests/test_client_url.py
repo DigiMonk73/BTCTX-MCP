@@ -21,5 +21,5 @@ def test_normalize_base_url(given, expected):
 
 
 def test_client_requests_go_to_the_root():
-    client = BtctxClient("https://btctx.local/api", "admin", "pw")
+    client = BtctxClient("https://btctx.local/api", ai_key="btctx_ak_test")
     assert str(client._http.base_url) == "https://btctx.local"

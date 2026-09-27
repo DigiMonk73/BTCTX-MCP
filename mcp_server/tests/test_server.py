@@ -21,7 +21,8 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.database import get_db
 from backend.main import app
-from backend.tests.conftest import LOGIN_CREDS, init_test_db
+from backend.services import ai_key
+from backend.tests.conftest import init_test_db
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient
 
@@ -71,12 +72,21 @@ def backend_db(monkeypatch):
     os.unlink(tmp.name)
 
 
+def make_ai_key(engine) -> str:
+    """What the owner does in Settings: turn AI access on, create a key."""
+    db = sessionmaker(bind=engine)()
+    try:
+        ai_key.set_access(db, True)
+        return ai_key.create_key(db)
+    finally:
+        db.close()
+
+
 @pytest.fixture
 async def mcp_client(backend_db):
     btctx = BtctxClient(
         base_url="http://testserver",
-        username=LOGIN_CREDS["username"],
-        password=LOGIN_CREDS["password"],
+        ai_key=make_ai_key(backend_db),
         transport=httpx.ASGITransport(app=app),
     )
     server.set_client(btctx)
@@ -113,7 +123,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
-        "recalculate_ledger", "review_ledger",
+        "recalculate_ledger", "review_ledger", "backup_ledger",
     }
 
 
@@ -271,16 +281,18 @@ async def test_portfolio_and_price(mcp_client):
     assert price["usd"] == 50000.0
 
 
-async def test_bad_login_is_a_clear_error(backend_db):
+async def test_wrong_key_is_a_clear_error(backend_db):
+    make_ai_key(backend_db)
     btctx = BtctxClient(
-        base_url="http://testserver", username="admin", password="wrong",
+        base_url="http://testserver", ai_key="btctx_ak_" + "x" * 43,
         transport=httpx.ASGITransport(app=app),
     )
     server.set_client(btctx)
     try:
         async with Client(server.mcp) as client:
             text = await call(client, "list_transactions", expect_error=True)
-            assert "login failed" in text
+            assert "401" in text and "replaced or revoked" in text
+            assert "x" * 43 not in text
     finally:
         server.set_client(None)
         await btctx.aclose()

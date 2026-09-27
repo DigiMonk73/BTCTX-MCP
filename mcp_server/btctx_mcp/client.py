@@ -1,14 +1,16 @@
 """
 Thin async client for the BitcoinTX REST API.
 
-Two ways in:
+Two ways in, both with an AI key sent as a bearer token (never a password):
 - The Mac app on the same computer: no settings needed. The app writes
   ~/Library/Application Support/BitcoinTX/mcp.json (owner-only) with its URL
-  and an AI assistant key; the client reads it, sends the key as a bearer
-  token, and reads it again if the key was reset or the app restarted.
-- A server install (StartOS, Docker): BTCTX_URL, BTCTX_USERNAME and
-  BTCTX_PASSWORD; the client logs in (session cookie) and logs in again
-  when the session expires.
+  and the key; the client reads it, and reads it again if the key was reset
+  or the app restarted.
+- Docker or StartOS: BTCTX_URL and BTCTX_AI_KEY, the key the owner created
+  in BitcoinTX Settings.
+
+A config that still holds BTCTX_PASSWORD (set up before v1.0.3) is refused
+before any request, so the password never leaves the computer again.
 """
 
 from __future__ import annotations
@@ -24,6 +26,17 @@ import httpx
 
 class BtctxError(Exception):
     """An API error with a message suitable for showing to the model."""
+
+
+PASSWORD_REFUSED = (
+    "BitcoinTX no longer uses your password for AI access. Create an AI key in "
+    "BitcoinTX Settings and replace BTCTX_PASSWORD with BTCTX_AI_KEY in your AI "
+    "app's settings, then delete the password from that file."
+)
+KEY_REFUSED = (
+    "BitcoinTX refused: the AI key can't do this. Ask the user to do it in "
+    "BitcoinTX itself."
+)
 
 
 def normalize_base_url(url: str) -> str:
@@ -61,15 +74,15 @@ class BtctxClient:
     def __init__(
         self,
         base_url: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        ai_key: Optional[str] = None,
         verify: bool | str = True,
         transport: Optional[httpx.AsyncBaseTransport] = None,
         key_file: Optional[Path] = None,
+        refusal: Optional[str] = None,
     ):
-        self._username = username
-        self._password = password
+        self._ai_key = ai_key
         self._key_file = key_file
+        self._refusal = refusal  # set: every request fails with this, sending nothing
         self._configured_url = normalize_base_url(base_url) if base_url else None
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",
@@ -91,16 +104,14 @@ class BtctxClient:
         elif os.environ.get("BTCTX_VERIFY_TLS", "true").lower() in ("0", "false", "no"):
             verify = False
 
-        username = os.environ.get("BTCTX_USERNAME")
-        password = os.environ.get("BTCTX_PASSWORD")
-        if username and password:
+        if os.environ.get("BTCTX_PASSWORD"):
+            return cls(refusal=PASSWORD_REFUSED)
+        ai_key = os.environ.get("BTCTX_AI_KEY", "").strip()
+        if ai_key:
             return cls(
-                base_url=os.environ.get("BTCTX_URL", "http://localhost:80"),
-                username=username,
-                password=password,
-                verify=verify,
+                base_url=os.environ.get("BTCTX_URL", "http://localhost:80"), ai_key=ai_key, verify=verify
             )
-        # No login configured: the Mac app's key file (found at first use).
+        # No key configured: the Mac app's key file (found at first use).
         return cls(base_url=os.environ.get("BTCTX_URL"), verify=verify, key_file=default_key_file())
 
     # -- the Mac app's key file ------------------------------------------------
@@ -115,7 +126,7 @@ class BtctxClient:
         """Point the client at the running Mac app, or explain what's missing."""
         path = self._key_file
         looked = [
-            "BTCTX_USERNAME / BTCTX_PASSWORD: not set (only needed for a server install)",
+            "BTCTX_AI_KEY: not set (only needed for Docker or StartOS)",
         ]
         try:
             data = json.loads(path.read_text())
@@ -150,24 +161,21 @@ class BtctxClient:
             + "\n- ".join(looked)
         )
 
-    # -- username/password login ------------------------------------------------
-    async def _login(self) -> None:
+    # -- the key from BTCTX_AI_KEY -----------------------------------------------
+    async def _connect(self) -> None:
         if self.uses_key_file:
             await self._use_key_file()
             return
-        try:
-            r = await self._http.post(
-                "/api/login", json={"username": self._username, "password": self._password}
-            )
-        except httpx.HTTPError as exc:
-            raise BtctxError(f"Cannot reach BitcoinTX at {self._http.base_url}: {exc}") from exc
-        if r.status_code != 200:
-            raise BtctxError("BitcoinTX login failed — check BTCTX_USERNAME / BTCTX_PASSWORD.")
+        if not self._ai_key:
+            raise BtctxError("Set BTCTX_AI_KEY to the AI key created in BitcoinTX Settings.")
+        self._http.headers["Authorization"] = f"Bearer {self._ai_key}"
         self._logged_in = True
 
     async def request(self, method: str, path: str, **kwargs: Any) -> Any:
+        if self._refusal:
+            raise BtctxError(self._refusal)
         if not self._logged_in:
-            await self._login()
+            await self._connect()
         try:
             try:
                 r = await self._http.request(method, path, **kwargs)
@@ -175,14 +183,16 @@ class BtctxClient:
                 if not self.uses_key_file:
                     raise
                 # The app restarted (maybe elsewhere): read the file again.
-                await self._login()
+                await self._connect()
                 r = await self._http.request(method, path, **kwargs)
-            if r.status_code == 401:
-                await self._login()  # session expired, or the key was reset
+            if r.status_code == 401 and self.uses_key_file:
+                await self._connect()  # the key was reset: read the file again
                 r = await self._http.request(method, path, **kwargs)
         except httpx.HTTPError as exc:
-            raise BtctxError(f"Request to BitcoinTX failed: {exc}") from exc
+            raise BtctxError(f"Request to BitcoinTX at {self._http.base_url} failed: {exc}") from exc
 
+        if r.status_code == 403:
+            raise BtctxError(KEY_REFUSED)
         if r.is_error:
             try:
                 detail = r.json().get("detail", r.text)

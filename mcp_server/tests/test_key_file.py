@@ -196,16 +196,6 @@ async def test_clear_errors_when_the_app_isnt_found(tmp_path):
     await btctx.aclose()
 
 
-def test_from_env_prefers_a_login_then_the_key_file(monkeypatch, tmp_path):
-    monkeypatch.setenv("BTCTX_USERNAME", "u")
-    monkeypatch.setenv("BTCTX_PASSWORD", "p")
-    assert not BtctxClient.from_env().uses_key_file
-    monkeypatch.delenv("BTCTX_PASSWORD")
-    monkeypatch.setenv("BTCTX_MCP_FILE", str(tmp_path / "mcp.json"))
-    client = BtctxClient.from_env()
-    assert client.uses_key_file and client._key_file == tmp_path / "mcp.json"
-
-
 def test_setup_guide_puts_no_password_in_a_mac_config():
     from pathlib import Path
 
