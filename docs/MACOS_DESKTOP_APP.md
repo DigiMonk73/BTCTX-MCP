@@ -6,6 +6,8 @@ and a Python runtime, so end users need nothing else installed. IRS Form 8949 /
 Schedule D are filled in pure Python (pypdf), so there are no extra system
 tools to install either.
 
+Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
+(unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
 ## How it works
@@ -49,7 +51,8 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 |------|------------|
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
-| `backups/` | Copies of `btctx.db` taken automatically before a schema upgrade or a restore (mode 600) |
+| `mcp.json` | The app's address and AI assistant key for the MCP server, mode 600 |
+| `backups/` | Copies of `btctx.db` taken automatically before a schema upgrade or a restore (mode 600; the newest 5 are kept) |
 
 A new app version upgrades the database schema on first launch (after copying
 it into `backups/`). Opening an older app version on a database a newer one
@@ -115,16 +118,17 @@ the Application Support database.
 
 ## BitcoinTX.spec
 
-- **Datas:** the whole `backend/` package (including `assets/irs_templates/`)
-  and `frontend/dist/`.
+- **Datas:** the whole `backend/` package (including
+  `assets/irs_templates/`), `frontend/dist/` and `VERSION`.
 - **Hidden imports:** FastAPI/Starlette/Uvicorn internals, pydantic,
   SQLAlchemy SQLite dialect, httpx, bcrypt, cryptography, pypdf, reportlab,
   tzdata, pywebview, and the `backend.*` router/service/model modules.
   **When you add a backend module or a dependency, add it here** or the bundled
   app may fail at import time even though dev runs work.
 - **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
-- **Bundle:** `org.bitcointx.desktop`, version `0.9.2` (`CFBundleVersion` /
-  `CFBundleShortVersionString`; bump both on release), minimum macOS 10.15,
+- **Bundle:** `org.bitcointx.desktop`, version from `VERSION`
+  (`CFBundleVersion` / `CFBundleShortVersionString`; bump both on release,
+  `backend/tests/test_versions_agree.py` checks), minimum macOS 10.15,
   dark mode supported.
 
 ## Using the MCP server with the Mac app
@@ -136,8 +140,9 @@ At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
 assistant key** (`backend/services/mcp_key.py`). The MCP server reads it and
 sends the key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
 database (`app_settings`); the key stays the same across restarts and after a
-restore. It's accepted only from 127.0.0.1, only while AI access is on, and
-never for backup/restore, CSV import, delete-all or the key settings
+restore. It's accepted only from 127.0.0.1, only while AI access is on (off
+until the owner turns it on in Settings), and
+never for backup/restore, CSV or River import, delete-all or the key settings
 themselves. Settings can turn access off or reset the key. The app must be
 running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 

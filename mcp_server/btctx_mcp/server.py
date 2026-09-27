@@ -5,10 +5,13 @@ Lets an AI assistant add, find and correct transactions in a BitcoinTX
 ledger from pasted text or plain English. Talks to a running BitcoinTX
 instance over its REST API; run it locally over stdio from any MCP client.
 
-Environment:
+Environment (none needed for the Mac app: without a username and password the
+server reads the app's AI assistant key file):
   BTCTX_URL          BitcoinTX base URL (default http://localhost:80)
-  BTCTX_USERNAME     BitcoinTX login
+  BTCTX_USERNAME     BitcoinTX login (server installs: Docker, StartOS)
   BTCTX_PASSWORD     BitcoinTX password
+  BTCTX_MCP_FILE     the Mac app's key file, if not in the default place
+                     (~/Library/Application Support/BitcoinTX/mcp.json)
   BTCTX_VERIFY_TLS   "false" to accept a self-signed certificate
   BTCTX_CA_BUNDLE    path to a CA bundle for a private certificate
 """
@@ -226,10 +229,11 @@ async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
 
 @mcp.tool(annotations=READ_ONLY)
 async def review_ledger() -> Dict[str, Any]:
-    """Read-only Ledger review: saved transactions worth a second look (Spent withdrawals
-    saved with $0 proceeds, Lost withdrawals still carrying a loss, non-income BTC deposits
-    with a $0 or blank cost basis). Each item has its id, date, what looks odd and what would
-    change. Changes nothing; show it to the user and let them decide what to edit."""
+    """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
+    Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
+    carrying a loss, non-income BTC deposits with a $0 or blank cost basis, transfer fees or
+    income valued far from that day's price). Each item has its id, date, what looks odd and
+    what would change. Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 
 

@@ -115,6 +115,11 @@ So derived values must be recomputable from the Transaction row alone.
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
+| `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS |
+| `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
+| `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
+| `scripts/sync-startos-mirror.sh`, `mirror-startos-release.sh` | StartOS mirror sync and its release |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 
@@ -134,17 +139,18 @@ So derived values must be recomputable from the Transaction row alone.
   ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
 - Mac app only: the MCP server authenticates with the AI assistant key from
   `mcp.json` (`backend/services/mcp_key.py`), never a password. The key works
-  only from localhost, only when `BTCTX_DESKTOP`/`BTCTX_MCP_FILE` are set, and
+  only after the owner turns AI access on (off by default), only from localhost, only when `BTCTX_DESKTOP`/`BTCTX_MCP_FILE` are set, and
   never for backup/restore, CSV/River import, delete-all or the key settings.
 
 ## Testing (see `docs/TESTING.md`)
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~285 hermetic tests, ~1.5 min
-make test        # + slow stress tests
+make test-fast   # ~475 hermetic tests (backend + MCP), ~1 min
+make test        # + slow stress and property tests
 make smoke       # real server, temp DB
-make check       # everything CI runs except Docker/macOS builds
+make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
+make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
 
 Tests never touch a real database or the network (temp SQLite, stubbed BTC

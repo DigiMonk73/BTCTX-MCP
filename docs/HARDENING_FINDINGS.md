@@ -1,6 +1,6 @@
 # Hardening findings (v0.9.2)
 
-Every finding from the hardening plan (`docs/HARDENING_AND_REDESIGN_PLAN.md`),
+Every finding from the hardening plan (`docs/archive/HARDENING_AND_REDESIGN_PLAN.md`),
 Phases 1 and 2. Verdicts: **bug** (fix with a test that fails on the old code),
 **tax** (a bug whose fix changes tax figures for existing data: owner's OK
 first), **ok** (checked, no change), **deferred** (owner's OK recorded).
@@ -58,9 +58,10 @@ Every connection BitcoinTX makes, and what it reveals:
 |---|---|---|---|
 | Browser / Mac webview | fonts.googleapis.com, fonts.gstatic.com (until 0.9.1) | that BitcoinTX was opened, and your IP | **fixed**: Inter and Outfit ship with the app (Latin subsets); CSP `default-src 'self'` in browsers; e2e `privacy.e2e.ts` fails on any outside request |
 | Browser / Mac webview | only BitcoinTX's own address | nothing outside | enforced by CSP (browsers) and the e2e test |
-| Backend: live price | CoinGecko, then Kraken, then CoinDesk (`services/bitcoin.py`), when a page shows the price (the sats converter polls every 2 minutes) | your IP and that you use BitcoinTX, roughly when | **owner decision** (P2): own node / proxy / off, today's behavior as default |
-| Backend: block height | blockchain.info, blockstream.info, mempool.space (Dashboard) | same | **owner decision** (P2) |
-| Backend: historical prices | same price services, one date per lookup (income basis, spends without proceeds, FMV Refresh, imports; transfer fees on **every** recalculation) | **the dates of your transactions**, with your IP | **owner decision** (P1, with F14): a local daily price history, downloaded in bulk |
+| Backend: live price | CoinGecko, then Kraken, then CoinDesk (`services/bitcoin.py`), when a page shows the price (the sats converter polls every 2 minutes) | your IP and that you use BitcoinTX, roughly when | **fixed** (P2): Settings → Privacy & Network (own mempool server, proxy, live data off); public services stay the default |
+| Backend: block height | blockchain.info, blockstream.info, mempool.space (Dashboard) | same | **fixed** (P2), as above |
+| Backend: historical prices | before 0.9.2: the same price services, one date per lookup (income basis, spends without proceeds, FMV Refresh, imports; transfer fees on every recalculation) | **the dates of your transactions**, with your IP | **fixed** (P1): local `btc_price_daily`, filled by a bulk download of about 1,000 days (Bitstamp, Coinbase, Kraken) |
+| AI assistant (MCP) | whatever model the user's AI app uses | with a cloud AI: the transactions, balances and gains the tools return, and anything pasted | **warned**: Settings → Connect an AI Assistant, `AI_SETUP.md` and the READMEs recommend a local model (LM Studio, Goose with Ollama) |
 | MCP server | the BitcoinTX backend only (`BTCTX_URL`, or the Mac app's key file) | nothing outside | ok |
 | Mac app launcher | 127.0.0.1 only | nothing | ok |
 | StartOS package | its own health check (localhost) | nothing | ok |

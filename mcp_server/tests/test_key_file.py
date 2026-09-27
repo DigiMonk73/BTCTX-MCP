@@ -37,6 +37,7 @@ def desktop(monkeypatch, tmp_path, backend_db):  # noqa: F811
     monkeypatch.setenv("BTCTX_MCP_FILE", str(key_file))
     with _db() as db:
         mcp_key.sync(db)
+        mcp_key.set_access(db, True)  # the owner turned it on in Settings
     return key_file
 
 
@@ -76,6 +77,24 @@ async def test_key_file_is_private_and_complete(desktop):
     with _db() as db:  # only a hash is stored
         assert mcp_key._get(db, mcp_key.HASH_KEY) == mcp_key._hash(data["token"])
         assert data["token"] not in json.dumps([mcp_key._get(db, k) for k in (mcp_key.HASH_KEY,)])
+
+
+async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, backend_db):  # noqa: F811
+    key_file = tmp_path / "BitcoinTX" / "mcp.json"
+    monkeypatch.setenv("BTCTX_DESKTOP", "1")
+    monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:8765")
+    monkeypatch.setenv("BTCTX_MCP_FILE", str(key_file))
+    with _db() as db:
+        mcp_key.sync(db)
+    token = {"Authorization": f"Bearer {_token(key_file)}"}
+    async with _http() as h:
+        r = await h.get("/api/transactions", headers=token)
+        assert r.status_code == 401 and "turned off" in r.json()["detail"]
+        assert (await h.post("/api/login", json={"username": "admin", "password": "password"})).status_code == 200
+        assert (await h.get("/api/settings/ai-access")).json()["on"] is False
+        assert (await h.put("/api/settings/ai-access", json={"on": True})).json()["on"] is True
+        h.cookies.clear()
+        assert (await h.get("/api/transactions", headers=token)).status_code == 200
 
 
 async def test_key_stays_the_same_across_restarts(desktop):

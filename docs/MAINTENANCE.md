@@ -41,9 +41,10 @@ Full runbook, including what to do when the IRS renames fields:
 make test        # full hermetic suite (temp DB, stubbed prices, no server)
 make test-fast   # same minus slow stress tests
 make smoke       # real server on a temp DB, driven end to end
-make lint        # ruff + frontend eslint/tsc
+make lint        # ruff + frontend eslint/tsc/vitest
+make e2e         # Playwright click-through (Chromium, Chicago + Tokyo time)
 make audit-deps  # pip-audit + npm audit
-make check       # all of the above (what CI runs, minus Docker/macOS builds)
+make check       # lint, test, smoke, audit-deps (CI also runs e2e, StartOS and Docker/macOS builds)
 ```
 
 `make hooks` installs the pre-push gate (`.githooks/pre-push`). Install dev
@@ -105,7 +106,9 @@ From `backend/requirements.txt`:
 | `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.53.0 | Caution | Check starlette compatibility |
 | `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
-| `httpx` | 0.28.1 | Caution | Used for BTC price APIs and by the MCP server |
+| `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`; also used by the MCP server |
+| `socksio` | 1.0.0 | Low | SOCKS proxy for httpx (Settings → Privacy & Network, e.g. Tor) |
+| `alembic` | 1.20.0 | Caution | Runs at every start (`backend/migrate.py`); after an update run `test_migrations.py` |
 | `requests` | 2.34.2 | Low | |
 | `python-multipart` | 0.0.32 | Caution | "Patch" releases add hardening limits (header count, boundary size) |
 | `bcrypt` | 5.0.0 | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
@@ -117,9 +120,13 @@ From `backend/requirements.txt`:
 | `pypdf` | 6.19.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.4.10 | High | Complete Tax Report and transaction history PDFs. Stay on 4.4.x (see below) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
+| `hypothesis` | 6.168.1 | Low | Test only: property tests |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
-ESLint 9, axios 1.20. Docker frontend build and CI use Node 22.
+ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.
+`@playwright/test` is pinned exactly to match the browsers preinstalled in
+cloud sessions (see `docs/TESTING.md`): don't bump it on its own. start-sdk:
+see `startos/UPDATING.md`.
 
 ### Deferred upgrades
 
@@ -148,7 +155,7 @@ replace the live database.
 2. Generate the migration against a scratch database at the current head:
    ```bash
    DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
-   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0004 -m "add foo to transactions"
+   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0005 -m "add foo to transactions"
    ```
    Use the next number as `--rev-id` (sequential ids keep the history readable).
 3. Read the generated file. Autogenerate misses renames (it emits drop + add,

@@ -4,6 +4,42 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### AI assistant privacy
+- **Settings → Connect an AI Assistant** now opens with a warning: the AI's
+  model reads what BitcoinTX hands it (transactions, balances, gains) and
+  whatever you paste, and with a cloud AI (Claude, Grok…) that goes to the
+  provider. It points to local-model apps (LM Studio, Goose with Ollama).
+- The AI setup guide tells the AI to say this before it installs anything;
+  the MCP README has a "Privacy: cloud or local model" section with LM Studio
+  and Goose setup; the README and the StartOS instructions carry the warning.
+- **Mac app: AI assistant access is now off by default**, including on
+  installs upgraded from 0.9.2–1.0.1 that never touched the switch. If you
+  use an AI with the Mac app, turn on **Settings → Connect an AI Assistant →
+  Let AI assistants use BitcoinTX** once; until then the AI gets "AI
+  assistant access is turned off". A line under the switch says what it
+  allows. The docs say AI entry is optional, what the switch
+  does, and that Docker/StartOS have no switch (the server logs in with the
+  password).
+- StartOS: the MCP API address, the Connect an AI Assistant action and the
+  package description say the same, and name LM Studio. Text only; AI access
+  on StartOS still works by username and password, as before.
+
+### Documentation
+- Install from the release downloads (macOS `.dmg`, `btctx.s9pk`, the
+  `ghcr.io/digimonk73/btctx-mcp` image) instead of building; README features
+  now include Ledger Review, stored price history and Privacy & Network; the
+  upgrade steps use Ledger Review; price and outbound-request sources updated.
+- The AI's ledger guide: income with no price available is refused (ask the
+  user), a withdrawal's BTC fee is taxable even for Gift, Donation and Lost,
+  River's Received is net of its fee, and when to use `review_ledger`.
+- Mac app docs: the port-busy dialog replaces the old random-port fallback,
+  the MCP server needs no settings, Gatekeeper steps for macOS 15.
+- Developer docs: test counts and what `make check` covers, `make e2e`, the
+  weekly workflows, new modules in `CLAUDE.md`, missing pinned packages,
+  network-fee disposals on withdrawals in the IRS docs, frozen StartOS ids.
+  The finished hardening/redesign and StartOS package plans moved to
+  `docs/archive/`; the roadmap lists only open work.
+
 ### Releases
 - The release workflow now also publishes each version's `btctx.s9pk` as a
   release on the StartOS mirror (DigiMonk73/BTCTX-StartOS), marked Latest,
@@ -103,7 +139,6 @@ a basis (0 allowed); blank Spent proceeds are valued at the day's price.
   Another Port (this session, with a banner saying AI assistants can't
   connect) or Quit. Opening the app twice brings the running copy forward. The
   app now keeps a log at `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
-
 - **A "Spent" withdrawal entered with blank proceeds was saved at $0**, a
   loss of its whole cost basis, instead of its value at that day's BTC price
   (the rule for spends without proceeds, which imports already followed): the
@@ -131,7 +166,6 @@ a basis (0 allowed); blank Spent proceeds are valued at the day's price.
   meant to be login-only, but both endpoints skipped the check, so a client
   with the optional `API_KEY` could download or replace the whole database.
   Both now need a login.
-
 - **Stricter input, clear messages.** The API, CSV and AI imports now refuse
   what the ledger would record wrongly: amounts of 0 or less, negative fees,
   basis or proceeds, more decimals than a satoshi (or a cent for USD accounts,
@@ -239,9 +273,12 @@ a basis (0 allowed); blank Spent proceeds are valued at the day's price.
   prompt on a StartOS address already said "the guide explains"; it didn't.
 
 ### Tests
-- Playwright click-through tests of every UI flow (`make e2e`, run in CI in
-  Chromium in a US and a UTC+ timezone, and in WebKit). Form controls got
-  proper labels for this (accessibility only). See `docs/TESTING.md`.
+- Playwright click-through tests of every UI flow (`make e2e`; CI runs them in
+  Chromium in Chicago and Tokyo time, and in WebKit). Form controls got proper
+  labels for this (accessibility only).
+- Property tests (Hypothesis): random valid ledgers keep the tax invariants.
+  Golden years: three tax years worked out by hand, with exact Form 8949 rows
+  and Schedule D lines. See `docs/TESTING.md`.
 
 ## [v0.9.1] - 2026-09-25 - Connect an AI Assistant in Settings, River sell fee, edit time, income basis
 

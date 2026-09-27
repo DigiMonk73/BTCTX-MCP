@@ -68,8 +68,8 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 6. **Commit and release.** Commit the new `backend/assets/irs_templates/YYYY/`
    folder and the `verified_years` change. Add a CHANGELOG entry that names the
    irs.gov source URLs. Then bump the **minor** version (project convention: a
-   new tax year's forms is a minor release) and follow the release checklist in
-   `CLAUDE.md`. Also update the [year quirks](#year-quirks-reference) table.
+   new tax year's forms is a minor release) and follow `startos/UPDATING.md`
+   → Releasing a new version. Also update the [year quirks](#year-quirks-reference) table.
 
 ### Script options
 
@@ -189,7 +189,7 @@ printed order, or the on-states aren't `/1`…`/n`, change
 
 ### 3. Schedule D: `get_schedule_d_field_config(year)`
 
-The app fills four fields, (d) (e) (g) (h), on each of lines 1b, 2, 3 (Part I,
+The app writes four fields, (d), (e) and (h), and (g) left blank, on each of lines 1b, 2, 3 (Part I,
 `Table_PartI`) and 8b, 9, 10 (Part II, `Table_PartII`):
 
 ```

@@ -146,6 +146,10 @@ test("connect an AI assistant: prompt and configs name this server and user", as
   if (canReadClipboard) await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await openSettings(page);
   await expect(page.getByRole("heading", { name: "Connect an AI Assistant" })).toBeVisible();
+  // The privacy warning comes before the setup prompt.
+  const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+  await expect(ai.getByRole("note")).toContainText("Your data goes to the AI's model.");
+  await expect(ai.getByRole("note")).toContainText("local model");
   const prompt = page.getByLabel("Setup prompt");
   await expect(prompt).toHaveValue(new RegExp(baseURL!.replace(/[.:/]/g, "\\$&")));
   await expect(prompt).toHaveValue(new RegExp(USER));
@@ -181,12 +185,16 @@ test.describe("Mac app: AI assistant key instead of a password", () => {
     await expect(ai.getByLabel("Grok Build command")).toHaveValue(/^grok mcp add bitcointx -- uvx/);
     await expect(ai.getByLabel("Claude Code command")).not.toHaveValue(/-e /);
 
+    // Off until the owner turns it on.
     const key = { Authorization: `Bearer ${first.token}` };
     const anon = await playwrightRequest.newContext({ baseURL: app.url });
-    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(200);
-
     const toggle = ai.getByLabel("Let AI assistants use BitcoinTX");
-    await expect(toggle).toBeChecked();
+    await expect(toggle).not.toBeChecked();
+    await expect(ai.getByText("Turn on AI assistant access above first.")).toBeVisible();
+    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
+    await toggle.check();
+    await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
+    expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(200);
     await toggle.uncheck();
     await expect(page.getByText("AI assistant access is off.")).toBeVisible();
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);

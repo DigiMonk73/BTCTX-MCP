@@ -21,22 +21,35 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
   says something different for a sale, record that on the transaction and the
   right Form 8949 box follows.
-- **Imports**: River CSV export, generic CSV, and the AI route below
+- **Imports**: River CSV export, generic CSV (into an empty ledger), and the
+  AI route below
 - **AI entry (MCP)**: paste an exchange email or a wallet history, or type
   "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
   previews the rows (duplicate check, fair market value, resulting gains) and
-  saves them once you confirm.
+  saves them once you confirm. Use a local model if your data must stay on
+  your computer ([below](#connect-an-ai-mcp)).
+- **Ledger Review** (Settings): a read-only list of saved entries worth a
+  second look, including every figure a recalculation would change
+- **Stored price history**: past-day BTC prices are kept locally, so reports
+  work offline and lookups don't reveal your transaction dates
+- **Privacy & Network** (Settings): turn live data off, use your own mempool
+  server, or send outside requests through a proxy such as Tor
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
 
 ## Install
 
+Every [release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) has
+a macOS app, a StartOS package and a Docker image.
+
 ### macOS app
 
-```bash
-./desktop/build-mac.sh      # builds desktop/dist/BitcoinTX.app
-```
+Download `BitcoinTX-macOS.dmg` from the latest release and drag BitcoinTX to
+Applications. The app is not signed by Apple: the first time, Control-click
+it and choose **Open**; on macOS 15 or later, open it once, then go to
+**System Settings → Privacy & Security** and click **Open Anyway**. To build
+it yourself: `./desktop/build-mac.sh`.
 
 See [docs/MACOS_DESKTOP_APP.md](docs/MACOS_DESKTOP_APP.md). The app keeps its
 data in `~/Library/Application Support/BitcoinTX`. While it's open it serves
@@ -46,12 +59,17 @@ server uses.
 ### Docker
 
 ```bash
-docker build -t btctx .
-docker run -d -p 8080:80 -v btctx-data:/data btctx
+docker run -d -p 8080:80 -v btctx-data:/data ghcr.io/digimonk73/btctx-mcp:latest
 # open http://localhost:8080
 ```
 
-StartOS packaging: [docs/STARTOS_COMPATIBILITY.md](docs/STARTOS_COMPATIBILITY.md).
+Images are amd64 and arm64; pin a version with `:vX.Y.Z`. To build it
+yourself: `docker build -t btctx .`
+
+### StartOS
+
+Download `btctx.s9pk` from the latest release and upload it in StartOS under
+**Sideload**. See [startos/README.md](startos/README.md).
 
 ### From source
 
@@ -78,7 +96,8 @@ prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
 or any app that runs MCP servers on your computer). The AI sets itself up
 following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). With the Mac app
 no password or address goes anywhere: the app writes a private key file the
-MCP server reads by itself. Or by hand, for the Mac app:
+MCP server reads by itself. Or by hand, for the Mac app (Settings gives the
+same command pinned to your version):
 
 ```bash
 claude mcp add --scope user bitcointx -- \
@@ -92,16 +111,41 @@ yourself.
 [mcp_server/README.md](mcp_server/README.md) covers the Claude Desktop
 config, Docker and StartOS addresses, TLS options, and example prompts.
 
-## Upgrading from BitcoinTX v0.7 or earlier
+**Privacy: the AI's model sees your ledger.** Once connected, the model reads
+what the tools return (transactions, balances, cost basis, gains) and whatever
+you paste. With a cloud AI (Claude, Grok and most others) that goes to the
+provider's servers. To keep it on your computer, use an app that runs a local
+model, such as [LM Studio](https://lmstudio.ai/) or
+[Goose](https://goose-docs.ai/) with [Ollama](https://ollama.com/), or use a
+cloud AI only with a test ledger. Setup for local models:
+[mcp_server/README.md](mcp_server/README.md#privacy-cloud-or-local-model).
+
+- **Optional.** Nothing AI-related runs until you add the MCP server to an AI
+  app, and you choose which app and model.
+- **BitcoinTX sends your ledger nowhere itself.** The MCP server talks only to
+  your BitcoinTX; the model sees what the tools return.
+- **Mac app:** the server uses an AI assistant key that works only from this
+  Mac, and only after you turn on **Settings → Connect an AI Assistant → Let
+  AI assistants use BitcoinTX** (off by default).
+- **Docker and StartOS:** the server logs in with your BitcoinTX username and
+  password. There is no separate switch: to stop it, remove the server from
+  your AI app, or change your password.
+
+## Upgrading
 
 1. Download an encrypted backup (Settings → Backup & Restore).
 2. Start the new version. It upgrades the database automatically and keeps a
    copy of the old one in a `backups` folder next to it.
-3. Click **Settings → Recalculate Ledger** once.
-4. Check your **Tax Timezone** in Settings.
+3. Open **Settings → Ledger Review**. It lists every figure a recalculation
+   would change, old → new, without changing anything.
+4. Click **Settings → Recalculate Ledger** when you agree.
+5. Check your **Tax Timezone** in Settings.
 
-This release changes how transfer fees, sale proceeds and the one-year
-holding period are calculated, so gains stored by older versions can change.
+From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
+period are calculated differently; from before v0.9.2, withdrawal fees and
+Lost withdrawals are. Either way, stored gains can change. The
+[CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
+release.
 
 ## Yearly IRS forms
 
@@ -116,6 +160,7 @@ scheduled GitHub workflow flags when new forms are published. See
 pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 make hooks        # pre-push gate: lint, static checks, fast tests, smoke test
 make test         # full hermetic suite (temp DB, stubbed prices, no network)
+make e2e          # click-through tests in real browsers (Playwright)
 make check        # everything CI runs except the Docker/macOS builds
 ```
 
@@ -127,7 +172,7 @@ conventions: [CLAUDE.md](CLAUDE.md).
 | Frontend | React + TypeScript + Vite |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | PDFs | pypdf (IRS form filling), ReportLab (reports) |
-| BTC prices | CoinGecko, Kraken, CoinDesk (fallback chain) |
+| BTC prices | Stored daily history (Bitstamp, Coinbase, Kraken); live price from your mempool server or CoinGecko, Kraken, CoinDesk |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 
 BitcoinTX doesn't give tax advice. Check its output before you file.

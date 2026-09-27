@@ -1,5 +1,9 @@
 # StartOS package in the main repo — design plan
 
+> Archived: the package shipped in v0.9.0 and is released with every version
+> (`startos/UPDATING.md`). Section 11's real-device checklist is still a good
+> test list before a StartOS release.
+
 Status: **approved 2026-09-23** with the decisions in section 9. **Built** on
 `feature/startos-package` (steps 1-4 of section 8); step 5, testing on a real
 StartOS device, is the checklist in section 11.

@@ -91,6 +91,9 @@ configured.
 3. Temporary files (report generation, uploads) use `tempfile`, not paths
    under `/app`.
 4. Test path/storage changes in Docker, not just local dev.
+5. Settings (tax timezone, Privacy & Network, AI key state) and the daily
+   price history are rows in the database (`app_settings`,
+   `btc_price_daily`), not files or env vars.
 
 ## Contracts the StartOS package depends on
 
@@ -110,6 +113,8 @@ Change these only together with the package (`startos/`):
     Credentials. Never takes the password as an argument.
   - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
     Ledger action.
+  - `python -m backend.cli review [--fix-fee-prices]`: the read-only Ledger
+    Review; not used by the package.
   Each command migrates first, so it works on an empty volume. Exit 0 on
   success, 1 with a message on stderr on failure.
 - **Logging:** `LOG_LEVEL` env (default INFO).
@@ -118,20 +123,14 @@ Change these only together with the package (`startos/`):
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
-### Image for this fork
-
-The wrapper at DigiMonk73/BTCTX-StartOS runs
-`ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`, published by
-`.github/workflows/image.yml` (amd64 + arm64) the first time `VERSION` on
-`main` holds a new version. Version tags are never overwritten. The contract
-below still applies to it.
-
 ### Image tags
 
-`.github/workflows/image.yml` publishes the image on every push to `main`:
-`:v<VERSION>` the first time a VERSION is seen (never overwritten; a fix is a
-new patch version), plus `:main` and `:sha-<sha>`. The StartOS package pins
-`:v<VERSION>` in `startos/startos/manifest/index.ts`.
+`.github/workflows/image.yml` publishes `ghcr.io/digimonk73/btctx-mcp`
+(amd64 + arm64) on every push to `main`: `:v<VERSION>` and `:latest` the first
+time a VERSION is seen (version tags are never overwritten; a fix is a new
+patch version), plus `:main` and `:sha-<sha>`. The StartOS package (mirrored
+to DigiMonk73/BTCTX-StartOS) pins `:v<VERSION>` in
+`startos/startos/manifest/index.ts`.
 
 StartOS backups cover both package volumes (`main`: database, secret key,
 pre-upgrade copies; `startos`: the package's `store.json`). The app also has

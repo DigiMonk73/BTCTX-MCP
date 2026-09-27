@@ -1,5 +1,8 @@
 # Hardening, then a visual polish: plan
 
+> Archived: all phases shipped in v0.9.2 and v1.0.0 (see `docs/CHANGELOG.md`).
+> Findings and their fixes: `docs/HARDENING_FINDINGS.md`.
+
 Written 2026-09-25 at the end of the v0.9.1 session, for the sessions that carry
 it out. Read `CLAUDE.md` first; this file assumes it.
 

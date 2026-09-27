@@ -122,6 +122,11 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
           />{" "}
           Let AI assistants use BitcoinTX
         </label>
+        <p className="settings-option-subtitle">
+          When on, an AI app you set up on this Mac can read your ledger and add, edit or delete
+          transactions. BitcoinTX itself sends your ledger nowhere, but what the AI reads goes to
+          wherever its model runs (see above). Off: nothing can use the key.
+        </p>
       </div>
       <button type="button" className="btn btn-secondary" onClick={reset} disabled={busy}>
         Reset key
@@ -160,16 +165,32 @@ const ConnectAiSetting: React.FC = () => {
   return (
     <div className="settings-section" role="region" aria-label="Connect an AI Assistant">
       <h3 className="section-title">Connect an AI Assistant</h3>
+      <p className="note note-warning ai-privacy-note" role="note">
+        <strong>Your data goes to the AI&apos;s model.</strong> Whatever BitcoinTX hands the
+        assistant (transactions, balances, gains) and whatever you paste into the chat is read by
+        its model. With a cloud AI such as Claude or Grok, that means the provider&apos;s
+        servers. To keep it on your computer, use an app that runs a local model, such as LM
+        Studio or Goose with Ollama.{" "}
+        <a
+          href="https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model"
+          target="_blank"
+          rel="noreferrer"
+        >
+          More
+        </a>
+      </p>
       {access?.available && <AiAccessControls access={access} onChange={setAccess} />}
       <div className="settings-option ai-setup">
         <div className="option-info">
           <span className="settings-option-title">Setup prompt</span>
           <p className="settings-option-subtitle">
-            Paste this into Claude, Grok Build or another AI app that can use MCP servers. It
-            sets up the BitcoinTX MCP server on your computer, so the AI can read your ledger
-            and enter transactions (it shows you a preview first).
+            Paste this into an AI app on this computer that can use MCP servers (Claude
+            Desktop, Claude Code, Grok Build, LM Studio…). It sets up the BitcoinTX MCP server
+            here, so the AI can read your ledger and enter transactions (its guide tells it to
+            show you a preview before saving).
             {keyMode
-              ? " No password or address is needed: the MCP server finds this app by itself. Keep BitcoinTX open while you use the AI."
+              ? " No password or address is needed: the MCP server finds this app by itself. Keep BitcoinTX open while you use the AI." +
+                (access?.on ? "" : " Turn on AI assistant access above first.")
               : " Your password stays out of the chat: you type it into the configuration yourself."}
           </p>
           <CopyBlock label="Setup prompt" text={buildAiPrompt(input)} rows={keyMode ? 12 : 19} />

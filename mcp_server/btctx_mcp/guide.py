@@ -30,17 +30,22 @@ Buy: Bank or Exchange USD -> Exchange BTC
   the exchange cash balance. If unclear, ask.
 Sell: Exchange BTC -> Exchange USD
   amount = BTC sold. proceeds_usd = gross USD BEFORE fees. fee in USD.
+  River's "Received" amount is already net of River's fee: proceeds_usd =
+  Received + fee.
 Deposit: External -> any account
   BTC deposits need source:
     MyBTC    = user's own BTC arriving from somewhere untracked;
                cost_basis_usd = what they originally paid (ask if unknown).
     Gift     = received as a gift; cost_basis_usd = the giver's basis.
-    MyBTC, Gift and N/A deposits REQUIRE cost_basis_usd; the ledger refuses
+    MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.
-    Income   = paid in BTC for work/goods.   \\
-    Interest = exchange interest.             > basis = FMV at receipt,
-    Reward   = mining, sats-back, bonuses.   /  auto-filled if omitted.
+    Income   = paid in BTC for work/goods.
+    Interest = exchange interest.
+    Reward   = mining, sats-back, bonuses.
+    For these three, basis = market value at receipt, which is also the
+    reported income. If omitted it is filled from that day's price; if no
+    price is available the row is refused - then ask the user for the value.
   USD deposits to Bank / Exchange USD: amount is USD, no source needed.
 Withdrawal: any account -> External
   BTC withdrawals need purpose:
@@ -53,6 +58,8 @@ Withdrawal: any account -> External
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
   was received for amount; the fee is recorded as its own small disposal.
+  That fee disposal is taxable for every purpose, Gift, Donation and Lost
+  included, even though the withdrawal itself isn't.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination
@@ -87,7 +94,8 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only
-(2025), or with basis too for lots bought on the exchange from 2026 on; spends
+(2025), or with basis too for lots bought on the exchange from 2026 on and never
+moved off it; spends
 from self-custody and network fees are on no broker form. When the user has
 the actual 1099-DA and it differs for a sale, set broker_reporting on that
 transaction with update_transaction ("none", "proceeds", "basis", or
@@ -108,4 +116,8 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    (minus anything they rejected). The write is all-or-nothing.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
+5. To check what is already saved, call review_ledger (read-only) and show
+   the user what it lists; let them decide what to change. Fee-value fixes
+   are made by the user in Settings -> Ledger Review. Call recalculate_ledger
+   only when the user asks for it.
 """

@@ -17,23 +17,29 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping) | secs |
-| Unit + integration | `make test-fast` | ~285 tests: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, MCP tools | ~1.5 min |
-| Full suite | `make test` | Adds the 250-transaction stress tests (`@pytest.mark.slow`) | ~3 min |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt) | secs |
+| Unit + integration | `make test-fast` | ~475 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, MCP tools | ~1 min |
+| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
-| Everything | `make check` | All of the above | ~4 min |
+| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~4 min |
 
 ## When they run
 
 - **Before every `git push`** (`.githooks/pre-push`): lint, static
   Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
-  smoke, frontend lint + type check. A failure blocks the push. Emergency bypass:
+  smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
+  exists), StartOS package format, type check, lint, bundle and manifest check
+  (if `startos/node_modules` exists). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every push/PR** (`.github/workflows/ci.yml`): Python 3.10 and 3.11
   full suite, frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
-  against the running container, dependency audit.
+  against the running container, dependency audit, StartOS package checks and
+  an x86_64 `btctx.s9pk` packed from this commit's image.
+- **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk is
+  out; `irs-forms-watch.yml` (November to March) fails when the final IRS
+  forms for a new year are published.
 - **On every branch push** (or manually from the Actions tab): builds the macOS
   app, launches it, checks its API answers on `127.0.0.1:8765`, and attaches the
   zipped `.app` to the run.

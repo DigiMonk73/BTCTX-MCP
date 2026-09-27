@@ -14,7 +14,8 @@ BitcoinTX without the user's password.
 - It stays the same across restarts, so setup is done once. Resetting it
   (Settings) writes a new one: copies of the old one stop working at once,
   while the MCP server re-reads the file and carries on.
-- It is accepted only from 127.0.0.1/::1, only while AI access is on, and
+- It is accepted only from 127.0.0.1/::1, only while AI access is on (off
+  until the owner turns it on in Settings), and
   only where the app accepts its API key (get_current_user) plus entry
   import. Backup/restore, CSV import and delete-all stay login-only.
 """
@@ -75,7 +76,8 @@ def _set(db: Session, key: str, value: str) -> None:
 
 
 def access_on(db: Session) -> bool:
-    return _get(db, ACCESS_KEY) != "off"
+    """Off until the owner turns it on in Settings (new installs and upgrades)."""
+    return _get(db, ACCESS_KEY) == "on"
 
 
 def _read_file_token(path: Path) -> Optional[str]:

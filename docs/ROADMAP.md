@@ -2,14 +2,15 @@
 
 Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
 
-## After v0.8.0
+## Owner check
 
-- [ ] Upgrade your real v0.7 database with v0.8.0: backup → start (automatic
-      migration) → Recalculate Ledger → compare the 2024/2025 reports with
-      the old ones. (Upgrading a v0.7.0 database is covered by tests and CI;
-      this checks your actual data.)
+- [ ] Upgrade your real v0.7 database with the current version: backup →
+      start (automatic migration) → Settings → Ledger Review → Recalculate
+      Ledger → compare the 2024/2025 reports with the old ones. (Upgrading a
+      v0.7.0 database is covered by tests and CI; this checks your actual
+      data.)
 
-## v0.9.3
+## Next release
 
 - [ ] **River sends with a network fee (F20)**: does River's "Sent Amount"
       include the fee? Check what the destination received from the
@@ -17,23 +18,15 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       0.02353311 → Sent includes the fee and the importer counts it twice).
       See `HARDENING_FINDINGS.md` F20.
 - [ ] **StartOS own node**: offer the local mempool app as "Your own mempool
-      server" in Settings → Privacy & network.
-
-## Next: hardening, then a visual polish
-
-Plan, phases and gates: [HARDENING_AND_REDESIGN_PLAN.md](HARDENING_AND_REDESIGN_PLAN.md).
+      server" in Settings → Privacy & Network.
+- [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
+      backup password).
 
 ## Soon
 
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
-- [x] **Schema migrations (Alembic)**: shipped in v0.8.0.
-- [x] **Per-transaction 1099-DA override**: shipped in v0.8.0.
-- [x] **Reports without side effects**: year-boundary snapshots replay on an
-      in-memory copy of the database.
-- [x] **Frontend unit tests** (Vitest): form ↔ API mapping in
-      `frontend/src/utils/transactionForm.ts`.
 
 ## Later
 

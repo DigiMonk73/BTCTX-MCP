@@ -40,7 +40,9 @@ backend/
 └── tests/
     ├── test_irs_templates.py             # every year folder: fields exist, values land, boxes, flatten
     ├── test_1099da_boxes.py              # box selection from real ledger data
-    └── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
+    ├── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
+    ├── test_golden_years.py              # three hand-worked tax years: exact 8949 rows, Schedule D lines
+    └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
 .github/workflows/irs-forms-watch.yml     # weekly check for new final IRS forms (Nov–Mar)
 ```
@@ -56,7 +58,7 @@ text, so no frontend change is needed for a new year.
 LotDisposal rows for the tax year
   │  build_form_8949_and_schedule_d(year, db)                 form_8949.py
   │    - tax-year window in the tax timezone
-  │    - skip purposes Gift / Donation / Lost
+  │    - taxable_disposals(): skip Gift / Donation / Lost, except their network-fee disposals
   │    - _broker_reporting() + _determine_box()  -> box letter per disposal
   │    - Form8949Row per disposal, split SHORT / LONG
   │    - Schedule D totals per line (SCHEDULE_D_LINE_FOR_BOX)
@@ -134,7 +136,7 @@ MCP `update_transaction` tool, or via the API. It replaces
 | `basis` (proceeds and basis) | A / D | G / J |
 | NULL (default) | rules above | rules above |
 
-Network-fee disposals belong to a Transfer and can't be overridden.
+Network-fee disposals (`is_fee`, from transfers and withdrawals) are never on a broker form and can't be overridden.
 
 **One box per sheet.** Each Part of a Form 8949 page can have only one box
 checked. `_chunks_by_box()` groups rows by box before cutting pages, so (for

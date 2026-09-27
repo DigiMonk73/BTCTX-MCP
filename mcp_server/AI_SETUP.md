@@ -7,6 +7,14 @@ local (stdio) server, started by their AI app, and talks to BitcoinTX over its
 API. It gives you tools to read the ledger and to preview, add, update and
 delete single transactions.
 
+**First, tell the user about privacy.** Before installing anything, say in
+a sentence or two: once connected, the model behind this app reads their
+ledger (transactions, balances, cost basis, gains) and whatever they paste.
+If you run on a cloud model, that data goes to your provider's servers. To
+keep it on their computer they can use an app with a local model instead,
+such as LM Studio or Goose with Ollama ([README](README.md#privacy-cloud-or-local-model)).
+Go on only when they confirm. Don't repeat this later in the conversation.
+
 **Which setup?** Their BitcoinTX (**Settings → Connect an AI Assistant**) gave
 them a prompt.
 
@@ -45,7 +53,8 @@ file, and keep every other server already in a configuration file intact.
    password and a ready-made configuration, which can be used instead of
    section 2B.
 3. **BitcoinTX is reachable**: `curl -s <BTCTX_URL without a trailing /api>/api/health`
-   should return JSON with `"status": "ok"` and a `version` of 0.8.0 or later.
+   should return JSON with `"status": "ok"` and a `version` of 0.8.0 or later
+   (0.9.2 or later for the Mac app setup without a password).
    Add `--cacert <certificate file>` for a StartOS address. If it doesn't
    answer: the Mac app must be open; Docker and StartOS must be running and
    reachable from this computer.
@@ -56,7 +65,8 @@ and give the user the steps to follow.
 ## 2A. The Mac app: add the server, nothing secret
 
 One command, no environment variables. BitcoinTX must be open when the AI
-uses it.
+uses it, and the user must turn on **Settings → Connect an AI Assistant → Let
+AI assistants use BitcoinTX** (off by default); ask them to.
 
 - **Claude Code:** `claude mcp add --scope user bitcointx -- uvx --from '<server source>' btctx-mcp`
 - **Grok Build:** `grok mcp add bitcointx -- uvx --from '<server source>' btctx-mcp`
@@ -158,15 +168,19 @@ your AI provider.
 
 After the app has restarted, call `get_portfolio` (read-only). Balances back
 means it works. Before entering any transaction, read `get_ledger_guide`, and
-always `preview_transactions` before `add_transactions`.
+always `preview_transactions` before `add_transactions`. `review_ledger`
+(read-only) lists saved transactions worth a second look, useful after a
+BitcoinTX upgrade.
 
 | Error | Cause |
 |---|---|
 | `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
-| `AI assistant access is turned off` | Turned off in BitcoinTX **Settings → Connect an AI Assistant** |
+| `AI assistant access is turned off` | Off by default: the user turns on **Let AI assistants use BitcoinTX** in BitcoinTX **Settings → Connect an AI Assistant** |
 | `BitcoinTX login failed` | The placeholder is still there, or the username or password is wrong |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
-| No `/api/import/entries` endpoint | BitcoinTX is older than 0.8.0: update it |
+| `… no /api/import/entries endpoint` | BitcoinTX is older than 0.8.0: update it |
+| `BitcoinTX returned 404` from `review_ledger` | BitcoinTX is older than 0.9.2, or the server isn't pinned to its version |
+| `… no longer running` | The Mac app was quit: open BitcoinTX again |
 | The app doesn't list the server | It wasn't restarted, or it can't find `uvx` (use the full path) |
 
 More: [README.md](README.md) in this folder.
