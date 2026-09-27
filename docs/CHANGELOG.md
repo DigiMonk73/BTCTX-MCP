@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.2] - 2026-09-26 - AI privacy: cloud or local model, Mac AI access off by default
+
 ### AI assistant privacy
 - **Settings → Connect an AI Assistant** now opens with a warning: the AI's
   model reads what BitcoinTX hands it (transactions, balances, gains) and
