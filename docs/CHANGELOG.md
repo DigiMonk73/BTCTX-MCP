@@ -4,6 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.2-1] - 2026-09-27 - StartOS package: translated listing, ready for the Start9 Community Registry
+
+Package-only update; BitcoinTX itself is unchanged.
+
+- The StartOS store listing and release notes are also in Spanish, German,
+  Polish and French. The app stays in English and produces US (IRS) tax
+  forms, which the listing says.
+- The listing's website link points to the BitcoinTX site.
+- The package README names no versions (Start9's rule): old upgrade paths
+  are described by what changed.
+
 ## [v1.0.2] - 2026-09-26 - AI privacy: cloud or local model, Mac AI access off by default
 
 ### AI assistant privacy
