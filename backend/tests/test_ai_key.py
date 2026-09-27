@@ -255,3 +255,16 @@ def test_restoring_an_old_backup_does_not_bring_back_a_revoked_key(
     assert key_only().get("/api/transactions", headers=ai_key_headers).status_code == 401
     # The restore ended the session; log back in for the fixture's clean-up.
     assert auth_client.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# StartOS: the Connect an AI Assistant action hands out no password
+# ---------------------------------------------------------------------------
+def test_startos_action_reads_and_shows_no_login():
+    """connectAi.ts once read the generated password from store.json and put it
+    into the AI app's configuration. Its messages may name the old variables
+    (to tell upgraders to remove them); its code and config may not."""
+    action = (REPO / "startos" / "startos" / "actions" / "connectAi.ts").read_text()
+    for name in ("storeJson", "adminPassword", "ADMIN_USERNAME", "BTCTX_PASSWORD:", "BTCTX_USERNAME:"):
+        assert name not in action, name
+    assert "BTCTX_AI_KEY: KEY_PLACEHOLDER" in action

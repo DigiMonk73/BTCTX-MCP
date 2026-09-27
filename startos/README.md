@@ -90,7 +90,7 @@ One HTTP port with two interfaces. StartOS terminates TLS; the app serves plain 
 | Web UI    | `webui` | ui   | 80   | `/`    | The BitcoinTX web interface                          |
 | MCP API   | `mcp`   | api  | 80   | `/api` | The address MCP clients use as `BTCTX_URL`           |
 
-Both are on the `ui-multi` host, so a domain added to one is available to both. The MCP API needs no separate credential: MCP clients log in with the BitcoinTX username and password (session cookie). The MCP server itself runs on the user's computer, not on StartOS, and accepts the `…/api` address as `BTCTX_URL`.
+Both are on the `ui-multi` host, so a domain added to one is available to both. MCP clients authenticate with an AI key the owner creates in the app (**Settings → Connect an AI Assistant**; `Authorization: Bearer`, env `BTCTX_AI_KEY`), never the password. The key works only while the owner has AI access turned on, and only on the routes the MCP tools use (read the ledger, add, change or delete single entries, recalculate, make a backup copy in the app's `backups/` folder); login, password changes, restore, file imports, delete-all and settings answer 403. The app stores only the key's SHA-256; the owner can replace or revoke it there. The MCP server itself runs on the user's computer, not on StartOS, and accepts the `…/api` address as `BTCTX_URL`.
 
 ## Installation and First-Run Flow
 
@@ -112,7 +112,7 @@ Returns `admin` and the password from `store.json`. Changes nothing; safe to rep
 
 ### Connect an AI Assistant
 
-Returns the MCP API's https addresses (`.local` first), the username and stored password, the StartOS root CA (from `sdk.getSslCertificate`, last certificate in the chain), and a Claude Desktop config and `claude mcp add` command that run the MCP server with `uvx` from this release's git tag. Changes nothing; safe to repeat. If the root CA can't be read, the message points to System > About this Server to download it. Resolves "the AI can't connect" (wrong URL, TLS verification failures).
+Returns the MCP API's https addresses (`.local` first), the StartOS root CA (from `sdk.getSslCertificate`, last certificate in the chain), and a Claude Desktop config and `claude mcp add` command that run the MCP server with `uvx` from this release's git tag, with `YOUR_BITCOINTX_AI_KEY` where the key goes. It reads no credentials: the key is created and shown (once) only in the app. Changes nothing; safe to repeat. If the root CA can't be read, the message points to System > About this Server to download it. Resolves "the AI can't connect" (wrong URL, TLS verification failures).
 
 ### Recalculate Ledger
 
