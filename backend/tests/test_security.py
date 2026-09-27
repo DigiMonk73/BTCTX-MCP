@@ -167,6 +167,27 @@ class TestSessionSecret:
         mode = stat.S_IMODE(os.stat(tmp_path / KEY_FILENAME).st_mode)
         assert mode == 0o600
 
+    @pytest.mark.parametrize("old_example", ["your_secret_key_here", "CHANGEME-REPLACE-WITH-STRONG-SECRET"])
+    def test_old_example_values_are_ignored(self, monkeypatch, tmp_path, old_example):
+        """Both were example values in this repo's history."""
+        monkeypatch.setenv("SECRET_KEY", old_example)
+        key = load_secret_key(str(tmp_path))
+        assert key != old_example and (tmp_path / KEY_FILENAME).read_text() == key
+
+    @pytest.mark.parametrize("content", ["", "\n", "short-key", "x" * 31])
+    def test_an_empty_or_short_key_file_is_replaced(self, monkeypatch, tmp_path, caplog, content):
+        """It used to be kept (a guessable key) when the file already existed."""
+        monkeypatch.delenv("SECRET_KEY", raising=False)
+        path = tmp_path / KEY_FILENAME
+        path.write_text(content)
+        with caplog.at_level("WARNING", logger="backend.secret_key"):
+            key = load_secret_key(str(tmp_path))
+        assert len(key) >= 32 and key != content.strip()
+        assert path.read_text() == key
+        assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+        assert "too short" in caplog.text
+        assert load_secret_key(str(tmp_path)) == key  # kept from now on
+
     def test_explicit_env_key_wins(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SECRET_KEY", "an-operator-supplied-secret-value-1234567890")
         assert load_secret_key(str(tmp_path)) == "an-operator-supplied-secret-value-1234567890"
