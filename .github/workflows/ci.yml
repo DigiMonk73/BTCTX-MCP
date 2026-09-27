@@ -162,9 +162,13 @@ jobs:
         run: |
           curl -sf http://127.0.0.1:8080/api/health | tee /dev/stderr | grep -q "\"version\":\"$(tr -d '[:space:]' < VERSION)\""
           docker exec btctx python -m backend.cli migrate | grep -q "up to date"
-          echo "ci-password" | docker exec -i btctx python -m backend.cli set-password --password-stdin
+          # still the default login: the first-run setup code is logged and on /data
+          docker logs btctx 2>&1 | grep -q "First-run setup code: "
+          docker exec btctx test -s /data/setup-code.txt
+          echo "ci-password-123" | docker exec -i btctx python -m backend.cli set-password --password-stdin
+          docker exec btctx sh -c '! test -e /data/setup-code.txt'
           curl -sf -o /dev/null -X POST http://127.0.0.1:8080/api/login -H 'content-type: application/json' \
-            -d '{"username":"admin","password":"ci-password"}'
+            -d '{"username":"admin","password":"ci-password-123"}'
           docker exec btctx python -m backend.cli recalculate
       - name: Upgrade a v0.7.0 database (schema migrations)
         run: |
