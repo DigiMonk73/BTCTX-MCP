@@ -99,19 +99,20 @@ you expose the app on a network.
 In BitcoinTX, open **Settings → Connect an AI Assistant**, copy the setup
 prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
 or any app that runs MCP servers on your computer). The AI sets itself up
-following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). With the Mac app
-no password or address goes anywhere: the app writes a private key file the
-MCP server reads by itself. Or by hand, for the Mac app (Settings gives the
-same command pinned to your version):
+following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). The MCP server
+uses an **AI key**, never your password. With the Mac app no key or address
+goes anywhere: the app writes a private key file the MCP server reads by
+itself. Or by hand, for the Mac app (Settings gives the same command pinned
+to your version):
 
 ```bash
 claude mcp add --scope user bitcointx -- \
   uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp
 ```
 
-A server install (StartOS, Docker) uses `BTCTX_URL`, `BTCTX_USERNAME` and
-`BTCTX_PASSWORD` instead; you type the password into the configuration
-yourself.
+Docker and StartOS use `BTCTX_URL` and `BTCTX_AI_KEY` instead: create the key
+in the same Settings section (it's shown once) and paste it into your AI app's
+configuration yourself, not into the chat.
 
 [mcp_server/README.md](mcp_server/README.md) covers the Claude Desktop
 config, Docker and StartOS addresses, TLS options, and example prompts.
@@ -129,12 +130,24 @@ cloud AI only with a test ledger. Setup for local models:
   app, and you choose which app and model.
 - **BitcoinTX sends your ledger nowhere itself.** The MCP server talks only to
   your BitcoinTX; the model sees what the tools return.
-- **Mac app:** the server uses an AI assistant key that works only from this
-  Mac, and only after you turn on **Settings → Connect an AI Assistant → Let
-  AI assistants use BitcoinTX** (off by default).
-- **Docker and StartOS:** the server logs in with your BitcoinTX username and
-  password. There is no separate switch: to stop it, remove the server from
-  your AI app, or change your password.
+- **Off by default.** The key works only after you turn on **Settings →
+  Connect an AI Assistant → Let AI assistants use BitcoinTX**; turn it off to
+  stop the AI.
+- **What the key can do:** read the ledger, add, change or delete single
+  entries, and make a backup copy on the server. It can't log in, change your
+  password, restore a backup, import files or delete everything. In the Mac
+  app it works only from that Mac; on Docker and StartOS you can revoke it or
+  make a new one in Settings at any time.
+
+**Set up an AI with Docker or StartOS before AI keys existed?** Your AI app's
+settings file holds your BitcoinTX password in plain text, and BitcoinTX no
+longer accepts it for AI access. (1) In **Settings → Connect an AI
+Assistant**, turn on AI access and create an AI key; (2) in your AI app's
+settings, replace `BTCTX_PASSWORD` (and `BTCTX_USERNAME`) with `BTCTX_AI_KEY`
+set to that key, and delete the password; (3) change your BitcoinTX password
+(Settings → Reset Username & Password), or on StartOS run **Reset Login
+Credentials**, because the old one sat in that file. Mac app users: nothing
+to do.
 
 ## Upgrading
 

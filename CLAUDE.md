@@ -14,7 +14,7 @@ for AI-assisted entry. Work on `develop` (see Branches).
 |---|---|---|
 | Backend | `backend/` | FastAPI + SQLAlchemy + SQLite, Python ≥ 3.10 |
 | Frontend | `frontend/` | React + TypeScript + Vite, served from `frontend/dist` by the backend |
-| MCP server | `mcp_server/` | package `btctx-mcp`; talks to the backend over HTTP with a session login |
+| MCP server | `mcp_server/` | package `btctx-mcp`; talks to the backend over HTTP with the AI key (bearer), never a password |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
@@ -122,6 +122,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`), bulk download on a miss |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (live data off, own mempool server, proxy) |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
+| `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
@@ -141,22 +142,28 @@ So derived values must be recomputable from the Transaction row alone.
 
 ## Security rules
 
-- All API routers require login except `POST /api/users/register`,
-  `GET /api/users/setup-status`, `POST /api/users/reset-account`,
-  `GET /api/health` (status, version, schema only) and login.
-  User routes may only touch the logged-in user.
+- All API routers require login (or the AI key, below) except
+  `POST /api/users/register`, `GET /api/users/setup-status`,
+  `POST /api/users/reset-account`, `GET /api/health` (status, version,
+  schema only) and login. User routes may only touch the logged-in user.
 - `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
   default key anywhere.
 - The debug router, `DELETE /api/transactions/delete_all` and
-  `PUT /api/settings/tax-timezone` are login-only (never the `API_KEY` or the
-  AI assistant key); tests use the first two, the MCP server must not expose
-  bulk delete. Sessions carry a stamp of the password hash
+  `PUT /api/settings/tax-timezone` are login-only (never the AI key); tests
+  use the first two, the MCP server must not expose bulk delete. Sessions carry a stamp of the password hash
   (`backend/session_auth.py`): changing the password or resetting the account
   ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
-- Mac app only: the MCP server authenticates with the AI assistant key from
-  `mcp.json` (`backend/services/mcp_key.py`), never a password. The key works
-  only after the owner turns AI access on (off by default), only from localhost, only when `BTCTX_DESKTOP`/`BTCTX_MCP_FILE` are set, and
-  never for backup/restore, CSV/River import, delete-all or the key settings.
+- The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
+  `Authorization: Bearer`), never a password; there is no other API key. Mac
+  app: the key is in the owner-only `mcp.json` and works only from localhost.
+  Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
+  once). Only its SHA-256 is stored; a restore keeps the current key and
+  switch. It works only while AI access is on (off by default) and only on
+  `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
+  new MCP tool that needs a route adds it there on purpose (a test checks the
+  tools and the list agree). Never allow the key on login, users, key or
+  switch settings, backup download/restore, CSV export, imports, delete-all,
+  Ledger Review fixes, settings changes or debug.
 
 ## Testing (see `docs/TESTING.md`)
 

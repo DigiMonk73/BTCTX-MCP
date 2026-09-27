@@ -4,6 +4,45 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Security: AI keys for every edition
+- **The AI connector no longer uses your password.** On Docker and StartOS,
+  **Settings → Connect an AI Assistant** now has the **Let AI assistants use
+  BitcoinTX** switch (off by default) and **Create AI key**: a key shown
+  once, which you paste into your AI app's settings. **New key** replaces
+  it, **Revoke** deletes it. BitcoinTX stores only a hash of it. The Mac app
+  keeps its automatic key file.
+- **The key can do only what the AI tools need:** read the ledger, add,
+  change or delete single entries, recalculate, and make a backup copy. It
+  can't log in, change the username or password, restore or download a
+  backup, export or import files, delete everything, apply Ledger Review
+  fixes, open reports or change settings: those answer 403 (an allow-list,
+  so anything added later is closed to the key too).
+- **New AI tool `backup_ledger`:** a copy of the database in BitcoinTX's
+  `backups` folder on your server before a big change (the newest 3 are
+  kept, apart from the pre-upgrade copies; one a minute).
+- **A restore keeps the current AI key and switch**, so an old backup can't
+  bring back a key you revoked.
+- **The connector refuses a password.** While `BTCTX_PASSWORD` is in its
+  settings, every tool says how to switch to a key and sends nothing.
+- **Breaking:** the undocumented `API_KEY` setting (`X-API-Key` header) is
+  gone; use an AI key.
+- The StartOS **Connect an AI Assistant** action no longer shows your login;
+  its configuration has a `YOUR_BITCOINTX_AI_KEY` placeholder.
+
+**If you use an AI assistant with BitcoinTX on Docker or StartOS:** your AI
+app's settings file held your BitcoinTX password in plain text. After
+upgrading: (1) in BitcoinTX, Settings → Connect an AI Assistant, turn on AI
+access and create an AI key; (2) in your AI app's settings, replace
+`BTCTX_PASSWORD` (and `BTCTX_USERNAME`) with `BTCTX_AI_KEY` set to that key,
+and delete the password; (3) change your BitcoinTX password (Settings →
+Reset Username & Password), or on StartOS run **Reset Login Credentials**,
+because the old one sat in that file. Mac app users: nothing to do.
+
+### Documentation
+- The MCP README no longer says a local model means "nothing leaves your
+  computer": what the AI reads stays there, but BitcoinTX still looks up
+  prices unless Live data is off. It also says a preview can look up prices.
+
 ### Development
 - Work now happens on `develop`; `main` holds released code only and moves
   by fast-forwarding to `develop` (`CLAUDE.md`, "Branches"). The pre-push

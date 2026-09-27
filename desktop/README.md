@@ -37,7 +37,7 @@ open desktop/dist/BitcoinTX.app
   another program holds the port, a dialog offers Retry, Use Another Port
   (this session only) or Quit.
 - Data: `~/Library/Application Support/BitcoinTX/`: `btctx.db`, the
-  per-install session key `.btctx_secret_key`, `mcp.json` (the AI assistant
+  per-install session key `.btctx_secret_key`, `mcp.json` (the AI
   key) and `backups/`.
 - Log: `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
 - MCP server: needs no settings; it reads `mcp.json`. Turn on **Settings →

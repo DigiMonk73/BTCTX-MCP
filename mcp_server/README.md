@@ -8,14 +8,17 @@ sats"). The assistant turns it into transactions, shows you a dry-run preview
 with dedup and the resulting gain/loss, and saves them once you confirm.
 
 The server runs **on your computer** and talks to your BitcoinTX instance
-over its normal API. With the Mac app it uses an AI assistant key the app
-keeps in a private file, never your password; with Docker or StartOS it logs
-in with your BitcoinTX username and password.
+over its normal API with an **AI key**, never your password. The Mac app
+keeps the key in a private file the server reads; with Docker or StartOS you
+create the key in BitcoinTX Settings and paste it into your AI app's
+settings.
 
 **What the AI's model sees:** everything the tools return (transactions,
 balances, gains, the review list) and everything you paste into the chat.
-The MCP server itself sends nothing anywhere else, but your AI app sends the
-conversation to its model. With a cloud AI that is the provider's servers;
+The MCP server itself sends nothing anywhere else. BitcoinTX looks up prices
+from outside services when a preview fills in a value, unless Live data is
+off (Settings → Privacy & Network). Your AI app sends the conversation to its
+model. With a cloud AI that is the provider's servers;
 see [Privacy: cloud or local model](#privacy-cloud-or-local-model).
 
 ## Tools
@@ -31,28 +34,30 @@ see [Privacy: cloud or local model](#privacy-cloud-or-local-model).
 | `get_btc_price` | Historical daily or current BTC price |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; fee-value fixes are made in Settings |
+| `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (the newest 3 are kept, one a minute). Restoring one is up to you |
 
 There is deliberately no bulk delete.
 
 ## Requirements
 
-- BitcoinTX **v0.8.0 or later** (adds the `/api/import/entries` endpoints this
-  server uses). The Mac app's key file, `review_ledger` and `fee_usd` need
-  **v0.9.2 or later**. Install the server from the tag that matches your
-  BitcoinTX version (`…BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server`); the
-  setup prompt in Settings does this for you.
+- BitcoinTX **v1.0.3 or later** on Docker and StartOS (the AI key); the Mac
+  app **v0.9.2 or later** (its key file). `backup_ledger` needs v1.0.3.
+  Install the server from the tag that matches your BitcoinTX version
+  (`…BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server`); the setup prompt in
+  Settings does this for you.
 - Python 3.10+ on the machine running your AI client
 
 ## Quick setup: let your AI do it
 
 In BitcoinTX, open **Settings → Connect an AI Assistant** and copy the setup
-prompt into your AI app. It carries your address and username and points the
-AI to [AI_SETUP.md](AI_SETUP.md), which tells it how to install the server in
-Claude Code, Claude Desktop, Grok Build or another MCP client. The password
-stays out of the chat: the AI writes `YOUR_BITCOINTX_PASSWORD` and you replace
-it in the configuration file. The same section has the Claude Desktop config
-and `claude mcp add` command (and, for the Mac app, a Grok Build command)
-ready to paste if you'd rather do it yourself.
+prompt into your AI app. It carries your address and points the AI to
+[AI_SETUP.md](AI_SETUP.md), which tells it how to install the server in
+Claude Code, Claude Desktop, Grok Build or another MCP client. On Docker and
+StartOS, create the AI key in the same section first; it stays out of the
+chat: the AI writes `YOUR_BITCOINTX_AI_KEY` and you paste the key into the
+configuration file. The section also has the Claude Desktop config and
+`claude mcp add` command (and, for the Mac app, a Grok Build command) ready
+to paste if you'd rather do it yourself.
 
 The AI app has to run on your computer (or on your network, for Docker and
 StartOS): cloud-hosted assistants such as Grok Bot can't reach BitcoinTX.
@@ -68,18 +73,19 @@ on the model behind your AI app, not on this server:
 
 - **Cloud AI** (Claude Desktop, Claude Code, Grok Build and most others): the
   conversation, tool results included, is sent to the provider's servers and
-  handled under its privacy terms. Your password or AI assistant key is not
-  sent: it stays in the configuration on your computer.
-- **Local model:** nothing leaves your computer. Use an app that runs MCP
-  servers with a model on your own machine, for example
+  handled under its privacy terms. Your AI key is not sent: it stays in the
+  configuration on your computer.
+- **Local model:** what the AI reads stays on your machine. BitcoinTX itself
+  still contacts price services unless Live data is off (Settings → Privacy &
+  Network). Use an app that runs MCP servers with a model on your own
+  machine, for example
   [LM Studio](https://lmstudio.ai/docs/app/mcp) (0.3.17 or later) or
   [Goose](https://goose-docs.ai/) with [Ollama](https://ollama.com/).
 
-Access: in the Mac app, **Settings → Connect an AI Assistant → Let AI
-assistants use BitcoinTX** is off by default: nothing can use the key until
-you turn it on; on Docker and
-StartOS the server logs in with your password, so remove it from your AI app
-(or change the password) to stop it.
+Access: **Settings → Connect an AI Assistant → Let AI assistants use
+BitcoinTX** is off by default on every edition: nothing can use the key until
+you turn it on. Turn it off, or revoke the key (Docker, StartOS), to stop the
+AI.
 
 If you want BitcoinTX's data to stay private, use a local model, or use a
 cloud AI only with a test ledger. Keeping a cloud AI away from real data
@@ -107,13 +113,13 @@ as for Claude Desktop (below). For the Mac app:
 ```
 
 Use the full path from `which uvx` if LM Studio can't find it. For Docker or
-StartOS add the `env` block with `BTCTX_URL`, `BTCTX_USERNAME` and
-`BTCTX_PASSWORD`.
+StartOS add the `env` block with `BTCTX_URL` and `BTCTX_AI_KEY` (see
+Configure).
 
 **Goose:** `goose configure` → choose Ollama as the provider; then
 `goose configure` → Add Extension → Command-line Extension, with the command
 `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`
-(and the three `BTCTX_` variables for a server install).
+(and `BTCTX_URL` and `BTCTX_AI_KEY` for Docker or StartOS).
 
 ## Install
 
@@ -130,22 +136,31 @@ This installs a `btctx-mcp` command. `uvx` works too:
 ## Configure
 
 **The BitcoinTX Mac app (0.9.2+): nothing to configure.** With no
-`BTCTX_USERNAME`/`BTCTX_PASSWORD` set, the server reads
+`BTCTX_AI_KEY` set, the server reads
 `~/Library/Application Support/BitcoinTX/mcp.json`, which the app writes when
-it starts (owner-only): its address and an AI assistant key, never your
-password. Turn on **Settings → Connect an AI Assistant → Let AI assistants use
-BitcoinTX** first (off by default), and keep BitcoinTX open while you use the
-AI. The same section turns access off again or resets the key (the server picks up a
-new key by itself). `BTCTX_MCP_FILE` points at another file.
+it starts (owner-only): its address and the AI key, never your password.
+Turn on **Settings → Connect an AI Assistant → Let AI assistants use
+BitcoinTX** first (off by default), and keep BitcoinTX open while you use
+the AI. The same section turns access off again or resets the key (the
+server picks up a new key by itself). `BTCTX_MCP_FILE` points at another
+file.
 
-**A server install (StartOS, Docker, from source):**
+**Docker, StartOS, or from source:** in BitcoinTX, **Settings → Connect an
+AI Assistant**, turn on **Let AI assistants use BitcoinTX** and click
+**Create AI key** (it's shown once; **New key** replaces it, **Revoke**
+deletes it).
 
 | Variable | Meaning |
 |----------|---------|
 | `BTCTX_URL` | Where BitcoinTX is reachable: Docker the host and port you published, e.g. `http://localhost:8080` or `http://192.168.1.50:8080`; StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000` |
-| `BTCTX_USERNAME` / `BTCTX_PASSWORD` | Your BitcoinTX login |
+| `BTCTX_AI_KEY` | The AI key. Put it in the configuration file, not in a chat or a shell command (which stays in the history) |
 | `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
 | `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |
+
+`BTCTX_USERNAME` and `BTCTX_PASSWORD` are no longer used. While
+`BTCTX_PASSWORD` is set, every tool answers with how to switch to a key and
+sends nothing; after switching, change your BitcoinTX password, since the old
+one sat in that file.
 
 ### Claude Desktop
 
@@ -158,8 +173,7 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
       "command": "btctx-mcp",
       "env": {
         "BTCTX_URL": "http://192.168.1.50:8080",
-        "BTCTX_USERNAME": "your-username",
-        "BTCTX_PASSWORD": "your-password"
+        "BTCTX_AI_KEY": "YOUR_BITCOINTX_AI_KEY"
       }
     }
   }
@@ -176,9 +190,12 @@ running app and its key by itself.
 
 ```bash
 claude mcp add --scope user bitcointx \
-  -e BTCTX_URL=http://192.168.1.50:8080 -e BTCTX_USERNAME=your-username -e BTCTX_PASSWORD=your-password \
+  -e BTCTX_URL=http://192.168.1.50:8080 -e BTCTX_AI_KEY=YOUR_BITCOINTX_AI_KEY \
   -- btctx-mcp
 ```
+
+Then paste your key over the placeholder in `~/.claude.json`
+(`mcpServers.bitcointx.env`), so it never goes into your shell history.
 
 ## Using it
 
@@ -195,17 +212,25 @@ you to approve each tool call unless you tell it not to.
 
 ## Security notes
 
-- Mac app: the AI assistant key sits in `mcp.json`, readable only by you. It
-  works only from this computer, and never for backup, restore, imports or
-  delete-all. Settings → Connect an AI Assistant turns it off or resets it.
-- Docker/StartOS: your BitcoinTX password lives in the MCP client config on
-  your computer. Anyone who can read that file can log in to BitcoinTX.
+- **What the AI key can do:** read the ledger, add, change or delete single
+  transactions, recalculate, and make a backup copy on the server
+  (`backup_ledger`). Only while AI access is on.
+- **What it can't do** (BitcoinTX answers 403): log in, change your username
+  or password, create or revoke keys, turn AI access on or off, restore or
+  download a backup, export or import files, delete everything, apply Ledger
+  Review fixes, change settings, or open reports.
+- Mac app: the key sits in `mcp.json`, readable only by you, and works only
+  from this computer. Settings → Connect an AI Assistant turns access off or
+  resets the key.
+- Docker/StartOS: the key sits in your AI app's configuration on your
+  computer; anyone who can read that file can do what the key allows. Revoke
+  it or make a new one in Settings → Connect an AI Assistant. BitcoinTX stores
+  only a hash of it, and restoring a backup never brings back an old key.
 - With a cloud AI, what the tools return goes to the provider (see
   [Privacy](#privacy-cloud-or-local-model)).
-- The server exposes read tools, `review_ledger`, `recalculate_ledger`, and
-  add/update/delete of single transactions.
-  Every write is visible in BitcoinTX. Take a backup (Settings → Backup &
-  Restore, or `scripts/backup-db.sh` on a server) before a large import.
+- There is no bulk delete, and every write is visible in BitcoinTX. Before a
+  large import, have the AI run `backup_ledger` or take a backup yourself
+  (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
 
 ## Development
 

@@ -51,7 +51,7 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 |------|------------|
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
-| `mcp.json` | The app's address and AI assistant key for the MCP server, mode 600 |
+| `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
 | `backups/` | Copies of `btctx.db` taken automatically before a schema upgrade or a restore (mode 600; the newest 5 are kept) |
 
 A new app version upgrades the database schema on first launch (after copying
@@ -136,14 +136,14 @@ the Application Support database.
 **Settings → Connect an AI Assistant** in the app has a setup prompt to paste
 into your AI app and one-line commands with no password, username or port.
 At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
-(0600, in a 0700 folder): the app's URL, port, pid, version and an **AI
-assistant key** (`backend/services/mcp_key.py`). The MCP server reads it and
-sends the key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
+(0600, in a 0700 folder): the app's URL, port, pid, version and the **AI
+key** (`backend/services/ai_key.py`). The MCP server reads it and sends the
+key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
 database (`app_settings`); the key stays the same across restarts and after a
 restore. It's accepted only from 127.0.0.1, only while AI access is on (off
-until the owner turns it on in Settings), and
-never for backup/restore, CSV or River import, delete-all or the key settings
-themselves. Settings can turn access off or reset the key. The app must be
+until the owner turns it on in Settings), and only on the routes the MCP
+tools use (`AI_KEY_ROUTES`; login, backup/restore, imports, delete-all, the
+key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
 running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 
 ## CI
