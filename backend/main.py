@@ -79,6 +79,19 @@ def _load_network_settings() -> None:
         db.close()
 
 
+def _prepare_first_run() -> None:
+    """The setup code while the account has the default login (first_run.py)."""
+    from backend.services import first_run
+
+    db = SessionLocal()
+    try:
+        first_run.prepare(db)
+    except Exception:
+        logger.exception("Could not prepare the first-run setup code")
+    finally:
+        db.close()
+
+
 def _sync_ai_key_file() -> None:
     """Mac app: write mcp.json (the AI key) for this run."""
     if ai_key.mode() != "mac":
@@ -102,6 +115,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     init_db()
+    _prepare_first_run()
     _load_network_settings()
     _sync_ai_key_file()
     yield
@@ -182,10 +196,12 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
         if os.path.exists(index_path):
             return FileResponse(index_path, media_type="text/html")
 
-    # For API routes or non-404 errors, return JSON response
+    # For API routes or non-404 errors, return JSON response (with the
+    # exception's headers, e.g. Retry-After on a 429)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail or "Error"}
+        content={"detail": exc.detail or "Error"},
+        headers=getattr(exc, "headers", None),
     )
 
 # ---------------------------------------------------------
@@ -276,6 +292,7 @@ class LoginRequest(BaseModel):
 # Production-Ready Login / Logout Endpoints
 # ---------------------------------------------------------
 from backend.services.user import get_user_by_username  # for verifying credentials
+from backend.services import login_throttle
 
 @app.post("/api/login")
 def login(
@@ -290,15 +307,16 @@ def login(
       2) Look up the user in the DB, check hashed password
       3) If valid, store user.id in session
       4) Return success message
+    Repeated failures are answered 429 for a while (login_throttle.py).
     """
+    login_throttle.check(request)
     user = get_user_by_username(login_req.username, db)
-    if not user:
-        # For security, don't reveal which part is invalid
+    # For security, don't reveal which part is invalid
+    if not user or not user.verify_password(login_req.password):
+        login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
-    if not user.verify_password(login_req.password):
-        raise HTTPException(status_code=401, detail="Invalid username or password.")
-
+    login_throttle.succeeded(request)
     start_session(request, user)
     return {"detail": f"Logged in as {user.username}"}
 

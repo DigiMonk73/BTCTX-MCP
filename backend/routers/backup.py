@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
-from backend.services import ai_key, outbound
+from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.reports.safe_text import csv_text
 from backend.constants import ACCOUNT_ID_TO_NAME
@@ -138,6 +138,12 @@ def restore_encrypted_backup(
             ai_key.carry_over(db, ai_state)
         except Exception:
             logger.exception("Could not keep the AI key after restore")
+        # The restored login may be the default one (a setup code) or not
+        db.close()
+        try:
+            first_run.prepare(db)
+        except Exception:
+            logger.exception("Could not prepare the first-run setup code after restore")
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()

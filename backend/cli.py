@@ -55,7 +55,9 @@ def _read_password(args: argparse.Namespace) -> str:
         raise ValueError(
             f"No password given: pipe it to --password-stdin or set {PASSWORD_ENV}."
         )
-    return password
+    from backend.schemas.user import check_new_password
+
+    return check_new_password(password)  # at least 12 characters
 
 
 def cmd_set_password(args: argparse.Namespace) -> int:
@@ -81,6 +83,10 @@ def cmd_set_password(args: argparse.Namespace) -> int:
         user.set_password(password)  # bcrypt; refuses more than 72 bytes
         db.commit()
         print(f"Password set for user {user.username!r}.")
+        # No longer the default login: the first-run setup code is done with
+        from backend.services import first_run
+
+        first_run.clear_code()
     except Exception:
         db.rollback()
         raise
