@@ -127,6 +127,8 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites) |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
+| `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
+| `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
@@ -158,6 +160,19 @@ So derived values must be recomputable from the Transaction row alone.
   use the first two, the MCP server must not expose bulk delete. Sessions carry a stamp of the password hash
   (`backend/session_auth.py`): changing the password or resetting the account
   ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
+- Login, reset-account and password changes are throttled
+  (`services/login_throttle.py`, per client and global; 429 + Retry-After).
+  New passwords need 12+ characters; a change needs the current password.
+- While the account has the default login (Docker/source before it's
+  claimed), logging in with it and claiming it need the one-time setup code
+  (`services/first_run.py`, `<data dir>/setup-code.txt`, printed to the
+  log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
+- Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
+  else `Origin`) are refused (`security_headers.py`); no CORS unless
+  `CORS_ALLOW_ORIGINS` is set.
+- Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
+  ReportLab, which may fetch nothing remote); CSV text cells can't start a
+  formula.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json` and works only from localhost.
@@ -174,7 +189,7 @@ So derived values must be recomputable from the Transaction row alone.
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~540 hermetic tests (backend + MCP), ~1 min
+make test-fast   # ~650 hermetic tests (backend + MCP), ~1 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min

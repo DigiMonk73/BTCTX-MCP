@@ -4,6 +4,60 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Privacy: you choose where prices come from, and no lookup reveals a date
+- **Nothing is contacted until you choose.** A fresh install asks, right
+  after the first login, where Bitcoin prices come from: **My mempool
+  server**, **Public price sites**, or **Off** (Settings → Privacy &
+  Network). Before that the dashboard says "Prices off". Installs from
+  before 1.1.0 keep what they did.
+- **Your own mempool server** now also gives past prices (its hourly record
+  at 00:00 UTC), and it's used *only*: the public sites are asked when it
+  can't answer only if you turn on **Fall back to public price sites**. A
+  mempool server on your network is reached directly, not through the proxy
+  (an .onion still is).
+- **Past prices never reveal your dates.** Before, a missing day started a
+  ~1,000-day download that began exactly 500 days before it, so the site
+  could work out the date, and the Coinbase backup never covered the day,
+  so BitcoinTX often asked for the day by name. Now the public sites send
+  the whole daily history once, in the same requests for every install, and
+  after that only "the latest days". The single-day lookups (CoinGecko,
+  Kraken, CoinDesk) are gone. Days before 2011-08-18 (Bitstamp's first) have
+  no public price: type the value in.
+- The live price is asked at most once a minute however many tabs are open,
+  and the sidebar converter doesn't ask while its tab is hidden.
+- **Correction:** the 1.0.3 README, StartOS docs and website said that
+  download kept lookups from pointing at your dates; it didn't, as above.
+
+### Security
+- **PDF reports can't be made to fetch anything.** Text stored in a
+  transaction (for example from an imported file or an AI) could make the
+  server contact any web address while drawing a report, skipping the
+  proxy. Report text is now escaped and the PDF library may fetch nothing
+  remote. A deposit's source must be one of the listed values. The IRS forms
+  (filled by a different tool) are unchanged.
+- **Docker/source first run: a setup code.** Until you set your own login,
+  logging in with admin/password or claiming the account needs a one-time
+  code from the log (`docker logs`) or `/data/setup-code.txt`, so nobody
+  else on the network can claim it first.
+- **Login protection:** repeated wrong passwords make everyone wait longer
+  (1 s up to 5 min); new passwords need at least 12 characters (existing
+  ones still work); changing the password needs the current one.
+- **Requests from other sites are refused:** a page on another site (or
+  another app on the same server) can't make your browser restore a backup
+  or import a file. Cross-origin requests (CORS) are off unless configured.
+- A restore refuses files over 1 GiB and unreasonable key-strength settings;
+  two old example session keys from the project's history are refused; an
+  empty session key file is replaced.
+- CSV exports can't start a spreadsheet formula; Docker and StartOS keep no
+  access log (request paths can hold dates), and transaction dates left the
+  normal log.
+
+### AI connector
+- The setup texts pin the connector to your BitcoinTX version (`@vX.Y.Z`)
+  instead of following `main`: your AI app runs exactly that code and
+  fetches nothing new at each start. After an update, every tool reply says
+  which version to set. (PyPI will come once publishing is set up.)
+
 ## [v1.0.3] - 2026-09-27 - Security: AI keys for every edition
 
 ### AI keys instead of passwords

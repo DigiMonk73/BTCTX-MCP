@@ -36,8 +36,12 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
 /data/                 volume mount point (persistent)
   ├── btctx.db             SQLite database
   ├── .btctx_secret_key    per-install session signing key (mode 600)
-  └── backups/             automatic copies taken before a schema upgrade
-                           or a restore (mode 600; only created when needed)
+  ├── setup-code.txt       one-time first-run code while the account still has
+  │                        the default login (mode 600; deleted once claimed;
+  │                        never on StartOS, whose login is set at install)
+  └── backups/             automatic copies taken before a schema upgrade,
+                           a restore, or asked for with the AI key (mode 600;
+                           only created when needed)
 ```
 
 On every start the app migrates `btctx.db` to the current schema
@@ -109,8 +113,9 @@ Change these only together with the package (`startos/`):
     the package runs it as a oneshot before the web server starts.
   - `python -m backend.cli set-password [--username NAME] --password-stdin`:
     sets the first user's password through the app's own bcrypt hashing
-    (also `BTCTX_NEW_PASSWORD` env); used on install and by Reset Login
-    Credentials. Never takes the password as an argument.
+    (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used on
+    install and by Reset Login Credentials. Never takes the password as an
+    argument.
   - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
     Ledger action.
   - `python -m backend.cli review [--fix-fee-prices]`: the read-only Ledger
