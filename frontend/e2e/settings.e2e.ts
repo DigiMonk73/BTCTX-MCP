@@ -140,7 +140,7 @@ test("export as CSV", async ({ authedPage: page }) => {
   expect(text).toContain("Transfer");
 });
 
-test("connect an AI assistant: prompt and configs name this server and user", async ({ authedPage: page, context, baseURL, browserName }) => {
+test("connect an AI assistant: prompt and configs name this server, never a password", async ({ authedPage: page, context, baseURL, browserName }) => {
   // WebKit has no clipboard permissions to grant; read the clipboard back in Chromium only.
   const canReadClipboard = browserName === "chromium";
   if (canReadClipboard) await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -152,7 +152,10 @@ test("connect an AI assistant: prompt and configs name this server and user", as
   await expect(ai.getByRole("note")).toContainText("local model");
   const prompt = page.getByLabel("Setup prompt");
   await expect(prompt).toHaveValue(new RegExp(baseURL!.replace(/[.:/]/g, "\\$&")));
-  await expect(prompt).toHaveValue(new RegExp(USER));
+  await expect(prompt).toHaveValue(/BTCTX_AI_KEY: don't ask me for it/);
+  for (const secret of ["BTCTX_PASSWORD", "BTCTX_USERNAME", USER, PASSWORD]) {
+    await expect(prompt).not.toHaveValue(new RegExp(secret));
+  }
   const promptBlock = page.getByRole("button", { name: "Copy" }).first();
   await promptBlock.click();
   await expect(page.getByText("Setup prompt copied.")).toBeVisible();
@@ -190,13 +193,15 @@ test.describe("Mac app: AI assistant key instead of a password", () => {
     const anon = await playwrightRequest.newContext({ baseURL: app.url });
     const toggle = ai.getByLabel("Let AI assistants use BitcoinTX");
     await expect(toggle).not.toBeChecked();
-    await expect(ai.getByText("Turn on AI assistant access above first.")).toBeVisible();
+    await expect(ai.getByText(/Turn on AI access above first\./)).toBeVisible();
+    // The Mac app resets its key file; no Create/Revoke here.
+    await expect(ai.getByRole("button", { name: "Create AI key" })).toHaveCount(0);
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
     await toggle.check();
     await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(200);
     await toggle.uncheck();
-    await expect(page.getByText("AI assistant access is off.")).toBeVisible();
+    await expect(page.getByText("AI access is off.")).toBeVisible();
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
     await toggle.check();
     // The first "on" toast may still be showing: check the newest.
@@ -204,7 +209,7 @@ test.describe("Mac app: AI assistant key instead of a password", () => {
 
     acceptDialogs(page);
     await ai.getByRole("button", { name: "Reset key" }).click();
-    await expect(page.getByText("AI assistant key reset.")).toBeVisible();
+    await expect(page.getByText("AI key reset.")).toBeVisible();
     const second = JSON.parse(readFileSync(keyFile, "utf8"));
     expect(second.token).not.toBe(first.token);
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
@@ -214,12 +219,61 @@ test.describe("Mac app: AI assistant key instead of a password", () => {
   });
 });
 
-test("server installs keep the username/password setup and no key controls", async ({ authedPage: page }) => {
+test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
   await openSettings(page);
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
-  await expect(ai.getByLabel("Setup prompt")).toHaveValue(/BTCTX_PASSWORD: don't ask me for it/);
-  await expect(ai.getByLabel("Let AI assistants use BitcoinTX")).toHaveCount(0);
+  const anon = await playwrightRequest.newContext({ baseURL: app.url });
+  const works = async (key: string) =>
+    (await anon.get("/api/transactions", { headers: { Authorization: `Bearer ${key}` } })).status();
   await expect(ai.getByRole("button", { name: "Reset key" })).toHaveCount(0);
+  const toggle = ai.getByLabel("Let AI assistants use BitcoinTX");
+  await expect(toggle).not.toBeChecked();
+
+  // Create: shown once, with a warning while access is still off.
+  await ai.getByRole("button", { name: "Create AI key" }).click();
+  const shown = ai.getByRole("group", { name: "New AI key" });
+  await expect(shown).toContainText("only time BitcoinTX shows this key");
+  await expect(shown).toContainText("turn on AI access");
+  const first = await shown.getByLabel("AI key").inputValue();
+  expect(first).toMatch(/^btctx_ak_/);
+  expect(await works(first)).toBe(401); // access is off
+  await toggle.check();
+  await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
+  expect(await works(first)).toBe(200);
+  // The key can't reach login-only actions.
+  const restore = await anon.post("/api/backup/restore", {
+    headers: { Authorization: `Bearer ${first}` }, multipart: { password: "x", file: { name: "b.btx", mimeType: "application/octet-stream", buffer: Buffer.from("x") } },
+  });
+  expect(restore.status()).toBe(403);
+
+  // Leaving the page forgets it: a reload shows no key.
+  await page.reload();
+  await openSettings(page);
+  await expect(ai.getByRole("group", { name: "New AI key" })).toHaveCount(0);
+  await expect(page.getByText(first)).toHaveCount(0);
+
+  // New key replaces the old one.
+  acceptDialogs(page);
+  await ai.getByRole("button", { name: "New key" }).click();
+  const second = await ai.getByRole("group", { name: "New AI key" }).getByLabel("AI key").inputValue();
+  expect(second).not.toBe(first);
+  expect(await works(first)).toBe(401);
+  expect(await works(second)).toBe(200);
+
+  // Switch off: refused with the reason; back on: works again.
+  await toggle.uncheck();
+  await expect(page.getByText("AI access is off.")).toBeVisible();
+  const off = await anon.get("/api/transactions", { headers: { Authorization: `Bearer ${second}` } });
+  expect(off.status()).toBe(401);
+  expect((await off.json()).detail).toBe("AI access is turned off in BitcoinTX Settings.");
+  await toggle.check();
+
+  // Revoke.
+  await ai.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText("AI key revoked.")).toBeVisible();
+  expect(await works(second)).toBe(401);
+  await expect(ai.getByRole("button", { name: "Create AI key" })).toBeVisible();
+  await anon.dispose();
 });
 
 test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: page }) => {

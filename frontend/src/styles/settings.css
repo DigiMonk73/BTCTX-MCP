@@ -90,6 +90,9 @@
 .ai-setup-manual code { font-family: var(--font-mono); font-size: 0.9em; }
 .ai-setup-manual a { color: var(--color-accent); }
 .ai-access-toggle { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); cursor: pointer; }
+.ai-key-actions { display: flex; flex-direction: column; gap: var(--space-2); }
+.ai-new-key { margin-top: var(--space-3); }
+.ai-new-key .note { margin: 0 0 var(--space-2); }
 .ai-privacy-note { margin: 0 0 var(--space-4); line-height: 1.5; }
 .ai-privacy-note a { color: inherit; text-decoration: underline; }
 
@@ -101,6 +104,7 @@
 @media (max-width: 900px) {
   .settings-option { flex-direction: column; align-items: stretch; gap: var(--space-3); }
   .settings-option > .btn { align-self: flex-start; }
+  .ai-key-actions { flex-direction: row; }
   .credential-update-form { width: 100%; }
 }
 @media (max-width: 480px) {

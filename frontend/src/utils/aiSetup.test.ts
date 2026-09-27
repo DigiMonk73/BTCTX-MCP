@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PASSWORD_PLACEHOLDER,
+  KEY_PLACEHOLDER,
   buildAiPrompt,
   claudeCodeCommand,
   claudeDesktopConfig,
@@ -10,7 +10,7 @@ import {
   serverEnv,
 } from "./aiSetup";
 
-const mac = { url: "http://127.0.0.1:8765", username: "satoshi", version: "0.9.1" };
+const server = { url: "http://192.168.1.50:8080", version: "0.9.1" };
 
 describe("gitRef", () => {
   it("pins to the release tag of this app", () => {
@@ -36,19 +36,33 @@ describe("needsCaBundle", () => {
   });
 });
 
-describe("the password", () => {
+describe("Docker and StartOS: the AI key", () => {
+  const outputs = [buildAiPrompt(server), claudeDesktopConfig(server), claudeCodeCommand(server)];
+
   it("is a placeholder everywhere, never a real value", () => {
-    expect(serverEnv(mac).BTCTX_PASSWORD).toBe(PASSWORD_PLACEHOLDER);
-    expect(buildAiPrompt(mac)).toContain(`don't ask me for it in this chat`);
-    expect(claudeCodeCommand(mac)).toContain(`BTCTX_PASSWORD='${PASSWORD_PLACEHOLDER}'`);
+    expect(serverEnv(server)).toEqual({ BTCTX_URL: server.url, BTCTX_AI_KEY: KEY_PLACEHOLDER });
+    expect(buildAiPrompt(server)).toContain("BTCTX_AI_KEY: don't ask me for it in this chat");
+    expect(claudeCodeCommand(server)).toContain(`BTCTX_AI_KEY='${KEY_PLACEHOLDER}'`);
+    expect(buildAiPrompt(server)).not.toMatch(/btctx_ak_/);
+  });
+
+  it("never asks for or carries a username or password", () => {
+    for (const text of outputs) {
+      expect(text).not.toContain("BTCTX_PASSWORD");
+      expect(text).not.toContain("BTCTX_USERNAME");
+    }
+    expect(buildAiPrompt(server)).toContain("Never use my BitcoinTX password");
+  });
+
+  it("steers the AI to a configuration file over a command in the shell history", () => {
+    expect(buildAiPrompt(server)).toMatch(/Prefer your app's configuration file to a terminal command/);
   });
 });
 
 describe("buildAiPrompt", () => {
-  it("carries the address, login and a guide and server pinned to this release", () => {
-    const prompt = buildAiPrompt(mac);
-    expect(prompt).toContain("BTCTX_URL: http://127.0.0.1:8765");
-    expect(prompt).toContain("BTCTX_USERNAME: satoshi");
+  it("carries the address and a guide and server pinned to this release", () => {
+    const prompt = buildAiPrompt(server);
+    expect(prompt).toContain("BTCTX_URL: http://192.168.1.50:8080");
     expect(prompt).toContain("https://github.com/DigiMonk73/BTCTX-MCP/blob/v0.9.1/mcp_server/AI_SETUP.md");
     expect(prompt).toContain(
       'uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server" btctx-mcp'
@@ -57,40 +71,36 @@ describe("buildAiPrompt", () => {
   });
 
   it("asks for the certificate on a StartOS address", () => {
-    const prompt = buildAiPrompt({ ...mac, url: "https://adjective-noun.local" });
+    const prompt = buildAiPrompt({ ...server, url: "https://adjective-noun.local" });
     expect(prompt).toContain("BTCTX_CA_BUNDLE");
   });
 });
 
 describe("claudeDesktopConfig", () => {
   it("is valid JSON with the server under mcpServers", () => {
-    const config = JSON.parse(claudeDesktopConfig(mac));
+    const config = JSON.parse(claudeDesktopConfig(server));
     expect(config.mcpServers.bitcointx).toEqual({
       command: "uvx",
       args: ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server", "btctx-mcp"],
-      env: {
-        BTCTX_URL: "http://127.0.0.1:8765",
-        BTCTX_USERNAME: "satoshi",
-        BTCTX_PASSWORD: PASSWORD_PLACEHOLDER,
-      },
+      env: { BTCTX_URL: "http://192.168.1.50:8080", BTCTX_AI_KEY: KEY_PLACEHOLDER },
     });
   });
 });
 
 describe("claudeCodeCommand", () => {
   it("adds the server for every project and puts the name before the env flags", () => {
-    const cmd = claudeCodeCommand(mac);
-    expect(cmd.startsWith("claude mcp add --scope user bitcointx \\\n  -e BTCTX_URL='http://127.0.0.1:8765'")).toBe(true);
+    const cmd = claudeCodeCommand(server);
+    expect(cmd.startsWith("claude mcp add --scope user bitcointx \\\n  -e BTCTX_URL='http://192.168.1.50:8080'")).toBe(true);
     expect(cmd).toContain("-- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp");
   });
 
-  it("quotes a username with a quote in it for the shell", () => {
-    expect(claudeCodeCommand({ ...mac, username: "o'neil" })).toContain(`BTCTX_USERNAME='o'\\''neil'`);
+  it("quotes an address with a quote in it for the shell", () => {
+    expect(claudeCodeCommand({ ...server, url: "http://o'neil.local" })).toContain(`BTCTX_URL='http://o'\\''neil.local'`);
   });
 });
 
-describe("the Mac app (key file, no password)", () => {
-  const keyMode = { ...mac, keyMode: true };
+describe("the Mac app (key file, nothing secret)", () => {
+  const keyMode = { url: "http://127.0.0.1:8765", version: "0.9.1", keyMode: true };
   const outputs = [
     buildAiPrompt(keyMode),
     claudeDesktopConfig(keyMode),
@@ -98,14 +108,13 @@ describe("the Mac app (key file, no password)", () => {
     grokCommand(keyMode),
   ];
 
-  it("puts no password, username, address or port in any configuration", () => {
+  it("puts no key, password, address or port in any configuration", () => {
     for (const text of outputs) {
       expect(text).not.toContain("BTCTX_PASSWORD");
-      expect(text).not.toContain(PASSWORD_PLACEHOLDER);
-      expect(text).not.toContain("BTCTX_USERNAME");
+      expect(text).not.toContain("BTCTX_AI_KEY");
+      expect(text).not.toContain(KEY_PLACEHOLDER);
       expect(text).not.toContain("BTCTX_URL");
       expect(text).not.toContain("8765");
-      expect(text).not.toContain("satoshi");
     }
     expect(serverEnv(keyMode)).toEqual({});
     expect(JSON.parse(claudeDesktopConfig(keyMode)).mcpServers.bitcointx.env).toBeUndefined();
