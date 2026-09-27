@@ -153,9 +153,9 @@ def delete_all_transactions_endpoint(request: Request, db: Session = Depends(get
     """
     Delete all transactions from the database. This will remove all Transaction records,
     and cascade delete associated LedgerEntries, BitcoinLots, and LotDisposals.
-    Login only (never an API key or the AI assistant key).
+    Login only (never the AI key).
     """
-    if not request.session.get("user_id"):  # no API key, no AI assistant key
+    if not request.session.get("user_id"):  # never the AI key
         raise HTTPException(status_code=403, detail="Deleting everything needs a login.")
     # 204 No Content: the deleted count is intentionally not returned.
     tx_service.delete_all_transactions(db)

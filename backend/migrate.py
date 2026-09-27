@@ -44,6 +44,8 @@ BASELINE = "0001"
 BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
+# Copies the AI key asked for (POST /api/backup/ai-copy), kept apart.
+AI_COPIES_KEPT = 3
 # Tables without which a database can't be a BitcoinTX ledger at all.
 CORE_TABLES = {"users", "accounts", "transactions"}
 
@@ -102,16 +104,21 @@ def sqlite_file(engine: Engine) -> Optional[Path]:
 # ---------------------------------------------------------------------------
 # Backups
 # ---------------------------------------------------------------------------
-def backup_sqlite(db_path: Path, label: str) -> Path:
-    """Consistent copy of a live SQLite file into <dir>/backups/ (mode 600)."""
+def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = BACKUPS_KEPT) -> Path:
+    """
+    Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
+    named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
+    and pre-restore; "ai": asked for with the AI key) keeps its own newest
+    `keep`, so one kind never pushes out the other.
+    """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     dest_dir.mkdir(mode=0o700, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    dest = dest_dir / f"{db_path.stem}-before-{label}-{stamp}.db"
+    dest = dest_dir / f"{db_path.stem}-{kind}-{label}-{stamp}.db"
     n = 1
     while dest.exists():
         n += 1
-        dest = dest_dir / f"{db_path.stem}-before-{label}-{stamp}-{n}.db"
+        dest = dest_dir / f"{db_path.stem}-{kind}-{label}-{stamp}-{n}.db"
     src = sqlite3.connect(str(db_path))
     dst = sqlite3.connect(str(dest))
     try:
@@ -120,22 +127,28 @@ def backup_sqlite(db_path: Path, label: str) -> Path:
         dst.close()
         src.close()
     os.chmod(dest, 0o600)
-    prune_backups(db_path)
+    prune_backups(db_path, keep, kind)
     return dest
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT) -> List[Path]:
-    """
-    Keep the newest `keep` copies of this database in <dir>/backups/ and
-    delete older ones. Only files this module wrote (<stem>-before-*.db) are
-    touched. Returns the deleted paths.
-    """
+def backup_copies(db_path: Path, kind: str = "before") -> List[Path]:
+    """This database's copies of one kind in <dir>/backups/, newest first."""
     dest_dir = db_path.parent / BACKUP_DIRNAME
-    copies = sorted(
-        dest_dir.glob(f"{db_path.stem}-before-*.db"),
+    return sorted(
+        dest_dir.glob(f"{db_path.stem}-{kind}-*.db"),
         key=lambda p: (p.stat().st_mtime_ns, p.name),
         reverse=True,
     )
+
+
+def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> List[Path]:
+    """
+    Keep the newest `keep` copies of one kind in <dir>/backups/ and delete
+    older ones. Only files this module wrote (<stem>-<kind>-*.db) are
+    touched. Returns the deleted paths.
+    """
+    dest_dir = db_path.parent / BACKUP_DIRNAME
+    copies = backup_copies(db_path, kind)
     removed = []
     for old in copies[keep:]:
         try:

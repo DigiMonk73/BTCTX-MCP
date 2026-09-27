@@ -134,16 +134,16 @@ def test_review_flags_live_priced_fees_and_off_income_values(auth_client, priced
 
 
 def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_client, test_engine, priced,
-                                                                      monkeypatch):
+                                                                      ai_key_headers):
     live, typed, income = priced
     from fastapi.testclient import TestClient
 
     from backend.main import app
 
-    monkeypatch.setattr("backend.main.API_KEY", "k" * 40)
     anonymous = TestClient(app)
-    r = anonymous.post("/api/review/fee-prices", json={"ids": [live]}, headers={"X-API-Key": "k" * 40})
-    assert r.status_code == 401
+    assert anonymous.get("/api/review", headers=ai_key_headers).status_code == 200
+    r = anonymous.post("/api/review/fee-prices", json={"ids": [live]}, headers=ai_key_headers)
+    assert r.status_code == 403
     assert str(fee_proceeds(test_engine, live)) == "12"
 
     r = auth_client.post("/api/review/fee-prices", json={"ids": [live, typed, income]})

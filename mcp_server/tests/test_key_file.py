@@ -1,6 +1,7 @@
 """
-The Mac app's AI assistant key (backend/services/mcp_key.py) and the MCP
-client's use of it (btctx_mcp/client.py): no password in any MCP config.
+The Mac app's AI key file (backend/services/ai_key.py, mode "mac") and the
+MCP client's use of it (btctx_mcp/client.py): no password in any MCP config.
+The Docker/StartOS key is tested in backend/tests/test_ai_key.py.
 """
 
 import json
@@ -13,7 +14,7 @@ from mcp import Client
 
 from backend.database import get_db
 from backend.main import app
-from backend.services import mcp_key
+from backend.services import ai_key
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient, BtctxError
 from test_server import backend_db, call  # noqa: F401  (fixture)
@@ -36,8 +37,8 @@ def desktop(monkeypatch, tmp_path, backend_db):  # noqa: F811
     monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:8765")
     monkeypatch.setenv("BTCTX_MCP_FILE", str(key_file))
     with _db() as db:
-        mcp_key.sync(db)
-        mcp_key.set_access(db, True)  # the owner turned it on in Settings
+        ai_key.sync(db)
+        ai_key.set_access(db, True)  # the owner turned it on in Settings
     return key_file
 
 
@@ -75,8 +76,8 @@ async def test_key_file_is_private_and_complete(desktop):
     assert data["pid"] == os.getpid() and data["version"]
     assert len(data["token"]) >= 43  # 32 random bytes
     with _db() as db:  # only a hash is stored
-        assert mcp_key._get(db, mcp_key.HASH_KEY) == mcp_key._hash(data["token"])
-        assert data["token"] not in json.dumps([mcp_key._get(db, k) for k in (mcp_key.HASH_KEY,)])
+        assert ai_key._get(db, ai_key.HASH_KEY) == ai_key._hash(data["token"])
+        assert data["token"] not in json.dumps([ai_key._get(db, k) for k in (ai_key.HASH_KEY,)])
 
 
 async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, backend_db):  # noqa: F811
@@ -85,7 +86,7 @@ async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, 
     monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:8765")
     monkeypatch.setenv("BTCTX_MCP_FILE", str(key_file))
     with _db() as db:
-        mcp_key.sync(db)
+        ai_key.sync(db)
     token = {"Authorization": f"Bearer {_token(key_file)}"}
     async with _http() as h:
         r = await h.get("/api/transactions", headers=token)
@@ -100,7 +101,7 @@ async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, 
 async def test_key_stays_the_same_across_restarts(desktop):
     before = _token(desktop)
     with _db() as db:
-        mcp_key.sync(db)
+        ai_key.sync(db)
     assert _token(desktop) == before
 
 
@@ -126,14 +127,14 @@ async def test_reset_key_locks_out_old_copies_but_not_the_mcp(desktop):
     try:
         assert await btctx.get("/api/transactions") == []
         with _db() as db:
-            mcp_key.rotate(db)
+            ai_key.rotate(db)
         assert _token(desktop) != old
         # The MCP server re-reads the file and carries on...
         assert await btctx.get("/api/transactions") == []
         # ...a copy of the old key doesn't.
         async with _http() as h:
             r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})
-            assert r.status_code == 401 and "reset" in r.json()["detail"]
+            assert r.status_code == 401 and "replaced or revoked" in r.json()["detail"]
     finally:
         await btctx.aclose()
 
@@ -144,14 +145,6 @@ async def test_key_refused_from_another_computer(desktop):
     assert r.status_code == 401 and "this computer" in r.json()["detail"]
 
 
-async def test_no_key_outside_the_mac_app(desktop, monkeypatch):
-    token = _token(desktop)
-    monkeypatch.delenv("BTCTX_DESKTOP")
-    async with _http() as h:
-        r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {token}"})
-    assert r.status_code == 401
-
-
 async def test_access_switch_and_login_only_actions(desktop):
     token = {"Authorization": f"Bearer {_token(desktop)}"}
     async with _http() as h:
@@ -159,18 +152,20 @@ async def test_access_switch_and_login_only_actions(desktop):
         assert (await h.put("/api/settings/ai-access", json={"on": True}, headers=token)).status_code == 403
         assert (await h.post("/api/settings/ai-access/reset-key", headers=token)).status_code == 403
         assert (await h.delete("/api/transactions/delete_all", headers=token)).status_code == 403
-        # Backup, restore and CSV import stay login-only.
-        assert (await h.get("/api/backup/csv", headers=token)).status_code == 401
-        assert (await h.post("/api/backup/download", data={"password": "x"}, headers=token)).status_code == 401
+        # Backup download, restore and CSV export stay login-only.
+        assert (await h.get("/api/backup/csv", headers=token)).status_code == 403
+        assert (await h.post("/api/backup/download", data={"password": "x"}, headers=token)).status_code == 403
         restore = await h.post("/api/backup/restore", data={"password": "x"},
                                files={"file": ("b.btx", b"x")}, headers=token)
-        assert restore.status_code == 401
+        assert restore.status_code == 403
 
         # The user turns access off (logged in): the key stops working.
         login = await h.post("/api/login", json={"username": "admin", "password": "password"})
         assert login.status_code == 200
         r = await h.put("/api/settings/ai-access", json={"on": False})
-        assert r.json() == {"available": True, "on": False, "key_file": str(desktop)}
+        assert r.json() == {"mode": "mac", "on": False, "has_key": True, "key_file": str(desktop)}
+        # New/Revoke are for Docker and StartOS; the Mac app resets its file.
+        assert (await h.post("/api/settings/ai-key")).status_code == 400
         h.cookies.clear()
         r = await h.get("/api/transactions", headers=token)
         assert r.status_code == 401 and "turned off" in r.json()["detail"]
@@ -179,9 +174,9 @@ async def test_access_switch_and_login_only_actions(desktop):
 async def test_restored_database_keeps_the_key_the_mcp_has(desktop):
     token = _token(desktop)
     with _db() as db:  # a restored backup carries another install's hash
-        mcp_key._set(db, mcp_key.HASH_KEY, "0" * 64)
+        ai_key._set(db, ai_key.HASH_KEY, "0" * 64)
         db.commit()
-        mcp_key.sync(db)
+        ai_key.sync(db)
     assert _token(desktop) == token
     async with _http() as h:
         r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {token}"})

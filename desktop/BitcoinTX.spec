@@ -144,7 +144,7 @@ hidden_imports = [
     "backend.services.entry_import",
     "backend.services.tax_time",
     "backend.services.desktop",
-    "backend.services.mcp_key",
+    "backend.services.ai_key",
     "backend.services.review",
     "backend.services.price_history",
     "backend.services.outbound",

@@ -5,18 +5,18 @@ JSON entry import: preview (dry run) and execute for structured rows.
 Mounted at /api/import/entries. Used by the MCP server (mcp_server/) so an
 AI assistant can turn pasted text or plain English into ledger entries.
 
-Session-auth only, like the CSV and River imports.
+A logged-in session or the AI key (main.get_current_user; the key's
+allow-list in services/ai_key.py lists both routes).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS
-from backend.services.mcp_key import require_login_or_key
 from backend.schemas.entry_import import (
     CreatedTransaction,
     EntryExecuteResponse,
@@ -52,7 +52,6 @@ def _check_size(payload: EntryRequest) -> None:
 
 @router.post("/preview", response_model=EntryPreviewResponse)
 async def preview_entries(
-    request: Request,
     payload: EntryRequest,
     db: Session = Depends(get_db),
 ):
@@ -61,7 +60,6 @@ async def preview_entries(
     existing transactions, and simulate the write (then roll it back).
     Nothing is saved.
     """
-    require_login_or_key(request, db)
     _check_size(payload)
 
     prepared = validate_rows(payload.rows, get_tax_timezone(db))
@@ -93,7 +91,6 @@ async def preview_entries(
 
 @router.post("/execute", response_model=EntryExecuteResponse)
 async def execute_entries(
-    request: Request,
     payload: EntryRequest,
     db: Session = Depends(get_db),
 ):
@@ -103,7 +100,6 @@ async def execute_entries(
     expected to have removed any the user rejected after preview.
     Any invalid row or ledger rejection aborts the whole batch.
     """
-    require_login_or_key(request, db)
     _check_size(payload)
 
     prepared = validate_rows(payload.rows, get_tax_timezone(db))

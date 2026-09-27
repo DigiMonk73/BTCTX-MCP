@@ -7,7 +7,8 @@ import logging
 import io
 import os
 import shutil
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -17,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
-from backend.services import mcp_key, outbound
+from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend.services import ai_key, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.constants import ACCOUNT_ID_TO_NAME
 
@@ -46,8 +48,8 @@ def _require_auth(request: Request):
     """
     Check that user is authenticated via session.
 
-    Intentionally session-only (stricter than main.py's dual-mode
-    get_current_user): API-key clients must NOT reach backup/restore.
+    Intentionally session-only (stricter than main.py's get_current_user):
+    the AI key must never reach backup download, restore or CSV export.
     """
     user_id = request.session.get("user_id")
     if not user_id:
@@ -99,6 +101,7 @@ def restore_encrypted_backup(
     """
     _require_auth(request)
     temp_path = None
+    ai_state = ai_key.snapshot(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             shutil.copyfileobj(file.file, temp_file)
@@ -111,14 +114,13 @@ def restore_encrypted_backup(
             outbound.load(db)
         except Exception:
             logger.exception("Could not read the network settings after restore")
-        # The restored database has its own record of the AI assistant key;
-        # keep the key the MCP server already has (Mac app only).
-        if mcp_key.enabled():
-            db.close()  # a fresh connection sees the restored file
-            try:
-                mcp_key.sync(db)
-            except Exception:
-                logger.exception("Could not re-sync the AI assistant key after restore")
+        # ...but not its own AI key or switch: the ones in use stay, so an old
+        # backup can't bring back a revoked key.
+        db.close()
+        try:
+            ai_key.carry_over(db, ai_state)
+        except Exception:
+            logger.exception("Could not keep the AI key after restore")
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()
@@ -129,6 +131,30 @@ def restore_encrypted_backup(
     finally:
         if temp_path and temp_path.exists():
             os.remove(temp_path)
+
+
+# === POST /api/backup/ai-copy ===
+AI_COPY_EVERY = 60  # seconds
+
+
+@router.post("/ai-copy")
+def ai_copy(db: Session = Depends(get_db)):
+    """
+    A plain copy of the database in <database dir>/backups/, which the AI key
+    may ask for (a safety net before a large change). Owner-only like the
+    database itself; the newest AI_COPIES_KEPT are kept, apart from the
+    pre-upgrade copies; one a minute. Only the file name comes back.
+    """
+    db_path = sqlite_file(db.get_bind())
+    if db_path is None:
+        raise HTTPException(status_code=400, detail="This database can't be copied to a file.")
+    newest = backup_copies(db_path, "ai")
+    if newest and time.time() - newest[0].stat().st_mtime < AI_COPY_EVERY:
+        raise HTTPException(status_code=429, detail="A backup was made less than a minute ago.")
+    dest = backup_sqlite(db_path, "backup", kind="ai", keep=AI_COPIES_KEPT)
+    logger.info("AI backup copy made: %s", dest.name)
+    created = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
+    return {"file": dest.name, "created": created.isoformat(timespec="seconds"), "kept": AI_COPIES_KEPT}
 
 
 # === GET /api/backup/csv ===

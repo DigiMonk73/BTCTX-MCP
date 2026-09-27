@@ -173,43 +173,49 @@ class TestSessionSecret:
         assert not (tmp_path / KEY_FILENAME).exists()
 
 
-def test_api_key_cannot_download_or_restore_backups(auth_client, monkeypatch):
+def test_ai_key_cannot_download_or_restore_backups(auth_client, ai_key_headers):
     """
-    Backup download and restore are login-only (the router says so): an API
-    key must not be able to take a copy of the database or replace it. Both
-    endpoints used to skip the check.
+    Backup download and restore are login-only: the AI key must not be able
+    to take a copy of the database or replace it. (Both endpoints once skipped
+    the check for the old API key.)
     """
     from fastapi.testclient import TestClient
 
     import backend.main as main
 
-    monkeypatch.setattr(main, "API_KEY", "test-api-key")
     key_only = TestClient(main.app)  # no session cookie
-    headers = {"X-API-Key": "test-api-key"}
-    assert key_only.get("/api/transactions", headers=headers).status_code == 200
+    assert key_only.get("/api/transactions", headers=ai_key_headers).status_code == 200
 
-    r = key_only.post("/api/backup/download", data={"password": "pw"}, headers=headers)
-    assert r.status_code == 401
+    r = key_only.post("/api/backup/download", data={"password": "pw"}, headers=ai_key_headers)
+    assert r.status_code == 403
     r = key_only.post(
-        "/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")}, headers=headers
+        "/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")}, headers=ai_key_headers
     )
-    assert r.status_code == 401
+    assert r.status_code == 403
 
 
-def test_api_key_cannot_delete_everything_debug_or_change_the_tax_timezone(auth_client, monkeypatch):
+def test_ai_key_cannot_delete_everything_debug_or_change_the_tax_timezone(auth_client, ai_key_headers):
     """F31/F32: delete-all, the debug routes and the tax timezone accepted the
-    optional API key; they are login-only now."""
+    old API key; they are login-only."""
     import backend.main as main
 
-    monkeypatch.setattr(main, "API_KEY", "test-api-key")
     key_only = TestClient(main.app)
-    headers = {"X-API-Key": "test-api-key"}
-    assert key_only.get("/api/transactions", headers=headers).status_code == 200
-    assert key_only.delete("/api/transactions/delete_all", headers=headers).status_code == 403
-    assert key_only.get("/api/debug/lots", headers=headers).status_code == 401
-    r = key_only.put("/api/settings/tax-timezone", json={"timezone": "Asia/Tokyo"}, headers=headers)
+    assert key_only.get("/api/transactions", headers=ai_key_headers).status_code == 200
+    assert key_only.delete("/api/transactions/delete_all", headers=ai_key_headers).status_code == 403
+    assert key_only.get("/api/debug/lots", headers=ai_key_headers).status_code == 401
+    r = key_only.put("/api/settings/tax-timezone", json={"timezone": "Asia/Tokyo"}, headers=ai_key_headers)
     assert r.status_code == 403
     assert auth_client.get("/api/settings/tax-timezone").json()["timezone"] != "Asia/Tokyo"
+
+
+def test_the_old_api_key_setting_grants_nothing(auth_client, monkeypatch):
+    """API_KEY (the X-API-Key header, unlimited) is gone in v1.0.3."""
+    import backend.main as main
+
+    monkeypatch.setenv("API_KEY", "test-api-key")
+    monkeypatch.setattr(main, "API_KEY", "test-api-key", raising=False)
+    r = TestClient(main.app).get("/api/transactions", headers={"X-API-Key": "test-api-key"})
+    assert r.status_code == 401
 
 
 def test_api_docs_are_not_public():

@@ -12,12 +12,10 @@ Key Roles:
 """
 
 import os
-import hmac
 import logging
-from typing import Optional
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, Depends, HTTPException, Header
+from fastapi import FastAPI, Request, Response, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
@@ -47,7 +45,6 @@ from backend.secret_key import load_secret_key
 
 # Signs the session cookie. Never a value from this repo — see secret_key.py
 SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
-API_KEY = os.getenv("API_KEY")
 
 # Default CORS origins if none specified (dev environment)
 default_origins = (
@@ -67,7 +64,7 @@ ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import require_login, session_user_id, start_session
 from backend.security_headers import SecurityHeadersMiddleware
-from backend.services import mcp_key
+from backend.services import ai_key
 
 
 def _load_network_settings() -> None:
@@ -83,15 +80,15 @@ def _load_network_settings() -> None:
         db.close()
 
 
-def _sync_mcp_key() -> None:
-    """Mac app: write mcp.json (the AI assistant key) for this run."""
-    if not mcp_key.enabled():
+def _sync_ai_key_file() -> None:
+    """Mac app: write mcp.json (the AI key) for this run."""
+    if ai_key.mode() != "mac":
         return
     db = SessionLocal()
     try:
-        mcp_key.sync(db)
+        ai_key.sync(db)
     except Exception:
-        logger.exception("Could not write the AI assistant key file")
+        logger.exception("Could not write the AI key file")
     finally:
         db.close()
 
@@ -107,7 +104,7 @@ async def lifespan(app: FastAPI):
     # Startup
     init_db()
     _load_network_settings()
-    _sync_mcp_key()
+    _sync_ai_key_file()
     yield
     # Shutdown (nothing needed currently)
 
@@ -191,34 +188,31 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
 # ---------------------------------------------------------
 # Auth Dependency (must be defined before router includes)
 # ---------------------------------------------------------
-def get_current_user(
-    request: Request,
-    x_api_key: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-) -> str:
+def get_current_user(request: Request, db: Session = Depends(get_db)):
     """
-    Auth dependency: session cookie, API key, or (Mac app only) the AI
-    assistant key.
-    - Browser/frontend: session cookie (user_id in session)
-    - Programmatic access (e.g., Telegram bot): X-API-Key header
-    - The local MCP server: Authorization: Bearer <key from mcp.json>
-      (backend/services/mcp_key.py; this computer only)
+    Auth dependency: a logged-in session, or the AI key
+    (Authorization: Bearer <key>, backend/services/ai_key.py) on the routes
+    it may use. A valid key anywhere else is 403.
     """
     # Session auth (browser/frontend); a session from before a password
     # change is cleared (backend/session_auth.py)
     user_id = session_user_id(request, db)
     if user_id:
         return user_id
-    # API key auth (programmatic access)
-    if API_KEY and x_api_key and hmac.compare_digest(x_api_key, API_KEY):
-        return "api_key_user"
-    if mcp_key.request_has_valid_key(request, db):
-        return "mcp_key"
-    detail = getattr(request.state, "mcp_key_refusal", None) or "Not authenticated"
-    raise HTTPException(status_code=401, detail=detail)
+    token = ai_key.bearer_token(request.headers.get("authorization"))
+    if token is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        ai_key.check_key(token, request.client.host if request.client else None, db)
+    except ai_key.KeyRefused as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    if not ai_key.key_may_use(request.method, request.url.path):
+        logger.info("AI key refused: %s %s isn't open to it", request.method, request.url.path)
+        raise HTTPException(status_code=403, detail=ai_key.NOT_ALLOWED)
+    return "ai_key"
 
 def require_login_dependency(request: Request, db: Session = Depends(get_db)) -> int:
-    """A logged-in session only: no API key, no AI assistant key (debug routes)."""
+    """A logged-in session only, never the AI key (debug routes)."""
     return require_login(request, db)
 
 

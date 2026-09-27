@@ -113,6 +113,20 @@ def auth_client(test_engine, _stub_price_apis):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture
+def ai_key_headers(auth_client):
+    """
+    An AI key made the Docker/StartOS way (Settings, logged in) with AI access
+    on, as request headers; revoked and switched off afterwards.
+    """
+    assert auth_client.put("/api/settings/ai-access", json={"on": True}).status_code == 200
+    r = auth_client.post("/api/settings/ai-key")
+    assert r.status_code == 200, r.text
+    yield {"Authorization": f"Bearer {r.json()['key']}"}
+    auth_client.delete("/api/settings/ai-key")
+    auth_client.put("/api/settings/ai-access", json={"on": False})
+
+
 @pytest.fixture(scope="session")
 def test_db(test_engine):
     """Direct SQLAlchemy session for tests that need DB access."""

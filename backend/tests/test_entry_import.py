@@ -247,10 +247,8 @@ class TestInputFormats:
         assert res["status"] == "ready", res
         assert res["normalized"]["amount"] == "0.1"
 
-    def test_api_key_clients_are_rejected(self, monkeypatch):
-        monkeypatch.setattr("backend.main.API_KEY", "k")
+    def test_needs_a_login_or_the_ai_key(self, ai_key_headers):
         anon = TestClient(app)
-        r = anon.post(
-            "/api/import/entries/preview", json={"rows": [BUY]}, headers={"X-API-Key": "k"}
-        )
-        assert r.status_code == 401
+        assert anon.post("/api/import/entries/preview", json={"rows": [BUY]}).status_code == 401
+        r = anon.post("/api/import/entries/preview", json={"rows": [BUY]}, headers=ai_key_headers)
+        assert r.status_code == 200, r.text

@@ -67,10 +67,9 @@ def test_defaults_are_todays_behavior(auth_client):
         "live_data": True, "mempool_url": None, "proxy_url": None}
 
 
-def test_changing_them_is_login_only_and_checked(auth_client, monkeypatch):
-    monkeypatch.setattr("backend.main.API_KEY", "k" * 40)
+def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
     r = TestClient(auth_client.app).put("/api/settings/network", json={"live_data": False},
-                                        headers={"X-API-Key": "k" * 40})
+                                        headers=ai_key_headers)
     assert r.status_code == 403
     for bad in ({"proxy_url": "ftp://x:1"}, {"proxy_url": "socks5h://user:pw@127.0.0.1:9050"},
                 {"mempool_url": "umbrel.local"}):

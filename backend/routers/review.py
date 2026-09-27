@@ -2,7 +2,7 @@
 backend/routers/review.py
 
 GET /api/review: the read-only Ledger review (backend/services/review.py).
-Login, API key or the AI assistant key; it changes no transaction (it may
+Login or the AI key; it changes no transaction (it may
 store BTC prices it had to download).
 
 POST /api/review/fee-prices: set the listed transfers' fee values to the
