@@ -17,7 +17,9 @@ from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
-from backend.services.transaction import DEPOSIT_BASIS_REQUIRED, create_transaction_record
+from backend.services.transaction import (
+    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record,
+)
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
@@ -627,7 +629,14 @@ def _validate_type_specific(
             ))
 
     elif tx_type == "Deposit":
-        if not cost_basis_usd and source and source.lower() in INCOME_SOURCES:
+        if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
+            errors.append(CSVParseError(
+                row_number=row_number,
+                column="source",
+                message=DEPOSIT_SOURCE_UNKNOWN,
+                severity="error"
+            ))
+        elif not cost_basis_usd and source and source.lower() in INCOME_SOURCES:
             warnings.append(CSVParseError(
                 row_number=row_number,
                 column="cost_basis_usd",

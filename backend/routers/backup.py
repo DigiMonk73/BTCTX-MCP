@@ -21,6 +21,7 @@ from backend.models.transaction import Transaction
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend.services import ai_key, outbound
 from backend.services.backup import make_backup, restore_backup
+from backend.services.reports.safe_text import csv_text
 from backend.constants import ACCOUNT_ID_TO_NAME
 
 logger = logging.getLogger(__name__)
@@ -217,18 +218,20 @@ def export_transactions_csv(
         else:
             proceeds = ""
 
+        # Text cells can't start a spreadsheet formula (safe_text.csv_text);
+        # the numbers are written as they are.
         row = {
             "date": date_str,
-            "type": txn.type or "",
+            "type": csv_text(txn.type),
             "amount": fmt_decimal(txn.amount, 8) if txn.amount else "",
-            "from_account": from_account,
-            "to_account": to_account,
+            "from_account": csv_text(from_account),
+            "to_account": csv_text(to_account),
             "cost_basis_usd": cost_basis,
             "proceeds_usd": proceeds,
             "fee_amount": fmt_decimal(txn.fee_amount, 8),
-            "fee_currency": txn.fee_currency or "",
-            "source": txn.source or "",
-            "purpose": txn.purpose or "",
+            "fee_currency": csv_text(txn.fee_currency),
+            "source": csv_text(txn.source),
+            "purpose": csv_text(txn.purpose),
             "notes": "",  # Transaction model doesn't store notes
         }
         writer.writerow(row)

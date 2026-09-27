@@ -164,6 +164,7 @@ hidden_imports = [
     "backend.services.reports.transaction_history",
     "backend.services.reports.reporting_core",
     "backend.services.reports.pdf_form_filler",
+    "backend.services.reports.safe_text",
 
     # Desktop entrypoint helpers (desktop/)
     "desktop_ports",
