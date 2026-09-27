@@ -100,7 +100,7 @@
 .price-source-option input { margin-top: 3px; flex-shrink: 0; }
 .price-source-option strong { display: block; }
 .price-source-help { display: block; color: var(--color-text-secondary); font-size: var(--text-13); line-height: 1.5; }
-.price-source-url { width: 100%; max-width: 440px; }
+.price-source-url { width: 100%; max-width: 440px; margin-left: calc(var(--space-3) + 16px); }
 
 /* Waiting for the session check */
 .auth-spinner-container {

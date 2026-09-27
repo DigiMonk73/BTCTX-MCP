@@ -58,31 +58,33 @@ const PriceSourcePrompt: React.FC = () => {
       </p>
       <div className="price-source-options" role="radiogroup" aria-label="Price source">
         {PRICE_SOURCES.map((s) => (
-          <label key={s.value} className="price-source-option">
-            <input
-              type="radio"
-              name="price-source"
-              value={s.value}
-              checked={source === s.value}
-              onChange={() => setSource(s.value)}
-            />
-            <span>
-              <strong>{s.label}</strong>
-              <span className="price-source-help">{s.help}</span>
-            </span>
-          </label>
+          <React.Fragment key={s.value}>
+            <label className="price-source-option">
+              <input
+                type="radio"
+                name="price-source"
+                value={s.value}
+                checked={source === s.value}
+                onChange={() => setSource(s.value)}
+              />
+              <span>
+                <strong>{s.label}</strong>
+                <span className="price-source-help">{s.help}</span>
+              </span>
+            </label>
+            {s.value === "mempool" && source === "mempool" && (
+              <input
+                className="input price-source-url"
+                type="url"
+                aria-label="Your mempool server"
+                placeholder={MEMPOOL_PLACEHOLDER}
+                value={mempoolUrl}
+                onChange={(e) => setMempoolUrl(e.target.value)}
+              />
+            )}
+          </React.Fragment>
         ))}
       </div>
-      {source === "mempool" && (
-        <input
-          className="input price-source-url"
-          type="url"
-          aria-label="Your mempool server"
-          placeholder={MEMPOOL_PLACEHOLDER}
-          value={mempoolUrl}
-          onChange={(e) => setMempoolUrl(e.target.value)}
-        />
-      )}
       <button
         type="button"
         className="btn btn-primary"
