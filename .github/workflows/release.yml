@@ -1,7 +1,7 @@
 name: Release
 
 # Push a branch named release/vX.Y.Z (matching VERSION; vX.Y.Z-N for a
-# package-only revision N, see startos/UPDATING.md) to publish that release:
+# package-only revision N, see startos/UPDATING.md) from main to publish that release:
 # one GitHub release, tag created on that commit, notes from the
 # "## [<tag>]" section of docs/CHANGELOG.md, with
 #   btctx.s9pk              StartOS package (signed with DEV_KEY if that secret exists)
@@ -34,11 +34,16 @@ jobs:
       exists: ${{ steps.v.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
-      - name: Branch, VERSION, CHANGELOG and package version agree
+        with:
+          fetch-depth: 0   # origin/main, for the check below
+      - name: Commit is on main; branch, VERSION, CHANGELOG and package version agree
         id: v
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Releases come from main only (CLAUDE.md, "Branches").
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "$GITHUB_REF_NAME is not on main: fast-forward main to develop, then push release/ from main"; exit 1; }
           TAG="${GITHUB_REF_NAME#release/}"
           VERSION="v$(tr -d '[:space:]' < VERSION)"
           REVISION=$(sed -n "s/.*version: '${VERSION#v}:\([0-9]*\)'.*/\1/p" startos/startos/versions/current.ts)

@@ -8,7 +8,7 @@ history belongs in `docs/CHANGELOG.md`.
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
 (double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
 This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
-for AI-assisted entry. Work on `main`.
+for AI-assisted entry. Work on `develop` (see Branches).
 
 | Part | Where | Notes |
 |---|---|---|
@@ -18,6 +18,23 @@ for AI-assisted entry. Work on `main`.
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
+
+## Branches
+
+- **`develop`**: all work. Commit and push here (or merge a short-lived
+  branch of your own into it).
+- **`main`**: released code only; it is what users get (the `:main` Docker
+  image, and from v1.0.3 the AI connector installs from it). Never commit on
+  `main`, never force-push or rewind it. It moves only by fast-forwarding to
+  `develop` (`git checkout main && git merge --ff-only develop && git push`),
+  at a release, or when everything on `develop` not yet on `main` is docs,
+  tests or tooling (nothing that ships in the app or the connector).
+- **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
+  deleted.
+
+The pre-push hook refuses a push to `main` of anything not already on
+`develop`, and `release.yml` refuses a release commit that isn't on `main`.
+If unsure which branch to use, use `develop` and ask.
 
 ## Before you change…
 
@@ -161,14 +178,16 @@ all Pyflakes rules and ESLint with zero warnings.
 Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
 
-1. Bump `VERSION`, the version in `desktop/BitcoinTX.spec`, the image tag in
-   `startos/startos/manifest/index.ts` and `startos/startos/versions/current.ts`
-   (`backend/tests/test_versions_agree.py` fails until they agree). Move the
-   CHANGELOG's Unreleased section to the version. Minor bump when a new tax
-   year's forms are added.
-2. Merge to `main`: `.github/workflows/image.yml` publishes
-   `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and `:main`.
-3. Push a branch `release/vX.Y.Z`: `.github/workflows/release.yml` builds the
+1. On `develop`: bump `VERSION`, the version in `desktop/BitcoinTX.spec`,
+   the image tag in `startos/startos/manifest/index.ts` and
+   `startos/startos/versions/current.ts` (`backend/tests/test_versions_agree.py`
+   fails until they agree). Move the CHANGELOG's Unreleased section to the
+   version. Minor bump when a new tax year's forms are added. Push; wait for CI.
+2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
+   publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
+   `:main`.
+3. Push a branch `release/vX.Y.Z` from `main`, and delete it once the
+   release is out: `.github/workflows/release.yml` builds the
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
    set), creates the tag and one GitHub release, and mirrors `startos/` to
    DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set: a sync

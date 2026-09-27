@@ -1,4 +1,4 @@
-# v1.0.3 plan: AI keys for every edition, connector on PyPI, doc fixes
+# v1.0.3 plan: AI keys for every edition, connector auto-update, doc fixes
 
 > **Temporary file. Delete it in the v1.0.3 release commit** (and remove its
 > line from `MEMORY.md` if a memory points here). It is a working plan, not
@@ -7,11 +7,12 @@
 
 Written 2026-09-27 from the owner's brief ("Part A / B / C", pasted in the
 session that wrote this) and a read of the code at `9f5d071`. Nothing in this
-plan is built yet.
+plan is built yet. The owner's decisions (section 1) were recorded the same
+day: backup option A, `API_KEY` removed, a password in the connector's config
+refused, and no PyPI (the connector installs from GitHub `main`).
 
-**How to use it.** Read section 1 (the decisions, with pros and cons) and
-section 2 (the one step only you can do). Change any decision you disagree
-with right here in this file. Then start a session with:
+**How to use it.** Section 1 holds the decisions (all made). Work on
+`develop` (`CLAUDE.md`, "Branches"). Start a session with:
 
 > Read `docs/V1_0_3_PLAN.md` and `CLAUDE.md`. Implement the plan as written
 > (with my edits), Part A first, and stop if anything in the code contradicts
@@ -19,10 +20,10 @@ with right here in this file. Then start a session with:
 
 Contents:
 1. Decisions and options (read this)
-2. Your one manual step: registering the connector on PyPI
+2. PyPI (deferred, not part of v1.0.3)
 3. How it works today (background)
 4. Part A: the AI key, step by step
-5. Part B: connector on PyPI, auto-update, version check
+5. Part B: connector auto-update from `main`, version check
 6. Part C: doc fixes
 7. Wording rules
 8. Tests
@@ -34,10 +35,10 @@ Contents:
 ## 1. Decisions and options
 
 Each item says what the plan does (**Plan**) and why, then the alternatives.
-Items marked **Needs your OK** are real choices; the others follow directly
-from the brief.
+Items marked **Decided** were the owner's choices; the others follow
+directly from the brief.
 
-### 1.1 What "make a backup" does with the AI key — Needs your OK
+### 1.1 What "make a backup" does with the AI key — Decided: A
 
 **The problem.** The brief says the AI key may create "the same backup the
 app's Backup button makes, saved where the app normally saves backups". Those
@@ -98,10 +99,10 @@ Backup button and saves the `.btx` in a folder on your computer.
 - *Cons:* goes against the brief; the AI can't take a safety copy before a
   large import, so the user has to remember to press Backup first.
 
-**Recommendation: A.** It gives the safety net the brief wants without
-routing any secret through the AI. If you choose B or C, edit this section.
+**Decided: A** (owner, 2026-09-27). It gives the safety net the brief wants
+without routing any secret through the AI.
 
-### 1.2 The optional `API_KEY` setting — Plan: remove it
+### 1.2 The optional `API_KEY` setting — Decided: remove it
 
 `API_KEY` is an environment setting (unset by default) that, when set, lets
 any request with the header `X-API-Key: <value>` act as you on almost every
@@ -118,7 +119,8 @@ bot" in a code comment); no documentation tells anyone to set it.
 - *Leave it:* the brief allows it, but it would remain a stronger key than
   the AI key, which defeats the purpose of limiting the AI key.
 
-Breaking change, stated in the CHANGELOG ("`API_KEY` is gone; use an AI key").
+Decided (owner, 2026-09-27: nobody else uses it). Breaking change, stated in
+the CHANGELOG ("`API_KEY` is gone; use an AI key").
 Tests that set `backend.main.API_KEY` (in `test_entry_import.py`,
 `test_network_settings.py`, `test_review.py`, `test_security.py`) switch to the
 AI key.
@@ -184,18 +186,16 @@ passwords (1.7), and the rotation note (section 6) tells Docker and StartOS
 users to change their BitcoinTX password after switching to a key. The
 CHANGELOG says this plainly.
 
-### 1.7 Password in the connector's config — Plan
+### 1.7 Password in the connector's config — Decided: refuse
 
-- Only `BTCTX_USERNAME`/`BTCTX_PASSWORD` set (an old setup): the connector
-  never uses them, and every tool answers with the one line from the brief:
-  "BitcoinTX no longer uses your password for AI access. Create an AI key in
-  BitcoinTX Settings and replace BTCTX_PASSWORD with BTCTX_AI_KEY in your AI
-  app's settings, then delete the password from that file."
-- `BTCTX_AI_KEY` **and** a password set (half-migrated): the key is used,
-  tools work, and each response starts with "Delete BTCTX_PASSWORD from your
-  AI app's settings: BitcoinTX no longer uses it." *(The brief only covers the
-  password-only case; this is the plan's choice. Change it if you'd rather
-  refuse until the password is gone.)*
+`BTCTX_PASSWORD` set at all (an old setup, or a key added but the password
+left behind): the connector makes no request, and every tool answers with
+the one line from the brief: "BitcoinTX no longer uses your password for AI
+access. Create an AI key in BitcoinTX Settings and replace BTCTX_PASSWORD
+with BTCTX_AI_KEY in your AI app's settings, then delete the password from
+that file." Refusing (rather than working and nagging) is the owner's choice
+(2026-09-27): it's the surest way to get the password out of the file, and
+it is one code path.
 
 ### 1.8 Defaults and upgrades — from the brief
 
@@ -205,15 +205,30 @@ CHANGELOG says this plainly.
 - Existing Docker/StartOS installs: off and no key until you create one (they
   never had a stored setting, so nothing to migrate).
 
-### 1.9 PyPI publishing on package-only revisions — Plan: skip
+### 1.9 Connector distribution — Decided: GitHub `main`, no PyPI
 
-PyPI never lets a version be uploaded twice. A package-only StartOS revision
-(`release/vX.Y.Z-N`) doesn't change the connector, so the PyPI job runs only
-on `release/vX.Y.Z` and skips `-N` releases.
+The owner doesn't want another service to run (2026-09-27). The connector
+installs from this repository's `main` branch:
+
+`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp`
+
+On every start, uvx asks GitHub which commit `main` is at and rebuilds when
+it moved (checked 2026-09-27 with uv 0.11.10: each run queries
+`api.github.com/repos/digimonk73/btctx-mcp/commits/main`). `main` only moves
+at releases (`CLAUDE.md`, "Branches", set up the same day), so users get each
+released connector by restarting their AI app, and never half-finished work.
+Like today's pinned install, it needs `git` on the user's computer. A pinned
+`@vX.Y.Z` stays documented under "Pin a version".
 
 ---
 
-## 2. Your one manual step: register the connector on PyPI
+## 2. PyPI (deferred, not part of v1.0.3)
+
+Not needed for v1.0.3 (1.9). Kept for later: publishing to PyPI would drop
+the `git` requirement and make installs faster (`uvx btctx-mcp@latest`). It
+needs the owner's PyPI account with two-factor login, one release job
+(`pypa/gh-action-pypi-publish`, skipped on `-N` package-only revisions since
+PyPI never accepts a version twice), and a GitHub environment `pypi`.
 
 PyPI "trusted publishing" lets GitHub Actions upload the `btctx-mcp` package
 with no password or token stored anywhere: PyPI trusts a specific workflow in
@@ -234,13 +249,10 @@ register a *pending* publisher once. The name `btctx-mcp` was free on
 4. Click **Add**. That's all. The first release that runs the new job
    creates the project on PyPI and makes you its owner.
 
-The plan also creates a GitHub environment named `pypi` on BTCTX-MCP
-(Settings → Environments; the implementing session can do it with `gh api`).
-It needs no secrets; it just has to exist for the name to match.
-
-If this step isn't done when v1.0.3 is released, the PyPI job fails with a
-"trusted publishing exchange failure" and everything else still publishes;
-the job can be re-run after registering.
+The session that adds the job also creates the GitHub environment `pypi` on
+BTCTX-MCP (Settings → Environments, or `gh api`). It needs no secrets; it
+just has to exist for the name to match. If this file is gone by then, these
+steps are in its git history (deleted in the v1.0.3 release commit).
 
 ---
 
@@ -383,7 +395,8 @@ keep their key and switch.
     Assistant → Create AI key. BitcoinTX shows it once.";
   - the Claude Desktop / LM Studio JSON **first**, with
     `"BTCTX_AI_KEY": "<paste the key you created in BitcoinTX Settings>"`
-    and `uvx btctx-mcp@latest`;
+    and the `uvx --from "git+…@main#subdirectory=mcp_server" btctx-mcp`
+    line (5.2);
   - then the `claude mcp add` command with the same placeholder, marked
     "puts the key in your shell history; prefer the file above".
   - Drop the Username and Password fields from this action (Show
@@ -410,41 +423,21 @@ keep their key and switch.
 
 ---
 
-## 5. Part B: connector on PyPI, auto-update, version check
+## 5. Part B: connector auto-update from `main`, version check
 
-### 5.1 Publishing (`.github/workflows/release.yml`)
+### 5.1 Connector version
 
-- Connector version = app version: `mcp_server/pyproject.toml` `version`
-  becomes the `VERSION` value (1.0.3), and `backend/tests/test_versions_agree.py`
-  checks it with the others. Release step 1 in `startos/UPDATING.md` and
-  `CLAUDE.md` gains "and `mcp_server/pyproject.toml`".
-- New job `pypi` (needs `check`; skipped when the tag has a `-N` revision or
-  the release already exists):
-  ```yaml
-  pypi:
-    needs: check
-    if: needs.check.outputs.exists == 'false' && !contains(needs.check.outputs.tag, '-')
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write   # trusted publishing
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: python -m pip install build && python -m build mcp_server --outdir dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with: { packages-dir: dist }
-  ```
-- The PyPI page uses `mcp_server/README.md`; its relative links
-  (`AI_SETUP.md`, `#privacy…`) must become absolute GitHub URLs so they work
-  on pypi.org.
+Connector version = app version: `mcp_server/pyproject.toml` `version`
+becomes the `VERSION` value (1.0.3), and `backend/tests/test_versions_agree.py`
+checks it with the others. Release step 1 in `startos/UPDATING.md` and
+`CLAUDE.md` gains "and `mcp_server/pyproject.toml`". No release job changes:
+the connector is published by fast-forwarding `main` (1.9).
 
 ### 5.2 Recommended setup line everywhere
 
-`uvx btctx-mcp@latest` with env `BTCTX_URL` and `BTCTX_AI_KEY` (Mac: no env).
-`@latest` makes uvx check PyPI for a newer connector each time the AI app
-starts it, so users never edit a version. Keep
+`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp`
+with env `BTCTX_URL` and `BTCTX_AI_KEY` (Mac: no env). uvx checks `main` each
+time the AI app starts it (1.9), so users never edit a version. Keep
 `git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server`
 only under "Pin a version". Update: `README.md`, `mcp_server/README.md`,
 `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` (+ its Vitest),
@@ -452,7 +445,7 @@ the StartOS action and i18n, `startos/instructions.md`,
 `startos/README.md`, the site (`btctx-site` AI section, optional).
 
 The setup prompt in Settings still links to `AI_SETUP.md` at the app's
-version tag (the guide must match the app), but installs `@latest`.
+version tag (the guide must match the app), but installs from `@main`.
 
 ### 5.3 Version-mismatch warning
 
@@ -553,11 +546,11 @@ Backend (`backend/tests/test_ai_key.py`, new; plus edits):
 Connector (`mcp_server/tests/`):
 - Password only → every tool returns the migration line and makes no
   request with the password (assert no `/api/login` call).
-- Key + password → works, with the "delete BTCTX_PASSWORD" line.
+- Key + password → the same migration line, no request made (1.7).
 - Key sent as Bearer; key never appears in logs or error text.
 - Version match/mismatch (section 5.3); `backup_ledger` returns the file name.
 
-Frontend: Vitest for `aiSetup.ts` (`@latest`, `BTCTX_AI_KEY` placeholder,
+Frontend: Vitest for `aiSetup.ts` (`@main` git line, `BTCTX_AI_KEY` placeholder,
 config file first); e2e as in 4.4.
 
 StartOS: `npm run check`, lint, build, `check-manifest`; a check (grep test in
@@ -593,18 +586,21 @@ doesn't reference `storeJson` or `adminPassword`.
 
 ## 10. Release steps and what to report
 
-1. Bump `VERSION` (1.0.3), `desktop/BitcoinTX.spec`, the StartOS manifest
+1. On `develop`: bump `VERSION` (1.0.3), `desktop/BitcoinTX.spec`, the StartOS manifest
    image tag, `startos/startos/versions/current.ts` (`1.0.3:0`),
    `mcp_server/pyproject.toml`; move the CHANGELOG's Unreleased section to
    `## [v1.0.3] - <date> - Security: AI keys for every edition`.
 2. Delete this file in the same commit.
-3. Push to `main`, wait for CI and the image build.
-4. Push `release/v1.0.3`. Confirm: the GitHub release (dmg, zip, s9pk), the
-   GHCR image `:v1.0.3`, the BTCTX-StartOS sync and its Latest release, and
-   the PyPI package `btctx-mcp 1.0.3` (`pip index versions btctx-mcp`).
-5. Delete the `release/v1.0.3` branch (keep only `main`).
+3. Push `develop` and wait for CI; then fast-forward `main` to `develop`,
+   push, and wait for the image build. From here the connector installs
+   v1.0.3 for everyone (1.9).
+4. Push `release/v1.0.3` from `main`. Confirm: the GitHub release (dmg, zip,
+   s9pk), the GHCR image `:v1.0.3`, the BTCTX-StartOS sync and its Latest
+   release, and that a fresh `uvx --from "git+…@main…" btctx-mcp` reports
+   connector 1.0.3.
+5. Delete the `release/v1.0.3` branch (keep only `main` and `develop`).
 6. Report: commit ids, the `API_KEY` decision (section 1.2), the backup
-   option used, anything unfinished (e.g. PyPI if section 2 wasn't done).
+   option used, anything unfinished.
 7. Optional follow-ups: update the landing page (`~/code/btctx-site`) AI
-   section for keys and `uvx btctx-mcp@latest`; update the Start9 submission
+   section for keys and the `@main` install line; update the Start9 submission
    if it's already been sent.

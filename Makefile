@@ -48,4 +48,4 @@ check: lint test smoke audit-deps
 	@echo "✓ all checks passed"
 
 check-fast:
-	.githooks/pre-push
+	.githooks/pre-push </dev/null

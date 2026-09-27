@@ -15,6 +15,10 @@ fi
 step() { printf "\n\033[1m▶ %s\033[0m\n" "$1"; }
 fail() { printf "\n\033[31m✗ pre-push failed: %s\033[0m\n  (fix it, or bypass with: git push --no-verify)\n" "$1"; exit 1; }
 
+# Branch rules first (CLAUDE.md, "Branches"). git passes the pushed refs on
+# stdin; there are none when this runs as `make check-fast`.
+[ -t 0 ] || .githooks/branch-rules.sh || exit 1
+
 [ -d frontend/dist ] || mkdir -p frontend/dist   # app mounts it at import time
 
 step "Lint (Pyflakes + bare except)"

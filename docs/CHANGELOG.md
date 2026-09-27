@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- Work now happens on `develop`; `main` holds released code only and moves
+  by fast-forwarding to `develop` (`CLAUDE.md`, "Branches"). The pre-push
+  hook refuses a push to `main` of anything not already on `develop`, and
+  any delete, rewind or force-push of `main`; the release workflow refuses a
+  release commit that isn't on `main`.
+
 ## [v1.0.2-1] - 2026-09-27 - StartOS package: translated listing, ready for the Start9 Community Registry
 
 Package-only update; BitcoinTX itself is unchanged.
