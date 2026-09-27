@@ -53,7 +53,10 @@ const BtcConverter: React.FC = () => {
     };
 
     fetchLivePrice();
-    const intervalId = setInterval(fetchLivePrice, 120_000);
+    // No asking while this tab isn't being looked at.
+    const intervalId = setInterval(() => {
+      if (!document.hidden) fetchLivePrice();
+    }, 120_000);
     return () => clearInterval(intervalId);
   }, [mode]);
 

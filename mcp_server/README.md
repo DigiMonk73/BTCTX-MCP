@@ -42,13 +42,11 @@ There is deliberately no bulk delete.
 
 - BitcoinTX **v1.0.3 or later** on Docker and StartOS (the AI key); the Mac
   app **v0.9.2 or later** (its key file). `backup_ledger` needs v1.0.3.
-  Install the server from `main`
-  (`…BTCTX-MCP.git@main#subdirectory=mcp_server`; the setup prompt in
-  Settings does), which holds released code only: uvx checks it every time
-  your AI app starts the server, so it updates itself. When the server and
-  your BitcoinTX are different versions, every tool reply starts with a
-  line saying so and what to do. To pin a version instead, use `@vX.Y.Z`
-  (your BitcoinTX version) in place of `@main`.
+  Install the server pinned to your BitcoinTX release
+  (`…BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server`; the setup prompt in
+  Settings fills in your version), so your AI app runs exactly that code.
+  When the server and your BitcoinTX are different versions, every tool
+  reply starts with a line saying so and what to change.
 - Python 3.10+ on the machine running your AI client
 
 ## Quick setup: let your AI do it
@@ -110,7 +108,7 @@ as for Claude Desktop (below). For the Mac app:
   "mcpServers": {
     "bitcointx": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server", "btctx-mcp"]
+      "args": ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server", "btctx-mcp"]
     }
   }
 }
@@ -122,7 +120,7 @@ Configure).
 
 **Goose:** `goose configure` → choose Ollama as the provider; then
 `goose configure` → Add Extension → Command-line Extension, with the command
-`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp`
+`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`
 (and `BTCTX_URL` and `BTCTX_AI_KEY` for Docker or StartOS).
 
 ## Install

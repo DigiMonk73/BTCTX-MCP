@@ -31,8 +31,8 @@ const Dashboard: React.FC = () => {
   const [currentBtcPrice, setCurrentBtcPrice] = useState<number | null>(null);
   const [isPriceLoading, setIsPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState<number | null>(null);
-  // Settings → Privacy & network: live data turned off (the server answers 503)
-  const [liveDataOff, setLiveDataOff] = useState(false);
+  // Settings → Privacy & network: no price source chosen, or prices off (503)
+  const [pricesOff, setPricesOff] = useState(false);
 
   // ------------------ 2) FETCH LIVE BTC PRICE ------------------
   useEffect(() => {
@@ -45,8 +45,8 @@ const Dashboard: React.FC = () => {
         }
       })
       .catch((err) => {
-        // Price fetch failed - shown as "Error", or "Live data off" by choice
-        if (axios.isAxiosError(err) && err.response?.status === 503) setLiveDataOff(true);
+        // Price fetch failed - shown as "Error", or "Prices off" by choice
+        if (axios.isAxiosError(err) && err.response?.status === 503) setPricesOff(true);
       })
       .finally(() => {
         setIsPriceLoading(false);
@@ -269,8 +269,8 @@ const Dashboard: React.FC = () => {
               <span className="btc-price-value">
                 {formatUsd(currentBtcPrice)}
               </span>
-            ) : liveDataOff ? (
-              <span className="btc-price-value" title="Settings → Privacy & network">Live data off</span>
+            ) : pricesOff ? (
+              <span className="btc-price-value" title="Settings → Privacy & network">Prices off</span>
             ) : (
               <span className="btc-price-value">Error</span>
             )}

@@ -290,7 +290,7 @@ const ConnectAiSetting: React.FC = () => {
               <>
                 <span className="settings-option-title ai-setup-heading">Grok Build</span>
                 <p className="settings-option-subtitle">Run in a terminal.</p>
-                <CopyBlock label="Grok Build command" text={grokCommand()} rows={2} />
+                <CopyBlock label="Grok Build command" text={grokCommand(input)} rows={2} />
               </>
             )}
           </details>

@@ -130,6 +130,8 @@ function macAppEnv(dir: string, port: number): Record<string, string> {
 type Fixtures = {
   /** "mac": run the server as the Mac app does (see macAppEnv). */
   appMode: "server" | "mac";
+  /** "unset": a fresh install that hasn't chosen a price source yet. */
+  priceSource: "public" | "unset";
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -137,8 +139,12 @@ type Fixtures = {
 
 export const test = base.extend<Fixtures>({
   appMode: ["server", { option: true }],
-  app: async ({ appMode }, use, testInfo) => {
-    const { app, proc, log } = await startApp(appMode === "mac" ? macAppEnv : () => ({}));
+  priceSource: ["public", { option: true }],
+  app: async ({ appMode, priceSource }, use, testInfo) => {
+    const { app, proc, log } = await startApp((dir, port) => ({
+      ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
+      ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
+    }));
     await use(app);
     proc.kill();
     if (testInfo.status !== testInfo.expectedStatus) {

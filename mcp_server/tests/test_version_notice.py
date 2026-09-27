@@ -1,8 +1,8 @@
 """
-The connector installs from GitHub `main` and updates when the AI app
-restarts; BitcoinTX updates on its own schedule. When the two versions
-differ, every tool reply (and error) starts with a line saying so and what to
-do. A warning only: the tool still runs.
+The connector is pinned to a BitcoinTX release in the AI app's settings;
+BitcoinTX updates on its own schedule. When the two versions differ, every
+tool reply (and error) starts with a line saying so and what to do. A warning
+only: the tool still runs.
 """
 
 import pytest
@@ -27,9 +27,9 @@ def test_notice_wording():
     assert server.mismatch_notice(None, APP) is None  # run from a source tree
     older = server.mismatch_notice("0.9.0", "1.0.3")
     assert older.startswith("Your BitcoinTX connector is v0.9.0 but BitcoinTX is v1.0.3.")
-    assert "Restart your AI app" in older
+    assert "change the connector's version (the @v0.9.0 in its uvx command) to @v1.0.3" in older
     newer = server.mismatch_notice("1.1.0", "1.0.3")
-    assert "Update BitcoinTX, or pin the connector to v1.0.3" in newer
+    assert "Update BitcoinTX, or set the connector back to v1.0.3" in newer
 
 
 async def test_same_version_no_notice(mcp_client):  # noqa: F811

@@ -67,17 +67,26 @@ def serve(port: int, db_path: str) -> None:
 
     from decimal import Decimal
 
+    import backend.services.bitcoin as bitcoin
+    import backend.services.price_history as price_history
+    from backend.services import outbound
+
+    # Fixed prices, but only from a source the settings allow (as for real).
+    def allowed() -> bool:
+        return outbound.current().public_allowed or outbound.current().own_node is not None
+
     async def find_prices(day, full):
-        return {day: (Decimal("50000.00"), "stub")}, False
+        return ({day: (Decimal("50000.00"), "stub")} if allowed() else {}), False
 
     async def current():
+        if not allowed():
+            raise outbound.refuse_public()
         return {"USD": 60000.0}
 
     async def block_height():
+        if not allowed():
+            raise outbound.refuse_public()
         return {"height": 900000}
-
-    import backend.services.bitcoin as bitcoin
-    import backend.services.price_history as price_history
 
     price_history.find_prices = find_prices
     bitcoin.get_current_price = current
@@ -87,7 +96,6 @@ def serve(port: int, db_path: str) -> None:
     # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset.
     if os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public") != "unset":
         from backend.database import SessionLocal, init_db
-        from backend.services import outbound
 
         init_db()
         with SessionLocal() as db:

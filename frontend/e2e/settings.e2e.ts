@@ -317,27 +317,60 @@ test("ledger review fixes a live-priced transfer fee after asking", async ({ app
   expect(fixed.fee_usd).toBe("5.00");
 });
 
-test("privacy & network: live data off shows on the dashboard; bad proxy refused", async ({ authedPage: page }) => {
+test("privacy & network: price source, mempool fallback, proxy; off shows on the dashboard", async ({ authedPage: page }) => {
   await openSettings(page);
   const net = page.getByRole("region", { name: "Privacy & network" });
   const save = net.getByRole("button", { name: "Save privacy & network settings" });
-  await expect(net.getByLabel("Live data")).toBeChecked();
+  const source = net.getByLabel("Price source");
+  await expect(source).toHaveValue("public");
   await expect(save).toBeDisabled();
 
-  await net.getByLabel("Proxy for outside requests").fill("ftp://127.0.0.1:9050");
+  await net.getByLabel("Proxy for public sites").fill("ftp://127.0.0.1:9050");
   await save.click();
   await expect(page.getByText(/The proxy must look like socks5:\/\/host:port/)).toBeVisible();
 
-  await net.getByLabel("Proxy for outside requests").fill("socks5h://127.0.0.1:9050");
-  await net.getByLabel("Live data").uncheck();
+  // My mempool: its address and the fallback switch appear.
+  await source.selectOption("mempool");
+  await expect(net.getByLabel("Fall back to public price sites")).not.toBeChecked();
+  await net.getByLabel("Proxy for public sites").fill("socks5h://127.0.0.1:9050");
+  await save.click();
+  await expect(page.getByText("Enter your mempool server's address to use it.")).toBeVisible();
+  await net.getByLabel("Your mempool server").fill("http://127.0.0.1:9");
+  await net.getByLabel("Fall back to public price sites").check();
   await save.click();
   await expect(page.getByText("Privacy & network settings saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
-    live_data: false, mempool_url: null, proxy_url: "socks5h://127.0.0.1:9050",
+    price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
+    proxy_url: "socks5h://127.0.0.1:9050",
   });
 
+  await source.selectOption("off");
+  await expect(net.getByLabel("Your mempool server")).toHaveCount(0);
+  await save.click();
+  await expect(page.getByText("Privacy & network settings saved.").last()).toBeVisible();
   await page.getByRole("link", { name: "Dashboard" }).click();
-  await expect(page.getByText("Live data off")).toBeVisible();
+  await expect(page.getByText("Prices off")).toBeVisible();
+});
+
+test.describe("a fresh install asks where prices come from", () => {
+  test.use({ priceSource: "unset" });
+
+  test("nothing is chosen until the owner picks; the question then goes away", async ({ authedPage: page }) => {
+    const prompt = page.getByRole("region", { name: "Choose a price source" });
+    await expect(prompt).toBeVisible();
+    await expect(page.getByText("Prices off")).toBeVisible(); // the dashboard asked nothing
+    expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("unset");
+    const use = prompt.getByRole("button", { name: "Use this" });
+    await expect(use).toBeDisabled();
+    await prompt.getByLabel(/My mempool server/).check();
+    await expect(use).toBeDisabled(); // needs its address
+    await prompt.getByLabel(/Public price sites/).check();
+    await use.click();
+    await expect(prompt).toHaveCount(0);
+    expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
+    await openSettings(page);
+    await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel("Price source")).toHaveValue("public");
+  });
 });
 
 test("settings rows: text fields sit under their text, and no control rises above its row", async ({ authedPage: page }) => {

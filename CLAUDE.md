@@ -24,8 +24,8 @@ for AI-assisted entry. Work on `develop` (see Branches).
 - **`develop`**: all work. Commit and push here (or merge a short-lived
   branch of your own into it).
 - **`main`**: released code only; it is what users get (the `:main` Docker
-  image, and from v1.0.3 the AI connector installs from it). Never commit on
-  `main`, never force-push or rewind it. It moves only by fast-forwarding to
+  image; releases are cut from it). Never commit on `main`, never
+  force-push or rewind it. It moves only by fast-forwarding to
   `develop` (`git checkout main && git merge --ff-only develop && git push`),
   at a release, or when everything on `develop` not yet on `main` is docs,
   tests or tooling (nothing that ships in the app or the connector).
@@ -192,8 +192,7 @@ Full steps, the package version and the signing/mirror secrets:
    version. Minor bump when a new tax year's forms are added. Push; wait for CI.
 2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
    publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
-   `:main`, and every AI connector installed from `main` picks up the new
-   version when its AI app restarts.
+   `:main`.
 3. Push a branch `release/vX.Y.Z` from `main`, and delete it once the
    release is out: `.github/workflows/release.yml` builds the
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if

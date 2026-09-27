@@ -60,12 +60,12 @@ describe("Docker and StartOS: the AI key", () => {
 });
 
 describe("buildAiPrompt", () => {
-  it("carries the address, the guide for this release, and the server from main", () => {
+  it("carries the address and a guide and server pinned to this release", () => {
     const prompt = buildAiPrompt(server);
     expect(prompt).toContain("BTCTX_URL: http://192.168.1.50:8080");
     expect(prompt).toContain("https://github.com/DigiMonk73/BTCTX-MCP/blob/v0.9.1/mcp_server/AI_SETUP.md");
     expect(prompt).toContain(
-      'uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp'
+      'uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server" btctx-mcp'
     );
     expect(prompt).not.toContain("BTCTX_CA_BUNDLE");
   });
@@ -81,7 +81,7 @@ describe("claudeDesktopConfig", () => {
     const config = JSON.parse(claudeDesktopConfig(server));
     expect(config.mcpServers.bitcointx).toEqual({
       command: "uvx",
-      args: ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server", "btctx-mcp"],
+      args: ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server", "btctx-mcp"],
       env: { BTCTX_URL: "http://192.168.1.50:8080", BTCTX_AI_KEY: KEY_PLACEHOLDER },
     });
   });
@@ -91,7 +91,7 @@ describe("claudeCodeCommand", () => {
   it("adds the server for every project and puts the name before the env flags", () => {
     const cmd = claudeCodeCommand(server);
     expect(cmd.startsWith("claude mcp add --scope user bitcointx \\\n  -e BTCTX_URL='http://192.168.1.50:8080'")).toBe(true);
-    expect(cmd).toContain("-- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server' btctx-mcp");
+    expect(cmd).toContain("-- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp");
   });
 
   it("quotes an address with a quote in it for the shell", () => {
@@ -105,7 +105,7 @@ describe("the Mac app (key file, nothing secret)", () => {
     buildAiPrompt(keyMode),
     claudeDesktopConfig(keyMode),
     claudeCodeCommand(keyMode),
-    grokCommand(),
+    grokCommand(keyMode),
   ];
 
   it("puts no key, password, address or port in any configuration", () => {
@@ -120,12 +120,12 @@ describe("the Mac app (key file, nothing secret)", () => {
     expect(JSON.parse(claudeDesktopConfig(keyMode)).mcpServers.bitcointx.env).toBeUndefined();
   });
 
-  it("is one command, from main (it updates itself)", () => {
+  it("is one command pinned to this release", () => {
     expect(claudeCodeCommand(keyMode)).toBe(
-      "claude mcp add --scope user bitcointx \\\n  -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server' btctx-mcp",
+      "claude mcp add --scope user bitcointx \\\n  -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
     );
-    expect(grokCommand()).toBe(
-      "grok mcp add bitcointx -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server' btctx-mcp",
+    expect(grokCommand(keyMode)).toBe(
+      "grok mcp add bitcointx -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
     );
   });
 
