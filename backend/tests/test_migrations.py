@@ -11,6 +11,7 @@ Schema migrations (backend/migrate.py, backend/migrations/):
   - restoring an old encrypted backup upgrades it before it replaces the live DB
 """
 
+from backend.tests.conftest import default_login
 import shutil
 import sqlite3
 from pathlib import Path
@@ -129,7 +130,7 @@ def test_v0_7_0_database_is_backed_up_adopted_and_usable(v070):
     app.dependency_overrides[get_db] = override
     try:
         client = TestClient(app)
-        assert client.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+        assert client.post("/api/login", json=default_login()).status_code == 200
         assert len(client.get("/api/transactions").json()) == 7
         assert client.post("/api/transactions/recalculate").status_code == 200
         assert client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"}).status_code == 200

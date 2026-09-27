@@ -23,6 +23,8 @@ Runs in-process on a temporary database (pytest, or directly as a script).
 
 from __future__ import annotations
 
+from backend.tests.conftest import default_login
+
 import argparse
 import csv
 import io
@@ -830,7 +832,7 @@ def main():
 
     app.dependency_overrides[get_db] = override_get_db
     CLIENT = TestClient(app)
-    r = CLIENT.post("/api/login", json={"username": "admin", "password": "password"})
+    r = CLIENT.post("/api/login", json=default_login())
     if r.status_code != 200:
         print(colored(f"ERROR: Login failed: {r.status_code}", Colors.RED))
         sys.exit(1)

@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from backend.tests.conftest import default_login
 from backend.main import app
 from backend.migrate import backup_copies, backup_sqlite
 from backend.services import ai_key
@@ -137,7 +138,7 @@ def test_refusals_changed_nothing(auth_client, ai_key_headers):
         key_only().request(method, path, headers=ai_key_headers, **kwargs)
     assert auth_client.get("/api/settings/tax-timezone").json()["timezone"] != "Asia/Tokyo"
     assert auth_client.get("/api/settings/network").json()["price_source"] == "public"
-    assert auth_client.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+    assert auth_client.post("/api/login", json=default_login()).status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +255,7 @@ def test_restoring_an_old_backup_does_not_bring_back_a_revoked_key(
     assert ai_key.HASH_KEY not in settings and settings[ai_key.ACCESS_KEY] == "off"
     assert key_only().get("/api/transactions", headers=ai_key_headers).status_code == 401
     # The restore ended the session; log back in for the fixture's clean-up.
-    assert auth_client.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+    assert auth_client.post("/api/login", json=default_login()).status_code == 200
 
 
 # ---------------------------------------------------------------------------

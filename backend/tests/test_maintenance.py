@@ -10,6 +10,7 @@ What the StartOS package (and any admin) relies on besides the web UI:
   - only the newest BACKUPS_KEPT pre-upgrade copies stay in <db dir>/backups/
 """
 
+from backend.services import first_run
 import logging
 import os
 import shutil
@@ -78,7 +79,8 @@ def cli(db: Path, *args: str, stdin: str = "", env: dict | None = None) -> subpr
 
 
 def can_login(db: Path, username: str, password: str) -> bool:
-    r = client_on(db).post("/api/login", json={"username": username, "password": password})
+    body = {"username": username, "password": password, "setup_code": first_run.ensure_code()}
+    r = client_on(db).post("/api/login", json=body)
     return r.status_code == 200
 
 

@@ -8,6 +8,7 @@ Regression tests for two account-takeover holes fixed after v0.7.0:
      so anyone could forge a login cookie.
 """
 
+from backend.tests.conftest import default_login
 import base64
 import json
 import os
@@ -30,7 +31,8 @@ def anon() -> TestClient:
 
 
 def can_login(password: str) -> bool:
-    return anon().post("/api/login", json={"username": "admin", "password": password}).status_code == 200
+    body = {**default_login(), "password": password}
+    return anon().post("/api/login", json=body).status_code == 200
 
 
 class TestUserRoutesRequireAuth:
@@ -90,7 +92,7 @@ class TestResetAccount:
     def test_sessions_end_when_the_account_is_reset(self, fresh_app):
         """F37: a session stayed valid after reset-account took over the login."""
         old = anon()
-        assert old.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+        assert old.post("/api/login", json=default_login()).status_code == 200
         assert old.get("/api/transactions").status_code == 200
         r = anon().post("/api/users/reset-account",
                         json={"username": "me", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
@@ -100,7 +102,7 @@ class TestResetAccount:
     def test_password_change_ends_other_sessions_not_this_one(self, fresh_app):
         mine, other = anon(), anon()
         for c in (mine, other):
-            assert c.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
+            assert c.post("/api/login", json=default_login()).status_code == 200
         r = mine.patch("/api/users/1", json={"password": "another-passw0rd", "current_password": "password",
                                              "setup_code": first_run.ensure_code()})
         assert r.status_code == 200, r.text
@@ -112,14 +114,14 @@ class TestResetAccount:
         r = anon().post("/api/users/reset-account", json={"username": "me", "password": ""})
         assert r.status_code == 422
         me = anon()
-        me.post("/api/login", json={"username": "admin", "password": "password"})
+        me.post("/api/login", json=default_login())
         assert me.patch("/api/users/1", json={"password": "  "}).status_code == 422
         assert me.patch("/api/users/1", json={"username": ""}).status_code == 422
 
     def test_the_account_cant_be_deleted(self, fresh_app):
         """F36: this failed with a 500 (the ledger's accounts need their owner)."""
         me = anon()
-        me.post("/api/login", json={"username": "admin", "password": "password"})
+        me.post("/api/login", json=default_login())
         r = me.delete("/api/users/1")
         assert r.status_code == 409 and "Settings" in r.json()["detail"]
 

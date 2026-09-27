@@ -22,7 +22,7 @@ const RIVER_CSV = [
 ].join("\n") + "\n";
 
 for (const size of SIZES) {
-  test(`pages at ${size.name}`, async ({ page }) => {
+  test(`pages at ${size.name}`, async ({ page, app }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
     const shot = async (name: string) => {
       await page.mouse.move(0, size.height - 1); // no hover state in the shot
@@ -35,7 +35,7 @@ for (const size of SIZES) {
     await expect(page.getByRole("button", { name: "Register" })).toBeVisible();
     await shot("register");
 
-    await claimAccount(page.request);
+    await claimAccount(page.request, app);
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Log In" })).toBeVisible();
     await shot("login");

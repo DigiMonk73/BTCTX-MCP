@@ -13,6 +13,7 @@ Key Roles:
 
 import os
 import logging
+from typing import Optional
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, Depends, HTTPException
@@ -284,15 +285,17 @@ class LoginRequest(BaseModel):
     """
     Schema for login JSON:
       { "username": "someName", "password": "somePass" }
+    plus setup_code while an install still has the default login.
     """
     username: str
     password: str
+    setup_code: Optional[str] = None
 
 # ---------------------------------------------------------
 # Production-Ready Login / Logout Endpoints
 # ---------------------------------------------------------
 from backend.services.user import get_user_by_username  # for verifying credentials
-from backend.services import login_throttle
+from backend.services import first_run, login_throttle
 
 @app.post("/api/login")
 def login(
@@ -308,6 +311,9 @@ def login(
       3) If valid, store user.id in session
       4) Return success message
     Repeated failures are answered 429 for a while (login_throttle.py).
+    The default admin/password login also needs the setup code (Docker and
+    source installs before they're claimed; first_run.py): anyone who can
+    reach a fresh install knows that login.
     """
     login_throttle.check(request)
     user = get_user_by_username(login_req.username, db)
@@ -315,6 +321,10 @@ def login(
     if not user or not user.verify_password(login_req.password):
         login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
+
+    if first_run.needs_code(user) and not first_run.check_code(login_req.setup_code):
+        login_throttle.failed(request)
+        raise HTTPException(status_code=403, detail=first_run.DEFAULT_LOGIN_REFUSED)
 
     login_throttle.succeeded(request)
     start_session(request, user)

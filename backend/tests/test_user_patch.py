@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from backend.tests.conftest import default_login
 import requests
 
 BASE_URL = "http://127.0.0.1:8000/api"  # Adjust if your server runs at a different URL/port
@@ -9,7 +10,7 @@ def main():
     # -------------------------------------------------
     # 1) Log in as the default user: admin/password
     # -------------------------------------------------
-    login_payload = {"username": "admin", "password": "password"}
+    login_payload = default_login()
     resp = session.post(f"{BASE_URL}/login", json=login_payload)
     if resp.status_code != 200:
         print("❌ Login failed:", resp.status_code, resp.text)

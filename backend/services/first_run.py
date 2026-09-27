@@ -10,8 +10,9 @@ database.seed_defaults) and the one-time setup code that claiming it needs.
   of the credentials (Register, Settings, the CLI in another process, a
   restored backup) is a new hash, so it is checked again.
 - The setup code: anyone who can reach a fresh Docker or source install
-  knows the default login. Claiming the account (Register, or changing the
-  default login in Settings) also needs a code that only someone who can
+  knows the default login. Logging in with it, and claiming the account
+  (Register, or changing the default login in Settings), also need a code
+  that only someone who can
   read the server's log or data folder has. It is made at startup while the
   account has the default login, kept in <data folder>/setup-code.txt
   (owner-only, the same across restarts), printed to the log, and deleted
@@ -46,6 +47,10 @@ CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
 _WHERE = f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
 CODE_REQUIRED = "Enter the setup code. " + _WHERE
 CODE_WRONG = "That setup code is wrong. " + _WHERE
+DEFAULT_LOGIN_REFUSED = (
+    "This install still has the default login. Set your own on the Create account page, "
+    "with the setup code. " + _WHERE
+)
 
 _lock = threading.Lock()
 _default: Dict[Tuple[int, str, str], bool] = {}

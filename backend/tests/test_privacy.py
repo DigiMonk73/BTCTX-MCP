@@ -3,6 +3,7 @@ Privacy and browser-security headers (backend/security_headers.py) and the
 fonts bundled with the frontend (no font CDN).
 """
 
+from backend.tests.conftest import default_login
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -32,7 +33,7 @@ def test_no_csp_in_the_mac_app(auth_client, monkeypatch):
 
 def _login_cookie(headers: dict) -> str:
     client = TestClient(app)
-    r = client.post("/api/login", json={"username": "admin", "password": "password"}, headers=headers)
+    r = client.post("/api/login", json=default_login(), headers=headers)
     assert r.status_code == 200, r.text
     return r.headers["set-cookie"]
 

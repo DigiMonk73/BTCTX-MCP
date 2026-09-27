@@ -22,6 +22,8 @@ Usage:
 
 from __future__ import annotations
 
+from backend.tests.conftest import default_login
+
 import sys
 import bcrypt
 import pytest
@@ -178,7 +180,7 @@ class TestAuthEndpoints:
         """Test successful login with correct credentials."""
         response = session.post(
             "/api/login",
-            json={"username": "admin", "password": "password"}
+            json=default_login()
         )
 
         assert response.status_code == 200
@@ -209,7 +211,7 @@ class TestAuthEndpoints:
         # First login
         login_response = session.post(
             "/api/login",
-            json={"username": "admin", "password": "password"}
+            json=default_login()
         )
         assert login_response.status_code == 200
 
@@ -230,7 +232,7 @@ class TestAuthEndpoints:
         # Login
         session.post(
             "/api/login",
-            json={"username": "admin", "password": "password"}
+            json=default_login()
         )
 
         # Multiple requests should maintain auth
@@ -249,7 +251,7 @@ class TestAuthEndpoints:
         # Login first
         session.post(
             "/api/login",
-            json={"username": "admin", "password": "password"}
+            json=default_login()
         )
 
         # Now access protected endpoint

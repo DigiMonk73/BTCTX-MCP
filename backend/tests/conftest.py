@@ -26,6 +26,14 @@ from backend.models.transaction import (      # noqa: F401
 
 LOGIN_CREDS = {"username": "admin", "password": "password"}
 
+
+def default_login() -> dict:
+    """admin/password plus the setup code the default login needs on a fresh
+    install (backend/services/first_run.py)."""
+    from backend.services import first_run
+
+    return {**LOGIN_CREDS, "setup_code": first_run.ensure_code()}
+
 # Deterministic BTC prices for the whole test session. Tests must never depend
 # on the price sites being reachable (CI runners, offline laptops). Individual
 # tests can still stub their own values on top (stub_daily_prices).
@@ -155,7 +163,7 @@ def auth_client(test_engine, _stub_price_apis):
 
     app.dependency_overrides[get_db] = override_get_db
     client = TestClient(app)
-    r = client.post("/api/login", json=LOGIN_CREDS)
+    r = client.post("/api/login", json=default_login())
     assert r.status_code == 200, f"TestClient login failed: {r.status_code} {r.text}"
     yield client
     app.dependency_overrides.clear()

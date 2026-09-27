@@ -21,6 +21,7 @@ Run: python backend/tests/test_comprehensive_transactions.py
 Requires: Backend running at http://127.0.0.1:8000
 """
 
+from backend.tests.conftest import default_login
 import pytest
 import sys
 from decimal import Decimal, ROUND_HALF_DOWN
@@ -2156,7 +2157,7 @@ if __name__ == "__main__":
 
     app.dependency_overrides[get_db] = override_get_db
     CLIENT = TestClient(app)
-    r = CLIENT.post("/api/login", json={"username": "admin", "password": "password"})
+    r = CLIENT.post("/api/login", json=default_login())
     if r.status_code != 200:
         print(f"ERROR: Login failed: {r.status_code}")
         sys.exit(1)

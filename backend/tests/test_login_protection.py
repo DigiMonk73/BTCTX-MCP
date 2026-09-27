@@ -27,7 +27,11 @@ from backend.main import app
 from backend.models.user import User
 from backend.services import first_run, login_throttle
 
-GOOD = {"username": "admin", "password": "password"}
+from backend.tests.conftest import default_login
+
+
+def good() -> dict:
+    return default_login()
 BAD = {"username": "admin", "password": "not-the-password"}
 NOBODY = {"username": "nobody", "password": "x"}  # a failure without bcrypt's wait
 
@@ -54,11 +58,11 @@ def fail_login(client: TestClient, times: int, body=NOBODY) -> list:
 def test_repeated_bad_passwords_get_429_with_retry_after(fresh_app, clock):
     me = anon()
     assert fail_login(me, 5, BAD) == [401] * 5
-    r = me.post("/api/login", json=GOOD)  # even the right password waits
+    r = me.post("/api/login", json=good())  # even the right password waits
     assert r.status_code == 429 and r.headers["Retry-After"] == "1"
     assert "Try again in 1 second" in r.json()["detail"]
     clock[0] += 1.01
-    assert me.post("/api/login", json=GOOD).status_code == 200
+    assert me.post("/api/login", json=good()).status_code == 200
     # a success clears the count
     assert fail_login(me, 5) == [401] * 5
 
@@ -78,8 +82,8 @@ def test_the_wait_doubles_up_to_five_minutes(fresh_app, clock):
 
 def test_other_clients_are_not_slowed_by_one(fresh_app, clock):
     fail_login(anon("10.0.0.1"), 5)
-    assert anon("10.0.0.1").post("/api/login", json=GOOD).status_code == 429
-    assert anon("10.0.0.2").post("/api/login", json=GOOD).status_code == 200
+    assert anon("10.0.0.1").post("/api/login", json=good()).status_code == 429
+    assert anon("10.0.0.2").post("/api/login", json=good()).status_code == 200
 
 
 def test_many_failures_from_many_addresses_make_everyone_wait(fresh_app, clock):
@@ -88,10 +92,10 @@ def test_many_failures_from_many_addresses_make_everyone_wait(fresh_app, clock):
     for i in range(login_throttle.GLOBAL_MAX):
         assert fail_login(anon(f"10.1.0.{i}"), 1) == [401]
         clock[0] += 1
-    r = anon("10.2.0.1").post("/api/login", json=GOOD)
+    r = anon("10.2.0.1").post("/api/login", json=good())
     assert r.status_code == 429 and 1 <= int(r.headers["Retry-After"]) <= 60
     clock[0] += int(r.headers["Retry-After"])
-    assert anon("10.2.0.1").post("/api/login", json=GOOD).status_code == 200
+    assert anon("10.2.0.1").post("/api/login", json=good()).status_code == 200
 
 
 def test_a_client_is_forgotten_after_an_hour(clock):
@@ -131,7 +135,7 @@ def test_new_passwords_need_12_characters(fresh_app):
     assert r.status_code == 422 and "at least 12 characters" in r.text
     assert anon().post("/api/users/register", json={"username": "x", "password": "elevenchars"}).status_code == 422
     me = anon()
-    assert me.post("/api/login", json=GOOD).status_code == 200
+    assert me.post("/api/login", json=good()).status_code == 200
     r = me.patch("/api/users/1", json={"password": "elevenchars", "current_password": "password",
                                          "setup_code": code})
     assert r.status_code == 422
@@ -258,7 +262,7 @@ def test_a_missing_code_file_is_made_again(fresh_app):
 def test_changing_the_default_login_in_settings_needs_the_code_too(fresh_app):
     """Otherwise anyone could log in with admin/password and change it."""
     me = anon()
-    assert me.post("/api/login", json=GOOD).status_code == 200  # still possible
+    assert me.post("/api/login", json=good()).status_code == 200  # with the code
     change = {"username": "me", "password": "n3w-passw0rd", "current_password": "password"}
     assert me.patch("/api/users/1", json=change).status_code == 403
     r = me.patch("/api/users/1", json=dict(change, setup_code=first_run.ensure_code()))
@@ -291,3 +295,19 @@ def test_an_account_without_the_default_login_involves_no_code(fresh_app):
     r = anon().post("/api/users/reset-account",
                     json=dict(CLAIM, current_password="generated-by-startos-24ch"))
     assert r.status_code == 200, r.text
+
+
+def test_the_default_login_needs_the_code(fresh_app):
+    """Otherwise anyone who can reach a fresh install logs in with admin/password
+    before the owner claims it: restore their own backup, create an AI key."""
+    r = anon().post("/api/login", json={"username": "admin", "password": "password"})
+    assert r.status_code == 403 and "Create account page" in r.json()["detail"]
+    r = anon().post("/api/login", json={"username": "admin", "password": "password", "setup_code": "WRNG-WRNG-WRNG"})
+    assert r.status_code == 403
+    assert anon().post("/api/login", json=good()).status_code == 200
+
+
+def test_the_mac_app_logs_in_with_the_default_login_without_a_code(fresh_app, monkeypatch):
+    monkeypatch.setenv("BTCTX_DESKTOP", "1")
+    r = anon().post("/api/login", json={"username": "admin", "password": "password"})
+    assert r.status_code == 200
