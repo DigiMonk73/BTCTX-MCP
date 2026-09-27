@@ -112,6 +112,59 @@ def test_backups_made_before_0_9_2_still_restore(tmp_path):
         backup.decrypt_backup(v1, "nope")
 
 
+@pytest.mark.parametrize("iterations", [0, 1_000, 99_999, 5_000_001, 2**32 - 1])
+def test_a_backup_asking_for_an_absurd_key_strength_is_refused_at_once(iterations, monkeypatch):
+    """The PBKDF2 count comes from the file: 4 billion rounds would tie up
+    the server for hours before the password could even be checked."""
+    def no_derivation(*a, **k):
+        raise AssertionError("key derivation must not start")
+
+    monkeypatch.setattr(backup, "_derive_key", no_derivation)
+    blob = b"BTCTX-BACKUP" + bytes([2]) + struct.pack(">I", iterations) + os.urandom(16 + 16 + 64 + 32)
+    with pytest.raises(ValueError, match="damaged or wasn't made by BitcoinTX"):
+        backup.decrypt_backup(blob, "pw")
+
+
+def test_a_backup_in_the_allowed_range_still_restores(tmp_path):
+    live = _db(tmp_path / "live.db").read_bytes()
+    for iterations in (backup.MIN_ITERATIONS, 600_000):
+        assert backup.decrypt_backup(backup.encrypt_backup(live, "pw", iterations), "pw") == live
+
+
+def test_restore_refuses_a_file_over_the_size_limit(auth_client, monkeypatch):
+    from backend.routers import backup as backup_router
+
+    monkeypatch.setattr(backup_router, "MAX_RESTORE_BYTES", 4096)
+    big = b"BTCTX-BACKUP" + os.urandom(5000)
+    r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", big)})
+    assert r.status_code == 413 and "too large" in r.json()["detail"]
+
+
+def test_restore_copies_the_upload_in_chunks_up_to_the_limit(monkeypatch):
+    """Never one read of the whole upload; stops as soon as the limit is passed."""
+    import io
+
+    from fastapi import HTTPException
+
+    from backend.routers.backup import _copy_at_most
+
+    reads = []
+
+    class Src(io.BytesIO):
+        def read(self, n=-1):
+            assert 0 < n <= 1024 * 1024
+            reads.append(n)
+            return super().read(n)
+
+    out = io.BytesIO()
+    _copy_at_most(Src(b"x" * 3_000_000), out, 3_000_000)
+    assert out.getvalue() == b"x" * 3_000_000
+    reads.clear()
+    with pytest.raises(HTTPException) as exc:
+        _copy_at_most(Src(b"x" * (5 * 1024 * 1024)), io.BytesIO(), 2 * 1024 * 1024)
+    assert exc.value.status_code == 413 and len(reads) == 3
+
+
 def test_the_database_file_is_owner_only(tmp_path):
     path = tmp_path / "btctx.db"
     engine = create_engine(f"sqlite:///{path}")

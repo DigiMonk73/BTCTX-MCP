@@ -6,7 +6,6 @@ import csv
 import logging
 import io
 import os
-import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,6 +88,21 @@ def download_encrypted_backup(
     )
 
 # === POST /api/backup/restore ===
+# A backup holds the SQLite database: a few MB even for years of activity.
+MAX_RESTORE_BYTES = 1 << 30  # 1 GiB
+RESTORE_TOO_LARGE = "This file is too large to be a BitcoinTX backup (the limit is 1 GiB)."
+
+
+def _copy_at_most(src, dst, limit: int) -> None:
+    """Copy in chunks, stopping with 413 once more than `limit` bytes came."""
+    copied = 0
+    while chunk := src.read(1024 * 1024):
+        copied += len(chunk)
+        if copied > limit:
+            raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
+        dst.write(chunk)
+
+
 @router.post("/restore")
 def restore_encrypted_backup(
     request: Request,
@@ -101,12 +115,14 @@ def restore_encrypted_backup(
     Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
+    if file.size is not None and file.size > MAX_RESTORE_BYTES:
+        raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     ai_state = ai_key.snapshot(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
-            shutil.copyfileobj(file.file, temp_file)
             temp_path = Path(temp_file.name)
+            _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
         restore_backup(password, temp_path)
         # The restored database carries its own network settings.
@@ -127,6 +143,8 @@ def restore_encrypted_backup(
         request.session.clear()
 
         return {"message": "✅ Database successfully restored. Please log in again."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Restore failed: {str(e)}")
     finally:
