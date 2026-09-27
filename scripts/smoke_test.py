@@ -3,14 +3,18 @@
 End-to-end smoke test for BitcoinTX.
 
 Starts the REAL server (uvicorn, as Docker and the macOS app do) on a
-throwaway database and drives it over HTTP like a user: login, record a
-year of activity, import via the MCP entry API, generate every report,
-export, recalculate, log out. Exits non-zero on the first failure.
+throwaway database and drives it over HTTP like a user: claim the account
+with the first-run setup code, login, record a year of activity, import via
+the MCP entry API, generate every report, export, recalculate, log out.
+Exits non-zero on the first failure.
 
 Usage:
     python scripts/smoke_test.py                 # own server, temp DB, stubbed prices
     python scripts/smoke_test.py --url http://127.0.0.1:8080 --user admin --password password
                                                  # an already-running instance (e.g. Docker)
+    python scripts/smoke_test.py --url http://127.0.0.1:8080 --user me --password <12+ chars> \
+        --setup-code XXXX-XXXX-XXXX              # claim a fresh instance first (the code is
+                                                 # in docker logs and /data/setup-code.txt)
 
 The own-server mode stubs BTC prices so it runs offline. Against --url the
 server uses live prices, so price-dependent steps may be skipped if the
@@ -30,12 +34,15 @@ import tempfile
 import time
 from decimal import Decimal
 from pathlib import Path
+from typing import Optional
 
 import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 PASSED: list[str] = []
 SKIPPED: list[str] = []
+# The account the own-server run claims (a new password needs 12+ characters)
+SMOKE_USER, SMOKE_PASSWORD = "smoke-user", "smoke-password-123"
 
 
 class SmokeFailure(Exception):
@@ -124,8 +131,24 @@ def start_server() -> tuple[subprocess.Popen, str, str]:
 # ---------------------------------------------------------------------------
 # Scenario
 # ---------------------------------------------------------------------------
-def run(url: str, user: str, password: str, own_server: bool) -> None:
+def claim(c: httpx.Client, user: str, password: str, code: str) -> None:
+    """First run: set the login of the default account, with the setup code."""
+    print("\nFirst run")
+    status = c.get("/api/users/setup-status").json()
+    check("fresh instance has the default login", status["is_default"], str(status))
+    check("claiming it needs the setup code", status["setup_code_required"], str(status))
+    body = {"username": user, "password": password}
+    r = c.post("/api/users/reset-account", json=body)
+    check("claim without the code refused", r.status_code == 403, r.text)
+    r = c.post("/api/users/reset-account", json={**body, "setup_code": code})
+    check("claim with the code", r.status_code == 200, r.text)
+    check("default login no more", not c.get("/api/users/setup-status").json()["is_default"])
+
+
+def run(url: str, user: str, password: str, own_server: bool, setup_code: Optional[str] = None) -> None:
     c = httpx.Client(base_url=url, timeout=120)
+    if setup_code:
+        claim(c, user, password, setup_code)
 
     print("\nServing")
     r = c.get("/")
@@ -232,16 +255,21 @@ def main() -> int:
     ap.add_argument("--url", help="test an already-running instance instead of starting one")
     ap.add_argument("--user", default="admin")
     ap.add_argument("--password", default="password")
+    ap.add_argument("--setup-code", help="claim a fresh --url instance first, as --user/--password")
     args = ap.parse_args()
 
     proc = workdir = None
     try:
+        user, password, code = args.user, args.password, args.setup_code
         if args.url:
             url = args.url.rstrip("/")
         else:
             proc, url, workdir = start_server()
+            # Written at startup next to the database, like /data on Docker
+            code = Path(workdir, "setup-code.txt").read_text().strip()
+            user, password = SMOKE_USER, SMOKE_PASSWORD
         print(f"Smoke testing {url}")
-        run(url, args.user, args.password, own_server=proc is not None)
+        run(url, user, password, own_server=proc is not None, setup_code=code)
     except SmokeFailure as exc:
         print(f"\n✗ SMOKE TEST FAILED: {exc}")
         log = os.path.join(workdir, "server.log") if workdir else None

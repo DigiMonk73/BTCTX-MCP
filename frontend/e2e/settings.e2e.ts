@@ -57,6 +57,13 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   await openSettings(page);
   await page.getByLabel("New username").fill("renamed-user");
   await page.getByLabel("New password").fill("another-password-456");
+  // The current password is needed, and checked by the server.
+  await page.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("Enter your current password")).toBeVisible();
+  await page.getByLabel("Current password").fill("not-the-password");
+  await page.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("Current password is incorrect.")).toBeVisible();
+  await page.getByLabel("Current password").fill(PASSWORD);
   await page.getByRole("button", { name: "Update" }).click();
   await expect(page.getByText("Credentials updated successfully.")).toBeVisible();
   expect(dialogs[0]).toContain("keep existing transactions");

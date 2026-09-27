@@ -1,7 +1,9 @@
 // FILE: frontend/src/pages/Settings.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../api";
+import { extractErrorMessage } from "../hooks/useApiCall";
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from "../utils/credentials";
 import ConnectAiSetting from "../components/ConnectAiSetting";
 import LedgerReview from "../components/LedgerReview";
 import NetworkSettings from "../components/NetworkSettings";
@@ -57,6 +59,18 @@ const Settings: React.FC = () => {
 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  // Still the default admin/password login (Docker, source): changing it
+  // needs the first-run setup code, like Register.
+  const [setupCode, setSetupCode] = useState("");
+  const [codeRequired, setCodeRequired] = useState(false);
+
+  useEffect(() => {
+    api
+      .get("/users/setup-status")
+      .then((res) => setCodeRequired(Boolean((res.data as { setup_code_required?: boolean }).setup_code_required)))
+      .catch(() => setCodeRequired(false));
+  }, []);
 
   // CSV Import state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -118,17 +132,30 @@ const Settings: React.FC = () => {
         setMessage("Please enter a new username or password (or both).");
         return;
       }
+      if (newPassword && newPassword.length < MIN_PASSWORD_LENGTH) {
+        setMessage(`The new password is too short. ${PASSWORD_RULE}`);
+        return;
+      }
+      if (!currentPassword) {
+        setMessage("Enter your current password to change your username or password.");
+        return;
+      }
 
       await api.patch(`/users/${userId}`, {
         username: newUsername || undefined,
         password: newPassword || undefined,
+        current_password: currentPassword,
+        setup_code: codeRequired ? setupCode.trim() : undefined,
       });
 
       setMessage("Credentials updated successfully.");
       setNewUsername("");
       setNewPassword("");
-    } catch {
-      setMessage("Failed to reset credentials.");
+      setCurrentPassword("");
+      setSetupCode("");
+      setCodeRequired(false);
+    } catch (error) {
+      setMessage(extractErrorMessage(error) || "Failed to reset credentials.");
     } finally {
       setLoading(false);
     }
@@ -467,8 +494,34 @@ const Settings: React.FC = () => {
                 aria-label="New password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
                 className="input"
               />
+              <input
+                type="password"
+                placeholder="Current Password"
+                aria-label="Current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                className="input"
+              />
+              {codeRequired && (
+                <input
+                  type="text"
+                  placeholder="Setup Code"
+                  aria-label="Setup code"
+                  value={setupCode}
+                  onChange={(e) => setSetupCode(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="input"
+                />
+              )}
+              <p className="field-hint">
+                New password: {PASSWORD_RULE.toLowerCase()} Any change needs your current password.
+                {codeRequired && ` This is still the default login: changing it needs the setup code. ${SETUP_CODE_HINT}`}
+              </p>
             </div>
 
             <div className="credential-submit-container">
