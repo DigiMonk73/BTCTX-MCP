@@ -9,7 +9,8 @@ name: Release
 #   BitcoinTX-macOS.zip     the same app, zipped
 # and the image ghcr.io/digimonk73/btctx-mcp:vX.Y.Z (published here if main
 # hasn't already). Then startos/ is mirrored to DigiMonk73/BTCTX-StartOS if the
-# MIRROR_TOKEN secret exists. Branch-based so a release doesn't depend on being
+# MIRROR_TOKEN secret exists, and the same btctx.s9pk is released there on the
+# mirror's tag (scripts/mirror-startos-release.sh). Branch-based so a release doesn't depend on being
 # able to push tags. An existing release is left alone. Setup of the two
 # secrets: startos/UPDATING.md.
 on:
@@ -180,6 +181,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: s9pk
+          path: dist
       - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
@@ -192,3 +197,6 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           MIRROR_URL="https://x-access-token:${MIRROR_TOKEN}@github.com/DigiMonk73/BTCTX-StartOS.git" \
             scripts/sync-startos-mirror.sh --push "$RUNNER_TEMP/BTCTX-StartOS"
+          # The same package as a release there too, marked Latest.
+          GH_TOKEN="$MIRROR_TOKEN" scripts/mirror-startos-release.sh \
+            "${{ needs.check.outputs.tag }}" dist/btctx.s9pk

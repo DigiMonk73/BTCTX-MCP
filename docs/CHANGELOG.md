@@ -4,6 +4,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Releases
+- The release workflow now also publishes each version's `btctx.s9pk` as a
+  release on the StartOS mirror (DigiMonk73/BTCTX-StartOS), marked Latest,
+  so the mirror's releases page stays current with no work in that repo
+  (`scripts/mirror-startos-release.sh`).
+
 ## [v1.0.1] - 2026-09-26 - Settings layout fix
 
 ### Fixes
