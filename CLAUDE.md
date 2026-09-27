@@ -166,8 +166,17 @@ Full steps, the package version and the signing/mirror secrets:
 3. Push a branch `release/vX.Y.Z`: `.github/workflows/release.yml` builds the
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
    set), creates the tag and one GitHub release, and mirrors `startos/` to
-   DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set
-   (`scripts/sync-startos-mirror.sh` does it by hand).
+   DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set: a sync
+   commit on its `main` tagged `v<upstream>_<revision>`, plus a release there
+   with the same `btctx.s9pk`, marked Latest.
+
+The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9's registry would
+fork. It is generated: never edit it directly, change `startos/` here. It
+has only `main` and updates only on releases. By hand:
+`scripts/sync-startos-mirror.sh --push`, then
+`scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
+`MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
+`startos/UPDATING.md`).
 
 ## Ending a session
 
