@@ -161,7 +161,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         .first()
     )
     if latest_other_tx and new_tx.timestamp < latest_other_tx.timestamp:
-        logger.info(
+        # DEBUG only, like every line naming a transaction's date or amount
+        logger.debug(
             f"[Backdated Create] New tx {new_tx.id} at {new_tx.timestamp} is earlier than "
             f"existing tx {latest_other_tx.id} at {latest_other_tx.timestamp}. Triggering recalculation."
         )
@@ -202,7 +203,11 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     # "Unknown transaction type: None" or let a mismatch through).
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
-    _validate_transaction(merged, db)
+    # Only a source this edit sets (or a new type) is checked against the list
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
+    check_source = ("source" in tx_data and tx_data["source"] != tx.source) or (
+        "type" in tx_data and new_type != tx.type)
+    _validate_transaction(merged, db, check_source=check_source)
     for key in ("type", "purpose", "source"):  # canonical spellings
         if merged.get(key) != getattr(tx, key) or key in tx_data:
             tx_data[key] = merged.get(key)
@@ -277,7 +282,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     # lots from before the new timestamp still had reduced remaining_btc from
     # the original transaction's consumption.
     new_timestamp = tx.timestamp
-    logger.info(
+    logger.debug(
         f"[Update] Tx {tx.id} timestamp {old_timestamp} => {new_timestamp}. "
         f"Running scorched earth re-lot."
     )
@@ -1111,7 +1116,7 @@ def recalculate_subsequent_transactions(db: Session, from_timestamp: datetime):
     Partial-lot re-lot for transactions >= from_timestamp, more efficient
     than "scorched earth" for large datasets.
     """
-    logger.info(f"[Partial Re-Lot] Starting from {from_timestamp.isoformat()}")
+    logger.debug(f"[Partial Re-Lot] Starting from {from_timestamp.isoformat()}")
 
     affected_txs = (
         db.query(Transaction)
@@ -1213,6 +1218,7 @@ GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 
 
 def _canonical(value, choices) -> Optional[str]:
@@ -1227,12 +1233,13 @@ def _bad(detail: str):
     raise HTTPException(status_code=422, detail=detail)
 
 
-def _validate_transaction(data: dict, db: Session) -> None:
+def _validate_transaction(data: dict, db: Session, check_source: bool = True) -> None:
     """
     Reject input the ledger would record wrongly, with a clear message; set
     canonical spellings in `data`. Used on create, and on update with the
     stored row merged with the change, so a partial edit is checked as a
-    whole transaction.
+    whole transaction. check_source=False keeps a deposit's stored source
+    unchecked (an edit that doesn't change it).
     """
     tx_type = data.get("type")
     tx_type = getattr(tx_type, "value", tx_type)
@@ -1297,6 +1304,13 @@ def _validate_transaction(data: dict, db: Session) -> None:
         canonical = _canonical(value, choices)
         if canonical:
             data[key] = canonical
+
+    # A deposit's source is one of the listed ones (blank means N/A). Rows
+    # saved before v1.1.0 may hold other text: they still load, recalculate
+    # and keep it through an edit that leaves the source alone.
+    if tx_type == "Deposit" and check_source and str(data.get("source") or "").strip() \
+            and data.get("source") not in DEPOSIT_SOURCES:
+        _bad(DEPOSIT_SOURCE_UNKNOWN)
 
     if tx_type == "Withdrawal" and from_acct is not None and from_acct.currency == "BTC":
         if data.get("purpose") not in WITHDRAWAL_PURPOSES:

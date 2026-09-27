@@ -7,7 +7,8 @@ from typing import List, Optional
 from pydantic import BaseModel, field_validator
 
 # Pydantic schemas for user creation, reading, and updating
-from backend.schemas.user import UserCreate, UserRead, UserUpdate
+from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password
+from backend.services import first_run, login_throttle
 
 # Service functions that interact with the database
 from backend.services.user import (
@@ -67,10 +68,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
     return new_user
 
-# Credentials every fresh install starts with (database.seed_defaults). While
-# they are unchanged, knowing them grants nothing an attacker doesn't have.
-DEFAULT_USERNAME = "admin"
-DEFAULT_PASSWORD = "password"
+WRONG_PASSWORD = "Current password is incorrect."
 
 
 def _session_user_id(request: Request, db: Session) -> int:
@@ -83,24 +81,50 @@ def _require_self(user_id: int, request: Request, db: Session) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own account.")
 
 
-def _is_default_account(user: User) -> bool:
-    return user.username == DEFAULT_USERNAME and user.verify_password(DEFAULT_PASSWORD)
+def _authorize_change(user: User, request: Request, current_password: Optional[str],
+                      setup_code: Optional[str], default_login_ok: bool) -> None:
+    """
+    May the login of `user` be changed? With its current password, or, while
+    it still has the default login and default_login_ok, by knowing that
+    (plus the setup code outside the Mac app: first_run.py). Failures count
+    towards the login throttle (login_throttle.py).
+    """
+    login_throttle.check(request)
+    is_default = first_run.is_default_account(user)
+    if is_default and first_run.code_required():
+        if not first_run.check_code(setup_code):
+            login_throttle.failed(request)
+            detail = first_run.CODE_WRONG if setup_code else first_run.CODE_REQUIRED
+            raise HTTPException(status_code=403, detail=detail)
+    if not (is_default and default_login_ok) and (
+        current_password is None or not user.verify_password(current_password)
+    ):
+        login_throttle.failed(request)
+        raise HTTPException(status_code=403, detail=WRONG_PASSWORD)
+    login_throttle.succeeded(request)
 
 
 @router.get("/setup-status")
 def setup_status(db: Session = Depends(get_db)):
     """
-    Public: whether the single account still has the shipped default login.
+    Public: whether the single account still has the shipped default login,
+    and whether claiming it needs the first-run setup code (never the code).
     Used by the first-run (Register) page before anyone is logged in.
     """
     users = get_all_users(db)
-    return {"has_user": bool(users), "is_default": bool(users) and _is_default_account(users[0])}
+    is_default = bool(users) and first_run.is_default_account(users[0])
+    return {
+        "has_user": bool(users),
+        "is_default": is_default,
+        "setup_code_required": is_default and first_run.code_required(),
+    }
 
 
 class AccountReset(BaseModel):
     username: str
     password: str
     current_password: Optional[str] = None
+    setup_code: Optional[str] = None
 
     @field_validator("username", "password")
     @classmethod
@@ -109,30 +133,33 @@ class AccountReset(BaseModel):
             raise ValueError("can't be empty")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def long_enough(cls, v: str) -> str:
+        return check_new_password(v)
+
 
 @router.post("/reset-account")
-def reset_account(payload: AccountReset, db: Session = Depends(get_db)):
+def reset_account(payload: AccountReset, request: Request, db: Session = Depends(get_db)):
     """
     First-run / re-registration: set new credentials and clear all
-    transactions. Allowed only while the account still has the default login,
-    or when current_password is the account's real password (verified here,
-    server-side).
+    transactions. Allowed while the account still has the default login
+    (with the setup code, outside the Mac app), or when current_password is
+    the account's real password (verified here, server-side). Throttled like
+    the login.
     """
     users = get_all_users(db)
     if not users:
         raise HTTPException(status_code=404, detail="No account to reset.")
     user = users[0]
-    authorized = _is_default_account(user) or (
-        payload.current_password is not None and user.verify_password(payload.current_password)
-    )
-    if not authorized:
-        raise HTTPException(status_code=403, detail="Current password is incorrect.")
-    if payload.username.strip().lower() == DEFAULT_USERNAME:
+    _authorize_change(user, request, payload.current_password, payload.setup_code, default_login_ok=True)
+    if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
     from backend.services.transaction import delete_all_transactions
     delete_all_transactions(db)
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
+    first_run.clear_code()
     return {"detail": "Account reset. Log in with your new credentials."}
 
 
@@ -147,14 +174,20 @@ def get_users(request: Request, db: Session = Depends(get_db)):
 def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Session = Depends(get_db)):
     """
     Change your own username and/or password: PATCH /api/users/{user_id}.
-    Requires being logged in as that user.
+    Requires being logged in as that user and current_password (so a
+    session left open can't take over the login); while the account has the
+    default login, also the setup code (first_run.py).
     """
     _require_self(user_id, request, db)
-    updated_user = update_user_service(user_id, user_data, db)
-    if not updated_user:
+    user = db.get(User, user_id)
+    if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
+    _authorize_change(user, request, user_data.current_password, user_data.setup_code, default_login_ok=False)
+    updated_user = update_user_service(user_id, user_data, db)
     # Other sessions end with the old password; this one carries on.
     start_session(request, updated_user)
+    if not first_run.is_default_account(updated_user):
+        first_run.clear_code()
     return updated_user
 
 

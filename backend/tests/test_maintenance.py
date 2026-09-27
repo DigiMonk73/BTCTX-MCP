@@ -178,9 +178,19 @@ def test_cli_set_password_renames_back_to_admin(tmp_path, restore_overrides):
     con.execute("UPDATE users SET username = 'satoshi'")
     con.commit()
     con.close()
-    r = cli(db, "set-password", "--username", "admin", "--password-stdin", stdin="reset-pw")
+    r = cli(db, "set-password", "--username", "admin", "--password-stdin", stdin="reset-password-1")
     assert r.returncode == 0, r.stderr
-    assert can_login(db, "admin", "reset-pw")
+    assert can_login(db, "admin", "reset-password-1")
+
+
+def test_cli_set_password_ends_the_first_run_setup_code(tmp_path, restore_overrides):
+    """The account no longer has the default login, so its code goes."""
+    db = tmp_path / "btctx.db"
+    init_db(engine_for(db))
+    (tmp_path / "setup-code.txt").write_text("ABCD-EFGH-JKMN\n")
+    r = cli(db, "set-password", "--password-stdin", stdin="a-generated-password-24ch")
+    assert r.returncode == 0, r.stderr
+    assert not (tmp_path / "setup-code.txt").exists()
 
 
 @pytest.mark.parametrize(
@@ -189,7 +199,8 @@ def test_cli_set_password_renames_back_to_admin(tmp_path, restore_overrides):
         (["set-password"], "", "No password given"),
         (["set-password", "--password-stdin"], "\n", "No password given"),
         (["set-password", "--password-stdin"], "x" * 73, "72 bytes"),
-        (["set-password", "--username", " ", "--password-stdin"], "pw", "username can't be empty"),
+        (["set-password", "--password-stdin"], "elevenchars", "at least 12 characters"),
+        (["set-password", "--username", " ", "--password-stdin"], "long-enough-pw", "username can't be empty"),
     ],
 )
 def test_cli_set_password_rejects_bad_input_without_changing_anything(tmp_path, args, stdin, message, restore_overrides):

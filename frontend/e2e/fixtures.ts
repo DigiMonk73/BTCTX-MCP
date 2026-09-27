@@ -3,7 +3,7 @@
 // $60,000, block height 900,000), so tests never depend on each other.
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -71,10 +71,19 @@ async function startApp(
   throw new Error(`server did not start:\n${log.join("")}`);
 }
 
+/**
+ * The first-run setup code the server wrote next to its database (outside
+ * the Mac app, while the account has the default login), or undefined.
+ */
+export function setupCode(app: App): string | undefined {
+  const file = path.join(app.dir, "setup-code.txt");
+  return existsSync(file) ? readFileSync(file, "utf8").trim() : undefined;
+}
+
 /** Claim the default account over the API (the UI flow has its own test). */
-export async function claimAccount(request: APIRequestContext) {
+export async function claimAccount(request: APIRequestContext, app: App) {
   const r = await request.post("/api/users/reset-account", {
-    data: { username: USER, password: PASSWORD },
+    data: { username: USER, password: PASSWORD, setup_code: setupCode(app) },
   });
   expect(r.ok(), await r.text()).toBeTruthy();
 }
@@ -155,8 +164,8 @@ export const test = base.extend<Fixtures>({
   baseURL: async ({ app }, use) => {
     await use(app.url);
   },
-  authedPage: async ({ page }, use) => {
-    await claimAccount(page.request);
+  authedPage: async ({ page, app }, use) => {
+    await claimAccount(page.request, app);
     await loginViaUi(page);
     await use(page);
   },

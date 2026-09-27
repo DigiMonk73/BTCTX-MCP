@@ -64,7 +64,9 @@ async def _autofill_fmv_basis(
                 price_cache[date_str] = await price_history.daily_price_async(db, proposal.timestamp)
             except Exception as exc:
                 price_cache[date_str] = None
-                logger.warning("FMV lookup failed for %s: %s", date_str, exc)
+                # The day (a transaction's date) only in the DEBUG log
+                logger.warning("FMV lookup failed (%s)", type(exc).__name__)
+                logger.debug("FMV lookup failed for %s: %s", date_str, exc)
                 warnings.append(CSVParseError(
                     row_number=proposal.row_number, column="cost_basis_usd",
                     severity="warning",

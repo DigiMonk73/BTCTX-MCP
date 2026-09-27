@@ -57,6 +57,7 @@
     # Expose port 80 for production
     EXPOSE 80
     
-    # Final command: run the FastAPI app with Uvicorn on port 80
-    CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80"]
+    # Final command: run the FastAPI app with Uvicorn on port 80. No access
+    # log: request lines carry client addresses and dates (?date=...).
+    CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80", "--no-access-log"]
     

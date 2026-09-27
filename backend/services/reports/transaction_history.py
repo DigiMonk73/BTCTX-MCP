@@ -50,8 +50,27 @@ from reportlab.pdfgen.canvas import Canvas
 from sqlalchemy.orm import Session
 from backend.models.transaction import Transaction
 from backend.models.account import Account
+from backend.services.reports.safe_text import csv_text, pdf_text
 
 logger = logging.getLogger(__name__)
+
+# Report columns, in order (CSV header and PDF table header)
+COLUMNS = [
+    "date",
+    "type",
+    "from_account",
+    "to_account",
+    "asset",
+    "amount",
+    "fee_amount",
+    "fee_currency",
+    "cost_basis_usd",
+    "proceeds_usd",
+    "realized_gain_usd",
+    "holding_period",
+    "description",
+]
+NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "realized_gain_usd"}
 
 
 # -----------------------------------------------------------------------------
@@ -278,40 +297,15 @@ def _generate_csv(rows: List[dict], year: int) -> str:
       fee_amount,fee_currency,cost_basis_usd,proceeds_usd,
       realized_gain_usd,holding_period,description
     """
-    headers = [
-        "date",
-        "type",
-        "from_account",
-        "to_account",
-        "asset",
-        "amount",
-        "fee_amount",
-        "fee_currency",
-        "cost_basis_usd",
-        "proceeds_usd",
-        "realized_gain_usd",
-        "holding_period",
-        "description",
-    ]
-    lines = [",".join(headers)]
+    lines = [",".join(COLUMNS)]
 
     logger.info("DEBUG: Starting _generate_csv with %d rows for year=%s", len(rows), year)
 
     for idx, r in enumerate(rows):
+        # Text cells can't start a spreadsheet formula; numbers stay numbers
         line_elems = [
-            _escape_csv(r["date"]),
-            _escape_csv(r["type"]),
-            _escape_csv(r["from_account"]),
-            _escape_csv(r["to_account"]),
-            _escape_csv(r["asset"]),
-            _escape_csv(r["amount"]),
-            _escape_csv(r["fee_amount"]),
-            _escape_csv(r["fee_currency"]),
-            _escape_csv(r["cost_basis_usd"]),
-            _escape_csv(r["proceeds_usd"]),
-            _escape_csv(r["realized_gain_usd"]),
-            _escape_csv(r["holding_period"]),
-            _escape_csv(r["description"]),
+            _escape_csv(r[col] if col in NUMBER_COLUMNS else csv_text(r[col]))
+            for col in COLUMNS
         ]
         final_line = ",".join(line_elems)
         logger.debug("DEBUG: CSV row #%d => %s", idx + 1, final_line)
@@ -385,7 +379,7 @@ def _generate_pdf(rows: List[dict], year: int) -> bytes:
     story = []
 
     # Title
-    story.append(Paragraph(f"Transaction History for {year}", heading_style))
+    story.append(Paragraph(f"Transaction History for {pdf_text(year)}", heading_style))
     story.append(Spacer(1, 0.2 * inch))
 
     if not rows:
@@ -397,41 +391,14 @@ def _generate_pdf(rows: List[dict], year: int) -> bytes:
         return pdf_bytes
 
     # Table header
-    data = [[
-        "date",
-        "type",
-        "from_account",
-        "to_account",
-        "asset",
-        "amount",
-        "fee_amount",
-        "fee_currency",
-        "cost_basis_usd",
-        "proceeds_usd",
-        "realized_gain_usd",
-        "holding_period",
-        "description",
-    ]]
+    data = [list(COLUMNS)]
 
     logger.info("DEBUG: Building PDF table with %d rows for year=%s", len(rows), year)
 
     # Add table rows
     for idx, r in enumerate(rows):
-        row_data = [
-            Paragraph(r["date"], wrapped_style),
-            Paragraph(r["type"], wrapped_style),
-            Paragraph(r["from_account"], wrapped_style),
-            Paragraph(r["to_account"], wrapped_style),
-            Paragraph(r["asset"], wrapped_style),
-            Paragraph(r["amount"], wrapped_style),
-            Paragraph(r["fee_amount"], wrapped_style),
-            Paragraph(r["fee_currency"], wrapped_style),
-            Paragraph(r["cost_basis_usd"], wrapped_style),
-            Paragraph(r["proceeds_usd"], wrapped_style),
-            Paragraph(r["realized_gain_usd"], wrapped_style),
-            Paragraph(r["holding_period"], wrapped_style),
-            Paragraph(r["description"], wrapped_style),
-        ]
+        # Ledger text is shown as written, never read as markup (safe_text.py)
+        row_data = [Paragraph(pdf_text(r[col]), wrapped_style) for col in COLUMNS]
         data.append(row_data)
         logger.debug("DEBUG: PDF row #%d => %s", idx + 1, r)
 

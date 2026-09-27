@@ -145,6 +145,8 @@ hidden_imports = [
     "backend.services.tax_time",
     "backend.services.desktop",
     "backend.services.ai_key",
+    "backend.services.first_run",
+    "backend.services.login_throttle",
     "backend.services.review",
     "backend.services.price_history",
     "backend.services.outbound",
@@ -164,6 +166,7 @@ hidden_imports = [
     "backend.services.reports.transaction_history",
     "backend.services.reports.reporting_core",
     "backend.services.reports.pdf_form_filler",
+    "backend.services.reports.safe_text",
 
     # Desktop entrypoint helpers (desktop/)
     "desktop_ports",

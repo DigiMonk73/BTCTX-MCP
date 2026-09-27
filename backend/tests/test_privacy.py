@@ -45,6 +45,31 @@ def test_session_cookie_is_secure_over_https_only(auth_client):
     assert "secure" not in over_http.lower()
 
 
+def test_no_access_log_on_any_edition():
+    """uvicorn's access log records client addresses and request paths,
+    which carry transaction dates (?date=...). The Mac app had it off."""
+    assert '"--no-access-log"' in (REPO / "Dockerfile").read_text()
+    assert "'--no-access-log'" in (REPO / "startos" / "startos" / "main.ts").read_text()
+    assert "access_log=False" in (REPO / "desktop" / "entrypoint.py").read_text()
+
+
+def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
+    """Creating a backdated entry and editing one logged their timestamps at INFO."""
+    auth_client.delete("/api/transactions/delete_all")
+    tx = lambda ts, amount: auth_client.post("/api/transactions", json={  # noqa: E731
+        "type": "Deposit", "timestamp": ts, "from_account_id": 99, "to_account_id": 1,
+        "amount": amount, "fee_amount": "0", "fee_currency": "USD", "source": "N/A"})
+    with caplog.at_level("INFO", logger="backend"):
+        later = tx("2023-05-17T10:11:12Z", "1000").json()
+        tx("2021-02-03T04:05:06Z", "2000")  # backdated: recalculates everything
+        r = auth_client.put(f"/api/transactions/{later['id']}", json={"timestamp": "2022-08-09T01:02:03Z"})
+        assert r.status_code == 200, r.text
+    auth_client.delete("/api/transactions/delete_all")
+    info = "\n".join(rec.getMessage() for rec in caplog.records if rec.levelname != "DEBUG")
+    for day in ("2023-05-17", "2021-02-03", "2022-08-09"):
+        assert day not in info
+
+
 def test_fonts_are_bundled_not_fetched_from_google():
     index = (REPO / "frontend" / "index.html").read_text()
     assert "fonts.googleapis.com" not in index and "fonts.gstatic.com" not in index
@@ -110,6 +135,59 @@ def test_backups_made_before_0_9_2_still_restore(tmp_path):
     assert backup.decrypt_backup(v1, "old-pw") == live.read_bytes()
     with pytest.raises(ValueError, match="Wrong password"):
         backup.decrypt_backup(v1, "nope")
+
+
+@pytest.mark.parametrize("iterations", [0, 1_000, 99_999, 5_000_001, 2**32 - 1])
+def test_a_backup_asking_for_an_absurd_key_strength_is_refused_at_once(iterations, monkeypatch):
+    """The PBKDF2 count comes from the file: 4 billion rounds would tie up
+    the server for hours before the password could even be checked."""
+    def no_derivation(*a, **k):
+        raise AssertionError("key derivation must not start")
+
+    monkeypatch.setattr(backup, "_derive_key", no_derivation)
+    blob = b"BTCTX-BACKUP" + bytes([2]) + struct.pack(">I", iterations) + os.urandom(16 + 16 + 64 + 32)
+    with pytest.raises(ValueError, match="damaged or wasn't made by BitcoinTX"):
+        backup.decrypt_backup(blob, "pw")
+
+
+def test_a_backup_in_the_allowed_range_still_restores(tmp_path):
+    live = _db(tmp_path / "live.db").read_bytes()
+    for iterations in (backup.MIN_ITERATIONS, 600_000):
+        assert backup.decrypt_backup(backup.encrypt_backup(live, "pw", iterations), "pw") == live
+
+
+def test_restore_refuses_a_file_over_the_size_limit(auth_client, monkeypatch):
+    from backend.routers import backup as backup_router
+
+    monkeypatch.setattr(backup_router, "MAX_RESTORE_BYTES", 4096)
+    big = b"BTCTX-BACKUP" + os.urandom(5000)
+    r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", big)})
+    assert r.status_code == 413 and "too large" in r.json()["detail"]
+
+
+def test_restore_copies_the_upload_in_chunks_up_to_the_limit(monkeypatch):
+    """Never one read of the whole upload; stops as soon as the limit is passed."""
+    import io
+
+    from fastapi import HTTPException
+
+    from backend.routers.backup import _copy_at_most
+
+    reads = []
+
+    class Src(io.BytesIO):
+        def read(self, n=-1):
+            assert 0 < n <= 1024 * 1024
+            reads.append(n)
+            return super().read(n)
+
+    out = io.BytesIO()
+    _copy_at_most(Src(b"x" * 3_000_000), out, 3_000_000)
+    assert out.getvalue() == b"x" * 3_000_000
+    reads.clear()
+    with pytest.raises(HTTPException) as exc:
+        _copy_at_most(Src(b"x" * (5 * 1024 * 1024)), io.BytesIO(), 2 * 1024 * 1024)
+    assert exc.value.status_code == 413 and len(reads) == 3
 
 
 def test_the_database_file_is_owner_only(tmp_path):

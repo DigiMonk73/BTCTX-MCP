@@ -12,20 +12,17 @@ import base64
 import json
 import os
 import stat
-import tempfile
 
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 from itsdangerous import TimestampSigner
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from backend.database import get_db
 from backend.main import SECRET_KEY, app
 from backend.models.user import User
 from backend.secret_key import KEY_FILENAME, PUBLIC_DEFAULTS, load_secret_key
-from backend.tests.conftest import LOGIN_CREDS, init_test_db
+from backend.services import first_run
+from backend.tests.conftest import LOGIN_CREDS
 
 
 def anon() -> TestClient:
@@ -41,9 +38,9 @@ class TestUserRoutesRequireAuth:
         assert anon().get("/api/users/").status_code == 401
 
     def test_anonymous_cannot_change_password(self, auth_client):
-        r = anon().patch("/api/users/1", json={"password": "hacked123"})
+        r = anon().patch("/api/users/1", json={"password": "hacked-123456"})
         assert r.status_code == 401
-        assert not can_login("hacked123")
+        assert not can_login("hacked-123456")
         assert can_login(LOGIN_CREDS["password"])
 
     def test_anonymous_cannot_delete_user(self, auth_client):
@@ -58,37 +55,19 @@ class TestUserRoutesRequireAuth:
     def test_setup_status_is_public_and_minimal(self, auth_client):
         r = anon().get("/api/users/setup-status")
         assert r.status_code == 200
-        assert set(r.json()) == {"has_user", "is_default"}
+        assert set(r.json()) == {"has_user", "is_default", "setup_code_required"}
 
 
 class TestResetAccount:
-    """Runs on its own database: resetting changes the login."""
-
-    @pytest.fixture
-    def fresh_app(self, auth_client):
-        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-        tmp.close()
-        engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
-        init_test_db(engine)
-        Session = sessionmaker(bind=engine)
-
-        def override():
-            db = Session()
-            try:
-                yield db
-            finally:
-                db.close()
-
-        previous = app.dependency_overrides[get_db]
-        app.dependency_overrides[get_db] = override
-        yield Session
-        app.dependency_overrides[get_db] = previous
-        engine.dispose()
-        os.unlink(tmp.name)
+    """Runs on its own database (conftest.fresh_app): resetting changes the
+    login. Outside the Mac app, claiming the default login needs the setup
+    code (backend/services/first_run.py; more in test_login_protection.py)."""
 
     def test_default_account_can_be_claimed(self, fresh_app):
-        assert anon().get("/api/users/setup-status").json() == {"has_user": True, "is_default": True}
-        r = anon().post("/api/users/reset-account", json={"username": "me", "password": "n3w-passw0rd"})
+        assert anon().get("/api/users/setup-status").json() == {
+            "has_user": True, "is_default": True, "setup_code_required": True}
+        r = anon().post("/api/users/reset-account",
+                        json={"username": "me", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
         assert r.status_code == 200, r.text
         assert anon().post("/api/login", json={"username": "me", "password": "n3w-passw0rd"}).status_code == 200
         assert anon().get("/api/users/setup-status").json()["is_default"] is False
@@ -101,7 +80,7 @@ class TestResetAccount:
         db.commit()
         db.close()
 
-        payload = {"username": "attacker", "password": "whatever1"}
+        payload = {"username": "attacker", "password": "whatever-12345"}
         assert anon().post("/api/users/reset-account", json=payload).status_code == 403
         wrong = dict(payload, current_password="guess")
         assert anon().post("/api/users/reset-account", json=wrong).status_code == 403
@@ -113,7 +92,8 @@ class TestResetAccount:
         old = anon()
         assert old.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
         assert old.get("/api/transactions").status_code == 200
-        r = anon().post("/api/users/reset-account", json={"username": "me", "password": "n3w-passw0rd"})
+        r = anon().post("/api/users/reset-account",
+                        json={"username": "me", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
         assert r.status_code == 200
         assert old.get("/api/transactions").status_code == 401
 
@@ -121,7 +101,8 @@ class TestResetAccount:
         mine, other = anon(), anon()
         for c in (mine, other):
             assert c.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
-        r = mine.patch("/api/users/1", json={"password": "another-passw0rd"})
+        r = mine.patch("/api/users/1", json={"password": "another-passw0rd", "current_password": "password",
+                                             "setup_code": first_run.ensure_code()})
         assert r.status_code == 200, r.text
         assert mine.get("/api/transactions").status_code == 200
         assert other.get("/api/transactions").status_code == 401
@@ -143,7 +124,8 @@ class TestResetAccount:
         assert r.status_code == 409 and "Settings" in r.json()["detail"]
 
     def test_admin_username_rejected(self, fresh_app):
-        r = anon().post("/api/users/reset-account", json={"username": "admin", "password": "n3w-passw0rd"})
+        r = anon().post("/api/users/reset-account",
+                        json={"username": "admin", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
         assert r.status_code == 400
 
 
@@ -166,6 +148,27 @@ class TestSessionSecret:
         assert load_secret_key(str(tmp_path)) == first  # survives restarts
         mode = stat.S_IMODE(os.stat(tmp_path / KEY_FILENAME).st_mode)
         assert mode == 0o600
+
+    @pytest.mark.parametrize("old_example", ["your_secret_key_here", "CHANGEME-REPLACE-WITH-STRONG-SECRET"])
+    def test_old_example_values_are_ignored(self, monkeypatch, tmp_path, old_example):
+        """Both were example values in this repo's history."""
+        monkeypatch.setenv("SECRET_KEY", old_example)
+        key = load_secret_key(str(tmp_path))
+        assert key != old_example and (tmp_path / KEY_FILENAME).read_text() == key
+
+    @pytest.mark.parametrize("content", ["", "\n", "short-key", "x" * 31])
+    def test_an_empty_or_short_key_file_is_replaced(self, monkeypatch, tmp_path, caplog, content):
+        """It used to be kept (a guessable key) when the file already existed."""
+        monkeypatch.delenv("SECRET_KEY", raising=False)
+        path = tmp_path / KEY_FILENAME
+        path.write_text(content)
+        with caplog.at_level("WARNING", logger="backend.secret_key"):
+            key = load_secret_key(str(tmp_path))
+        assert len(key) >= 32 and key != content.strip()
+        assert path.read_text() == key
+        assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+        assert "too short" in caplog.text
+        assert load_secret_key(str(tmp_path)) == key  # kept from now on
 
     def test_explicit_env_key_wins(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SECRET_KEY", "an-operator-supplied-secret-value-1234567890")

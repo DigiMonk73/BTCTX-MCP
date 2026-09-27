@@ -6,7 +6,6 @@ import csv
 import logging
 import io
 import os
-import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,8 +18,9 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
-from backend.services import ai_key, outbound
+from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
+from backend.services.reports.safe_text import csv_text
 from backend.constants import ACCOUNT_ID_TO_NAME
 
 logger = logging.getLogger(__name__)
@@ -88,6 +88,21 @@ def download_encrypted_backup(
     )
 
 # === POST /api/backup/restore ===
+# A backup holds the SQLite database: a few MB even for years of activity.
+MAX_RESTORE_BYTES = 1 << 30  # 1 GiB
+RESTORE_TOO_LARGE = "This file is too large to be a BitcoinTX backup (the limit is 1 GiB)."
+
+
+def _copy_at_most(src, dst, limit: int) -> None:
+    """Copy in chunks, stopping with 413 once more than `limit` bytes came."""
+    copied = 0
+    while chunk := src.read(1024 * 1024):
+        copied += len(chunk)
+        if copied > limit:
+            raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
+        dst.write(chunk)
+
+
 @router.post("/restore")
 def restore_encrypted_backup(
     request: Request,
@@ -100,12 +115,14 @@ def restore_encrypted_backup(
     Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
+    if file.size is not None and file.size > MAX_RESTORE_BYTES:
+        raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     ai_state = ai_key.snapshot(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
-            shutil.copyfileobj(file.file, temp_file)
             temp_path = Path(temp_file.name)
+            _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
         restore_backup(password, temp_path)
         # The restored database carries its own network settings.
@@ -121,11 +138,19 @@ def restore_encrypted_backup(
             ai_key.carry_over(db, ai_state)
         except Exception:
             logger.exception("Could not keep the AI key after restore")
+        # The restored login may be the default one (a setup code) or not
+        db.close()
+        try:
+            first_run.prepare(db)
+        except Exception:
+            logger.exception("Could not prepare the first-run setup code after restore")
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()
 
         return {"message": "✅ Database successfully restored. Please log in again."}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Restore failed: {str(e)}")
     finally:
@@ -217,18 +242,20 @@ def export_transactions_csv(
         else:
             proceeds = ""
 
+        # Text cells can't start a spreadsheet formula (safe_text.csv_text);
+        # the numbers are written as they are.
         row = {
             "date": date_str,
-            "type": txn.type or "",
+            "type": csv_text(txn.type),
             "amount": fmt_decimal(txn.amount, 8) if txn.amount else "",
-            "from_account": from_account,
-            "to_account": to_account,
+            "from_account": csv_text(from_account),
+            "to_account": csv_text(to_account),
             "cost_basis_usd": cost_basis,
             "proceeds_usd": proceeds,
             "fee_amount": fmt_decimal(txn.fee_amount, 8),
-            "fee_currency": txn.fee_currency or "",
-            "source": txn.source or "",
-            "purpose": txn.purpose or "",
+            "fee_currency": csv_text(txn.fee_currency),
+            "source": csv_text(txn.source),
+            "purpose": csv_text(txn.purpose),
             "notes": "",  # Transaction model doesn't store notes
         }
         writer.writerow(row)

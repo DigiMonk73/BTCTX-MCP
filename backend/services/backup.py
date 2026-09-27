@@ -50,6 +50,10 @@ MAGIC = b"BTCTX-BACKUP"
 FORMAT_VERSION = 2
 PBKDF2_ITERATIONS = 600_000
 LEGACY_ITERATIONS = 100_000
+# The count a v2 file may ask for. It comes from the file, so without a limit
+# a crafted file could ask for billions of rounds and tie up the server.
+MIN_ITERATIONS = 100_000
+MAX_ITERATIONS = 5_000_000
 _HEADER_LENGTH = len(MAGIC) + 1 + 4
 
 
@@ -89,7 +93,12 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
         if version != FORMAT_VERSION:
             raise ValueError(f"This backup was made by a newer BitcoinTX (format {version}).")
         iterations = struct.unpack(">I", blob[len(MAGIC) + 1:_HEADER_LENGTH])[0]
-        salt = blob[_HEADER_LENGTH:_HEADER_LENGTH + SALT_LENGTH]
+        if not MIN_ITERATIONS <= iterations <= MAX_ITERATIONS:
+            raise ValueError(
+                f"This backup file is damaged or wasn't made by BitcoinTX "
+                f"(key strength {iterations:,}, expected {MIN_ITERATIONS:,} to {MAX_ITERATIONS:,})."
+            )
+        salt =blob[_HEADER_LENGTH:_HEADER_LENGTH + SALT_LENGTH]
         iv = blob[_HEADER_LENGTH + SALT_LENGTH:_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH]
         body, tag = blob[:-MAC_LENGTH], blob[-MAC_LENGTH:]
         keys = _derive_key(password, salt, iterations, 2 * KEY_LENGTH)

@@ -163,8 +163,16 @@ export function extractErrorMessage(err: unknown): string {
     if (axiosError.response?.data) {
       const data = axiosError.response.data;
 
-      if (data.detail) {
-        return data.detail;
+      const detail: unknown = data.detail;
+      if (typeof detail === 'string' && detail) {
+        return detail;
+      }
+      // FastAPI's input errors (422): [{ msg: "Value error, The password ..." }]
+      if (Array.isArray(detail)) {
+        const messages = detail
+          .map((d) => String((d as { msg?: unknown } | null)?.msg ?? '').replace(/^Value error, /, ''))
+          .filter(Boolean);
+        if (messages.length) return messages.join(' ');
       }
 
       if (data.errors) {

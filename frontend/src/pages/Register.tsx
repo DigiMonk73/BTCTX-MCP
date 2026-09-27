@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
+import { extractErrorMessage } from '../hooks/useApiCall';
 import { useToast } from '../contexts/useToast';
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/credentials';
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {
@@ -15,6 +17,9 @@ const RegisterPage: React.FC = () => {
   // Track whether the current account is still the default account.
   // (Checking if username is "admin" indicates default status.)
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
+  // Outside the Mac app, claiming the default login needs the first-run setup code.
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [setupCode, setSetupCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
@@ -25,9 +30,10 @@ const RegisterPage: React.FC = () => {
     const checkDefaultAccount = async () => {
       try {
         const res = await api.get("/users/setup-status");
-        const status = res.data as { has_user: boolean; is_default: boolean };
+        const status = res.data as { has_user: boolean; is_default: boolean; setup_code_required?: boolean };
         // Still on the shipped admin/password login => first-run setup
         setIsDefault(status.is_default || !status.has_user);
+        setCodeRequired(Boolean(status.setup_code_required));
       } catch {
         // In case of error, assume registration is not allowed.
         setIsDefault(false);
@@ -49,6 +55,17 @@ const RegisterPage: React.FC = () => {
       return;
     }
     // ----------------------------------------------------
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setErrorMsg(`The new password is too short. ${PASSWORD_RULE}`);
+      setIsSubmitting(false);
+      return;
+    }
+    if (isDefault && codeRequired && !setupCode.trim()) {
+      setErrorMsg(`Enter the setup code. ${SETUP_CODE_HINT}`);
+      setIsSubmitting(false);
+      return;
+    }
 
     // Check registration flow based on account state.
     if (isDefault === false) {
@@ -79,13 +96,13 @@ const RegisterPage: React.FC = () => {
         username,
         password,
         current_password: isDefault ? undefined : overridePassword,
+        setup_code: isDefault && codeRequired ? setupCode.trim() : undefined,
       });
 
       toast.success("Registration successful! Your credentials have been updated.");
       navigate('/login');
     } catch (err) {
-      const detail = (err as { response?: { data?: { detail?: string } } }).response?.data?.detail;
-      setErrorMsg(detail || "Failed to register. Please try again.");
+      setErrorMsg(extractErrorMessage(err) || "Failed to register. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -127,9 +144,30 @@ const RegisterPage: React.FC = () => {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              aria-describedby="password-rule"
               className="input"
             />
+            <p id="password-rule" className="field-hint">{PASSWORD_RULE}</p>
           </div>
+
+          {/* A fresh Docker or source install: the code from the server's log */}
+          {isDefault && codeRequired && (
+            <div className="field">
+              <label htmlFor="setup-code" className="field-label">Setup Code</label>
+              <input
+                id="setup-code"
+                type="text"
+                value={setupCode}
+                onChange={e => setSetupCode(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXX-XXXX-XXXX"
+                aria-describedby="setup-code-hint"
+                className="input"
+              />
+              <p id="setup-code-hint" className="field-hint">{SETUP_CODE_HINT}</p>
+            </div>
+          )}
 
           {/* If the account is already registered, require the current password */}
           {isDefault === false && (

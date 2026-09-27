@@ -1,7 +1,7 @@
 // The browser talks to BitcoinTX only: no font CDN, no price API, nothing
 // else (prices and block height come through the backend). The page runs
 // under a Content-Security-Policy of 'self'.
-import { test, expect, seedKnownLedger } from "./fixtures";
+import { test, expect, seedKnownLedger, setupCode } from "./fixtures";
 
 test("every page loads without a single outside request, under a strict CSP", async ({ page, app }) => {
   const outside: string[] = [];
@@ -14,7 +14,9 @@ test("every page loads without a single outside request, under a strict CSP", as
     if (/Content[- ]Security[- ]Policy/i.test(msg.text())) violations.push(msg.text());
   });
 
-  await page.request.post("/api/users/reset-account", { data: { username: "privacy", password: "privacy-pass-1" } });
+  await page.request.post("/api/users/reset-account", {
+    data: { username: "privacy", password: "privacy-pass-1", setup_code: setupCode(app) },
+  });
   await page.goto("/login");
   const csp = (await page.request.get("/login")).headers()["content-security-policy"];
   expect(csp).toContain("default-src 'self'");
