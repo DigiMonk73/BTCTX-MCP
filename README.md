@@ -102,13 +102,16 @@ or any app that runs MCP servers on your computer). The AI sets itself up
 following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). The MCP server
 uses an **AI key**, never your password. With the Mac app no key or address
 goes anywhere: the app writes a private key file the MCP server reads by
-itself. Or by hand, for the Mac app (Settings gives the same command pinned
-to your version):
+itself. Or by hand, for the Mac app (Settings gives the same command):
 
 ```bash
 claude mcp add --scope user bitcointx -- \
-  uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp
+  uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp
 ```
+
+The MCP server comes from this repo's `main` branch, which holds released
+code only, so it updates itself when your AI app restarts, and it tells you
+when it and your BitcoinTX are different versions.
 
 Docker and StartOS use `BTCTX_URL` and `BTCTX_AI_KEY` instead: create the key
 in the same Settings section (it's shown once) and paste it into your AI app's

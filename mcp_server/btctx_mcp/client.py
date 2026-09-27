@@ -208,6 +208,19 @@ class BtctxClient:
             return None
         return r.json()
 
+    async def app_version(self) -> Optional[str]:
+        """BitcoinTX's version from /api/health, or None if it can't be read now."""
+        if self._refusal:
+            return None
+        try:
+            if not self._logged_in:
+                await self._connect()
+            r = await self._http.get("/api/health", timeout=5.0)
+            version = r.json().get("version")
+        except (BtctxError, httpx.HTTPError, ValueError, AttributeError):
+            return None
+        return version if isinstance(version, str) else None
+
     async def get(self, path: str, **kwargs: Any) -> Any:
         return await self.request("GET", path, **kwargs)
 

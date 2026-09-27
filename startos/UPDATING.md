@@ -13,6 +13,7 @@ released code only and moves by fast-forwarding to `develop`.
 1. On `develop`, bump the version everywhere it is written (the tests fail
    until all agree):
    - `VERSION` and the two `CFBundle…Version` values in `desktop/BitcoinTX.spec`
+   - `version` in `mcp_server/pyproject.toml` (the AI connector)
    - `dockerTag` in `startos/startos/manifest/index.ts`:
      `ghcr.io/digimonk73/btctx-mcp:v<VERSION>`
    - the package version (next section)

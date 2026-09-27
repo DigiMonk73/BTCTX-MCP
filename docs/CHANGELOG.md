@@ -29,6 +29,15 @@ All notable changes to BitcoinTX are documented in this file.
 - The StartOS **Connect an AI Assistant** action no longer shows your login;
   its configuration has a `YOUR_BITCOINTX_AI_KEY` placeholder.
 
+### AI connector updates itself
+- The setup prompt, configs and docs install the connector from this repo's
+  `main` branch, which now holds released code only: uvx checks it each time
+  the AI app starts, so you never edit a version again. Pinning `@vX.Y.Z`
+  still works.
+- The connector has the app's version number, and when the two differ every
+  tool reply starts with a line saying so and what to do (restart the AI
+  app, or update BitcoinTX).
+
 **If you use an AI assistant with BitcoinTX on Docker or StartOS:** your AI
 app's settings file held your BitcoinTX password in plain text. After
 upgrading: (1) in BitcoinTX, Settings → Connect an AI Assistant, turn on AI

@@ -21,7 +21,7 @@ export const CA_BUNDLE_PLACEHOLDER = "/path/to/root-ca.crt";
 export interface AiSetupInput {
   /** Where this BitcoinTX answers, as the browser reached it. */
   url: string;
-  /** App version from /api/health; pins the MCP server to the same release. */
+  /** App version from /api/health; the setup guide is read at the same release. */
   version?: string;
   /** The Mac app: the MCP server finds the app and its key by itself. */
   keyMode?: boolean;
@@ -32,9 +32,12 @@ export function gitRef(version?: string): string {
   return version && /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
 }
 
-export function serverSource(version?: string): string {
-  return `git+${REPO_URL}.git@${gitRef(version)}#subdirectory=mcp_server`;
-}
+/**
+ * The MCP server comes from the repo's main branch, which holds released code
+ * only: uvx checks it each time the AI app starts, so the server updates
+ * itself (and warns when it and this BitcoinTX are different versions).
+ */
+export const SERVER_SOURCE = `git+${REPO_URL}.git@main#subdirectory=mcp_server`;
 
 export function setupGuideUrl(version?: string): string {
   return `${REPO_URL}/blob/${gitRef(version)}/mcp_server/AI_SETUP.md`;
@@ -84,7 +87,7 @@ export function buildAiPrompt(input: AiSetupInput): string {
       ...intro,
       "BitcoinTX is the Mac app on this computer. The MCP server finds it by itself, so it needs no " +
         "URL, key or password: don't add any to the configuration, and don't ask me for my password.",
-      `- Server command: uvx --from "${serverSource(input.version)}" btctx-mcp`,
+      `- Server command: uvx --from "${SERVER_SOURCE}" btctx-mcp`,
       ...outro,
     ].join("\n");
   }
@@ -103,7 +106,7 @@ export function buildAiPrompt(input: AiSetupInput): string {
         "certificate file (the guide explains)."
     );
   }
-  lines.push(`- Server command: uvx --from "${serverSource(input.version)}" btctx-mcp`, ...outro);
+  lines.push(`- Server command: uvx --from "${SERVER_SOURCE}" btctx-mcp`, ...outro);
   return lines.join("\n");
 }
 
@@ -114,7 +117,7 @@ export function claudeDesktopConfig(input: AiSetupInput): string {
     mcpServers: {
       [SERVER_NAME]: {
         command: "uvx",
-        args: ["--from", serverSource(input.version), "btctx-mcp"],
+        args: ["--from", SERVER_SOURCE, "btctx-mcp"],
         ...(Object.keys(env).length ? { env } : {}),
       },
     },
@@ -132,11 +135,11 @@ export function claudeCodeCommand(input: AiSetupInput): string {
   return [
     `claude mcp add --scope user ${SERVER_NAME}`,
     ...env,
-    `-- uvx --from ${shellQuote(serverSource(input.version))} btctx-mcp`,
+    `-- uvx --from ${shellQuote(SERVER_SOURCE)} btctx-mcp`,
   ].join(" \\\n  ");
 }
 
 /** Grok Build (Mac app): one command, nothing secret in it. */
-export function grokCommand(input: AiSetupInput): string {
-  return `grok mcp add ${SERVER_NAME} -- uvx --from ${shellQuote(serverSource(input.version))} btctx-mcp`;
+export function grokCommand(): string {
+  return `grok mcp add ${SERVER_NAME} -- uvx --from ${shellQuote(SERVER_SOURCE)} btctx-mcp`;
 }

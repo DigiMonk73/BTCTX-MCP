@@ -39,3 +39,10 @@ def test_startos_package_version():
     assert len(versions) == 1
     upstream, _, revision = versions[0].partition(":")
     assert upstream == VERSION and revision.isdigit()
+
+
+def test_mcp_connector_version():
+    """The connector has the app's version, so it can tell the user when the
+    one their AI app runs doesn't match their BitcoinTX (btctx_mcp/server.py)."""
+    pyproject = read("mcp_server/pyproject.toml")
+    assert re.findall(r'^version = "([^"]+)"', pyproject, re.M) == [VERSION]

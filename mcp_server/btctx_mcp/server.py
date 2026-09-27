@@ -19,6 +19,9 @@ it with BTCTX_AI_KEY (btctx_mcp/client.py).
 
 from __future__ import annotations
 
+import functools
+import importlib.metadata
+import inspect
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Literal, Optional
@@ -87,6 +90,66 @@ def set_client(client: Optional[BtctxClient]) -> None:
     _client = client
 
 
+# -- Version check: the connector and BitcoinTX should be the same release ----
+def connector_version() -> Optional[str]:
+    try:
+        return importlib.metadata.version("btctx-mcp")
+    except importlib.metadata.PackageNotFoundError:  # run from a source tree
+        return None
+
+
+def _release(version: str) -> Optional[tuple]:
+    try:
+        return tuple(int(part) for part in version.split("."))
+    except ValueError:
+        return None
+
+
+def mismatch_notice(connector: Optional[str], app: Optional[str]) -> Optional[str]:
+    """The line every tool reply starts with when the versions differ."""
+    if not connector or not app or connector == app:
+        return None
+    head = f"Your BitcoinTX connector is v{connector} but BitcoinTX is v{app}."
+    c, a = _release(connector), _release(app)
+    if c and a and c > a:
+        return (f"{head} Update BitcoinTX, or pin the connector to v{app} in your AI app's "
+                "settings (see the setup guide).")
+    return f"{head} Restart your AI app to update the connector (or change the pinned version)."
+
+
+_version = {"checked": False, "notice": None}
+
+
+async def _version_notice() -> Optional[str]:
+    """Checked once BitcoinTX answers (so a BitcoinTX that was down at first is
+    checked on a later call); a warning only, the tool still runs."""
+    if not _version["checked"]:
+        app = await get_client().app_version()
+        if app is not None:
+            _version.update(checked=True, notice=mismatch_notice(connector_version(), app))
+    return _version["notice"]
+
+
+def with_version_notice(fn):
+    """Put the version notice first in the tool's reply (or error)."""
+    @functools.wraps(fn)
+    async def tool(*args: Any, **kwargs: Any) -> Any:
+        try:
+            result = fn(*args, **kwargs)
+            if inspect.isawaitable(result):
+                result = await result
+        except ToolError as exc:
+            notice = await _version_notice()
+            raise ToolError(f"{notice}\n\n{exc}" if notice else str(exc)) from exc
+        notice = await _version_notice()
+        if notice and isinstance(result, str):
+            return f"{notice}\n\n{result}"
+        if notice and isinstance(result, dict):
+            return {"notice": notice, **result}
+        return result
+    return tool
+
+
 async def _call(method: str, path: str, **kwargs: Any) -> Any:
     try:
         return await get_client().request(method, path, **kwargs)
@@ -148,6 +211,7 @@ READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 
 
 @mcp.tool(annotations=READ_ONLY)
+@with_version_notice
 def get_ledger_guide() -> str:
     """How to map exchange emails, wallet history and plain English onto BitcoinTX
     accounts, transaction types and tax fields. Read this before adding transactions."""
@@ -155,6 +219,7 @@ def get_ledger_guide() -> str:
 
 
 @mcp.tool(annotations=READ_ONLY)
+@with_version_notice
 async def get_portfolio() -> Dict[str, Any]:
     """Current balance of every account, average cost basis per BTC, the live BTC price, and
     the user's tax timezone (dates without a timezone are interpreted in it).
@@ -178,6 +243,7 @@ async def get_portfolio() -> Dict[str, Any]:
 
 
 @mcp.tool(annotations=READ_ONLY)
+@with_version_notice
 async def list_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -214,6 +280,7 @@ async def list_transactions(
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
+@with_version_notice
 async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
     """BTC price in USD for a date (YYYY-MM-DD): the daily price at 00:00 UTC that day,
     or right now if no date is given. For a transaction, pass the UTC date of its time
@@ -229,6 +296,7 @@ async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
 
 
 @mcp.tool(annotations=READ_ONLY)
+@with_version_notice
 async def review_ledger() -> Dict[str, Any]:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
@@ -239,6 +307,7 @@ async def review_ledger() -> Dict[str, Any]:
 
 
 @mcp.tool(annotations=READ_ONLY)
+@with_version_notice
 async def preview_transactions(transactions: List[TransactionInput]) -> Dict[str, Any]:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
     flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,
@@ -249,6 +318,7 @@ async def preview_transactions(transactions: List[TransactionInput]) -> Dict[str
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False))
+@with_version_notice
 async def add_transactions(transactions: List[TransactionInput]) -> Dict[str, Any]:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
     the user's confirmation. Rows exactly matching an existing transaction are skipped; rows
@@ -258,6 +328,7 @@ async def add_transactions(transactions: List[TransactionInput]) -> Dict[str, An
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False))
+@with_version_notice
 async def update_transaction(
     transaction_id: int,
     date: Optional[str] = None,
@@ -330,6 +401,7 @@ async def update_transaction(
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False))
+@with_version_notice
 async def delete_transaction(transaction_id: int) -> Dict[str, Any]:
     """Permanently delete one transaction (locked transactions can't be deleted). The ledger is
     recalculated afterward. Confirm with the user first and tell them what you're deleting."""
@@ -340,6 +412,7 @@ async def delete_transaction(transaction_id: int) -> Dict[str, Any]:
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
+@with_version_notice
 async def recalculate_ledger() -> Dict[str, Any]:
     """Rebuild all cost-basis lots, disposals and gains from the recorded transactions.
     Needed once after upgrading BitcoinTX so calculation fixes apply to existing data;
@@ -349,6 +422,7 @@ async def recalculate_ledger() -> Dict[str, Any]:
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False))
+@with_version_notice
 async def backup_ledger() -> Dict[str, Any]:
     """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
     backups folder), as a safety net. Offer it before a large import or before deleting or

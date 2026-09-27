@@ -33,7 +33,7 @@ password.
 | `BTCTX_URL` | Where BitcoinTX answers. Docker: the host and port they published. StartOS: the **MCP API** address (`https://….local/api`) |
 | `BTCTX_AI_KEY` | An AI key the user creates in BitcoinTX: **Settings → Connect an AI Assistant**, turn on **Let AI assistants use BitcoinTX**, then **Create AI key** (shown once). **Never ask for it in the chat.** Write `YOUR_BITCOINTX_AI_KEY` and have them paste the key into the file themselves |
 | `BTCTX_CA_BUNDLE` | Only for an `https://` address on their network (StartOS): full path to the server's root CA certificate file (section 1 says where to get it) |
-| Server command | `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`; use the ref from their prompt so the server matches their BitcoinTX version |
+| Server command | `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@main#subdirectory=mcp_server" btctx-mcp`. `main` holds released code only; uvx checks it each time the app starts the server, so it updates itself. Only if the user asks to pin a version, use `@vX.Y.Z` with their BitcoinTX version |
 
 Never use their BitcoinTX password: the server refuses to run while
 `BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing

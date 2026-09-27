@@ -186,13 +186,14 @@ Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
 
 1. On `develop`: bump `VERSION`, the version in `desktop/BitcoinTX.spec`,
-   the image tag in `startos/startos/manifest/index.ts` and
-   `startos/startos/versions/current.ts` (`backend/tests/test_versions_agree.py`
-   fails until they agree). Move the CHANGELOG's Unreleased section to the
+   the image tag in `startos/startos/manifest/index.ts`,
+   `startos/startos/versions/current.ts` and `mcp_server/pyproject.toml`
+   (`backend/tests/test_versions_agree.py` fails until they agree). Move the CHANGELOG's Unreleased section to the
    version. Minor bump when a new tax year's forms are added. Push; wait for CI.
 2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
    publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
-   `:main`.
+   `:main`, and every AI connector installed from `main` picks up the new
+   version when its AI app restarts.
 3. Push a branch `release/vX.Y.Z` from `main`, and delete it once the
    release is out: `.github/workflows/release.yml` builds the
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
