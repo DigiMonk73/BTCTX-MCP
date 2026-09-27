@@ -46,24 +46,23 @@ from backend.secret_key import load_secret_key
 # Signs the session cookie. Never a value from this repo — see secret_key.py
 SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
 
-# Default CORS origins if none specified (dev environment)
-default_origins = (
-    "http://127.0.0.1:3000,"
-    "http://localhost:3000,"
-    "http://127.0.0.1:5173,"
-    "http://localhost:5173,"
-    "http://127.0.0.1:8000,"
-    "http://localhost:8000"
-)
-raw_origins = os.getenv("CORS_ALLOW_ORIGINS", default_origins)
-ALLOWED_ORIGINS = [origin.strip() for origin in raw_origins.split(",")]
+def cors_origins(raw: str | None) -> list[str]:
+    """
+    Other origins whose pages may call the API with the login cookie
+    (CORS_ALLOW_ORIGINS, comma-separated). None by default: the app serves
+    its own pages, and the Vite dev server proxies /api (vite.config.ts).
+    """
+    return [origin.strip() for origin in (raw or "").split(",") if origin.strip()]
+
+
+ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 # ---------------------------------------------------------
 # Database import (needed before lifespan)
 # ---------------------------------------------------------
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import require_login, session_user_id, start_session
-from backend.security_headers import SecurityHeadersMiddleware
+from backend.security_headers import CrossSiteGuardMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
 
 
@@ -141,20 +140,24 @@ app.add_middleware(
     # HTTP installs (Mac app on 127.0.0.1, Docker on a LAN).
     https_only=False,
 )
-# Outermost, so it also sees the session cookie: CSP, no-referrer, nosniff,
+# A POST, PUT, PATCH or DELETE sent by another site's page (or another app on
+# the same host) with the owner's cookie is refused (403).
+app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
+# Outside those, so it also sees the session cookie: CSP, no-referrer, nosniff,
 # no framing, Secure cookie over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------
-# CORS Middleware
+# CORS Middleware (only when CORS_ALLOW_ORIGINS lists origins)
 # ---------------------------------------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,  # Or ["*"] in dev if needed
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # ---------------------------------------------------------
 # SPA Fallback Exception Handler
