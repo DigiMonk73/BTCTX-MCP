@@ -161,7 +161,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         .first()
     )
     if latest_other_tx and new_tx.timestamp < latest_other_tx.timestamp:
-        logger.info(
+        # DEBUG only, like every line naming a transaction's date or amount
+        logger.debug(
             f"[Backdated Create] New tx {new_tx.id} at {new_tx.timestamp} is earlier than "
             f"existing tx {latest_other_tx.id} at {latest_other_tx.timestamp}. Triggering recalculation."
         )
@@ -281,7 +282,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     # lots from before the new timestamp still had reduced remaining_btc from
     # the original transaction's consumption.
     new_timestamp = tx.timestamp
-    logger.info(
+    logger.debug(
         f"[Update] Tx {tx.id} timestamp {old_timestamp} => {new_timestamp}. "
         f"Running scorched earth re-lot."
     )
@@ -1115,7 +1116,7 @@ def recalculate_subsequent_transactions(db: Session, from_timestamp: datetime):
     Partial-lot re-lot for transactions >= from_timestamp, more efficient
     than "scorched earth" for large datasets.
     """
-    logger.info(f"[Partial Re-Lot] Starting from {from_timestamp.isoformat()}")
+    logger.debug(f"[Partial Re-Lot] Starting from {from_timestamp.isoformat()}")
 
     affected_txs = (
         db.query(Transaction)

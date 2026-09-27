@@ -45,6 +45,31 @@ def test_session_cookie_is_secure_over_https_only(auth_client):
     assert "secure" not in over_http.lower()
 
 
+def test_no_access_log_on_any_edition():
+    """uvicorn's access log records client addresses and request paths,
+    which carry transaction dates (?date=...). The Mac app had it off."""
+    assert '"--no-access-log"' in (REPO / "Dockerfile").read_text()
+    assert "'--no-access-log'" in (REPO / "startos" / "startos" / "main.ts").read_text()
+    assert "access_log=False" in (REPO / "desktop" / "entrypoint.py").read_text()
+
+
+def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
+    """Creating a backdated entry and editing one logged their timestamps at INFO."""
+    auth_client.delete("/api/transactions/delete_all")
+    tx = lambda ts, amount: auth_client.post("/api/transactions", json={  # noqa: E731
+        "type": "Deposit", "timestamp": ts, "from_account_id": 99, "to_account_id": 1,
+        "amount": amount, "fee_amount": "0", "fee_currency": "USD", "source": "N/A"})
+    with caplog.at_level("INFO", logger="backend"):
+        later = tx("2023-05-17T10:11:12Z", "1000").json()
+        tx("2021-02-03T04:05:06Z", "2000")  # backdated: recalculates everything
+        r = auth_client.put(f"/api/transactions/{later['id']}", json={"timestamp": "2022-08-09T01:02:03Z"})
+        assert r.status_code == 200, r.text
+    auth_client.delete("/api/transactions/delete_all")
+    info = "\n".join(rec.getMessage() for rec in caplog.records if rec.levelname != "DEBUG")
+    for day in ("2023-05-17", "2021-02-03", "2022-08-09"):
+        assert day not in info
+
+
 def test_fonts_are_bundled_not_fetched_from_google():
     index = (REPO / "frontend" / "index.html").read_text()
     assert "fonts.googleapis.com" not in index and "fonts.gstatic.com" not in index

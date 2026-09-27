@@ -213,7 +213,9 @@ async def autofill_fmv(prepared: List[PreparedRow], db: Session) -> None:
             try:
                 price_cache[date_str] = await price_history.daily_price_async(db, p.tx_data["timestamp"])
             except Exception as exc:
-                logger.warning("FMV lookup failed for %s: %s", date_str, exc)
+                # The day (a transaction's date) only in the DEBUG log
+                logger.warning("FMV lookup failed (%s)", type(exc).__name__)
+                logger.debug("FMV lookup failed for %s: %s", date_str, exc)
                 price_cache[date_str] = None
         price = price_cache[date_str]
         if price is None:
