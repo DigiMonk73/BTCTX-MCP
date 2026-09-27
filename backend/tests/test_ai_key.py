@@ -115,7 +115,7 @@ REFUSED = [
     ("account: delete", "DELETE", "/api/accounts/2", {}, 403),
     ("Ledger review fix", "POST", "/api/review/fee-prices", {"json": {"ids": [1]}}, 403),
     ("tax timezone", "PUT", "/api/settings/tax-timezone", {"json": {"timezone": "Asia/Tokyo"}}, 403),
-    ("privacy & network", "PUT", "/api/settings/network", {"json": {"live_data": False}}, 403),
+    ("privacy & network", "PUT", "/api/settings/network", {"json": {"price_source": "off"}}, 403),
     ("reports", "GET", "/api/reports/years", {}, 403),
     ("debug", "GET", "/api/debug/lots", {}, 401),
     ("users: list", "GET", "/api/users/", {}, 401),
@@ -136,7 +136,7 @@ def test_refusals_changed_nothing(auth_client, ai_key_headers):
     for _, method, path, kwargs, _ in REFUSED:
         key_only().request(method, path, headers=ai_key_headers, **kwargs)
     assert auth_client.get("/api/settings/tax-timezone").json()["timezone"] != "Asia/Tokyo"
-    assert auth_client.get("/api/settings/network").json()["live_data"] is True
+    assert auth_client.get("/api/settings/network").json()["price_source"] == "public"
     assert auth_client.post("/api/login", json={"username": "admin", "password": "password"}).status_code == 200
 
 

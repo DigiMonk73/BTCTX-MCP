@@ -17,6 +17,7 @@ from typing import Dict, List
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.tests.conftest import stub_daily_prices
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -38,12 +39,7 @@ def _set_client(auth_client):
 def _no_network(monkeypatch):
     """Tests must never hit price APIs: stub historical FMV lookups and the
     live price used for transfer-fee/withdrawal valuation."""
-    async def fake_historical(date: str):
-        return {"USD": 100000.0}
-
-    monkeypatch.setattr(
-        "backend.services.bitcoin.get_historical_price", fake_historical
-    )
+    stub_daily_prices(monkeypatch, lambda day: 100000.0)
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price",
         lambda timestamp, db: Decimal("100000"),

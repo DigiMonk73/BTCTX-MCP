@@ -65,8 +65,10 @@ def serve(port: int, db_path: str) -> None:
     os.environ["DATABASE_FILE"] = db_path
     sys.path.insert(0, str(ROOT))
 
-    async def historical(date: str):
-        return {"USD": 50000.0}
+    from decimal import Decimal
+
+    async def find_prices(day, full):
+        return {day: (Decimal("50000.00"), "stub")}, False
 
     async def current():
         return {"USD": 60000.0}
@@ -74,20 +76,22 @@ def serve(port: int, db_path: str) -> None:
     async def block_height():
         return {"height": 900000}
 
-    async def time_series(days: int = 7):
-        return []
-
-    async def no_bulk_history(start, end):
-        return {}
-
     import backend.services.bitcoin as bitcoin
     import backend.services.price_history as price_history
 
-    bitcoin.get_historical_price = historical
+    price_history.find_prices = find_prices
     bitcoin.get_current_price = current
     bitcoin.get_block_height = block_height
-    bitcoin.get_time_series = time_series
-    price_history.fetch_range = no_bulk_history
+
+    # The owner already chose public price sites (a fresh install asks first),
+    # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset.
+    if os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public") != "unset":
+        from backend.database import SessionLocal, init_db
+        from backend.services import outbound
+
+        init_db()
+        with SessionLocal() as db:
+            outbound.save(db, "public", None, False, None)
 
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=port, log_level="warning")

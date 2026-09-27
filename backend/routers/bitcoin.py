@@ -1,29 +1,22 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import bitcoin, outbound, price_history
+from backend.services import bitcoin, price_history
 
 router = APIRouter(
     tags=["Bitcoin"]
 )
 
 
-def _live_or_own_node() -> None:
-    """503 when live data is off and there's no own mempool server to ask."""
-    if not outbound.current().mempool_url:
-        outbound.require_live_data()
-
 @router.get("/price", summary="Get current Bitcoin price in USD")
 async def get_current_bitcoin_price():
     """
-    Endpoint to retrieve the current Bitcoin price (USD).
-    Leverages fallback logic in services/bitcoin.py.
-    Raises HTTP 502 if all providers fail.
+    The current BTC price (USD) from the chosen source (services/bitcoin.py):
+    503 when none may be asked, 502 when none answers.
     """
-    _live_or_own_node()
     return await bitcoin.get_current_price()
 
 
@@ -46,27 +39,10 @@ def get_historical_bitcoin_price(date: str, db: Session = Depends(get_db)):
     return {"USD": float(price)}
 
 
-@router.get("/price/history/timeseries", summary="Get multi-day BTC price data")
-async def get_btc_price_time_series(
-    days: int = Query(7, ge=1, le=365, description="Number of days (1 to 365)")
-):
-    """
-    Returns daily BTC prices for the last `days` days in USD,
-    suitable for line charts (time-series).
-
-    The services/bitcoin.py should have get_time_series(days)
-    that fetches from CoinGecko (fallback to Kraken, etc.).
-    """
-    outbound.require_live_data()
-    return await bitcoin.get_time_series(days)
-
-
 @router.get("/blockheight", summary="Get current Bitcoin block height")
 async def get_current_block_height():
     """
-    Endpoint to retrieve the current Bitcoin block height.
-    Uses Blockchain.info as primary, with Blockstream and Mempool.space as fallbacks.
-    Raises HTTP 502 if all providers fail.
+    The current block height from the chosen source (services/bitcoin.py):
+    503 when none may be asked, 502 when none answers.
     """
-    _live_or_own_node()
     return await bitcoin.get_block_height()

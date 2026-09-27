@@ -105,3 +105,6 @@ docs/*.csv
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+
+# Claude Code worktrees (separate working copies)
+.claude/worktrees/

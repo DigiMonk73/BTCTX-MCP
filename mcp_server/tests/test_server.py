@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key
-from backend.tests.conftest import init_test_db
+from backend.tests.conftest import init_test_db, stub_daily_prices
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient
 
@@ -51,17 +51,10 @@ def backend_db(monkeypatch):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async def fake_historical(date: str):
-        return {"USD": 50000.0}
-
     async def fake_current():
         return {"USD": 60000.0}
 
-    async def no_bulk_history(start, end):
-        return {}
-
-    monkeypatch.setattr("backend.services.price_history.fetch_range", no_bulk_history)
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", fake_historical)
+    stub_daily_prices(monkeypatch, lambda day: 50000.0)
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price", lambda timestamp, db: Decimal("50000")

@@ -1,17 +1,18 @@
 """
 The local BTC price history and stored fee values (hardening F14, F42, P1;
-docs/HARDENING_FINDINGS.md):
+docs/HARDENING_FINDINGS.md; v1.1.0 price privacy):
 
-- one bulk download fills a range of days; later lookups don't touch the
-  network;
-- a candle for another day is never used as the asked day's price (Kraken
-  only returns its latest 720 days);
+- no request ever names the day being looked up: the public sites are asked
+  for the whole history once, in fixed blocks that are the same for every
+  install, then only for "the latest days"; the own mempool server for its
+  whole history (only its hourly 00:00 UTC prices are kept);
+- later lookups don't touch the network; a stored day never changes;
+- a candle for another day is never used as the asked day's price;
 - nothing falls back to today's live price: no price is a clear 422;
 - a BTC fee's USD value is stored at save, kept across recalculations with
   the network down, and a typed value sticks.
 """
 
-import asyncio
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -23,17 +24,24 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import outbound
+from backend.tests.conftest import stub_daily_prices
 
-# The real functions, captured before the session fixture stubs them.
-from backend.services.bitcoin import get_historical_price as real_single_day
-from backend.services.price_history import fetch_range as real_fetch_range
+# The real function, captured before the session fixture stubs it.
+from backend.services.price_history import find_prices as real_find_prices
 
 BANK, WALLET, EXCH_BTC, EXTERNAL = 1, 2, 4, 99
 D = Decimal
+TODAY = datetime.now(timezone.utc).date()
+FIRST = price_history.FIRST_PRICE_DAY
+NODE = "http://umbrel.local:3006"
 
 
 def candles(start: date, days: int, price=lambda d: 20000 + d.toordinal() % 1000):
     return [(start + timedelta(days=i), price(start + timedelta(days=i))) for i in range(days)]
+
+
+def all_days(price=lambda d: 20000 + d.toordinal() % 1000):
+    return candles(FIRST, (TODAY - FIRST).days + 1, price)
 
 
 def midnight(d: date) -> int:
@@ -41,28 +49,42 @@ def midnight(d: date) -> int:
 
 
 class FakeSources:
-    """Bitstamp/Coinbase/Kraken/CoinGecko answering from a table of days."""
+    """Bitstamp/Coinbase/Kraken (and a mempool server) answering from tables of days."""
 
-    def __init__(self, bitstamp=None, coinbase=None, kraken=None, coingecko=None):
-        self.bitstamp, self.coinbase, self.kraken, self.coingecko = bitstamp, coinbase, kraken, coingecko
+    def __init__(self):
+        self.bitstamp = self.coinbase = self.kraken = self.mempool = None
         self.requests = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request.url.host)
+        self.requests.append(str(request.url))
         host, params = request.url.host, request.url.params
         if "bitstamp" in host and self.bitstamp is not None:
-            start = datetime.fromtimestamp(int(params["start"]), tz=timezone.utc).date()
-            rows = [{"timestamp": str(midnight(d)), "open": str(p)} for d, p in self.bitstamp
-                    if d >= start][: int(params["limit"])]
-            return httpx.Response(200, json={"data": {"pair": "BTC/USD", "ohlc": rows}})
+            limit = int(params["limit"])
+            if "start" in params:
+                start = datetime.fromtimestamp(int(params["start"]), tz=timezone.utc).date()
+                rows = [(d, p) for d, p in self.bitstamp if d >= start][:limit]
+            else:
+                rows = self.bitstamp[-limit:]
+            ohlc = [{"timestamp": str(midnight(d)), "open": str(p)} for d, p in rows]
+            return httpx.Response(200, json={"data": {"pair": "BTC/USD", "ohlc": ohlc}})
         if "coinbase" in host and self.coinbase is not None:
-            return httpx.Response(200, json=[[midnight(d), 1, 2, p, 3, 4] for d, p in self.coinbase])
+            if "start" in params:
+                lo, hi = (date.fromisoformat(params[k][:10]) for k in ("start", "end"))
+                rows = [(d, p) for d, p in self.coinbase if lo <= d <= hi]
+            else:
+                rows = self.coinbase[-300:]
+            return httpx.Response(200, json=[[midnight(d), 1, 2, p, 3, 4] for d, p in rows])
         if "kraken" in host and self.kraken is not None:
-            rows = [[midnight(d), str(p), "0", "0", "0", "0", "0", 1] for d, p in self.kraken]
+            rows = [[midnight(d), str(p), "0", "0", "0", "0", "0", 1] for d, p in self.kraken[-720:]]
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": rows, "last": 0}})
-        if "coingecko" in host and self.coingecko is not None:
-            return httpx.Response(200, json={"market_data": {"current_price": {"usd": self.coingecko}}})
+        if request.url.path == price_history.MEMPOOL_HISTORY_PATH and self.mempool is not None:
+            return httpx.Response(200, json={"prices": self.mempool, "exchangeRates": {}})
         return httpx.Response(503)
+
+    def names_a_day(self, day: date) -> bool:
+        """Does any request carry `day`, as a date or as its midnight?"""
+        marks = (day.isoformat(), str(midnight(day)), day.strftime("%d-%m-%Y"))
+        return any(m in url for url in self.requests for m in marks)
 
 
 @pytest.fixture
@@ -70,8 +92,7 @@ def sources(monkeypatch):
     """The real download code against fake services; live price forbidden."""
     fake = FakeSources()
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(fake.handler))
-    monkeypatch.setattr(price_history, "fetch_range", real_fetch_range)
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", real_single_day)
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
 
     async def live_price_forbidden():
         raise AssertionError("a historical value must never use the live price")
@@ -87,46 +108,131 @@ def db(test_engine):
         session.rollback()
 
 
-def test_one_download_fills_the_days_around_it(sources, db):
-    day = date(2021, 3, 14)
-    sources.bitstamp = candles(day - timedelta(days=600), 1400)
-    expected = D(dict(sources.bitstamp)[day])
-    assert price_history.daily_price(db, day) == expected
-    assert sources.requests == ["www.bitstamp.net"]
-    # Every day of the window is now local: no more requests.
-    for offset in (-500, -1, 1, 250, 499):
-        d = day + timedelta(days=offset)
-        assert price_history.daily_price(db, d) == D(dict(sources.bitstamp)[d])
-    assert sources.requests == ["www.bitstamp.net"]
+def use(**settings):
+    outbound._current = outbound.NetworkSettings(**settings)
+
+
+def test_the_whole_history_comes_in_the_same_requests_whatever_the_day(sources, db):
+    sources.bitstamp = all_days()
+    seen = []
+    for day in (date(2015, 5, 5), date(2021, 3, 14)):
+        assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+        assert not sources.names_a_day(day)
+        seen.append(list(sources.requests))
+        db.rollback()  # a fresh install again
+        price_history.reset_state()
+        sources.requests.clear()
+    assert seen[0] == seen[1]
+    starts = [datetime.fromtimestamp(int(httpx.URL(u).params["start"]), tz=timezone.utc).date() for u in seen[0]]
+    assert starts[0] == FIRST and all((b - a).days == 1000 for a, b in zip(starts, starts[1:]))
+
+
+def test_later_lookups_need_no_request(sources, db):
+    sources.bitstamp = all_days()
+    price_history.daily_price(db, date(2019, 1, 1))
+    asked = len(sources.requests)
+    for day in (FIRST, date(2014, 2, 2), date(2023, 7, 7), TODAY):
+        assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+    assert len(sources.requests) == asked
+    assert price_history._history_complete(db)
+
+
+def test_a_new_day_later_asks_only_for_the_latest_days(sources, db):
+    sources.bitstamp = all_days()
+    price_history.daily_price(db, date(2019, 1, 1))  # the whole history, flag set
+    db.execute(text("DELETE FROM btc_price_daily WHERE day >= :d"), {"d": TODAY - timedelta(days=3)})
+    sources.requests.clear()
+    day = TODAY - timedelta(days=2)
+    assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+    assert len(sources.requests) == 1 and "start=" not in sources.requests[0]
+    db.execute(text("DELETE FROM btc_price_daily WHERE day = :d"), {"d": day})
+    # Once a UTC day is enough: another missing recent day asks nothing more.
+    with pytest.raises(HTTPException):
+        price_history.daily_price(db, day)
+    assert len(sources.requests) == 1
+
+
+def test_coinbase_blocks_when_bitstamp_is_down(sources, db):
+    sources.coinbase = candles(price_history.COINBASE_FIRST_DAY,
+                               (TODAY - price_history.COINBASE_FIRST_DAY).days + 1, price=lambda d: 23456)
+    day = date(2023, 2, 1)
+    assert price_history.daily_price(db, day) == D("23456.00")
+    assert not sources.names_a_day(day)
+    coinbase = [u for u in sources.requests if "coinbase" in u]
+    assert len(coinbase) == len(price_history._blocks(price_history.COINBASE_FIRST_DAY, 300))
+    assert not price_history._history_complete(db)  # Bitstamp is tried again later
 
 
 def test_timestamps_use_their_utc_day(sources, db):
-    day = date(2022, 6, 30)
-    sources.bitstamp = candles(day - timedelta(days=5), 10)
+    sources.bitstamp = all_days()
     late_evening_chicago = datetime(2022, 6, 30, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
     assert price_history.daily_price(db, late_evening_chicago) == D(dict(sources.bitstamp)[date(2022, 7, 1)])
 
 
-def test_the_next_source_is_used_when_one_fails(sources, db):
-    day = date(2023, 2, 1)
-    sources.coinbase = candles(day - timedelta(days=100), 200, price=lambda d: 23456)
-    assert price_history.daily_price(db, day) == D("23456.00")
-    assert sources.requests[:2] == ["www.bitstamp.net", "api.exchange.coinbase.com"]
-
-
 def test_a_candle_for_another_day_is_never_used(sources, db):
-    """F42: Kraken returns only its latest 720 daily candles whatever
-    `since` asks; the old lookup then used the first one, a price from about
-    two years later, for any older date."""
-    old_day = date(2021, 1, 5)
-    sources.kraken = candles(date(2024, 10, 1), 720, price=lambda d: 64000)
+    """F42: Kraken returns only its latest 720 daily candles; a price from
+    years later must never stand in for an older day."""
+    db.add(price_history.BtcPriceDaily(day=date(2020, 1, 1), usd=D("7000"), source="test"))
+    price_history._mark_history_complete(db)
+    sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
     with pytest.raises(HTTPException) as exc:
-        price_history.daily_price(db, old_day)
+        price_history.daily_price(db, date(2021, 1, 5))
     assert exc.value.status_code == 422 and "2021-01-05" in exc.value.detail
-    # The single-day lookup on its own (the old code path) also refuses it.
+
+
+@pytest.mark.parametrize("source", ["unset", "off"])
+def test_nothing_is_asked_until_a_source_is_chosen_or_when_off(sources, db, source):
+    use(price_source=source)
+    sources.bitstamp = all_days()
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(real_single_day(old_day.isoformat()))
-    assert exc.value.status_code == 502
+        price_history.daily_price(db, date(2021, 3, 14))
+    assert exc.value.status_code == 422 and "Settings" in exc.value.detail
+    assert sources.requests == []
+
+
+# ---------------------------------------------------------------------------
+# The owner's mempool server
+# ---------------------------------------------------------------------------
+def hourly(day: date, price=30000, around=1):
+    """mempool rows every hour from `around` days before `day` to after it."""
+    t0 = midnight(day - timedelta(days=around))
+    return [{"time": t0 + h * 3600, "USD": price + h % 5} for h in range((2 * around + 1) * 24)]
+
+
+def test_mempool_hourly_midnights_are_used_and_nothing_public_is_asked(sources, db):
+    use(price_source="mempool", mempool_url=NODE)
+    day = date(2025, 4, 10)
+    sources.mempool = hourly(day)
+    assert price_history.daily_price(db, day) == D(str(30000 + (24 % 5)))
+    assert sources.requests == [f"{NODE}/api/v1/historical-price?currency=USD"]
+    assert not sources.names_a_day(day)
+
+
+def test_mempool_weekly_or_lone_rows_are_not_a_days_price(sources, db):
+    use(price_source="mempool", mempool_url=NODE)
+    day = date(2017, 7, 13)
+    sources.mempool = [{"time": midnight(day), "USD": 2400}, {"time": midnight(day) - 7 * 86400, "USD": 2500}]
+    with pytest.raises(HTTPException):
+        price_history.daily_price(db, day)
+    assert all(NODE in u for u in sources.requests)  # fallback off: no public site
+
+
+def test_midnight_prices_need_agreeing_neighbours():
+    day = date(2025, 1, 1)
+    t = midnight(day)
+    rows = [{"time": t - 3600, "USD": 100000}, {"time": t, "USD": 101000}, {"time": t + 3600, "USD": 100500}]
+    assert price_history.midnight_prices(rows) == {day: (D("101000.00"), "mempool")}
+    rows[0]["USD"] = 90000  # more than 2% off: a backfilled close, not the hour
+    assert price_history.midnight_prices(rows) == {}
+
+
+def test_mempool_with_fallback_asks_the_public_history_for_older_days(sources, db):
+    use(price_source="mempool", mempool_url=NODE, mempool_fallback=True)
+    sources.mempool = hourly(date(2025, 4, 10))
+    sources.bitstamp = all_days()
+    day = date(2016, 6, 6)
+    assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+    assert sources.requests[0].startswith(NODE) and not sources.names_a_day(day)
 
 
 def test_no_price_is_a_clear_422_everywhere_never_the_live_price(sources, auth_client):
@@ -215,7 +321,7 @@ def test_a_fee_value_is_stored_once_and_survives_recalculation_offline(auth_clie
     async def offline(*a, **k):
         raise HTTPException(status_code=502, detail="offline")
 
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", offline)
+    stub_daily_prices(monkeypatch, lambda day: None)
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", offline)
     with test_engine.begin() as con:
         con.execute(text("DELETE FROM btc_price_daily"))  # not even the local price is needed
@@ -226,10 +332,7 @@ def test_a_fee_value_is_stored_once_and_survives_recalculation_offline(auth_clie
 def test_saving_works_offline_once_the_day_is_stored(auth_client, funded, monkeypatch):
     transfer(auth_client)  # stores 2024-05-01
 
-    async def offline(*a, **k):
-        raise HTTPException(status_code=502, detail="offline")
-
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", offline)
+    stub_daily_prices(monkeypatch, lambda day: None)  # offline
     r = auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2024-05-01T20:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
         amount="0.01", source="Reward", fee_amount="0", fee_currency="BTC"))
@@ -254,10 +357,7 @@ def test_a_typed_fee_value_sticks_and_null_goes_back_to_the_price(auth_client, t
 def test_editing_the_fee_prices_it_again_unless_typed(auth_client, funded, monkeypatch):
     tx = transfer(auth_client)
 
-    async def other_price(date: str):
-        return {"USD": 70000.0}
-
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", other_price)
+    stub_daily_prices(monkeypatch, lambda day: 70000.0)
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={"timestamp": "2024-07-01T12:00:00Z"})
     assert D(r.json()["fee_usd"]) == D("14.00")  # new day, not stored yet: 0.0002 x $70,000
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={"description_only": True})

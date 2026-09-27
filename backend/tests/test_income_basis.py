@@ -11,13 +11,12 @@ import io
 from decimal import Decimal
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from backend.services.reports.reporting_core import generate_report_data
 
-from backend.tests.conftest import STUB_HISTORICAL_USD
+from backend.tests.conftest import STUB_HISTORICAL_USD, stub_daily_prices
 
 CLIENT: TestClient = None
 WALLET, EXCHANGE_BTC, EXTERNAL = 2, 4, 99
@@ -108,10 +107,7 @@ def test_income_is_reported_at_market_value(test_engine):
 
 
 def test_price_lookup_failure_blocks_the_save(monkeypatch):
-    async def unavailable(date: str):
-        raise HTTPException(status_code=502, detail="price APIs down")
-
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", unavailable)
+    stub_daily_prices(monkeypatch, lambda day: None)  # the price sites are down
     r = deposit()
     assert r.status_code == 422
     assert "2026-04-01" in r.json()["detail"]

@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
+from backend.tests.conftest import stub_daily_prices
 
 CLIENT: TestClient = None
 ENGINE = None
@@ -30,10 +31,7 @@ def _set_client(auth_client, test_engine):
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
-    async def fake_historical(date: str):
-        return {"USD": 100000.0}
-
-    monkeypatch.setattr("backend.services.bitcoin.get_historical_price", fake_historical)
+    stub_daily_prices(monkeypatch, lambda day: 100000.0)
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price", lambda timestamp, db: Decimal("100000")
     )

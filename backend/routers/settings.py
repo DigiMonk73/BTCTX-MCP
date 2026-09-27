@@ -8,7 +8,7 @@ AI key; privacy & network. Changing any of them is login only. Mounted at
 /api/settings.
 """
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -142,8 +142,9 @@ def reset_ai_key(request: Request, db: Session = Depends(get_db)):
 # changing it is login only, never with the AI key.
 # ---------------------------------------------------------------------------
 class NetworkSettingsIn(BaseModel):
-    live_data: bool = True
+    price_source: Literal["off", "public", "mempool"]
     mempool_url: Optional[str] = Field(default=None, max_length=300)
+    mempool_fallback: bool = False
     proxy_url: Optional[str] = Field(default=None, max_length=300)
 
 
@@ -155,5 +156,5 @@ def get_network_settings():
 @router.put("/network")
 def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Session = Depends(get_db)):
     _require_login(request)
-    outbound.save(db, payload.live_data, payload.mempool_url, payload.proxy_url)
+    outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url)
     return outbound.as_dict()

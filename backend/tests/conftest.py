@@ -8,6 +8,7 @@ never touch the production database.
 import os
 import pytest
 import tempfile
+from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -26,11 +27,29 @@ from backend.models.transaction import (      # noqa: F401
 LOGIN_CREDS = {"username": "admin", "password": "password"}
 
 # Deterministic BTC prices for the whole test session. Tests must never depend
-# on CoinGecko/Kraken/CoinDesk being reachable (CI runners, offline laptops).
-# Individual tests can still monkeypatch their own values on top.
-# Set BTCTX_LIVE_PRICES=1 to exercise the real price APIs.
+# on the price sites being reachable (CI runners, offline laptops). Individual
+# tests can still stub their own values on top (stub_daily_prices).
+# Set BTCTX_LIVE_PRICES=1 to exercise the real price sites.
 STUB_HISTORICAL_USD = 50000.0
 STUB_CURRENT_USD = 60000.0
+
+
+def price_finder(price_for):
+    """
+    A stand-in for price_history.find_prices: every missing day gets
+    price_for(day) (a number, None for no price, or an exception to raise).
+    """
+    async def find_prices(day, full):
+        usd = price_for(day)
+        if usd is None:
+            return {}, False
+        return {day: (Decimal(str(usd)).quantize(Decimal("0.01")), "stub")}, False
+
+    return find_prices
+
+
+def stub_daily_prices(monkeypatch, price_for):
+    monkeypatch.setattr("backend.services.price_history.find_prices", price_finder(price_for))
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -39,23 +58,31 @@ def _stub_price_apis():
         yield
         return
 
-    async def historical(date: str):
-        return {"USD": STUB_HISTORICAL_USD}
-
     async def current():
         return {"USD": STUB_CURRENT_USD}
-
-    async def no_bulk_history(start, end):
-        return {}  # every day then comes from the single-day stub above
 
     import backend.services.bitcoin as bitcoin
     import backend.services.price_history as price_history
 
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(bitcoin, "get_historical_price", historical)
+        mp.setattr(price_history, "find_prices", price_finder(lambda day: STUB_HISTORICAL_USD))
         mp.setattr(bitcoin, "get_current_price", current)
-        mp.setattr(price_history, "fetch_range", no_bulk_history)
         yield
+
+
+@pytest.fixture(autouse=True)
+def _public_price_source():
+    """
+    Tests run with the public price source chosen (a fresh install has none
+    until the owner picks) and with fresh download timers.
+    """
+    from backend.services import outbound, price_history
+
+    saved = outbound._current
+    outbound._current = outbound.NetworkSettings(price_source="public")
+    price_history.reset_state()
+    yield
+    outbound._current = saved
 
 
 @pytest.fixture(autouse=True)

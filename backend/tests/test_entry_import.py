@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.tests.conftest import stub_daily_prices
 
 CLIENT: TestClient = None
 PRICE = 100000.0  # stubbed historical BTC price
@@ -24,12 +25,7 @@ def _set_client(auth_client):
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
-    async def fake_historical(date: str):
-        return {"USD": PRICE}
-
-    monkeypatch.setattr(
-        "backend.services.bitcoin.get_historical_price", fake_historical
-    )
+    stub_daily_prices(monkeypatch, lambda day: PRICE)
     monkeypatch.setattr(
         "backend.services.transaction.get_btc_price",
         lambda timestamp, db: Decimal("100000"),
