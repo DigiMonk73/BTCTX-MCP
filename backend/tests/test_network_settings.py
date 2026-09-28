@@ -9,6 +9,7 @@ for outside services are made.
 """
 
 import ast
+import re
 import asyncio
 import tempfile
 from pathlib import Path
@@ -324,3 +325,12 @@ def test_no_other_module_makes_its_own_http_client():
                 if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") for n in names):
                     offenders.append(f"{path.relative_to(BACKEND)}:{node.lineno} imports {names}")
     assert offenders == []
+
+
+def test_the_startos_package_passes_the_names_the_app_reads():
+    """startos/startos/priceSource.ts sets exactly these; a rename on one side would silently drop the choice."""
+    package = (BACKEND.parent / "startos" / "startos" / "priceSource.ts").read_text()
+    passed = set(re.findall(r"\b(BTCTX_[A-Z_]+):", package))
+    assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY}
+    for source in ("off", "public", "mempool"):
+        assert source in outbound.SOURCES and f"'{source}'" in package

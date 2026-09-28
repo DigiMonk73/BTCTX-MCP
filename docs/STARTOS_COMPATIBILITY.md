@@ -15,8 +15,9 @@
 All three carry the version in `VERSION` (checked by
 `backend/tests/test_versions_agree.py`). `startos/` is self-contained and is
 mirrored as-is to [DigiMonk73/BTCTX-StartOS](https://github.com/DigiMonk73/BTCTX-StartOS),
-the repository Start9's community registry would fork. How the package
-works: `startos/README.md`; how to release and bump it: `startos/UPDATING.md`.
+the repository Start9's community registry forks. How the package
+works: `startos/README.md`; how to release and bump it, and how Start9's
+changes come back here: `startos/UPDATING.md`.
 
 ## The Docker image
 
@@ -97,7 +98,28 @@ configured.
 4. Test path/storage changes in Docker, not just local dev.
 5. Settings (tax timezone, Privacy & Network, AI key state) and the daily
    price history are rows in the database (`app_settings`,
-   `btc_price_daily`), not files or env vars.
+   `btc_price_daily`), not files. The one exception is the price settings
+   below, which the server may set instead.
+
+### Price settings set by the server
+
+`backend/services/outbound.py` reads these at startup (and every CLI
+command does). When `BTCTX_PRICE_SOURCE` is set they replace Settings →
+Privacy & Network, which shows them read-only (`GET /api/settings/network`
+says `"managed": true`; a change is 409); the stored settings stay untouched
+underneath and come back once the variable is gone.
+
+| Variable | Values |
+|----------|--------|
+| `BTCTX_PRICE_SOURCE` | `off`, `public` or `mempool`; unset or empty: Settings decide |
+| `BTCTX_MEMPOOL_URL` | the mempool server, `http(s)://host:port`; may be empty with `mempool` (then nothing answers but the fallback, and the app says Mempool isn't available) |
+| `BTCTX_MEMPOOL_FALLBACK` | `on`/`off` (also true/false, 1/0, yes/no): ask public sites when the mempool server can't answer |
+| `BTCTX_PROXY_URL` | proxy for public sites, e.g. `socks5h://10.0.3.1:9050` |
+
+An invalid value turns price lookups off (an error in the log says which).
+The StartOS package sets them from its Price Source & Privacy action, with
+Mempool's and Tor's bridge addresses (`startos/startos/priceSource.ts`; a test
+checks the names agree). Docker users may set them the same way.
 
 ## Contracts the StartOS package depends on
 
@@ -115,13 +137,18 @@ Change these only together with the package (`startos/`):
     sets the first user's password through the app's own bcrypt hashing
     (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used on
     install and by Reset Login Credentials. Never takes the password as an
-    argument.
+    argument. With `--if-default` it changes only a login still on
+    `admin` / `password`, printing `Password set for user 'admin'.` when it
+    did and `Not the default login: nothing changed.` otherwise; the update
+    to 1.2.0 uses it to retire old default logins.
   - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
-    Ledger action.
+    Ledger action (run with the price variables above, as it may look up a
+    missing day's price).
   - `python -m backend.cli review [--fix-fee-prices]`: the read-only Ledger
     Review; not used by the package.
   Each command migrates first, so it works on an empty volume. Exit 0 on
   success, 1 with a message on stderr on failure.
+- **Price settings:** the `BTCTX_*` variables above.
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
   newest 5 automatic copies are kept in `/data/backups/`.
@@ -190,4 +217,5 @@ curl -b jar -X POST -F password=test123 -F file=@backup.btx http://localhost:808
 | Session key | `/data/.btctx_secret_key` (auto-generated) or `SECRET_KEY` env |
 | Health | `GET /api/health` (200 = database at current schema) |
 | Maintenance | `python -m backend.cli migrate \| set-password \| recalculate` |
+| Price settings | `BTCTX_PRICE_SOURCE`, `BTCTX_MEMPOOL_URL`, `BTCTX_MEMPOOL_FALLBACK`, `BTCTX_PROXY_URL` (optional) |
 | MCP server | Set `BTCTX_URL` to the StartOS address; see [mcp_server/README.md](../mcp_server/README.md) |

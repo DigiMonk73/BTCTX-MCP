@@ -4,6 +4,46 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### StartOS: your own Mempool and Tor, chosen in one action
+- **New action: Price Source & Privacy.** Choose **My Mempool on this
+  server**, **Public price sites** (optionally **over Tor**), **Off**, or
+  **Choose in BitcoinTX**. A fresh install asks right after Show
+  Credentials; updating installs get an optional reminder. What you choose
+  there shows read-only in the app (Settings → Privacy & Network).
+- **Your Mempool on the same server now just works.** BitcoinTX reaches it
+  inside StartOS, so there's no address to copy, no https certificate that
+  fails, and no LAN address that can change. This replaces the 1.1.0 advice
+  to turn on the fallback for `.local`/https addresses (which, with the
+  fallback off, meant no prices at all). Mempool and Tor are optional
+  dependencies, only while you use them.
+- **Tor for public sites:** with the Tor service installed, requests to
+  public price sites go through it, so they never see your IP address. If
+  Tor stops, those requests fail rather than go out directly.
+- **Old default logins retired.** An install from before generated passwords
+  that still had admin/password gets a generated password at this update,
+  and StartOS asks you to copy it (Show Credentials) before starting.
+- **Translated:** every action, task and message of the package in Spanish,
+  German, Polish and French (the app itself stays English, US tax forms).
+- The package follows Start9's conventions for the community registry: its
+  mirror (DigiMonk73/BTCTX-StartOS) runs Start9's standard build and release
+  workflows, and changes Start9 makes to their fork come back with
+  `scripts/start9-pull.sh`.
+
+### Price settings the server can set
+- `BTCTX_PRICE_SOURCE`, `BTCTX_MEMPOOL_URL`, `BTCTX_MEMPOOL_FALLBACK` and
+  `BTCTX_PROXY_URL` (Docker too): when set, they replace Settings →
+  Privacy & Network, which shows them read-only; your stored settings come
+  back once they're removed. An invalid value turns lookups off. See
+  docs/STARTOS_COMPATIBILITY.md.
+- The log now says where each download of past prices came from ("Price
+  history from your mempool server: N days", "… from public site bitstamp"),
+  so you can check no public site was asked.
+
+### Fixes
+- **Recalculate Ledger (StartOS action, `python -m backend.cli`) can look up
+  a missing day's price.** The maintenance commands never read the price
+  settings, so they behaved as if no source was chosen.
+
 ### AI connector on PyPI
 - The connector is published to PyPI as
   [`btctx-mcp`](https://pypi.org/project/btctx-mcp/) with every release, by

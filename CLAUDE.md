@@ -95,7 +95,9 @@ So derived values must be recomputable from the Transaction row alone.
 - **Prices**: every past-day valuation goes through
   `services/price_history.daily_price` (table `btc_price_daily`, the UTC day's
   00:00 price). Nothing is asked until the owner picks a price source
-  (`services/outbound.py`: off / public / own mempool, optional fallback).
+  (`services/outbound.py`: off / public / own mempool, optional fallback),
+  or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
+  Source & Privacy action), which Settings then shows read-only.
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
@@ -125,7 +127,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
-| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites) |
+| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
@@ -143,7 +145,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS |
 | `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
-| `scripts/sync-startos-mirror.sh`, `mirror-startos-release.sh` | StartOS mirror sync and its release |
+| `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 
@@ -218,15 +220,22 @@ Full steps, the package version and the signing/mirror secrets:
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
    set), publishes the AI connector to PyPI as `btctx-mcp==X.Y.Z` (trusted
    publishing, GitHub environment `pypi`, no token; skipped for `-N`
-   revisions), creates the tag and one GitHub release, and mirrors `startos/` to
-   DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set: a sync
-   commit on its `main` tagged `v<upstream>_<revision>`, plus a release there
-   with the same `btctx.s9pk`, marked Latest.
+   revisions), creates the tag and one GitHub release, and pushes `startos/`
+   to DigiMonk73/BTCTX-StartOS's `main` if the `MIRROR_TOKEN` secret is set.
+   There, Start9's Tag and Release workflow tags it `v<upstream>_<revision>`
+   and releases it (needs the mirror's `DEV_KEY` secret and
+   `REFERENCE_REGISTRY` variable).
+4. Once Start9 has forked the mirror: open a PR from the mirror's `main` to
+   their fork.
 
-The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9's registry would
-fork. It is generated: never edit it directly, change `startos/` here. It
-has only `main` and updates only on releases. By hand:
-`scripts/sync-startos-mirror.sh --push`, then
+The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
+Start9-Community; their fork is then the package's upstream for the
+registry. The mirror is generated: never edit it directly, change `startos/`
+here. It updates only on releases (plus a `next` branch kept by Start9's
+`syncNext` workflow). Before a release, bring Start9's changes to their fork
+back into `startos/` with `scripts/start9-pull.sh` (`--apply` on `develop`),
+or the sync undoes them. By hand: `scripts/sync-startos-mirror.sh --push`;
+if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
 `startos/UPDATING.md`).
