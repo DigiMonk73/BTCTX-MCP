@@ -126,9 +126,6 @@ export const connectAi = sdk.Action.withoutInput(
           'Then paste the Claude Desktop configuration into Settings > Developer > Edit Config (or mcp.json in LM Studio) and replace ${placeholder} with your AI key. The Claude Code command works too, but keeps the key in your shell history, so prefer the configuration file.',
           { placeholder: KEY_PLACEHOLDER },
         ),
-        i18n(
-          'Set up an AI app before this update? Its configuration holds your BitcoinTX password: replace BTCTX_USERNAME and BTCTX_PASSWORD there with BTCTX_AI_KEY, then run Reset Login Credentials (or change your password in BitcoinTX).',
-        ),
       ].join(' '),
       result: { type: 'group', value },
     }
