@@ -22,6 +22,7 @@ make hooks          # installs the pre-push gate
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
+| Docker | `make docker-smoke` | Builds the image from this checkout and runs CI's container checks on it locally: first-run setup code, smoke test, data on `/data`, health, maintenance CLI | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
 | Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~4 min |
 
@@ -98,7 +99,21 @@ python scripts/smoke_test.py --url http://127.0.0.1:8080
 ```
 
 Only against an **empty** instance (a fresh Docker container, never your real
-data) — it creates transactions.
+data) — it creates transactions. `make docker-smoke` does this for an image
+built from the checkout (`scripts/docker_smoke.sh --keep` leaves the container
+running on 127.0.0.1:8778).
+
+## Trying a branch in a browser
+
+```bash
+make preview PY=.venv/bin/python   # http://127.0.0.1:8777
+```
+
+`scripts/preview.py` builds the frontend and serves the checked-out code on
+a throwaway database (deleted when it stops) with the smoke test's stubbed
+offline prices, logged in as the smoke test's account (`SMOKE_USER`,
+`SMOKE_PASSWORD` in `scripts/smoke_test.py`). Claude's browser preview starts
+it from `.claude/launch.json` ("preview").
 
 ## Schema migrations
 

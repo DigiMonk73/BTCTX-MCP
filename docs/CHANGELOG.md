@@ -21,6 +21,9 @@ All notable changes to BitcoinTX are documented in this file.
   majors (Node 24).
 - The release job downloads its two artifacts by name, so a Docker build
   record can't get mixed in.
+- `make preview` runs the checked-out code in a browser on a throwaway
+  database with offline test prices; `make docker-smoke` builds the Docker
+  image locally and runs CI's container checks on it (`docs/TESTING.md`).
 
 ## [v1.2.0] - 2026-09-28 - StartOS: your own Mempool and Tor in one action, translated package; connector on PyPI
 

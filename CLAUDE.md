@@ -195,6 +195,8 @@ make test-fast   # ~650 hermetic tests (backend + MCP), ~1 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
+make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
+make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
 

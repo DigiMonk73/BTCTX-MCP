@@ -6,6 +6,8 @@
 # make test-fast    → Same minus the slow stress tests (~1 min)
 # make smoke        → Start the real server on a temp DB and drive it end to end
 # make e2e          → Playwright click-through tests of every UI flow (Chromium)
+# make preview      → This checkout in a browser at 127.0.0.1:8777 (throwaway data)
+# make docker-smoke → Build the Docker image here and run CI's container checks
 # make lint         → Bug-level Python lint + frontend lint/type check
 # make audit-deps   → Known-vulnerability scan of Python + npm dependencies
 # make check        → Everything CI runs (except Docker/macOS builds)
@@ -13,7 +15,7 @@
 
 PY ?= python3
 
-.PHONY: hooks test test-fast smoke e2e lint audit-deps check check-fast frontend-dist
+.PHONY: hooks test test-fast smoke e2e preview docker-smoke lint audit-deps check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -35,6 +37,14 @@ smoke: frontend-dist
 # Uses .venv/bin/python if present, else BTCTX_PYTHON, else python3.
 e2e:
 	cd frontend && npx playwright test --project=chicago --project=tokyo
+
+# This checkout on a throwaway database with offline prices; login in
+# scripts/smoke_test.py (SMOKE_USER). Ctrl-C stops it.
+preview:
+	$(PY) scripts/preview.py
+
+docker-smoke:
+	scripts/docker_smoke.sh
 
 lint:
 	$(PY) -m ruff check .
