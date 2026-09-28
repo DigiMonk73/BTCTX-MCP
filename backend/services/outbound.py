@@ -18,11 +18,21 @@ app_settings):
 - a proxy for requests to public sites, e.g. socks5h://127.0.0.1:9050
   (Tor). The own mempool server is reached directly unless it's an .onion.
 
+The server can set them instead (the StartOS package does, from its Price
+Source & Privacy action): when BTCTX_PRICE_SOURCE is set, it and
+BTCTX_MEMPOOL_URL, BTCTX_MEMPOOL_FALLBACK and BTCTX_PROXY_URL replace the
+stored settings, which stay untouched underneath, and Settings shows them
+read-only ("managed"). A mempool choice may come without an address (StartOS
+while Mempool isn't installed): then nothing answers but the fallback. An
+invalid value turns price lookups off rather than guessing.
+
 A test checks no other backend module builds its own client.
 """
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import asdict, dataclass
 from typing import Optional
 from urllib.parse import urlparse
@@ -31,12 +41,19 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 TIMEOUT = 10.0
 SOURCE_KEY, FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY = (
     "price_source", "mempool_fallback", "mempool_url", "proxy_url")
 OLD_LIVE_KEY = "live_data"  # before v1.1.0: "on"/"off"
 SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
+ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
+    "BTCTX_PRICE_SOURCE", "BTCTX_MEMPOOL_FALLBACK", "BTCTX_MEMPOOL_URL", "BTCTX_PROXY_URL")
+ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
+SETTINGS_PAGE = "Settings → Privacy & network"
+SET_BY_SERVER = "the server's price settings (on StartOS: the Price Source & Privacy action)"
 
 # Tests set this to an httpx.MockTransport to fake the outside services.
 _transport: Optional[httpx.AsyncBaseTransport] = None
@@ -48,6 +65,7 @@ class NetworkSettings:
     mempool_url: Optional[str] = None
     mempool_fallback: bool = False
     proxy_url: Optional[str] = None
+    managed: bool = False  # set by the server (environment), not in Settings
 
     @property
     def own_node(self) -> Optional[str]:
@@ -116,9 +134,42 @@ def _upgrade_from_live_data(db: Session) -> Optional[str]:
     return source
 
 
+def from_env() -> Optional[NetworkSettings]:
+    """The settings the server sets (BTCTX_PRICE_SOURCE and co.), or None."""
+    source = os.environ.get(ENV_SOURCE, "").strip().lower()
+    if not source:
+        return None
+    try:
+        if source not in SOURCES:
+            raise ValueError(f"{ENV_SOURCE} must be one of: {', '.join(SOURCES)}.")
+        fallback = os.environ.get(ENV_FALLBACK, "").strip().lower()
+        if fallback not in ENV_TRUE + ENV_FALSE:
+            raise ValueError(f"{ENV_FALLBACK} must be on or off.")
+        settings = NetworkSettings(
+            price_source=source,
+            mempool_url=_clean_url(os.environ.get(ENV_MEMPOOL), ("http", "https"), ENV_MEMPOOL),
+            mempool_fallback=fallback in ENV_TRUE,
+            proxy_url=_clean_url(os.environ.get(ENV_PROXY), PROXY_SCHEMES, ENV_PROXY),
+            managed=True,
+        )
+    except (ValueError, HTTPException) as exc:
+        logger.error("Price lookups are off: the server's price settings are invalid: %s",
+                     getattr(exc, "detail", exc))
+        return NetworkSettings(price_source="off", managed=True)
+    logger.info(
+        "Price settings from the server: source %s, mempool server %s, fallback to public sites %s, proxy %s",
+        settings.price_source, settings.mempool_url or "none", "on" if settings.mempool_fallback else "off",
+        "set" if settings.proxy_url else "none")
+    return settings
+
+
 def load(db: Session) -> NetworkSettings:
-    """Read the settings from the database (at startup, after a restore)."""
+    """Read the settings (at startup, after a restore): the server's, else the database's."""
     global _current
+    managed = from_env()
+    if managed:
+        _current = managed
+        return _current
     source = _get(db, SOURCE_KEY) or _upgrade_from_live_data(db)
     _current = NetworkSettings(
         price_source=source if source in SOURCES else "unset",
@@ -151,6 +202,8 @@ def save(
     mempool_fallback: bool,
     proxy_url: Optional[str],
 ) -> NetworkSettings:
+    if _current.managed:
+        raise HTTPException(status_code=409, detail=f"These are set by {SET_BY_SERVER}, so they can't be changed here.")
     if price_source not in SOURCES:
         raise HTTPException(status_code=422, detail=f"Price source must be one of: {', '.join(SOURCES)}.")
     mempool = _clean_url(mempool_url, ("http", "https"), "Your mempool server")
@@ -168,13 +221,16 @@ def save(
 def refuse_public() -> HTTPException:
     """503 saying why no public price site may be asked."""
     s = _current
-    if s.price_source == "mempool":
-        detail = ("Your mempool server didn't answer, and falling back to public price sites is off "
-                  "(Settings → Privacy & network).")
+    where = SET_BY_SERVER if s.managed else SETTINGS_PAGE
+    if s.price_source == "mempool" and not s.mempool_url:
+        detail = ("Your mempool server isn't available (on StartOS: install and start Mempool), and "
+                  f"falling back to public price sites is off ({where}).")
+    elif s.price_source == "mempool":
+        detail = f"Your mempool server didn't answer, and falling back to public price sites is off ({where})."
     elif s.price_source == "off":
-        detail = "Price lookups are off (Settings → Privacy & network)."
+        detail = f"Price lookups are off ({where})."
     else:
-        detail = "Choose where BitcoinTX gets prices: Settings → Privacy & network."
+        detail = f"Choose where BitcoinTX gets prices: {where}."
     return HTTPException(status_code=503, detail=detail)
 
 

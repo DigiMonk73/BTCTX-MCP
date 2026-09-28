@@ -31,6 +31,7 @@ from backend.services.price_history import find_prices as real_find_prices
 
 BACKEND = Path(__file__).resolve().parents[1]
 NODE = "http://umbrel.local:3006"
+BRIDGE = "http://10.0.3.1:32768"  # a StartOS bridge address to Mempool
 PUBLIC = {"price_source": "public", "mempool_url": None, "mempool_fallback": False, "proxy_url": None}
 
 
@@ -59,10 +60,11 @@ def requests_seen(monkeypatch, real_network_code):
     NODE_UP["up"] = True
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen.append(str(request.url))
-        if NODE_UP["up"] and str(request.url).startswith(NODE + "/api/v1/prices"):
+        url = str(request.url)
+        seen.append(url)
+        if NODE_UP["up"] and any(url.startswith(n + "/api/v1/prices") for n in (NODE, BRIDGE)):
             return httpx.Response(200, json={"time": 1, "USD": 61234})
-        if NODE_UP["up"] and str(request.url).startswith(NODE + "/api/blocks/tip/height"):
+        if NODE_UP["up"] and any(url.startswith(n + "/api/blocks/tip/height") for n in (NODE, BRIDGE)):
             return httpx.Response(200, text="912345")
         return httpx.Response(503)
 
@@ -132,7 +134,7 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
         "proxy_url": " socks5h://127.0.0.1:9050 "})
     assert r.status_code == 200
     assert r.json() == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
-                        "proxy_url": "socks5h://127.0.0.1:9050"}
+                        "proxy_url": "socks5h://127.0.0.1:9050", "managed": False}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -234,6 +236,75 @@ def test_the_proxy_carries_public_requests_and_skips_a_local_mempool(auth_client
     with pytest.raises(HTTPException):
         asyncio.run(bitcoin.get_block_height())
     assert made and all(m.get("proxy") == proxy for m in made)
+
+
+# ---------------------------------------------------------------------------
+# Set by the server (v1.2.0): the StartOS package passes BTCTX_PRICE_SOURCE and
+# co. from its Price Source & Privacy action; they win over Settings, which
+# shows them read-only, and the stored settings come back once they're gone.
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def server_env(monkeypatch, test_engine):
+    def set_env(**env):
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
+        with sessionmaker(bind=test_engine)() as db:
+            return outbound.load(db)
+
+    yield set_env
+    outbound._current = outbound.NetworkSettings()  # before the autouse PUT
+
+
+def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, server_env, test_engine):
+    auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": "socks5h://127.0.0.1:9050"})
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=BRIDGE + "/", BTCTX_MEMPOOL_FALLBACK="off")
+    assert auth_client.get("/api/settings/network").json() == {
+        "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
+        "managed": True}
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
+    assert r.status_code == 409 and "Price Source & Privacy action" in r.json()["detail"]
+    # The stored settings are untouched, and back once the server stops setting them
+    server_env(BTCTX_PRICE_SOURCE="")
+    assert outbound.current() == outbound.NetworkSettings(
+        price_source="public", proxy_url="socks5h://127.0.0.1:9050")
+
+
+@pytest.mark.parametrize("env", [
+    {"BTCTX_PRICE_SOURCE": "coingecko"},
+    {"BTCTX_PRICE_SOURCE": "public", "BTCTX_MEMPOOL_FALLBACK": "maybe"},
+    {"BTCTX_PRICE_SOURCE": "public", "BTCTX_PROXY_URL": "ftp://x:1"},
+    {"BTCTX_PRICE_SOURCE": "mempool", "BTCTX_MEMPOOL_URL": "umbrel.local"},
+])
+def test_invalid_server_settings_turn_lookups_off(auth_client, server_env, requests_seen, env):
+    assert server_env(**env) == outbound.NetworkSettings(price_source="off", managed=True)
+    r = auth_client.get("/api/bitcoin/blockheight")
+    assert r.status_code == 503 and "Price lookups are off" in r.json()["detail"]
+    assert requests_seen == []
+
+
+def test_server_settings_accept_on_and_off_spellings(server_env):
+    for word, on in (("on", True), ("TRUE", True), ("1", True), ("off", False), ("false", False), ("", False)):
+        assert server_env(BTCTX_PRICE_SOURCE="Public", BTCTX_MEMPOOL_FALLBACK=word).mempool_fallback is on
+
+
+def test_mempool_on_startos_through_the_bridge_address(auth_client, server_env, requests_seen):
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=BRIDGE,
+               BTCTX_PROXY_URL="socks5h://10.0.3.1:9050")
+    assert auth_client.get("/api/bitcoin/blockheight").json() == {"height": 912345}
+    assert requests_seen == [BRIDGE + "/api/blocks/tip/height"]
+
+
+def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen):
+    """StartOS passes no address while Mempool is missing: nothing is asked, and the reason says so."""
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
+    assert outbound.current().own_node is None
+    r = auth_client.get("/api/bitcoin/blockheight")
+    assert r.status_code == 503 and "install and start Mempool" in r.json()["detail"]
+    r = auth_client.post("/api/transactions", json=dict(
+        type="Deposit", timestamp="2023-03-03T12:00:00Z", from_account_id=99, to_account_id=2,
+        amount="0.01", source="Income", fee_amount="0", fee_currency="BTC"))
+    assert r.status_code == 422 and "install and start Mempool" in r.text
+    assert requests_seen == []
 
 
 def test_no_other_module_makes_its_own_http_client():

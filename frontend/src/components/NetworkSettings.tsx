@@ -3,6 +3,7 @@ import axios from "axios";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import {
+  MANAGED_NOTE,
   MEMPOOL_PLACEHOLDER,
   NetworkSettingsData,
   PRICE_SOURCES,
@@ -13,7 +14,8 @@ import {
  * Settings → Privacy & network (backend/services/outbound.py): where prices
  * and the block height come from (off, public sites, or the owner's own
  * mempool server, optionally falling back to the public sites), and a proxy
- * such as Tor for requests to public sites.
+ * such as Tor for requests to public sites. Read-only when the server sets
+ * them (StartOS's Price Source & Privacy action).
  */
 const NetworkSettings: React.FC = () => {
   const toast = useToast();
@@ -67,10 +69,12 @@ const NetworkSettings: React.FC = () => {
   };
 
   const chosen = PRICE_SOURCES.find((s) => s.value === source);
+  const managed = saved?.managed === true;
 
   return (
     <div className="settings-section" role="region" aria-label="Privacy & network">
       <h3 className="section-title">Privacy &amp; Network</h3>
+      {managed && <p className="settings-note">{MANAGED_NOTE}</p>}
       <div className="settings-option stacked">
         <div className="option-info">
           <label className="settings-option-title" htmlFor="net-price-source">
@@ -86,6 +90,7 @@ const NetworkSettings: React.FC = () => {
           id="net-price-source"
           className="input"
           value={source}
+          disabled={managed}
           onChange={(e) => setSource(e.target.value as PriceSource)}
         >
           {source === "" && (
@@ -118,6 +123,7 @@ const NetworkSettings: React.FC = () => {
               type="url"
               placeholder={MEMPOOL_PLACEHOLDER}
               value={mempoolUrl}
+              disabled={managed}
               onChange={(e) => setMempoolUrl(e.target.value)}
             />
           </div>
@@ -135,6 +141,7 @@ const NetworkSettings: React.FC = () => {
               id="net-mempool-fallback"
               type="checkbox"
               checked={fallback}
+              disabled={managed}
               onChange={(e) => setFallback(e.target.checked)}
             />
           </div>
@@ -157,19 +164,22 @@ const NetworkSettings: React.FC = () => {
           type="text"
           placeholder="socks5h://127.0.0.1:9050"
           value={proxyUrl}
+          disabled={managed}
           onChange={(e) => setProxyUrl(e.target.value)}
         />
       </div>
-      <div className="credential-submit-container">
-        <button
-          className="btn btn-primary"
-          onClick={save}
-          disabled={saving || !changed}
-          aria-label="Save privacy & network settings"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
-      </div>
+      {!managed && (
+        <div className="credential-submit-container">
+          <button
+            className="btn btn-primary"
+            onClick={save}
+            disabled={saving || !changed}
+            aria-label="Save privacy & network settings"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

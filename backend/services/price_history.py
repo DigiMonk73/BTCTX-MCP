@@ -165,6 +165,7 @@ async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
                     logger.info("BTC price history from %s failed: %s", name, exc)
                     continue
                 if got:
+                    logger.info("BTC price history from public site %s: %d days", name, len(got))
                     return _kept(got, name), name == "bitstamp"
         _state["full_failed_at"] = now
         return {}, False
@@ -178,6 +179,7 @@ async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
                 logger.info("Latest BTC prices from %s failed: %s", name, exc)
                 continue
             if got:
+                logger.info("Latest BTC prices from public site %s", name)
                 _state["latest_day"] = today
                 return got, False
     _state["latest_failed_at"] = now
@@ -225,7 +227,9 @@ async def own_node_history() -> Dict[date, tuple]:
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
         return {}
-    return midnight_prices(rows)
+    prices = midnight_prices(rows)
+    logger.info("Price history from your mempool server: %d days", len(prices))
+    return prices
 
 
 async def find_prices(day: date, full: bool) -> Tuple[Dict[date, tuple], bool]:

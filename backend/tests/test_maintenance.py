@@ -195,6 +195,21 @@ def test_cli_set_password_ends_the_first_run_setup_code(tmp_path, restore_overri
     assert not (tmp_path / "setup-code.txt").exists()
 
 
+def test_cli_set_password_if_default_replaces_only_the_default_login(tmp_path, restore_overrides):
+    """The StartOS update (1.2.0) replaces a login still on admin / password, and nothing else."""
+    db = tmp_path / "btctx.db"
+    init_db(engine_for(db))
+    r = cli(db, "set-password", "--if-default", "--password-stdin", stdin="generated-at-update-1\n")
+    assert r.returncode == 0, r.stderr
+    assert "Password set for user 'admin'." in r.stdout
+    assert can_login(db, "admin", "generated-at-update-1")
+
+    r = cli(db, "set-password", "--if-default", "--password-stdin", stdin="generated-at-update-2\n")
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "Not the default login: nothing changed."
+    assert can_login(db, "admin", "generated-at-update-1")
+
+
 @pytest.mark.parametrize(
     "args, stdin, message",
     [

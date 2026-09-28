@@ -7,13 +7,16 @@ source install. Each command first brings the database to the current schema
 it works on an empty volume too.
 
     python -m backend.cli migrate
-    python -m backend.cli set-password [--username NAME] [--password-stdin]
+    python -m backend.cli set-password [--username NAME] [--password-stdin] [--if-default]
     python -m backend.cli recalculate
     python -m backend.cli review [--fix-fee-prices]
 
 set-password reads the new password from stdin with --password-stdin, else
 from the BTCTX_NEW_PASSWORD environment variable; never from the command line,
-where other processes could read it. The database is the one DATABASE_FILE
+where other processes could read it. With --if-default it changes only an
+account still on the shipped admin / password login, and otherwise prints
+"Not the default login: nothing changed." (the StartOS package replaces old
+default logins this way at update). The database is the one DATABASE_FILE
 points at (see backend/database.py).
 
 Exit status: 0 on success, 1 on a failure (message on stderr), 2 on bad usage.
@@ -75,6 +78,11 @@ def cmd_set_password(args: argparse.Namespace) -> int:
         user = db.query(User).order_by(User.id).first()
         if user is None:  # seed_defaults always creates one; be explicit anyway
             raise RuntimeError("No user account in the database.")
+        from backend.services import first_run
+
+        if args.if_default and not first_run.is_default_account(user):
+            print("Not the default login: nothing changed.")
+            return 0
         if username is not None:
             clash = db.query(User).filter(User.username == username, User.id != user.id).first()
             if clash:
@@ -84,8 +92,6 @@ def cmd_set_password(args: argparse.Namespace) -> int:
         db.commit()
         print(f"Password set for user {user.username!r}.")
         # No longer the default login: the first-run setup code is done with
-        from backend.services import first_run
-
         first_run.clear_code()
     except Exception:
         db.rollback()
@@ -151,6 +157,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--username", help="also rename the account")
     sp.add_argument(
         "--password-stdin", action="store_true", help=f"read the password from stdin (default: ${PASSWORD_ENV})"
+    )
+    sp.add_argument(
+        "--if-default", action="store_true", help="only if the login is still the default admin / password"
     )
     sp.set_defaults(func=cmd_set_password)
 

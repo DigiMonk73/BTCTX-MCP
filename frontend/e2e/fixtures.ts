@@ -139,8 +139,11 @@ function macAppEnv(dir: string, port: number): Record<string, string> {
 type Fixtures = {
   /** "mac": run the server as the Mac app does (see macAppEnv). */
   appMode: "server" | "mac";
-  /** "unset": a fresh install that hasn't chosen a price source yet. */
-  priceSource: "public" | "unset";
+  /**
+   * "unset": a fresh install that hasn't chosen a price source yet.
+   * "startos": set by the server, as StartOS's Price Source & Privacy action does.
+   */
+  priceSource: "public" | "unset" | "startos";
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -153,6 +156,9 @@ export const test = base.extend<Fixtures>({
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
       ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
+      ...(priceSource === "startos"
+        ? { BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off" }
+        : {}),
     }));
     await use(app);
     proc.kill();

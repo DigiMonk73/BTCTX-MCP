@@ -12,7 +12,13 @@ export interface NetworkSettingsData {
   mempool_url: string | null;
   mempool_fallback: boolean;
   proxy_url: string | null;
+  /** Set by the server (StartOS: the Price Source & Privacy action), read-only here. */
+  managed?: boolean;
 }
+
+export const MANAGED_NOTE =
+  "Set by your server: on StartOS, change them with the Price Source & Privacy action on " +
+  "BitcoinTX's service page.";
 
 export const PRICE_SOURCES: { value: PriceSource; label: string; help: string }[] = [
   {

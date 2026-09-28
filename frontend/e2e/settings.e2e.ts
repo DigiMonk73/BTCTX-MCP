@@ -348,7 +348,7 @@ test("privacy & network: price source, mempool fallback, proxy; off shows on the
   await expect(page.getByText("Privacy & network settings saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
     price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
-    proxy_url: "socks5h://127.0.0.1:9050",
+    proxy_url: "socks5h://127.0.0.1:9050", managed: false,
   });
 
   await source.selectOption("off");
@@ -377,6 +377,25 @@ test.describe("a fresh install asks where prices come from", () => {
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
     await openSettings(page);
     await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel("Price source")).toHaveValue("public");
+  });
+});
+
+test.describe("prices set by StartOS", () => {
+  test.use({ priceSource: "startos" });
+
+  test("Settings shows them read-only and the first-login question never appears", async ({ authedPage: page }) => {
+    await expect(page.getByRole("region", { name: "Choose a price source" })).toHaveCount(0);
+    await openSettings(page);
+    const net = page.getByRole("region", { name: "Privacy & network" });
+    await expect(net.getByText(/Price Source & Privacy action/)).toBeVisible();
+    await expect(net.getByLabel("Price source")).toHaveValue("mempool");
+    await expect(net.getByLabel("Price source")).toBeDisabled();
+    await expect(net.getByLabel("Your mempool server")).toHaveValue("http://10.0.3.1:32768");
+    await expect(net.getByLabel("Your mempool server")).toBeDisabled();
+    await expect(net.getByLabel("Fall back to public price sites")).toBeDisabled();
+    await expect(net.getByRole("button", { name: "Save privacy & network settings" })).toHaveCount(0);
+    const r = await page.request.put("/api/settings/network", { data: { price_source: "public" } });
+    expect(r.status()).toBe(409);
   });
 });
 
