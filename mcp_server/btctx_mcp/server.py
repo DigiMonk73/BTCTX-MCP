@@ -113,8 +113,8 @@ def mismatch_notice(connector: Optional[str], app: Optional[str]) -> Optional[st
     c, a = _release(connector), _release(app)
     if c and a and c > a:
         return f"{head} Update BitcoinTX, or set the connector back to v{app} in your AI app's settings."
-    return (f"{head} In your AI app's settings, change the connector's version (the @v{connector} in "
-            f"its uvx command) to @v{app}, then restart the AI app.")
+    return (f"{head} In your AI app's settings, change btctx-mcp=={connector} in its uvx command "
+            f"to btctx-mcp=={app}, then restart the AI app.")
 
 
 _version = {"checked": False, "notice": None}

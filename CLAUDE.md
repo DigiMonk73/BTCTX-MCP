@@ -14,7 +14,7 @@ for AI-assisted entry. Work on `develop` (see Branches).
 |---|---|---|
 | Backend | `backend/` | FastAPI + SQLAlchemy + SQLite, Python ≥ 3.10 |
 | Frontend | `frontend/` | React + TypeScript + Vite, served from `frontend/dist` by the backend |
-| MCP server | `mcp_server/` | package `btctx-mcp`; talks to the backend over HTTP with the AI key (bearer), never a password |
+| MCP server | `mcp_server/` | package `btctx-mcp` (on PyPI from 1.2.0, published by `release.yml`); talks to the backend over HTTP with the AI key (bearer), never a password |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
@@ -216,7 +216,9 @@ Full steps, the package version and the signing/mirror secrets:
 3. Push a branch `release/vX.Y.Z` from `main`, and delete it once the
    release is out: `.github/workflows/release.yml` builds the
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
-   set), creates the tag and one GitHub release, and mirrors `startos/` to
+   set), publishes the AI connector to PyPI as `btctx-mcp==X.Y.Z` (trusted
+   publishing, GitHub environment `pypi`, no token; skipped for `-N`
+   revisions), creates the tag and one GitHub release, and mirrors `startos/` to
    DigiMonk73/BTCTX-StartOS if the `MIRROR_TOKEN` secret is set: a sync
    commit on its `main` tagged `v<upstream>_<revision>`, plus a release there
    with the same `btctx.s9pk`, marked Latest.

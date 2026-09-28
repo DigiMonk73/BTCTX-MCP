@@ -20,7 +20,7 @@ value, BitcoinTX asks only the price source you chose in Settings → Privacy &
 Network (your own mempool server, public price sites, or nothing), and no
 request names a transaction date. Your AI app sends the conversation to its
 model. With a cloud AI that is the provider's servers;
-see [Privacy: cloud or local model](#privacy-cloud-or-local-model).
+see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model).
 
 ## Tools
 
@@ -43,9 +43,10 @@ There is deliberately no bulk delete.
 
 - BitcoinTX **v1.0.3 or later** on Docker and StartOS (the AI key); the Mac
   app **v0.9.2 or later** (its key file). `backup_ledger` needs v1.0.3.
-  Install the server pinned to your BitcoinTX release
-  (`…BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server`; the setup prompt in
-  Settings fills in your version), so your AI app runs exactly that code.
+  Install the server pinned to your BitcoinTX release (`btctx-mcp==X.Y.Z`
+  from PyPI; the setup prompt in Settings fills in your version), so your AI
+  app runs exactly that version. Versions before 1.2.0 aren't on PyPI: use
+  `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`.
   When the server and your BitcoinTX are different versions, every tool
   reply starts with a line saying so and what to change.
 - Python 3.10+ on the machine running your AI client
@@ -54,7 +55,7 @@ There is deliberately no bulk delete.
 
 In BitcoinTX, open **Settings → Connect an AI Assistant** and copy the setup
 prompt into your AI app. It carries your address and points the AI to
-[AI_SETUP.md](AI_SETUP.md), which tells it how to install the server in
+[AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md), which tells it how to install the server in
 Claude Code, Claude Desktop, Grok Build or another MCP client. On Docker and
 StartOS, create the AI key in the same section first; it stays out of the
 chat: the AI writes `YOUR_BITCOINTX_AI_KEY` and you paste the key into the
@@ -109,7 +110,7 @@ as for Claude Desktop (below). For the Mac app:
   "mcpServers": {
     "bitcointx": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server", "btctx-mcp"]
+      "args": ["btctx-mcp==X.Y.Z"]
     }
   }
 }
@@ -121,20 +122,16 @@ Configure).
 
 **Goose:** `goose configure` → choose Ollama as the provider; then
 `goose configure` → Add Extension → Command-line Extension, with the command
-`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`
+`uvx btctx-mcp==X.Y.Z`
 (and `BTCTX_URL` and `BTCTX_AI_KEY` for Docker or StartOS).
 
 ## Install
 
 ```bash
-# from a clone of this repo
-pip install ./mcp_server
-# or without cloning
-pip install "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server"
+uvx btctx-mcp==X.Y.Z            # your BitcoinTX version; nothing to install
+pip install btctx-mcp==X.Y.Z    # or a btctx-mcp command of your own
+pip install ./mcp_server        # or from a clone of the repo
 ```
-
-This installs a `btctx-mcp` command. `uvx` works too:
-`uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git#subdirectory=mcp_server" btctx-mcp`.
 
 ## Configure
 
@@ -230,7 +227,7 @@ you to approve each tool call unless you tell it not to.
   it or make a new one in Settings → Connect an AI Assistant. BitcoinTX stores
   only a hash of it, and restoring a backup never brings back an old key.
 - With a cloud AI, what the tools return goes to the provider (see
-  [Privacy](#privacy-cloud-or-local-model)).
+  [Privacy](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model)).
 - There is no bulk delete, and every write is visible in BitcoinTX. Before a
   large import, have the AI run `backup_ledger` or take a backup yourself
   (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).

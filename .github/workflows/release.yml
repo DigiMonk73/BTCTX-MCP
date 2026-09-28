@@ -7,8 +7,10 @@ name: Release
 #   btctx.s9pk              StartOS package (signed with DEV_KEY if that secret exists)
 #   BitcoinTX-macOS.dmg     macOS app, unsigned
 #   BitcoinTX-macOS.zip     the same app, zipped
-# and the image ghcr.io/digimonk73/btctx-mcp:vX.Y.Z (published here if main
-# hasn't already). Then startos/ is mirrored to DigiMonk73/BTCTX-StartOS if the
+# the AI connector on PyPI (btctx-mcp==X.Y.Z, trusted publishing: the
+# `pypi` environment, no token), and the image
+# ghcr.io/digimonk73/btctx-mcp:vX.Y.Z (published here if main hasn't
+# already). Then startos/ is mirrored to DigiMonk73/BTCTX-StartOS if the
 # MIRROR_TOKEN secret exists, and the same btctx.s9pk is released there on the
 # mirror's tag (scripts/mirror-startos-release.sh). Branch-based so a release doesn't depend on being
 # able to push tags. An existing release is left alone. Setup of the two
@@ -65,6 +67,29 @@ jobs:
     needs: check
     if: needs.check.outputs.exists == 'false'
     uses: ./.github/workflows/image.yml
+
+  pypi:
+    # The AI connector (mcp_server/) on PyPI as btctx-mcp==X.Y.Z. Trusted
+    # publishing: PyPI trusts this workflow in the `pypi` environment, so no
+    # token is stored anywhere. Skipped for a package-only revision (-N):
+    # PyPI never takes the same version twice.
+    needs: check
+    if: needs.check.outputs.exists == 'false' && !contains(needs.check.outputs.tag, '-')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build the connector
+        run: python -m pip install build && python -m build mcp_server --outdir dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
 
   macos:
     needs: check
@@ -177,6 +202,7 @@ jobs:
           - **StartOS:** \`btctx.s9pk\`. In StartOS, open **Sideload** and upload it; installs of earlier versions update in place.
           - **macOS:** \`BitcoinTX-macOS.dmg\` (or the \`.zip\`). The app is not signed by Apple: the first time, right-click (Control-click) BitcoinTX in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64).
+          - **AI connector:** \`uvx btctx-mcp==${VERSION#v}\` (PyPI); Settings → Connect an AI Assistant has it ready to paste.
           EOF
           gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md \
             dist/btctx.s9pk dist/BitcoinTX-macOS.dmg dist/BitcoinTX-macOS.zip

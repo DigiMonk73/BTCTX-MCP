@@ -27,7 +27,7 @@ def test_notice_wording():
     assert server.mismatch_notice(None, APP) is None  # run from a source tree
     older = server.mismatch_notice("0.9.0", "1.0.3")
     assert older.startswith("Your BitcoinTX connector is v0.9.0 but BitcoinTX is v1.0.3.")
-    assert "change the connector's version (the @v0.9.0 in its uvx command) to @v1.0.3" in older
+    assert "change btctx-mcp==0.9.0 in its uvx command to btctx-mcp==1.0.3" in older
     newer = server.mismatch_notice("1.1.0", "1.0.3")
     assert "Update BitcoinTX, or set the connector back to v1.0.3" in newer
 

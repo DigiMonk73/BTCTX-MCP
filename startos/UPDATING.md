@@ -27,7 +27,8 @@ released code only and moves by fast-forwarding to `develop`.
    workflow refuses a commit that isn't on `main`). `.github/workflows/release.yml`
    then builds the image (if `main` hasn't yet), the macOS `.dmg` and `.zip`
    and `btctx.s9pk`, creates the tag and one GitHub release with all three,
-   and mirrors `startos/` to BTCTX-StartOS (when `MIRROR_TOKEN` exists),
+   publishes the AI connector to PyPI (`btctx-mcp==X.Y.Z`, not for `-N`
+   revisions), and mirrors `startos/` to BTCTX-StartOS (when `MIRROR_TOKEN` exists),
    with a release there too (same `btctx.s9pk`, marked Latest). Nothing to
    do in the mirror by hand. Delete the `release/…` branch afterwards.
 

@@ -5,6 +5,7 @@ import {
   claudeCodeCommand,
   claudeDesktopConfig,
   gitRef,
+  serverPackage,
   grokCommand,
   needsCaBundle,
   serverEnv,
@@ -20,6 +21,13 @@ describe("gitRef", () => {
   it("falls back to main when the version is unknown", () => {
     expect(gitRef(undefined)).toBe("main");
     expect(gitRef("dev")).toBe("main");
+  });
+});
+
+describe("serverPackage", () => {
+  it("pins the connector on PyPI to this app's release", () => {
+    expect(serverPackage("1.2.0")).toBe("btctx-mcp==1.2.0");
+    expect(serverPackage("dev")).toBe("btctx-mcp");
   });
 });
 
@@ -65,7 +73,7 @@ describe("buildAiPrompt", () => {
     expect(prompt).toContain("BTCTX_URL: http://192.168.1.50:8080");
     expect(prompt).toContain("https://github.com/DigiMonk73/BTCTX-MCP/blob/v0.9.1/mcp_server/AI_SETUP.md");
     expect(prompt).toContain(
-      'uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server" btctx-mcp'
+      'uvx btctx-mcp==0.9.1'
     );
     expect(prompt).not.toContain("BTCTX_CA_BUNDLE");
   });
@@ -81,7 +89,7 @@ describe("claudeDesktopConfig", () => {
     const config = JSON.parse(claudeDesktopConfig(server));
     expect(config.mcpServers.bitcointx).toEqual({
       command: "uvx",
-      args: ["--from", "git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server", "btctx-mcp"],
+      args: ["btctx-mcp==0.9.1"],
       env: { BTCTX_URL: "http://192.168.1.50:8080", BTCTX_AI_KEY: KEY_PLACEHOLDER },
     });
   });
@@ -91,7 +99,7 @@ describe("claudeCodeCommand", () => {
   it("adds the server for every project and puts the name before the env flags", () => {
     const cmd = claudeCodeCommand(server);
     expect(cmd.startsWith("claude mcp add --scope user bitcointx \\\n  -e BTCTX_URL='http://192.168.1.50:8080'")).toBe(true);
-    expect(cmd).toContain("-- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp");
+    expect(cmd).toContain("-- uvx 'btctx-mcp==0.9.1'");
   });
 
   it("quotes an address with a quote in it for the shell", () => {
@@ -122,10 +130,10 @@ describe("the Mac app (key file, nothing secret)", () => {
 
   it("is one command pinned to this release", () => {
     expect(claudeCodeCommand(keyMode)).toBe(
-      "claude mcp add --scope user bitcointx \\\n  -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
+      "claude mcp add --scope user bitcointx \\\n  -- uvx 'btctx-mcp==0.9.1'",
     );
     expect(grokCommand(keyMode)).toBe(
-      "grok mcp add bitcointx -- uvx --from 'git+https://github.com/DigiMonk73/BTCTX-MCP.git@v0.9.1#subdirectory=mcp_server' btctx-mcp",
+      "grok mcp add bitcointx -- uvx 'btctx-mcp==0.9.1'",
     );
   });
 

@@ -33,7 +33,7 @@ password.
 | `BTCTX_URL` | Where BitcoinTX answers. Docker: the host and port they published. StartOS: the **MCP API** address (`https://….local/api`) |
 | `BTCTX_AI_KEY` | An AI key the user creates in BitcoinTX: **Settings → Connect an AI Assistant**, turn on **Let AI assistants use BitcoinTX**, then **Create AI key** (shown once). **Never ask for it in the chat.** Write `YOUR_BITCOINTX_AI_KEY` and have them paste the key into the file themselves |
 | `BTCTX_CA_BUNDLE` | Only for an `https://` address on their network (StartOS): full path to the server's root CA certificate file (section 1 says where to get it) |
-| Server command | `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`, with the version from their prompt (their BitcoinTX version), so the server matches their BitcoinTX |
+| Server command | `uvx btctx-mcp==X.Y.Z` (PyPI), with the version from their prompt (their BitcoinTX version), so the server matches their BitcoinTX |
 
 Never use their BitcoinTX password: the server refuses to run while
 `BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing
@@ -70,14 +70,14 @@ One command, no environment variables. BitcoinTX must be open when the AI
 uses it, and the user must turn on **Settings → Connect an AI Assistant → Let
 AI assistants use BitcoinTX** (off by default); ask them to.
 
-- **Claude Code:** `claude mcp add --scope user bitcointx -- uvx --from '<server source>' btctx-mcp`
-- **Grok Build:** `grok mcp add bitcointx -- uvx --from '<server source>' btctx-mcp`
+- **Claude Code:** `claude mcp add --scope user bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
+- **Grok Build:** `grok mcp add bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
 - **Claude Desktop:** merge
-  `{"mcpServers": {"bitcointx": {"command": "uvx", "args": ["--from", "<server source>", "btctx-mcp"]}}}`
+  `{"mcpServers": {"bitcointx": {"command": "uvx", "args": ["btctx-mcp==X.Y.Z"]}}}`
   into its configuration file (section 2B says where, and about the full `uvx`
   path), then quit and reopen it.
 - **Any other MCP client:** command `uvx`, arguments
-  `["--from", "<server source>", "btctx-mcp"]`, no environment variables.
+  `["btctx-mcp==X.Y.Z"]`, no environment variables.
 
 If the user had set it up with a password before (the server now refuses to
 run while `BTCTX_PASSWORD` is set): remove the
@@ -113,7 +113,7 @@ Developer → Edit Config opens it). Merge this into `mcpServers`:
   "mcpServers": {
     "bitcointx": {
       "command": "uvx",
-      "args": ["--from", "<server source>", "btctx-mcp"],
+      "args": ["btctx-mcp==X.Y.Z"],
       "env": {
         "BTCTX_URL": "<url>",
         "BTCTX_AI_KEY": "YOUR_BITCOINTX_AI_KEY"
@@ -134,7 +134,7 @@ reopens Claude Desktop. LM Studio takes the same block in its `mcp.json`
 ```bash
 claude mcp add --scope user bitcointx \
   -e BTCTX_URL='<url>' -e BTCTX_AI_KEY='YOUR_BITCOINTX_AI_KEY' \
-  -- uvx --from '<server source>' btctx-mcp
+  -- uvx 'btctx-mcp==X.Y.Z'
 ```
 
 Keep the name before the `-e` flags. The server is saved in `~/.claude.json`
@@ -146,7 +146,7 @@ then restarts Claude Code (or reconnects it with `/mcp`).
 ```bash
 grok mcp add bitcointx \
   -e BTCTX_URL='<url>' -e BTCTX_AI_KEY='YOUR_BITCOINTX_AI_KEY' \
-  -- uvx --from '<server source>' btctx-mcp
+  -- uvx 'btctx-mcp==X.Y.Z'
 ```
 
 Check the flags with `grok mcp add --help` first. The server is saved in
@@ -157,7 +157,7 @@ the user's computer or network: use an app that runs on their computer.
 ### Any other MCP client
 
 A local stdio server: command `uvx`, arguments
-`["--from", "<server source>", "btctx-mcp"]`, and the environment variables
+`["btctx-mcp==X.Y.Z"]`, and the environment variables
 above.
 
 ## 3. The AI key (Docker and StartOS only)

@@ -143,10 +143,12 @@ monthly (`syncNext`) and bumps SDKs by PRs on forks.
 
 ## 7. The connector on PyPI (first published with v1.2.0)
 
-The owner created a PyPI account on 2026-09-27 (`btctx-mcp` was still free).
-Their steps: two-factor login, then a pending trusted publisher (GitHub;
-project `btctx-mcp`, owner `DigiMonk73`, repo `BTCTX-MCP`, workflow
-`release.yml`, environment `pypi`). **Ask whether both are done.** Then:
+**Done on `develop` (2026-09-27):** the owner set up PyPI (two-factor login
+and the pending trusted publisher: GitHub, `btctx-mcp`, DigiMonk73,
+BTCTX-MCP, `release.yml`, env `pypi`); the GitHub environment `pypi`, the
+`pypi` job in `release.yml`, the package metadata, absolute README links and
+the `uvx btctx-mcp==X.Y.Z` setup texts are in. **Left:** confirm at the
+v1.2.0 release that PyPI has 1.2.0. The steps, for the record:
 - create the GitHub environment `pypi` on BTCTX-MCP (`gh api -X PUT
   repos/DigiMonk73/BTCTX-MCP/environments/pypi`);
 - add a `pypi` job to `.github/workflows/release.yml` (needs `check`;

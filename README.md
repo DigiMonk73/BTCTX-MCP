@@ -123,12 +123,12 @@ itself. Or by hand, for the Mac app (Settings gives the same command with
 your version filled in):
 
 ```bash
-claude mcp add --scope user bitcointx -- \
-  uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp
+claude mcp add --scope user bitcointx -- uvx btctx-mcp==X.Y.Z
 ```
 
-The MCP server is pinned to your BitcoinTX release (`@vX.Y.Z`), so your AI app
-runs exactly that code and fetches nothing new on its own. After you update
+The MCP server ([`btctx-mcp` on PyPI](https://pypi.org/project/btctx-mcp/)) is
+pinned to your BitcoinTX release (`==X.Y.Z`), so your AI app runs exactly that
+version and fetches nothing new on its own. After you update
 BitcoinTX, every tool reply says so until you change the version in the
 command.
 

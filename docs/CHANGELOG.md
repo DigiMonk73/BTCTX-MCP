@@ -4,6 +4,15 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### AI connector on PyPI
+- The connector is published to PyPI as
+  [`btctx-mcp`](https://pypi.org/project/btctx-mcp/) with every release, by
+  trusted publishing (no token is stored anywhere). The setup prompt,
+  configurations, StartOS action and docs now install it with
+  `uvx btctx-mcp==X.Y.Z`, still pinned to your BitcoinTX version; nothing
+  needs `git` on your computer any more. Versions before 1.2.0 stay
+  installable from GitHub (`uvx --from "git+…@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`).
+
 ## [v1.1.0] - 2026-09-27 - Privacy: choose your price source, no dates in lookups; security tightening
 
 ### Privacy: you choose where prices come from, and no lookup reveals a date

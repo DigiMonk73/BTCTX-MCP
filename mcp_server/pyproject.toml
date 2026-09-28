@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,14 @@ version = "1.1.0"
 description = "MCP server that lets an AI assistant add transactions to a BitcoinTX ledger"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "BitcoinTX contributors" }]
+keywords = ["bitcoin", "tax", "mcp", "self-hosted", "form-8949"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Office/Business :: Financial :: Accounting",
+]
 dependencies = [
     "mcp>=2.2,<3",
     "httpx>=0.27",
@@ -16,6 +24,12 @@ dependencies = [
 
 [project.scripts]
 btctx-mcp = "btctx_mcp.server:main"
+
+[project.urls]
+Homepage = "https://digimonk73.github.io/btctx-site/"
+Source = "https://github.com/DigiMonk73/BTCTX-MCP"
+Documentation = "https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md"
+Changelog = "https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["btctx_mcp"]
