@@ -2,7 +2,7 @@
 fastapi==0.141.1
 pydantic==2.13.5
 starlette==1.7.0
-uvicorn==0.53.0
+uvicorn==0.54.0
 
 # Database
 sqlalchemy==2.0.54
