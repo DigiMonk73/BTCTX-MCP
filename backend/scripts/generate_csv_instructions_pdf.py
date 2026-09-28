@@ -199,18 +199,25 @@ def generate_csv_instructions_pdf():
         ["amount", "Yes", "BTC (up to 8 decimals), or USD for Bank/Exchange USD rows. Transfer: what left the account, fee included. Withdrawal: what the recipient got, fee on top"],
         ["from_account", "Yes", "Source account name"],
         ["to_account", "Yes", "Destination account name"],
-        ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). Deposit: optional; Income/Interest/Reward blank = that day's value"],
+        ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward blank = that day's value"],
         ["proceeds_usd", "Conditional", "Sell: gross USD, before the fee (the fee is subtracted). Spent withdrawal: value received; blank = that day's value"],
         ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
         ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
         ["source", "No", "For Deposits: N/A, MyBTC, Gift, Income, Interest, Reward"],
         ["purpose", "Conditional", "For Withdrawals: Spent, Gift, Donation, Lost"],
         ["notes", "No", "Optional notes (not imported, for your reference only)"],
+        ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that day's BTC price"],
+        ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value that day (shown in the tax report)"],
+        ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
     ]
 
     col_table = Table(wrap_cells(columns_data), colWidths=[1.3*inch, 0.9*inch, 4.5*inch])
     col_table.setStyle(table_style)
     story.append(col_table)
+    story.append(Paragraph(
+        "Settings > Export CSV writes these same columns, so an export imports back to the same ledger.",
+        normal_style
+    ))
 
     # === Valid Values ===
     story.append(Paragraph("Transaction Types", heading2_style))
@@ -284,7 +291,7 @@ def generate_csv_instructions_pdf():
 
     rules_data = [
         ["Type", "From Account", "To Account", "Required Fields"],
-        ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd (optional, defaults to $0)"],
+        ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward: blank = that day's value"],
         ["Withdrawal", "Wallet or\nExchange BTC", "External", "purpose required;\nproceeds_usd for \"Spent\""],
         ["Transfer", "Any account", "Another account,\nsame currency", "Fee in the sending account's currency;\naccounts must be different"],
         ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],

@@ -459,8 +459,9 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes`
-  and 14 rows. The toast "CSV export downloaded." appears.
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting`
+  and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
+  export downloaded." appears.
 - **BAK-2** **Download** (Download Encrypted Backup) with the password
   `backup-pass-123`. Expect: the file `bitcoin_backup.btx` and "Backup
   downloaded."
@@ -475,7 +476,8 @@ Set `KEY` to the key from AI-3, and use
   transactions deleted." and an empty Dashboard. Then Preview BAK-1's CSV.
   Expect "14 valid / 14 total rows". Click **Import 14 Transactions** and
   confirm. Expect "Successfully imported 14 transaction(s)." and **every
-  golden figure**. See Known issues.
+  golden figure**: the file carries the fees' USD values, so nothing is
+  priced again.
 - **BAK-3** Before restoring, click **New key** and keep the new key (the
   backup holds an older one). **Restore from Backup** with BAK-2's file and
   the password `wrong-pass`. Expect "Failed to restore backup." with the
@@ -686,11 +688,6 @@ Found while this document was written (v1.2.0). Report these as KNOWN.
 Delete a line when its fix is merged into `develop`, since release
 candidates are built from it.
 
-- **IMP-3**: the CSV export has no column for a BTC fee's typed USD value
-  (`fee_usd`) or for **Broker form**. A round trip revalues #4's and #14's
-  fees at the day's price, so Schedule D 2023 line 3 and 2025 line 10
-  change. With prices Off, the import fails instead: "Import failed: 422:
-  No BTC price is stored for 2023-06-01 …", and the response is a 500.
 - **RPT-5**: with prices Off and no stored prices, the Complete Tax Report
   fails for every year ("No BTC price is stored for YYYY-01-01"). IRS
   Reports and Transaction History still work.

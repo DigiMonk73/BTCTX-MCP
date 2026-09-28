@@ -5,6 +5,18 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixes
+- **Export CSV now imports back to the same ledger.** The export had no
+  column for a BTC fee's USD value, a gift's fair market value or the
+  Broker form override (all added after the export was written), so a
+  re-import priced every BTC fee again at that day's price, changing gains,
+  lost Broker form choices and failed outright with price lookups off. The
+  export, the import and the template now share one list of columns, with
+  three new optional ones at the end: `fee_usd`, `fmv_usd` and
+  `broker_reporting`. Older CSV files import as before. A CSV import a row
+  can't be saved from (e.g. a BTC fee with no price to value it) now says
+  why instead of answering with a server error. The CSV import guide
+  describes the new columns and no longer calls a BTC deposit's basis
+  optional.
 - Deleting a transaction that later ones depend on (a buy whose BTC a later
   sell or transfer spends) is refused and changes nothing. Before, it showed
   an error but deleted the row anyway, and every later save then failed

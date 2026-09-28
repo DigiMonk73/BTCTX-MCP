@@ -24,6 +24,8 @@ from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
     ACCOUNT_NAME_TO_ID,
+    BROKER_REPORTING_TYPES,
+    BROKER_REPORTING_VALUES,
     ACCOUNT_WALLET,
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
@@ -40,11 +42,21 @@ REQUIRED_COLUMNS = {
     "date", "type", "amount", "from_account", "to_account"
 }
 
-# All valid columns
-ALL_COLUMNS = REQUIRED_COLUMNS | {
+# Every column, in order. The template, the import and the CSV export
+# (routers/backup.py) all use this list, so an export always imports back to
+# the same ledger. The last three came later and are optional (older files
+# import as before): a BTC fee's USD value (blank: fee x that day's price), a
+# gift's, donation's or lost BTC's fair market value, and the Broker form
+# override (none / proceeds / basis; blank: automatic).
+CSV_COLUMNS = [
+    "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
-    "source", "purpose", "notes"
-}
+    "source", "purpose", "notes",
+    "fee_usd", "fmv_usd", "broker_reporting",
+]
+
+# Withdrawal purposes that aren't a sale; only these carry an FMV
+GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 
 
 @dataclass
@@ -318,12 +330,33 @@ def _validate_row(
     cost_basis_usd = _optional_decimal(row, "cost_basis_usd", 2, row_number, errors)
     proceeds_usd = _optional_decimal(row, "proceeds_usd", 2, row_number, errors)
     fee_amount = _optional_decimal(row, "fee_amount", 8, row_number, errors)
+    fee_usd = _optional_decimal(row, "fee_usd", 2, row_number, errors)
+    fmv_usd = _optional_decimal(row, "fmv_usd", 2, row_number, errors)
     if errors:
         return None, None, errors, warnings
     fee_currency = row.get("fee_currency", "").strip().upper() or None
     source = row.get("source", "").strip() or None
     purpose = row.get("purpose", "").strip() or None
     notes = row.get("notes", "").strip() or None
+    broker_reporting = row.get("broker_reporting", "").strip().lower() or None
+
+    if broker_reporting and broker_reporting not in BROKER_REPORTING_VALUES:
+        errors.append(CSVParseError(
+            row_number=row_number,
+            column="broker_reporting",
+            message=f"Invalid broker_reporting '{broker_reporting}'. Must be none, proceeds or basis "
+                    "(blank: automatic).",
+            severity="error"
+        ))
+        return None, None, errors, warnings
+    if broker_reporting and tx_type not in BROKER_REPORTING_TYPES:
+        errors.append(CSVParseError(
+            row_number=row_number,
+            column="broker_reporting",
+            message=f"broker_reporting can only be set on a Sell or Withdrawal, not a {tx_type}.",
+            severity="error"
+        ))
+        return None, None, errors, warnings
 
     # Validate fee currency
     if fee_currency and fee_currency not in ("USD", "BTC"):
@@ -371,6 +404,28 @@ def _validate_row(
         tx_data["source"] = source
     if purpose:
         tx_data["purpose"] = purpose
+    if fee_usd is not None:
+        if tx_data.get("fee_currency") == "BTC":
+            tx_data["fee_usd"] = fee_usd  # kept as given, never re-priced
+        else:
+            warnings.append(CSVParseError(
+                row_number=row_number,
+                column="fee_usd",
+                message="fee_usd is ignored: it is the USD value of a BTC fee, and this row has none.",
+                severity="warning"
+            ))
+    if fmv_usd is not None:
+        if tx_type == "Withdrawal" and (purpose or "").lower() in GIFT_LIKE_PURPOSES:
+            tx_data["fmv_usd"] = fmv_usd
+        else:
+            warnings.append(CSVParseError(
+                row_number=row_number,
+                column="fmv_usd",
+                message="fmv_usd is ignored: it is for Gift, Donation and Lost withdrawals.",
+                severity="warning"
+            ))
+    if broker_reporting:
+        tx_data["broker_reporting"] = broker_reporting
 
     # Build preview object
     preview = CSVRowPreview(
@@ -770,22 +825,22 @@ def generate_template_csv() -> str:
     output = io.StringIO()
     writer = csv.writer(output)
 
+    def row(cells: list) -> None:
+        """A sample row; the columns it doesn't give are left blank."""
+        writer.writerow(cells + [""] * (len(CSV_COLUMNS) - len(cells)))
+
     # Header row
-    writer.writerow([
-        "date", "type", "amount", "from_account", "to_account",
-        "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
-        "source", "purpose", "notes"
-    ])
+    writer.writerow(CSV_COLUMNS)
 
     # === USD SETUP ===
     # Deposit USD to Bank
-    writer.writerow([
+    row([
         "2024-01-01T10:00:00Z", "Deposit", "20000.00", "External", "Bank",
         "", "", "", "",
         "", "", "Initial USD deposit to bank"
     ])
     # Transfer USD from Bank to Exchange
-    writer.writerow([
+    row([
         "2024-01-02T10:00:00Z", "Transfer", "20000.00", "Bank", "Exchange USD",
         "", "", "", "",
         "", "", "Move USD to exchange for trading"
@@ -793,45 +848,45 @@ def generate_template_csv() -> str:
 
     # === BUY BTC ===
     # Buy from Exchange USD (standard)
-    writer.writerow([
+    row([
         "2024-01-03T10:00:00Z", "Buy", "0.5", "Exchange USD", "Exchange BTC",
         "10000.00", "", "50.00", "USD",
         "", "", "Buy 0.5 BTC at $20k/BTC with $50 fee"
     ])
     # Buy from Bank (auto-buy / recurring purchase)
-    writer.writerow([
+    row([
         "2024-01-04T10:00:00Z", "Buy", "0.1", "Bank", "Exchange BTC",
         "2000.00", "", "10.00", "USD",
         "", "", "Auto-buy: Purchase BTC directly from bank"
     ])
 
     # === BTC DEPOSITS (all sources) ===
-    writer.writerow([
+    row([
         "2024-01-10T10:00:00Z", "Deposit", "1.0", "External", "Wallet",
         "20000.00", "", "", "",
         "MyBTC", "", "Transfer from my own cold storage"
     ])
-    writer.writerow([
+    row([
         "2024-01-15T10:00:00Z", "Deposit", "0.1", "External", "Wallet",
         "0", "", "", "",
         "Gift", "", "BTC received as birthday gift (no cost basis)"
     ])
-    writer.writerow([
+    row([
         "2024-01-20T10:00:00Z", "Deposit", "0.05", "External", "Wallet",
         "2500.00", "", "", "",
         "Income", "", "Payment received for freelance work"
     ])
-    writer.writerow([
+    row([
         "2024-01-25T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
         "1000.00", "", "", "",
         "Interest", "", "Interest earned from lending"
     ])
-    writer.writerow([
+    row([
         "2024-01-30T10:00:00Z", "Deposit", "0.01", "External", "Wallet",
         "500.00", "", "", "",
         "Reward", "", "Mining or staking reward"
     ])
-    writer.writerow([
+    row([
         "2024-01-31T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
         "1000.00", "", "", "",
         "", "", "BTC deposit with no specific source"
@@ -839,21 +894,21 @@ def generate_template_csv() -> str:
 
     # === BTC TRANSFERS ===
     # Wallet to Exchange
-    writer.writerow([
+    row([
         "2024-02-01T10:00:00Z", "Transfer", "0.5", "Wallet", "Exchange BTC",
         "", "", "0.0001", "BTC",
         "", "", "Move BTC to exchange for trading"
     ])
 
     # === SELL BTC ===
-    writer.writerow([
+    row([
         "2024-02-10T10:00:00Z", "Sell", "0.3", "Exchange BTC", "Exchange USD",
         "", "18000.00", "10.00", "USD",
         "", "", "Sell 0.3 BTC for $18,000 with $10 fee"
     ])
 
     # === USD TRANSFER BACK ===
-    writer.writerow([
+    row([
         "2024-02-15T10:00:00Z", "Transfer", "15000.00", "Exchange USD", "Bank",
         "", "", "", "",
         "", "", "Move profits back to bank"
@@ -861,36 +916,38 @@ def generate_template_csv() -> str:
 
     # === BTC TRANSFER BACK ===
     # Exchange to Wallet
-    writer.writerow([
+    row([
         "2024-02-20T10:00:00Z", "Transfer", "0.2", "Exchange BTC", "Wallet",
         "", "", "0.0001", "BTC",
-        "", "", "Move BTC to wallet for cold storage"
+        "", "", "Move BTC to wallet; fee_usd is what the fee was worth (blank: that day's price)",
+        "5.20",
     ])
 
     # === USD WITHDRAWAL ===
-    writer.writerow([
+    row([
         "2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
         "", "", "", "",
         "", "", "USD withdrawal for expenses"
     ])
 
     # === BTC WITHDRAWALS (all purposes) ===
-    writer.writerow([
+    row([
         "2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
         "", "9000.00", "0.0001", "BTC",
         "", "Spent", "Spent BTC on purchase (taxable event)"
     ])
-    writer.writerow([
+    row([
         "2024-03-15T10:00:00Z", "Withdrawal", "0.1", "Wallet", "External",
         "", "", "0.0001", "BTC",
-        "", "Gift", "Gifted BTC to family (non-taxable for giver)"
+        "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value that day",
+        "", "6800.00",
     ])
-    writer.writerow([
+    row([
         "2024-03-20T10:00:00Z", "Withdrawal", "0.05", "Wallet", "External",
         "", "", "0.0001", "BTC",
         "", "Donation", "Donated BTC to charity (non-taxable)"
     ])
-    writer.writerow([
+    row([
         "2024-03-25T10:00:00Z", "Withdrawal", "0.03", "Wallet", "External",
         "", "", "", "",
         "", "Lost", "Lost access to BTC (no gain or loss; not on Form 8949)"

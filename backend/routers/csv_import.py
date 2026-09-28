@@ -237,6 +237,12 @@ async def execute_csv_import(
             imported_count=imported_count,
             message=f"Successfully imported {imported_count} transaction(s)."
         )
+    except HTTPException as e:
+        # A row the ledger refused (no price for a fee, not enough BTC...)
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=f"Import failed: {e.detail} No transactions were saved."
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,

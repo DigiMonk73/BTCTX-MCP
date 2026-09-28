@@ -20,6 +20,7 @@ from backend.models.transaction import Transaction
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
+from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
 from backend.services.reports.safe_text import csv_text
 from backend.constants import ACCOUNT_ID_TO_NAME
 
@@ -27,21 +28,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# CSV columns matching the import template
-CSV_COLUMNS = [
-    "date",
-    "type",
-    "amount",
-    "from_account",
-    "to_account",
-    "cost_basis_usd",
-    "proceeds_usd",
-    "fee_amount",
-    "fee_currency",
-    "source",
-    "purpose",
-    "notes",
-]
 
 
 def _require_auth(request: Request):
@@ -242,6 +228,11 @@ def export_transactions_csv(
         else:
             proceeds = ""
 
+        # A BTC fee's stored USD value, so re-importing never prices it again
+        # (the same figures, even with price lookups off); a gift's FMV.
+        btc_fee = (txn.fee_currency or "").upper() == "BTC" and bool(txn.fee_amount)
+        gift_like = txn_type == "withdrawal" and (txn.purpose or "").lower() in GIFT_LIKE_PURPOSES
+
         # Text cells can't start a spreadsheet formula (safe_text.csv_text);
         # the numbers are written as they are.
         row = {
@@ -257,6 +248,9 @@ def export_transactions_csv(
             "source": csv_text(txn.source),
             "purpose": csv_text(txn.purpose),
             "notes": "",  # Transaction model doesn't store notes
+            "fee_usd": fmt_decimal(txn.fee_usd, 2) if btc_fee else "",
+            "fmv_usd": fmt_decimal(txn.fmv_usd, 2) if gift_like else "",
+            "broker_reporting": csv_text(txn.broker_reporting),
         }
         writer.writerow(row)
 
