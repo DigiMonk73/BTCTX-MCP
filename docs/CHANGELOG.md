@@ -5,6 +5,17 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixes
+- **Adding transactions before choosing a price source no longer turns
+  public price sites on.** Since 1.1.0, an install with transactions but no
+  price choice yet was taken for one from before 1.1.0 (when public sites
+  were on by default), so its next restart, e.g. an update, switched it to
+  **Public price sites** and asked them for prices, although you never
+  chose that. Now only an install that stored past prices before 1.1.0
+  keeps public sites; any other stays unasked until you choose. If you
+  added entries before answering the price question and BitcoinTX has
+  restarted since, check **Settings → Privacy & Network** (on StartOS, the
+  Price Source & Privacy action decides instead). Found testing the 1.2.0
+  package on a StartOS VM.
 - **The complete tax report works with price lookups off.** It looked up
   the Jan 1 BTC price even when nothing was held then, and a missing price
   failed the whole report; a missing Dec 31 price valued the holdings at

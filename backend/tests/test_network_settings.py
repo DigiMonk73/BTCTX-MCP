@@ -110,14 +110,36 @@ def test_older_installs_keep_what_they_did(old, expected):
         assert db.execute(text("SELECT count(*) FROM app_settings WHERE key='live_data'")).scalar() == 0
 
 
+def _add_entry(db):
+    db.execute(text(
+        "INSERT INTO transactions (type, timestamp, amount, from_account_id, to_account_id, fee_amount, is_locked, "
+        "fee_currency) VALUES ('Deposit', '2024-01-01 00:00:00', 1, 99, 1, 0, 0, 'USD')"))
+    db.commit()
+
+
 def test_an_older_install_that_never_touched_the_settings_keeps_public_prices():
+    """Before v1.1.0, public sites were on by default and every downloaded
+    day was stored: stored prices show the install used them."""
     Session = fresh_db()
     with Session() as db:
-        db.execute(text(
-            "INSERT INTO transactions (type, timestamp, amount, from_account_id, to_account_id, fee_amount, is_locked, "
-            "fee_currency) VALUES ('Deposit', '2024-01-01 00:00:00', 1, 99, 1, 0, 0, 'USD')"))
+        _add_entry(db)
+        db.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES ('2024-01-01', 42000, 'bitstamp')"))
         db.commit()
         assert outbound.load(db).price_source == "public"
+
+
+def test_entries_made_before_choosing_never_turn_public_sites_on():
+    """Found on a StartOS VM (2026-09-28): a v1.1.0 install with entries but no
+    price choice yet was switched to public sites at its next restart (the
+    1.2.0 update), and asked CoinGecko. It stays unset: the owner is asked."""
+    Session = fresh_db()
+    with Session() as db:
+        _add_entry(db)
+        assert outbound.load(db).price_source == "unset"
+    with Session() as db:  # the next restart
+        assert outbound.load(db).price_source == "unset"
+        assert not outbound.current().public_allowed
+        assert db.execute(text("SELECT count(*) FROM app_settings WHERE key='price_source'")).scalar() == 0
 
 
 def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):

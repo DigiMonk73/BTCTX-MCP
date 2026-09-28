@@ -114,14 +114,17 @@ def _upgrade_from_live_data(db: Session) -> Optional[str]:
     """
     Installs from before v1.1.0 keep what they did: live data off stays off
     (with their mempool server still asked), on stays public, and a mempool
-    server keeps falling back to the public sites. A fresh install (no old
-    setting, no transaction) stays unset, so the owner is asked.
+    server keeps falling back to the public sites. One that never touched
+    those settings kept public prices if it stored any past ones (it
+    downloaded them). Anything else stays unset, so the owner is asked: a
+    v1.1.0+ install with entries but no choice yet has no stored prices,
+    since nothing is asked before the choice. Entries alone prove nothing.
     """
-    from backend.models.transaction import Transaction
+    from backend.models.btc_price import BtcPriceDaily
 
     live = _get(db, OLD_LIVE_KEY)
     mempool = _get(db, MEMPOOL_KEY)
-    if live is None and mempool is None and db.query(Transaction.id).first() is None:
+    if live is None and mempool is None and db.query(BtcPriceDaily.day).first() is None:
         return None
     if mempool:
         source, fallback = "mempool", live != "off"
