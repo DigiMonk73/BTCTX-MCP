@@ -139,6 +139,24 @@ monthly (`syncNext`) and bumps SDKs by PRs on forks.
   no public site is asked), Tor, fallback, backup + restore, update from
   1.1.0, uninstall + reinstall.
 - Release v1.2.0 (CLAUDE.md "Releasing"), landing page, then the owner
-  emails Start9. PyPI for the connector when the owner has 2FA set up
-  (trusted publisher `btctx-mcp` / DigiMonk73 / BTCTX-MCP / `release.yml` /
-  env `pypi`), configs then use `uvx btctx-mcp==X.Y.Z`.
+  emails Start9.
+
+## 7. The connector on PyPI (first published with v1.2.0)
+
+The owner created a PyPI account on 2026-09-27 (`btctx-mcp` was still free).
+Their steps: two-factor login, then a pending trusted publisher (GitHub;
+project `btctx-mcp`, owner `DigiMonk73`, repo `BTCTX-MCP`, workflow
+`release.yml`, environment `pypi`). **Ask whether both are done.** Then:
+- create the GitHub environment `pypi` on BTCTX-MCP (`gh api -X PUT
+  repos/DigiMonk73/BTCTX-MCP/environments/pypi`);
+- add a `pypi` job to `.github/workflows/release.yml` (needs `check`;
+  skipped on `-N` package-only revisions and existing releases; `permissions:
+  id-token: write`; `python -m build mcp_server`;
+  `pypa/gh-action-pypi-publish@release/v1` with `packages-dir`);
+- make `mcp_server/README.md`'s relative links absolute (it becomes the PyPI
+  page);
+- switch the setup texts (`frontend/src/utils/aiSetup.ts` + tests,
+  `startos/.../connectAi.ts`, `mcp_server/AI_SETUP.md`, READMEs) from
+  `--from "git+…@vX.Y.Z#subdirectory=mcp_server"` to `uvx btctx-mcp==X.Y.Z`
+  (still pinned to the app's version; the mismatch notice's wording follows);
+- after the release: `pip index versions btctx-mcp` shows 1.2.0.
