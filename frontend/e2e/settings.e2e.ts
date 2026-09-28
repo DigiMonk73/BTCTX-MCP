@@ -387,7 +387,7 @@ test.describe("prices set by StartOS", () => {
     await expect(page.getByRole("region", { name: "Choose a price source" })).toHaveCount(0);
     await openSettings(page);
     const net = page.getByRole("region", { name: "Privacy & network" });
-    await expect(net.getByText(/Price Source & Privacy action/)).toBeVisible();
+    await expect(net.getByText(/^Set by your server: on StartOS/)).toBeVisible();
     await expect(net.getByLabel("Price source")).toHaveValue("mempool");
     await expect(net.getByLabel("Price source")).toBeDisabled();
     await expect(net.getByLabel("Your mempool server")).toHaveValue("http://10.0.3.1:32768");
