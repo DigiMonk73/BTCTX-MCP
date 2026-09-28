@@ -129,7 +129,7 @@ From `backend/requirements.txt`:
 | `fastapi` | 0.141.1 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
 | `starlette` | 1.7.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event` |
 | `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
-| `uvicorn` | 0.53.0 | Caution | Check starlette compatibility |
+| `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
 | `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
 | `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`; also used by the MCP server |
 | `socksio` | 1.0.0 | Low | SOCKS proxy for httpx (Settings → Privacy & Network, e.g. Tor) |

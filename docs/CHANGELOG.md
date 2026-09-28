@@ -10,6 +10,12 @@ All notable changes to BitcoinTX are documented in this file.
   `frontend/` and `startos/`, GitHub Actions). It leaves the StartOS SDK and its service
   packages, `@playwright/test` and the deferred upgrades alone
   (`docs/MAINTENANCE.md`, "Dependabot").
+- First updates taken: uvicorn 0.54.0; vitest 5.0.2,
+  eslint-plugin-react-refresh 0.5.7, globals 17 (frontend); prettier, ncc and
+  the Node types (StartOS package build); GitHub Actions on their current
+  majors (Node 24).
+- The release job downloads its two artifacts by name, so a Docker build
+  record can't get mixed in.
 
 ## [v1.2.0] - 2026-09-28 - StartOS: your own Mempool and Tor in one action, translated package; connector on PyPI
 
