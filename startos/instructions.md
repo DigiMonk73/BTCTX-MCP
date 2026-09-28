@@ -32,7 +32,7 @@ Record deposits, withdrawals, transfers, buys and sells. Every change recalculat
 
 BitcoinTX sends your ledger nowhere, and it contacts nothing until you choose a price source.
 
-- **Your own mempool** (best): the live price, block height and past prices come from it, and no public site is contacted. Its past prices start from when it was installed; for older days, turn on **Fall back to public price sites** or type the value in.
+- **Your own mempool** (best): the live price, block height and past prices come from it, and no public site is contacted. Its past prices start from when it was installed; for older days, turn on **Fall back to public price sites** or type the value in. BitcoinTX can't check StartOS's own certificate yet, so a mempool address starting with `https` (such as the `.local` ones) doesn't answer it: for now, turn on **Fall back to public price sites** with such an address, and BitcoinTX's log says when it used them.
 - **Public price sites**: the sites see your server's IP address but never one of your transaction dates, because past prices come from one download of the whole history that is the same for every install. To hide the IP address, send BitcoinTX's traffic through a VPN with the StartOS **Set Outbound Gateway** action.
 - **Off**: nothing is contacted; you type in USD values yourself.
 

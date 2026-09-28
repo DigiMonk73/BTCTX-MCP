@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-09-27 - Privacy: choose your price source, no dates in lookups; security tightening
+
 ### Privacy: you choose where prices come from, and no lookup reveals a date
 - **Nothing is contacted until you choose.** A fresh install asks, right
   after the first login, where Bitcoin prices come from: **My mempool
@@ -27,6 +29,11 @@ All notable changes to BitcoinTX are documented in this file.
   and the sidebar converter doesn't ask while its tab is hidden.
 - **Correction:** the 1.0.3 README, StartOS docs and website said that
   download kept lookups from pointing at your dates; it didn't, as above.
+- **StartOS:** a mempool address starting with `https` (the `.local` ones)
+  doesn't answer BitcoinTX yet (it can't check StartOS's own certificate);
+  1.0.3 then quietly used the public sites. Turn on **Fall back to public
+  price sites** with such an address for now; a direct connection inside
+  StartOS comes next.
 
 ### Security
 - **PDF reports can't be made to fetch anything.** Text stored in a

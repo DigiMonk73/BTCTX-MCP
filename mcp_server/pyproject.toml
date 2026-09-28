@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "btctx-mcp"
-version = "1.0.3"
+version = "1.1.0"
 description = "MCP server that lets an AI assistant add transactions to a BitcoinTX ledger"
 readme = "README.md"
 requires-python = ">=3.10"
