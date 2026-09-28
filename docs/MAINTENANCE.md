@@ -90,8 +90,9 @@ reinstall, and rerun `make check`.
 
 `.github/dependabot.yml` opens pull requests against `develop` every week:
 one grouped PR per directory for minor and patch updates (`backend/`,
-`mcp_server/`, `frontend/`, `startos/`), majors one per PR, and one PR for
-the GitHub Actions in `.github/workflows/`. CI runs on each. Treat them like
+`mcp_server/`, the dev tools in `requirements-dev.txt`, `frontend/`,
+`startos/`), majors one per PR, and one PR for the GitHub Actions in
+`.github/workflows/`. CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
 merge into `develop`. Nothing reaches `main` before a release.
 

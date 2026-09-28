@@ -6,8 +6,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Development
 - Dependabot opens weekly pull requests against `develop`, grouped per
-  directory (Python in `backend/` and `mcp_server/`, npm in `frontend/` and
-  `startos/`, GitHub Actions). It leaves the StartOS SDK and its service
+  directory (Python in `backend/`, `mcp_server/` and the dev tools, npm in
+  `frontend/` and `startos/`, GitHub Actions). It leaves the StartOS SDK and its service
   packages, `@playwright/test` and the deferred upgrades alone
   (`docs/MAINTENANCE.md`, "Dependabot").
 

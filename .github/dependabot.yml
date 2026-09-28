@@ -38,6 +38,18 @@ updates:
       mcp-server:
         update-types: [minor, patch]
 
+  # Test and CI tools (requirements-dev.txt), not shipped in the app
+  - package-ecosystem: pip
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      dev-tools:
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /frontend
     target-branch: develop
