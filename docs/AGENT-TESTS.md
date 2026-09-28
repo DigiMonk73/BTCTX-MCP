@@ -86,6 +86,26 @@ the published files are the ones you tested.
   Server. Every `curl` below uses `--cacert ca.crt`; with it on your
   browser's trust list, the browser needs no exceptions.
 
+#### On an Apple-silicon Mac (UTM), as run on 2026-09-28
+
+- StartOS's **aarch64** ISO (its release notes link it, with SHA-256 sums)
+  runs at full speed in UTM (QEMU backend, hypervisor on, UEFI, 4 cores,
+  8 GB, a 40 GB disk, shared network). The released `btctx.s9pk` is
+  universal; CI's release-candidate artifact is x86_64 only, so on this VM
+  pack an aarch64 one from the commit (`startos/UPDATING.md`, "Building
+  locally").
+- The installer answers at `start.local`; the server gets a new random name
+  when setup finishes. For the `clean` snapshot, stop the VM and duplicate
+  it in UTM (an APFS clone, no extra space).
+- `start-cli` (the release CI uses, `start-cli_aarch64-macos`) drives the
+  VM once the owner has run `start-cli -H $URL auth login`. It needs
+  `--root-ca ca.crt`; installs from a registry need
+  `-r https://registry.start9.com` (e.g. Tor); `package install -s` sideloads
+  (a dropped progress socket is harmless: `package list` shows it
+  installing); an action with input needs the `eventId` from
+  `package action get-input` passed to `package action run --event-id`,
+  with the input as JSON on stdin (`null` for none).
+
 ### The golden ledger
 
 Fourteen transactions over 2023–2025 whose results were worked out by
@@ -696,3 +716,7 @@ candidates are built from it.
   forever.
 - **GLD-6**: Delete shows its confirm twice (`TransactionPanel.tsx` and
   `TransactionForm.tsx`).
+- **PRC, 1.2.0 and earlier only (Track B's previous release)**: an install
+  with entries but no price choice switches itself to Public price sites at
+  its next restart, e.g. the update. Fixed on `develop` (`afd23ea`): a
+  release candidate must not do it.

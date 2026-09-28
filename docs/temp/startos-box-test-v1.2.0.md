@@ -5,6 +5,12 @@ release. You're updating from 1.1.0, and your data stays in place. Delete this
 file once it's done and the result has gone into `docs/CHANGELOG.md` or a
 fix.
 
+**Already checked on a StartOS VM (2026-09-28):** the update from 1.1.0,
+data and login kept, Show Credentials, Price Source & Privacy (Off, Public,
+Public over Tor), past prices, reports. See `findings-2026-09-28.md`. What
+only your box can check is **My Mempool on this server**, so that section
+matters most.
+
 ## Before you start
 
 - [ ] Make a StartOS backup that includes BitcoinTX. An update can't be
