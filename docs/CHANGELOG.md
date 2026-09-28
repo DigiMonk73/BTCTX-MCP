@@ -5,6 +5,17 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixes
+- **The complete tax report works with price lookups off.** It looked up
+  the Jan 1 BTC price even when nothing was held then, and a missing price
+  failed the whole report; a missing Dec 31 price valued the holdings at
+  $0. Holdings with no price for that day now read "not priced", and the
+  rest of the report is unchanged.
+- **The complete tax report's Beginning of Year Holdings were wrong**
+  whenever BTC had moved or been sold in earlier years: lots were counted
+  twice (in the checklist's ledger, 1.8797 BTC on Jan 1, 2024 instead of
+  the 0.9898 held on Dec 31, 2023). They are now taken the same way as the
+  year-end holdings, so Jan 1 always matches the previous Dec 31. Only this
+  section of that report was affected: IRS forms and gains were right.
 - **Export CSV now imports back to the same ledger.** The export had no
   column for a BTC fee's USD value, a gift's fair market value or the
   Broker form override (all added after the export was written), so a

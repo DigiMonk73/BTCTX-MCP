@@ -106,6 +106,10 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
         """Format as USD with 2 decimals."""
         return f"${value:,.2f}"
 
+    def fmt_value(value) -> str:
+        """A holding's market value; None when that day has no BTC price."""
+        return "not priced" if value is None else fmt_usd(value)
+
     def fmt_btc(value: float) -> str:
         """Format BTC with 8 decimals."""
         return f"{value:,.8f}"
@@ -174,10 +178,10 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
         for row in start_of_year:
             qty = row.get("quantity", 0.0)
             cost_basis = row.get("avg_cost_basis", 0.0)
-            val = row.get("value", 0.0)
+            val = row.get("value")
 
             total_quantity += qty
-            total_value_sum += val
+            total_value_sum = None if val is None or total_value_sum is None else total_value_sum + val
             weighted_sum += (qty * cost_basis)
 
         if total_quantity > 0:
@@ -189,7 +193,7 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
         data.append([
             wrap_text(fmt_btc(total_quantity), right_aligned_style),
             wrap_text(fmt_usd(overall_cost_basis), right_aligned_style),
-            wrap_text(fmt_usd(total_value_sum), right_aligned_style),
+            wrap_text(fmt_value(total_value_sum), right_aligned_style),
         ])
 
         table = Table(data, colWidths=[1.5 * inch, 1.5 * inch, 1.5 * inch])
@@ -200,6 +204,12 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
             ("FONTSIZE", (0, 0), (-1, -1), 8),
         ]))
         story.append(table)
+        if total_value_sum is None:
+            story.append(wrap_text(
+                f"No BTC price is stored for {tax_year}-01-01, so the holdings aren't valued "
+                "(price lookups: Settings > Privacy & Network).",
+                normal_style,
+            ))
         story.append(Spacer(1, 0.5 * inch))
 
     # =====================================================
@@ -304,19 +314,19 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
             if bal["asset"].startswith("BTC"):
                 qty = bal.get("quantity", 0.0)
                 cst = bal.get("cost", 0.0)
-                val = bal.get("value", 0.0)
+                val = bal.get("value")
 
                 data.append([
                     wrap_text(bal["asset"]),
                     wrap_text(fmt_btc(qty), right_aligned_style),
                     wrap_text(fmt_usd(cst), right_aligned_style),
-                    wrap_text(fmt_usd(val), right_aligned_style),
+                    wrap_text(fmt_value(val), right_aligned_style),
                     wrap_text(bal["description"]),
                 ])
 
                 total_btc += qty
                 total_cost += cst
-                total_value += val
+                total_value = None if val is None or total_value is None else total_value + val
 
         # Weighted average cost
         if total_btc > 0:
@@ -328,7 +338,7 @@ def generate_comprehensive_tax_report(report_dict: Dict[str, Any]) -> bytes:
             "Total",
             wrap_text(fmt_btc(total_btc), right_aligned_style),
             wrap_text(fmt_usd(total_cost), right_aligned_style),
-            wrap_text(fmt_usd(total_value), right_aligned_style),
+            wrap_text(fmt_value(total_value), right_aligned_style),
             wrap_text(
                 f"Avg Cost Basis = {fmt_usd(avg_cost_basis)} per BTC",
                 wrapped_style

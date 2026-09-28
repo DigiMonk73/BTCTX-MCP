@@ -132,7 +132,7 @@ it's long-term. #14's fee is its own disposal.
 | Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · -1000.00`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
 | Schedule D 2025 | line 2: 4000.00 / 5000.00 / -1000.00 · line 10: 10005.00 / 2532.30 / 7472.70 |
 | Complete Tax Report 2023 (no IRS forms for 2023 in the app) | Capital Gains Summary, Short Term: Number of Disposals 4, Proceeds from Sales $13,400.00, Acquisition Costs $11,834.60, Net Gains $1,565.40; Long Term all $0.00. The disposals list has 06/01/2023 0.0002 BTC ($4.60 / $10.00 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($230.00 / $400.00 / $170.00). End of Year Balances: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, Avg Cost Basis $23,404.12 per BTC; each Value = quantity × the Dec 31 price the report states |
-| Complete Tax Report 2024 | Income Summary: Income $1,000.00, Total $1,000.00. Income Transactions: 05/01/2024 0.02000000 BTC $1,000.00. Gifts, Donations & Lost Assets: 06/01/2024 0.10000000 BTC, FMV "not given", Gift. End of Year Balances: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
+| Complete Tax Report 2024 | Beginning of Year Holdings: 0.98980000 BTC, Avg Cost Basis $23,404.12 (the same BTC as the 2023 report's End of Year Balances). Income Summary: Income $1,000.00, Total $1,000.00. Income Transactions: 05/01/2024 0.02000000 BTC $1,000.00. Gifts, Donations & Lost Assets: 06/01/2024 0.10000000 BTC, FMV "not given", Gift. End of Year Balances: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
 | Transaction History CSV | 2023: 6 rows (the Dec 31 spend is in it, stamped `2024-01-01T04:30:00+00:00`) · 2024: 4 rows · 2025: 4 rows |
 
 **Loading it through the API.** Track B, and anywhere a step says "load
@@ -296,9 +296,13 @@ Start from the `clean` snapshot.
   on Part II, with the 2025 rows and lines above.
 - **RPT-4** Transaction History for 2023, 2024 and 2025. Expect the files
   `TransactionHistory_<year>.csv` with 6, 4 and 4 data rows.
-- **RPT-5** Complete Tax Report 2023. With Off and no stored prices this
-  can't value the year-end holdings. Record what happens (see Known
-  issues); RPT-6 checks the report again once prices are on.
+- **RPT-5** Complete Tax Report 2023 and 2024, with Off and no stored
+  prices. Expect: both generate. Every holdings value (Beginning of Year
+  and End of Year) reads "not priced", with the note "No BTC price for
+  YYYY-12-31: not priced" (and for 2024 "No BTC price is stored for
+  2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
+  figure is as in the expected-figures table. RPT-6 checks the values once
+  prices are on.
 
 ### TZ: tax timezone
 
@@ -346,7 +350,7 @@ Start from the `clean` snapshot.
   - Repeat the first GLD-4 deposit (Income, blank basis). Expect: saved
     with Cost Basis = 0.001 × that day's price, where the Sats Converter's
     **Date** mode shows the price for 2025-07-01. Delete it.
-  - The Complete Tax Report now generates (RPT-6).
+  - The Complete Tax Report now values the holdings (RPT-6).
   - Ledger Review > **Check again**. Expect exactly one item: "Income
     deposits valued far from that day's price: 1", which is #9. Its
     $1,000.00 is made up, so this is correct. Any other item is a FAIL.
@@ -688,9 +692,6 @@ Found while this document was written (v1.2.0). Report these as KNOWN.
 Delete a line when its fix is merged into `develop`, since release
 candidates are built from it.
 
-- **RPT-5**: with prices Off and no stored prices, the Complete Tax Report
-  fails for every year ("No BTC price is stored for YYYY-01-01"). IRS
-  Reports and Transaction History still work.
 - **GLD-3**: with prices Off, Unrealized Gains/Losses reads "Loading..."
   forever.
 - **GLD-6**: Delete shows its confirm twice (`TransactionPanel.tsx` and
