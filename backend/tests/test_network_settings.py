@@ -221,6 +221,27 @@ def test_the_live_price_is_asked_once_a_minute(auth_client, requests_seen):
     assert requests_seen.count(NODE + "/api/v1/prices") == 1
 
 
+def test_the_dashboard_and_sidebar_asking_at_once_make_one_request(auth_client, monkeypatch):
+    """Both ask for the live price as a page loads; with an empty cache both
+    requests went out (seen on StartOS: two per page load)."""
+    asked = []
+
+    async def slow_node(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        await asyncio.sleep(0.05)
+        return httpx.Response(200, json={"time": 1, "USD": 61234})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(slow_node))
+    auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE})
+    bitcoin._price_cache.update(settings=None)
+
+    async def page_load():
+        return await asyncio.gather(real_current_price(), real_current_price())
+
+    assert asyncio.run(page_load()) == [{"USD": 61234.0}, {"USD": 61234.0}]
+    assert asked == [NODE + "/api/v1/prices"]
+
+
 def test_the_proxy_carries_public_requests_and_skips_a_local_mempool(auth_client, real_network_code, monkeypatch):
     made = []
 

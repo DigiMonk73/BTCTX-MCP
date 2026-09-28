@@ -10,6 +10,7 @@ Past-day prices are not here: services/price_history.py fetches them without
 ever naming a date.
 """
 
+import asyncio
 import logging
 import time
 from typing import Callable, Optional
@@ -27,9 +28,20 @@ BLOCKCHAIN_INFO_HEIGHT_URL = "https://blockchain.info/q/getblockcount"
 BLOCKSTREAM_HEIGHT_URL = "https://blockstream.info/api/blocks/tip/height"
 MEMPOOL_HEIGHT_URL = "https://mempool.space/api/blocks/tip/height"
 
-# The live price is asked at most once a minute, however many tabs poll it.
+# The live price is asked at most once a minute, however many tabs poll it;
+# requests at the same moment (the dashboard and the sidebar) wait for one.
 PRICE_CACHE_SECONDS = 60
 _price_cache: dict = {"settings": None, "at": 0.0, "value": None}
+_price_lock: dict = {"loop": None, "lock": None}
+
+
+def _one_at_a_time() -> asyncio.Lock:
+    """The price lock of the running event loop (an asyncio.Lock can't be
+    shared between loops, and tests start several)."""
+    loop = asyncio.get_running_loop()
+    if _price_lock["loop"] is not loop:
+        _price_lock.update(loop=loop, lock=asyncio.Lock())
+    return _price_lock["lock"]
 
 
 async def _from_own_node(path: str, parse: Callable):
@@ -82,15 +94,16 @@ async def get_current_price() -> dict:
     Kraken. 503 when no source may be asked, 502 when none answers.
     """
     settings = outbound.current()
-    cached = _price_cache
-    if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
-        return cached["value"]
-    price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
-    if price is None:
-        price = await _first_public(
-            [(COINGECKO_PRICE_URL, _coingecko_price), (KRAKEN_TICKER_URL, _kraken_price)], "BTC price")
-    _price_cache.update(settings=settings, at=time.monotonic(), value=price)
-    return price
+    async with _one_at_a_time():
+        cached = _price_cache
+        if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
+            return cached["value"]
+        price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
+        if price is None:
+            price = await _first_public(
+                [(COINGECKO_PRICE_URL, _coingecko_price), (KRAKEN_TICKER_URL, _kraken_price)], "BTC price")
+        _price_cache.update(settings=settings, at=time.monotonic(), value=price)
+        return price
 
 
 def _height(resp) -> dict:

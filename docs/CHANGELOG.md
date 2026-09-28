@@ -52,6 +52,10 @@ All notable changes to BitcoinTX are documented in this file.
   seconds) logged two database lines, half of a running install's log. It
   now logs nothing.
 
+- Loading the dashboard asked for the live price twice (the dashboard and
+  the sidebar converter at the same moment). Requests at the same moment
+  now share one.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,
