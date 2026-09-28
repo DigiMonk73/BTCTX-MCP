@@ -48,6 +48,10 @@ All notable changes to BitcoinTX are documented in this file.
   says "Wrong password?". About 1 time in 256 it said the file wasn't a
   BitcoinTX backup instead (the live database was never touched either way).
 
+- **The log is readable again.** Every health check (StartOS asks every 30
+  seconds) logged two database lines, half of a running install's log. It
+  now logs nothing.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

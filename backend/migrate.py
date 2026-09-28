@@ -33,7 +33,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.pool import NullPool
 
@@ -83,6 +83,15 @@ def head_revision() -> str:
 
 def current_revision(connection: Connection) -> Optional[str]:
     return MigrationContext.configure(connection).get_current_revision()
+
+
+def stamped_revision(connection: Connection) -> Optional[str]:
+    """The revision in alembic_version, by plain SQL; None without the table.
+    For the health check: MigrationContext logs two INFO lines per call, and
+    StartOS asks every 30 seconds."""
+    if "alembic_version" not in inspect(connection).get_table_names():
+        return None
+    return connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
 
 
 def _app_tables(connection: Connection) -> set:

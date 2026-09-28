@@ -341,7 +341,7 @@ def logout(request: Request, response: Response):
 # ---------------------------------------------------------
 # Health check (public: used by StartOS and container probes)
 # ---------------------------------------------------------
-from backend.migrate import current_revision, head_revision
+from backend.migrate import head_revision, stamped_revision
 from backend.version import app_version
 
 @app.get("/api/health")
@@ -352,7 +352,7 @@ def health(db: Session = Depends(get_db)):
     """
     head = head_revision()
     try:
-        schema = current_revision(db.connection())
+        schema = stamped_revision(db.connection())
     except Exception as e:
         logger.warning("Health check: database unreachable: %s", e)
         return JSONResponse(

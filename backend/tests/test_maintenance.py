@@ -95,6 +95,21 @@ def test_health_is_public_and_reports_version_and_schema(tmp_path, restore_overr
     assert r.json() == {"status": "ok", "version": app_version(), "schema": head_revision()}
 
 
+def test_health_checks_log_nothing(tmp_path, restore_overrides, caplog):
+    """StartOS checks health every 30 s; each check logged alembic's two INFO
+    lines ("Context impl SQLiteImpl.", "Will assume non-transactional DDL."),
+    half of a live install's log."""
+    db = tmp_path / "btctx.db"
+    init_db(engine_for(db))
+    client = client_on(db)
+    caplog.clear()
+    with caplog.at_level("INFO"):
+        for _ in range(3):
+            assert client.get("/api/health").status_code == 200
+    noise = [r.getMessage() for r in caplog.records if r.name.startswith(("alembic", "backend"))]
+    assert noise == []
+
+
 def test_health_version_is_the_version_file():
     assert app_version() == (REPO / "VERSION").read_text().strip()
 
