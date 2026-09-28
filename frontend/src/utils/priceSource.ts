@@ -27,7 +27,8 @@ export const PRICE_SOURCES: { value: PriceSource; label: string; help: string }[
     help:
       "Your own node answers: the live price, the block height and past prices. Nothing goes to a " +
       "public site. Its past prices start when it was installed; for older days, turn on the " +
-      "fallback to public sites (Settings) or type the value in.",
+      "fallback to public sites (Settings) or type the value in. Mempool on the same StartOS " +
+      "server: use its Price Source & Privacy action instead.",
   },
   {
     value: "public",

@@ -113,8 +113,9 @@ const NetworkSettings: React.FC = () => {
                 Your mempool server
               </label>
               <p className="settings-option-subtitle">
-                Its address, e.g. {MEMPOOL_PLACEHOLDER}, a StartOS address, or an .onion (reached
-                through the proxy below).
+                Its address, e.g. {MEMPOOL_PLACEHOLDER}, or an .onion (reached through the proxy
+                below). Mempool on the same StartOS server: use the Price Source &amp; Privacy action
+                instead, which connects it for you.
               </p>
             </div>
             <input
