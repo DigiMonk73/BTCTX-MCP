@@ -56,6 +56,10 @@ All notable changes to BitcoinTX are documented in this file.
   the sidebar converter at the same moment). Requests at the same moment
   now share one.
 
+- The dashboard's **BTC Cost Basis** is now labeled **Avg. Cost per BTC**:
+  it always was the average cost of one bitcoin you hold, not your total
+  cost.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

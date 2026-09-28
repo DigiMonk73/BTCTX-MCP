@@ -143,7 +143,7 @@ it's long-term. #14's fee is its own disposal.
 
 | Where | Expected |
 |---|---|
-| Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · BTC Cost Basis $44,993.81 |
+| Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
 | Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,072.70 · Long-Term Losses $0.00 · Net Long-Term +$11,072.70 · Total Net Capital Gains +$19,438.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest and Rewards $0.00 · Total Income $1,000.00 · Gifts (received) $0.00 · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |

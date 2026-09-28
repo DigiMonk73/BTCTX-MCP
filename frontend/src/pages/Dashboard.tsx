@@ -230,7 +230,7 @@ const Dashboard: React.FC = () => {
             <span>{formatBtc(totalBTC)}</span>
           </p>
           <p>
-            <strong>BTC Cost Basis</strong>
+            <strong>Avg. Cost per BTC</strong>
             <span>
               {averageBtcCostBasis !== null ? formatUsd(averageBtcCostBasis) : "Loading..."}
             </span>

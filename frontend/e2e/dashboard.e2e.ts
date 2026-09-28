@@ -27,7 +27,7 @@ test("balances, basis, gains and income after a known ledger", async ({ authedPa
   expect(await figure(page, "Exchange (BTC)")).toBe(0.15);
   expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
   expect(await figure(page, "Total BTC")).toBe(0.6599);
-  expect(await figure(page, "BTC Cost Basis")).toBeCloseTo(13498 / 0.6599, 1);
+  expect(await figure(page, "Avg. Cost per BTC")).toBeCloseTo(13498 / 0.6599, 1);
   expect(await figure(page, "Unrealized Gains/Losses")).toBeCloseTo(26096, 0);
 
   expect(await figure(page, "Short-Term Gains")).toBe(1983);
