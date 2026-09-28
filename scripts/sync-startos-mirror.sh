@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Mirror startos/ to DigiMonk73/BTCTX-StartOS, the repository Start9's
-# community registry would fork: the mirror's root becomes exactly the
-# committed contents of startos/, in one commit pointing at the source commit,
-# tagged v<upstream>_<revision> (Start9's tag convention).
+# community registry forks: the mirror's root becomes exactly the committed
+# contents of startos/, in one commit pointing at the source commit. The
+# mirror's own Tag and Release workflow (Start9's) then tags it
+# v<upstream>_<revision> and releases it; scripts/mirror-startos-release.sh
+# does that by hand if it can't.
 #
 #   scripts/sync-startos-mirror.sh [--push] [MIRROR_DIR]
 #
 # MIRROR_DIR  an existing clone of the mirror, or where to clone it
 #             (default: a new temporary directory)
-# --push      push the commit and tag; without it they stay local to inspect
+# --push      push the commit; without it, it stays local to inspect
 # MIRROR_URL  clone URL override (the release workflow passes one with a token)
 #
 # Only committed files are mirrored; uncommitted changes in startos/ abort.
+# Run scripts/start9-pull.sh first once Start9 has changed its fork, so this
+# never undoes their changes.
 set -euo pipefail
 
 PUSH=false
@@ -28,7 +32,6 @@ fi
 SRC_SHA="$(git -C "$ROOT" rev-parse HEAD)"
 VERSION="$(sed -n "s/.*version: '\([0-9.]*:[0-9]*\)'.*/\1/p" "$ROOT/startos/startos/versions/current.ts" | head -1)"
 [ -n "$VERSION" ] || { echo "can't read the package version from current.ts" >&2; exit 1; }
-TAG="v${VERSION/:/_}"
 
 if [ -d "$DIR/.git" ]; then
   git -C "$DIR" fetch -q origin "$BRANCH"
@@ -52,17 +55,9 @@ else
     -m "Source: https://github.com/DigiMonk73/BTCTX-MCP/tree/$SRC_SHA/startos"
   echo "Committed $(git -C "$DIR" rev-parse --short HEAD) in $DIR"
 fi
-if ! git -C "$DIR" rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-  git -C "$DIR" tag "$TAG"
-fi
-
 if $PUSH; then
   git -C "$DIR" push origin "HEAD:$BRANCH"
-  if git -C "$DIR" push origin "refs/tags/$TAG"; then
-    echo "Pushed $BRANCH and $TAG."
-  else
-    echo "Pushed $BRANCH; warning: couldn't push tag $TAG (push it by hand)." >&2
-  fi
+  echo "Pushed $BRANCH. The mirror's Tag and Release workflow tags and releases $VERSION."
 else
-  echo "Not pushed. Inspect $DIR, then: git -C $DIR push origin HEAD:$BRANCH $TAG"
+  echo "Not pushed. Inspect $DIR, then: git -C $DIR push origin HEAD:$BRANCH"
 fi

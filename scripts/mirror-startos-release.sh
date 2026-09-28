@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Publish a BTCTX-MCP release's StartOS package on the mirror
-# DigiMonk73/BTCTX-StartOS as well, so the mirror's releases page matches:
-# one release per package version, on the tag sync-startos-mirror.sh created
-# (v<upstream>_<revision>), titled v<upstream>:<revision>, marked Latest, with
-# btctx.s9pk attached and the CHANGELOG notes. Run after the sync has pushed.
+# By hand, only when the mirror's own Tag and Release workflow (Start9's) can't
+# run, e.g. before its DEV_KEY and REFERENCE_REGISTRY are set: publish a
+# BTCTX-MCP release's StartOS package on the mirror DigiMonk73/BTCTX-StartOS,
+# one release per package version, on the tag v<upstream>_<revision> (created
+# on the mirror's main if missing), titled v<upstream>:<revision>, marked
+# Latest, with btctx.s9pk attached and the CHANGELOG notes. Run after
+# sync-startos-mirror.sh --push.
 #
 #   scripts/mirror-startos-release.sh SOURCE_TAG S9PK
 #
@@ -24,8 +26,6 @@ REPO="${MIRROR_REPO:-DigiMonk73/BTCTX-StartOS}"
 VERSION="$(sed -n "s/.*version: '\([0-9.]*:[0-9]*\)'.*/\1/p" "$ROOT/startos/startos/versions/current.ts" | head -1)"
 [ -n "$VERSION" ] || { echo "can't read the package version from current.ts" >&2; exit 1; }
 TAG="v${VERSION/:/_}"
-gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1 \
-  || { echo "tag $TAG is not on $REPO; run sync-startos-mirror.sh --push first" >&2; exit 1; }
 
 NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
@@ -49,6 +49,6 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" -R "$REPO" --clobber "$S9PK"
   echo "Updated release $TAG on $REPO."
 else
-  gh release create "$TAG" -R "$REPO" --verify-tag --title "v$VERSION" --notes-file "$NOTES" --latest "$S9PK"
+  gh release create "$TAG" -R "$REPO" --target main --title "v$VERSION" --notes-file "$NOTES" --latest "$S9PK"
   echo "Created release $TAG on $REPO."
 fi
