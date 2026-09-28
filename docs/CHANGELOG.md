@@ -66,6 +66,13 @@ All notable changes to BitcoinTX are documented in this file.
   password), which the link didn't say; Settings still has Reset
   Username & Password.
 
+- **A report that can't be made now says why.** Reports showed only "Failed
+  to generate the report" and dropped the reason. They now show it, and
+  when an old withdrawal's network fee (or a Spent withdrawal's proceeds)
+  has no USD value and no price is available, the message names that
+  transaction, e.g. "Withdrawal of 0.01 BTC on 2024-06-01: its network fee
+  has no USD value (edit that transaction to enter it)".
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

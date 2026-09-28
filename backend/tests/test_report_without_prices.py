@@ -109,3 +109,23 @@ def test_jan_1_holdings_equal_the_previous_dec_31(auth_client, test_engine, ledg
         assert sum(r["quantity"] for r in start) == pytest.approx(sum(r["quantity"] for r in before))
         assert sum(r["quantity"] * r["avg_cost_basis"] for r in start) == \
             pytest.approx(sum(r["cost"] for r in before), abs=0.01)
+
+
+def test_an_unvalued_old_fee_names_its_transaction(auth_client, test_engine, ledger):
+    """A withdrawal's BTC fee saved before fee values were stored (migration
+    0004 filled only transfers) still needs a price; with lookups off the
+    report's 422 said only "No BTC price is stored for 2024-06-01"."""
+    from sqlalchemy import text
+
+    r = auth_client.post("/api/transactions", json=dict(
+        type="Withdrawal", timestamp="2024-06-01T16:00:00Z", from_account_id=2, to_account_id=99,
+        amount="0.01", fee_amount="0.0001", fee_currency="BTC", fee_usd="5", purpose="Gift"))
+    assert r.status_code == 200, r.text
+    with test_engine.begin() as con:  # as an old row: no stored fee value
+        con.execute(text("UPDATE transactions SET fee_usd = NULL, fee_usd_manual = 0 WHERE id = :i"),
+                    {"i": r.json()["id"]})
+    r = auth_client.get("/api/reports/complete_tax_report?year=2024&format=pdf")
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert detail.startswith("Withdrawal of 0.01 BTC on 2024-06-01: its network fee has no USD value")
+    assert "No BTC price is stored for 2024-06-01" in detail

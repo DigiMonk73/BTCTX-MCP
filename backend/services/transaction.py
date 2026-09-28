@@ -376,7 +376,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         # network fee's (its own disposal), never a gross to recover.
         return Decimal("0")
     if tx.proceeds_usd is None:
-        gross = (get_btc_price(tx.timestamp, db) * amount).quantize(Decimal("0.01"))
+        gross = (_price_for(tx, "it has no proceeds value", db) * amount).quantize(Decimal("0.01"))
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
@@ -892,9 +892,25 @@ def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
     the value kept, so later recalculations don't price it again.
     """
     if tx.fee_usd is None:
-        tx.fee_usd = (get_btc_price(tx.timestamp, db) * fee_btc).quantize(Decimal("0.01"))
+        price = _price_for(tx, "its network fee has no USD value", db)
+        tx.fee_usd = (price * fee_btc).quantize(Decimal("0.01"))
         tx.fee_usd_manual = False
     return Decimal(tx.fee_usd)
+
+
+def _price_for(tx: Transaction, missing: str, db: Session) -> Decimal:
+    """The day's price for a stored transaction's missing value; without one,
+    a 422 naming the transaction (a report fails on it, and the day alone
+    doesn't say which entry to fix)."""
+    try:
+        return get_btc_price(tx.timestamp, db)
+    except HTTPException as e:
+        day = tx.timestamp.date().isoformat() if tx.timestamp else "an unknown day"
+        amount = format(Decimal(tx.amount or 0).normalize(), "f")
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=f"{tx.type} of {amount} BTC on {day}: {missing} (edit that transaction to enter it). {e.detail}",
+        ) from e
 
 
 def get_historical_btc_price(timestamp: datetime, db: Session) -> Decimal:

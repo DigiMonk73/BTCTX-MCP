@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import api, { downloadPdfWithAxios } from "../api";
 import { useToast } from "../contexts/useToast";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
+import { reportErrorMessage } from "../utils/reportError";
 import "../styles/reports.css";
 
 // Hardcoded base URL for your FastAPI server:
@@ -120,8 +121,8 @@ const Reports: React.FC = () => {
         toast.error(`Save failed: ${result.error}`);
       }
 
-    } catch {
-      toast.error("Failed to generate the report. Please try again.");
+    } catch (error) {
+      toast.error(await reportErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
