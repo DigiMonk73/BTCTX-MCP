@@ -28,24 +28,24 @@ export const mempoolDescription = {
   en_US:
     'Optional: your own source of Bitcoin prices and the block height, when you choose My Mempool on this server in Price Source & Privacy',
   es_ES:
-    'Opcional: tu propia fuente de precios de bitcoin y de la altura de bloque, si eliges My Mempool on this server en Price Source & Privacy',
+    'Opcional: tu propia fuente de precios de bitcoin y de la altura de bloque, si eliges Mi Mempool en este servidor en Fuente de precios y privacidad',
   de_DE:
-    'Optional: deine eigene Quelle für Bitcoin-Kurse und die Blockhöhe, wenn du in Price Source & Privacy My Mempool on this server wählst',
+    'Optional: deine eigene Quelle für Bitcoin-Kurse und die Blockhöhe, wenn du unter Kursquelle & Datenschutz Mein Mempool auf diesem Server wählst',
   pl_PL:
-    'Opcjonalnie: własne źródło cen bitcoina i wysokości bloku, gdy w Price Source & Privacy wybierzesz My Mempool on this server',
+    'Opcjonalnie: własne źródło cen bitcoina i wysokości bloku, gdy w Źródło cen i prywatność wybierzesz Mój Mempool na tym serwerze',
   fr_FR:
-    'Facultatif : votre propre source de prix du bitcoin et de hauteur de bloc, si vous choisissez My Mempool on this server dans Price Source & Privacy',
+    'Facultatif : votre propre source de prix du bitcoin et de hauteur de bloc, si vous choisissez Mon Mempool sur ce serveur dans Source des prix et confidentialité',
 }
 
 export const torDescription = {
   en_US:
     'Optional: carries requests to public price sites when you turn on Tor in Price Source & Privacy, so they never see your IP address',
   es_ES:
-    'Opcional: transporta las solicitudes a los sitios públicos de precios si activas Tor en Price Source & Privacy, para que nunca vean tu dirección IP',
+    'Opcional: transporta las solicitudes a los sitios públicos de precios si activas Tor en Fuente de precios y privacidad, para que nunca vean tu dirección IP',
   de_DE:
-    'Optional: leitet Anfragen an öffentliche Kursseiten weiter, wenn du Tor in Price Source & Privacy einschaltest, sodass sie nie deine IP-Adresse sehen',
+    'Optional: leitet Anfragen an öffentliche Kursseiten weiter, wenn du Tor unter Kursquelle & Datenschutz einschaltest, sodass sie nie deine IP-Adresse sehen',
   pl_PL:
-    'Opcjonalnie: przekazuje zapytania do publicznych serwisów z cenami, gdy włączysz Tor w Price Source & Privacy, więc nigdy nie widzą Twojego adresu IP',
+    'Opcjonalnie: przekazuje zapytania do publicznych serwisów z cenami, gdy włączysz Tor w Źródło cen i prywatność, więc nigdy nie widzą Twojego adresu IP',
   fr_FR:
-    'Facultatif : achemine les requêtes vers les sites publics de prix quand vous activez Tor dans Price Source & Privacy, pour qu’ils ne voient jamais votre adresse IP',
+    'Facultatif : achemine les requêtes vers les sites publics de prix quand vous activez Tor dans Source des prix et confidentialité, pour qu’ils ne voient jamais votre adresse IP',
 }
