@@ -25,6 +25,7 @@ make hooks          # installs the pre-push gate
 | Docker | `make docker-smoke` | Builds the image from this checkout and runs CI's container checks on it locally: first-run setup code, smoke test, data on `/data`, health, maintenance CLI | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
 | Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~4 min |
+| Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
 
 ## When they run
 

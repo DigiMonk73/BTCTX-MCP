@@ -10,6 +10,10 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX backup instead (the live database was never touched either way).
 
 ### Development
+- `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
+  before each release (install, actions, the update from the last release,
+  backups, price sources, TLS, the MCP connector, the Mac app), against a
+  14-transaction ledger whose every figure is known, with its known issues.
 - Dependabot opens weekly pull requests against `develop`, grouped per
   directory (Python in `backend/`, `mcp_server/` and the dev tools, npm in
   `frontend/` and `startos/`, GitHub Actions). It leaves the StartOS SDK and its service

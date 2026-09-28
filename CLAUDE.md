@@ -214,6 +214,8 @@ Full steps, the package version and the signing/mirror secrets:
    `startos/startos/versions/current.ts` and `mcp_server/pyproject.toml`
    (`backend/tests/test_versions_agree.py` fails until they agree). Move the CHANGELOG's Unreleased section to the
    version. Minor bump when a new tax year's forms are added. Push; wait for CI.
+   Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that commit's CI
+   artifacts; a blocker FAIL stops the release.
 2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
    publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
    `:main`.

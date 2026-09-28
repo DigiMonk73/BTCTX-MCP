@@ -44,7 +44,9 @@ released code only and moves by fast-forwarding to `develop`.
    - the package version (next section)
 2. Move the `## [Unreleased]` section of `docs/CHANGELOG.md` to
    `## [vX.Y.Z] - <date> - <summary>`.
-3. Push `develop` and wait for CI, then fast-forward `main` to it
+3. Push `develop` and wait for CI. Run the agent release tests
+   (`docs/AGENT-TESTS.md`) on that commit's CI artifacts; a blocker FAIL
+   stops the release. Then fast-forward `main` to it
    (`git checkout main && git merge --ff-only develop && git push`).
    `.github/workflows/image.yml` publishes the image
    `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`.
