@@ -38,7 +38,9 @@ updates:
       mcp-server:
         update-types: [minor, patch]
 
-  # Test and CI tools (requirements-dev.txt), not shipped in the app
+  # Test and CI tools (requirements-dev.txt), not shipped in the app. At "/"
+  # Dependabot also reads backend/ and desktop/ requirements (without the
+  # rules above), so only these are allowed: add a new pinned dev tool here.
   - package-ecosystem: pip
     directory: /
     target-branch: develop
@@ -46,6 +48,11 @@ updates:
       interval: weekly
     commit-message:
       prefix: deps
+    allow:
+      - dependency-name: pytest
+      - dependency-name: hypothesis
+      - dependency-name: ruff
+      - dependency-name: pip-audit
     groups:
       dev-tools:
         update-types: [minor, patch]

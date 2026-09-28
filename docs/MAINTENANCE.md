@@ -110,6 +110,9 @@ merge into `develop`. Nothing reaches `main` before a release.
   6.1 or newer there (the SDK's typescript-eslint needs < 6.1; it moves with
   the SDK).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
+- The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
+  allows only pytest, hypothesis, ruff and pip-audit. A new pinned dev tool
+  goes on that list.
 
 ### Audit scope
 
