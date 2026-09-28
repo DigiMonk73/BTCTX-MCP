@@ -123,6 +123,21 @@ test("delete asks twice, then removes the transaction", async ({ authedPage: pag
   await expect(page.getByRole("listitem").filter({ hasText: "Sell" })).toHaveCount(0);
 });
 
+test("deleting a buy a later sell spends is refused, says why, and changes nothing", async ({ authedPage: page }) => {
+  await seedFunds(page.request);
+  await createTx(page.request, CASES[4].tx);
+  const before = await listTx(page.request);
+  page.on("dialog", (d) => void d.accept());
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await page.getByRole("listitem").filter({ hasText: "Buy" }).getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByRole("heading", { name: "Edit Transaction" })).toBeVisible();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText(
+    /Failed to delete transaction: Not deleted: later transactions depend on this one\. Not enough BTC to sell/,
+  )).toBeVisible();
+  expect(await listTx(page.request)).toEqual(before);
+});
+
 test("cancelling delete keeps the transaction", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await createTx(page.request, CASES[4].tx);

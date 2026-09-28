@@ -581,8 +581,11 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
 ### END: destructive checks, then uninstall
 
 - **END-1** Delete #2 (the 2023-02-01 Buy that #4, #5 and #6 depend on).
-  Expect: refused with an error, and the ledger unchanged (14 rows, every
-  golden figure). See Known issues.
+  Expect it refused with "Failed to delete transaction: Not deleted: later
+  transactions depend on this one. Not enough BTC to transfer 0.60000000
+  (including fee 0.00020000)", and the ledger unchanged: 14 rows and every
+  golden figure. Then add a $1 deposit to `Bank Account` and delete it.
+  Expect both to work: a refused delete leaves the ledger usable.
 - **END-2** Log out, then on the login page click **Create account**.
   Expect: a **Current Password** field and no Setup Code. Enter a new
   username `fresh`, a 12+ character password and the current password.
@@ -679,14 +682,10 @@ old code (CLAUDE.md), so the next run of this walk has less to catch.
 
 ## Known issues
 
-Found while this document was written (v1.2.0). Report these as KNOWN, and
-delete each line once its fix is released.
+Found while this document was written (v1.2.0). Report these as KNOWN.
+Delete a line when its fix is merged into `develop`, since release
+candidates are built from it.
 
-- **END-1**: deleting a transaction that later rows depend on returns an
-  error ("Not enough BTC to transfer …"), but the delete is saved anyway.
-  `services/transaction.py` `delete_transaction_record` commits before it
-  recalculates. The ledger is then stuck, and every later save fails,
-  until the row is re-entered.
 - **IMP-3**: the CSV export has no column for a BTC fee's typed USD value
   (`fee_usd`) or for **Broker form**. A round trip revalues #4's and #14's
   fees at the day's price, so Schedule D 2023 line 3 and 2025 line 10

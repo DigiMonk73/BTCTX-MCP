@@ -321,8 +321,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       toast.success("Transaction deleted successfully!");
       reset();
       onSubmitSuccess?.();
-    } catch {
-      toast.error("Failed to delete transaction. Please try again.");
+    } catch (error) {
+      // The server says why (e.g. a later sell spends this buy's BTC)
+      const detail = axios.isAxiosError<ApiErrorResponse>(error) ? error.response?.data?.detail : undefined;
+      toast.error(detail ? `Failed to delete transaction: ${detail}` : "Failed to delete transaction. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

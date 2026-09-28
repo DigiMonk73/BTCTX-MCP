@@ -297,15 +297,25 @@ def delete_transaction_record(transaction_id: int, db: Session):
     """
     Delete a transaction if not locked.
     Removes ledger entries, partial-lot usage, and re-lots everything.
+    Committed only if the ledger still recalculates without it: deleting a
+    buy that a later sell or transfer spends is refused and changes nothing.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx or tx.is_locked:
         return False
 
     db.delete(tx)
+    db.flush()
+    try:
+        recalculate_all_transactions(db)
+    except HTTPException as e:
+        db.rollback()
+        why = "later transactions depend on this one. " if e.status_code == 400 else ""
+        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
+    except Exception:
+        db.rollback()
+        raise
     db.commit()
-
-    recalculate_all_transactions(db)
     return True
 
 

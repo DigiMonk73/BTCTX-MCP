@@ -5,6 +5,11 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixes
+- Deleting a transaction that later ones depend on (a buy whose BTC a later
+  sell or transfer spends) is refused and changes nothing. Before, it showed
+  an error but deleted the row anyway, and every later save then failed
+  until the row was entered again. The message now says why: "Not deleted:
+  later transactions depend on this one. …".
 - Restoring a backup made before 0.9.2 with the wrong password now always
   says "Wrong password?". About 1 time in 256 it said the file wasn't a
   BitcoinTX backup instead (the live database was never touched either way).
