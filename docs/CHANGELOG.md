@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixes
+- Restoring a backup made before 0.9.2 with the wrong password now always
+  says "Wrong password?". About 1 time in 256 it said the file wasn't a
+  BitcoinTX backup instead (the live database was never touched either way).
+
 ### Development
 - Dependabot opens weekly pull requests against `develop`, grouped per
   directory (Python in `backend/`, `mcp_server/` and the dev tools, npm in

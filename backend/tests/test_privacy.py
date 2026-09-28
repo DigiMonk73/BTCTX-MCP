@@ -138,6 +138,17 @@ def test_backups_made_before_0_9_2_still_restore(tmp_path):
         backup.decrypt_backup(v1, "nope")
 
 
+def test_a_v1_wrong_password_that_happens_to_unpad_is_still_caught():
+    """v1 has no MAC: a wrong key unpads cleanly about 1 time in 256 and
+    used to come back as garbage (the test above failed at random). Here the
+    unpadding succeeds for sure: the file holds no database."""
+    salt, iv = b"s" * backup.SALT_LENGTH, b"i" * backup.IV_LENGTH
+    key = backup._derive_key("pw", salt, backup.LEGACY_ITERATIONS)
+    v1 = salt + iv + backup._encrypt_data(b"not a database" * 8, key, iv)
+    with pytest.raises(ValueError, match="Wrong password"):
+        backup.decrypt_backup(v1, "pw")
+
+
 @pytest.mark.parametrize("iterations", [0, 1_000, 99_999, 5_000_001, 2**32 - 1])
 def test_a_backup_asking_for_an_absurd_key_strength_is_refused_at_once(iterations, monkeypatch):
     """The PBKDF2 count comes from the file: 4 billion rounds would tie up

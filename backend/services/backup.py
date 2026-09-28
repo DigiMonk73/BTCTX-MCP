@@ -55,6 +55,7 @@ LEGACY_ITERATIONS = 100_000
 MIN_ITERATIONS = 100_000
 MAX_ITERATIONS = 5_000_000
 _HEADER_LENGTH = len(MAGIC) + 1 + 4
+SQLITE_HEADER = b"SQLite format 3\x00"
 
 
 # === Utils ===
@@ -107,14 +108,18 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
             raise ValueError("❌ Failed to decrypt backup. Wrong password?")
         return _decrypt_data(body[_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH:], enc_key, iv)
 
-    # v1: no header, fixed iterations, no MAC
+    # v1: no header, fixed iterations, no MAC. A wrong key still unpads about
+    # 1 time in 256, so the database header inside is the password check.
     salt = blob[:SALT_LENGTH]
     iv = blob[SALT_LENGTH:SALT_LENGTH + IV_LENGTH]
     key = _derive_key(password, salt, LEGACY_ITERATIONS)
     try:
-        return _decrypt_data(blob[SALT_LENGTH + IV_LENGTH:], key, iv)
+        data = _decrypt_data(blob[SALT_LENGTH + IV_LENGTH:], key, iv)
     except Exception as e:
         raise ValueError("❌ Failed to decrypt backup. Wrong password?") from e
+    if not data.startswith(SQLITE_HEADER):
+        raise ValueError("❌ Failed to decrypt backup. Wrong password?")
+    return data
 
 def _encrypt_data(data: bytes, key: bytes, iv: bytes) -> bytes:
     padder = padding.PKCS7(128).padder()
@@ -133,8 +138,6 @@ def _decrypt_data(encrypted_data: bytes, key: bytes, iv: bytes) -> bytes:
     return unpadder.update(padded_data) + unpadder.finalize()
 
 # === Public API ===
-
-SQLITE_HEADER = b"SQLite format 3\x00"
 
 
 def make_backup(password: str, output_file: Path, db_path: Optional[Path] = None) -> None:
