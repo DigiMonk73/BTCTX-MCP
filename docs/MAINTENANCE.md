@@ -105,7 +105,9 @@ merge into `develop`. Nothing reaches `main` before a release.
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
-  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK").
+  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"), and TypeScript
+  6.1 or newer there (the SDK's typescript-eslint needs < 6.1; it moves with
+  the SDK).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 
 ### Audit scope
@@ -161,7 +163,8 @@ take the upgrade.
 | `reportlab` | 4.5.x | Output drift risk: changes to acroform `None` handling, `cssParse` colors, table bounds errors | Someone compares generated PDFs before/after and accepts the differences |
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
 | `eslint` | 10.x | Major (eslintrc removal, Node ≥ 20.19) | Move together with `eslint-plugin-react-hooks` 7.x, whose preset shapes our flat config uses |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports) | Owner opts in to a migration pass |
+| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass |
+| `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; BitcoinTX supports 3.10 (CI tests it) | Python 3.10 support is dropped (3.10 reaches end of life in October 2026); then run the FIFO/lot and migration tests |
 
 ---
 

@@ -126,7 +126,9 @@ Checks: `npm run check && npm run lint && npm run build && node scripts/check-ma
    SDK. (The mirror's workflows call Start9's shared ones, which pick their
    own.) Once Start9 has forked the mirror, they may bump the SDK there
    first: take it with `scripts/start9-pull.sh` instead.
-4. Run the checks, bump the package revision, release.
+4. If the new SDK's typescript-eslint accepts a newer TypeScript, raise the
+   `typescript` limit for `/startos` in `.github/dependabot.yml`.
+5. Run the checks, bump the package revision, release.
 
 ## Building locally
 
