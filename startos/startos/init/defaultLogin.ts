@@ -14,8 +14,20 @@ export const defaultLogin = sdk.setupOnInit(async (effects) => {
   const check = await storeJson.read((s) => s.checkDefaultLogin).once()
   if (!check) return
   const password = generatePassword()
-  // The app first, so the store never shows a password that doesn't work.
-  if (await replaceDefaultLogin(effects, password)) {
+  let replaced: boolean
+  try {
+    // The app first, so the store never shows a password that doesn't work.
+    replaced = await replaceDefaultLogin(effects, password)
+  } catch (e) {
+    // Never fail the update or restore over this: the flag stays, so the
+    // next start tries again (and main's migrate step shows a real problem).
+    console.error(
+      'Checking for the default login failed; retrying next start:',
+      e,
+    )
+    return
+  }
+  if (replaced) {
     await storeJson.merge(effects, { adminPassword: password })
     await sdk.action.createOwnTask(effects, showCredentials, 'critical', {
       reason: i18n(

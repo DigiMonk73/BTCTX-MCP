@@ -38,8 +38,12 @@ def _init_db():
 
     result = init_db()
     # The app's price settings: a recalculation or review may look up a price.
-    with SessionLocal() as db:
-        outbound.load(db)
+    # Never a reason to fail a command (Reset Login Credentials runs here too).
+    try:
+        with SessionLocal() as db:
+            outbound.load(db)
+    except Exception as e:
+        print(f"warning: couldn't read the price settings, no price lookups: {e}", file=sys.stderr)
     return result
 
 

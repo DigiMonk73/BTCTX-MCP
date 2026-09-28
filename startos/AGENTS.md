@@ -38,7 +38,8 @@ the repo instead: no `TODO.md`, `NOTES.md` or `PLAN.md`.
   `tor-startos` in `package.json`); never a LAN address, a `.local` name or a
   hardcoded assigned port.
 - **Versions:** `startos/versions/current.ts` is `<VERSION>:<revision>`. When
-  `VERSION` changes and `current.ts`'s `up` does real work, move it to
+  its version changes (a new `VERSION` or a new revision) and its `up` does
+  real work, move it to
   `vX.Y.Z_N.ts` exporting `v_X_Y_Z_N` and add it to `other` in
   `versions/index.ts` before writing the new `current.ts` (a migration
   belongs to the version that introduced it). `down` stays `IMPOSSIBLE`: an

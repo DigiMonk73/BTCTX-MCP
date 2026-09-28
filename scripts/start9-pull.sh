@@ -6,9 +6,13 @@
 #
 #   scripts/start9-pull.sh [--apply]
 #
-# Without --apply: shows what Start9 changed (their fork's main since it last
-# took ours from the mirror). With --apply: applies it to startos/ in the
-# working tree, three-way, for you to review, test and commit on develop.
+# Without --apply: shows how their fork's main differs from our mirror's main.
+# Once they have merged our latest mirror commit (merge or squash), that is
+# exactly their changes; while a pull request of ours is still open there, it
+# also holds the reverse of ours, and the script says so. Changes already
+# brought back and synced to the mirror no longer show. With --apply: applies
+# the difference to startos/ in the working tree, three-way, for you to
+# review, test and commit on develop.
 #
 # START9_FORK    their fork (default Start9-Community/BTCTX-StartOS)
 # START9_BRANCH  its branch (default main)
@@ -40,23 +44,32 @@ git clone -q --branch main "$MIRROR_URL" "$TMP/mirror"
 git -C "$TMP/mirror" fetch -q "$FORK_URL" "$FORK_BRANCH:start9" \
   || { echo "can't fetch $FORK ($FORK_BRANCH): has Start9 forked it yet?" >&2; exit 1; }
 
-# Their changes only: since the last commit both share (three dots).
-git -C "$TMP/mirror" diff --binary main...start9 > "$TMP/start9.patch"
+# The fork's tree against the mirror's (two dots: trees, not history, so a
+# squash-merged pull request of ours doesn't count as theirs).
+git -C "$TMP/mirror" diff --binary main start9 > "$TMP/start9.patch"
 if [ ! -s "$TMP/start9.patch" ]; then
-  echo "Nothing new from $FORK since it last took the mirror."
+  echo "$FORK matches the mirror: nothing to take."
   exit 0
 fi
+OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number,title \
+  --jq '.[] | select(.headRepositoryOwner.login == "'"${MIRROR%%/*}"'") | "#\(.number) \(.title)"' 2>/dev/null || true)"
+if [ -n "$OPEN" ]; then
+  echo "WARNING: our pull request(s) on $FORK are still open:" >&2
+  echo "$OPEN" >&2
+  echo "The difference below also undoes what they contain; take only Start9's own hunks." >&2
+fi
 git -C "$TMP/mirror" log --oneline main..start9
-git -C "$TMP/mirror" diff --stat main...start9
+git -C "$TMP/mirror" diff --stat main start9
 
 if ! $APPLY; then
   echo
-  echo "Full diff: git -C <clone of $MIRROR> diff main...start9 (after fetching $FORK). Apply with --apply."
+  echo "Full diff: git -C <clone of $MIRROR> diff main start9 (after fetching $FORK). Apply with --apply."
   exit 0
 fi
 if git -C "$ROOT" apply --3way --directory=startos "$TMP/start9.patch"; then
+  git -C "$ROOT" reset -q -- startos  # unstaged, so plain git diff shows it
   echo "Applied to startos/. Review (git diff), run the StartOS checks, then commit on develop."
 else
-  echo "Some hunks didn't apply cleanly: resolve the conflict markers in startos/, then commit." >&2
+  echo "Some hunks didn't apply cleanly: resolve the conflict markers in startos/ (git status), then commit." >&2
   exit 1
 fi

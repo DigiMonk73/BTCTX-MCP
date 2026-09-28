@@ -97,7 +97,10 @@ its release notes (what StartOS shows before updating) and its migration.
   and `down: IMPOSSIBLE`. A migration belongs to the version that
   introduced it; overwriting it in place would skip it for installs that
   haven't run it yet. If the old `up` is empty, just edit `current.ts`.
-- **Revision only** (package change, same app): bump the number after the `:`.
+- **Revision only** (package change, same app): bump the number after the
+  `:`, moving the old `current.ts` to its own file first in the same way if
+  its `up` does real work (1.2.0:0's does), or installs already on it would
+  run it again.
 - `down` is always `IMPOSSIBLE`: an older BitcoinTX refuses a database a newer
   one has migrated.
 - Release notes are user-facing: what changed for them, in plain language,

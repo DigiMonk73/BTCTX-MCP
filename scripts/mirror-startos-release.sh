@@ -26,6 +26,13 @@ REPO="${MIRROR_REPO:-DigiMonk73/BTCTX-StartOS}"
 VERSION="$(sed -n "s/.*version: '\([0-9.]*:[0-9]*\)'.*/\1/p" "$ROOT/startos/startos/versions/current.ts" | head -1)"
 [ -n "$VERSION" ] || { echo "can't read the package version from current.ts" >&2; exit 1; }
 TAG="v${VERSION/:/_}"
+# Tag the sync commit of this version, not whatever main holds: the mirror's
+# package version must be this one (sync-startos-mirror.sh --push first).
+SHA="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+MIRROR_VERSION="$(gh api "repos/$REPO/contents/startos/versions/current.ts?ref=$SHA" --jq .content \
+  | base64 -d | sed -n "s/.*version: '\([0-9.]*:[0-9]*\)'.*/\1/p" | head -1)"
+[ "$MIRROR_VERSION" = "$VERSION" ] \
+  || { echo "$REPO main is at ${MIRROR_VERSION:-?}, not $VERSION: run sync-startos-mirror.sh --push first" >&2; exit 1; }
 
 NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
@@ -49,6 +56,8 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" -R "$REPO" --clobber "$S9PK"
   echo "Updated release $TAG on $REPO."
 else
-  gh release create "$TAG" -R "$REPO" --target main --title "v$VERSION" --notes-file "$NOTES" --latest "$S9PK"
+  # Creating the tag also starts the mirror's own Release workflow, which
+  # fails harmlessly without its DEV_KEY.
+  gh release create "$TAG" -R "$REPO" --target "$SHA" --title "v$VERSION" --notes-file "$NOTES" --latest "$S9PK"
   echo "Created release $TAG on $REPO."
 fi
