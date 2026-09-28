@@ -86,6 +86,28 @@ reinstall, and rerun `make check`.
   `npm outdated` in `frontend/`).
 - **Deliberately:** major versions, after reading the changelog.
 
+### Dependabot
+
+`.github/dependabot.yml` opens pull requests against `develop` every week:
+one grouped PR per directory for minor and patch updates (`backend/`,
+`mcp_server/`, `frontend/`, `startos/`), majors one per PR, and one PR for
+the GitHub Actions in `.github/workflows/`. CI runs on each. Treat them like
+a hand update: read the changelogs, follow the steps above for PDF packages,
+merge into `develop`. Nothing reaches `main` before a release.
+
+- GitHub reads the file from the default branch (`main`): an edit takes
+  effect once `main` is fast-forwarded to `develop`.
+- Every entry needs `target-branch: develop`, or its PRs target `main`.
+  Keep **Dependabot security updates** off in the repository settings:
+  `target-branch` doesn't apply to them, so their PRs would target `main`.
+  Alerts still show on the Security tab, and the weekly PRs pick up fixed
+  versions.
+- Ignored: `@playwright/test`, the deferred upgrades below (each rule
+  says why; remove it when the upgrade is unblocked), and in `startos/`
+  `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
+  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK").
+- `startos/.github/workflows/` (Start9's standard files) is not scanned.
+
 ### Audit scope
 
 `make audit-deps` and the CI audit job check `backend/requirements.txt` (what
@@ -131,6 +153,8 @@ see `startos/UPDATING.md`.
 ### Deferred upgrades
 
 Each was skipped deliberately; revisit when the unblock condition is met.
+Dependabot ignores each (`.github/dependabot.yml`); drop its rule when you
+take the upgrade.
 
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|

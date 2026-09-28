@@ -2,6 +2,15 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
+## [Unreleased]
+
+### Development
+- Dependabot opens weekly pull requests against `develop`, grouped per
+  directory (Python in `backend/` and `mcp_server/`, npm in `frontend/` and
+  `startos/`, GitHub Actions). It leaves the StartOS SDK and its service
+  packages, `@playwright/test` and the deferred upgrades alone
+  (`docs/MAINTENANCE.md`, "Dependabot").
+
 ## [v1.2.0] - 2026-09-28 - StartOS: your own Mempool and Tor in one action, translated package; connector on PyPI
 
 ### StartOS: your own Mempool and Tor, chosen in one action

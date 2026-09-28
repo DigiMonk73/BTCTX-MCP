@@ -1,0 +1,105 @@
+# Dependabot version updates: weekly, one grouped PR per directory for
+# minor and patch updates, majors one per PR (read the changelog first).
+#
+# Every entry targets develop: main holds released code only (CLAUDE.md,
+# "Branches"). GitHub reads this file from the default branch (main), so a
+# change here takes effect once main is fast-forwarded to develop.
+# Review and merge like any dependency change: docs/MAINTENANCE.md,
+# "Updating a dependency". Ignored below: the deferred upgrades listed there,
+# and what is bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      backend:
+        update-types: [minor, patch]
+    ignore:
+      # Deferred: output drift in the tax report PDFs (MAINTENANCE.md)
+      - dependency-name: reportlab
+        versions: [">=4.5"]
+
+  - package-ecosystem: pip
+    directory: /mcp_server
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      mcp-server:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      frontend:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned to the browsers preinstalled in cloud sessions (TESTING.md)
+      - dependency-name: "@playwright/test"
+      # Deferred majors (MAINTENANCE.md): React 18, Vite 6, TypeScript 5,
+      # ESLint 9 (moves with react-hooks 7); Node 22 in Docker and CI
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: vite
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: eslint-plugin-react-hooks
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /startos
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      startos:
+        update-types: [minor, patch]
+    ignore:
+      # Bumped by hand (startos/UPDATING.md, "Bumping the SDK");
+      # .github/workflows/startos-sdk-check.yml opens an issue for new SDKs
+      - dependency-name: "@start9labs/start-sdk"
+      - dependency-name: mempool-startos
+      - dependency-name: tor-startos
+      # Node 22 in CI
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  # "/" covers /.github/workflows only, never startos/.github/workflows
+  # (Start9's standard files, mirrored as they are).
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
