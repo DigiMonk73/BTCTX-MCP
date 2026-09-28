@@ -91,7 +91,7 @@ Two, both optional and declared only while the Price Source & Privacy choice use
 | `mempool`  | Price source **My Mempool on this server**                   | running, `>=3.3.1:18`, health check `webui`   | `http://<bridge>` from `sdk.host.getBridgeAddress` (host `main`, port 8080, `ssl: false`); its `/api/v1/prices`, `/api/blocks/tip/height`, `/api/v1/historical-price` |
 | `tor`      | **Reach public price sites over Tor**, with public sites or the fallback | running, `>=0.4.9.11:4`, health check `tor` | `socks5h://<bridge>` (host `socks`, port 9050, `fallbackPort: 9050`) |
 
-The bridge address (`10.0.3.1:<assigned port>`) is plain HTTP inside StartOS: no certificate to trust and no LAN address that can change. `main.ts` reads both with `.const()`, so installing, removing or re-binding a dependency restarts BitcoinTX with the new address. While Mempool is missing, `BTCTX_MEMPOOL_URL` is empty and the app answers price requests with "install and start Mempool" (or asks public sites if the fallback is on). Tor's address falls back to its fixed port, so without Tor those requests fail instead of going out directly.
+The bridge address (`10.0.3.1:<assigned port>`) is plain HTTP inside StartOS: no certificate to trust and no LAN address that can change. `main.ts` reads both with `.const()`, so installing, removing or re-binding a dependency restarts BitcoinTX with the new address. While Mempool is missing, `BTCTX_MEMPOOL_URL` is left out and the app answers price requests with "install and start Mempool" (or asks public sites if the fallback is on). Tor's address falls back to its fixed port, so without Tor those requests fail instead of going out directly.
 
 ## Network Access and Interfaces
 
@@ -207,7 +207,7 @@ startos_managed_env_vars:
   - DATABASE_FILE
   - LOG_LEVEL
   - BTCTX_PRICE_SOURCE # only once chosen in price-source
-  - BTCTX_MEMPOOL_URL # http://<bridge>, empty while Mempool is missing
+  - BTCTX_MEMPOOL_URL # http://<bridge>, left out while Mempool is missing
   - BTCTX_MEMPOOL_FALLBACK
   - BTCTX_PROXY_URL # socks5h://<bridge>:9050 with Tor
 dependencies: # both optional, only while chosen

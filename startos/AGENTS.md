@@ -33,8 +33,10 @@ the repo instead: no `TODO.md`, `NOTES.md` or `PLAN.md`.
   Existing installs (0.3.x to the current version) depend on them.
 - **Other services** are optional dependencies (`mempool`, `tor`), declared
   in `dependencies.ts` only while the Price Source & Privacy choice uses them
-  and reached with `sdk.host.getBridgeAddress` (`priceSource.ts`); never a
-  LAN address, a `.local` name or a hardcoded assigned port.
+  and reached with `sdk.host.getBridgeAddress` (`priceSource.ts`), with the
+  host id and internal port imported from their packages (`mempool-startos`,
+  `tor-startos` in `package.json`); never a LAN address, a `.local` name or a
+  hardcoded assigned port.
 - **Versions:** `startos/versions/current.ts` is `<VERSION>:<revision>`. When
   `VERSION` changes and `current.ts`'s `up` does real work, move it to
   `vX.Y.Z_N.ts` exporting `v_X_Y_Z_N` and add it to `other` in

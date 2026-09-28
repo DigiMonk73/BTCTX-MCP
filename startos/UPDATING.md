@@ -115,7 +115,9 @@ Checks: `npm run check && npm run lint && npm run build && node scripts/check-ma
 
 1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
    installing) for breaking changes and the minimum StartOS version.
-2. `npm install --save-exact @start9labs/start-sdk@<version>`
+2. `npm install --save-exact @start9labs/start-sdk@<version>`, then
+   `npm update mempool-startos tor-startos` (the packages the dependency
+   constants come from; `overrides` keeps one SDK copy)
 3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and
    `.github/workflows/release.yml` to the start-cli release that matches the
    SDK. (The mirror's workflows call Start9's shared ones, which pick their

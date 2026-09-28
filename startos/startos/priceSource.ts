@@ -1,12 +1,22 @@
 import { T } from '@start9labs/start-sdk'
+import {
+  mainHostId as mempoolHostId,
+  uiPort as mempoolPort,
+} from 'mempool-startos/startos/utils'
+import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { PriceSource, storeJson } from './fileModels/store.json'
 import { sdk } from './sdk'
 
 // The optional dependencies (manifest `dependencies`), reached over the
 // StartOS bridge (10.0.3.1:<assigned port>, plain http inside the server):
-// no certificate, no LAN address that can change.
-export const MEMPOOL = { packageId: 'mempool', hostId: 'main', port: 8080 }
-export const TOR = { packageId: 'tor', hostId: 'socks', port: 9050 }
+// no certificate, no LAN address that can change. Host ids and internal
+// ports come from their packages, the stable contract.
+export const MEMPOOL = {
+  packageId: 'mempool',
+  hostId: mempoolHostId,
+  port: mempoolPort,
+}
+export const TOR = { packageId: 'tor', hostId: socksHostId, port: socksPort }
 
 export interface PriceChoice {
   source: PriceSource
@@ -47,9 +57,9 @@ export async function currentChoice(
  * The app's price settings for this choice (backend/services/outbound.py
  * reads BTCTX_PRICE_SOURCE and co.). Nothing for 'unset': the app's own
  * Settings decide. `watch` (main): re-run when an address changes, e.g. once
- * Mempool is installed. Mempool's address is empty while it's missing (the
- * app then says so); Tor's falls back to its fixed port, so requests fail
- * rather than go out directly.
+ * Mempool is installed; an action reads a snapshot. While Mempool is missing
+ * its address is left out (the app then says Mempool isn't available); Tor's
+ * falls back to its fixed port, so requests fail rather than go out directly.
  */
 export async function priceEnv(
   effects: T.Effects,
@@ -60,18 +70,16 @@ export async function priceEnv(
   const env: Record<string, string> = {
     BTCTX_PRICE_SOURCE: choice.source,
     BTCTX_MEMPOOL_FALLBACK: choice.fallback ? 'on' : 'off',
-    BTCTX_MEMPOOL_URL: '',
-    BTCTX_PROXY_URL: '',
   }
   if (choice.source === 'mempool') {
     const mempool = sdk.host.getBridgeAddress(effects, {
       packageId: MEMPOOL.packageId,
       hostId: MEMPOOL.hostId,
       internalPort: MEMPOOL.port,
-      ssl: false,
+      ssl: false, // an http binding publishes a plaintext and a TLS address
     })
     const address = watch ? await mempool.const() : await mempool.once()
-    env.BTCTX_MEMPOOL_URL = address ? `http://${address}` : ''
+    if (address) env.BTCTX_MEMPOOL_URL = `http://${address}`
   }
   if (choice.tor && asksPublicSites(choice)) {
     const socks = sdk.host.getBridgeAddress(effects, {
@@ -80,7 +88,8 @@ export async function priceEnv(
       internalPort: TOR.port,
       fallbackPort: TOR.port,
     })
-    env.BTCTX_PROXY_URL = `socks5h://${watch ? await socks.const() : await socks.once()}`
+    const address = watch ? await socks.const() : await socks.once()
+    env.BTCTX_PROXY_URL = `socks5h://${address}`
   }
   return env
 }
