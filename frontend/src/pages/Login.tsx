@@ -4,6 +4,7 @@ import api from '../api';
 import { extractErrorMessage } from '../hooks/useApiCall';
 import "../styles/login.css";
 import { ensureTaxTimezone } from "../utils/taxTimezone";
+import { SETUP_CODE_HINT } from "../utils/credentials";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -12,6 +13,10 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // Docker/source install still on the default login: it needs the setup code
+  // (an older install with data logs in this way, then changes the password).
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [setupCode, setSetupCode] = useState("");
   useEffect(() => {
     api
       .get('/protected')
@@ -21,6 +26,10 @@ const LoginPage: React.FC = () => {
       .catch(() => {
         // Not logged in — stay on login page
       });
+    api
+      .get<{ setup_code_required?: boolean }>("/users/setup-status")
+      .then((res) => setCodeRequired(Boolean(res.data.setup_code_required)))
+      .catch(() => undefined);
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +38,11 @@ const LoginPage: React.FC = () => {
     setErrorMsg("");
 
     try {
-      await api.post("/login", { username, password });
+      await api.post("/login", {
+        username,
+        password,
+        setup_code: codeRequired && setupCode.trim() ? setupCode.trim() : undefined,
+      });
       // First login: adopt this computer's timezone for tax dates (changeable in Settings)
       await ensureTaxTimezone();
       navigate("/dashboard");
@@ -98,6 +111,28 @@ const LoginPage: React.FC = () => {
               className="input"
             />
           </div>
+
+          {codeRequired && (
+            <div className="field">
+              <label htmlFor="login-setup-code" className="field-label">
+                Setup Code
+              </label>
+              <input
+                id="login-setup-code"
+                type="text"
+                value={setupCode}
+                onChange={(e) => setSetupCode(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXX-XXXX-XXXX"
+                aria-describedby="login-setup-code-hint"
+                className="input"
+              />
+              <p id="login-setup-code-hint" className="field-hint">
+                Only while this install still has the default login (admin / password). {SETUP_CODE_HINT}
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -45,7 +45,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Docker/source first run: a setup code.** Until you set your own login,
   logging in with admin/password or claiming the account needs a one-time
   code from the log (`docker logs`) or `/data/setup-code.txt`, so nobody
-  else on the network can claim it first.
+  else on the network can claim it first. An older install that still uses
+  admin/password: the login page asks for the code; log in, then change the
+  password in Settings (your transactions are untouched).
 - **Login protection:** repeated wrong passwords make everyone wait longer
   (1 s up to 5 min); new passwords need at least 12 characters (existing
   ones still work); changing the password needs the current one.

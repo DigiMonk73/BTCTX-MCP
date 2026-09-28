@@ -301,7 +301,8 @@ def test_the_default_login_needs_the_code(fresh_app):
     """Otherwise anyone who can reach a fresh install logs in with admin/password
     before the owner claims it: restore their own backup, create an AI key."""
     r = anon().post("/api/login", json={"username": "admin", "password": "password"})
-    assert r.status_code == 403 and "Create account page" in r.json()["detail"]
+    assert r.status_code == 403 and "enter the setup code" in r.json()["detail"]
+    assert "Create account" not in r.json()["detail"]  # that page would start the ledger over
     r = anon().post("/api/login", json={"username": "admin", "password": "password", "setup_code": "WRNG-WRNG-WRNG"})
     assert r.status_code == 403
     assert anon().post("/api/login", json=good()).status_code == 200

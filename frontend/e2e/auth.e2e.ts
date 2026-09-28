@@ -120,3 +120,32 @@ test("login sets the tax timezone to the computer's zone", async ({ authedPage: 
   const r = await page.request.get("/api/settings/tax-timezone");
   expect((await r.json()).timezone).toBe(tz);
 });
+
+test("an install still on the default login logs in with the setup code and keeps its ledger", async ({ page, app }) => {
+  // An older Docker install that never changed admin/password, with data.
+  const api = await page.request.post("/api/login", {
+    data: { username: "admin", password: "password", setup_code: setupCode(app) },
+  });
+  expect(api.ok()).toBeTruthy();
+  const tx = await page.request.post("/api/transactions", {
+    data: {
+      type: "Deposit", timestamp: "2024-01-02T12:00:00Z", from_account_id: 99, to_account_id: 1,
+      amount: "1000", fee_amount: "0", fee_currency: "USD",
+    },
+  });
+  expect(tx.ok()).toBeTruthy();
+  await page.request.post("/api/logout");
+
+  await page.goto("/login");
+  await page.getByLabel("Username").fill("admin");
+  await page.getByLabel("Password", { exact: true }).fill("password");
+  await page.getByRole("button", { name: "Log in" }).click();
+  const refused = page.getByRole("alert");
+  await expect(refused).toContainText("enter the setup code");
+  await expect(refused).not.toContainText("Create account");
+
+  await page.getByLabel("Setup Code").fill(setupCode(app)!);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(1);
+});

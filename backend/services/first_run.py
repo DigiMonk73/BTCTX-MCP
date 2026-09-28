@@ -47,9 +47,11 @@ CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
 _WHERE = f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
 CODE_REQUIRED = "Enter the setup code. " + _WHERE
 CODE_WRONG = "That setup code is wrong. " + _WHERE
+# Not "go to Create account": on an older install with data that page would
+# start the ledger over. Log in with the code, then change the password.
 DEFAULT_LOGIN_REFUSED = (
-    "This install still has the default login. Set your own on the Create account page, "
-    "with the setup code. " + _WHERE
+    "This install still has the default login: enter the setup code as well. " + _WHERE
+    + " Then set your own password in Settings."
 )
 
 _lock = threading.Lock()

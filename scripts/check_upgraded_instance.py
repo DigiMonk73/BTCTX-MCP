@@ -17,11 +17,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", required=True)
     ap.add_argument("--transactions", type=int, default=7, help="expected count (the fixture has 7)")
+    ap.add_argument("--setup-code", help="the first-run code (the fixture still has the default login)")
     a = ap.parse_args()
 
     with httpx.Client(base_url=a.url.rstrip("/"), timeout=60) as c:
         checks = []
-        r = c.post("/api/login", json={"username": "admin", "password": "password"})
+        login = {"username": "admin", "password": "password", "setup_code": a.setup_code}
+        r = c.post("/api/login", json=login)
         checks.append(("login with the v0.7.0 credentials", r.status_code == 200))
         n = len(c.get("/api/transactions").json()) if r.status_code == 200 else -1
         checks.append((f"{a.transactions} transactions survived (found {n})", n == a.transactions))

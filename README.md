@@ -102,7 +102,9 @@ least 12 characters). On Docker or a source install it also asks for a
 one-time **setup code**, so nobody else on your network can claim the app
 first: it's in the log (`docker logs <container>`) and in `setup-code.txt` in
 the data folder (`/data`), and it's deleted once you've set up the account.
-Until then, the default login doesn't work without it either. The Mac app
+Until then, the default login doesn't work without it either (an older
+install still on admin/password: the login page asks for the code; then
+change the password in Settings, your data stays). The Mac app
 needs no code (it only listens on your Mac), and StartOS sets a random
 password at install.
 

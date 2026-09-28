@@ -187,12 +187,14 @@ jobs:
             docker logs "$1"; return 1
           }
           start btctx-up
-          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081
+          # Still the default login (with data): logging in needs the setup code
+          CODE=$(docker exec btctx-up cat /data/setup-code.txt)
+          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081 --setup-code "$CODE"
           test "$(docker exec btctx-up sh -c 'ls /data/backups/*.db | wc -l')" = 1
           # a restart on an up-to-date database changes nothing
           docker rm -f btctx-up
           start btctx-up2
-          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081
+          python scripts/check_upgraded_instance.py --url http://127.0.0.1:8081 --setup-code "$CODE"
           test "$(docker exec btctx-up2 sh -c 'ls /data/backups/*.db | wc -l')" = 1
       - name: Container logs on failure
         if: failure()
