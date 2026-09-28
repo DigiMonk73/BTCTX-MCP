@@ -242,6 +242,13 @@ if the mirror's own workflow can't release,
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
 `startos/UPDATING.md`).
 
+## Plans and checklists
+
+Short-lived checklists, plans, to-do lists and feature ideas go in
+`docs/temp/` (one file per topic; its README has the rules): check items off,
+move anything lasting to the code, CHANGELOG or ROADMAP, then delete the
+file. Look there at the start of a session. Never in `startos/`.
+
 ## Ending a session
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`,
