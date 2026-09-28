@@ -15,7 +15,18 @@ Start a session with:
 > Read `docs/V1_2_0_PLAN.md` and `CLAUDE.md`. Implement the plan, and stop
 > if anything in the code contradicts it.
 
-## 0. Open question for the owner (ask first)
+## 0. The owner's mempool address (answered 2026-09-27)
+
+The address the owner uses is **`https://<server LAN IP>:<port>`** (a high
+port, 5xxxx); without the port it doesn't reach mempool. `.onion` untested.
+So StartOS serves it over https with its own root CA, which BitcoinTX's
+outbound client doesn't trust: in 1.0.3 it most likely never answered and
+the public sites were used silently. Confirm on 1.1.0 with the fallback off
+(the log shows "Own mempool server … CERTIFICATE_VERIFY_FAILED" if so).
+Item 1 (bridge address, plain http inside StartOS) removes both the
+certificate and the LAN IP (which can change with DHCP). The earlier
+question, kept for context:
+
 
 The owner connected their mempool on StartOS with **a `.local` address with
 the port on the end** and it "worked" in 1.0.3. Likely it was `https://…
