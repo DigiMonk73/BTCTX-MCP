@@ -265,6 +265,32 @@ def test_cli_recalculate_rebuilds_the_ledger(tmp_path, monkeypatch, capsys):
 
 
 
+def test_cli_uses_the_price_settings(tmp_path, monkeypatch):
+    """Recalculate Ledger (StartOS) runs here and may need a missing day's price:
+    the CLI must ask the source the owner chose, as the app does."""
+    import backend.database as database
+    from backend import cli as backend_cli
+    from backend.services import outbound
+
+    db = tmp_path / "btctx.db"
+    engine = engine_for(db)
+    init_db(engine)
+    con = sqlite3.connect(str(db))
+    con.executemany("INSERT INTO app_settings (key, value) VALUES (?, ?)",
+                    [("price_source", "mempool"), ("mempool_url", "http://umbrel.local:3006")])
+    con.commit()
+    con.close()
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(database, "init_db", lambda: init_db(engine))
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings())
+    assert backend_cli.main(["migrate"]) == 0
+    assert outbound.current().own_node == "http://umbrel.local:3006"
+
+    monkeypatch.setenv("BTCTX_PRICE_SOURCE", "off")  # set by StartOS: it wins here too
+    assert backend_cli.main(["recalculate"]) == 0
+    assert outbound.current() == outbound.NetworkSettings(price_source="off", managed=True)
+
+
 def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, capsys):
     """Read-only list of what to check after v0.9.2 (F1 and F2)."""
     import backend.database as database

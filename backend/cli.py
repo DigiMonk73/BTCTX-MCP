@@ -33,9 +33,14 @@ PASSWORD_ENV = "BTCTX_NEW_PASSWORD"
 
 
 def _init_db():
-    from backend.database import init_db
+    from backend.database import SessionLocal, init_db
+    from backend.services import outbound
 
-    return init_db()
+    result = init_db()
+    # The app's price settings: a recalculation or review may look up a price.
+    with SessionLocal() as db:
+        outbound.load(db)
+    return result
 
 
 def cmd_migrate(args: argparse.Namespace) -> int:
