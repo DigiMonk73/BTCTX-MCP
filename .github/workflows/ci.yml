@@ -155,20 +155,23 @@ jobs:
           python-version: "3.11"
       - run: pip install httpx
       - name: Smoke test the container (live prices)
-        run: python scripts/smoke_test.py --url http://127.0.0.1:8080
+        run: |
+          # A fresh container logs its first-run setup code and keeps it on /data;
+          # the smoke test claims the account with it, then the code is gone.
+          docker logs btctx 2>&1 | grep -q "First-run setup code: "
+          CODE=$(docker exec btctx cat /data/setup-code.txt)
+          python scripts/smoke_test.py --url http://127.0.0.1:8080 \
+            --user ci-owner --password ci-password-123 --setup-code "$CODE"
+          docker exec btctx sh -c '! test -e /data/setup-code.txt'
       - name: Data lands on the /data volume
         run: docker exec btctx test -s /data/btctx.db -a -s /data/.btctx_secret_key
       - name: Health endpoint and maintenance CLI (used by the StartOS package)
         run: |
           curl -sf http://127.0.0.1:8080/api/health | tee /dev/stderr | grep -q "\"version\":\"$(tr -d '[:space:]' < VERSION)\""
           docker exec btctx python -m backend.cli migrate | grep -q "up to date"
-          # still the default login: the first-run setup code is logged and on /data
-          docker logs btctx 2>&1 | grep -q "First-run setup code: "
-          docker exec btctx test -s /data/setup-code.txt
-          echo "ci-password-123" | docker exec -i btctx python -m backend.cli set-password --password-stdin
-          docker exec btctx sh -c '! test -e /data/setup-code.txt'
+          echo "ci-password-456" | docker exec -i btctx python -m backend.cli set-password --password-stdin
           curl -sf -o /dev/null -X POST http://127.0.0.1:8080/api/login -H 'content-type: application/json' \
-            -d '{"username":"admin","password":"ci-password-123"}'
+            -d '{"username":"ci-owner","password":"ci-password-456"}'
           docker exec btctx python -m backend.cli recalculate
       - name: Upgrade a v0.7.0 database (schema migrations)
         run: |

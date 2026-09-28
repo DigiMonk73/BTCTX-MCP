@@ -179,6 +179,11 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: Option
           c.post("/api/login", json={"username": user, "password": password + "x"}).status_code == 401)
     r = c.post("/api/login", json={"username": user, "password": password})
     check("login", r.status_code == 200, r.text)
+    if setup_code:
+        # A fresh install asks nothing until a price source is chosen; this
+        # one was just claimed by the smoke test, so choose the public sites.
+        r = c.put("/api/settings/network", json={"price_source": "public"})
+        check("price source chosen (public sites)", r.status_code == 200, r.text)
 
     print("\nLedger")
     accounts = {a["id"]: a["name"] for a in c.get("/api/accounts/").json()}
