@@ -16,6 +16,10 @@ const LoginPage: React.FC = () => {
   // Docker/source install still on the default login: it needs the setup code
   // (an older install with data logs in this way, then changes the password).
   const [codeRequired, setCodeRequired] = useState(false);
+  // Only while the account is still the shipped default login: then
+  // /register claims it. Afterwards that page resets the account
+  // (deleting every transaction), which "Create account" would hide.
+  const [firstRun, setFirstRun] = useState(false);
   const [setupCode, setSetupCode] = useState("");
   useEffect(() => {
     api
@@ -27,8 +31,11 @@ const LoginPage: React.FC = () => {
         // Not logged in — stay on login page
       });
     api
-      .get<{ setup_code_required?: boolean }>("/users/setup-status")
-      .then((res) => setCodeRequired(Boolean(res.data.setup_code_required)))
+      .get<{ setup_code_required?: boolean; is_default?: boolean }>("/users/setup-status")
+      .then((res) => {
+        setCodeRequired(Boolean(res.data.setup_code_required));
+        setFirstRun(Boolean(res.data.is_default));
+      })
       .catch(() => undefined);
   }, [navigate]);
 
@@ -144,12 +151,14 @@ const LoginPage: React.FC = () => {
           {errorMsg && <div className="note note-error login-error-msg" role="alert">{errorMsg}</div>}
         </form>
 
-        <div className="login-create-account">
-          <span className="create-account-text">Don’t have an account?</span>
-          <Link to="/register" className="link">
-            Create account
-          </Link>
-        </div>
+        {firstRun && (
+          <div className="login-create-account">
+            <span className="create-account-text">Don’t have an account?</span>
+            <Link to="/register" className="link">
+              Create account
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

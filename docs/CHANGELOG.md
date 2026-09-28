@@ -60,6 +60,12 @@ All notable changes to BitcoinTX are documented in this file.
   it always was the average cost of one bitcoin you hold, not your total
   cost.
 
+- The login page shows **Create account** only on a fresh install that
+  still has the default login. Once the account is set up, that page
+  resets it (deleting every transaction, after asking for the current
+  password), which the link didn't say; Settings still has Reset
+  Username & Password.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

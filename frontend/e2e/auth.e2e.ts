@@ -1,5 +1,18 @@
 import { test, expect, USER, PASSWORD, claimAccount, loginViaUi, setupCode } from "./fixtures";
 
+test("Create account shows only until the default login is claimed", async ({ page, app }) => {
+  // Afterwards /register resets the account (every transaction deleted).
+  const link = page.getByRole("link", { name: "Create account" });
+  await page.goto("/login");
+  await expect(link).toBeVisible();
+
+  await claimAccount(page.request, app);
+  await page.request.post("/api/logout");
+  await page.goto("/login");
+  await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
+  await expect(link).toHaveCount(0);
+});
+
 test("first run: claim the default account, then log in", async ({ page, app }) => {
   const dialogs: string[] = [];
   page.on("dialog", (d) => {
