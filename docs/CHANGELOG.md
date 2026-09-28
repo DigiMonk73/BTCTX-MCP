@@ -2,7 +2,7 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
-## [Unreleased]
+## [v1.2.0] - 2026-09-28 - StartOS: your own Mempool and Tor in one action, translated package; connector on PyPI
 
 ### StartOS: your own Mempool and Tor, chosen in one action
 - **New action: Price Source & Privacy.** Choose **My Mempool on this
