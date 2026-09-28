@@ -35,7 +35,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       exists: ${{ steps.v.outputs.exists }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # origin/main, for the check below
       - name: Commit is on main; branch, VERSION, CHANGELOG and package version agree
@@ -81,8 +81,8 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Build the connector
@@ -96,11 +96,11 @@ jobs:
     if: needs.check.outputs.exists == 'false'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Build BitcoinTX.app
@@ -123,7 +123,7 @@ jobs:
           ln -s /Applications dmg/Applications
           hdiutil create -volname BitcoinTX -srcfolder dmg -ov -format UDZO BitcoinTX-macOS.dmg
           ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: |
@@ -136,8 +136,8 @@ jobs:
     env:
       START_CLI_VERSION: v2.1.0
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -169,7 +169,7 @@ jobs:
             '.id == "btctx" and (.version | startswith(($v | ltrimstr("v")) + ":"))
              and (.gitHash | endswith("-modified") | not)
              and ([.images.main.arch[]] | sort) == ["aarch64", "x86_64"]' manifest.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: s9pk
           path: startos/btctx.s9pk
@@ -178,8 +178,8 @@ jobs:
     needs: [check, macos, s9pk]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -211,7 +211,7 @@ jobs:
     needs: [check, release]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
