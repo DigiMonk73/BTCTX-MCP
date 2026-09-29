@@ -10,6 +10,7 @@ rows and read the fields back:
     (a renamed field must fail loudly, not print a blank form)
   - every value must land where it was written
   - exactly one box is checked per Part, and it is the right one
+  - line 2 "Totals" fields sit under their columns and get the page's sums
   - Schedule D totals land on lines 1b, 2, 3, 8b, 9 and 10
 
 Pure Python (pypdf) — no external tools needed.
@@ -27,6 +28,7 @@ from backend.services.reports.form_8949 import (
     Form8949Row,
     _determine_box,
     get_8949_field_config,
+    line2_field_names,
     map_8949_rows_to_field_data,
     map_schedule_d_fields,
 )
@@ -127,6 +129,63 @@ def test_box_labels_match_template_text(year):
     for page, boxes in ((0, config["boxes_part1"]), (1, config["boxes_part2"])):
         printed = re.findall(r"\(([A-L])\)\s+(?:Short|Long)-term", reader.pages[page].extract_text())
         assert printed == boxes, f"{year} page {page + 1}: form shows {printed}, config has {boxes}"
+
+
+def _widget_rects(template: str) -> dict:
+    """Full field name -> widget rectangle [x1, y1, x2, y2] (points)."""
+    rects = {}
+    for page in PdfReader(template).pages:
+        for annot in page.get("/Annots", []):
+            widget = annot.get_object()
+            if widget.get("/Subtype") != "/Widget":
+                continue
+            names, node = [], widget
+            while node is not None:
+                if "/T" in node:
+                    names.append(str(node["/T"]))
+                parent = node.get("/Parent")
+                node = parent.get_object() if parent is not None else None
+            rects[".".join(reversed(names))] = [float(v) for v in widget["/Rect"]]
+    return rects
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_line_2_totals_fields_sit_under_their_columns(year):
+    """Bug hunt 2026-09-29: Form 8949 line 2. The configured line-2 fields
+    must be the Totals line: each one under its column (same x as the last
+    row's (d)..(h)) and below the last row, on both pages. Field names alone
+    would still match a renumbered form that means something else."""
+    n = get_8949_field_config(year)["rows_per_page"]
+    rects = _widget_rects(get_template_path(year, "f8949.pdf"))
+    for page, hp in ((1, "SHORT"), (2, "LONG")):
+        row_fields = map_8949_rows_to_field_data(_rows(year, hp, n), page=page, year=year)
+        last_row = dict(zip("abcdefgh", [k for k in row_fields if f".Row{n}[0]." in k]))
+        for col, name in line2_field_names(page, year).items():
+            total, cell = rects[name], rects[last_row[col]]
+            assert abs(total[0] - cell[0]) < 1 and abs(total[2] - cell[2]) < 1, (year, page, col, total, cell)
+            assert total[3] <= cell[1], f"{year} page {page} ({col}): {name} is not below row {n}"
+
+
+@pytest.mark.parametrize("year", YEARS)
+def test_line_2_totals_are_the_sum_of_the_page_rows(year):
+    """Bug hunt 2026-09-29: Form 8949 line 2 ("Totals" of (d), (e), (g), (h))
+    was never filled. It totals this page's rows to the cent, losses
+    subtracted; (f) and (g) stay blank like the rows'."""
+    amounts = [("1000.10", "400.05", "600.05"), ("150.10", "200.00", "-49.90"), ("0.01", "0.02", "-0.01")]
+    for page, hp in ((1, "SHORT"), (2, "LONG")):
+        rows = [
+            Form8949Row(f"0.00{i} BTC", "01/15/2020", f"06/0{i + 1}/{year}", Decimal(d), Decimal(e),
+                        Decimal(h), hp, _determine_box(hp, False, year))
+            for i, (d, e, h) in enumerate(amounts)
+        ]
+        field_data = map_8949_rows_to_field_data(rows, page=page, year=year)
+        line2 = line2_field_names(page, year)
+        assert {col: field_data[line2[col]] for col in "defgh"} == {
+            "d": "1150.21", "e": "600.07", "f": "", "g": "", "h": "550.14"}
+        filled = _fill_without_flatten(get_template_path(year, "f8949.pdf"), field_data)
+        assert (filled[line2["h"]].get("/V"), filled[line2["d"]].get("/V")) == ("550.14", "1150.21")
+    # A Part with no rows (e.g. no long-term sales) leaves line 2 blank
+    assert not set(line2_field_names(1, year).values()) & set(map_8949_rows_to_field_data([], page=1, year=year))
 
 
 def test_self_custody_btc_boxes():

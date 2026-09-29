@@ -63,10 +63,11 @@ test("IRS Form 8949 / Schedule D PDF", async ({ authedPage: page }) => {
   if (process.env.E2E_DUMP) writeFileSync(`${process.env.E2E_DUMP}/${name}.txt`, text);
   test.info().attach("text", { body: text });
   // Form 8949 Part II row for the long-term sale: description, acquired,
-  // sold, proceeds, basis, gain; then the same totals on Schedule D.
+  // sold, proceeds, basis, gain; then the same totals on the Part's line 2
+  // "Totals" and on Schedule D.
   const row = /0\.10000000 BTC\s+01\/10\/2023\s+03\/01\/2024\s+9,?000\.00\s+2,?000\.00\s+7,?000\.00/g;
   expect(text.match(row)).toHaveLength(1);
-  expect(text.match(/9,?000\.00\s+2,?000\.00\s+7,?000\.00/g)!.length).toBeGreaterThanOrEqual(2);
+  expect(text.match(/9,?000\.00\s+2,?000\.00\s+7,?000\.00/g)).toHaveLength(3);
   // No short-term sales in 2024.
   expect(text).not.toMatch(/0\.25000000 BTC/);
 });

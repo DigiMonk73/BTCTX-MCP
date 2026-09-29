@@ -30,8 +30,10 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
    - rejects drafts and PDFs for the wrong year. It reads the year printed on
      the form.
    - checks that every Form 8949 and Schedule D field name the app writes
-     exists in the new PDFs. It checks a full page of rows in both Parts, plus
-     Schedule D lines 1b, 2, 3, 8b, 9 and 10.
+     exists in the new PDFs. It checks a full page of rows and the line 2
+     totals in both Parts, plus Schedule D lines 1b, 2, 3, 8b, 9 and 10.
+   - checks that each Part's line 2 "Totals" fields sit under columns
+     (d)–(h), below the last row (by their position on the page).
    - checks that the checkbox letters printed on each Part, in order, match
      `boxes_part1` / `boxes_part2`.
    - prints how many 8949 field names were added or removed compared with the
@@ -59,7 +61,8 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
    ```
    `test_irs_templates.py` finds every year folder on its own. For each year it
    checks that all fields land in a real fill, that exactly the right box is
-   checked, that the box order matches the printed form, that Schedule D lines
+   checked, that the box order matches the printed form, that line 2 totals
+   are under their columns and add up the page's rows, that Schedule D lines
    land, that an unknown field name raises an error, and that the output is
    flattened.
 
@@ -120,6 +123,7 @@ Check:
 - [ ] Short-term rows are in Part I (page 1) and long-term rows in Part II (page 2).
 - [ ] Each Part has exactly one box checked, next to the right letter.
 - [ ] Column (f) "Code(s)" and column (g) are empty.
+- [ ] Line 2 "Totals" under each Part shows the page's totals in (d), (e) and (h) (in the snippet: n × 1000.00, n × 400.00, n × 600.00), with (f) and (g) empty.
 - [ ] Schedule D amounts are on the lines that match the boxes (see the table in [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md#form-1099-da-boxes)).
 - [ ] The output is flattened: fields can't be edited in a PDF viewer.
 
@@ -127,8 +131,9 @@ Check:
 
 ## Step 4 — If field names changed
 
-The script stops with ✗ lines when a field the app writes is missing, or when
-the box order doesn't match the printed form. The app itself also fails
+The script stops with ✗ lines when a field the app writes is missing, when a
+line 2 totals field isn't under its column, or when the box order doesn't
+match the printed form. The app itself also fails
 loudly: `fill_pdf_form` raises `ValueError` for any field name that isn't in
 the template, so a renamed field can never print a blank form without an error.
 
@@ -170,6 +175,7 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 | `table_name_page1` / `table_name_page2` | The table name in the row fields: `Table_Line1` (2024, both pages) or `Table_Line1_Part1` / `Table_Line1_Part2` (2025). |
 | `rows_per_page` | Number of `Row{r}` groups in the page-1 table (fields ÷ 8). **2024 = 14, 2025 = 11.** Set too high, rows go to fields that don't exist and generation fails. Set too low, sheets are only partly used. |
 | `row1_zero_pad` | Whether row 1 uses `f1_03`…`f1_09` (2025) or `f1_3`… (2024). Rows 2+ are never padded. |
+| `line2_fields` | Field number of each column (d)–(h) on line 2 "Totals", below the last row: `topmostSubform[0].Page{p}[0].f{p}_{n}[0]`, directly under the page (not in the table), same numbers on both pages. So far `n` runs on from the rows: 3 + rows_per_page × 8 for (d), then (e), (f), (g), (h) (**2024: 115–119, 2025: 91–95**). Confirm by position (the script and `test_line_2_totals_fields_sit_under_their_columns` check that each sits under its column, below the last row) and by the XFA tooltip, which starts "2. Totals.". |
 | `boxes_part1` / `boxes_part2` | Box letters in the order they are **printed** on each Part, top to bottom. |
 | `verified_years` | The years this branch was checked against. |
 
@@ -244,7 +250,7 @@ Revisit them if any of these happens:
 
 ## Year quirks reference
 
-| Year | 8949 table names | Rows/page | Zero-padding (8949) | Boxes (Part I / Part II) | Schedule D |
-|---|---|---|---|---|---|
-| 2024 | `Table_Line1` (both pages) | 14 | none | A B C / D E F | line 1b fields `f1_07`–`f1_10` |
-| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | 11 | row 1 only (`f1_03`…`f1_09`) | A B C G H I / D E F J K L | line 1b fields `f1_7`–`f1_10`; other lines same as 2024 |
+| Year | 8949 table names | Rows/page | Zero-padding (8949) | 8949 line 2 (d)–(h) | Boxes (Part I / Part II) | Schedule D |
+|---|---|---|---|---|---|---|
+| 2024 | `Table_Line1` (both pages) | 14 | none | `f{p}_115`–`f{p}_119` | A B C / D E F | line 1b fields `f1_07`–`f1_10` |
+| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | 11 | row 1 only (`f1_03`…`f1_09`) | `f{p}_91`–`f{p}_95` | A B C G H I / D E F J K L | line 1b fields `f1_7`–`f1_10`; other lines same as 2024 |

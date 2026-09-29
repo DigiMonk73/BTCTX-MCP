@@ -10,8 +10,9 @@ Add (or check) a tax year's IRS Form 8949 + Schedule D templates.
 
 What it verifies (the things that silently break printed forms):
   1. It's the FINAL form for that year, not a draft or another year.
-  2. Every field name the app writes exists in the new template, and the
-     checkbox order matches the boxes printed on the form.
+  2. Every field name the app writes (rows and line 2 totals) exists in the
+     new template, the line 2 totals sit under their columns below the last
+     row, and the checkbox order matches the boxes printed on the form.
   3. Field-name differences vs the previous year, so you know whether
      get_8949_field_config needs a new branch.
 Then it runs backend/tests/test_irs_templates.py.
@@ -92,9 +93,27 @@ def field_names(path: Path) -> set[str]:
     return set((PdfReader(str(path)).get_fields() or {}).keys())
 
 
+def widget_rects(path: Path) -> dict[str, list[float]]:
+    """Full field name -> widget rectangle [x1, y1, x2, y2]."""
+    rects = {}
+    for page in PdfReader(str(path)).pages:
+        for annot in page.get("/Annots", []):
+            widget = annot.get_object()
+            if widget.get("/Subtype") != "/Widget":
+                continue
+            names, node = [], widget
+            while node is not None:
+                if "/T" in node:
+                    names.append(str(node["/T"]))
+                parent = node.get("/Parent")
+                node = parent.get_object() if parent is not None else None
+            rects[".".join(reversed(names))] = [float(v) for v in widget["/Rect"]]
+    return rects
+
+
 def verify(year: int, folder: Path, draft: bool = False) -> bool:
     from backend.services.reports.form_8949 import (
-        Form8949Row, _determine_box, get_8949_field_config,
+        Form8949Row, _determine_box, get_8949_field_config, line2_field_names,
         map_8949_rows_to_field_data, map_schedule_d_fields,
     )
     from decimal import Decimal
@@ -118,6 +137,17 @@ def verify(year: int, folder: Path, draft: bool = False) -> bool:
     missing = sorted(wanted - tpl)
     ok &= say(not missing, f"8949: all {len(wanted)} field names the app writes exist"
               + (f" — MISSING {len(missing)}, e.g. {missing[:2]}" if missing else ""))
+
+    # Line 2 "Totals": each field under its column (x of the last row's cell), below that row
+    rects, n = widget_rects(folder / "f8949.pdf"), config["rows_per_page"]
+    for page, page_rows in ((1, rows), (2, long_rows)):
+        last = dict(zip("abcdefgh", [k for k in map_8949_rows_to_field_data(page_rows, page, year)
+                                      if f".Row{n}[0]." in k]))
+        wrong = [col for col, name in line2_field_names(page, year).items()
+                 if name not in rects or last.get(col) not in rects
+                 or abs(rects[name][0] - rects[last[col]][0]) >= 1 or rects[name][3] > rects[last[col]][1]]
+        ok &= say(not wrong, f"Part {'I' if page == 1 else 'II'} line 2 totals fields sit under columns (d)-(h)"
+                  + (f" — WRONG for {wrong}" if wrong else ""))
 
     reader = PdfReader(str(folder / "f8949.pdf"))
     # IRS drafts open with a "the draft begins on the next page" cover sheet

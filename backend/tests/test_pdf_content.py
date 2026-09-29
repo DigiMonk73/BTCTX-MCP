@@ -460,6 +460,126 @@ class TestIRSFormContent:
 
 
 # =============================================================================
+# FORM 8949 LINE 2 TOTALS
+# =============================================================================
+
+# Line 2 "Totals" fields, read off the templates (position under the row
+# columns, below the last row; XFA tooltip "2. Totals. ..."): directly under
+# PageN, columns (d), (e), (f), (g), (h). Hard-coded here on purpose, so the
+# test doesn't trust the app's own config.
+LINE_2_FIELDS = {
+    2024: ("115", "116", "117", "118", "119"),
+    2025: ("91", "92", "93", "94", "95"),
+}
+ROWS_PER_SHEET = {2024: 14, 2025: 11}
+# Schedule D line of the short-term exchange Sells and long-term spends below
+SCHEDULE_D_LINES = {2024: ("3", "10"), 2025: ("2", "10")}  # boxes C/F, H/L
+
+
+class TestForm8949Line2Totals:
+    """Bug hunt 2026-09-29: Form 8949 line 2 ("Totals": add columns (d), (e),
+    (g) and (h), carried to Schedule D) was never filled, and the sheets are
+    flattened, so the owner couldn't write the totals in either. Each sheet's
+    line 2 must total the rows on that sheet (one box's chunk), and Schedule
+    D's line for the box must be the sum of that box's sheets."""
+
+    @pytest.mark.parametrize("year", [2024, 2025])
+    def test_each_sheet_totals_its_own_rows(self, clean_db, monkeypatch, year):
+        import re
+        import backend.routers.reports as reports
+        from backend.services.reports.form_8949 import get_schedule_d_field_config
+
+        def ok(result):
+            assert "error" not in result, result
+            return result
+
+        per_sheet = ROWS_PER_SHEET[year]
+        # Part I: exchange Sells of 0.01 BTC from one 1 BTC lot ($200.00 basis
+        # each), two more than a sheet holds, so the box runs onto a second
+        # sheet. The first is a loss.
+        proceeds = [Decimal("150.10")] + [Decimal(f"{250 + i}.37") for i in range(1, per_sheet + 2)]
+        ok(create_tx({
+            "type": "Buy", "timestamp": build_timestamp(year, 1, 2),
+            "from_account_id": EXCHANGE_USD, "to_account_id": EXCHANGE_BTC,
+            "amount": "1", "cost_basis_usd": "20000", "fee_amount": "0", "fee_currency": "USD",
+        }))
+        for i, p in enumerate(proceeds):
+            ok(create_tx({
+                "type": "Sell", "timestamp": build_timestamp(year, 3, 1 + i),
+                "from_account_id": EXCHANGE_BTC, "to_account_id": EXCHANGE_USD,
+                "amount": "0.01", "gross_proceeds_usd": str(p), "fee_amount": "0", "fee_currency": "USD",
+            }))
+        # Part II: two long-term spends of 0.1 BTC ($1,000.00 basis each), one a loss.
+        ok(create_tx({
+            "type": "Deposit", "timestamp": build_timestamp(year - 2, 6, 1),
+            "from_account_id": 99, "to_account_id": WALLET_BTC, "amount": "1",
+            "cost_basis_usd": "10000", "source": "MyBTC", "fee_amount": "0", "fee_currency": "BTC",
+        }))
+        for month, p in ((6, "3000.55"), (7, "800.20")):
+            ok(create_tx({
+                "type": "Withdrawal", "timestamp": build_timestamp(year, month, 1),
+                "from_account_id": WALLET_BTC, "to_account_id": 99, "amount": "0.1",
+                "fee_amount": "0", "fee_currency": "BTC", "purpose": "Spent", "proceeds_usd": p,
+            }))
+
+        filled = []
+        real_fill = reports.fill_pdf_form
+
+        def capture(path, fields, **kw):
+            filled.append((path.rsplit("/", 1)[-1], dict(fields)))
+            return real_fill(path, fields, **kw)
+
+        monkeypatch.setattr(reports, "fill_pdf_form", capture)
+        pdf = get_irs_report(year)
+        assert pdf is not None
+        sheets = [f for name, f in filled if name == "f8949.pdf"]
+        schedule_d = next(f for name, f in filled if name == "f1040sd.pdf")
+        assert len(sheets) == 2
+
+        def line_2(sheet, page):
+            return [sheet.get(f"topmostSubform[0].Page{page}[0].f{page}_{n}[0]") for n in LINE_2_FIELDS[year]]
+
+        def expected(amounts, basis_each):
+            d, e = sum(amounts, Decimal("0")), basis_each * len(amounts)
+            return [f"{d:.2f}", f"{e:.2f}", "", "", f"{d - e:.2f}"]
+
+        # Worked by hand: each sheet's own rows, (f) and (g) blank like the rows.
+        assert line_2(sheets[0], 1) == expected(proceeds[:per_sheet], Decimal("200"))
+        assert line_2(sheets[1], 1) == expected(proceeds[per_sheet:], Decimal("200"))
+        assert line_2(sheets[0], 2) == ["3800.75", "2000.00", "", "", "1800.75"]
+        assert line_2(sheets[1], 2) == [None] * 5  # no long-term rows on sheet 2
+
+        # And to the cent the sum of the row fields printed on that page.
+        def column_sum(sheet, page, offset):  # offset: (d) 3, (e) 4, (h) 7
+            total = Decimal("0")
+            for name, value in sheet.items():
+                m = re.search(rf"Page{page}\[0\]\.Table[^.]*\.Row\d+\[0\]\.f{page}_(\d+)\[0\]$", name)
+                if m and (int(m.group(1)) - 3) % 8 == offset:
+                    total += Decimal(value)
+            return total
+
+        for sheet, page in ((sheets[0], 1), (sheets[1], 1), (sheets[0], 2)):
+            d, e, _, _, h = line_2(sheet, page)
+            assert [Decimal(d), Decimal(e), Decimal(h)] == [column_sum(sheet, page, o) for o in (3, 4, 7)]
+
+        # Schedule D: each box's line is the sum of that box's sheets.
+        config = get_schedule_d_field_config(year)
+        short_line, long_line = SCHEDULE_D_LINES[year]
+        for line, parts in ((short_line, [(sheets[0], 1), (sheets[1], 1)]), (long_line, [(sheets[0], 2)])):
+            d_field, e_field, _, h_field = config[line]
+            for field, col in ((d_field, 0), (e_field, 1), (h_field, 4)):
+                assert Decimal(schedule_d[field]) == sum(Decimal(line_2(s, p)[col]) for s, p in parts), line
+
+        # The flattened PDF prints them: sheet 1 Part I, sheet 1 Part II, sheet 2 Part I.
+        pages = extract_pdf_text_by_page(pdf)
+        assert len(pages) == 6
+        for text, (sheet, page) in zip(pages[:3], ((sheets[0], 1), (sheets[0], 2), (sheets[1], 1))):
+            d, e, _, _, h = line_2(sheet, page)
+            for value in (d, e, h):
+                assert value in text, f"line 2 total {value} not printed"
+
+
+# =============================================================================
 # TRANSACTION HISTORY TESTS
 # =============================================================================
 

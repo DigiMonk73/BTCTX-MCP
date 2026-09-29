@@ -74,6 +74,9 @@ Found in a bug hunt of the imports (2026-09-29):
   River or AI-assistant import (or its preview) held up every other
   request, StartOS's health check included, for as long as it ran (10
   seconds in one test); that work now runs beside them.
+- **Form 8949 line 2 "Totals" is filled.** Each page now shows the totals
+  of its own rows in (d), (e) and (h), which add up to the Schedule D line;
+  it was left blank on the locked PDF, so it couldn't be typed in either.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

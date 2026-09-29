@@ -279,9 +279,11 @@ def get_8949_field_config(year: int) -> Dict:
     The IRS changes field names between years. Key differences
     (verified against the official templates' form fields):
     - 2024: Table_Line1 on both pages, fields start at f1_3 (not zero-padded),
-      14 rows per page (f1_3..f1_114 / f2_3..f2_114)
+      14 rows per page (f1_3..f1_114 / f2_3..f2_114), line 2 totals
+      f1_115..f1_119 / f2_115..f2_119
     - 2025: Table_Line1_Part1/Part2, row-1 fields zero-padded (f1_03..f1_10),
-      11 rows per page (f1_03..f1_90 / f2_03..f2_90)
+      11 rows per page (f1_03..f1_90 / f2_03..f2_90), line 2 totals
+      f1_91..f1_95 / f2_91..f2_95
 
     Args:
         year: Tax year (e.g., 2024, 2025)
@@ -303,6 +305,11 @@ def get_8949_field_config(year: int) -> Dict:
             # on-state of widget i is /(i+1). Verified against the PDF.
             "boxes_part1": ["A", "B", "C", "G", "H", "I"],
             "boxes_part2": ["D", "E", "F", "J", "K", "L"],
+            # Line 2 "Totals", columns (d) (e) (f) (g) (h): f{p}_91..95,
+            # directly under Page{p} (not in the table), same numbers on
+            # both pages. Verified by position (under the row columns, below
+            # row 11) and the XFA tooltips ("2. Totals. ...").
+            "line2_fields": {"d": "91", "e": "92", "f": "93", "g": "94", "h": "95"},
         }
     else:  # 2024 and earlier
         return {
@@ -313,6 +320,8 @@ def get_8949_field_config(year: int) -> Dict:
             "rows_per_page": 14,
             "boxes_part1": ["A", "B", "C"],
             "boxes_part2": ["D", "E", "F"],
+            # Line 2 "Totals" (d)..(h): f{p}_115..119, as for 2025.
+            "line2_fields": {"d": "115", "e": "116", "f": "117", "g": "118", "h": "119"},
         }
 
 
@@ -358,6 +367,12 @@ def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
     )
 
 
+def line2_field_names(page: int, year: int) -> Dict[str, str]:
+    """Line 2 "Totals" field of Part I (page 1) or Part II (page 2), by column letter d..h."""
+    numbers = get_8949_field_config(year)["line2_fields"]
+    return {col: f"topmostSubform[0].Page{page}[0].f{page}_{n}[0]" for col, n in numbers.items()}
+
+
 def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: int = 2024) -> Dict[str, str]:
     """
     Fills the rows of ONE part of a Form 8949 sheet, using year-specific naming.
@@ -371,6 +386,10 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
     Field naming varies by year:
     - 2024: Table_Line1, f1_3, f1_4, ... (not zero-padded), 14 rows/page
     - 2025: Table_Line1_Part1/Part2, f1_03... (zero-padded row 1), 11 rows/page
+
+    Also fills line 2 "Totals" of the Part with the totals of THESE rows: the
+    caller passes one sheet's chunk of one box, and Schedule D adds up the
+    box's sheets. Columns (f) and (g) stay blank there too.
 
     Args:
         rows: List of Form8949Row objects (max rows_per_page for the year)
@@ -456,6 +475,19 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
         # col (h) => offset=7 => gain_loss
         col_h = field_name(i, base_index + 7)
         field_data[col_h] = str(row_obj.gain_loss)
+
+    # Line 2 "Totals": add up this page's (d), (e), (h) as printed, to the cent
+    if rows:
+        line2 = line2_field_names(page, year)
+
+        def total(amounts) -> str:
+            return str(Form8949Row._round(sum((Form8949Row._round(a) for a in amounts), Decimal("0"))))
+
+        field_data[line2["d"]] = total(r.proceeds for r in rows)
+        field_data[line2["e"]] = total(r.cost for r in rows)
+        field_data[line2["f"]] = ""  # no codes, as on the rows
+        field_data[line2["g"]] = ""  # no adjustments, as on the rows
+        field_data[line2["h"]] = total(r.gain_loss for r in rows)
 
     return field_data
 

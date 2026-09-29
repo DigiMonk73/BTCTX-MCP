@@ -38,7 +38,7 @@ backend/
 │       ├── transaction_history.py
 │       └── reporting_core.py
 └── tests/
-    ├── test_irs_templates.py             # every year folder: fields exist, values land, boxes, flatten
+    ├── test_irs_templates.py             # every year folder: fields exist, values land, boxes, line 2, flatten
     ├── test_1099da_boxes.py              # box selection from real ledger data
     ├── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
     ├── test_golden_years.py              # three hand-worked tax years: exact 8949 rows, Schedule D lines
@@ -67,6 +67,7 @@ get_irs_reports()                                             reports.py
   │  _chunks_by_box(): group each term by box, cut into rows_per_page chunks
   │  pair short chunk i with long chunk i on sheet i (zip_longest)
   │  map_8949_rows_to_field_data(chunk, page=1|2, year) -> {field: value}
+  │    (the chunk's rows, plus line 2 "Totals" of that chunk)
   │  fill_pdf_form(f8949.pdf, fields)           -> one flattened sheet each
   │  map_schedule_d_fields(...) + fill_pdf_form(f1040sd.pdf, ...)
   ▼
@@ -154,7 +155,8 @@ line printed for it.
 | 3 | C, I | 10 | F, L |
 
 The app fills columns (d) proceeds, (e) cost and (h) gain/loss. Column (g) is
-blank. Only lines that have rows get filled.
+blank. Only lines that have rows get filled. Each line is the sum of the
+line 2 totals of all that box's Form 8949 sheets.
 
 ## Form 8949 fields
 
@@ -181,12 +183,19 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 | (g) | 6 | blank |
 | (h) | 7 | gain or loss, 2 decimals |
 
+**Line 2 "Totals"**, below the last row of each Part, gets the totals of the
+rows on that page (one sheet's chunk of one box): (d), (e) and (h) added up to
+the cent (losses subtracted), 2 decimals; (f) and (g) blank like the rows. A
+Part with no rows leaves line 2 blank. The fields sit directly under the page,
+not in the table: `topmostSubform[0].Page{p}[0].f{p}_{n}[0]`, with `n` per
+column in `line2_fields` (`line2_field_names()`).
+
 Year differences, kept in `get_8949_field_config(year)`:
 
-| Year | `table` (p1 / p2) | Row 1 numbering | Boxes Part I / Part II |
-|---|---|---|---|
-| 2024 | `Table_Line1` / `Table_Line1` | `f1_3`…`f1_10` | A B C / D E F |
-| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | `f1_03`…`f1_09`, `f1_10` | A B C G H I / D E F J K L |
+| Year | `table` (p1 / p2) | Row 1 numbering | Line 2 (d) (e) (f) (g) (h) | Boxes Part I / Part II |
+|---|---|---|---|---|
+| 2024 | `Table_Line1` / `Table_Line1` | `f1_3`…`f1_10` | `f{p}_115`…`f{p}_119` | A B C / D E F |
+| 2025 | `Table_Line1_Part1` / `Table_Line1_Part2` | `f1_03`…`f1_09`, `f1_10` | `f{p}_91`…`f{p}_95` | A B C G H I / D E F J K L |
 
 Checkbox: `topmostSubform[0].Page{p}[0].c{p}_1[i]` with on-state `/{i+1}`,
 where `i` is the letter's position in `boxes_part1` / `boxes_part2`
