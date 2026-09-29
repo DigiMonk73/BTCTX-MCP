@@ -27,8 +27,8 @@ minor, and some things that are only documented.
 | 1a | One HTTP client factory (`outbound.py`) | no leak | a test enforces it; the Mac app only calls 127.0.0.1 | |
 | 1b | Unset or Off, and at startup | no leak | nothing contacted, incl. MCP tools, reports, review, import autofill | VM (PRC-1) |
 | 1c | Date-free URLs, fallbacks included | no leak | fixed history blocks and "latest" requests | VM (Bitstamp URLs) |
-| 1d | Timing seen by price sites | leak (minor); block height now cached 60 s | they can tell when the app is open (price every 2 min while a page is visible) and when a recent entry is priced | |
-| 1e | Hosts named in Settings | leak (disclosure gap) | mempool.space, Coinbase and Kraken's history are contacted but never named | yes |
+| 1d | Timing seen by price sites | **documented** (Settings, StartOS); block height cached 60 s | they can tell when the app is open (price every 2 min while a page is visible) and when a recent entry is priced | |
+| 1e | Hosts named in Settings | **fixed** (all named, plus timing; test guards new hosts) | mempool.space, Coinbase and Kraken's history are contacted but never named | yes |
 | 1f | User-Agent `python-httpx/0.28.1` | no leak | the same for every install; don't add a version | |
 | 1g | socks5 vs socks5h, fail closed | no leak | the hostname goes to the proxy either way; no direct retry | VM (PRC-3) |
 | 1h | `.onion` mempool address with no proxy | **fixed** (was: leak) | accepted, then looked up through normal DNS | yes |

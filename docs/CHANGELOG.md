@@ -114,6 +114,10 @@ failed before it.
 - The encrypted backup's password is typed in a hidden field, twice: it
   was a plain pop-up that showed it and asked once, so a typo made a backup
   no one could open (owner decision).
+- Settings (and StartOS's Price Source & Privacy action and instructions)
+  name every public site BitcoinTX may contact (mempool.space and Coinbase
+  were missing) and say the sites see your IP address and when BitcoinTX is
+  open, never your transaction dates (owner decision).
 - Fewer requests to public price sites: the live price asks Kraken first
   and CoinGecko only if Kraken fails (CoinGecko refuses VPN and Tor users,
   so each refresh used to contact both), and the block height is kept for a

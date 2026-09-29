@@ -274,3 +274,22 @@ def test_a_restore_never_writes_the_decrypted_ledger_readable_by_others(tmp_path
     finally:
         os.umask(old)
     assert all(m == 0o600 for m in modes), [oct(m) for m in modes]
+
+
+def test_settings_names_every_site_public_prices_may_contact():
+    """Privacy audit 2026-09-29 (1e), owner decision: mempool.space and
+    Coinbase were contacted but never named, and the help didn't say the
+    sites can tell when BitcoinTX is open."""
+    import re
+
+    root = Path(__file__).resolve().parents[2]
+    code = "".join((root / "backend/services" / f).read_text() for f in ("bitcoin.py", "price_history.py"))
+    hosts = set(re.findall(r'"https://([^/"]+)', code))
+    names = {"api.kraken.com": "Kraken", "api.coingecko.com": "CoinGecko", "blockchain.info": "Blockchain.info",
+             "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp",
+             "api.exchange.coinbase.com": "Coinbase"}
+    assert hosts <= set(names), f"a new site: name it in Settings and here: {hosts - set(names)}"
+    help_text = (root / "frontend/src/utils/priceSource.ts").read_text()
+    public = help_text[help_text.index('value: "public"'):help_text.index('value: "off"')]
+    assert [names[h] for h in sorted(hosts) if names[h] not in public] == []
+    assert "when BitcoinTX is open" in public and "IP address" in public

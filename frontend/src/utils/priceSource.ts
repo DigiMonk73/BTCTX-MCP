@@ -34,10 +34,12 @@ export const PRICE_SOURCES: { value: PriceSource; label: string; help: string }[
     value: "public",
     label: "Public price sites",
     help:
-      "The live price from Kraken or CoinGecko, the block height from Blockchain.info or " +
-      "Blockstream. Past prices come from one download of the whole daily history (Bitstamp), " +
-      "the same for every install, so your transaction dates are never sent. The sites see your " +
-      "IP address; a VPN, or a Tor proxy set in Settings, hides it.",
+      "The live price from Kraken (CoinGecko if Kraken fails), the block height from " +
+      "Blockchain.info (else Blockstream or mempool.space). Past prices come from one download of " +
+      "the whole daily history (Bitstamp, else Coinbase), the same for every install, then only " +
+      "the latest days (Bitstamp, Kraken or Coinbase), so your transaction dates are never sent. " +
+      "These sites see your IP address and when BitcoinTX is open (it asks for the price every " +
+      "2 minutes while a page is showing); a VPN, or a Tor proxy set in Settings, hides the IP address.",
   },
   {
     value: "off",
