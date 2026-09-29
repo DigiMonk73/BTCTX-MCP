@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+- **Screenshots of 1.2.2** in the README and on the landing page (same demo
+  ledger): the whole taller calculator, 2025 picked in Reports, and the
+  AI setup prompt with today's `uvx btctx-mcp==1.2.2` instead of 1.1.0's.
+
 ### Development
 - **To-dos are checkboxes.** Specific to-dos live in `docs/temp/TODO.md`,
   the StartOS package's in `startos/TODO.md` (Start9's standard file, so it
