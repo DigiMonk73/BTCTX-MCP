@@ -96,6 +96,20 @@ class TestTaxYear:
         assert len(rows(2024)) == 1 and not rows(2025)   # New York: 2024
         assert rows(2024)[0]["date_sold"] == "12/31/2024"
 
+    def test_a_sale_half_a_second_into_the_year_is_in_that_year(self):
+        """Bug hunt 2026-09-29: timestamps are stored and compared as text,
+        and '2025-01-01T00:00:00.500000Z' sorts before '2025-01-01T00:00:00Z'
+        ('.' before 'Z'): a sale half a second after midnight (a time from
+        the API or the AI connector) was put in the year before. Fractions
+        of a second are no longer stored, on create or on edit."""
+        buy("2024-06-01T12:00:00Z")
+        created = sell("2025-01-01T00:00:00.500Z")
+        edited = sell("2025-03-01T12:00:00Z")
+        r = CLIENT.put(f"/api/transactions/{edited['id']}", json={"timestamp": "2025-01-01T00:00:00.250Z"})
+        assert r.status_code == 200, r.text
+        assert len(rows(2025)) == 2 and not rows(2024)
+        assert {created["timestamp"], r.json()["timestamp"]} == {"2025-01-01T00:00:00Z"}
+
     def test_bounds_are_local_midnights(self):
         start, end = tax_year_bounds(2025, ZoneInfo(NY))
         assert start == datetime(2025, 1, 1, 5, tzinfo=timezone.utc)

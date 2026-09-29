@@ -239,7 +239,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     _validate_transaction(merged, db, check_source=check_source)
     if _fill_fee_currency(merged, db):  # e.g. a fee_amount sent on its own
         tx_data["fee_currency"] = merged["fee_currency"]
-    for key in ("type", "purpose", "source"):  # canonical spellings
+    for key in ("type", "purpose", "source", "timestamp"):  # canonical spellings, whole seconds
         if merged.get(key) != getattr(tx, key) or key in tx_data:
             tx_data[key] = merged.get(key)
     if any(k in tx_data for k in ("type", "from_account_id", "to_account_id")):
@@ -1323,6 +1323,10 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
         _bad("The date is before Bitcoin existed (3 January 2009).")
     if ts_utc > datetime.now(timezone.utc) + timedelta(days=1):
         _bad("The date is in the future.")
+    # Whole seconds: stored as text and compared as text, a fraction sorted
+    # before the whole second ("...00.5Z" < "...00Z", a sale half a second
+    # into a year fell in the year before).
+    data["timestamp"] = ts.replace(microsecond=0)
 
     for key in ("from_account_id", "to_account_id"):
         acct_id = data.get(key)

@@ -94,6 +94,10 @@ Found by a bug hunt of the tax engine (2026-09-29).
   showed as $99.99 on Form 8949); the last share now takes the remainder.
 - **A withdrawal of 1 satoshi more than you hold is refused**, like a
   transfer or sale. It was accepted and left the balance at -1 sat.
+- **A time with fractions of a second no longer lands in the wrong year.**
+  A sale entered (through the API or the AI connector) half a second after
+  midnight on Jan 1 counted in the year before; times are now saved in
+  whole seconds.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
