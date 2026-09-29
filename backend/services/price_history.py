@@ -143,27 +143,42 @@ async def public_history(full: bool) -> tuple[dict[date, tuple], bool]:
     in. full: every day since FIRST_PRICE_DAY in fixed blocks (Bitstamp; else
     Coinbase, from 2015). Otherwise the latest days, at most once a UTC day.
     """
-    now, today = time.monotonic(), _today()
     if full:
-        if now - _state["full_failed_at"] < RETRY_SECONDS:
-            return {}, False
-        async with outbound.async_client() as client:
-            for name, fetch, first, size in (
-                ("bitstamp", _bitstamp, FIRST_PRICE_DAY, BITSTAMP_BLOCK),
-                ("coinbase", _coinbase, COINBASE_FIRST_DAY, COINBASE_BLOCK),
-            ):
-                got: dict[date, Decimal] = {}
-                try:
-                    for start in _blocks(first, size):
-                        got.update(await fetch(client, start))
-                except Exception as exc:
-                    logger.info("BTC price history from %s failed: %s", name, exc)
-                    continue
-                if got:
-                    logger.info("BTC price history from public site %s: %d days", name, len(got))
-                    return _kept(got, name), name == "bitstamp"
-        _state["full_failed_at"] = now
+        return await _whole_public_history()
+    return await _latest_public_prices()
+
+
+async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
+    now = time.monotonic()
+    if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
+    async with outbound.async_client() as client:
+        for name, fetch, first, size in (
+            ("bitstamp", _bitstamp, FIRST_PRICE_DAY, BITSTAMP_BLOCK),
+            ("coinbase", _coinbase, COINBASE_FIRST_DAY, COINBASE_BLOCK),
+        ):
+            got = await _every_block(client, name, fetch, first, size)
+            if got:
+                logger.info("BTC price history from public site %s: %d days", name, len(got))
+                return _kept(got, name), name == "bitstamp"
+    _state["full_failed_at"] = now
+    return {}, False
+
+
+async def _every_block(client, name: str, fetch, first: date, size: int) -> dict[date, Decimal]:
+    """Every block from one site, or nothing when one of them fails."""
+    got: dict[date, Decimal] = {}
+    try:
+        for start in _blocks(first, size):
+            got.update(await fetch(client, start))
+    except Exception as exc:
+        logger.info("BTC price history from %s failed: %s", name, exc)
+        return {}
+    return got
+
+
+async def _latest_public_prices() -> tuple[dict[date, tuple], bool]:
+    now, today = time.monotonic(), _today()
     if _state["latest_day"] == today or now - _state["latest_failed_at"] < RETRY_SECONDS:
         return {}, False
     async with outbound.async_client() as client:

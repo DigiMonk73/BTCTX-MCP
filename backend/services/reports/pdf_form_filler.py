@@ -40,6 +40,28 @@ def fill_pdf_form(template_path: str, field_data: dict[str, str], flatten: bool 
     if "/XFA" in acroform:
         del acroform[NameObject("/XFA")]
 
+    values = _field_values(template_path, field_data, flatten)
+    for page in writer.pages:
+        writer.update_page_form_field_values(page, values, auto_regenerate=False, flatten=flatten)
+        if flatten:
+            _drop_widgets(page)
+    if flatten:
+        _remove_form(writer)
+    else:
+        writer.set_need_appearances_writer(True)
+
+    buf = io.BytesIO()
+    writer.write(buf)
+    logger.debug("Filled %s: %d fields (flatten=%s)", template_path, len(field_data), flatten)
+    return buf.getvalue()
+
+
+def _field_values(template_path: str, field_data: dict[str, str], flatten: bool) -> dict[str, str]:
+    """
+    The value of every text field and checkbox of the template: the given
+    one, else empty or "/Off", so a flattened form prints nothing where
+    nothing was given. Not flattened, only the given fields.
+    """
     template_fields = PdfReader(template_path).get_fields() or {}
     unknown = sorted(set(field_data) - set(template_fields))
     if unknown:
@@ -55,30 +77,26 @@ def fill_pdf_form(template_path: str, field_data: dict[str, str], flatten: bool 
             values[name] = field_data.get(name, "/Off")
         elif kind == "/Tx":
             values[name] = field_data.get(name, "")
-
     if not flatten:
         values = {k: v for k, v in values.items() if k in field_data}
+    return values
 
-    for page in writer.pages:
-        writer.update_page_form_field_values(page, values, auto_regenerate=False, flatten=flatten)
-        if flatten and "/Annots" in page:
-            kept = [a for a in page["/Annots"] if a.get_object().get("/Subtype") != "/Widget"]
-            if kept:
-                page[NameObject("/Annots")] = ArrayObject(kept)
-            else:
-                del page[NameObject("/Annots")]
 
-    if flatten:
-        del writer._root_object[NameObject("/AcroForm")]
-        # Flattening leaves the old widgets' appearance streams unreferenced
-        # (and uncompressed): ~4.8 MB per 8949 sheet instead of ~0.2 MB.
-        for page in writer.pages:
-            page.compress_content_streams()
-        writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
+def _drop_widgets(page) -> None:
+    """A flattened page keeps its annotations but not the form's widgets."""
+    if "/Annots" not in page:
+        return
+    kept = [a for a in page["/Annots"] if a.get_object().get("/Subtype") != "/Widget"]
+    if kept:
+        page[NameObject("/Annots")] = ArrayObject(kept)
     else:
-        writer.set_need_appearances_writer(True)
+        del page[NameObject("/Annots")]
 
-    buf = io.BytesIO()
-    writer.write(buf)
-    logger.debug("Filled %s: %d fields (flatten=%s)", template_path, len(field_data), flatten)
-    return buf.getvalue()
+
+def _remove_form(writer: PdfWriter) -> None:
+    del writer._root_object[NameObject("/AcroForm")]
+    # Flattening leaves the old widgets' appearance streams unreferenced
+    # (and uncompressed): ~4.8 MB per 8949 sheet instead of ~0.2 MB.
+    for page in writer.pages:
+        page.compress_content_streams()
+    writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)

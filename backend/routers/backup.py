@@ -199,96 +199,66 @@ def export_transactions_csv(
     db: Session = Depends(get_db),
 ):
     """
-    Export all transactions as a CSV file matching the import template format.
-    This creates a clean roundtrip: Export -> Edit -> Re-import.
+    Every transaction as a CSV file in the import template's columns, so an
+    export imports back to the same ledger.
     """
     _require_auth(request)
 
-    # Query all transactions ordered by timestamp, then by ID for deterministic ordering
-    # This ensures consistent export order for same-timestamp transactions
+    # Same-time transactions in the order they were saved, as the ledger
+    # replays them: a round trip gives the same FIFO results.
     transactions = db.query(Transaction).order_by(
         Transaction.timestamp.asc(),
         Transaction.id.asc()
     ).all()
 
-    # Build CSV content
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS)
     writer.writeheader()
-
-    # Helper to format numeric values (empty string if None)
-    def fmt_decimal(val, decimals=2):
-        if val is None:
-            return ""
-        return f"{float(val):.{decimals}f}"
-
-    for txn in transactions:
-        # Format date as ISO8601 with Z suffix
-        date_str = ""
-        if txn.timestamp:
-            date_str = txn.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-        # Map account IDs to names
-        from_account = ACCOUNT_ID_TO_NAME.get(txn.from_account_id, "")
-        to_account = ACCOUNT_ID_TO_NAME.get(txn.to_account_id, "")
-
-        # Determine which fields to export based on transaction type
-        # For roundtrip compatibility, we export original user-entered values only
-        txn_type = (txn.type or "").lower()
-
-        # cost_basis_usd: Only for Buy and Deposit (user-entered acquisition cost)
-        # For Sell/Withdrawal, cost_basis_usd is FIFO-calculated, not user input
-        if txn_type in ("buy", "deposit"):
-            cost_basis = fmt_decimal(txn.cost_basis_usd, 2)
-        else:
-            cost_basis = ""
-
-        # proceeds_usd: For Sell/Withdrawal, use gross_proceeds_usd (user-entered)
-        # The proceeds_usd field is calculated (after fees), gross_proceeds_usd is the input
-        # Fallback to proceeds_usd if gross_proceeds_usd is None (for older transactions)
-        if txn_type in ("sell", "withdrawal"):
-            proceeds_value = txn.gross_proceeds_usd if txn.gross_proceeds_usd is not None else txn.proceeds_usd
-            proceeds = fmt_decimal(proceeds_value, 2)
-        else:
-            proceeds = ""
-
-        # A BTC fee's stored USD value, so re-importing never prices it again
-        # (the same figures, even with price lookups off); a gift's FMV.
-        btc_fee = (txn.fee_currency or "").upper() == "BTC" and bool(txn.fee_amount)
-        gift_like = txn_type == "withdrawal" and (txn.purpose or "").lower() in GIFT_LIKE_PURPOSES
-
-        # Text cells can't start a spreadsheet formula (safe_text.csv_text);
-        # the numbers are written as they are.
-        row = {
-            "date": date_str,
-            "type": csv_text(txn.type),
-            "amount": fmt_decimal(txn.amount, 8) if txn.amount else "",
-            "from_account": csv_text(from_account),
-            "to_account": csv_text(to_account),
-            "cost_basis_usd": cost_basis,
-            "proceeds_usd": proceeds,
-            "fee_amount": fmt_decimal(txn.fee_amount, 8),
-            "fee_currency": csv_text(txn.fee_currency),
-            "source": csv_text(txn.source),
-            "purpose": csv_text(txn.purpose),
-            "notes": "",  # Transaction model doesn't store notes
-            "fee_usd": fmt_decimal(txn.fee_usd, 2) if btc_fee else "",
-            "fmv_usd": fmt_decimal(txn.fmv_usd, 2) if gift_like else "",
-            "broker_reporting": csv_text(txn.broker_reporting),
-            "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
-        }
-        writer.writerow(row)
-
-    csv_content = output.getvalue()
-    output.close()
-
-    # Generate filename with current date
+    writer.writerows(_export_row(txn) for txn in transactions)
     filename = f"btctx_transactions_{datetime.now().strftime('%Y-%m-%d')}.csv"
 
     return PlainTextResponse(
-        content=csv_content,
+        content=output.getvalue(),
         media_type="text/csv",
         headers={
             "Content-Disposition": f"attachment; filename={filename}"
         },
     )
+
+
+def _export_row(txn: Transaction) -> dict[str, str]:
+    """
+    The transaction as a CSV row of the values the user entered: a Sell's or
+    Withdrawal's basis comes from its lots and isn't exported, and its
+    proceeds are the gross before fees (else, for older rows, the stored
+    ones). A BTC fee's stored USD value goes too, so a re-import never
+    prices it again (the same figures, even with price lookups off), and a
+    gift's FMV. Text cells can't start a spreadsheet formula
+    (safe_text.csv_text); the numbers are written as they are.
+    """
+    txn_type = (txn.type or "").lower()
+    btc_fee = (txn.fee_currency or "").upper() == "BTC" and bool(txn.fee_amount)
+    gift_like = txn_type == "withdrawal" and (txn.purpose or "").lower() in GIFT_LIKE_PURPOSES
+    entered_proceeds = txn.gross_proceeds_usd if txn.gross_proceeds_usd is not None else txn.proceeds_usd
+    return {
+        "date": txn.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.timestamp else "",
+        "type": csv_text(txn.type),
+        "amount": _csv_number(txn.amount, 8) if txn.amount else "",
+        "from_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.from_account_id, "")),
+        "to_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.to_account_id, "")),
+        "cost_basis_usd": _csv_number(txn.cost_basis_usd, 2) if txn_type in ("buy", "deposit") else "",
+        "proceeds_usd": _csv_number(entered_proceeds, 2) if txn_type in ("sell", "withdrawal") else "",
+        "fee_amount": _csv_number(txn.fee_amount, 8),
+        "fee_currency": csv_text(txn.fee_currency),
+        "source": csv_text(txn.source),
+        "purpose": csv_text(txn.purpose),
+        "notes": "",  # not stored
+        "fee_usd": _csv_number(txn.fee_usd, 2) if btc_fee else "",
+        "fmv_usd": _csv_number(txn.fmv_usd, 2) if gift_like else "",
+        "broker_reporting": csv_text(txn.broker_reporting),
+        "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
+    }
+
+
+def _csv_number(value, decimals: int) -> str:
+    return "" if value is None else f"{float(value):.{decimals}f}"

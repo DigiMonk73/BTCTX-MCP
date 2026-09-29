@@ -54,6 +54,8 @@ All notable changes to BitcoinTX are documented in this file.
   realized gains, proceeds, income by source, fees and this year's gain in
   one step each. Same figures on every ledger compared, including ones with
   sales this year.
+- **Ledger Review, the CSV export, the AI entry dry run, the public price
+  download and the IRS form filler** are divided into named steps too.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

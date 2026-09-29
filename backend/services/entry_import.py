@@ -317,38 +317,13 @@ def simulate(
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
 
-    affected: list[AffectedTransaction] = []
-    balances: list[AccountBalance] = []
     before = _gain_snapshot(db)
-    created: list[tuple[PreparedRow, Transaction]] = []
-    failed_at: int | None = None
-
     try:
-        for pos, p in enumerate(ordered):
-            try:
-                tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
-            except HTTPException as exc:
-                p.result.status = STATUS_REJECTED
-                p.result.errors.append(str(exc.detail))
-                failed_at = pos
-                break
-            except Exception as exc:  # defensive: surface, never write
-                logger.exception("Entry simulation failed on row %s", p.row)
-                p.result.status = STATUS_REJECTED
-                p.result.errors.append(f"Unexpected error: {exc}")
-                failed_at = pos
-                break
-            created.append((p, tx))
-
-        if failed_at is not None:
-            for p in ordered[failed_at + 1:]:
-                p.result.status = STATUS_NOT_SIMULATED
-                p.result.warnings.append(
-                    "Not simulated: an earlier row (chronologically) was rejected."
-                )
-        else:
+        created, failed_at = _create_until_refused(ordered, db)
+        if failed_at is None:
             db.flush()
-
+        else:
+            _mark_not_simulated(ordered[failed_at + 1:])
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,
@@ -356,28 +331,67 @@ def simulate(
                 realized_gain_usd=tx.realized_gain_usd,
                 holding_period=tx.holding_period,
             )
-
-        if failed_at is None:
-            for tx in db.query(Transaction).filter(Transaction.id.in_(before.keys())).all():
-                old_gain, old_hp = before[tx.id]
-                if (tx.realized_gain_usd, tx.holding_period) != (old_gain, old_hp):
-                    affected.append(AffectedTransaction(
-                        id=tx.id,
-                        type=tx.type,
-                        date=tx.timestamp,
-                        realized_gain_before=old_gain,
-                        realized_gain_after=tx.realized_gain_usd,
-                        holding_period_before=old_hp,
-                        holding_period_after=tx.holding_period,
-                    ))
-            balances = [
-                AccountBalance(account=b["name"], currency=b["currency"], balance=b["balance"])
-                for b in get_all_account_balances(db)
-            ]
+        if failed_at is not None:
+            return [], []
+        return _affected(before, db), _balances(db)
     finally:
         db.rollback()
 
-    return affected, balances
+
+def _create_until_refused(
+    ordered: list[PreparedRow], db: Session
+) -> tuple[list[tuple[PreparedRow, Transaction]], int | None]:
+    """Create the rows in order until one is refused (it is marked rejected):
+    (the rows created with their transactions, the refused row's position)."""
+    created: list[tuple[PreparedRow, Transaction]] = []
+    for pos, p in enumerate(ordered):
+        try:
+            tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+        except HTTPException as exc:
+            _reject(p, str(exc.detail))
+            return created, pos
+        except Exception as exc:  # defensive: surface, never write
+            logger.exception("Entry simulation failed on row %s", p.row)
+            _reject(p, f"Unexpected error: {exc}")
+            return created, pos
+        created.append((p, tx))
+    return created, None
+
+
+def _reject(p: PreparedRow, error: str) -> None:
+    p.result.status = STATUS_REJECTED
+    p.result.errors.append(error)
+
+
+def _mark_not_simulated(rows: list[PreparedRow]) -> None:
+    for p in rows:
+        p.result.status = STATUS_NOT_SIMULATED
+        p.result.warnings.append("Not simulated: an earlier row (chronologically) was rejected.")
+
+
+def _affected(before: dict, db: Session) -> list[AffectedTransaction]:
+    """The existing transactions whose gain or holding period the new rows change."""
+    affected = []
+    for tx in db.query(Transaction).filter(Transaction.id.in_(before.keys())).all():
+        old_gain, old_hp = before[tx.id]
+        if (tx.realized_gain_usd, tx.holding_period) != (old_gain, old_hp):
+            affected.append(AffectedTransaction(
+                id=tx.id,
+                type=tx.type,
+                date=tx.timestamp,
+                realized_gain_before=old_gain,
+                realized_gain_after=tx.realized_gain_usd,
+                holding_period_before=old_hp,
+                holding_period_after=tx.holding_period,
+            ))
+    return affected
+
+
+def _balances(db: Session) -> list[AccountBalance]:
+    return [
+        AccountBalance(account=b["name"], currency=b["currency"], balance=b["balance"])
+        for b in get_all_account_balances(db)
+    ]
 
 
 # Execute

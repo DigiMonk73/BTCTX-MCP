@@ -211,60 +211,12 @@ def build_review(db: Session) -> dict[str, Any]:
     )
     found: dict[str, list[dict[str, Any]]] = {key: [] for key in CHECKS}
     for t in rows:
-        purpose = (t.purpose or "").lower()
-        if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
-                and Decimal(t.gross_proceeds_usd) == 0:
-            found["zero_proceeds_spend"].append(_item(
-                t, tz, "Saved with $0 proceeds: its whole basis shows as a loss.",
-                "Proceeds you enter replace $0; the gain changes by the same amount.",
-            ))
-        if t.type == "Withdrawal" and purpose == "lost" and not (
-            t.realized_gain_usd is not None and Decimal(t.realized_gain_usd) == 0
-        ):
-            found["lost_with_loss"].append(_item(
-                t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
-                "Gain becomes $0.00 after Recalculate Ledger.",
-            ))
-        if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-                and (t.source or "").lower() not in INCOME_SOURCES and _is_zero_or_blank(t.cost_basis_usd):
-            found["deposit_without_basis"].append(_item(
-                t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
-                "A basis you enter lowers the gain when this BTC is sold by the same amount.",
-            ))
-    names = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized_gain_usd": "gain",
-             "taxable_gain": "taxable gain incl. network fees"}
-    for tx_id, diff in sorted((moved or {}).items(),
-                              key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
-        t = db.get(Transaction, tx_id)
-        parts = [f"{names[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}" for f, (old, new) in diff.items()]
-        item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
-        item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
-        found["recalc_changes"].append(item)
-
+        for key, item in _row_issues(t, tz):
+            found[key].append(item)
+    found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
+    found["fee_value_off"] = _fee_value_items(db, tz)
     missing: list[int] = []
-    for change in fee_price_changes(db):
-        t = db.get(Transaction, change["id"])
-        found["fee_value_off"].append(_item(
-            t, tz, f"Fee {t.fee_amount} BTC stored as ${_money(change['old'])}; at that day's price "
-                   f"(${_money(change['price'])}) it is ${_money(change['new'])}.",
-            f"Fee value ${_money(change['old'])} -> ${_money(change['new'])}; the fee's gain changes by "
-            f"${_money(change['new'] - change['old'])}.",
-        ))
-    for t in rows:
-        if not (t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS
-                and (t.source or "").lower() in INCOME_SOURCES and t.cost_basis_usd):
-            continue
-        price = _day_price(db, t, missing)
-        if price is None:
-            continue
-        expected = (price * Decimal(t.amount)).quantize(CENT)
-        if _off(t.cost_basis_usd, expected):
-            found["income_value_off"].append(_item(
-                t, tz, f"Basis ${_money(t.cost_basis_usd)}; at that day's price (${_money(price)}) "
-                       f"it is ${_money(expected)}.",
-                f"Basis (and the income reported) ${_money(t.cost_basis_usd)} -> ${_money(expected)} "
-                "if you change it.",
-            ))
+    found["income_value_off"] = _income_value_items(db, rows, tz, missing)
 
     checks = [
         {"key": key, "title": title, "action": action, "count": len(found[key]), "items": found[key]}
@@ -278,6 +230,83 @@ def build_review(db: Session) -> dict[str, Any]:
         "no_price_for": missing,
         "recalc_error": recalc_error,
     }
+
+
+def _row_issues(t: Transaction, tz):
+    """(check, item) for each check a withdrawal or deposit fails on its own."""
+    purpose = (t.purpose or "").lower()
+    if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
+            and Decimal(t.gross_proceeds_usd) == 0:
+        yield "zero_proceeds_spend", _item(
+            t, tz, "Saved with $0 proceeds: its whole basis shows as a loss.",
+            "Proceeds you enter replace $0; the gain changes by the same amount.",
+        )
+    if t.type == "Withdrawal" and purpose == "lost" and not (
+        t.realized_gain_usd is not None and Decimal(t.realized_gain_usd) == 0
+    ):
+        yield "lost_with_loss", _item(
+            t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
+            "Gain becomes $0.00 after Recalculate Ledger.",
+        )
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() not in INCOME_SOURCES and _is_zero_or_blank(t.cost_basis_usd):
+        yield "deposit_without_basis", _item(
+            t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
+            "A basis you enter lowers the gain when this BTC is sold by the same amount.",
+        )
+
+
+# How the recalculation items name the figures.
+FIGURE_NAMES = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized_gain_usd": "gain",
+                "taxable_gain": "taxable gain incl. network fees"}
+
+
+def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
+    """The transactions whose figures Recalculate Ledger would change, in date order."""
+    items = []
+    for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
+        t = db.get(Transaction, tx_id)
+        parts = [f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
+                 for f, (old, new) in diff.items()]
+        item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
+        item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
+        items.append(item)
+    return items
+
+
+def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
+    items = []
+    for change in fee_price_changes(db):
+        t = db.get(Transaction, change["id"])
+        items.append(_item(
+            t, tz, f"Fee {t.fee_amount} BTC stored as ${_money(change['old'])}; at that day's price "
+                   f"(${_money(change['price'])}) it is ${_money(change['new'])}.",
+            f"Fee value ${_money(change['old'])} -> ${_money(change['new'])}; the fee's gain changes by "
+            f"${_money(change['new'] - change['old'])}.",
+        ))
+    return items
+
+
+def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
+    """Income deposits whose basis is off the day's price; the ids of those
+    with no price go to `missing`."""
+    items = []
+    for t in rows:
+        if not (t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS
+                and (t.source or "").lower() in INCOME_SOURCES and t.cost_basis_usd):
+            continue
+        price = _day_price(db, t, missing)
+        if price is None:
+            continue
+        expected = (price * Decimal(t.amount)).quantize(CENT)
+        if _off(t.cost_basis_usd, expected):
+            items.append(_item(
+                t, tz, f"Basis ${_money(t.cost_basis_usd)}; at that day's price (${_money(price)}) "
+                       f"it is ${_money(expected)}.",
+                f"Basis (and the income reported) ${_money(t.cost_basis_usd)} -> ${_money(expected)} "
+                "if you change it.",
+            ))
+    return items
 
 
 def format_text(review: dict[str, Any]) -> str:

@@ -395,6 +395,11 @@ commit)
   - A locked row's figures still change when recalculation runs.
   - Ledger Review's fee fix and Delete All ignore locks.
   - No test checks that a locked row refuses edits.
+- **The CSV export writes numbers through a float** (`routers/backup.py`,
+  `_csv_number`): exact for any realistic value (a BTC amount to the satoshi
+  up to 21 million, USD to the cent), but a USD amount over about $67
+  million with more than two decimals could print a wrong last digit.
+  Low priority; a fix would format the Decimal directly.
 - **`test_stress_and_forms.py`'s `create_tx` swallows failed saves**, and its
   random numbers are unseeded, so a failure there can hide or be hard to
   repeat. These are test-quality issues, not app bugs.
