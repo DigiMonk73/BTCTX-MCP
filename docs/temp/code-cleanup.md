@@ -295,9 +295,11 @@ fixed inside a cleanup commit.
       their own commits below. MCP tool docstrings untouched; 35 API
       descriptions (route and schema docstrings, shown only with DEBUG)
       corrected, the rest of `openapi.json` identical.
-- [ ] Modern type hints (`ruff --fix` with `UP`, plus the deprecated imports
+- [x] Modern type hints (`ruff --fix` with `UP`, plus the deprecated imports
       by hand), and `UP` switched on. Python 3.10 run; `openapi.json` and the
-      MCP schemas identical.
+      MCP schemas identical. The MCP tools keep `typing.Dict` results (the
+      `ToolResult` alias): with `dict` the SDK's output schema drops its
+      `{"result": …}` wrapper, which the check caught.
 
 **Reports** (a characterization-test commit first, where coverage is thin)
 - [ ] Complete tax report: one function per section, plus one table-style

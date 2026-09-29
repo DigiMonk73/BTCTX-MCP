@@ -7,7 +7,6 @@ POST /api/review/fee-prices: set the listed transfers' fee values to the
 day's price and recalculate. Login only: it changes tax figures.
 """
 
-from typing import List
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -28,7 +27,7 @@ def get_review(db: Session = Depends(get_db)):
 
 
 class FeePriceFix(BaseModel):
-    ids: List[int] = Field(..., min_length=1, max_length=10000)
+    ids: list[int] = Field(..., min_length=1, max_length=10000)
 
 
 @router.post("/fee-prices")

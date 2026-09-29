@@ -4,7 +4,6 @@ income (services/calculation.py), as JSON numbers.
 """
 
 from fastapi import APIRouter, Depends
-from typing import List, Dict
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
@@ -20,14 +19,14 @@ router = APIRouter(tags=["calculations"])
 
 
 @router.get("/account/{account_id}/balance")
-def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> Dict:
+def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> dict:
     """One account's balance: {"account_id", "balance"}."""
     balance = get_account_balance(db, account_id)
     return {"account_id": account_id, "balance": float(balance)}
 
 
 @router.get("/accounts/balances")
-def api_get_all_account_balances(db: Session = Depends(get_db)) -> List[Dict]:
+def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
     """Every account's balance: [{"account_id", "name", "currency", "balance"}]."""
     results = get_all_account_balances(db)
     for item in results:
@@ -36,7 +35,7 @@ def api_get_all_account_balances(db: Session = Depends(get_db)) -> List[Dict]:
 
 
 @router.get("/average-cost-basis")
-def api_get_average_cost_basis(db: Session = Depends(get_db)) -> Dict:
+def api_get_average_cost_basis(db: Session = Depends(get_db)) -> dict:
     """The average USD cost of the BTC still held: {"averageCostBasis"}."""
     average_basis_decimal = get_average_cost_basis(db)
     average_basis = float(average_basis_decimal)
@@ -45,7 +44,7 @@ def api_get_average_cost_basis(db: Session = Depends(get_db)) -> Dict:
 
 
 @router.get("/gains-and-losses")
-def api_get_gains_and_losses(db: Session = Depends(get_db)) -> Dict:
+def api_get_gains_and_losses(db: Session = Depends(get_db)) -> dict:
     """Realized gains and losses, income by source, proceeds and fees
     (services/calculation.get_gains_and_losses)."""
     calculations = get_gains_and_losses(db)

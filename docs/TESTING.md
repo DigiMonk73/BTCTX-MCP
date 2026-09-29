@@ -17,7 +17,7 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables) + bare `except`. Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt) | secs |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and modern syntax in the app code (`list[str]`, `X | None`). Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt) | secs |
 | Unit + integration | `make test-fast` | ~650 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, the AI key, MCP tools | ~1 min |
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
@@ -104,7 +104,9 @@ Everything the app produces is compared:
 The snapshots are JSON files in `.equivalence/` (gitignored). The release's
 is reused for the rest of the day while `scripts/equivalence_*.py` are
 unchanged. Any difference is printed as a short diff per item and makes it
-exit 1.
+exit 1. The API descriptions (text only the API docs show, with DEBUG)
+are listed but not counted; MCP tool descriptions are, since the AI reads
+them.
 
 ## Click-through tests (Playwright)
 

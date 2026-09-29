@@ -4,7 +4,6 @@ follows.
 """
 
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Optional
 
 # For every new password (Register, Settings, the CLI). A password set before
 # v1.1.0 that is shorter still logs in.
@@ -45,14 +44,14 @@ class UserUpdate(BaseModel):
     current_password (PATCH /api/users/{id}) is checked by the router.
     setup_code: while the account has the default login (first_run.py).
     """
-    username: Optional[str] = None
-    password: Optional[str] = None
-    current_password: Optional[str] = None
-    setup_code: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    current_password: str | None = None
+    setup_code: str | None = None
 
     @field_validator("username", "password")
     @classmethod
-    def not_blank(cls, v: Optional[str]) -> Optional[str]:
+    def not_blank(cls, v: str | None) -> str | None:
         """An empty value is refused rather than read as "keep the old one";
         leave the field out to keep it."""
         if v is not None and not v.strip():
@@ -61,7 +60,7 @@ class UserUpdate(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def long_enough(cls, v: Optional[str]) -> Optional[str]:
+    def long_enough(cls, v: str | None) -> str | None:
         return v if v is None else check_new_password(v)
 
 

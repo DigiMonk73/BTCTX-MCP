@@ -13,7 +13,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
@@ -92,12 +91,12 @@ def _copy_at_most(src, dst, limit: int) -> None:
         dst.write(chunk)
 
 
-def _login_in_use(db: Session) -> Optional[tuple]:
+def _login_in_use(db: Session) -> tuple | None:
     user = db.query(User).order_by(User.id).first()
     return (user.username, user.password_hash) if user else None
 
 
-def _keep_login(db: Session, login: Optional[tuple]) -> None:
+def _keep_login(db: Session, login: tuple | None) -> None:
     """Put the login from before a restore back on the restored account."""
     user = db.query(User).order_by(User.id).first()
     if login is None or user is None:

@@ -5,7 +5,6 @@ filled with pypdf), the complete tax report and the transaction history.
 
 from fastapi import APIRouter, Depends, Response, Query, HTTPException
 from sqlalchemy.orm import Session
-from typing import Dict, List
 from io import BytesIO
 from pypdf import PdfReader, PdfWriter
 import os
@@ -35,7 +34,7 @@ reports_router = APIRouter()
 
 
 @reports_router.get("/years")
-def get_report_years(db: Session = Depends(get_db)) -> Dict[str, List[int]]:
+def get_report_years(db: Session = Depends(get_db)) -> dict[str, list[int]]:
     """
     The years the Reports page offers: `ledger_years` from the first
     transaction's tax year (in the tax timezone) to this year, newest first,
@@ -96,7 +95,7 @@ def get_irs_reports(
 
         logger.debug(f"Generating IRS reports for {year}: {len(short_rows)} short-term, {len(long_rows)} long-term disposals")
 
-        partial_pdfs: List[bytes] = []
+        partial_pdfs: list[bytes] = []
 
         # Each template copy is one physical sheet:
         # Page1 holds Part I (short-term) and Page2 holds Part II (long-term).
@@ -111,7 +110,7 @@ def get_irs_reports(
         long_chunks = _chunks_by_box(long_rows, rows_per_page)
 
         for short_chunk, long_chunk in zip_longest(short_chunks, long_chunks):
-            field_data: Dict[str, str] = {}
+            field_data: dict[str, str] = {}
             if short_chunk:
                 field_data.update(map_8949_rows_to_field_data(short_chunk, page=1, year=year))
             if long_chunk:
@@ -161,7 +160,7 @@ def get_simple_transaction_history(
     )
 
 
-def _merge_all_pdfs(pdf_list: List[bytes]) -> bytes:
+def _merge_all_pdfs(pdf_list: list[bytes]) -> bytes:
     """The PDFs' pages, in order, as one PDF."""
     writer = PdfWriter()
     for pdf_data in pdf_list:
@@ -174,9 +173,9 @@ def _merge_all_pdfs(pdf_list: List[bytes]) -> bytes:
     return merged_stream.getvalue()
 
 
-def _chunks_by_box(rows: List[Form8949Row], size: int) -> List[List[Form8949Row]]:
+def _chunks_by_box(rows: list[Form8949Row], size: int) -> list[list[Form8949Row]]:
     """Split rows into page-sized chunks that never mix Form 8949 boxes."""
-    by_box: Dict[str, List[Form8949Row]] = {}
+    by_box: dict[str, list[Form8949Row]] = {}
     for row in rows:
         by_box.setdefault(row.box, []).append(row)
     return [
@@ -186,7 +185,7 @@ def _chunks_by_box(rows: List[Form8949Row], size: int) -> List[List[Form8949Row]
     ]
 
 
-def get_supported_years() -> List[int]:
+def get_supported_years() -> list[int]:
     """The tax years with both IRS templates in backend/assets/irs_templates/."""
     years = []
     if not os.path.exists(_ASSETS_DIR):

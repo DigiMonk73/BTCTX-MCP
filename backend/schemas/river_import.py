@@ -5,7 +5,6 @@ the user sends back to import.
 
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -16,23 +15,23 @@ class RiverProposalOut(BaseModel):
     """One proposed transaction shown in the import preview."""
     row_number: int
     date: datetime
-    river_tag: Optional[str] = None
+    river_tag: str | None = None
     type: str
     from_account: str
     to_account: str
     amount: Decimal
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
-    source: Optional[str] = None
-    purpose: Optional[str] = None
-    type_choices: List[str] = []
-    funding_choices: List[str] = []
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
+    source: str | None = None
+    purpose: str | None = None
+    type_choices: list[str] = []
+    funding_choices: list[str] = []
     basis_autofilled: bool = False
     status: str  # "new" | "matched" | "discrepancy"
-    matched_tx_id: Optional[int] = None
-    discrepancy: Optional[str] = None
+    matched_tx_id: int | None = None
+    discrepancy: str | None = None
 
 
 class RiverPreviewResponse(BaseModel):
@@ -41,9 +40,9 @@ class RiverPreviewResponse(BaseModel):
     new_count: int
     matched_count: int
     discrepancy_count: int
-    proposals: List[RiverProposalOut]
-    errors: List[CSVParseError]
-    warnings: List[CSVParseError]
+    proposals: list[RiverProposalOut]
+    errors: list[CSVParseError]
+    warnings: list[CSVParseError]
 
 
 class RiverExecuteRow(BaseModel):
@@ -56,16 +55,16 @@ class RiverExecuteRow(BaseModel):
     amount: Decimal
     from_account: str
     to_account: str
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
-    source: Optional[str] = None
-    purpose: Optional[str] = None
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
+    source: str | None = None
+    purpose: str | None = None
 
 
 class RiverExecuteRequest(BaseModel):
-    rows: List[RiverExecuteRow]
+    rows: list[RiverExecuteRow]
 
 
 class RiverImportResponse(BaseModel):

@@ -35,7 +35,6 @@ import os
 import secrets
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy.orm import Session
 from starlette.routing import compile_path
@@ -81,7 +80,7 @@ def key_may_use(method: str, path: str) -> bool:
 
 
 # Mode and storage
-def key_file() -> Optional[Path]:
+def key_file() -> Path | None:
     """The Mac app's key file, or None everywhere else."""
     path = os.environ.get("BTCTX_MCP_FILE")
     return Path(path) if (path and is_desktop()) else None
@@ -99,14 +98,14 @@ def _new_token() -> str:
     return PREFIX + secrets.token_urlsafe(32)
 
 
-def _get(db: Session, key: str) -> Optional[str]:
+def _get(db: Session, key: str) -> str | None:
     from backend.models.app_setting import AppSetting
 
     row = db.get(AppSetting, key)
     return row.value if row else None
 
 
-def _set(db: Session, key: str, value: Optional[str]) -> None:
+def _set(db: Session, key: str, value: str | None) -> None:
     """Store a setting; None deletes it."""
     from backend.models.app_setting import AppSetting
 
@@ -153,7 +152,7 @@ def revoke(db: Session) -> None:
 
 
 # Mac mode: the key lives in the owner-only key file
-def _read_file_token(path: Path) -> Optional[str]:
+def _read_file_token(path: Path) -> str | None:
     try:
         token = json.loads(path.read_text()).get("token")
     except (OSError, ValueError, AttributeError):
@@ -240,13 +239,13 @@ class KeyRefused(Exception):
     """A key was presented but can't be used; the message says why."""
 
 
-def bearer_token(authorization: Optional[str]) -> Optional[str]:
+def bearer_token(authorization: str | None) -> str | None:
     if authorization and authorization[:7].lower() == "bearer ":
         return authorization[7:].strip() or None
     return None
 
 
-def check_key(token: str, client_host: Optional[str], db: Session) -> None:
+def check_key(token: str, client_host: str | None, db: Session) -> None:
     """Accept or raise KeyRefused. Refusals are logged without the key."""
     if mode() == "mac" and client_host not in LOCAL_HOSTS:
         logger.warning("AI key refused: request from %s, not this computer", client_host)

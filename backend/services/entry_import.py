@@ -21,7 +21,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -71,12 +71,12 @@ BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 @dataclass
 class PreparedRow:
     row: int
-    tx_data: Optional[Dict[str, Any]] = None
+    tx_data: dict[str, Any] | None = None
     result: EntryResult = None
 
 
 # Validation
-def _dec_str(value: Optional[Decimal]) -> str:
+def _dec_str(value: Decimal | None) -> str:
     return format(value, "f") if value is not None else ""
 
 
@@ -102,7 +102,7 @@ def _normalize_date(raw: str, tz) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def normalized_view(tx_data: Dict[str, Any]) -> Dict[str, Optional[str]]:
+def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
     """Echo the validated row back in canonical form."""
     ts: datetime = tx_data["timestamp"]
     view = {
@@ -121,9 +121,9 @@ def normalized_view(tx_data: Dict[str, Any]) -> Dict[str, Optional[str]]:
     return view
 
 
-def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
+def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
     """Validate every row with the CSV importer's rules (dates in tax timezone `tz`)."""
-    prepared: List[PreparedRow] = []
+    prepared: list[PreparedRow] = []
     for i, row in enumerate(rows, start=1):
         str_row = {
             "date": _normalize_date(row.date, tz),
@@ -171,7 +171,7 @@ def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
 
 
 # FMV autofill
-def _autofill_target(tx_data: Dict[str, Any]) -> Optional[str]:
+def _autofill_target(tx_data: dict[str, Any]) -> str | None:
     """
     Which USD field (if any) should be filled from the day's BTC price. Only
     BTC moves: a deposit into or withdrawal from Bank or Exchange USD is in
@@ -191,7 +191,7 @@ def _autofill_target(tx_data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-async def autofill_fmv(prepared: List[PreparedRow], db: Session) -> None:
+async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     """
     Fill FMV-derived USD values the tax math needs but the caller omitted:
       - Income/Interest/Reward deposits: cost basis = FMV at receipt
@@ -200,7 +200,7 @@ async def autofill_fmv(prepared: List[PreparedRow], db: Session) -> None:
     Uses the daily historical price; on lookup failure the field stays
     empty and the row gets a warning.
     """
-    price_cache: Dict[str, Optional[Decimal]] = {}
+    price_cache: dict[str, Decimal | None] = {}
     for p in prepared:
         if p.tx_data is None:
             continue
@@ -244,7 +244,7 @@ def _stub(p: PreparedRow) -> RiverProposal:
     )
 
 
-def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool = False) -> None:
+def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool = False) -> None:
     """
     Exact match (same type family, same BTC amount, ±48h, and for a Buy the
     same cost basis) => duplicate, never written.
@@ -259,7 +259,7 @@ def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool =
 
     exact_stubs = [_stub(p) for p in valid]
     annotate_duplicates(exact_stubs, db, exact_only=True)
-    fuzzy_stubs: List[Optional[RiverProposal]] = [None] * len(valid)
+    fuzzy_stubs: list[RiverProposal | None] = [None] * len(valid)
     if not exact_only:
         fuzzy_stubs = [_stub(p) for p in valid]
         annotate_duplicates(fuzzy_stubs, db)
@@ -284,7 +284,7 @@ def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool =
 
 
 # Dry run
-def _chronological(prepared: List[PreparedRow]) -> List[PreparedRow]:
+def _chronological(prepared: list[PreparedRow]) -> list[PreparedRow]:
     writable = [
         p for p in prepared
         if p.tx_data is not None and p.result.status in WRITABLE_STATUSES
@@ -295,7 +295,7 @@ def _chronological(prepared: List[PreparedRow]) -> List[PreparedRow]:
     )
 
 
-def _gain_snapshot(db: Session) -> Dict[int, Tuple[Optional[Decimal], Optional[str]]]:
+def _gain_snapshot(db: Session) -> dict[int, tuple[Decimal | None, str | None]]:
     return {
         tx.id: (tx.realized_gain_usd, tx.holding_period)
         for tx in db.query(Transaction).all()
@@ -303,8 +303,8 @@ def _gain_snapshot(db: Session) -> Dict[int, Tuple[Optional[Decimal], Optional[s
 
 
 def simulate(
-    prepared: List[PreparedRow], db: Session
-) -> Tuple[List[AffectedTransaction], List[AccountBalance]]:
+    prepared: list[PreparedRow], db: Session
+) -> tuple[list[AffectedTransaction], list[AccountBalance]]:
     """
     Run the real create path for every writable row, record what the ledger
     computed, then roll everything back. Stops at the first rejected row
@@ -317,11 +317,11 @@ def simulate(
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
 
-    affected: List[AffectedTransaction] = []
-    balances: List[AccountBalance] = []
+    affected: list[AffectedTransaction] = []
+    balances: list[AccountBalance] = []
     before = _gain_snapshot(db)
-    created: List[Tuple[PreparedRow, Transaction]] = []
-    failed_at: Optional[int] = None
+    created: list[tuple[PreparedRow, Transaction]] = []
+    failed_at: int | None = None
 
     try:
         for pos, p in enumerate(ordered):
@@ -381,7 +381,7 @@ def simulate(
 
 
 # Execute
-def write_rows(prepared: List[PreparedRow], db: Session) -> List[Tuple[PreparedRow, Transaction]]:
+def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
     """
     Atomically create every writable row in chronological order.
     Raises HTTPException(400) and rolls back on the first failure.
@@ -391,7 +391,7 @@ def write_rows(prepared: List[PreparedRow], db: Session) -> List[Tuple[PreparedR
         return []
 
     ensure_fee_account_exists(db)
-    created: List[Tuple[PreparedRow, Transaction]] = []
+    created: list[tuple[PreparedRow, Transaction]] = []
     try:
         for p in ordered:
             try:

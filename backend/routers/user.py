@@ -5,7 +5,6 @@ and changes to the logged-in user's name and password.
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -63,8 +62,8 @@ def _require_self(user_id: int, request: Request, db: Session) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own account.")
 
 
-def _authorize_change(user: User, request: Request, current_password: Optional[str],
-                      setup_code: Optional[str], default_login_ok: bool) -> None:
+def _authorize_change(user: User, request: Request, current_password: str | None,
+                      setup_code: str | None, default_login_ok: bool) -> None:
     """
     May the login of `user` be changed? With its current password, or, while
     it still has the default login and default_login_ok, by knowing that
@@ -105,8 +104,8 @@ def setup_status(db: Session = Depends(get_db)):
 class AccountReset(BaseModel):
     username: str
     password: str
-    current_password: Optional[str] = None
-    setup_code: Optional[str] = None
+    current_password: str | None = None
+    setup_code: str | None = None
 
     @field_validator("username", "password")
     @classmethod
@@ -145,7 +144,7 @@ def reset_account(payload: AccountReset, request: Request, db: Session = Depends
     return {"detail": "Account reset. Log in with your new credentials."}
 
 
-@router.get("/", response_model=List[UserRead])
+@router.get("/", response_model=list[UserRead])
 def get_users(request: Request, db: Session = Depends(get_db)):
     """List users (logged-in only)."""
     _session_user_id(request, db)

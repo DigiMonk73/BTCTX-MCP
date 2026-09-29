@@ -14,7 +14,6 @@ import logging
 import os
 import secrets
 import tempfile
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ PUBLIC_DEFAULTS = {
 }
 
 
-def _read_key(path: str) -> Optional[str]:
+def _read_key(path: str) -> str | None:
     try:
         with open(path, encoding="utf-8") as fh:
             return fh.read().strip()

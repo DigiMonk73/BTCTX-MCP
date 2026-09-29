@@ -7,7 +7,7 @@ templates that the rows and totals go into.
 import logging
 from datetime import date, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Tuple, List, Dict, Literal
+from typing import Literal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -57,7 +57,7 @@ class Form8949Row:
         # adjustments. The box letter is NOT a column (f) code — it's the
         # checkbox at the top of the row's Part.
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to a dictionary with final, rounded decimal amounts."""
         return {
             "description": self.description,
@@ -82,7 +82,7 @@ class Form8949Row:
 NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
 
 
-def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
+def taxable_disposals(db: Session, start, end) -> list[LotDisposal]:
     """
     The lot disposals that go on Form 8949 for [start, end): sales, spends
     and network fees (a gift's fee too); not gifts, donations or lost coins. The complete tax
@@ -108,7 +108,7 @@ def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
 def build_form_8949_and_schedule_d(
     year: int,
     db: Session,
-) -> Dict:
+) -> dict:
     """
     Gathers all LotDisposals for the given tax year, separates short vs. long,
     and returns a dict for your get_irs_reports route:
@@ -127,8 +127,8 @@ def build_form_8949_and_schedule_d(
 
     disposals = taxable_disposals(db, start_date, end_date)
 
-    rows_short: List[Form8949Row] = []
-    rows_long: List[Form8949Row] = []
+    rows_short: list[Form8949Row] = []
+    rows_long: list[Form8949Row] = []
 
     for disp in disposals:
         broker_reported, basis_reported = _broker_reporting(disp, year, tz)
@@ -183,7 +183,7 @@ def build_form_8949_and_schedule_d(
 COVERED_DIGITAL_ASSET_START = date(2026, 1, 1)
 
 
-def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> Tuple[bool, bool]:
+def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bool, bool]:
     """
     (reported on a 1099-DA?, basis reported?) for one lot disposal.
 
@@ -249,19 +249,19 @@ SCHEDULE_D_LINE_FOR_BOX = {
 }
 
 
-def _build_schedule_d_data(short_rows: List[Form8949Row], long_rows: List[Form8949Row]) -> Dict[str, Dict[str, Decimal]]:
+def _build_schedule_d_data(short_rows: list[Form8949Row], long_rows: list[Form8949Row]) -> dict[str, dict[str, Decimal]]:
     """
     Schedule D totals: overall short/long, plus per line ("1b", "2", "3",
     "8b", "9", "10") keyed by the rows' Form 8949 box.
     """
-    def totals(rows: List[Form8949Row]) -> Dict[str, Decimal]:
+    def totals(rows: list[Form8949Row]) -> dict[str, Decimal]:
         return {
             "proceeds": Form8949Row._round(sum((r.proceeds for r in rows), Decimal("0"))),
             "cost": Form8949Row._round(sum((r.cost for r in rows), Decimal("0"))),
             "gain_loss": Form8949Row._round(sum((r.gain_loss for r in rows), Decimal("0"))),
         }
 
-    by_line: Dict[str, List[Form8949Row]] = {}
+    by_line: dict[str, list[Form8949Row]] = {}
     for r in short_rows + long_rows:
         by_line.setdefault(SCHEDULE_D_LINE_FOR_BOX[r.box], []).append(r)
 
@@ -273,7 +273,7 @@ def _build_schedule_d_data(short_rows: List[Form8949Row], long_rows: List[Form89
 
 
 
-def get_8949_field_config(year: int) -> Dict:
+def get_8949_field_config(year: int) -> dict:
     """
     Return year-specific field configuration for Form 8949.
 
@@ -326,7 +326,7 @@ def get_8949_field_config(year: int) -> Dict:
         }
 
 
-def get_schedule_d_field_config(year: int) -> Dict[str, List[str]]:
+def get_schedule_d_field_config(year: int) -> dict[str, list[str]]:
     """
     Field names for each Schedule D line the app fills, in column order
     (d) proceeds, (e) cost, (g) adjustments, (h) gain or loss.
@@ -350,7 +350,7 @@ def get_schedule_d_field_config(year: int) -> Dict[str, List[str]]:
 
 
 
-def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
+def checkbox_field_for_box(box: str, page: int, year: int) -> tuple[str, str]:
     """
     (field name, on-state) of the Part I/II checkbox for `box`.
     The state is a PDF name like "/6" (fill_pdf_form sets it as the value).
@@ -366,13 +366,13 @@ def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
     )
 
 
-def line2_field_names(page: int, year: int) -> Dict[str, str]:
+def line2_field_names(page: int, year: int) -> dict[str, str]:
     """Line 2 "Totals" field of Part I (page 1) or Part II (page 2), by column letter d..h."""
     numbers = get_8949_field_config(year)["line2_fields"]
     return {col: f"topmostSubform[0].Page{page}[0].f{page}_{n}[0]" for col, n in numbers.items()}
 
 
-def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: int = 2024) -> Dict[str, str]:
+def map_8949_rows_to_field_data(rows: list[Form8949Row], page: int = 1, year: int = 2024) -> dict[str, str]:
     """
     Fills the rows of ONE part of a Form 8949 sheet, using year-specific naming.
 
@@ -415,7 +415,7 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
     prefix_num = page
     prefix = f"f{prefix_num}_"
 
-    field_data: Dict[str, str] = {}
+    field_data: dict[str, str] = {}
 
     # One box per Part per sheet: every row on the page must share it
     boxes = {r.box for r in rows}
@@ -491,7 +491,7 @@ def map_8949_rows_to_field_data(rows: List[Form8949Row], page: int = 1, year: in
     return field_data
 
 
-def map_schedule_d_fields(schedule_d: Dict, year: int = 2024) -> Dict[str, str]:
+def map_schedule_d_fields(schedule_d: dict, year: int = 2024) -> dict[str, str]:
     """
     Fill each Schedule D line that has Form 8949 rows: line 1b (A/G), 2 (B/H),
     3 (C/I), 8b (D/J), 9 (E/K), 10 (F/L). Adjustments (g) are blank.
@@ -501,7 +501,7 @@ def map_schedule_d_fields(schedule_d: Dict, year: int = 2024) -> Dict[str, str]:
     if lines is None:
         lines = {"3": schedule_d["short_term"], "10": schedule_d["long_term"]}
     config = get_schedule_d_field_config(year)
-    fields: Dict[str, str] = {}
+    fields: dict[str, str] = {}
     for line, t in lines.items():
         proceeds, cost, adjustment, gain = config[line]
         fields[proceeds] = str(t["proceeds"])

@@ -9,7 +9,6 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
-from typing import List, Dict
 import logging
 
 from backend.models.account import Account
@@ -31,7 +30,7 @@ def get_account_balance(db: Session, account_id: int) -> Decimal:
     return total or Decimal("0.0")
 
 
-def get_all_account_balances(db: Session) -> List[Dict]:
+def get_all_account_balances(db: Session) -> list[dict]:
     """
     Returns a list of all accounts (id, name, currency) plus their current balance.
     Balances are computed in a single grouped query instead of one query per account.

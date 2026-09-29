@@ -20,7 +20,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
 from collections import defaultdict
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -1275,7 +1274,7 @@ DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 
 
-def _canonical(value, choices) -> Optional[str]:
+def _canonical(value, choices) -> str | None:
     """The listed spelling of a case-insensitive match, else None."""
     if value is None:
         return None

@@ -3,7 +3,6 @@ The accounts (the six fixed ones; database.FIXED_ACCOUNTS).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
 from sqlalchemy.orm import Session
 from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead
 from backend.services import account as account_service
@@ -12,7 +11,7 @@ from backend.database import get_db
 router = APIRouter(tags=["accounts"])
 
 
-@router.get("/", response_model=List[AccountRead])
+@router.get("/", response_model=list[AccountRead])
 def list_accounts(db: Session = Depends(get_db)):
     """Every account."""
     return account_service.get_all_accounts(db)

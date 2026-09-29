@@ -6,7 +6,8 @@ complete_tax_report.py turns it into the PDF.
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Dict, Any, Iterator, List
+from typing import Any
+from collections.abc import Iterator
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 import sqlite3
@@ -67,7 +68,7 @@ def _scratch_copy(db: Session) -> Iterator[Session]:
         memory.close()
 
 
-def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
+def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     """
     Generates a comprehensive dictionary of data for the specified tax year (YYYY).
     This data can be passed to PDF generators or any other reporting interface.
@@ -137,7 +138,7 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     return result
 
 
-def _build_start_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]]:
+def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     """
     BTC held when the tax year begins, valued at the Jan 1 BTC price. Replays
     only the transactions before that instant, as the year-end snapshot does,
@@ -176,7 +177,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]
     return results
 
 
-def _build_capital_gains_summary(disposals: List[LotDisposal]) -> Dict[str, Any]:
+def _build_capital_gains_summary(disposals: list[LotDisposal]) -> dict[str, Any]:
     """
     Short- and long-term totals from the Form 8949 disposals (form_8949.
     taxable_disposals), each lot slice in its own holding period. It used to
@@ -207,7 +208,7 @@ def _build_capital_gains_summary(disposals: List[LotDisposal]) -> Dict[str, Any]
     }
 
 
-def _build_income_summary(txns: List[Transaction]) -> Dict[str, Any]:
+def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
     """
     Summarizes BTC deposits where source is "Income", "Reward", or "Interest."
     Note: This example interprets cost_basis_usd as the deposit's "value."
@@ -243,7 +244,7 @@ def _build_income_summary(txns: List[Transaction]) -> Dict[str, Any]:
     }
 
 
-def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> List[Dict[str, Any]]:
+def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> list[dict[str, Any]]:
     """Realized profit / loss / net on BTC for the tax year, from the lot disposals."""
 
     gains = [Decimal(d.realized_gain_usd or 0) for d in taxable_disposals(db, start_dt, end_dt)]
@@ -257,7 +258,7 @@ def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> L
     }]
 
 
-def _build_end_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]]:
+def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     """
     BTC still held at the end of `year`, valued at the Dec 31 BTC price.
     Expects the lots to be a year-end snapshot (see generate_report_data).
@@ -316,7 +317,7 @@ def _build_end_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]]:
     return rows
 
 
-def _disposal_row(d: LotDisposal) -> Dict[str, Any]:
+def _disposal_row(d: LotDisposal) -> dict[str, Any]:
     tx = d.transaction
     lot = d.lot
     return {
@@ -332,7 +333,7 @@ def _disposal_row(d: LotDisposal) -> Dict[str, Any]:
     }
 
 
-def _build_capital_gains_transactions_summary(disposals: List[LotDisposal]) -> List[Dict[str, Any]]:
+def _build_capital_gains_transactions_summary(disposals: list[LotDisposal]) -> list[dict[str, Any]]:
     """
     One line per Form 8949 disposal (a sale across lots gives one line per
     lot, each in its own holding period), including transfer fees.
@@ -340,7 +341,7 @@ def _build_capital_gains_transactions_summary(disposals: List[LotDisposal]) -> L
     return [_disposal_row(d) for d in disposals]
 
 
-def _build_capital_gains_transactions_detailed(disposals: List[LotDisposal]) -> List[Dict[str, Any]]:
+def _build_capital_gains_transactions_detailed(disposals: list[LotDisposal]) -> list[dict[str, Any]]:
     """The same lines under the per-lot field names older callers use."""
     return [
         {
@@ -357,7 +358,7 @@ def _build_capital_gains_transactions_detailed(disposals: List[LotDisposal]) -> 
     ]
 
 
-def _build_income_transactions(txns: List[Transaction]) -> List[Dict[str, Any]]:
+def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
     """
     Builds a list of all deposits that might be categorized as "Income", "Reward", or "Interest."
     This is separate from the summarized totals in _build_income_summary; 
@@ -398,7 +399,7 @@ def _build_income_transactions(txns: List[Transaction]) -> List[Dict[str, Any]]:
     return results
 
 
-def _build_gifts_donations_lost(txns: List[Transaction]) -> List[Dict[str, Any]]:
+def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]:
     """
     Gathers any withdrawals with purpose in ("Gift","Donation","Lost").
     Shown separately for tax/record-keeping.
@@ -425,7 +426,7 @@ def _build_gifts_donations_lost(txns: List[Transaction]) -> List[Dict[str, Any]]
     return results
 
 
-def _build_expenses_list(txns: List[Transaction]) -> List[Dict[str, Any]]:
+def _build_expenses_list(txns: list[Transaction]) -> list[dict[str, Any]]:
     """
     Identifies transactions marked as a "Withdrawal" with purpose="Expenses."
     Useful for business expense tracking or personal record-keeping.
@@ -444,7 +445,7 @@ def _build_expenses_list(txns: List[Transaction]) -> List[Dict[str, Any]]:
     return results
 
 
-def _gather_data_sources(txns: List[Transaction]) -> List[str]:
+def _gather_data_sources(txns: list[Transaction]) -> list[str]:
     """
     Example function that collects any unique `tx.source` strings to show
     where the data originated. Expand to handle additional fields if needed.

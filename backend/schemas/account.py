@@ -3,7 +3,6 @@ The account API's request and response shapes; a currency is USD or BTC.
 """
 
 from pydantic import BaseModel, field_validator, ConfigDict
-from typing import Optional
 
 VALID_CURRENCIES = {"USD", "BTC"}
 
@@ -32,8 +31,8 @@ class AccountCreate(AccountBase):
 
 class AccountUpdate(BaseModel):
     """The name or currency of an account, either optional."""
-    name: Optional[str] = None
-    currency: Optional[str] = None
+    name: str | None = None
+    currency: str | None = None
 
     @field_validator("currency")
     @classmethod

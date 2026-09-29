@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from typing import Optional
 
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
@@ -27,7 +26,7 @@ def start_session(request: Request, user: User) -> None:
     request.session[STAMP_KEY] = credential_stamp(user)
 
 
-def session_user_id(request: Request, db: Session) -> Optional[int]:
+def session_user_id(request: Request, db: Session) -> int | None:
     """The logged-in user's id, or None (a stale session is cleared)."""
     user_id = request.session.get("user_id")
     if not user_id:

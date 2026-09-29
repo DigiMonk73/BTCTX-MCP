@@ -26,7 +26,7 @@ connector, the CLI, curl, tests) and carry no browser cookie to abuse.
 
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 from urllib.parse import urlsplit
 
 from starlette.responses import JSONResponse
@@ -99,7 +99,7 @@ CROSS_SITE_REFUSED = "Refused: this request came from another site's page."
 DEFAULT_PORTS = {"http": "80", "https": "443"}
 
 
-def _header(scope: Scope, name: bytes) -> Optional[str]:
+def _header(scope: Scope, name: bytes) -> str | None:
     for key, value in scope.get("headers", []):
         if key == name:
             return value.decode("latin-1").strip()

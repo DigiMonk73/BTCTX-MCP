@@ -27,7 +27,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import List, Optional
 
 PASSWORD_ENV = "BTCTX_NEW_PASSWORD"
 
@@ -185,7 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)

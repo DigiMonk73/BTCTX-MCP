@@ -6,7 +6,6 @@ the import result.
 from __future__ import annotations
 
 from pydantic import BaseModel
-from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 
@@ -19,19 +18,19 @@ class CSVRowPreview(BaseModel):
     amount: Decimal
     from_account: str
     to_account: str
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
-    source: Optional[str] = None
-    purpose: Optional[str] = None
-    notes: Optional[str] = None
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
+    source: str | None = None
+    purpose: str | None = None
+    notes: str | None = None
 
 
 class CSVParseError(BaseModel):
     """An error or warning encountered during parsing."""
     row_number: int
-    column: Optional[str] = None
+    column: str | None = None
     message: str
     severity: str  # "error" or "warning"
 
@@ -41,9 +40,9 @@ class CSVPreviewResponse(BaseModel):
     success: bool
     total_rows: int
     valid_rows: int
-    transactions: List[CSVRowPreview]
-    errors: List[CSVParseError]
-    warnings: List[CSVParseError]
+    transactions: list[CSVRowPreview]
+    errors: list[CSVParseError]
+    warnings: list[CSVParseError]
     can_import: bool  # True only if no errors
 
 

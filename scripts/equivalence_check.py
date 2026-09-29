@@ -35,6 +35,9 @@ STORE = ROOT / ".equivalence"
 BASELINE = "v1.2.2-1"
 SLOWER_ALLOWED = 1.05
 DIFF_LINES = 40
+# Text only the API docs show (served with DEBUG): a difference is printed,
+# not counted. MCP tool descriptions are not here: the AI reads them.
+DOCS_ONLY = {("meta", "openapi_descriptions")}
 
 
 def main() -> int:
@@ -133,8 +136,11 @@ def _compare_file(before: Path, after: Path) -> int:
         old_lines, new_lines = _lines(old.get(key)), _lines(new.get(key))
         if old_lines == new_lines:  # as text, so a change of key order counts
             continue
-        differences += 1
-        print(f"✗ {before.stem} → {key}")
+        if (before.stem, key) in DOCS_ONLY:
+            print(f"~ {before.stem} → {key} (API docs text only, not counted)")
+        else:
+            differences += 1
+            print(f"✗ {before.stem} → {key}")
         diff = difflib.unified_diff(old_lines, new_lines, "before", "after", lineterm="", n=2)
         for line in list(diff)[:DIFF_LINES]:
             print(f"    {line}")

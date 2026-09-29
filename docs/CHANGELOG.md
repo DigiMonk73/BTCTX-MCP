@@ -20,6 +20,8 @@ All notable changes to BitcoinTX are documented in this file.
   or narration. The Transaction model's column descriptions no longer call
   its main fields "legacy". Two pieces of dead code went: `main.py`'s empty
   `__main__` block and an unused `services.user.delete_user`.
+- **Modern type hints** (`list[str]`, `dict`, `X | None`) in the app code,
+  and ruff's `UP` rules keep it that way (tests and migrations excepted).
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

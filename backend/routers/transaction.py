@@ -5,7 +5,6 @@ in UTC with a 'Z'.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from typing import List
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -37,7 +36,7 @@ def _attach_utc_and_build_read_model(tx) -> TransactionRead:
     return TransactionRead(**data)
 
 
-@router.get("", response_model=List[TransactionRead])
+@router.get("", response_model=list[TransactionRead])
 def list_transactions(db: Session = Depends(get_db)):
     """Every transaction, newest first."""
     raw_txs = tx_service.get_all_transactions(db)

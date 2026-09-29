@@ -23,7 +23,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from typing import Callable, Optional
+from collections.abc import Callable
 
 logger = logging.getLogger("BitcoinTX")
 
@@ -55,7 +55,7 @@ def bind_port(
     timeout: float = 10.0,
     interval: float = 0.5,
     sleep: Callable[[float], None] = time.sleep,
-) -> Optional[socket.socket]:
+) -> socket.socket | None:
     """
     A listening socket on HOST:port, retrying every `interval` seconds for up
     to `timeout` seconds. None if the port stays unavailable. Every failure is
@@ -84,7 +84,7 @@ def bind_any_port() -> socket.socket:
     return _listening_socket(0)
 
 
-def running_instance(port: int, timeout: float = 1.5) -> Optional[dict]:
+def running_instance(port: int, timeout: float = 1.5) -> dict | None:
     """
     The /api/health answer of a BitcoinTX already serving on `port`, or None.
     Anything else on the port (or nothing) returns None.
@@ -110,7 +110,7 @@ def running_instance(port: int, timeout: float = 1.5) -> Optional[dict]:
 RETRY, OTHER_PORT, QUIT = "Retry", "Use Another Port", "Quit"
 
 
-def _osascript(script: str) -> Optional[str]:
+def _osascript(script: str) -> str | None:
     try:
         out = subprocess.run(
             ["osascript", "-e", script], capture_output=True, text=True, timeout=600
@@ -162,8 +162,8 @@ def tell_already_running(port: int) -> None:
 def choose_socket(
     port: int,
     ask: Callable[[int], str] = ask_port_busy,
-    bind: Callable[[int], Optional[socket.socket]] = bind_port,
-) -> tuple[Optional[socket.socket], bool]:
+    bind: Callable[[int], socket.socket | None] = bind_port,
+) -> tuple[socket.socket | None, bool]:
     """
     (listening socket, fallback) for this session: the preferred port, or,
     only if the user chooses it, another port (fallback=True). (None, False)

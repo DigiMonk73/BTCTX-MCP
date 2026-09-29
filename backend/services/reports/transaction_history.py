@@ -32,7 +32,6 @@ which directly calls generate_transaction_history_report(...) to bypass advanced
 import logging
 from io import BytesIO
 from decimal import Decimal
-from typing import List, Optional
 
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -70,7 +69,7 @@ NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "rea
 
 
 # Utility: Format decimals with different precision for BTC vs. USD
-def _format_decimal(value: Optional[str], currency: str = "USD") -> str:
+def _format_decimal(value: str | None, currency: str = "USD") -> str:
     """
     Returns a string with 8 decimal places if currency = BTC,
     otherwise 2 decimal places for fiat (default USD).
@@ -283,7 +282,7 @@ def _get_account_name(accounts: dict, account_id: int) -> str:
 # CSV / PDF Generators
 
 
-def _generate_csv(rows: List[dict], year: int) -> str:
+def _generate_csv(rows: list[dict], year: int) -> str:
     """
     Build CSV data with columns:
       date,type,from_account,to_account,asset,amount,
@@ -324,7 +323,7 @@ def _escape_csv(val: str) -> str:
     return escaped
 
 
-def _generate_pdf(rows: List[dict], year: int) -> bytes:
+def _generate_pdf(rows: list[dict], year: int) -> bytes:
     """
     Build a PDF from the row dicts with columns:
       date, type, from_account, to_account, asset, amount,

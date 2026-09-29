@@ -21,7 +21,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -65,13 +65,13 @@ class RiverRow:
     """One parsed row of the River bitcoin-activity CSV."""
     row_number: int
     timestamp: datetime
-    sent: Optional[Decimal]
-    sent_currency: Optional[str]
-    received: Optional[Decimal]
-    received_currency: Optional[str]
-    fee: Optional[Decimal]
-    fee_currency: Optional[str]
-    tag: Optional[str]
+    sent: Decimal | None
+    sent_currency: str | None
+    received: Decimal | None
+    received_currency: str | None
+    fee: Decimal | None
+    fee_currency: str | None
+    tag: str | None
 
 
 @dataclass
@@ -79,24 +79,24 @@ class RiverProposal:
     """A proposed BitcoinTX transaction adapted from a River row."""
     row_number: int
     timestamp: datetime
-    river_tag: Optional[str]
+    river_tag: str | None
     type: str
     from_account_id: int
     to_account_id: int
     amount: Decimal
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
-    source: Optional[str] = None
-    purpose: Optional[str] = None
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
+    source: str | None = None
+    purpose: str | None = None
     # Preview metadata
-    type_choices: List[str] = field(default_factory=list)
-    funding_choices: List[str] = field(default_factory=list)
+    type_choices: list[str] = field(default_factory=list)
+    funding_choices: list[str] = field(default_factory=list)
     basis_autofilled: bool = False
     status: str = STATUS_NEW
-    matched_tx_id: Optional[int] = None
-    discrepancy: Optional[str] = None
+    matched_tx_id: int | None = None
+    discrepancy: str | None = None
 
     @property
     def from_account(self) -> str:
@@ -106,9 +106,9 @@ class RiverProposal:
     def to_account(self) -> str:
         return ACCOUNT_ID_TO_NAME[self.to_account_id]
 
-    def to_tx_data(self) -> Dict[str, Any]:
+    def to_tx_data(self) -> dict[str, Any]:
         """Build the dict create_transaction_record() expects."""
-        tx_data: Dict[str, Any] = {
+        tx_data: dict[str, Any] = {
             "type": self.type,
             "timestamp": self.timestamp,
             "amount": self.amount,
@@ -131,10 +131,10 @@ class RiverProposal:
         return tx_data
 
 
-def parse_river_csv(content: bytes) -> Tuple[List[RiverRow], List[CSVParseError]]:
+def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
     """Parse raw River bitcoin-activity CSV bytes into RiverRow objects."""
-    errors: List[CSVParseError] = []
-    rows: List[RiverRow] = []
+    errors: list[CSVParseError] = []
+    rows: list[RiverRow] = []
 
     try:
         text = content.decode("utf-8-sig")
@@ -193,7 +193,7 @@ def parse_river_csv(content: bytes) -> Tuple[List[RiverRow], List[CSVParseError]
             ))
             continue
 
-        def dec(col: str, places: int) -> Optional[Decimal]:
+        def dec(col: str, places: int) -> Decimal | None:
             return _parse_decimal(r.get(col, ""), places)
 
         sent_cur = r.get("sent currency", "").upper() or None
@@ -236,9 +236,9 @@ def _buy_outlay(row: RiverRow) -> Decimal:
     return (row.sent or Decimal("0")) + _usd_fee(row)
 
 
-def _recurring_outlays(rows: List[RiverRow]) -> Dict[Decimal, int]:
+def _recurring_outlays(rows: list[RiverRow]) -> dict[Decimal, int]:
     """Count identical buy outlays across the file (the heuristic's signal)."""
-    counts: Dict[Decimal, int] = {}
+    counts: dict[Decimal, int] = {}
     for row in rows:
         if row.tag == "Buy":
             outlay = _buy_outlay(row)
@@ -247,17 +247,17 @@ def _recurring_outlays(rows: List[RiverRow]) -> Dict[Decimal, int]:
 
 
 def adapt_river_rows(
-    rows: List[RiverRow],
-) -> Tuple[List[RiverProposal], List[CSVParseError], List[CSVParseError]]:
+    rows: list[RiverRow],
+) -> tuple[list[RiverProposal], list[CSVParseError], list[CSVParseError]]:
     """
     Map parsed River rows to proposed BitcoinTX transactions.
 
     Rows that don't match a known pattern produce warnings and are skipped
     (never silently dropped).
     """
-    proposals: List[RiverProposal] = []
-    errors: List[CSVParseError] = []
-    warnings: List[CSVParseError] = []
+    proposals: list[RiverProposal] = []
+    errors: list[CSVParseError] = []
+    warnings: list[CSVParseError] = []
 
     outlay_counts = _recurring_outlays(rows)
 
@@ -402,7 +402,7 @@ def adapt_river_rows(
 # Which existing transaction types can correspond to a proposal of each type.
 # BTC sends/receives are ambiguous in River's data, so they match the wider
 # set the user might have recorded manually.
-_COMPATIBLE_TYPES: Dict[str, Tuple[str, ...]] = {
+_COMPATIBLE_TYPES: dict[str, tuple[str, ...]] = {
     "Buy": ("Buy",),
     "Sell": ("Sell",),
     "Deposit": ("Deposit",),
@@ -414,8 +414,8 @@ _COMPATIBLE_TYPES: Dict[str, Tuple[str, ...]] = {
 def ledger_amount(
     tx_type: str,
     amount: Decimal,
-    fee_amount: Optional[Decimal],
-    fee_currency: Optional[str],
+    fee_amount: Decimal | None,
+    fee_currency: str | None,
 ) -> Decimal:
     """
     River amounts exclude the network fee. A BitcoinTX Transfer's amount is
@@ -438,7 +438,7 @@ def _as_utc(ts: datetime) -> datetime:
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
 
 
-def _detail_discrepancy(proposal: RiverProposal, tx: Transaction) -> Optional[str]:
+def _detail_discrepancy(proposal: RiverProposal, tx: Transaction) -> str | None:
     """
     Compare USD details of a matched pair; return a description if they
     differ. Only Buy cost basis is compared: it is user-provided and stored
@@ -458,7 +458,7 @@ def _detail_discrepancy(proposal: RiverProposal, tx: Transaction) -> Optional[st
 
 
 def annotate_duplicates(
-    proposals: List[RiverProposal], db: Session, exact_only: bool = False
+    proposals: list[RiverProposal], db: Session, exact_only: bool = False
 ) -> None:
     """
     Mark proposals that already exist in the ledger.
@@ -475,10 +475,10 @@ def annotate_duplicates(
     double-import guard must not block rows the user deliberately chose to
     import despite a fuzzy flag).
     """
-    existing: List[Transaction] = db.query(Transaction).all()
+    existing: list[Transaction] = db.query(Transaction).all()
     used_tx_ids: set = set()
 
-    def candidates(proposal: RiverProposal) -> List[Transaction]:
+    def candidates(proposal: RiverProposal) -> list[Transaction]:
         types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
         return [
             tx for tx in existing
@@ -489,8 +489,8 @@ def annotate_duplicates(
 
     # Pass 1: exact amount
     for proposal in sorted(proposals, key=lambda p: p.timestamp):
-        best: Optional[Transaction] = None
-        best_delta: Optional[timedelta] = None
+        best: Transaction | None = None
+        best_delta: timedelta | None = None
         for tx in candidates(proposal):
             if Decimal(tx.amount or 0) != _proposal_ledger_amount(proposal):
                 continue

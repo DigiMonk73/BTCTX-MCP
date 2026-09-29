@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -91,12 +91,12 @@ def _pid_alive(pid: Any) -> bool:
 class BtctxClient:
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        ai_key: Optional[str] = None,
+        base_url: str | None = None,
+        ai_key: str | None = None,
         verify: bool | str = True,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
-        key_file: Optional[Path] = None,
-        refusal: Optional[str] = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+        key_file: Path | None = None,
+        refusal: str | None = None,
     ):
         self._ai_key = ai_key
         self._key_file = key_file
@@ -120,7 +120,7 @@ class BtctxClient:
         return self._key_file is not None
 
     @classmethod
-    def from_env(cls) -> "BtctxClient":
+    def from_env(cls) -> BtctxClient:
         verify: bool | str = True
         if os.environ.get("BTCTX_CA_BUNDLE"):
             verify = os.environ["BTCTX_CA_BUNDLE"]
@@ -250,7 +250,7 @@ class BtctxClient:
             "key only goes to BTCTX_URL)."
         )
 
-    async def app_version(self) -> Optional[str]:
+    async def app_version(self) -> str | None:
         """BitcoinTX's version from /api/health, or None if it can't be read now."""
         if self._refusal:
             return None

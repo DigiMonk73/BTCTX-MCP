@@ -25,7 +25,7 @@ import inspect
 import logging
 from datetime import datetime, time, timezone, tzinfo
 from decimal import Decimal
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, Literal  # noqa: UP035 (ToolResult)
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mcp.server.mcpserver import MCPServer
@@ -36,17 +36,23 @@ from pydantic import BaseModel, Field
 from btctx_mcp.client import BtctxClient, BtctxError
 from btctx_mcp.guide import LEDGER_GUIDE
 
+# What a tool returns. typing.Dict, not dict: the MCP SDK describes a Dict
+# result as {"result": {...}} in the tool's output schema and structured
+# output, a dict as the object itself. The released connectors have the
+# first shape, and an MCP client may rely on it.
+ToolResult = Dict[str, Any]  # noqa: UP006
+
 AccountName = Literal["Bank", "Wallet", "Exchange USD", "Exchange BTC", "External"]
 TxTypeName = Literal["Buy", "Sell", "Deposit", "Withdrawal", "Transfer"]
 DepositSource = Literal["MyBTC", "Gift", "Income", "Interest", "Reward"]
 WithdrawalPurpose = Literal["Spent", "Gift", "Donation", "Lost"]
 
 # Fixed account ids seeded by the app (backend/constants.py)
-ACCOUNT_IDS: Dict[str, int] = {
+ACCOUNT_IDS: dict[str, int] = {
     "Bank": 1, "Wallet": 2, "Exchange USD": 3, "Exchange BTC": 4,
     "BTC Fees": 5, "USD Fees": 6, "External": 99,
 }
-ACCOUNT_NAMES: Dict[int, str] = {v: k for k, v in ACCOUNT_IDS.items()}
+ACCOUNT_NAMES: dict[int, str] = {v: k for k, v in ACCOUNT_IDS.items()}
 
 
 class TransactionInput(BaseModel):
@@ -61,22 +67,22 @@ class TransactionInput(BaseModel):
     )
     from_account: AccountName
     to_account: AccountName
-    cost_basis_usd: Optional[Decimal] = Field(
+    cost_basis_usd: Decimal | None = Field(
         default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward).")
-    proceeds_usd: Optional[Decimal] = Field(
+    proceeds_usd: Decimal | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
-    fee_amount: Optional[Decimal] = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
-    fee_currency: Optional[Literal["BTC", "USD"]] = None
-    source: Optional[DepositSource] = Field(default=None, description="Required for BTC deposits.")
-    purpose: Optional[WithdrawalPurpose] = Field(default=None, description="Required for BTC withdrawals.")
-    fmv_usd: Optional[Decimal] = Field(
+    fee_amount: Decimal | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
+    fee_currency: Literal["BTC", "USD"] | None = None
+    source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
+    purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")
+    fmv_usd: Decimal | None = Field(
         default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
-    fee_usd: Optional[Decimal] = Field(
+    fee_usd: Decimal | None = Field(
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x that "
                                   "day's price is stored).")
 
 
-_client: Optional[BtctxClient] = None
+_client: BtctxClient | None = None
 
 
 def get_client() -> BtctxClient:
@@ -86,28 +92,28 @@ def get_client() -> BtctxClient:
     return _client
 
 
-def set_client(client: Optional[BtctxClient]) -> None:
+def set_client(client: BtctxClient | None) -> None:
     """Inject a client (tests)."""
     global _client
     _client = client
 
 
 # Version check: the connector and BitcoinTX should be the same release
-def connector_version() -> Optional[str]:
+def connector_version() -> str | None:
     try:
         return importlib.metadata.version("btctx-mcp")
     except importlib.metadata.PackageNotFoundError:  # run from a source tree
         return None
 
 
-def _release(version: str) -> Optional[tuple]:
+def _release(version: str) -> tuple | None:
     try:
         return tuple(int(part) for part in version.split("."))
     except ValueError:
         return None
 
 
-def mismatch_notice(connector: Optional[str], app: Optional[str]) -> Optional[str]:
+def mismatch_notice(connector: str | None, app: str | None) -> str | None:
     """The line every tool reply starts with when the versions differ."""
     if not connector or not app or connector == app:
         return None
@@ -122,7 +128,7 @@ def mismatch_notice(connector: Optional[str], app: Optional[str]) -> Optional[st
 _version = {"checked": False, "notice": None}
 
 
-async def _version_notice() -> Optional[str]:
+async def _version_notice() -> str | None:
     """Checked once BitcoinTX answers (so a BitcoinTX that was down at first is
     checked on a later call); a warning only, the tool still runs."""
     if not _version["checked"]:
@@ -159,7 +165,7 @@ async def _call(method: str, path: str, **kwargs: Any) -> Any:
         raise ToolError(str(exc)) from exc
 
 
-def _rows(transactions: List[TransactionInput]) -> List[Dict[str, Any]]:
+def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
     if not transactions:
         raise ToolError("Provide at least one transaction.")
     return [t.model_dump(mode="json", exclude_none=True) for t in transactions]
@@ -180,7 +186,7 @@ _OTHER_DATE_FORMATS = (
 )
 
 
-def _parse_date_text(raw: str) -> Optional[Tuple[datetime, bool]]:
+def _parse_date_text(raw: str) -> tuple[datetime, bool] | None:
     """(the date, whether it is a date alone), or None if it isn't one. Naive
     when no timezone is stated. Same reading as add_transactions
     (backend/services/entry_import.py, _normalize_date)."""
@@ -212,7 +218,7 @@ async def _tax_zone() -> tzinfo:
                         "update the connector (btctx-mcp) or its tzdata package.") from exc
 
 
-def _in_utc(parsed: Tuple[datetime, bool], zone: tzinfo, bare_date_at: time) -> datetime:
+def _in_utc(parsed: tuple[datetime, bool], zone: tzinfo, bare_date_at: time) -> datetime:
     """A parsed date in UTC: without a timezone it is in `zone`, and a date
     alone is at `bare_date_at` there (midday for a transaction)."""
     dt, date_only = parsed
@@ -221,7 +227,7 @@ def _in_utc(parsed: Tuple[datetime, bool], zone: tzinfo, bare_date_at: time) -> 
     return dt.astimezone(timezone.utc)
 
 
-def _parse_filter_date(value: Optional[str]) -> Optional[Tuple[datetime, bool]]:
+def _parse_filter_date(value: str | None) -> tuple[datetime, bool] | None:
     if not value:
         return None
     parsed = _parse_date_text(value.strip())
@@ -230,7 +236,7 @@ def _parse_filter_date(value: Optional[str]) -> Optional[Tuple[datetime, bool]]:
     return parsed
 
 
-def _compact(tx: Dict[str, Any]) -> Dict[str, Any]:
+def _compact(tx: dict[str, Any]) -> dict[str, Any]:
     out = {
         "id": tx["id"],
         "date": tx["timestamp"],
@@ -273,7 +279,7 @@ def get_ledger_guide() -> str:
 
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
-async def get_portfolio() -> Dict[str, Any]:
+async def get_portfolio() -> ToolResult:
     """Current balance of every account, average cost basis per BTC, the live BTC price, and
     the user's tax timezone (dates without a timezone are interpreted in it).
     Useful to reconcile against what the user's cold wallet or exchange actually shows."""
@@ -298,12 +304,12 @@ async def get_portfolio() -> Dict[str, Any]:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def list_transactions(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    type: Optional[TxTypeName] = None,
-    account: Optional[AccountName] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    type: TxTypeName | None = None,
+    account: AccountName | None = None,
     limit: int = 50,
-) -> Dict[str, Any]:
+) -> ToolResult:
     """Find recorded transactions, newest first. Filter by date range (YYYY-MM-DD, inclusive,
     days in the user's tax timezone), type, and an account on either side. Use it to find an
     id before updating or deleting."""
@@ -337,7 +343,7 @@ async def list_transactions(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 @with_version_notice
-async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
+async def get_btc_price(date: str | None = None) -> ToolResult:
     """BTC price in USD for a date (YYYY-MM-DD): the daily price at 00:00 UTC that day,
     or right now if no date is given. For a transaction, pass the UTC date of its time
     (a 9 pm US Central sale on Jul 31 is Aug 1 UTC): that day's price is the nearest
@@ -353,7 +359,7 @@ async def get_btc_price(date: Optional[str] = None) -> Dict[str, Any]:
 
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
-async def review_ledger() -> Dict[str, Any]:
+async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
     carrying a loss, non-income BTC deposits with a $0 or blank cost basis, transfer fees or
@@ -364,7 +370,7 @@ async def review_ledger() -> Dict[str, Any]:
 
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
-async def preview_transactions(transactions: List[TransactionInput]) -> Dict[str, Any]:
+async def preview_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
     flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,
     balances afterward). NOTHING is saved. Always call this and show the user the result
@@ -375,7 +381,7 @@ async def preview_transactions(transactions: List[TransactionInput]) -> Dict[str
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False))
 @with_version_notice
-async def add_transactions(transactions: List[TransactionInput]) -> Dict[str, Any]:
+async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
     the user's confirmation. Rows exactly matching an existing transaction are skipped; rows
     previewed as possible_duplicate ARE saved, so drop any the user rejected."""
@@ -387,21 +393,21 @@ async def add_transactions(transactions: List[TransactionInput]) -> Dict[str, An
 @with_version_notice
 async def update_transaction(
     transaction_id: int,
-    date: Optional[str] = None,
-    type: Optional[TxTypeName] = None,
-    amount: Optional[Decimal] = None,
-    from_account: Optional[AccountName] = None,
-    to_account: Optional[AccountName] = None,
-    cost_basis_usd: Optional[Decimal] = None,
-    proceeds_usd: Optional[Decimal] = None,
-    fee_amount: Optional[Decimal] = None,
-    fee_currency: Optional[Literal["BTC", "USD"]] = None,
-    source: Optional[DepositSource] = None,
-    purpose: Optional[WithdrawalPurpose] = None,
-    fmv_usd: Optional[Decimal] = None,
-    fee_usd: Optional[Decimal] = None,
-    broker_reporting: Optional[Literal["automatic", "none", "proceeds", "basis"]] = None,
-) -> Dict[str, Any]:
+    date: str | None = None,
+    type: TxTypeName | None = None,
+    amount: Decimal | None = None,
+    from_account: AccountName | None = None,
+    to_account: AccountName | None = None,
+    cost_basis_usd: Decimal | None = None,
+    proceeds_usd: Decimal | None = None,
+    fee_amount: Decimal | None = None,
+    fee_currency: Literal["BTC", "USD"] | None = None,
+    source: DepositSource | None = None,
+    purpose: WithdrawalPurpose | None = None,
+    fmv_usd: Decimal | None = None,
+    fee_usd: Decimal | None = None,
+    broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
+) -> ToolResult:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
     recalculated, so gains on later sales may change. Confirm with the user first.
     date is read as add_transactions reads it: without a timezone, in the user's tax
@@ -411,7 +417,7 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
-    changes: Dict[str, Any] = {}
+    changes: dict[str, Any] = {}
     if date is not None:
         parsed = _parse_date_text(date.strip())
         if parsed is None:
@@ -461,7 +467,7 @@ async def update_transaction(
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False))
 @with_version_notice
-async def delete_transaction(transaction_id: int) -> Dict[str, Any]:
+async def delete_transaction(transaction_id: int) -> ToolResult:
     """Permanently delete one transaction (locked transactions can't be deleted). The ledger is
     recalculated afterward. Confirm with the user first and tell them what you're deleting."""
     current = await _call("GET", f"/api/transactions/{transaction_id}")
@@ -472,7 +478,7 @@ async def delete_transaction(transaction_id: int) -> Dict[str, Any]:
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
 @with_version_notice
-async def recalculate_ledger() -> Dict[str, Any]:
+async def recalculate_ledger() -> ToolResult:
     """Rebuild all cost-basis lots, disposals and gains from the recorded transactions.
     Needed once after upgrading BitcoinTX so calculation fixes apply to existing data;
     otherwise only when the user asks. Transactions themselves are not changed."""
@@ -482,7 +488,7 @@ async def recalculate_ledger() -> Dict[str, Any]:
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=False, open_world_hint=False))
 @with_version_notice
-async def backup_ledger() -> Dict[str, Any]:
+async def backup_ledger() -> ToolResult:
     """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
     backups folder), as a safety net. Offer it before a large import or before deleting or
     changing many entries. BitcoinTX keeps the newest 3 such copies and makes at most one a

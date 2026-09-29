@@ -11,7 +11,6 @@ import sqlite3
 import struct
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
@@ -141,7 +140,7 @@ def _decrypt_data(encrypted_data: bytes, key: bytes, iv: bytes) -> bytes:
     return unpadder.update(padded_data) + unpadder.finalize()
 
 
-def make_backup(password: str, output_file: Path, db_path: Optional[Path] = None) -> None:
+def make_backup(password: str, output_file: Path, db_path: Path | None = None) -> None:
     db_path = Path(db_path or DB_PATH)
     if not db_path.exists():
         raise FileNotFoundError(f"Database file not found: {db_path}")
@@ -180,7 +179,7 @@ def make_backup(password: str, output_file: Path, db_path: Optional[Path] = None
     logger.info(f"Backup created at: {output_file}")
 
 
-def restore_backup(password: str, encrypted_file: Path, db_path: Optional[Path] = None, engine=None):
+def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = None, engine=None):
     """
     Replace the database with a decrypted backup, upgraded to the current
     schema. The live database is only touched once the backup has decrypted,

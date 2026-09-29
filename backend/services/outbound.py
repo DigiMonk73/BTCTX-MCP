@@ -32,7 +32,6 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import asdict, dataclass
-from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -54,19 +53,19 @@ SETTINGS_PAGE = "Settings → Privacy & network"
 SET_BY_SERVER = "the server's price settings (on StartOS: the Price Source & Privacy action)"
 
 # Tests set this to an httpx.MockTransport to fake the outside services.
-_transport: Optional[httpx.AsyncBaseTransport] = None
+_transport: httpx.AsyncBaseTransport | None = None
 
 
 @dataclass(frozen=True)
 class NetworkSettings:
     price_source: str = "unset"
-    mempool_url: Optional[str] = None
+    mempool_url: str | None = None
     mempool_fallback: bool = False
-    proxy_url: Optional[str] = None
+    proxy_url: str | None = None
     managed: bool = False  # set by the server (environment), not in Settings
 
     @property
-    def own_node(self) -> Optional[str]:
+    def own_node(self) -> str | None:
         """The mempool server to ask, when it's the chosen source."""
         return self.mempool_url if self.price_source == "mempool" else None
 
@@ -87,14 +86,14 @@ def as_dict() -> dict:
     return asdict(_current)
 
 
-def _get(db: Session, key: str) -> Optional[str]:
+def _get(db: Session, key: str) -> str | None:
     from backend.models.app_setting import AppSetting
 
     row = db.get(AppSetting, key)
     return row.value if row else None
 
 
-def _set(db: Session, key: str, value: Optional[str]) -> None:
+def _set(db: Session, key: str, value: str | None) -> None:
     from backend.models.app_setting import AppSetting
 
     row = db.get(AppSetting, key)
@@ -108,7 +107,7 @@ def _set(db: Session, key: str, value: Optional[str]) -> None:
     db.flush()
 
 
-def _upgrade_from_live_data(db: Session) -> Optional[str]:
+def _upgrade_from_live_data(db: Session) -> str | None:
     """
     Installs from before v1.1.0 keep what they did: live data off stays off
     (with their mempool server still asked), on stays public, and a mempool
@@ -135,7 +134,7 @@ def _upgrade_from_live_data(db: Session) -> Optional[str]:
     return source
 
 
-def from_env() -> Optional[NetworkSettings]:
+def from_env() -> NetworkSettings | None:
     """The settings the server sets (BTCTX_PRICE_SOURCE and co.), or None."""
     source = os.environ.get(ENV_SOURCE, "").strip().lower()
     if not source:
@@ -203,7 +202,7 @@ def load(db: Session) -> NetworkSettings:
     return _current
 
 
-def _clean_url(value: Optional[str], schemes, what: str) -> Optional[str]:
+def _clean_url(value: str | None, schemes, what: str) -> str | None:
     value = (value or "").strip()
     if not value:
         return None
@@ -221,9 +220,9 @@ def _clean_url(value: Optional[str], schemes, what: str) -> Optional[str]:
 def save(
     db: Session,
     price_source: str,
-    mempool_url: Optional[str],
+    mempool_url: str | None,
     mempool_fallback: bool,
-    proxy_url: Optional[str],
+    proxy_url: str | None,
 ) -> NetworkSettings:
     if _current.managed:
         raise HTTPException(status_code=409, detail=f"These are set by {SET_BY_SERVER}, so they can't be changed here.")
@@ -296,5 +295,5 @@ def own_node_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None)
 
 
-def _is_onion(url: Optional[str]) -> bool:
+def _is_onion(url: str | None) -> bool:
     return (urlparse(url or "").hostname or "").endswith(".onion")

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,37 +22,37 @@ class EntryRow(BaseModel):
     amount: Decimal
     from_account: str
     to_account: str
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
-    source: Optional[str] = None
-    purpose: Optional[str] = None
-    fmv_usd: Optional[Decimal] = None
-    fee_usd: Optional[Decimal] = None  # a BTC fee's USD value; omitted = fee x that day's price
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
+    source: str | None = None
+    purpose: str | None = None
+    fmv_usd: Decimal | None = None
+    fee_usd: Decimal | None = None  # a BTC fee's USD value; omitted = fee x that day's price
 
 
 class EntryRequest(BaseModel):
-    rows: List[EntryRow]
+    rows: list[EntryRow]
 
 
 class SimulatedResult(BaseModel):
     """What the ledger computed for this row during the dry run."""
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    realized_gain_usd: Optional[Decimal] = None
-    holding_period: Optional[str] = None
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    realized_gain_usd: Decimal | None = None
+    holding_period: str | None = None
 
 
 class EntryResult(BaseModel):
     row: int  # 1-based position in the submitted list
     status: str  # ready | duplicate | possible_duplicate | invalid | rejected | not_simulated
-    normalized: Optional[Dict[str, Optional[str]]] = None
-    errors: List[str] = []
-    warnings: List[str] = []
-    matched_transaction_id: Optional[int] = None
-    autofilled_fields: List[str] = []  # USD fields filled from the historical BTC price
-    simulated: Optional[SimulatedResult] = None
+    normalized: dict[str, str | None] | None = None
+    errors: list[str] = []
+    warnings: list[str] = []
+    matched_transaction_id: int | None = None
+    autofilled_fields: list[str] = []  # USD fields filled from the historical BTC price
+    simulated: SimulatedResult | None = None
 
 
 class AffectedTransaction(BaseModel):
@@ -61,10 +60,10 @@ class AffectedTransaction(BaseModel):
     id: int
     type: str
     date: datetime
-    realized_gain_before: Optional[Decimal] = None
-    realized_gain_after: Optional[Decimal] = None
-    holding_period_before: Optional[str] = None
-    holding_period_after: Optional[str] = None
+    realized_gain_before: Decimal | None = None
+    realized_gain_after: Decimal | None = None
+    holding_period_before: str | None = None
+    holding_period_after: str | None = None
 
 
 class AccountBalance(BaseModel):
@@ -80,9 +79,9 @@ class EntryPreviewResponse(BaseModel):
     possible_duplicate_count: int
     invalid_count: int
     rejected_count: int
-    results: List[EntryResult]
-    affected_existing: List[AffectedTransaction] = []
-    balances_after: List[AccountBalance] = []
+    results: list[EntryResult]
+    affected_existing: list[AffectedTransaction] = []
+    balances_after: list[AccountBalance] = []
 
 
 class CreatedTransaction(BaseModel):
@@ -91,13 +90,13 @@ class CreatedTransaction(BaseModel):
     type: str
     date: datetime
     amount: Decimal
-    realized_gain_usd: Optional[Decimal] = None
-    holding_period: Optional[str] = None
+    realized_gain_usd: Decimal | None = None
+    holding_period: str | None = None
 
 
 class EntryExecuteResponse(BaseModel):
     success: bool
     imported_count: int
     skipped_duplicates: int
-    created: List[CreatedTransaction]
+    created: list[CreatedTransaction]
     message: str

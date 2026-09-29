@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime, timezone
-from typing import Tuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
@@ -33,7 +32,7 @@ def validate_timezone(name: str) -> str:
     return name
 
 
-def get_tax_timezone_name(db: Session) -> Tuple[str, str]:
+def get_tax_timezone_name(db: Session) -> tuple[str, str]:
     """(timezone name, source) where source is 'setting', 'env' or 'default'."""
     from backend.models.app_setting import AppSetting
 
@@ -77,7 +76,7 @@ def format_tax_date(ts: datetime, tz: ZoneInfo) -> str:
     return local_date(ts, tz).strftime("%m/%d/%Y")
 
 
-def tax_year_bounds(year: int, tz: ZoneInfo) -> Tuple[datetime, datetime]:
+def tax_year_bounds(year: int, tz: ZoneInfo) -> tuple[datetime, datetime]:
     """[start, end) of the tax year in UTC: local Jan 1 00:00 to next Jan 1 00:00."""
     start = datetime(year, 1, 1, tzinfo=tz).astimezone(timezone.utc)
     end = datetime(year + 1, 1, 1, tzinfo=tz).astimezone(timezone.utc)

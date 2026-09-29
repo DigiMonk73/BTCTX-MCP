@@ -5,14 +5,13 @@ none of them are set and `is_desktop()` is False.
 """
 
 import os
-from typing import Optional
 
 
 def is_desktop() -> bool:
     return os.environ.get("BTCTX_DESKTOP") == "1"
 
 
-def _int_env(name: str) -> Optional[int]:
+def _int_env(name: str) -> int | None:
     try:
         return int(os.environ[name])
     except (KeyError, ValueError):

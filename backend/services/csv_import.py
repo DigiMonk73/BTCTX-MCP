@@ -10,7 +10,7 @@ import io
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -62,10 +62,10 @@ GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 @dataclass
 class ParseResult:
     """Result of parsing a CSV file."""
-    transactions: List[Dict[str, Any]] = field(default_factory=list)
-    previews: List[CSVRowPreview] = field(default_factory=list)
-    errors: List[CSVParseError] = field(default_factory=list)
-    warnings: List[CSVParseError] = field(default_factory=list)
+    transactions: list[dict[str, Any]] = field(default_factory=list)
+    previews: list[CSVRowPreview] = field(default_factory=list)
+    errors: list[CSVParseError] = field(default_factory=list)
+    warnings: list[CSVParseError] = field(default_factory=list)
 
     @property
     def can_import(self) -> bool:
@@ -140,7 +140,7 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
         return result
 
     # Process each row
-    prev_date: Optional[datetime] = None
+    prev_date: datetime | None = None
 
     for row_number, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
         # Normalize row keys
@@ -178,10 +178,10 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
 
 
 def _validate_row(
-    row: Dict[str, str],
+    row: dict[str, str],
     row_number: int,
     tz=timezone.utc,
-) -> Tuple[Optional[Dict[str, Any]], Optional[CSVRowPreview], List[CSVParseError], List[CSVParseError]]:
+) -> tuple[dict[str, Any] | None, CSVRowPreview | None, list[CSVParseError], list[CSVParseError]]:
     """
     Validate a single CSV row.
 
@@ -189,8 +189,8 @@ def _validate_row(
         Tuple of (transaction_dict, preview, errors, warnings)
         transaction_dict and preview are None if there are fatal errors
     """
-    errors: List[CSVParseError] = []
-    warnings: List[CSVParseError] = []
+    errors: list[CSVParseError] = []
+    warnings: list[CSVParseError] = []
 
     # Parse date
     date_str = row.get("date", "").strip()
@@ -386,7 +386,7 @@ def _validate_row(
         return None, None, errors, warnings
 
     # Build transaction data dict (for create_transaction_record)
-    tx_data: Dict[str, Any] = {
+    tx_data: dict[str, Any] = {
         "type": tx_type,
         "timestamp": timestamp,
         "amount": amount,
@@ -468,7 +468,7 @@ _DATE_FORMATS = [
 ]
 
 
-def _parse_date(date_str: str, tz=timezone.utc) -> Optional[datetime]:
+def _parse_date(date_str: str, tz=timezone.utc) -> datetime | None:
     """
     Parse a date string into a UTC datetime. A time without a timezone is
     local to `tz` (the tax timezone), and a date alone means noon there.
@@ -491,7 +491,7 @@ def _parse_date(date_str: str, tz=timezone.utc) -> Optional[datetime]:
     return None
 
 
-def _parse_decimal(value: str, max_decimals: int) -> Optional[Decimal]:
+def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     """
     Parse a string to Decimal with validation.
     Returns None if parsing fails or value is empty. Decimal places are
@@ -516,8 +516,8 @@ def _parse_decimal(value: str, max_decimals: int) -> Optional[Decimal]:
 
 
 def _optional_decimal(
-    row: Dict[str, str], column: str, max_decimals: int, row_number: int, errors: List[CSVParseError]
-) -> Optional[Decimal]:
+    row: dict[str, str], column: str, max_decimals: int, row_number: int, errors: list[CSVParseError]
+) -> Decimal | None:
     """
     An optional number: None when blank. A value that isn't a valid number
     is an error (it used to be dropped silently, e.g. a basis of "1.123"
@@ -547,7 +547,7 @@ def _validate_accounts_for_type(
     from_id: int,
     to_id: int,
     row_number: int
-) -> List[CSVParseError]:
+) -> list[CSVParseError]:
     """Validate that account IDs are valid for the transaction type."""
     errors = []
 
@@ -646,15 +646,15 @@ def _validate_accounts_for_type(
 
 def _validate_type_specific(
     tx_type: str,
-    cost_basis_usd: Optional[Decimal],
-    proceeds_usd: Optional[Decimal],
-    fee_currency: Optional[str],
-    source: Optional[str],
-    purpose: Optional[str],
+    cost_basis_usd: Decimal | None,
+    proceeds_usd: Decimal | None,
+    fee_currency: str | None,
+    source: str | None,
+    purpose: str | None,
     row_number: int,
-    from_account_id: Optional[int] = None,
-    to_account_id: Optional[int] = None,
-) -> Tuple[List[CSVParseError], List[CSVParseError]]:
+    from_account_id: int | None = None,
+    to_account_id: int | None = None,
+) -> tuple[list[CSVParseError], list[CSVParseError]]:
     """Validate type-specific field requirements."""
     errors = []
     warnings = []
@@ -751,7 +751,7 @@ def _validate_type_specific(
     return errors, warnings
 
 
-def _default_fee_currency(tx_type: str, from_account_id: Optional[int] = None) -> str:
+def _default_fee_currency(tx_type: str, from_account_id: int | None = None) -> str:
     """The fee currency when the row leaves it blank: USD for Buy/Sell and
     for moves out of a USD account, else BTC."""
     if tx_type in ("Buy", "Sell"):
@@ -761,7 +761,7 @@ def _default_fee_currency(tx_type: str, from_account_id: Optional[int] = None) -
     return "BTC"
 
 
-def check_database_empty(db: Session) -> Tuple[bool, int]:
+def check_database_empty(db: Session) -> tuple[bool, int]:
     """
     Check if the database has any transactions.
 
@@ -772,7 +772,7 @@ def check_database_empty(db: Session) -> Tuple[bool, int]:
     return count == 0, count
 
 
-def execute_import(db: Session, transactions: List[Dict[str, Any]]) -> int:
+def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
     """
     Import transactions atomically.
 

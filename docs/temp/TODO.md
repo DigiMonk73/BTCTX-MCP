@@ -39,7 +39,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 - [ ] Frontend: split `TransactionForm.tsx` (1,049 lines) into a section per transaction type and `Settings.tsx` (799) into one component per card; `RiverImport.tsx` (486) and `Dashboard.tsx` (470) if it helps.
 - [x] Delete the stray empty `backend/services/ __init__.py` (a leading space in its name, there since the first commit).
 - [ ] Remove stale or wordy comments and docstrings: history notes ("remains unchanged since … ghostscript"), comments that repeat the code.
-- [ ] Modern type hints (`dict`, `list`, `X | None`) instead of `typing.Dict/List/Optional` in 46 files, with ruff's `UP` rules added to lint so it stays that way.
+- [x] Modern type hints (`dict`, `list`, `X | None`) instead of `typing.Dict/List/Optional` in 46 files, with ruff's `UP` rules added to lint so it stays that way.
 - [ ] Other functions over the limits: `_validate_transaction`, `_enforce_transaction_type_rules`, `_validate_accounts_for_type`, `annotate_duplicates`, `build_review`, `simulate`, `public_history`, `fill_pdf_form`, `adopt_unversioned`, `export_transactions_csv`, the MCP `update_transaction` body and client `request`, and the scripts `smoke_test.run` and `irs_new_year` `main`/`verify`.
 - [ ] Keep it clean: once the long functions are divided, add a lint limit on function size and complexity (ruff `C901` / `PLR0911` / `PLR0912` / `PLR0915`, ESLint `complexity` / `max-lines`) so they can't grow back.
 - [ ] After the cleanup, a fix in its own commit (a change in behaviour, owner's OK 2026-09-29): `review.fee_price_changes` catches every error while looking up a day's price; catch only the no-price error, with a test.

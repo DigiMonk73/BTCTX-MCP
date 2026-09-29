@@ -39,7 +39,7 @@ network if a day is missing); a day with no price is skipped and counted.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -52,7 +52,7 @@ from backend.services.tax_time import as_utc, get_tax_timezone
 BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 # key -> (title, what the owner can do)
-CHECKS: Dict[str, tuple] = {
+CHECKS: dict[str, tuple] = {
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
         "Back up first, then run Recalculate Ledger (Settings) when you agree. Adding, editing or "
@@ -90,7 +90,7 @@ def _money(value) -> str | None:
     return None if value is None else str(Decimal(value).quantize(Decimal("0.01")))
 
 
-def _item(t: Transaction, tz, issue: str, change: str) -> Dict[str, Any]:
+def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
     return {
         "id": t.id,
         "date": as_utc(t.timestamp).astimezone(tz).strftime("%Y-%m-%d %H:%M"),
@@ -104,7 +104,7 @@ def _item(t: Transaction, tz, issue: str, change: str) -> Dict[str, Any]:
     }
 
 
-def _day_price(db: Session, t: Transaction, missing: List[int]):
+def _day_price(db: Session, t: Transaction, missing: list[int]):
     try:
         return price_history.daily_price(db, t.timestamp)
     except Exception:
@@ -116,7 +116,7 @@ def _off(stored, expected: Decimal) -> bool:
     return expected > 0 and abs(Decimal(stored) - expected) > expected * TOLERANCE
 
 
-def fee_price_changes(db: Session, ids=None) -> List[Dict[str, Any]]:
+def fee_price_changes(db: Session, ids=None) -> list[dict[str, Any]]:
     """Transfers whose stored (not typed) fee value is off the day's price: {id, old, new}."""
     q = db.query(Transaction).filter(Transaction.type == "Transfer", Transaction.fee_usd.isnot(None),
                                      Transaction.fee_usd_manual.is_(False))
@@ -136,7 +136,7 @@ def fee_price_changes(db: Session, ids=None) -> List[Dict[str, Any]]:
     return changes
 
 
-def apply_fee_prices(db: Session, ids) -> List[Dict[str, Any]]:
+def apply_fee_prices(db: Session, ids) -> list[dict[str, Any]]:
     """
     Set the picked transfers' fee values to the day's price and recalculate.
     Only rows the review flags change; typed values never do. Commits.
@@ -199,17 +199,17 @@ def simulate_recalculation(db: Session):
     return changes, None
 
 
-def build_review(db: Session) -> Dict[str, Any]:
+def build_review(db: Session) -> dict[str, Any]:
     """Every check's items, in date order. Changes no transaction."""
     tz = get_tax_timezone(db)
     moved, recalc_error = simulate_recalculation(db)
-    rows: List[Transaction] = (
+    rows: list[Transaction] = (
         db.query(Transaction)
         .filter(Transaction.type.in_(("Withdrawal", "Deposit")))
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
-    found: Dict[str, List[Dict[str, Any]]] = {key: [] for key in CHECKS}
+    found: dict[str, list[dict[str, Any]]] = {key: [] for key in CHECKS}
     for t in rows:
         purpose = (t.purpose or "").lower()
         if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
@@ -241,7 +241,7 @@ def build_review(db: Session) -> Dict[str, Any]:
         item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
         found["recalc_changes"].append(item)
 
-    missing: List[int] = []
+    missing: list[int] = []
     for change in fee_price_changes(db):
         t = db.get(Transaction, change["id"])
         found["fee_value_off"].append(_item(
@@ -280,7 +280,7 @@ def build_review(db: Session) -> Dict[str, Any]:
     }
 
 
-def format_text(review: Dict[str, Any]) -> str:
+def format_text(review: dict[str, Any]) -> str:
     """Plain text for the CLI."""
     lines = [f"Ledger review (read-only; dates in {review['timezone']})"]
     for check in review["checks"]:

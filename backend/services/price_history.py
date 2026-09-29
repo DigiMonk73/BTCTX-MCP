@@ -33,7 +33,6 @@ import logging
 import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Union
 
 from fastapi import HTTPException
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -70,7 +69,7 @@ def reset_state() -> None:
     _state.update(full_failed_at=-1e9, latest_day=None, latest_failed_at=-1e9, mempool_at=-1e9)
 
 
-def _utc_day(when: Union[date, datetime]) -> date:
+def _utc_day(when: date | datetime) -> date:
     if isinstance(when, datetime):
         when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
         return when.astimezone(timezone.utc).date()
@@ -90,7 +89,7 @@ def _from_unix(ts) -> date:
 
 
 # Public sites: requests that never depend on which day is wanted
-async def _bitstamp(client, start: Optional[date] = None) -> Dict[date, Decimal]:
+async def _bitstamp(client, start: date | None = None) -> dict[date, Decimal]:
     """1,000 daily opens from `start` (a fixed block start), or the latest 1,000."""
     params = {"step": DAY, "limit": BITSTAMP_BLOCK}
     if start is not None:
@@ -100,7 +99,7 @@ async def _bitstamp(client, start: Optional[date] = None) -> Dict[date, Decimal]
     return {_from_unix(row["timestamp"]): Decimal(str(row["open"])) for row in resp.json()["data"]["ohlc"]}
 
 
-async def _coinbase(client, start: Optional[date] = None) -> Dict[date, Decimal]:
+async def _coinbase(client, start: date | None = None) -> dict[date, Decimal]:
     """300 daily opens from `start` (a fixed block start), or the latest ones."""
     params = {"granularity": DAY}
     if start is not None:
@@ -112,7 +111,7 @@ async def _coinbase(client, start: Optional[date] = None) -> Dict[date, Decimal]
     return {_from_unix(row[0]): Decimal(str(row[3])) for row in resp.json()}
 
 
-async def _kraken_latest(client) -> Dict[date, Decimal]:
+async def _kraken_latest(client) -> dict[date, Decimal]:
     """Kraken's latest 720 daily opens."""
     resp = await client.get(KRAKEN_OHLC_URL, params={"pair": "XBTUSD", "interval": 1440})
     resp.raise_for_status()
@@ -124,7 +123,7 @@ async def _kraken_latest(client) -> Dict[date, Decimal]:
     return {_from_unix(row[0]): Decimal(str(row[1])) for row in data["result"][pair]}
 
 
-def _blocks(first: date, size: int) -> List[date]:
+def _blocks(first: date, size: int) -> list[date]:
     """Fixed block starts from `first` to today: the same list for every install."""
     starts, day, today = [], first, _today()
     while day <= today:
@@ -133,12 +132,12 @@ def _blocks(first: date, size: int) -> List[date]:
     return starts
 
 
-def _kept(prices: Dict[date, Decimal], source: str) -> Dict[date, tuple]:
+def _kept(prices: dict[date, Decimal], source: str) -> dict[date, tuple]:
     today = _today()
     return {d: (p.quantize(CENT), source) for d, p in prices.items() if d <= today and p > 0}
 
 
-async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
+async def public_history(full: bool) -> tuple[dict[date, tuple], bool]:
     """
     Daily prices from public sites, and whether Bitstamp's whole history came
     in. full: every day since FIRST_PRICE_DAY in fixed blocks (Bitstamp; else
@@ -153,7 +152,7 @@ async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
                 ("bitstamp", _bitstamp, FIRST_PRICE_DAY, BITSTAMP_BLOCK),
                 ("coinbase", _coinbase, COINBASE_FIRST_DAY, COINBASE_BLOCK),
             ):
-                got: Dict[date, Decimal] = {}
+                got: dict[date, Decimal] = {}
                 try:
                     for start in _blocks(first, size):
                         got.update(await fetch(client, start))
@@ -183,7 +182,7 @@ async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
 
 
 # The owner's mempool server
-def midnight_prices(rows: List[dict]) -> Dict[date, tuple]:
+def midnight_prices(rows: list[dict]) -> dict[date, tuple]:
     """
     mempool's price rows at exactly 00:00 UTC whose 23:00 and 01:00 rows
     exist and agree within 2%: its hourly record. Older weekly rows and
@@ -206,7 +205,7 @@ def midnight_prices(rows: List[dict]) -> Dict[date, tuple]:
     return out
 
 
-async def own_node_history() -> Dict[date, tuple]:
+async def own_node_history() -> dict[date, tuple]:
     """The own mempool server's whole USD history (one request, at most every 10 minutes)."""
     base = outbound.current().own_node
     now = time.monotonic()
@@ -226,14 +225,14 @@ async def own_node_history() -> Dict[date, tuple]:
     return prices
 
 
-async def find_prices(day: date, full: bool) -> Tuple[Dict[date, tuple], bool]:
+async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
     """
     What the chosen sources give while `day` is missing, and whether the
     whole public history came in. `day` only decides whether to ask the
     public sites: no request ever names it.
     """
     settings = outbound.current()
-    prices: Dict[date, tuple] = {}
+    prices: dict[date, tuple] = {}
     complete = False
     if settings.own_node:
         prices.update(await own_node_history())
@@ -258,12 +257,12 @@ def _run(coro):
 
 
 # Table
-def stored_price(db: Session, when: Union[date, datetime]) -> Optional[Decimal]:
+def stored_price(db: Session, when: date | datetime) -> Decimal | None:
     row = db.get(BtcPriceDaily, _utc_day(when))
     return Decimal(row.usd) if row else None
 
 
-def _store(db: Session, prices: Dict[date, tuple]) -> None:
+def _store(db: Session, prices: dict[date, tuple]) -> None:
     if not prices:
         return
     rows = [{"day": d, "usd": usd, "source": src} for d, (usd, src) in prices.items()]
@@ -295,7 +294,7 @@ def _mark_history_complete(db: Session) -> None:
         db.flush()
 
 
-def daily_price(db: Session, when: Union[date, datetime]) -> Decimal:
+def daily_price(db: Session, when: date | datetime) -> Decimal:
     """The BTC/USD price for the UTC day of `when`. 422 when there is none."""
     day = _utc_day(when)
     price = stored_price(db, day)
@@ -316,7 +315,7 @@ def daily_price(db: Session, when: Union[date, datetime]) -> Decimal:
     return prices[day][0]
 
 
-async def daily_price_async(db: Session, when: Union[date, datetime]) -> Decimal:
+async def daily_price_async(db: Session, when: date | datetime) -> Decimal:
     """daily_price() for async routes (runs it in a worker thread)."""
     from starlette.concurrency import run_in_threadpool
 

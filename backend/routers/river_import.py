@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
@@ -43,7 +42,7 @@ router = APIRouter()
 
 
 def _autofill_fmv_basis(
-    proposals: List[RiverProposal], warnings: List[CSVParseError], db: Session
+    proposals: list[RiverProposal], warnings: list[CSVParseError], db: Session
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
@@ -51,7 +50,7 @@ def _autofill_fmv_basis(
     Degrades gracefully: on lookup failure the basis stays blank and a
     warning tells the user to fill it in.
     """
-    price_cache: Dict[str, Optional[Decimal]] = {}
+    price_cache: dict[str, Decimal | None] = {}
 
     for proposal in proposals:
         if proposal.type != "Deposit" or proposal.cost_basis_usd is not None:
@@ -177,8 +176,8 @@ def execute_river_import(
 
     # Re-validate via the battle-tested CSV row validator
     tx_datas = []
-    stubs: List[RiverProposal] = []
-    all_errors: List[str] = []
+    stubs: list[RiverProposal] = []
+    all_errors: list[str] = []
     for i, row in enumerate(payload.rows, start=1):
         ts = row.date
         str_row = {

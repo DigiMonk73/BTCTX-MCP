@@ -34,7 +34,6 @@ import tempfile
 import time
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -153,7 +152,7 @@ def claim(c: httpx.Client, user: str, password: str, code: str) -> None:
     check("default login no more", not c.get("/api/users/setup-status").json()["is_default"])
 
 
-def run(url: str, user: str, password: str, own_server: bool, setup_code: Optional[str] = None) -> None:
+def run(url: str, user: str, password: str, own_server: bool, setup_code: str | None = None) -> None:
     c = httpx.Client(base_url=url, timeout=120)
     if setup_code:
         claim(c, user, password, setup_code)

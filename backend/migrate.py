@@ -25,7 +25,6 @@ import os
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from alembic import command
 from alembic.config import Config
@@ -54,11 +53,11 @@ class MigrationError(RuntimeError):
 
 @dataclass
 class MigrationResult:
-    from_revision: Optional[str]
+    from_revision: str | None
     to_revision: str
     adopted: bool = False
-    repairs: List[str] = field(default_factory=list)
-    backup: Optional[Path] = None
+    repairs: list[str] = field(default_factory=list)
+    backup: Path | None = None
 
     @property
     def changed(self) -> bool:
@@ -79,11 +78,11 @@ def head_revision() -> str:
     return _script().get_current_head()
 
 
-def current_revision(connection: Connection) -> Optional[str]:
+def current_revision(connection: Connection) -> str | None:
     return MigrationContext.configure(connection).get_current_revision()
 
 
-def stamped_revision(connection: Connection) -> Optional[str]:
+def stamped_revision(connection: Connection) -> str | None:
     """The revision in alembic_version, by plain SQL; None without the table.
     For the health check: MigrationContext logs two INFO lines per call, and
     StartOS asks every 30 seconds."""
@@ -99,7 +98,7 @@ def _app_tables(connection: Connection) -> set:
     }
 
 
-def sqlite_file(engine: Engine) -> Optional[Path]:
+def sqlite_file(engine: Engine) -> Path | None:
     if engine.dialect.name != "sqlite":
         return None
     db = engine.url.database
@@ -136,7 +135,7 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     return dest
 
 
-def backup_copies(db_path: Path, kind: str = "before") -> List[Path]:
+def backup_copies(db_path: Path, kind: str = "before") -> list[Path]:
     """This database's copies of one kind in <dir>/backups/, newest first."""
     dest_dir = db_path.parent / BACKUP_DIRNAME
     return sorted(
@@ -146,7 +145,7 @@ def backup_copies(db_path: Path, kind: str = "before") -> List[Path]:
     )
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> List[Path]:
+def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ and delete
     older ones. Only files this module wrote (<stem>-<kind>-*.db) are
@@ -167,7 +166,7 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before")
 
 
 # Adopting databases created before migrations existed
-def _baseline_reference() -> Tuple[Dict[str, str], Dict[str, str], Dict[str, list]]:
+def _baseline_reference() -> tuple[dict[str, str], dict[str, str], dict[str, list]]:
     """(table DDL, index DDL, PRAGMA table_info per table) of revision 0001."""
     eng = create_engine("sqlite://")
     try:
@@ -187,7 +186,7 @@ def _baseline_reference() -> Tuple[Dict[str, str], Dict[str, str], Dict[str, lis
     return tables, indexes, columns
 
 
-def adopt_unversioned(conn: Connection) -> List[str]:
+def adopt_unversioned(conn: Connection) -> list[str]:
     """
     Repair a pre-migrations database to exactly what revision 0001 expects,
     then stamp it 0001. Only additive, data-preserving repairs are made:
@@ -206,7 +205,7 @@ def adopt_unversioned(conn: Connection) -> List[str]:
         )
 
     ref_tables, ref_indexes, ref_columns = _baseline_reference()
-    repairs: List[str] = []
+    repairs: list[str] = []
 
     for table, ddl in ref_tables.items():
         if table not in have:

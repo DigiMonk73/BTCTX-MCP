@@ -7,7 +7,6 @@ logout, the health check, and the built frontend served from frontend/dist.
 
 import os
 import logging
-from typing import Optional
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, Depends, HTTPException
@@ -249,7 +248,7 @@ class LoginRequest(BaseModel):
     """
     username: str
     password: str
-    setup_code: Optional[str] = None
+    setup_code: str | None = None
 
 from backend.services.user import get_user_by_username
 from backend.services import first_run, login_throttle

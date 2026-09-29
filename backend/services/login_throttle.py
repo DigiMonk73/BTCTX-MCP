@@ -24,7 +24,6 @@ import math
 import threading
 import time
 from collections import deque
-from typing import Deque, Dict, Tuple
 
 from fastapi import HTTPException, Request
 
@@ -38,8 +37,8 @@ MAX_CLIENTS = 10_000
 
 _now = time.monotonic  # tests move the clock
 _lock = threading.Lock()
-_clients: Dict[str, Tuple[int, float]] = {}  # address -> (failures, time of the last)
-_recent: Deque[float] = deque()  # times of the failures within GLOBAL_WINDOW, all clients
+_clients: dict[str, tuple[int, float]] = {}  # address -> (failures, time of the last)
+_recent: deque[float] = deque()  # times of the failures within GLOBAL_WINDOW, all clients
 
 
 def client_of(request: Request) -> str:

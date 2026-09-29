@@ -66,8 +66,10 @@ def take(out: Path, work: Path, bench: bool) -> None:
     out.mkdir(parents=True, exist_ok=True)
     _shut_out_the_world(work)
     rl_config.invariant = 1  # ReportLab PDFs without creation time or random ids
+    openapi = app.openapi()
     _write(out / "meta.json", {
-        "openapi": app.openapi(),
+        "openapi": _without_descriptions(openapi),
+        "openapi_descriptions": _descriptions(openapi),
         "mcp_tools": asyncio.run(_mcp_tool_list()),
         "csv_instructions_pdf": _csv_instructions_pdf(work),
     })
@@ -76,6 +78,29 @@ def take(out: Path, work: Path, bench: bool) -> None:
     _write(out / "bad_inputs.json", _bad_input_snapshot(work))
     if bench:
         _write(out / "bench.json", _bench(work))
+
+
+def _without_descriptions(value):
+    if isinstance(value, dict):
+        return {k: _without_descriptions(v) for k, v in value.items() if k != "description"}
+    if isinstance(value, list):
+        return [_without_descriptions(v) for v in value]
+    return value
+
+
+def _descriptions(value, path="") -> dict:
+    """Every description in the API schema, by where it is."""
+    found = {}
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "description" and isinstance(item, str):
+                found[path] = item
+            else:
+                found.update(_descriptions(item, f"{path}/{key}"))
+    elif isinstance(value, list):
+        for i, item in enumerate(value):
+            found.update(_descriptions(item, f"{path}[{i}]"))
+    return found
 
 
 def _write(path: Path, data) -> None:

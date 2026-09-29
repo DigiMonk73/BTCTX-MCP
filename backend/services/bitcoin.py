@@ -11,7 +11,7 @@ ever naming a date.
 import asyncio
 import logging
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import HTTPException
 
@@ -82,12 +82,12 @@ async def _first_public(urls_and_parsers, what: str):
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
-def _coingecko_price(resp) -> Optional[dict]:
+def _coingecko_price(resp) -> dict | None:
     price = resp.json()["bitcoin"]["usd"]
     return {"USD": float(price)} if price else None
 
 
-def _kraken_price(resp) -> Optional[dict]:
+def _kraken_price(resp) -> dict | None:
     data = resp.json()
     if data.get("error"):
         return None

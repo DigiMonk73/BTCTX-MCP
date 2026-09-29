@@ -26,7 +26,6 @@ import logging
 import os
 import secrets
 import threading
-from typing import Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -53,7 +52,7 @@ DEFAULT_LOGIN_REFUSED = (
 )
 
 _lock = threading.Lock()
-_default: Dict[Tuple[int, str, str], bool] = {}
+_default: dict[tuple[int, str, str], bool] = {}
 
 
 def is_default_account(user: User) -> bool:
@@ -81,7 +80,7 @@ def _normalize(code: str) -> str:
     return "".join(ch for ch in code.upper() if ch.isalnum())
 
 
-def _read_code() -> Optional[str]:
+def _read_code() -> str | None:
     try:
         with open(code_path(), encoding="utf-8") as fh:
             return fh.read().strip() or None
@@ -108,7 +107,7 @@ def ensure_code() -> str:
     return code
 
 
-def check_code(given: Optional[str]) -> bool:
+def check_code(given: str | None) -> bool:
     code = _read_code()
     if code is None:
         # Deleted, or a restored backup brought the default login back

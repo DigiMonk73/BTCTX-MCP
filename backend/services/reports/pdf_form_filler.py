@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Dict
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, NameObject
@@ -25,7 +24,7 @@ from pypdf.generic import ArrayObject, NameObject
 logger = logging.getLogger(__name__)
 
 
-def fill_pdf_form(template_path: str, field_data: Dict[str, str], flatten: bool = True) -> bytes:
+def fill_pdf_form(template_path: str, field_data: dict[str, str], flatten: bool = True) -> bytes:
     """
     Fill `template_path` with `field_data`.
 
@@ -49,7 +48,7 @@ def fill_pdf_form(template_path: str, field_data: Dict[str, str], flatten: bool 
             "the IRS template changed; see docs/IRS_ANNUAL_FORM_UPDATE.md"
         )
 
-    values: Dict[str, str] = {}
+    values: dict[str, str] = {}
     for name, field in template_fields.items():
         kind = field.get("/FT")
         if kind == "/Btn":

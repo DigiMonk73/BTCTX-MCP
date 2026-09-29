@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Literal, Optional
+from typing import Literal
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -66,24 +66,24 @@ class TransactionBase(BaseModel):
     values. The ledger lines, lots and disposals are built from it.
     """
     type: TxType
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
-    from_account_id: Optional[int] = None
-    to_account_id: Optional[int] = None
+    from_account_id: int | None = None
+    to_account_id: int | None = None
 
-    amount: Optional[Decimal] = Field(
+    amount: Decimal | None = Field(
         default=None,
         description="Main transaction amount, typically BTC with up to 8 decimals."
     )
-    fee_amount: Optional[Decimal] = Field(
+    fee_amount: Decimal | None = Field(
         default=None,
         description="Fee amount, typically BTC with up to 8 decimals."
     )
-    fee_currency: Optional[str] = None
+    fee_currency: str | None = None
 
-    source: Optional[str] = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
-    purpose: Optional[str] = None  # a Withdrawal's: Spent, Gift, Donation, Lost
-    broker_reporting: Optional[BrokerReporting] = Field(
+    source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
+    purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
+    broker_reporting: BrokerReporting | None = Field(
         default=None,
         description=(
             "Sell/Withdrawal only: what your broker reported on Form 1099-DA "
@@ -91,38 +91,38 @@ class TransactionBase(BaseModel):
         ),
     )
 
-    cost_basis_usd: Optional[Decimal] = Field(
+    cost_basis_usd: Decimal | None = Field(
         default=None,
         description="Total USD cost basis for tax reporting (e.g., Buy price)."
     )
 
-    proceeds_usd: Optional[Decimal] = Field(
+    proceeds_usd: Decimal | None = Field(
         default=None,
         description="Total USD proceeds for tax reporting (e.g., Sell price)."
 
     )
-    gross_proceeds_usd: Optional[Decimal] = Field(
+    gross_proceeds_usd: Decimal | None = Field(
         default=None,
         description="Exact user input for sale/withdrawal proceeds, before fees."
     )
 
-    fmv_usd: Optional[Decimal] = Field(
+    fmv_usd: Decimal | None = Field(
         default=None,
         description="Fair market value for non-sale disposals (Gift, Donation, Lost)."
     
     )
-    fee_usd: Optional[Decimal] = Field(
+    fee_usd: Decimal | None = Field(
         default=None,
         description=(
             "USD value of a transfer's or withdrawal's BTC fee. Leave out to use "
             "fee x that day's price; a value you give is kept."
         ),
     )
-    realized_gain_usd: Optional[Decimal] = Field(
+    realized_gain_usd: Decimal | None = Field(
         default=None,
         description="Realized gain/loss in USD for IRS Form 8949."
     )
-    holding_period: Optional[str] = None  # e.g., "SHORT", "LONG"
+    holding_period: str | None = None  # e.g., "SHORT", "LONG"
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
@@ -177,28 +177,28 @@ class TransactionUpdate(BaseModel):
     Schema for partial updates. All fields optional, with TxType for type changes.
     Added is_locked to allow toggling lock state (e.g., for admin use).
     """
-    type: Optional[TxType] = None
-    timestamp: Optional[datetime] = None
+    type: TxType | None = None
+    timestamp: datetime | None = None
 
-    from_account_id: Optional[int] = None
-    to_account_id: Optional[int] = None
-    amount: Optional[Decimal] = None
-    fee_amount: Optional[Decimal] = None
-    fee_currency: Optional[str] = None
+    from_account_id: int | None = None
+    to_account_id: int | None = None
+    amount: Decimal | None = None
+    fee_amount: Decimal | None = None
+    fee_currency: str | None = None
 
-    source: Optional[str] = None
-    purpose: Optional[str] = None
-    broker_reporting: Optional[BrokerReporting] = None  # send null to go back to automatic
+    source: str | None = None
+    purpose: str | None = None
+    broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
 
-    cost_basis_usd: Optional[Decimal] = None
-    proceeds_usd: Optional[Decimal] = None
-    gross_proceeds_usd: Optional[Decimal] = None
-    fmv_usd: Optional[Decimal] = None
-    fee_usd: Optional[Decimal] = None  # send null to go back to the day's price
-    realized_gain_usd: Optional[Decimal] = None
-    holding_period: Optional[str] = None
+    cost_basis_usd: Decimal | None = None
+    proceeds_usd: Decimal | None = None
+    gross_proceeds_usd: Decimal | None = None
+    fmv_usd: Decimal | None = None
+    fee_usd: Decimal | None = None  # send null to go back to the day's price
+    realized_gain_usd: Decimal | None = None
+    holding_period: str | None = None
 
-    is_locked: Optional[bool] = None  # accepted but not applied (docs/temp/TODO.md)
+    is_locked: bool | None = None  # accepted but not applied (docs/temp/TODO.md)
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
@@ -263,7 +263,7 @@ class LedgerEntryBase(BaseModel):
         description="Signed amount (e.g., -1.0 for outflow, +1.0 for inflow)."
     )
     currency: str = "BTC"
-    entry_type: Optional[str] = None  # e.g., "FEE", "TRANSFER_OUT"
+    entry_type: str | None = None  # e.g., "FEE", "TRANSFER_OUT"
 
     @field_validator("amount")
     def validate_ledger_amount(cls, v: Decimal) -> Decimal:
@@ -317,7 +317,7 @@ class BitcoinLotCreate(BitcoinLotBase):
     Schema for creating a BTC lot (e.g., from Buy/Deposit).
     """
     created_txn_id: int
-    acquired_date: Optional[datetime] = None
+    acquired_date: datetime | None = None
 
     @field_validator("acquired_date")
     def force_utc_acquired_date(cls, v: datetime | None) -> datetime | None:
@@ -354,7 +354,7 @@ class LotDisposalBase(BaseModel):
         ...,
         description="BTC amount disposed from this lot."
     )
-    holding_period: Optional[str] = Field(
+    holding_period: str | None = Field(
         default=None,
         description="SHORT or LONG term for IRS capital gains."
     )
@@ -369,9 +369,9 @@ class LotDisposalCreate(LotDisposalBase):
     Schema for creating a disposal record with tax details.
     """
     transaction_id: int
-    realized_gain_usd: Optional[Decimal] = None
-    disposal_basis_usd: Optional[Decimal] = None
-    proceeds_usd_for_that_portion: Optional[Decimal] = None
+    realized_gain_usd: Decimal | None = None
+    disposal_basis_usd: Decimal | None = None
+    proceeds_usd_for_that_portion: Decimal | None = None
 
     @field_validator("realized_gain_usd", "disposal_basis_usd", "proceeds_usd_for_that_portion")
     def validate_disposal_usd(cls, v: Decimal | None) -> Decimal | None:
@@ -386,8 +386,8 @@ class LotDisposalRead(LotDisposalBase):
     """
     id: int
     transaction_id: int
-    realized_gain_usd: Optional[Decimal] = None
-    disposal_basis_usd: Optional[Decimal] = None
-    proceeds_usd_for_that_portion: Optional[Decimal] = None
+    realized_gain_usd: Decimal | None = None
+    disposal_basis_usd: Decimal | None = None
+    proceeds_usd_for_that_portion: Decimal | None = None
 
     model_config = ConfigDict(from_attributes=True)
