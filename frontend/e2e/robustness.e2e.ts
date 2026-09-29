@@ -65,12 +65,18 @@ test("an unreachable price service shows an error, not a crash", async ({ authed
   await expect(page.getByRole("heading", { name: "Current Bitcoin Price" })).toBeVisible();
 });
 
-test("a failed report says so", async ({ authedPage: page }) => {
+test("a failed report says why", async ({ authedPage: page }) => {
+  let body = '{"detail":"No BTC price is stored for 2024-06-01."}';
   await page.route("**/api/reports/**", (route) =>
-    route.fulfill({ status: 500, body: '{"detail":"boom"}', contentType: "application/json" }),
+    route.fulfill({ status: 422, body, contentType: "application/json" }),
   );
   await page.getByRole("link", { name: "Reports" }).click();
   await page.getByLabel("Tax Year").selectOption("2024");
+  await page.getByRole("button", { name: "Export" }).click();
+  await expect(page.getByText("No BTC price is stored for 2024-06-01.")).toBeVisible();
+
+  // No reason in the answer: the generic message
+  body = "<html>proxy error</html>";
   await page.getByRole("button", { name: "Export" }).click();
   await expect(page.getByText("Failed to generate the report. Please try again.")).toBeVisible();
 });

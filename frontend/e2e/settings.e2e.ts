@@ -356,7 +356,7 @@ test("privacy & network: price source, mempool fallback, proxy; off shows on the
   await save.click();
   await expect(page.getByText("Privacy & network settings saved.").last()).toBeVisible();
   await page.getByRole("link", { name: "Dashboard" }).click();
-  await expect(page.getByText("Prices off")).toBeVisible();
+  await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the price card
 });
 
 test.describe("a fresh install asks where prices come from", () => {
@@ -365,7 +365,7 @@ test.describe("a fresh install asks where prices come from", () => {
   test("nothing is chosen until the owner picks; the question then goes away", async ({ authedPage: page }) => {
     const prompt = page.getByRole("region", { name: "Choose a price source" });
     await expect(prompt).toBeVisible();
-    await expect(page.getByText("Prices off")).toBeVisible(); // the dashboard asked nothing
+    await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the dashboard asked nothing
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("unset");
     const use = prompt.getByRole("button", { name: "Use this" });
     await expect(use).toBeDisabled();

@@ -99,6 +99,10 @@ All notable changes to BitcoinTX are documented in this file.
 - A missing file (the browser's `/favicon.ico`, an outdated script after an
   update) is a 404 instead of the app's page.
 
+- **Sats Converter:** a price you type in Manual mode is no longer replaced
+  by the starting price arriving late (on a slow server it could land after
+  you had typed yours).
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api";
 import "../styles/converter.css";
 
@@ -13,6 +13,20 @@ const BtcConverter: React.FC = () => {
   // ---------------------------------------------------------------------------
   const [mode, setMode] = useState<Mode>("auto");
   const [btcPrice, setBtcPrice] = useState<number>(0);
+  // Bumped by every mode switch and every typed price: an answer to an older
+  // request (slow to arrive) is dropped instead of overwriting the price.
+  const priceTicket = useRef(0);
+  const fetchPrice = async (url: string) => {
+    const ticket = priceTicket.current;
+    let price = 0;
+    try {
+      const res = await api.get<LiveBtcPriceResponse>(url);
+      if (res.data && typeof res.data.USD === "number") price = res.data.USD;
+    } catch {
+      // no price: 0
+    }
+    if (ticket === priceTicket.current) setBtcPrice(price);
+  };
 
   // For date mode
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -39,18 +53,7 @@ const BtcConverter: React.FC = () => {
   useEffect(() => {
     if (mode !== "auto") return;
 
-    const fetchLivePrice = async () => {
-      try {
-        const res = await api.get<LiveBtcPriceResponse>("/bitcoin/price");
-        if (res.data && typeof res.data.USD === "number") {
-          setBtcPrice(res.data.USD);
-        } else {
-          setBtcPrice(0);
-        }
-      } catch {
-        setBtcPrice(0);
-      }
-    };
+    const fetchLivePrice = () => fetchPrice("/bitcoin/price");
 
     fetchLivePrice();
     // No asking while this tab isn't being looked at.
@@ -66,44 +69,19 @@ const BtcConverter: React.FC = () => {
   useEffect(() => {
     if (mode !== "date" || !selectedDate) return;
 
-    const fetchHistoricalPrice = async () => {
-      try {
-        const res = await api.get<LiveBtcPriceResponse>(
-          `/bitcoin/price/history?date=${selectedDate}`
-        );
-        if (res.data && typeof res.data.USD === "number") {
-          setBtcPrice(res.data.USD);
-        } else {
-          setBtcPrice(0);
-        }
-      } catch {
-        setBtcPrice(0);
-      }
-    };
-
-    fetchHistoricalPrice();
+    fetchPrice(`/bitcoin/price/history?date=${selectedDate}`);
   }, [mode, selectedDate]);
 
   // ---------------------------------------------------------------------------
   // 5) Manual Mode: fetch once to seed the price
   // ---------------------------------------------------------------------------
-  const fetchManualPriceOnce = async () => {
-    try {
-      const res = await api.get<LiveBtcPriceResponse>("/bitcoin/price");
-      if (res.data && typeof res.data.USD === "number") {
-        setBtcPrice(res.data.USD);
-      } else {
-        setBtcPrice(0);
-      }
-    } catch {
-      setBtcPrice(0);
-    }
-  };
+  const fetchManualPriceOnce = () => fetchPrice("/bitcoin/price");
 
   // ---------------------------------------------------------------------------
   // 6) Mode Switch
   // ---------------------------------------------------------------------------
   const handleModeChange = (newMode: Mode) => {
+    priceTicket.current += 1;
     setMode(newMode);
     setSelectedDate("");
 
@@ -240,6 +218,7 @@ const BtcConverter: React.FC = () => {
             value={btcPrice}
             onChange={(e) => {
               const val = parseFloat(e.target.value) || 0;
+              priceTicket.current += 1; // the seed price may still be on its way
               setBtcPrice(val);
 
               // Re-run the last-changed field’s conversion
