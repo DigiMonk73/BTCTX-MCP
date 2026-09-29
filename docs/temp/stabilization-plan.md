@@ -58,11 +58,8 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
       skipped (the Mac's app holds the owner's real ledger). Report:
       `~/code/btctx-vm-lab/scenarios/agent-test-1.2.1-published.md`.
 - [x] 3. Bug hunt: VM findings fixed (8858dd5); two hunt agents found ~20
-      real bugs, all fixed on `develop` with tests (up to a460500), except
-      one owner decision: the AI entry import marks a Buy of the same BTC
-      amount within 48 h but a different basis as a duplicate and never
-      saves it (M2; proof test in `.claude/worktrees/agent-a5e5…`,
-      `test_zz_hunt2.py::test_a_different_buy_of_the_same_amount_is_not_skipped_as_a_duplicate`).
+      real bugs, all fixed on `develop` with tests, M2 by the owner's
+      decision (a same-amount Buy at another price: saved, flagged).
       The slow property test's rare "stuck" failure was the test's own
       shuffled entry (fixed in the test). Full suite 747, e2e 219 green.
 - [~] 4. Privacy audit: `privacy-audit.md`; the four plain bug fixes done

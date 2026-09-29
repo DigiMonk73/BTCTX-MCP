@@ -32,6 +32,11 @@ failed before it.
   your tax timezone. A time ending in " UTC" is read as UTC (it was read in
   the tax timezone), and finding transactions by date uses days in your tax
   timezone.
+- **A second Buy of the same amount at another price can be saved through
+  the AI.** A Buy of the same BTC amount within 48 hours was taken for a
+  duplicate even at a different price, skipped, and could never be saved.
+  It's now a possible duplicate the AI asks you about; only the very same
+  buy (same amount and price) is skipped.
 - **Export CSV then Import CSV keeps the order of same-time entries.** The
   import put them in a fixed type order (moves before sales), which could
   change which coins a sale used and its gain; rows at the same time now go

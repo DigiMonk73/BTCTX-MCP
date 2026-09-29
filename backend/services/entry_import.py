@@ -254,8 +254,12 @@ def _stub(p: PreparedRow) -> RiverProposal:
 
 def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool = False) -> None:
     """
-    Exact match (same type family, same BTC amount, ±48h) => duplicate, never written.
-    Fuzzy BTC-move match (±20% amount) => possible_duplicate, written unless removed.
+    Exact match (same type family, same BTC amount, ±48h, and for a Buy the
+    same cost basis) => duplicate, never written.
+    Same amount at another cost basis, or a fuzzy BTC-move match (±20%
+    amount) => possible_duplicate: flagged for the AI to ask about, written
+    unless removed. (A Buy at another price used to be a duplicate, so a
+    second purchase of the same amount could never be saved.)
     """
     valid = [p for p in prepared if p.tx_data is not None]
     if not valid:
@@ -269,11 +273,18 @@ def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool =
         annotate_duplicates(fuzzy_stubs, db)
 
     for p, exact, fuzzy in zip(valid, exact_stubs, fuzzy_stubs):
-        if exact.status != STATUS_NEW:
+        if exact.status == STATUS_DISCREPANCY:
+            recorded = db.get(Transaction, exact.matched_tx_id)
+            p.result.status = STATUS_POSSIBLE_DUPLICATE
+            p.result.matched_transaction_id = exact.matched_tx_id
+            p.result.warnings.append(
+                f"A {exact.type} of the same BTC amount within 48 hours is already recorded "
+                f"(#{exact.matched_tx_id}, cost basis ${Decimal(recorded.cost_basis_usd or 0):.2f}); "
+                f"this one's is ${Decimal(exact.cost_basis_usd):.2f}. Save it only if it's another purchase."
+            )
+        elif exact.status != STATUS_NEW:
             p.result.status = STATUS_DUPLICATE
             p.result.matched_transaction_id = exact.matched_tx_id
-            if exact.discrepancy:
-                p.result.warnings.append(exact.discrepancy)
         elif fuzzy is not None and fuzzy.status == STATUS_DISCREPANCY:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
             p.result.matched_transaction_id = fuzzy.matched_tx_id

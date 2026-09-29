@@ -198,6 +198,23 @@ class TestDedup:
         assert again["skipped_duplicates"] == 2
         assert tx_count() == 2
 
+    def test_a_same_amount_buy_at_another_price_is_saved_but_flagged(self):
+        """Bug hunt 2026-09-29 (owner decision): a Buy of the same BTC amount
+        within 48 h but at another price was a "duplicate", skipped, and could
+        never be saved through the AI. It's a possible duplicate now: flagged
+        for the AI to ask about, saved when the user confirms."""
+        first = dict(BUY, date="2024-01-15T14:00:00Z", cost_basis_usd="420.00", amount="0.01")
+        second = dict(first, date="2024-01-16T14:00:00Z", cost_basis_usd="455.00")
+        assert execute([first])["imported_count"] == 1
+        res = preview([second])["results"][0]
+        assert res["status"] == "possible_duplicate" and res["matched_transaction_id"]
+        assert any("$455.00" in w and "$420.00" in w and "River" not in w for w in res["warnings"])
+        out = execute([second])
+        assert out["imported_count"] == 1 and out["skipped_duplicates"] == 0
+        assert tx_count() == 2
+        # The very same buy (same amount and price) is still skipped
+        assert execute([second])["skipped_duplicates"] == 1 and tx_count() == 2
+
     def test_near_match_transfer_is_possible_duplicate(self):
         execute([dict(BUY, amount="1.0"), TO_COLD])
         near = dict(TO_COLD, amount="0.45", date="2023-01-12T20:00:00Z")

@@ -108,8 +108,8 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 2. Call preview_transactions. Nothing is saved. Show the user a compact
    table: date, type, amount, from -> to, USD values, simulated gain/loss.
    Call out: duplicates (already recorded - will be skipped), possible
-   duplicates (probably already recorded with a slightly different amount -
-   ask whether to drop), auto-filled USD values, rejected rows (e.g. not
+   duplicates (probably already recorded with a slightly different amount,
+   or the same amount at another price - ask whether to drop), auto-filled USD values, rejected rows (e.g. not
    enough BTC - usually a missing earlier transaction), and affected_existing
    (backdating changes gains on earlier-recorded sales).
 3. Only after the user confirms, call add_transactions with the same rows
