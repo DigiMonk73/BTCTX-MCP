@@ -153,3 +153,21 @@ def test_bare_api_path_is_a_json_404_not_the_web_page():
 
     r = TestClient(app).get("/api")
     assert r.status_code == 404 and r.headers["content-type"].startswith("application/json")
+
+
+def test_only_app_pages_fall_back_to_the_web_page(tmp_path, monkeypatch):
+    """Missing files (the browser asks /favicon.ico on every page; a stale
+    hashed asset) got index.html with 200, which nosniff then blocked."""
+    from fastapi.testclient import TestClient
+
+    import backend.main as main
+
+    (tmp_path / "index.html").write_text("<!doctype html><title>BitcoinTX</title>")
+    monkeypatch.setattr(main, "frontend_dist", str(tmp_path))
+    client = TestClient(main.app)
+    for page in ("/dashboard", "/transactions/new", "/login"):
+        r = client.get(page)
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/html"), page
+    for missing in ("/favicon.ico", "/assets/index-OLD123.js", "/robots.txt", "/api/does-not-exist"):
+        r = client.get(missing)
+        assert r.status_code == 404 and r.headers["content-type"].startswith("application/json"), missing

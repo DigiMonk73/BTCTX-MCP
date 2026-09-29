@@ -96,6 +96,9 @@ All notable changes to BitcoinTX are documented in this file.
   transaction's date later kept the old value instead of pricing it
   again. Files without the column import as before.
 
+- A missing file (the browser's `/favicon.ico`, an outdated script after an
+  update) is a 404 instead of the app's page.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

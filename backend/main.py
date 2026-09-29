@@ -190,9 +190,13 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
     handle the route on the client side.
 
     API routes (/api/*) are excluded - they should return proper JSON errors.
+    So are missing files (/favicon.ico, a stale /assets/*.js): a 404, not the
+    page with 200 (none of the app's routes has a dot).
     """
     path = request.url.path
-    if exc.status_code == 404 and not (path == "/api" or path.startswith("/api/")):
+    is_api = path == "/api" or path.startswith("/api/")
+    is_file = path.startswith("/assets/") or "." in path.rsplit("/", 1)[-1]
+    if exc.status_code == 404 and not is_api and not is_file:
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path, media_type="text/html")
