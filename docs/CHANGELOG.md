@@ -50,6 +50,10 @@ All notable changes to BitcoinTX are documented in this file.
   duplicates in an exact and a rough pass, and the import endpoint checks,
   stubs and saves rows in named steps. Same proposals, warnings, matches and
   imports (3,000 random files and 3,000 random ledgers compared).
+- **The dashboard's gains** (`get_gains_and_losses`, 179 lines) add up
+  realized gains, proceeds, income by source, fees and this year's gain in
+  one step each. Same figures on every ledger compared, including ones with
+  sales this year.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

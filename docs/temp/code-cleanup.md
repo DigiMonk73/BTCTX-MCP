@@ -321,7 +321,7 @@ fixed inside a cleanup commit.
 - [x] River import: `adapt_river_rows`, `annotate_duplicates`, and the router's
       `execute_river_import`, which keeps calling the module names the tests
       replace.
-- [ ] `get_gains_and_losses`. Same keys in the same order, same rounding, same
+- [x] `get_gains_and_losses`. Same keys in the same order, same rounding, same
       log text.
 - [ ] The remaining over-limit functions outside the engine:
   - `build_review`, `simulate`, `public_history`, `fill_pdf_form`
