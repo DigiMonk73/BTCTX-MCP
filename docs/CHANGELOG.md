@@ -4,103 +4,103 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-### Fixes
-Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
-- **The Sats Converter no longer shows "BTC Price: $0.00" without a
-  price.** With prices off it says "Prices off", after an error or for a
-  day with no stored price "No price", and the USD field empties instead of
-  keeping an old figure (BTC and sats still convert).
-- **My Mempool not answering is an error, not "Prices off".** With your
-  Mempool chosen but missing or not answering (and the fallback off), the
-  Dashboard said "Prices off"; it now says "Error", and hovering it shows
-  why (e.g. install and start Mempool). The message lost its doubled
-  brackets.
-- **Clearer messages when no price is stored.** A transfer's missing fee
-  value now names the form's **Fee value (USD)** field (and `fee_usd` for
-  imports), and a new Spent withdrawal without proceeds is no longer told
-  to "edit that transaction".
-- **The complete tax report says where its prices come from.** It claimed
-  "the average market value at the time of disposal"; it now says values
-  are the ones entered, a blank one comes from that day's stored daily
-  price, and dates are in the tax timezone (named).
-- **Privacy fixes from an audit of 1.2.1** (`docs/temp/privacy-audit.md`):
-  - The AI connector no longer writes request addresses to the AI app's
-    log files; past-price lookups named your transaction dates there.
-  - An `.onion` mempool address needs the proxy: it's refused without one
-    (it was looked up through the normal DNS, which then saw the name).
-  - An encrypted backup no longer passes through a plain copy in the
-    system's temp folder, and a restore's decrypted file is owner-only from
-    the moment it's written.
-  - Making reports no longer logs how many transactions, disposals and
-    lots each year has (now only at the DEBUG log level).
-- **Keyboard focus shows in the Mac app on older macOS.** On Safari before
-  15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
-  own ring now stays there, and newer versions keep the gold one.
-- **AI connector fixes from a bug hunt (2026-09-29):**
-  - Changing a transaction's date with the AI reads it as adding one does:
-    a date alone is midday in your tax timezone, a time without a timezone
-    is a time there. It was read as UTC, so in the US a sale moved to Jan 1
-    landed on Dec 31, in the previous tax year.
-  - Finding transactions by date with the AI uses days in your tax
-    timezone: a 9 pm Dec 31 entry in Chicago is on Dec 31, not Jan 1.
-  - Pay the AI adds as an Income deposit into Bank or Exchange USD is no
-    longer valued at the BTC price ($5,000 became $250 million of income);
-    likewise a Spent or Gift withdrawal from a USD account. Only BTC
-    accounts are valued at the day's BTC price, and the preview (and the
-    CSV import) no longer says such a USD entry will be.
-  - A time ending in " UTC" (`2025-01-01 03:00:00 UTC`) given to the AI is
-    read as UTC, as the CSV import reads it; it was read in the tax
-    timezone, hours off and sometimes in the wrong tax year.
-  - When BitcoinTX's address redirects (e.g. `http://` to `https://`), the
-    connector says so and which address to set in `BTCTX_URL`, instead of
-    failing with an unclear error or a blank price. It still never follows
-    a redirect, so the AI key only goes to that address.
+Stabilization after 1.2.1: no new features. Found by testing the published
+1.2.1 on a StartOS VM, a bug hunt of the tax engine, the imports and the AI
+connector, and a privacy audit (2026-09-29). Each fix has a test that
+failed before it.
 
-Found in a bug hunt of the imports (2026-09-29):
-- **Export CSV then Import CSV keeps the order of same-time entries.** The
-  import put them in a fixed type order (moves before sales), which could
-  change which coins a sale used and its gain; rows at the same time now
-  go in the file's order (the export's is the ledger's).
-- **The CSV import reads Excel's "CSV UTF-8" files.** Their invisible
-  byte-order mark made the import say "Missing required columns: date".
-- **A River file row with one comma too many is that row's error.** A
-  trailing comma or an amount written 1,000.00 made the River import fail
-  with a server error.
-- **A River Sell whose Fee Currency is blank is no longer a fee short.**
-  The fee was still subtracted as USD but not added to the gross first; a
-  blank fee currency on a River Buy or Sell now counts as USD, as River
-  charges it, so the sale lands at River's Received Amount.
-- **An import no longer freezes the whole app while it works.** A CSV,
-  River or AI-assistant import (or its preview) held up every other
-  request, StartOS's health check included, for as long as it ran (10
-  seconds in one test); that work now runs beside them.
-- **Form 8949 line 2 "Totals" is filled.** Each page now shows the totals
-  of its own rows in (d), (e) and (h), which add up to the Schedule D line;
-  it was left blank on the locked PDF, so it couldn't be typed in either.
-
-Found by a bug hunt of the tax engine (2026-09-29).
+### Fixes to tax figures
 - **Changing a transaction's type no longer keeps the old type's fields.**
   A Gift changed into a Sell stayed a "gift" and was missing from Form 8949
   and Schedule D; a withdrawal changed into an Income deposit reported the
-  old lots' cost basis as the income instead of that day's value.
+  old lots' cost basis as the income instead of that day's value. (Only the
+  AI connector or the API can change a type; the form locks it.)
 - **A fee entered without its currency now counts.** Adding a fee on its
   own (e.g. by the AI connector) left a Sell's proceeds and a Buy's cost
   basis without it, and took a withdrawal's BTC fee from the balance with
   no disposal or value. The fee now gets its type's currency (USD for Buy
   and Sell, else the account's) and is saved with it; entries already saved
-  that way are fixed by the next recalculation.
-- **A sale drawn from several lots no longer loses cents.** Each lot's
-  share of the proceeds was rounded on its own ($100.00 over three lots
-  showed as $99.99 on Form 8949); the last share now takes the remainder.
+  that way are fixed by the next recalculation (which needs that day's
+  price, or the fee's value typed in, for a BTC fee).
+- **Pay the AI adds as an Income deposit into Bank or Exchange USD is no
+  longer valued at the BTC price** ($5,000 became $250 million of income);
+  likewise a Spent or Gift withdrawal from a USD account. Only BTC accounts
+  are valued at the day's BTC price.
+- **Dates given to the AI connector are read as when adding.** Changing a
+  transaction's date read it as UTC, so in the US a sale moved to Jan 1
+  landed on Dec 31, in the previous tax year; a date alone is now midday in
+  your tax timezone. A time ending in " UTC" is read as UTC (it was read in
+  the tax timezone), and finding transactions by date uses days in your tax
+  timezone.
+- **Export CSV then Import CSV keeps the order of same-time entries.** The
+  import put them in a fixed type order (moves before sales), which could
+  change which coins a sale used and its gain; rows at the same time now go
+  in the file's order (the export's is the ledger's). A hand-made file that
+  lists a sale before the same-time buy paying for it is refused, and the
+  message says to list the buy first.
+- **Form 8949 line 2 "Totals" is filled.** Each page now shows the totals of
+  its own rows in (d), (e) and (h), which add up to the Schedule D line; it
+  was left blank on the locked PDF, so it couldn't be typed in either.
+- **A sale drawn from several lots no longer loses cents.** Each lot's share
+  of the proceeds was rounded on its own ($100.00 over three lots showed as
+  $99.99 on Form 8949); the last share now takes the remainder.
 - **A withdrawal of 1 satoshi more than you hold is refused**, like a
   transfer or sale. It was accepted and left the balance at -1 sat.
 - **A time with fractions of a second no longer lands in the wrong year.**
   A sale entered (through the API or the AI connector) half a second after
   midnight on Jan 1 counted in the year before; times are now saved in
   whole seconds.
-- **A Spent withdrawal changed into a Gift, Donation or Lost no longer
-  keeps its proceeds**, which the complete tax report printed in its Gifts
+- **A Spent withdrawal changed into a Gift, Donation or Lost no longer keeps
+  its proceeds**, which the complete tax report printed in its Gifts
   section. (The network fee is still its own taxable disposal.)
+
+### Other fixes
+- **The Sats Converter no longer shows "BTC Price: $0.00" without a price.**
+  With prices off it says "Prices off", after an error or for a day with no
+  stored price "No price", and the USD field empties instead of keeping an
+  old figure (BTC and sats still convert).
+- **My Mempool not answering is an error, not "Prices off".** With your
+  Mempool chosen but missing or not answering (and the fallback off), the
+  Dashboard said "Prices off"; it now says "Error", and hovering it shows
+  why (e.g. install and start Mempool).
+- **Clearer messages when no price is stored.** A transfer's missing fee
+  value names the form's **Fee value (USD)** field (and `fee_usd` for
+  imports), and a new Spent withdrawal without proceeds is no longer told
+  to "edit that transaction".
+- **The complete tax report says where its prices come from.** It claimed
+  "the average market value at the time of disposal"; it now says values
+  are the ones entered, a blank one comes from that day's stored daily
+  price, and dates are in the tax timezone (named).
+- **An import no longer freezes the whole app while it works.** A CSV,
+  River or AI-assistant import (or its preview) held up every other
+  request, StartOS's health check included, for as long as it ran (10
+  seconds in one test); that work now runs beside them.
+- **The CSV import reads Excel's "CSV UTF-8" files.** Their invisible
+  byte-order mark made the import say "Missing required columns: date".
+- **A River file row with one comma too many is that row's error.** A
+  trailing comma or an amount written 1,000.00 made the River import fail
+  with a server error.
+- **A River Sell whose Fee Currency is blank is no longer a fee short.** A
+  blank fee currency on a River Buy or Sell counts as USD, as River charges
+  it, so the sale lands at River's Received Amount.
+- **When BitcoinTX's address redirects** (e.g. `http://` to `https://`), the
+  AI connector says so and which address to set in `BTCTX_URL`, instead of
+  an unclear error or a blank price. It still never follows a redirect, so
+  the AI key only goes to that address.
+- **Keyboard focus shows in the Mac app on older macOS.** On Safari before
+  15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
+  own ring now stays there, and newer versions keep the gold one.
+
+### Privacy (`docs/temp/privacy-audit.md`)
+- The AI connector no longer writes request addresses to the AI app's log
+  files; past-price lookups named your transaction dates there.
+- An `.onion` mempool address needs the proxy: it's refused without one (it
+  was looked up through the normal DNS, which then saw the name).
+- An encrypted backup no longer passes through a plain copy in the system's
+  temp folder, and a restore's decrypted file is owner-only from the moment
+  it's written.
+- Making reports no longer logs how many transactions, disposals and lots
+  each year has (now only at the DEBUG log level).
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
