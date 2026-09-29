@@ -70,6 +70,8 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
       700, PyPI note). Left as documented: clearnet mempool bypasses Tor
       (1i), httpx URLs in the log (3a), StartOS backup contents (3h), the AI
       provider sees the ledger (4a/4b), `/api/health` shows the version (5c).
+- [x] The owner's one UI change: the calculator ends level with the Realized
+      Gains/Losses card; the converter's modes are one height.
 - [ ] Left: the owner's password checks on the VM
       (`~/code/btctx-vm-lab/owner-checks.sh`, against the installed 1.2.1),
       then a 1.2.2 release candidate through `docs/AGENT-TESTS.md` when the

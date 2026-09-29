@@ -226,7 +226,7 @@ const BtcConverter: React.FC = () => {
 
       {/* Manual mode: editable price input */}
       {mode === "manual" && (
-        <div className="manual-price-row">
+        <div className="manual-price-row price-mode-row">
           <label htmlFor="manualPrice" className="field-label">BTC price (USD)</label>
           <input
             id="manualPrice"
@@ -253,25 +253,26 @@ const BtcConverter: React.FC = () => {
 
       {/* Auto mode: show live price */}
       {mode === "auto" && (
-        <div className="auto-price-row">
+        <div className="auto-price-row price-mode-row">
           <p className="btc-price">BTC Price: {priceText()}</p>
         </div>
       )}
 
       {/* Date mode: date picker and historical price */}
       {mode === "date" && (
-        <div className="date-price-row">
-          <div className="date-input-row">
+        <div className="date-price-row price-mode-row">
+          {/* The day's price beside the label, so this mode is as tall as the others */}
+          <div className="date-label-row">
             <label htmlFor="datePicker" className="field-label">Select date</label>
-            <input
-              id="datePicker"
-            className="input input-sm"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+            {selectedDate && <span className="btc-price">{priceText()}</span>}
           </div>
-          {selectedDate && <p className="btc-price">BTC Price: {priceText()}</p>}
+          <input
+            id="datePicker"
+            className="input input-sm"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
         </div>
       )}
 

@@ -9,8 +9,13 @@
 }
 .converter-row,
 .manual-price-row,
-.date-input-row { display: flex; flex-direction: column; gap: 6px; }
-.date-price-row { display: flex; flex-direction: column; gap: var(--space-2); }
+.date-price-row { display: flex; flex-direction: column; gap: 6px; }
+/* Every mode's price area is as tall as Manual's (a label line, 6px, a small
+   field: 58px), so the calculator below doesn't move when the mode changes. */
+.price-mode-row { min-height: 58px; }
+.auto-price-row { display: flex; align-items: center; }
+.date-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.date-label-row .btc-price { font-size: var(--text-13); white-space: nowrap; }
 .btc-price {
   margin: 0;
   font-size: var(--text-sm);

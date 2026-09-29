@@ -29,8 +29,10 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
+/* Keys a little taller than the other controls (owner's request 2026-09-29):
+   the calculator ends level with the Dashboard's second row of cards. */
 .buttons button {
-  height: 40px;
+  height: 42px;
   border: none;
   border-radius: var(--radius-control);
   background: var(--color-raised);
@@ -46,7 +48,7 @@
 .buttons .calc-eq { background: var(--color-accent); color: var(--color-on-accent); }
 .buttons .calc-eq:hover { background: var(--color-accent-hover); }
 .buttons .calc-eq:active { background: var(--color-accent-pressed); }
-.buttons .calc-clear { grid-column: span 4; height: var(--control-height-sm); color: var(--color-text-secondary); }
+.buttons .calc-clear { grid-column: span 4; height: 34px; color: var(--color-text-secondary); }
 
 @media (max-width: 1024px) {
   .buttons button { height: 34px; }

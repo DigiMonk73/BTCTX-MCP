@@ -9,6 +9,13 @@ Stabilization after 1.2.1: no new features. Found by testing the published
 connector, and a privacy audit (2026-09-29). Each fix has a test that
 failed before it.
 
+### Changed
+- **The sidebar calculator is a little taller** (owner's request): its keys
+  are slightly longer, so it ends level with the Dashboard's Realized
+  Gains/Losses card. The Sats Converter's price area is now the same height
+  in Manual, Auto and Date, so the calculator no longer moves when you
+  switch; in Date mode the day's price sits beside "Select date".
+
 ### Fixes to tax figures
 - **Changing a transaction's type no longer keeps the old type's fields.**
   A Gift changed into a Sell stayed a "gift" and was missing from Form 8949
