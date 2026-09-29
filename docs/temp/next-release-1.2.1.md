@@ -7,18 +7,18 @@ dashboard label, dependency updates). Delete this file once 1.2.1 is out.
 
 ## Waits for
 
-- [ ] **The owner's box test of 1.2.0** (`startos-box-test-v1.2.0.md`),
-      mainly **My Mempool on this server**, which the VM can't test. Anything
-      it finds is fixed in 1.2.1.
+- [x] ~~The owner's box test of 1.2.0~~: waived by the owner on 2026-09-28
+      ("confident we can fix anything minor"); anything the box finds goes
+      into 1.2.2.
 
 ## Steps (CLAUDE.md "Releasing", startos/UPDATING.md)
 
 - [ ] If Start9 has forked the mirror by then: `scripts/start9-pull.sh`,
       then `--apply` on `develop`.
-- [ ] Bump to 1.2.1 everywhere `test_versions_agree.py` checks. The package
+- [x] Bump to 1.2.1 everywhere `test_versions_agree.py` checks. The package
       version: 1.2.0:0's `up` does real work, so move `current.ts` to
       `v1.2.0_0.ts` first; release notes in all five languages.
-- [ ] CHANGELOG: Unreleased → `## [v1.2.1] - <date> - <summary>`.
+- [x] CHANGELOG: Unreleased → `## [v1.2.1] - <date> - <summary>`.
 - [ ] Push `develop`, wait for CI.
 - [ ] **VM proof** (owner's choice): build an **aarch64** `btctx.s9pk` from
       that commit on the Mac (the CI artifact is x86_64 only), then in

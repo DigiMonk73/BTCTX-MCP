@@ -2,7 +2,7 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
-## [Unreleased]
+## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
 ### Fixes
 - **Adding transactions before choosing a price source no longer turns
