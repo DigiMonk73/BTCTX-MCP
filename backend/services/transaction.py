@@ -90,6 +90,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
 
     # 2 & 3) Validate the input, the transaction type and fee rules
     _validate_transaction(tx_data, db)
+    _fill_fee_currency(tx_data, db)
     _enforce_transaction_type_rules(tx_data, db)
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
@@ -236,6 +237,8 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     _validate_transaction(merged, db, check_source=check_source)
+    if _fill_fee_currency(merged, db):  # e.g. a fee_amount sent on its own
+        tx_data["fee_currency"] = merged["fee_currency"]
     for key in ("type", "purpose", "source"):  # canonical spellings
         if merged.get(key) != getattr(tx, key) or key in tx_data:
             tx_data[key] = merged.get(key)
@@ -471,7 +474,7 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
     tx_type = tx_data.get("type", "")
     amount = Decimal(tx_data.get("amount") or 0)
     fee_amount = Decimal(tx_data.get("fee_amount") or "0.0")
-    fee_currency = (tx_data.get("fee_currency") or "BTC").upper()
+    fee_currency = (tx_data.get("fee_currency") or "").upper()  # stored with any fee (_fill_fee_currency)
 
     # If user provided None or empty proceeds_usd, treat it as "0"
     proceeds_raw = tx_data.get("proceeds_usd") or "0"
@@ -1138,6 +1141,7 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
         query = query.filter(Transaction.timestamp < until)
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     for rec_tx in all_txs:
+        _fill_stored_fee_currency(rec_tx, db)
         sub_tx_data = {
             "from_account_id": rec_tx.from_account_id,
             "to_account_id": rec_tx.to_account_id,
@@ -1188,6 +1192,7 @@ def recalculate_subsequent_transactions(db: Session, from_timestamp: datetime):
     db.flush()
 
     for rec_tx in affected_txs:
+        _fill_stored_fee_currency(rec_tx, db)
         sub_tx_data = {
             "from_account_id": rec_tx.from_account_id,
             "to_account_id": rec_tx.to_account_id,
@@ -1380,6 +1385,36 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
         _bad(DEPOSIT_BASIS_REQUIRED)
 
 
+def _fill_fee_currency(data: dict, db: Session) -> bool:
+    """
+    A fee given without its currency gets the one its type allows: USD for
+    a Buy or Sell, else the currency of the account it's paid from (for a
+    deposit, the account it goes to). It is stored with the transaction, so
+    the ledger lines, the lots and the fee rules all read the same value;
+    they used to read a missing one as BTC, as no fee and as USD, and a fee
+    could leave the balance with no disposal. Returns True when it filled.
+    """
+    if data.get("fee_currency") or Decimal(data.get("fee_amount") or 0) <= 0:
+        return False
+    tx_type = data.get("type")
+    if tx_type in ("Buy", "Sell"):
+        data["fee_currency"] = "USD"
+        return True
+    acct_id = data.get("to_account_id") if tx_type == "Deposit" else data.get("from_account_id")
+    acct = db.get(Account, acct_id) if acct_id else None
+    if acct is None:
+        return False
+    data["fee_currency"] = acct.currency
+    return True
+
+
+def _fill_stored_fee_currency(tx: Transaction, db: Session) -> None:
+    """The same for a row saved without it (before the fill above)."""
+    data = {k: getattr(tx, k) for k in ("type", "fee_amount", "fee_currency", "from_account_id", "to_account_id")}
+    if _fill_fee_currency(data, db):
+        tx.fee_currency = data["fee_currency"]
+
+
 def _enforce_fee_rules(tx_data: dict, db: Session):
     """
     Validate fee usage by transaction type:
@@ -1390,7 +1425,7 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
     tx_type = tx_data.get("type")
     from_id = tx_data.get("from_account_id")
     fee_amt = Decimal(tx_data.get("fee_amount") or 0)
-    fee_cur = (tx_data.get("fee_currency") or "USD").upper()
+    fee_cur = (tx_data.get("fee_currency") or "").upper()  # filled by _fill_fee_currency
 
     # If there's no fee, skip checks
     if fee_amt <= 0:

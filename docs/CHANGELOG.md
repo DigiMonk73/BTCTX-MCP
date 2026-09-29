@@ -83,6 +83,12 @@ Found by a bug hunt of the tax engine (2026-09-29).
   A Gift changed into a Sell stayed a "gift" and was missing from Form 8949
   and Schedule D; a withdrawal changed into an Income deposit reported the
   old lots' cost basis as the income instead of that day's value.
+- **A fee entered without its currency now counts.** Adding a fee on its
+  own (e.g. by the AI connector) left a Sell's proceeds and a Buy's cost
+  basis without it, and took a withdrawal's BTC fee from the balance with
+  no disposal or value. The fee now gets its type's currency (USD for Buy
+  and Sell, else the account's) and is saved with it; entries already saved
+  that way are fixed by the next recalculation.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

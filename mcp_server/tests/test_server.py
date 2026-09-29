@@ -239,6 +239,34 @@ async def test_a_gift_changed_into_a_sell_is_on_form_8949(mcp_client, backend_db
     assert [(str(r["proceeds"]), str(r["cost"])) for r in rows] == [("300.00", "212.10")]
 
 
+async def test_a_fee_added_later_with_update_transaction_counts(mcp_client, backend_db):
+    """Bug hunt 2026-09-29: add_transactions leaves fee_currency empty when
+    there's no fee; update_transaction with fee_amount alone then stored a
+    fee with no currency. A Sell's (USD) fee wasn't taken off its proceeds;
+    a withdrawal's (BTC) fee left the balance with no disposal or fee_usd."""
+    from sqlalchemy import text
+
+    sell = {"date": "2024-03-01T00:00:00Z", "type": "Sell", "amount": "0.005",
+            "from_account": "Exchange BTC", "to_account": "Exchange USD", "proceeds_usd": "300.00"}
+    spend = {"date": "2024-03-02T00:00:00Z", "type": "Withdrawal", "amount": "0.004",
+             "from_account": "Exchange BTC", "to_account": "External", "purpose": "Spent",
+             "proceeds_usd": "200.00"}
+    created = (await call(mcp_client, "add_transactions", {"transactions": [BUY, sell, spend]}))["created"]
+    sell_id, spend_id = created[1]["id"], created[2]["id"]
+    updated = await call(mcp_client, "update_transaction", {"transaction_id": sell_id, "fee_amount": "3.00"})
+    assert (updated["proceeds_usd"], updated.get("fee_currency")) == ("297.00", "USD")
+    updated = await call(mcp_client, "update_transaction", {"transaction_id": spend_id, "fee_amount": "0.0001"})
+    assert (updated.get("fee_usd"), updated.get("fee_currency")) == ("5.00", "BTC")  # 0.0001 x $50,000
+    with backend_db.connect() as con:
+        fee_disposals = con.execute(text(
+            "SELECT COUNT(*) FROM lot_disposals WHERE transaction_id = :i AND is_fee"), {"i": spend_id}).scalar()
+        lots = con.execute(text("SELECT SUM(remaining_btc) FROM bitcoin_lots")).scalar()
+    portfolio = await call(mcp_client, "get_portfolio")
+    held = next(b["balance"] for b in portfolio["balances"] if b["account"] == "Exchange BTC")
+    assert (fee_disposals, Decimal(str(lots)).quantize(Decimal("1E-8")), Decimal(str(held))) == \
+        (1, Decimal("0.0009"), Decimal("0.0009"))  # 0.01 - 0.005 - 0.004 - 0.0001
+
+
 async def test_recalculate_ledger(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     out = await call(mcp_client, "recalculate_ledger")

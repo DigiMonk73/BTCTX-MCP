@@ -206,6 +206,24 @@ class TestSells:
         force_recalc()
         assert Decimal(get(tx["id"])["proceeds_usd"]) == Decimal("4990.00")
 
+    def test_a_fee_sent_without_its_currency_is_usd(self):
+        """Bug hunt 2026-09-29: a fee_amount with no fee_currency was read as
+        BTC by the ledger lines, so a Sell's fee wasn't taken off its proceeds
+        and a Buy's wasn't in its lot's cost basis (both are always USD). The
+        same when the fee is added later on its own (the AI connector)."""
+        b = post(type="Buy", timestamp="2023-01-01T00:00:00Z", from_account_id=BANK, to_account_id=EXCHANGE_BTC,
+                 amount="0.1", cost_basis_usd="2000.00", fee_amount="20.00")
+        sell = {k: v for k, v in SELL.items() if k != "fee_currency"}
+        first = post(**sell, gross_proceeds_usd="5000.00")
+        second = post(**dict(sell, fee_amount="0"), gross_proceeds_usd="5000.00")
+        r = CLIENT.put(f"/api/transactions/{second['id']}", json={"fee_amount": "10.00"})
+        assert r.status_code == 200, r.text
+        for tx in (get(first["id"]), get(second["id"])):
+            # proceeds 5,000 - 10 fee; basis half the lot's 2,000 + 20 fee
+            assert (Decimal(tx["proceeds_usd"]), Decimal(tx["cost_basis_usd"])) == \
+                (Decimal("4990.00"), Decimal("1010.00"))
+        assert {get(t["id"])["fee_currency"] for t in (b, first, second)} == {"USD"}
+
 
 class TestRecalculateEndpoint:
     def test_repairs_legacy_rows_without_other_edits(self):
