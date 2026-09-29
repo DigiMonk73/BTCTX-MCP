@@ -1,6 +1,4 @@
 """
-backend/services/transaction.py
-
 Core logic for BitcoinTX with a hybrid double-entry system:
  - Single-entry inputs (type, amount, from_account, to_account, etc.)
  - Multi-line LedgerEntry creation for same-currency double-entry
@@ -44,9 +42,7 @@ from backend.constants import (
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------------------
 # Public Functions (CRUD + retrieval)
-# ------------------------------------------------------------------------------
 def get_all_transactions(db: Session):
     """
     Return all Transactions, typically ordered descending by timestamp.
@@ -352,9 +348,7 @@ def delete_transaction_record(transaction_id: int, db: Session):
     return True
 
 
-# ------------------------------------------------------------------------------
 # Internal Helpers
-# ------------------------------------------------------------------------------
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
     """
     IRS rule (Pub. 544): long-term only if held MORE than one year, counting
@@ -483,9 +477,7 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
     from_acct = db.get(Account, from_acct_id) if from_acct_id else None
     to_acct = db.get(Account, to_acct_id) if to_acct_id else None
 
-    # -------------------------------------------------------------------------
     # 1) Transfer with BTC fee
-    # -------------------------------------------------------------------------
     if (
         tx_type == "Transfer"
         and from_acct
@@ -522,9 +514,7 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
         db.flush()
         return
 
-    # -------------------------------------------------------------------------
     # 2) Sell => from BTC => to USD
-    # -------------------------------------------------------------------------
     if (
         tx_type == "Sell"
         and from_acct and from_acct.currency == "BTC"
@@ -597,9 +587,7 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
         db.flush()
         return
 
-    # -------------------------------------------------------------------------
     # 3) Buy => from USD => to BTC
-    # -------------------------------------------------------------------------
     if (
         tx_type == "Buy"
         and from_acct and from_acct.currency == "USD"
@@ -638,9 +626,7 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
         db.flush()
         return
 
-    # -------------------------------------------------------------------------
     # 4) Fallback: Deposits, Withdrawals, or other
-    # -------------------------------------------------------------------------
     if from_acct and amount > 0:
         main_out_amt = -(amount + fee_amount)
         db.add(LedgerEntry(
@@ -1235,9 +1221,7 @@ def recalculate_subsequent_transactions(db: Session, from_timestamp: datetime):
     logger.info("[Partial Re-Lot] Completed partial-lot recalculation.")
 
 
-# --------------------------------------------------------------------------------
 # Double-Entry (with Cross-Currency Skip) & Fee Rules
-# --------------------------------------------------------------------------------
 def _maybe_verify_balance_for_internal(tx: Transaction, db: Session):
     """
     If type=Buy or Sell => skip net-zero check (cross-currency).
@@ -1279,9 +1263,7 @@ def _enforce_broker_reporting(tx_type, value) -> None:
         )
 
 
-# ------------------------------------------------------------------------------
 # Input validation (create, and the merged row on update)
-# ------------------------------------------------------------------------------
 USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXCHANGE_BTC, ACCOUNT_EXTERNAL}
 TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
 WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")

@@ -137,7 +137,7 @@ class BtctxClient:
         # No key configured: the Mac app's key file (found at first use).
         return cls(base_url=os.environ.get("BTCTX_URL"), verify=verify, key_file=default_key_file())
 
-    # -- the Mac app's key file ------------------------------------------------
+    # The Mac app's key file
     async def _answers(self, url: str) -> bool:
         try:
             r = await self._http.get(f"{url}/api/health", timeout=3.0)
@@ -184,7 +184,7 @@ class BtctxClient:
             + "\n- ".join(looked)
         )
 
-    # -- the key from BTCTX_AI_KEY -----------------------------------------------
+    # The key from BTCTX_AI_KEY
     async def _connect(self) -> None:
         if self.uses_key_file:
             await self._use_key_file()

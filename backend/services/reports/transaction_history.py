@@ -1,8 +1,4 @@
-# FILE: backend/services/reports/transaction_history.py
-
 """
-transaction_history.py
-
 Generates a Transaction History Report for a given year (including partial data if it's the current year).
 Exports either PDF or CSV, listing all Deposits, Withdrawals, Transfers, Buys, and Sells with relevant fields.
 
@@ -73,9 +69,7 @@ COLUMNS = [
 NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "realized_gain_usd"}
 
 
-# -----------------------------------------------------------------------------
 # Utility: Format decimals with different precision for BTC vs. USD
-# -----------------------------------------------------------------------------
 def _format_decimal(value: Optional[str], currency: str = "USD") -> str:
     """
     Returns a string with 8 decimal places if currency = BTC,
@@ -286,9 +280,8 @@ def _get_account_name(accounts: dict, account_id: int) -> str:
     return ""
 
 
-# --------------------------------------------------------------------------------
 # CSV / PDF Generators
-# --------------------------------------------------------------------------------
+
 
 def _generate_csv(rows: List[dict], year: int) -> str:
     """

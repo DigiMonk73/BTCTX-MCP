@@ -106,9 +106,7 @@ def running_instance(port: int, timeout: float = 1.5) -> Optional[dict]:
     return None
 
 
-# ---------------------------------------------------------------------------
 # Native dialogs (macOS: osascript; elsewhere: logged, sensible default)
-# ---------------------------------------------------------------------------
 RETRY, OTHER_PORT, QUIT = "Retry", "Use Another Port", "Quit"
 
 

@@ -1,6 +1,4 @@
 """
-backend/services/reports/safe_text.py
-
 Ledger text on its way into the PDF and CSV reports.
 
 - PDF: a ReportLab Paragraph reads its text as markup, and markup such as

@@ -1,6 +1,4 @@
 """
-backend/services/reports/pdf_form_filler.py
-
 Fill and flatten IRS AcroForm PDFs in pure Python with pypdf.
 
 Replaces the external pdftk (Java) dependency: no system install on macOS,

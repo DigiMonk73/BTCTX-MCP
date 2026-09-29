@@ -15,6 +15,11 @@ All notable changes to BitcoinTX are documented in this file.
 - **Every Transaction column is in the CSV export or on a list saying why
   not** (`test_csv_export_columns.py`), so a new column can't be left out of
   the export unnoticed, as three were before 1.2.1.
+- **Comments and docstrings** say what each module is for and why the code
+  does what it does: no file-path headers, banner dividers, history notes
+  or narration. The Transaction model's column descriptions no longer call
+  its main fields "legacy". Two pieces of dead code went: `main.py`'s empty
+  `__main__` block and an unused `services.user.delete_user`.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

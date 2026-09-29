@@ -1,6 +1,4 @@
 """
-backend/version.py
-
 The BitcoinTX version, read from the VERSION file at the project root (the
 single source for the app, the Docker image, the macOS app and the StartOS
 package). The Docker image copies it to /app/VERSION and the macOS app bundles

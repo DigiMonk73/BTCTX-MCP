@@ -253,7 +253,7 @@ compared.
 | API routes and response shapes | `/openapi.json` and every JSON answer identical in the equivalence check |
 | MCP tools, their parameters and outputs; `AI_KEY_ROUTES` | Tool list and outputs identical. `ai_key.py` not touched. The tools-vs-routes test |
 | User-facing text and errors | Bad-input set, PDF text, CSV bytes identical. MCP guide not touched |
-| Database | No model or migration file is touched. `test_models_and_migrations_agree` |
+| Database | No column, type, key, default or migration changes (a model's descriptions may). `test_models_and_migrations_agree`; database rows identical |
 | Frontend e2e finds elements by label and role | Accessibility-tree comparison. `make e2e`. CI's WebKit run (Safari engine) |
 | Type hints are evaluated at import time (FastAPI, pydantic, SQLAlchemy `Mapped`) | Full test suite on Python 3.10 locally (`uv`) and in CI. `openapi.json` and the MCP schemas identical |
 | Speed of recalculation | `--bench` on every engine commit and at the end |
@@ -286,11 +286,15 @@ fixed inside a cleanup commit.
 - [x] Delete the stray `backend/services/ __init__.py`. It never counted as a
       package file (the space in its name), so `backend.services` stays
       exactly what it is today. Checked with CI's macOS and Docker jobs.
-- [ ] Comments and docstrings. Check: each module's syntax tree, with
+- [x] Comments and docstrings. Check: each module's syntax tree, with
       docstrings stripped, is identical before and after, so no code changed.
       Three kinds of docstring are not touched: MCP tools, pydantic schemas
       and API route handlers. They are the texts the AI and the API docs
       show.
+      Done for all modules; the comments inside the long functions go with
+      their own commits below. MCP tool docstrings untouched; 35 API
+      descriptions (route and schema docstrings, shown only with DEBUG)
+      corrected, the rest of `openapi.json` identical.
 - [ ] Modern type hints (`ruff --fix` with `UP`, plus the deprecated imports
       by hand), and `UP` switched on. Python 3.10 run; `openapi.json` and the
       MCP schemas identical.

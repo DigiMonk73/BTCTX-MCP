@@ -1,4 +1,8 @@
-# FILE: backend/services/reports/reporting_core.py
+"""
+The complete tax report's data for one tax year: holdings at its start and
+end, capital gains (the Form 8949 disposals), income, gifts and expenses.
+complete_tax_report.py turns it into the PDF.
+"""
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -11,7 +15,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-# Models
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -20,10 +23,9 @@ from backend.models.transaction import (
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 from backend.services.reports.form_8949 import taxable_disposals
 
-# Services
 from backend.services.transaction import (
     recalculate_all_transactions,
-    get_btc_price,                        # for fetching historical BTC price
+    get_btc_price,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,24 +80,18 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     """
     logger.info(f"Begin building report data for tax_year={year}")
 
-    # ---------------------------------------------------------
     # 1) Gather beginning-of-year balances (snapshot)
-    # ---------------------------------------------------------
     start_dt, end_dt = tax_year_bounds(year, get_tax_timezone(db))
     with _scratch_copy(db) as scratch:
         start_of_year_data = _build_start_of_year_balances(scratch, year)
 
-    # ---------------------------------------------------------
     # 1b) End-of-year snapshot: replay only transactions before the
     #     year boundary, so later activity doesn't leak into 12/31 holdings
-    # ---------------------------------------------------------
     with _scratch_copy(db) as scratch:
         recalculate_all_transactions(scratch, until=end_dt)
         eoy_list = _build_end_of_year_balances(scratch, year)
 
-    # ---------------------------------------------------------
     # 3) Filter transactions within that tax year
-    # ---------------------------------------------------------
 
     txns = (
         db.query(Transaction)
@@ -104,9 +100,7 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
         .all()
     )
 
-    # ---------------------------------------------------------
     # 4) Build each needed section
-    # ---------------------------------------------------------
     disposals         = taxable_disposals(db, start_dt, end_dt)
     gains_dict        = _build_capital_gains_summary(disposals)
     income_dict       = _build_income_summary(txns)
@@ -118,9 +112,7 @@ def generate_report_data(db: Session, year: int) -> Dict[str, Any]:
     expense_list      = _build_expenses_list(txns)
     data_sources_list = _gather_data_sources(txns)
 
-    # ---------------------------------------------------------
     # 5) Construct final dictionary
-    # ---------------------------------------------------------
     result = {
         "tax_year": year,
         "tax_timezone": get_tax_timezone_name(db)[0],

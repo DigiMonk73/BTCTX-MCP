@@ -1,6 +1,4 @@
 """
-backend/routers/settings.py
-
 App settings: the tax timezone, which decides tax-year boundaries, Form
 8949 dates and holding-period anniversaries; what the Mac app's launcher
 reports (port, whether this session is on another port); AI access and the
@@ -61,10 +59,8 @@ def get_desktop_info():
     return desktop_info()
 
 
-# ---------------------------------------------------------------------------
 # AI access and the AI key (services/ai_key.py): login only, never with the
 # key itself, so a key can't turn its own access back on or mint a new one.
-# ---------------------------------------------------------------------------
 def _require_login(request: Request) -> None:
     """A logged-in session (get_current_user already checked it is current)."""
     if not request.session.get("user_id"):
@@ -137,10 +133,8 @@ def reset_ai_key(request: Request, db: Session = Depends(get_db)):
     return _ai_access_state(db)
 
 
-# ---------------------------------------------------------------------------
 # Privacy & network (services/outbound.py): anyone logged in can read it;
 # changing it is login only, never with the AI key.
-# ---------------------------------------------------------------------------
 class NetworkSettingsIn(BaseModel):
     price_source: Literal["off", "public", "mempool"]
     mempool_url: Optional[str] = Field(default=None, max_length=300)

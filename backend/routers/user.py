@@ -1,4 +1,7 @@
-# FILE: backend/routers/user.py
+"""
+The one login: first registration, the first-run status and account reset,
+and changes to the logged-in user's name and password.
+"""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -6,11 +9,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 
-# Pydantic schemas for user creation, reading, and updating
 from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password
 from backend.services import first_run, login_throttle
-
-# Service functions that interact with the database
 from backend.services.user import (
     get_all_users,
     get_user_by_username,
@@ -18,31 +18,15 @@ from backend.services.user import (
     update_user as update_user_service,
 )
 from backend.session_auth import require_login, start_session
-
-# Database session provider
 from backend.database import get_db
-
-# User model (for the protected-route lookup)
 from backend.models.user import User
 
-# Create a FastAPI router instance with the "users" tag for API documentation
 router = APIRouter(tags=["users"])
+
 
 @router.post("/register", response_model=UserRead)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    """
-    Register a new user: POST /api/users/register
-
-    Enforces a single-user system:
-    1. If any user exists, blocks registration (400 error).
-    2. Checks if the username is taken (redundant in single-user system but kept for flexibility).
-    3. Creates the user with a hashed password via create_user and returns the UserRead schema.
-
-    Best Practices:
-    - Password complexity: Ensure UserCreate schema or create_user enforces IRS Publication 1075 requirements.
-    - Secure storage: Verify create_user uses strong hashing (e.g., bcrypt).
-    """
-    # Check if any user exists (single-user limit)
+    """Create the login, when there is none yet (BitcoinTX has one user)."""
     existing_users = get_all_users(db)
     if existing_users:
         raise HTTPException(
@@ -50,7 +34,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="Only one user allowed. A user already exists."
         )
 
-    # Check if this username is taken (redundant but retained for clarity)
     existing_user = get_user_by_username(user.username, db)
     if existing_user:
         raise HTTPException(
@@ -58,7 +41,6 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             detail="Username already registered"
         )
 
-    # Create the user record
     new_user = create_user(user, db)
     if not new_user:
         raise HTTPException(
@@ -195,7 +177,7 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
 def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
     """
     BitcoinTX has exactly one account, which owns the ledger's accounts, so
-    it can't be deleted (this used to fail with a 500). Settings → Reset
+    it can't be deleted (409, not a server error). Settings → Reset
     Username & Password changes the login; reset-account starts over.
     """
     _require_self(user_id, request, db)

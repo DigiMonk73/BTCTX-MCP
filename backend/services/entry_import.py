@@ -1,6 +1,4 @@
 """
-backend/services/entry_import.py
-
 Validation, FMV autofill, dedup and dry-run simulation for the JSON entry
 import (/api/import/entries). Built for AI/programmatic clients such as the
 MCP server in mcp_server/: they parse free-form input (exchange emails,
@@ -77,9 +75,7 @@ class PreparedRow:
     result: EntryResult = None
 
 
-# ------------------------------------------------------------------------------
 # Validation
-# ------------------------------------------------------------------------------
 def _dec_str(value: Optional[Decimal]) -> str:
     return format(value, "f") if value is not None else ""
 
@@ -174,9 +170,7 @@ def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
     return prepared
 
 
-# ------------------------------------------------------------------------------
 # FMV autofill
-# ------------------------------------------------------------------------------
 def _autofill_target(tx_data: Dict[str, Any]) -> Optional[str]:
     """
     Which USD field (if any) should be filled from the day's BTC price. Only
@@ -234,9 +228,7 @@ async def autofill_fmv(prepared: List[PreparedRow], db: Session) -> None:
         p.result.warnings = [w for w in p.result.warnings if target not in w]
 
 
-# ------------------------------------------------------------------------------
 # Dedup
-# ------------------------------------------------------------------------------
 def _stub(p: PreparedRow) -> RiverProposal:
     d = p.tx_data
     return RiverProposal(
@@ -291,9 +283,7 @@ def mark_duplicates(prepared: List[PreparedRow], db: Session, exact_only: bool =
             p.result.warnings.append(fuzzy.discrepancy)
 
 
-# ------------------------------------------------------------------------------
 # Dry run
-# ------------------------------------------------------------------------------
 def _chronological(prepared: List[PreparedRow]) -> List[PreparedRow]:
     writable = [
         p for p in prepared
@@ -390,9 +380,7 @@ def simulate(
     return affected, balances
 
 
-# ------------------------------------------------------------------------------
 # Execute
-# ------------------------------------------------------------------------------
 def write_rows(prepared: List[PreparedRow], db: Session) -> List[Tuple[PreparedRow, Transaction]]:
     """
     Atomically create every writable row in chronological order.

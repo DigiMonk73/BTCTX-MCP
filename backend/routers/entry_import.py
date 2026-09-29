@@ -1,6 +1,4 @@
 """
-backend/routers/entry_import.py
-
 JSON entry import: preview (dry run) and execute for structured rows.
 Mounted at /api/import/entries. Used by the MCP server (mcp_server/) so an
 AI assistant can turn pasted text or plain English into ledger entries.

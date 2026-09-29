@@ -1,12 +1,6 @@
 """
-backend/schemas/user.py
-
-Defines the Pydantic schemas for user creation, update, and read.
-No direct references to double-entry ledger fields are needed here,
-since a user is simply the owner of multiple Accounts.
-
-Refactored to use 'password' instead of 'password_hash' for creation,
-so hashing happens behind the scenes in create_user().
+The login's request and response shapes, and the rule every new password
+follows.
 """
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -30,6 +24,7 @@ class UserBase(BaseModel):
     """
     username: str
 
+
 class UserCreate(UserBase):
     """
     For creating a new user. The user supplies a raw 'password'
@@ -41,6 +36,7 @@ class UserCreate(UserBase):
     @classmethod
     def long_enough(cls, v: str) -> str:
         return check_new_password(v)
+
 
 class UserUpdate(BaseModel):
     """
@@ -57,8 +53,8 @@ class UserUpdate(BaseModel):
     @field_validator("username", "password")
     @classmethod
     def not_blank(cls, v: Optional[str]) -> Optional[str]:
-        """An empty value used to be accepted (an empty password silently
-        kept the old one); leave the field out to keep it."""
+        """An empty value is refused rather than read as "keep the old one";
+        leave the field out to keep it."""
         if v is not None and not v.strip():
             raise ValueError("can't be empty")
         return v
@@ -67,6 +63,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def long_enough(cls, v: Optional[str]) -> Optional[str]:
         return v if v is None else check_new_password(v)
+
 
 class UserRead(UserBase):
     """

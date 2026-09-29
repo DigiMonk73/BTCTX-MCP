@@ -1,6 +1,4 @@
 """
-backend/services/outbound.py
-
 The only place the backend creates HTTP clients for outside services (BTC
 prices, block height, the price-history download), so one place applies
 the owner's network settings (Settings -> Privacy & network, stored in

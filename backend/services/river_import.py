@@ -1,6 +1,4 @@
 """
-backend/services/river_import.py
-
 Adapter + dedup engine for importing River bitcoin-activity CSV exports
 into a live ledger. See docs/archive/RIVER_IMPORT_PLAN.md for the full design.
 
@@ -399,9 +397,7 @@ def adapt_river_rows(
     return proposals, errors, warnings
 
 
-# ---------------------------------------------------------------------------
 # Dedup / merge engine
-# ---------------------------------------------------------------------------
 
 # Which existing transaction types can correspond to a proposal of each type.
 # BTC sends/receives are ambiguous in River's data, so they match the wider

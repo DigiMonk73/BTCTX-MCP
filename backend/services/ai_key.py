@@ -1,6 +1,4 @@
 """
-backend/services/ai_key.py
-
 The AI key: lets an AI assistant's MCP connector use BitcoinTX without the
 owner's password, on every edition. It can read the ledger, add, change or
 delete single entries, recalculate and make a backup copy; it can't log in,
@@ -82,9 +80,7 @@ def key_may_use(method: str, path: str) -> bool:
     return any(m == method and regex.match(path) for m, regex in _ALLOWED)
 
 
-# ---------------------------------------------------------------------------
 # Mode and storage
-# ---------------------------------------------------------------------------
 def key_file() -> Optional[Path]:
     """The Mac app's key file, or None everywhere else."""
     path = os.environ.get("BTCTX_MCP_FILE")
@@ -140,9 +136,7 @@ def set_access(db: Session, on: bool) -> None:
     logger.info("AI access turned %s", "on" if on else "off")
 
 
-# ---------------------------------------------------------------------------
 # Server mode: the owner creates, replaces and revokes the key in Settings
-# ---------------------------------------------------------------------------
 def create_key(db: Session) -> str:
     """A new key (replacing any old one); returned once, never stored."""
     token = _new_token()
@@ -158,9 +152,7 @@ def revoke(db: Session) -> None:
     logger.info("AI key revoked")
 
 
-# ---------------------------------------------------------------------------
 # Mac mode: the key lives in the owner-only key file
-# ---------------------------------------------------------------------------
 def _read_file_token(path: Path) -> Optional[str]:
     try:
         token = json.loads(path.read_text()).get("token")
@@ -226,9 +218,7 @@ def rotate(db: Session) -> None:
     logger.info("AI key reset")
 
 
-# ---------------------------------------------------------------------------
 # Restore: the key and switch in use stay, whatever the backup held
-# ---------------------------------------------------------------------------
 def snapshot(db: Session) -> dict:
     return {HASH_KEY: _get(db, HASH_KEY), ACCESS_KEY: _get(db, ACCESS_KEY)}
 
@@ -245,9 +235,7 @@ def carry_over(db: Session, before: dict) -> None:
     sync(db)
 
 
-# ---------------------------------------------------------------------------
 # Checking a request
-# ---------------------------------------------------------------------------
 class KeyRefused(Exception):
     """A key was presented but can't be used; the message says why."""
 

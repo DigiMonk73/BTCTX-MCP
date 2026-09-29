@@ -1,4 +1,7 @@
-# backend/routers/backup.py
+"""
+Backups: the encrypted backup download and restore and the CSV export (a
+logged-in session only), and the plain copy the AI key may ask for.
+"""
 
 from __future__ import annotations
 
@@ -31,7 +34,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-
 def _require_auth(request: Request):
     """
     Check that user is authenticated via session.
@@ -44,7 +46,7 @@ def _require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user_id
 
-# === POST /api/backup/download ===
+
 @router.post("/download", response_class=StreamingResponse)
 def download_encrypted_backup(
     request: Request,
@@ -75,7 +77,6 @@ def download_encrypted_backup(
         },
     )
 
-# === POST /api/backup/restore ===
 # A backup holds the SQLite database: a few MB even for years of activity.
 MAX_RESTORE_BYTES = 1 << 30  # 1 GiB
 RESTORE_TOO_LARGE = "This file is too large to be a BitcoinTX backup (the limit is 1 GiB)."
@@ -170,7 +171,6 @@ def restore_encrypted_backup(
             os.remove(temp_path)
 
 
-# === POST /api/backup/ai-copy ===
 AI_COPY_EVERY = 60  # seconds
 
 
@@ -194,7 +194,6 @@ def ai_copy(db: Session = Depends(get_db)):
     return {"file": dest.name, "created": created.isoformat(timespec="seconds"), "kept": AI_COPIES_KEPT}
 
 
-# === GET /api/backup/csv ===
 @router.get("/csv", response_class=PlainTextResponse)
 def export_transactions_csv(
     request: Request,

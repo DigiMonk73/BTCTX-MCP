@@ -1,4 +1,7 @@
-# backend/services/backup.py
+"""
+The encrypted backup: a consistent snapshot of the SQLite database, sealed
+with a key derived from the owner's password, and its restore.
+"""
 
 import hashlib
 import hmac
@@ -20,9 +23,8 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
-# === Constants ===
-# Use the same DATABASE_FILE env var as database.py for consistency
-# This ensures backup/restore works correctly in Docker/StartOS where DB is at /data/btctx.db
+# The database DATABASE_FILE names, as database.py resolves it (/data/btctx.db
+# in Docker and StartOS).
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
 _PROJECT_ROOT = os.path.dirname(_BASE_DIR)
 _DATABASE_FILE_ENV = os.getenv("DATABASE_FILE", "backend/bitcoin_tracker.db")
@@ -58,7 +60,6 @@ _HEADER_LENGTH = len(MAGIC) + 1 + 4
 SQLITE_HEADER = b"SQLite format 3\x00"
 
 
-# === Utils ===
 def _derive_key(password: str, salt: bytes, iterations: int = LEGACY_ITERATIONS, length: int = KEY_LENGTH) -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -121,6 +122,7 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
         raise ValueError("❌ Failed to decrypt backup. Wrong password?")
     return data
 
+
 def _encrypt_data(data: bytes, key: bytes, iv: bytes) -> bytes:
     padder = padding.PKCS7(128).padder()
     padded_data = padder.update(data) + padder.finalize()
@@ -129,6 +131,7 @@ def _encrypt_data(data: bytes, key: bytes, iv: bytes) -> bytes:
     encryptor = cipher.encryptor()
     return encryptor.update(padded_data) + encryptor.finalize()
 
+
 def _decrypt_data(encrypted_data: bytes, key: bytes, iv: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
@@ -136,8 +139,6 @@ def _decrypt_data(encrypted_data: bytes, key: bytes, iv: bytes) -> bytes:
 
     unpadder = padding.PKCS7(128).unpadder()
     return unpadder.update(padded_data) + unpadder.finalize()
-
-# === Public API ===
 
 
 def make_backup(password: str, output_file: Path, db_path: Optional[Path] = None) -> None:

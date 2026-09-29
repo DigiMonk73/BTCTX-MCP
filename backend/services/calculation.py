@@ -1,14 +1,8 @@
 """
-backend/services/calculation.py
-
-Refactored aggregator to rely solely on 'LotDisposal' records for realized gains,
-eliminating double-counting with 'transaction.realized_gain_usd'.
-'Spent' withdrawals are still tracked under 'withdrawals_spent' (for personal finance),
-but are not treated as a capital loss.
-
-We've also added a small safeguard warning if any disposal lacks holding_period,
-and now we compute a new "year_to_date_capital_gains" field by filtering disposals
-to only those whose Transaction timestamp is >= January 1 of the current year.
+The dashboard's figures: account balances from the ledger lines, the
+average cost of the BTC still held, and gains and income. Realized gains
+come from the lot disposals only (a transaction's own gain would count them
+twice); a Spent withdrawal's proceeds are shown, not counted as a loss.
 """
 
 from datetime import datetime
@@ -22,6 +16,7 @@ from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 
 logger = logging.getLogger(__name__)
+
 
 def get_account_balance(db: Session, account_id: int) -> Decimal:
     """
@@ -104,7 +99,7 @@ def get_gains_and_losses(db: Session) -> dict:
          We now filter disposals to only those whose Transaction.timestamp
          is >= Jan 1 of the current year, summing realized_gain_usd.
     """
-    # --------------------- 1) Initialize Aggregators ---------------------
+    # 1) Initialize Aggregators
     sells_proceeds = Decimal("0.0")
     withdrawals_spent = Decimal("0.0")
 
@@ -121,7 +116,7 @@ def get_gains_and_losses(db: Session) -> dict:
     long_term_gains = Decimal("0.0")
     long_term_losses = Decimal("0.0")
 
-    # --------------------- 2) Summarize Gains from LotDisposal ---------------------
+    # 2) Summarize Gains from LotDisposal
     disposals = db.query(LotDisposal).all()
     for disposal in disposals:
         gain = disposal.realized_gain_usd
@@ -145,7 +140,7 @@ def get_gains_and_losses(db: Session) -> dict:
                 else:
                     long_term_losses += abs_loss
 
-    # --------------------- 3) Parse Transactions for Non-Disposal Aggregations ---------------------
+    # 3) Parse Transactions for Non-Disposal Aggregations
     transactions = db.query(Transaction).all()
     for tx in transactions:
         tx_type = tx.type.lower()
@@ -197,7 +192,7 @@ def get_gains_and_losses(db: Session) -> dict:
                 # No amounts in logs.
                 logger.warning(f"Failed to parse the fee of transaction {tx.id}: {type(e).__name__}")
 
-    # --------------------- 4) Final Summaries & YTD Gains Logic ---------------------
+    # 4) Final Summaries & YTD Gains Logic
     income_earned, income_btc = deposit_usd["income"], deposit_btc["income"]
     interest_earned, interest_btc = deposit_usd["interest"], deposit_btc["interest"]
     rewards_earned, rewards_btc = deposit_usd["reward"], deposit_btc["reward"]
@@ -231,7 +226,7 @@ def get_gains_and_losses(db: Session) -> dict:
     )
 
     return {
-        # --------------- USD-based fields => 2 decimals ---------------
+        # USD-based fields => 2 decimals
         "sells_proceeds": float(sells_proceeds.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
         "withdrawals_spent": float(withdrawals_spent.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
         "income_earned": float(income_earned.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
@@ -241,7 +236,7 @@ def get_gains_and_losses(db: Session) -> dict:
         "total_income": float(total_income.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
         "total_losses": float(total_losses.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
 
-        # --------------- Gains/Losses ---------------
+        # Gains/Losses
         "short_term_gains": float(short_term_gains.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
         "short_term_losses": float(short_term_losses.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
         "short_term_net": float(short_term_net.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
@@ -253,18 +248,18 @@ def get_gains_and_losses(db: Session) -> dict:
             total_net_capital_gains.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
         ),
 
-        # --------------- BTC-based fields => 8 decimals ---------------
+        # BTC-based fields => 8 decimals
         "income_btc": float(income_btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_DOWN)),
         "interest_btc": float(interest_btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_DOWN)),
         "rewards_btc": float(rewards_btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_DOWN)),
         "gifts_btc": float(gifts_btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_DOWN)),
 
-        # --------------- Fees ---------------
+        # Fees
         "fees": {
             "USD": float(fees_usd.quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)),
             "BTC": float(fees_btc.quantize(Decimal("0.00000001"), rounding=ROUND_HALF_DOWN)),
         },
 
-        # --------------- YTD Gains ---------------
+        # YTD Gains
         "year_to_date_capital_gains": year_to_date_capital_gains,
     }

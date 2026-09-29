@@ -1,6 +1,4 @@
 """
-backend/services/price_history.py
-
 The BTC price for a past day, from one place. Every historical valuation
 (an income deposit's basis, a spend's or gift's value, a BTC fee, the
 form's price Refresh, import autofill, year-end values) goes through
@@ -91,9 +89,7 @@ def _from_unix(ts) -> date:
     return datetime.fromtimestamp(int(ts), tz=timezone.utc).date()
 
 
-# ---------------------------------------------------------------------------
 # Public sites: requests that never depend on which day is wanted
-# ---------------------------------------------------------------------------
 async def _bitstamp(client, start: Optional[date] = None) -> Dict[date, Decimal]:
     """1,000 daily opens from `start` (a fixed block start), or the latest 1,000."""
     params = {"step": DAY, "limit": BITSTAMP_BLOCK}
@@ -186,9 +182,7 @@ async def public_history(full: bool) -> Tuple[Dict[date, tuple], bool]:
     return {}, False
 
 
-# ---------------------------------------------------------------------------
 # The owner's mempool server
-# ---------------------------------------------------------------------------
 def midnight_prices(rows: List[dict]) -> Dict[date, tuple]:
     """
     mempool's price rows at exactly 00:00 UTC whose 23:00 and 01:00 rows
@@ -263,9 +257,7 @@ def _run(coro):
         return pool.submit(target).result(timeout=180)
 
 
-# ---------------------------------------------------------------------------
 # Table
-# ---------------------------------------------------------------------------
 def stored_price(db: Session, when: Union[date, datetime]) -> Optional[Decimal]:
     row = db.get(BtcPriceDaily, _utc_day(when))
     return Decimal(row.usd) if row else None

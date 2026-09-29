@@ -1,66 +1,43 @@
 """
-backend/models/account.py
-
-Defines the Account model in a full double-entry environment. Each Account
-can appear in many LedgerEntry records (credit/debit lines) referencing
-'account_id'. We also keep references to any single-row usage in Transaction
-via 'transactions_from' and 'transactions_to' for backward compatibility.
-
-User => One-to-many => Account
-Account => One-to-many => LedgerEntry (or part of single-row Transaction usage)
-
-CHANGES:
-- No need to reference LotDisposal here, since the disposal-level referencing
-  is done at the Transaction/LedgerEntry level. We'll keep the existing
-  ledger_entries relationship, which matches LedgerEntry.account.
+An account: one of the fixed ones (Bank 1, Wallet 2, Exchange USD 3,
+Exchange BTC 4, BTC Fees 5, USD Fees 6; External 99 is not a row), owned by
+the user. Transactions name it as their from or to side; the ledger lines
+built from them debit or credit it.
 """
 
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from backend.database import Base
 
+
 class Account(Base):
     __tablename__ = "accounts"
 
-    # ---------------------------------------------------------------------
-    # Primary Key & Fields
-    # ---------------------------------------------------------------------
     id = Column(Integer, primary_key=True, index=True)
 
-    # Each Account belongs to one User, enforced by user_id (NOT NULL)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    # A unique name, e.g. "Bank", "Wallet", "BTC Fees"
     name = Column(String, unique=True, nullable=False)
 
-    # The currency: "USD" or "BTC" (extend if needed)
+    # "USD" or "BTC"
     currency = Column(String, nullable=False, default="USD")
 
-    # ---------------------------------------------------------------------
-    # Relationships
-    # ---------------------------------------------------------------------
-
-    # The User that owns this account
     user = relationship(
         "User",
         back_populates="accounts",
         doc="The user that owns this account."
     )
 
-    # If you still keep single-row references in Transaction:
-    # (LEGACY) 'transactions_from' references where this account is the 'from' side
     transactions_from = relationship(
         "Transaction",
         foreign_keys="[Transaction.from_account_id]",
-        doc="(LEGACY) Single-row approach: transactions listing this account as 'from'"
+        doc="Transactions with this account as their from side."
     )
     transactions_to = relationship(
         "Transaction",
         foreign_keys="[Transaction.to_account_id]",
-        doc="(LEGACY) Single-row approach: transactions listing this account as 'to'"
+        doc="Transactions with this account as their to side."
     )
-
-    # True double-entry lines: 'LedgerEntry' referencing account_id
     ledger_entries = relationship(
         "LedgerEntry",
         back_populates="account",
@@ -68,9 +45,6 @@ class Account(Base):
         doc="All ledger lines (debit/credit) pointing to this account."
     )
 
-    # ---------------------------------------------------------------------
-    # Representation
-    # ---------------------------------------------------------------------
     def __repr__(self):
         return (
             f"<Account(id={self.id}, user_id={self.user_id}, "

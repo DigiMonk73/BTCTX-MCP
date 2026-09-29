@@ -356,8 +356,7 @@ def _recalculated(instance: Instance) -> dict:
     return {"response": response, "database": database_rows(instance.engine)}
 
 
-# MCP connector ------------------------------------------------------------
-
+# MCP connector
 async def _mcp_tool_list() -> list:
     async with Client(mcp_server.mcp) as client:
         tools = (await client.list_tools()).tools
@@ -416,8 +415,7 @@ async def _mcp_call(client, name: str, args: dict) -> list:
     return [bool(result.is_error), body]
 
 
-# Bad inputs -------------------------------------------------------------
-
+# Bad inputs
 def _bad_input_snapshot(work: Path) -> dict:
     instance = Instance(work, "bad_inputs", "America/New_York")
     instance.enter(GOLDEN_LEDGER)
@@ -503,8 +501,7 @@ def _csv_file(rows: list) -> bytes:
     return out.getvalue().encode()
 
 
-# The CSV instructions PDF and the recalculation time ---------------------
-
+# The CSV instructions PDF and the recalculation time
 def _csv_instructions_pdf(work: Path) -> dict:
     """The script run from a copy of itself in the temp folder, so its PDF
     lands there and the committed one is untouched."""

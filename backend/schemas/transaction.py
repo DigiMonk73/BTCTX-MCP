@@ -1,23 +1,7 @@
 """
-backend/schemas/transaction.py
-
-Full double-entry approach, compatible with Pydantic v2.
-We've removed ConstrainedDecimal (deprecated in Pydantic 2.0).
-Instead, we store decimal fields directly as Decimal, optionally
-adding custom validators or field constraints as needed.
-
-We keep legacy single-entry fields like from_account_id/amount
-for backward compatibility or simpler input, but the
-actual ledger lines are described by LedgerEntry schemas, and
-FIFO acquisitions/disposals are in BitcoinLot and LotDisposal schemas.
-
-- TransactionBase: shared fields with TxType enum for transaction types
-- TransactionCreate: used for creation with mandatory type
-- TransactionUpdate: partial update with optional TxType and is_locked
-- TransactionRead: output, includes 'id', 'is_locked', 'created_at', 'updated_at'
-- LedgerEntryCreate, LedgerEntryRead: line items
-- BitcoinLotCreate, BitcoinLotRead: track BTC acquired
-- LotDisposalCreate, LotDisposalRead: partial usage of those BTC lots
+The transaction API's request and response shapes, and the precision checks
+every amount goes through: BTC to 8 decimal places (a satoshi), USD to 2
+(cents). The ledger line, lot and disposal shapes are for the debug views.
 """
 
 from __future__ import annotations
@@ -31,9 +15,6 @@ from decimal import Decimal
 # backend.constants.BROKER_REPORTING_VALUES
 BrokerReporting = Literal["none", "proceeds", "basis"]
 
-# -------------------------------------------------
-# TRANSACTION TYPE ENUM
-# -------------------------------------------------
 
 class TxType(str, Enum):
     DEPOSIT = "Deposit"
@@ -42,10 +23,6 @@ class TxType(str, Enum):
     BUY = "Buy"
     SELL = "Sell"
 
-# -------------------------------------------------
-# CUSTOM VALIDATORS
-# -------------------------------------------------
-# These enforce IRS-compatible precision: BTC up to 8 decimals, USD up to 2.
 
 def _decimal_places(value: Decimal) -> int:
     """Decimal places of the value itself, whatever its notation ("1E-9" has 9)."""
@@ -63,8 +40,8 @@ def _integer_digits(value: Decimal) -> int:
 def validate_btc_decimal(value: Decimal) -> Decimal:
     """
     At most 8 decimal places (a satoshi) and 10 integer digits (the database
-    column holds 18 digits with 8 decimals; a bigger value used to be saved
-    and then break every listing). Checked on the number, not its text, so
+    column holds 18 digits with 8 decimals; a bigger value would be saved and
+    then break every listing). Checked on the number, not its text, so
     exponent notation ("1E-9") can't slip through.
     """
     if _decimal_places(value) > 8:
@@ -82,24 +59,18 @@ def validate_usd_decimal(value: Decimal) -> Decimal:
         raise ValueError("USD amount is too large.")
     return value
 
-# -------------------------------------------------
-# TRANSACTION SCHEMAS
-# -------------------------------------------------
 
 class TransactionBase(BaseModel):
     """
-    Shared fields for a transaction. Uses TxType enum for type safety.
-    Legacy single-entry fields (e.g., from_account_id) are retained for compatibility.
-    Double-entry details are handled via LedgerEntry schemas.
+    A transaction as entered: its type, accounts, amount, fee and USD
+    values. The ledger lines, lots and disposals are built from it.
     """
-    type: TxType  # Now uses enum instead of str for IRS categorization
+    type: TxType
     timestamp: Optional[datetime] = None
 
-    # Legacy single-entry fields
     from_account_id: Optional[int] = None
     to_account_id: Optional[int] = None
 
-    # BTC-specific amount with validation
     amount: Optional[Decimal] = Field(
         default=None,
         description="Main transaction amount, typically BTC with up to 8 decimals."
@@ -110,9 +81,8 @@ class TransactionBase(BaseModel):
     )
     fee_currency: Optional[str] = None
 
-    # Metadata for audit and tax purposes
-    source: Optional[str] = None  # e.g., exchange name
-    purpose: Optional[str] = None  # e.g., "Payment for services"
+    source: Optional[str] = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
+    purpose: Optional[str] = None  # a Withdrawal's: Spent, Gift, Donation, Lost
     broker_reporting: Optional[BrokerReporting] = Field(
         default=None,
         description=(
@@ -121,7 +91,6 @@ class TransactionBase(BaseModel):
         ),
     )
 
-    # Tax summary fields (USD)
     cost_basis_usd: Optional[Decimal] = Field(
         default=None,
         description="Total USD cost basis for tax reporting (e.g., Buy price)."
@@ -189,8 +158,9 @@ class TransactionBase(BaseModel):
     @field_validator("gross_proceeds_usd")
     def validate_gross_proceeds_usd(cls, v: Decimal | None) -> Decimal | None:
         if v is not None:
-            return validate_usd_decimal(v)  # your existing 2-decimal check
+            return validate_usd_decimal(v)
         return v
+
 
 class TransactionCreate(TransactionBase):
     """
@@ -200,6 +170,7 @@ class TransactionCreate(TransactionBase):
     Integrates with FastAPI/SwaggerUI via TxType enum dropdown.
     """
     timestamp: datetime
+
 
 class TransactionUpdate(BaseModel):
     """
@@ -227,7 +198,7 @@ class TransactionUpdate(BaseModel):
     realized_gain_usd: Optional[Decimal] = None
     holding_period: Optional[str] = None
 
-    is_locked: Optional[bool] = None  # Allows locking/unlocking via API
+    is_locked: Optional[bool] = None  # accepted but not applied (docs/temp/TODO.md)
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
@@ -266,22 +237,20 @@ class TransactionUpdate(BaseModel):
             return validate_usd_decimal(v)
         return v
 
+
 class TransactionRead(TransactionBase):
     """
     Schema for reading transactions from the database.
     Includes audit fields required for accounting software.
     """
     id: int
-    is_locked: bool  # Prevents edits after tax filing
+    is_locked: bool
     fee_usd_manual: bool = False  # fee_usd was typed by the user
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)  # Enables ORM-to-Pydantic conversion
+    model_config = ConfigDict(from_attributes=True)
 
-# -------------------------------------------------
-# LEDGER ENTRY SCHEMAS
-# -------------------------------------------------
 
 class LedgerEntryBase(BaseModel):
     """
@@ -293,18 +262,20 @@ class LedgerEntryBase(BaseModel):
         ...,
         description="Signed amount (e.g., -1.0 for outflow, +1.0 for inflow)."
     )
-    currency: str = "BTC"  # Default to BTC, override as needed
+    currency: str = "BTC"
     entry_type: Optional[str] = None  # e.g., "FEE", "TRANSFER_OUT"
 
     @field_validator("amount")
     def validate_ledger_amount(cls, v: Decimal) -> Decimal:
-        return validate_btc_decimal(v)  # Assumes BTC unless currency specifies otherwise
+        return validate_btc_decimal(v)
+
 
 class LedgerEntryCreate(LedgerEntryBase):
     """
     Schema for creating ledger entries tied to a transaction.
     """
     transaction_id: int
+
 
 class LedgerEntryRead(LedgerEntryBase):
     """
@@ -314,9 +285,6 @@ class LedgerEntryRead(LedgerEntryBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# -------------------------------------------------
-# BITCOIN LOT SCHEMAS
-# -------------------------------------------------
 
 class BitcoinLotBase(BaseModel):
     """
@@ -343,6 +311,7 @@ class BitcoinLotBase(BaseModel):
     def validate_lot_usd(cls, v: Decimal) -> Decimal:
         return validate_usd_decimal(v)
 
+
 class BitcoinLotCreate(BitcoinLotBase):
     """
     Schema for creating a BTC lot (e.g., from Buy/Deposit).
@@ -363,6 +332,7 @@ class BitcoinLotCreate(BitcoinLotBase):
             v = v.astimezone(timezone.utc)
         return v
 
+
 class BitcoinLotRead(BitcoinLotBase):
     """
     Schema for reading BTC lots, including DB fields.
@@ -373,9 +343,6 @@ class BitcoinLotRead(BitcoinLotBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# -------------------------------------------------
-# LOT DISPOSAL SCHEMAS
-# -------------------------------------------------
 
 class LotDisposalBase(BaseModel):
     """
@@ -396,6 +363,7 @@ class LotDisposalBase(BaseModel):
     def validate_disposed_btc(cls, v: Decimal) -> Decimal:
         return validate_btc_decimal(v)
 
+
 class LotDisposalCreate(LotDisposalBase):
     """
     Schema for creating a disposal record with tax details.
@@ -410,6 +378,7 @@ class LotDisposalCreate(LotDisposalBase):
         if v is not None:
             return validate_usd_decimal(v)
         return v
+
 
 class LotDisposalRead(LotDisposalBase):
     """

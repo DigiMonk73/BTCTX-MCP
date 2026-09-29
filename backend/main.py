@@ -1,14 +1,8 @@
 #!/usr/bin/env python
 """
-backend/main.py
-
-Sets up the FastAPI application for BitcoinTX, a double-entry Bitcoin portfolio tracker.
-
-Key Roles:
- - Loads environment variables & configures session-based authentication
- - Adds CORS middleware for frontend integration
- - Includes 'transaction', 'account', 'user', 'bitcoin', and calculation routers
- - Serves the built React/Vite frontend from 'frontend/dist'
+The BitcoinTX web app: FastAPI with the session login (or the AI key on the
+routes open to it), the security middleware, the API routers, login and
+logout, the health check, and the built frontend served from frontend/dist.
 """
 
 import os
@@ -26,26 +20,21 @@ from starlette.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-# Load environment variables from a .env file at the project root
+# Before the imports below read the environment.
 load_dotenv()
 
-# ---------------------------------------------------------
-# Frontend dist path (needed early for SPA fallback handler)
-# Supports BTCTX_FRONTEND_DIST env var for desktop app bundling
-# ---------------------------------------------------------
+# The Mac app bundles its own copy (BTCTX_FRONTEND_DIST).
 frontend_dist = os.environ.get(
     "BTCTX_FRONTEND_DIST",
     os.path.join(os.path.dirname(__file__), "../frontend/dist")
 )
 
-# ---------------------------------------------------------
-# Session Configuration
-# ---------------------------------------------------------
 from backend.database import DATABASE_FILE
 from backend.secret_key import load_secret_key
 
 # Signs the session cookie. Never a value from this repo — see secret_key.py
 SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
+
 
 def cors_origins(raw: str | None) -> list[str]:
     """
@@ -58,9 +47,6 @@ def cors_origins(raw: str | None) -> list[str]:
 
 ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
-# ---------------------------------------------------------
-# Database import (needed before lifespan)
-# ---------------------------------------------------------
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, SecurityHeadersMiddleware
@@ -105,26 +91,17 @@ def _sync_ai_key_file() -> None:
     finally:
         db.close()
 
-# ---------------------------------------------------------
-# Lifespan context manager for startup/shutdown
-# ---------------------------------------------------------
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup/shutdown events.
-    Migrates the database schema and seeds defaults when FastAPI starts.
-    """
-    # Startup
+    """At startup: migrate the schema and seed the defaults, then the setup
+    code, the network settings and (Mac app) the AI key file."""
     init_db()
     _prepare_first_run()
     _load_network_settings()
     _sync_ai_key_file()
     yield
-    # Shutdown (nothing needed currently)
 
-# ---------------------------------------------------------
-# Initialize the FastAPI application
-# ---------------------------------------------------------
 app = FastAPI(
     title="BitcoinTX Portfolio Tracker API",
     description=(
@@ -142,9 +119,6 @@ app = FastAPI(
     openapi_url="/openapi.json" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
 
-# ---------------------------------------------------------
-# Add Session Middleware
-# ---------------------------------------------------------
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
@@ -162,9 +136,6 @@ app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
 # no framing, Secure cookie over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ---------------------------------------------------------
-# CORS Middleware (only when CORS_ALLOW_ORIGINS lists origins)
-# ---------------------------------------------------------
 if ALLOWED_ORIGINS:
     app.add_middleware(
         CORSMiddleware,
@@ -174,10 +145,8 @@ if ALLOWED_ORIGINS:
         allow_headers=["*"],
     )
 
-# ---------------------------------------------------------
-# SPA Fallback Exception Handler
-# ---------------------------------------------------------
 from starlette.responses import JSONResponse
+
 
 @app.exception_handler(StarletteHTTPException)
 async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
@@ -209,9 +178,7 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
         headers=getattr(exc, "headers", None),
     )
 
-# ---------------------------------------------------------
-# Auth Dependency (must be defined before router includes)
-# ---------------------------------------------------------
+
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     """
     Auth dependency: a logged-in session, or the AI key
@@ -235,18 +202,14 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail=ai_key.NOT_ALLOWED)
     return "ai_key"
 
+
 def require_login_dependency(request: Request, db: Session = Depends(get_db)) -> int:
     """A logged-in session only, never the AI key (debug routes)."""
     return require_login(request, db)
 
 
-# ---------------------------------------------------------
-# Routers (Transaction, User, Account, Calculation, Bitcoin, Reports, Debug)
-# ---------------------------------------------------------
-# (Mandatory) Routers (Transaction, User, Account, Calculation, Bitcoin, Reports)
 from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings, review
 
-# Mandatory routers
 app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
 app.include_router(user.router, prefix="/api/users", tags=["users"])  # No auth — register must work
 app.include_router(account.router, prefix="/api/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)])
@@ -260,7 +223,7 @@ app.include_router(entry_import.router, prefix="/api/import/entries", tags=["imp
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
 app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=[Depends(get_current_user)])
 
-# (Optional) Debug Router
+# Debug routes: a logged-in session only, never the AI key.
 try:
     from backend.routers import debug
     app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency)])
@@ -270,21 +233,14 @@ except ImportError:
         "ensure 'backend/routers/debug.py' exists."
     )
 
-# ---------------------------------------------------------
-# Protected Route Example
-# ---------------------------------------------------------
+
 @app.get("/api/protected")
 def read_protected_route(current_user: str = Depends(get_current_user)):
-    """
-    Demonstration of a session-protected endpoint.
-    If 'user_id' isn't in the session, we raise 401.
-    Otherwise, we greet the logged-in user.
-    """
+    """200 when logged in (or with the AI key), 401 otherwise: the frontend
+    asks it whether to show the login page."""
     return {"message": f"Hello, user {current_user}. You have access to this route!"}
 
-# ---------------------------------------------------------
-# LoginRequest Pydantic Model
-# ---------------------------------------------------------
+
 class LoginRequest(BaseModel):
     """
     Schema for login JSON:
@@ -295,11 +251,9 @@ class LoginRequest(BaseModel):
     password: str
     setup_code: Optional[str] = None
 
-# ---------------------------------------------------------
-# Production-Ready Login / Logout Endpoints
-# ---------------------------------------------------------
-from backend.services.user import get_user_by_username  # for verifying credentials
+from backend.services.user import get_user_by_username
 from backend.services import first_run, login_throttle
+
 
 @app.post("/api/login")
 def login(
@@ -309,11 +263,7 @@ def login(
     db: Session = Depends(get_db)
 ):
     """
-    Production-level session-based login:
-      1) Accepts JSON { "username": "...", "password": "..." }
-      2) Look up the user in the DB, check hashed password
-      3) If valid, store user.id in session
-      4) Return success message
+    Start a session for a correct username and password.
     Repeated failures are answered 429 for a while (login_throttle.py).
     The default admin/password login also needs the setup code (Docker and
     source installs before they're claimed; first_run.py): anyone who can
@@ -334,19 +284,17 @@ def login(
     start_session(request, user)
     return {"detail": f"Logged in as {user.username}"}
 
+
 @app.post("/api/logout")
 def logout(request: Request, response: Response):
-    """
-    Clear the session to log out the user.
-    """
+    """End the session."""
     request.session.clear()
     return {"detail": "Logged out successfully"}
 
-# ---------------------------------------------------------
 # Health check (public: used by StartOS and container probes)
-# ---------------------------------------------------------
 from backend.migrate import head_revision, stamped_revision
 from backend.version import app_version
+
 
 @app.get("/api/health")
 def health(db: Session = Depends(get_db)):
@@ -374,20 +322,8 @@ def health(db: Session = Depends(get_db)):
         },
     )
 
-# ---------------------------------------------------------
-# Production: Serve React/Vite frontend from dist/ at "/"
-# ---------------------------------------------------------
 from fastapi.staticfiles import StaticFiles
 
-# Mount static files from dist/ at root ("/")
-# Note: html=True serves index.html for root and directories only.
-# The SPA fallback for client-side routes is handled by spa_fallback_handler above.
+# html=True serves index.html for "/" and folders only; spa_fallback_handler
+# serves it for the frontend's own routes.
 app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
-
-# ---------------------------------------------------------
-# Local Testing
-# ---------------------------------------------------------
-if __name__ == "__main__":
-    import sys
-    sys.path.append(os.getenv("PYTHONPATH", "."))
-    # e.g. run: uvicorn main:app --reload

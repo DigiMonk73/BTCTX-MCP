@@ -1,6 +1,4 @@
 """
-backend/services/tax_time.py
-
 Tax dates are decided in the user's timezone, not UTC. Timestamps stay stored
 in UTC; this module converts at the edges:
 

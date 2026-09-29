@@ -1,15 +1,12 @@
 """
-backend/schemas/account.py
-
-Defines Pydantic schemas for creating, updating, and reading Account objects.
-We add optional validators to ensure 'currency' is one of ["USD","BTC"].
-(Though we already have the main logic in the service layer.)
+The account API's request and response shapes; a currency is USD or BTC.
 """
 
 from pydantic import BaseModel, field_validator, ConfigDict
 from typing import Optional
 
 VALID_CURRENCIES = {"USD", "BTC"}
+
 
 class AccountBase(BaseModel):
     """
@@ -27,19 +24,14 @@ class AccountBase(BaseModel):
             raise ValueError("currency must be 'USD' or 'BTC'")
         return v
 
+
 class AccountCreate(AccountBase):
-    """
-    Schema for creating a new Account. We require user_id because
-    the DB schema has user_id as NOT NULL, referencing which user owns this account.
-    """
+    """A new account, owned by `user_id`."""
     user_id: int
 
+
 class AccountUpdate(BaseModel):
-    """
-    Schema for updating an existing Account record.
-    Currently only 'name' or 'currency' can be updated, both optional.
-    We also ensure currency is "USD"/"BTC" if provided.
-    """
+    """The name or currency of an account, either optional."""
     name: Optional[str] = None
     currency: Optional[str] = None
 
@@ -49,6 +41,7 @@ class AccountUpdate(BaseModel):
         if v is not None and v not in VALID_CURRENCIES:
             raise ValueError("currency must be 'USD' or 'BTC'")
         return v
+
 
 class AccountRead(AccountBase):
     """

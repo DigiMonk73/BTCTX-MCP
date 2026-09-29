@@ -1,4 +1,8 @@
-# FILE: backend/services/reports/form_8949.py
+"""
+IRS Form 8949 and Schedule D: the year's taxable disposals as 8949 rows in
+their boxes (A–L), the totals per box, and the field names of each year's
+templates that the rows and totals go into.
+"""
 
 import logging
 from datetime import date, timezone
@@ -14,10 +18,9 @@ from backend.services.tax_time import format_tax_date, get_tax_timezone, local_d
 
 logger = logging.getLogger(__name__)
 
-##############################################################################
-# 1) FORM 8949 ROW DEFINITION
-##############################################################################
+
 CURRENCY_PLACES = Decimal("0.01")
+
 
 class Form8949Row:
     """
@@ -72,11 +75,9 @@ class Form8949Row:
         return Decimal(amount).quantize(CURRENCY_PLACES, rounding=ROUND_HALF_UP)
 
 
-##############################################################################
-# 2) BUILDING 8949 DATA FROM DB
-##############################################################################
+
 # Compared lower-cased, as the ledger does: rows saved before input was
-# normalized may say "gift" (they have $0 gain but used to print here).
+# normalized may say "gift" (they have $0 gain and aren't sales).
 # Gifts, donations and lost assets are reported separately, not as gains.
 NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
 
@@ -271,9 +272,7 @@ def _build_schedule_d_data(short_rows: List[Form8949Row], long_rows: List[Form89
     }
 
 
-##############################################################################
-# 3) YEAR-SPECIFIC FIELD CONFIGURATION
-##############################################################################
+
 def get_8949_field_config(year: int) -> Dict:
     """
     Return year-specific field configuration for Form 8949.
@@ -350,9 +349,7 @@ def get_schedule_d_field_config(year: int) -> Dict[str, List[str]]:
     return config
 
 
-##############################################################################
-# 4) FIELD-MAPPING HELPERS
-##############################################################################
+
 def checkbox_field_for_box(box: str, page: int, year: int) -> Tuple[str, str]:
     """
     (field name, on-state) of the Part I/II checkbox for `box`.

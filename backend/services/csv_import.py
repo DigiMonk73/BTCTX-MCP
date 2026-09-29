@@ -1,6 +1,4 @@
 """
-backend/services/csv_import.py
-
 Core parsing and validation logic for CSV import feature.
 Handles template-based CSV format with strict validation.
 """
@@ -841,7 +839,7 @@ def generate_template_csv() -> str:
     # Header row
     writer.writerow(CSV_COLUMNS)
 
-    # === USD SETUP ===
+    # USD SETUP
     # Deposit USD to Bank
     row([
         "2024-01-01T10:00:00Z", "Deposit", "20000.00", "External", "Bank",
@@ -855,7 +853,7 @@ def generate_template_csv() -> str:
         "", "", "Move USD to exchange for trading"
     ])
 
-    # === BUY BTC ===
+    # BUY BTC
     # Buy from Exchange USD (standard)
     row([
         "2024-01-03T10:00:00Z", "Buy", "0.5", "Exchange USD", "Exchange BTC",
@@ -869,7 +867,7 @@ def generate_template_csv() -> str:
         "", "", "Auto-buy: Purchase BTC directly from bank"
     ])
 
-    # === BTC DEPOSITS (all sources) ===
+    # BTC DEPOSITS (all sources)
     row([
         "2024-01-10T10:00:00Z", "Deposit", "1.0", "External", "Wallet",
         "20000.00", "", "", "",
@@ -901,7 +899,7 @@ def generate_template_csv() -> str:
         "", "", "BTC deposit with no specific source"
     ])
 
-    # === BTC TRANSFERS ===
+    # BTC TRANSFERS
     # Wallet to Exchange
     row([
         "2024-02-01T10:00:00Z", "Transfer", "0.5", "Wallet", "Exchange BTC",
@@ -909,21 +907,21 @@ def generate_template_csv() -> str:
         "", "", "Move BTC to exchange for trading"
     ])
 
-    # === SELL BTC ===
+    # SELL BTC
     row([
         "2024-02-10T10:00:00Z", "Sell", "0.3", "Exchange BTC", "Exchange USD",
         "", "18000.00", "10.00", "USD",
         "", "", "Sell 0.3 BTC for $18,000 with $10 fee"
     ])
 
-    # === USD TRANSFER BACK ===
+    # USD TRANSFER BACK
     row([
         "2024-02-15T10:00:00Z", "Transfer", "15000.00", "Exchange USD", "Bank",
         "", "", "", "",
         "", "", "Move profits back to bank"
     ])
 
-    # === BTC TRANSFER BACK ===
+    # BTC TRANSFER BACK
     # Exchange to Wallet
     row([
         "2024-02-20T10:00:00Z", "Transfer", "0.2", "Exchange BTC", "Wallet",
@@ -932,14 +930,14 @@ def generate_template_csv() -> str:
         "5.20",
     ])
 
-    # === USD WITHDRAWAL ===
+    # USD WITHDRAWAL
     row([
         "2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
         "", "", "", "",
         "", "", "USD withdrawal for expenses"
     ])
 
-    # === BTC WITHDRAWALS (all purposes) ===
+    # BTC WITHDRAWALS (all purposes)
     row([
         "2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
         "", "9000.00", "0.0001", "BTC",

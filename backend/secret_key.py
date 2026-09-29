@@ -1,6 +1,4 @@
 """
-backend/secret_key.py
-
 The session-cookie signing key. Anyone who knows it can forge a login cookie,
 so it must never be a value published in this repo.
 

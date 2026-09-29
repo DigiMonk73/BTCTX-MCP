@@ -61,9 +61,7 @@ def skip(name: str, why: str) -> None:
     print(f"  – {name} (skipped: {why})")
 
 
-# ---------------------------------------------------------------------------
 # Own server
-# ---------------------------------------------------------------------------
 def serve(port: int, db_path: str) -> None:
     """Child-process entry: run the app with deterministic offline prices.
 
@@ -140,9 +138,7 @@ def start_server() -> tuple[subprocess.Popen, str, str]:
     raise SmokeFailure("server did not start within 30s")
 
 
-# ---------------------------------------------------------------------------
 # Scenario
-# ---------------------------------------------------------------------------
 def claim(c: httpx.Client, user: str, password: str, code: str) -> None:
     """First run: set the login of the default account, with the setup code."""
     print("\nFirst run")

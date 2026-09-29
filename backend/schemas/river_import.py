@@ -1,7 +1,6 @@
 """
-backend/schemas/river_import.py
-
-Pydantic schemas for the River CSV import endpoints.
+The River import's shapes: the proposals the preview shows, and the rows
+the user sends back to import.
 """
 
 from datetime import datetime
@@ -28,7 +27,6 @@ class RiverProposalOut(BaseModel):
     fee_currency: Optional[str] = None
     source: Optional[str] = None
     purpose: Optional[str] = None
-    # Preview metadata
     type_choices: List[str] = []
     funding_choices: List[str] = []
     basis_autofilled: bool = False

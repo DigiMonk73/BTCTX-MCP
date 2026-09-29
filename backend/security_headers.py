@@ -1,6 +1,4 @@
 """
-backend/security_headers.py
-
 Response headers that keep the browser from leaking or loading anything:
 - Content-Security-Policy: the page loads scripts, styles, fonts, images and
   data only from BitcoinTX itself (prices and block height come through the

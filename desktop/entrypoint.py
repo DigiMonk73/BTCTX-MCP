@@ -174,7 +174,6 @@ class DesktopAPI:
             return {"success": False, "error": str(e)}
 
 
-
 def run_backend(sock: socket.socket):
     """Run the FastAPI backend with Uvicorn on an already-bound socket."""
     import uvicorn

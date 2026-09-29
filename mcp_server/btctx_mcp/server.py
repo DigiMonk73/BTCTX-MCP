@@ -92,7 +92,7 @@ def set_client(client: Optional[BtctxClient]) -> None:
     _client = client
 
 
-# -- Version check: the connector and BitcoinTX should be the same release ----
+# Version check: the connector and BitcoinTX should be the same release
 def connector_version() -> Optional[str]:
     try:
         return importlib.metadata.version("btctx-mcp")

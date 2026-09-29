@@ -1,6 +1,4 @@
 """
-backend/services/review.py
-
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
 what looks odd and what would change if the owner acts on it.

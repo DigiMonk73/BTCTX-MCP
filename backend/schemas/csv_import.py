@@ -1,8 +1,6 @@
 """
-backend/schemas/csv_import.py
-
-Pydantic models for the CSV import feature.
-Defines request/response schemas for preview and execute endpoints.
+The CSV import's response shapes: the preview (rows, errors, warnings) and
+the import result.
 """
 
 from __future__ import annotations

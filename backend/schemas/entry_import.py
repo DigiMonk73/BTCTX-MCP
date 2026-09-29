@@ -1,6 +1,4 @@
 """
-backend/schemas/entry_import.py
-
 Pydantic models for the JSON entry import (/api/import/entries).
 
 This is the programmatic sibling of the CSV and River imports: callers

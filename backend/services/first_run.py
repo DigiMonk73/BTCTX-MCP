@@ -1,6 +1,4 @@
 """
-backend/services/first_run.py
-
 The login every install starts with (admin / password, seeded by
 database.seed_defaults) and the one-time setup code that claiming it needs.
 

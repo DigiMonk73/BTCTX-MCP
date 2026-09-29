@@ -1,6 +1,4 @@
 """
-backend/models/btc_price.py
-
 One BTC/USD price per UTC day: the local price history every historical
 valuation reads (backend/services/price_history.py). Created by migration
 0004.

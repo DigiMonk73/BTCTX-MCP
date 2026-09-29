@@ -1,6 +1,4 @@
 """
-backend/services/bitcoin.py
-
 The live BTC price and the block height, from the source the owner chose
 (services/outbound.py): their own mempool server, or public sites (with a
 mempool server, only if "fall back to public sites" is on). Nothing is asked

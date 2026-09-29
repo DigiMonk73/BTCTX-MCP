@@ -1,6 +1,4 @@
 """
-backend/routers/review.py
-
 GET /api/review: the read-only Ledger review (backend/services/review.py).
 Login or the AI key; it changes no transaction (it may
 store BTC prices it had to download).

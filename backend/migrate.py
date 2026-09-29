@@ -1,6 +1,4 @@
 """
-backend/migrate.py
-
 Brings a BitcoinTX SQLite database to the current schema (Alembic "head").
 Runs at every startup (database.init_db) and on a restored backup.
 
@@ -110,9 +108,7 @@ def sqlite_file(engine: Engine) -> Optional[Path]:
     return Path(db)
 
 
-# ---------------------------------------------------------------------------
 # Backups
-# ---------------------------------------------------------------------------
 def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = BACKUPS_KEPT) -> Path:
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
@@ -170,9 +166,7 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before")
     return removed
 
 
-# ---------------------------------------------------------------------------
 # Adopting databases created before migrations existed
-# ---------------------------------------------------------------------------
 def _baseline_reference() -> Tuple[Dict[str, str], Dict[str, str], Dict[str, list]]:
     """(table DDL, index DDL, PRAGMA table_info per table) of revision 0001."""
     eng = create_engine("sqlite://")
@@ -253,9 +247,7 @@ def adopt_unversioned(conn: Connection) -> List[str]:
     return repairs
 
 
-# ---------------------------------------------------------------------------
 # Entry point
-# ---------------------------------------------------------------------------
 def _transactional_engine(engine: Engine) -> Engine:
     """
     pysqlite doesn't wrap DDL in a transaction by default, so a migration that

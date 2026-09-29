@@ -1,21 +1,10 @@
 #!/usr/bin/env python
 """
-backend/database.py
-
-Sets up the SQLAlchemy database connection, session management, and helper functions for creating tables.
-This file underpins the BitcoinTX double-entry system by ensuring all models (e.g., LedgerEntry, BitcoinLot, LotDisposal)
-are registered with the ORM and created in the database.
-
-Key Features:
-- Loads environment variables from .env at project root
-- Handles default SQLite or custom DB URLs
-- Provides get_db() for FastAPI dependency injection
-- Ensures six hardcoded accounts (IDs 1–6) are always present
-- Automatically inserts default user: admin / password (bcrypt-hashed)
-
-Security Notes:
-- Password hashed with bcrypt directly
-- Works cleanly across dev, test, CI, Docker
+The database: the SQLAlchemy engine and sessions for DATABASE_FILE (SQLite;
+DATABASE_URL overrides it), the UTC timestamp column type, and the startup
+step that migrates the schema and seeds the default login and the six fixed
+accounts. Everything persistent lives in DATABASE_FILE's directory
+(docs/STARTOS_COMPATIBILITY.md).
 """
 
 import os
@@ -30,9 +19,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.types import TypeDecorator, String
 import bcrypt
 
-# ------------------------------------------------------------------
-# 0) Logging Setup
-# ------------------------------------------------------------------
+
 def log_level_from_env() -> int:
     """LOG_LEVEL env (DEBUG, INFO, WARNING, ERROR, CRITICAL); INFO if unset or unknown."""
     name = os.getenv("LOG_LEVEL", "INFO").strip().upper()
@@ -43,9 +30,6 @@ def log_level_from_env() -> int:
 logging.basicConfig(level=log_level_from_env())
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------
-# 1) Environment Setup
-# ------------------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
@@ -67,12 +51,9 @@ if not os.path.exists(db_dir):
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_FILE}")
 logger.debug(f"DATABASE_URL: {DATABASE_URL}")
 
-# ------------------------------------------------------------------
-# 2) SQLAlchemy Engine and Session Setup
-# ------------------------------------------------------------------
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}  # For SQLite
+    connect_args={"check_same_thread": False}  # sessions move between FastAPI's worker threads
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -85,15 +66,13 @@ def _erase_deleted_data(dbapi_connection, _record):
     if isinstance(dbapi_connection, sqlite3.Connection):
         dbapi_connection.execute("PRAGMA secure_delete = ON")
 
-# ------------------------------------------------------------------
-# 3) Custom UTC DateTime for SQLite
-# ------------------------------------------------------------------
+
 class UTCDateTime(TypeDecorator):
+    """
+    A datetime stored in SQLite as an ISO 8601 string in UTC ('Z'), and read
+    back offset-aware; a naive value is taken as UTC.
+    """
     cache_ok = True
-    """
-    Stores Python datetime objects as ISO8601 strings with 'Z' in SQLite,
-    ensuring they are read back as offset-aware UTC datetimes.
-    """
     impl = String
 
     def process_bind_param(self, value, dialect):
@@ -109,9 +88,7 @@ class UTCDateTime(TypeDecorator):
         value = value.replace("Z", "+00:00")
         return datetime.datetime.fromisoformat(value)
 
-# ------------------------------------------------------------------
-# 4) FastAPI Dependency Injection
-# ------------------------------------------------------------------
+
 def get_db():
     db = SessionLocal()
     try:
@@ -119,9 +96,6 @@ def get_db():
     finally:
         db.close()
 
-# ------------------------------------------------------------------
-# 5) Schema migrations + default user/account seeding
-# ------------------------------------------------------------------
 FIXED_ACCOUNTS = [
     {"id": 1, "name": "Bank", "currency": "USD"},
     {"id": 2, "name": "Wallet", "currency": "BTC"},

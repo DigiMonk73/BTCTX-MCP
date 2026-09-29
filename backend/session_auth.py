@@ -1,10 +1,7 @@
 """
-backend/session_auth.py
-
 The logged-in user behind a session cookie. At login the session gets a
 stamp derived from the password hash; a session whose stamp no longer
 matches (the password was changed or the account reset since) is cleared.
-Before v0.9.2 sessions stayed valid after a credential change.
 """
 
 from __future__ import annotations

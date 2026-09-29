@@ -1,6 +1,4 @@
 """
-backend/routers/river_import.py
-
 API endpoints for importing River bitcoin-activity CSV exports into a live
 ledger (merge with dedup). See docs/archive/RIVER_IMPORT_PLAN.md.
 

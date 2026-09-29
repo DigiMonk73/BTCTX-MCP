@@ -18,7 +18,8 @@ cleanup commit, never inside a behaviour change.
 3. **Comments say why**: a tax rule, an IRS line, a past bug, a platform
    limit. Never what the next line does, and never the code's history
    ("now", "NEW", "used to", "no longer"); that belongs in the CHANGELOG and
-   git.
+   git. A past bug is a good reason: say what the code prevents, not what
+   it once did.
 4. **Docstrings.** A module's opens with what the module is for, never its
    file path. A public function gets one when its name and signature don't
    say enough; a private helper only when needed. MCP tool, pydantic schema
@@ -37,7 +38,8 @@ cleanup commit, never inside a behaviour change.
      frontend and the MCP guide match on it.
    - `except`: the narrowest exception the code expects.
    - Logs: no amounts, dates or addresses at INFO or above
-     (`test_privacy.py`).
+     (`test_privacy.py`); no DEBUG line that only echoes a function's input
+     or every row.
 8. **Tests** follow the same rules but are exempt from the size limits: a
    scenario can be long. A bug fix gets a test that fails on the old code.
 

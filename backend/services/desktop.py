@@ -1,6 +1,4 @@
 """
-backend/services/desktop.py
-
 What the Mac app's launcher (desktop/entrypoint.py) told the backend through
 environment variables. Outside the Mac app (Docker, StartOS, dev servers)
 none of them are set and `is_desktop()` is False.

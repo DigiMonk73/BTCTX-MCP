@@ -1,4 +1,7 @@
-# FILE: backend/routers/reports.py
+"""
+Report downloads: the IRS Form 8949 and Schedule D (the year's templates,
+filled with pypdf), the complete tax report and the transaction history.
+"""
 
 from fastapi import APIRouter, Depends, Response, Query, HTTPException
 from sqlalchemy.orm import Session
@@ -10,12 +13,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Get absolute paths to IRS templates (works regardless of working directory)
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _BACKEND_DIR = os.path.dirname(_THIS_DIR)
 _ASSETS_DIR = os.path.join(_BACKEND_DIR, "assets", "irs_templates")
 
-# Database & internal imports
 from backend.database import get_db
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
@@ -28,8 +29,6 @@ from backend.services.reports.form_8949 import (
     Form8949Row,
 )
 from itertools import zip_longest
-
-# Pure-Python form filling (pypdf)
 from backend.services.reports.pdf_form_filler import fill_pdf_form
 
 reports_router = APIRouter()
@@ -59,16 +58,13 @@ def get_report_years(db: Session = Depends(get_db)) -> Dict[str, List[int]]:
         "form_years": get_supported_years(),
     }
 
+
 @reports_router.get("/complete_tax_report")
 def get_complete_tax_report(
     year: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Generates a comprehensive tax report (PDF) that includes
-    realized gains, income, fees, and balances.
-    Built with ReportLab.
-    """
+    """The complete tax report PDF of one tax year."""
     report_dict = generate_report_data(db, year)
     pdf_bytes = generate_comprehensive_tax_report(report_dict)
 
@@ -85,20 +81,15 @@ def get_irs_reports(
     db: Session = Depends(get_db),
 ):
     """
-    Generates a combined PDF for Form 8949 and Schedule D: each sheet is
-    filled and flattened with pypdf (XFA removed), then all are merged.
-
-    Supports multiple tax years - templates are selected based on the year parameter.
+    Form 8949 and Schedule D of one tax year in one PDF, from that year's
+    templates: each sheet is filled and flattened with pypdf (XFA removed),
+    then all are merged.
     """
-    # 0) Pre-flight checks
     _verify_templates_exist(year)
-
-    # Get year-specific template paths
     path_form_8949 = get_template_path(year, "f8949.pdf")
     path_schedule_d = get_template_path(year, "f1040sd.pdf")
 
     try:
-        # 1) Gather rows for Form 8949 + schedule totals
         report_data = build_form_8949_and_schedule_d(year, db)
         short_rows = [Form8949Row(**r) for r in report_data["short_term"]]
         long_rows = [Form8949Row(**r) for r in report_data["long_term"]]
@@ -107,7 +98,7 @@ def get_irs_reports(
 
         partial_pdfs: List[bytes] = []
 
-        # 2-3) Fill Form 8949 sheets. Each template copy is one physical sheet:
+        # Each template copy is one physical sheet:
         # Page1 holds Part I (short-term) and Page2 holds Part II (long-term).
         # Chunk each term by the year's table capacity and pair chunks onto
         # shared sheets — overflow gets additional copies, never page-3+ field
@@ -128,12 +119,10 @@ def get_irs_reports(
             pdf_bytes = fill_pdf_form(path_form_8949, field_data)
             partial_pdfs.append(pdf_bytes)
 
-        # 4) Fill Schedule D totals using year-specific field names
         schedule_d_fields = map_schedule_d_fields(report_data["schedule_d"], year=year)
         filled_sd_bytes = fill_pdf_form(path_schedule_d, schedule_d_fields)
         partial_pdfs.append(filled_sd_bytes)
 
-        # 5) Merge partial PDFs in memory with pypdf
         final_pdf = _merge_all_pdfs(partial_pdfs)  # sheets are already flattened
 
         logger.info(f"Successfully generated IRS reports for {year} ({len(final_pdf)} bytes)")
@@ -158,10 +147,7 @@ def get_simple_transaction_history(
     format: str = Query("csv", pattern="^(csv|pdf)$"),
     db: Session = Depends(get_db),
 ):
-    """
-    Exports a raw list of transactions (CSV or PDF).
-    Bypasses FIFO and gain/loss logic (ReportLab or CSV).
-    """
+    """The tax year's transactions as a CSV or PDF list."""
     report_bytes = transaction_history.generate_transaction_history_report(db, year, format)
 
     file_ext = format.lower()
@@ -176,9 +162,7 @@ def get_simple_transaction_history(
 
 
 def _merge_all_pdfs(pdf_list: List[bytes]) -> bytes:
-    """
-    Merges multiple PDFs (in-memory bytes) into a single PDF with pypdf.
-    """
+    """The PDFs' pages, in order, as one PDF."""
     writer = PdfWriter()
     for pdf_data in pdf_list:
         reader = PdfReader(BytesIO(pdf_data))
@@ -203,10 +187,7 @@ def _chunks_by_box(rows: List[Form8949Row], size: int) -> List[List[Form8949Row]
 
 
 def get_supported_years() -> List[int]:
-    """
-    Return list of tax years with available IRS templates.
-    Scans the irs_templates directory for year folders containing required PDFs.
-    """
+    """The tax years with both IRS templates in backend/assets/irs_templates/."""
     years = []
     if not os.path.exists(_ASSETS_DIR):
         return years
@@ -214,7 +195,6 @@ def get_supported_years() -> List[int]:
     for item in os.listdir(_ASSETS_DIR):
         item_path = os.path.join(_ASSETS_DIR, item)
         if os.path.isdir(item_path) and item.isdigit():
-            # Check that required templates exist
             has_8949 = os.path.exists(os.path.join(item_path, "f8949.pdf"))
             has_schedule_d = os.path.exists(os.path.join(item_path, "f1040sd.pdf"))
             if has_8949 and has_schedule_d:
@@ -224,19 +204,7 @@ def get_supported_years() -> List[int]:
 
 
 def get_template_path(year: int, form_name: str) -> str:
-    """
-    Get the template path for a specific tax year.
-
-    Args:
-        year: Tax year (e.g., 2024, 2025)
-        form_name: Template filename (e.g., "f8949.pdf", "f1040sd.pdf")
-
-    Returns:
-        Absolute path to the template file
-
-    Raises:
-        HTTPException: If template doesn't exist for the requested year
-    """
+    """The path of a year's template ("f8949.pdf", "f1040sd.pdf"), or 400."""
     template_path = os.path.join(_ASSETS_DIR, str(year), form_name)
     if not os.path.exists(template_path):
         supported = get_supported_years()
@@ -248,10 +216,7 @@ def get_template_path(year: int, form_name: str) -> str:
 
 
 def _verify_templates_exist(year: int):
-    """
-    Verify IRS PDF templates exist for the specified tax year.
-    Raises HTTPException with helpful message if not found.
-    """
+    """400 unless the year has IRS templates."""
     supported = get_supported_years()
     if year not in supported:
         raise HTTPException(

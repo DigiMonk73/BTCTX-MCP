@@ -1,6 +1,4 @@
 """
-backend/services/login_throttle.py
-
 Slows down password guessing on the routes that check a password or the
 setup code: POST /api/login, POST /api/users/reset-account and a password
 change (PATCH /api/users/{id}). In memory (one process, forgotten on a
