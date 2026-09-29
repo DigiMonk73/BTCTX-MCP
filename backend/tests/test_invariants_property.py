@@ -31,7 +31,7 @@ from typing import Dict, List
 from zoneinfo import ZoneInfo
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from sqlalchemy.orm import sessionmaker
 
@@ -163,9 +163,12 @@ class Ledger:
             r = self.client.post("/api/transactions", json=tx)
             assert r.status_code == 200, f"{tx} -> {r.status_code} {r.text}"
 
-    def enter_any_order(self, txs: List[dict], rng: random.Random) -> None:
+    def enter_any_order(self, txs: List[dict], rng: random.Random) -> bool:
         """Enter in a shuffled order; a transaction the ledger can't take yet
-        (it would spend BTC entered later) is retried after the others."""
+        (it would spend BTC entered later) is retried after the others. When
+        none of the rest can go in alone (e.g. two transfers that feed each
+        other, with an entered sale relying on the round trip), no one could
+        enter them in this order: False, and the example is discarded."""
         pending = txs[:]
         rng.shuffle(pending)
         while pending:
@@ -174,8 +177,10 @@ class Ledger:
                 r = self.client.post("/api/transactions", json=tx)
                 if r.status_code != 200:
                     deferred.append(tx)
-            assert len(deferred) < len(pending), f"stuck: {deferred[0]}"
+            if len(deferred) == len(pending):
+                return False
             pending = deferred
+        return True
 
     def snapshot(self) -> Dict[str, list]:
         """Results keyed by timestamp (unique per transaction), not by id."""
@@ -306,7 +311,7 @@ def run_property(ledger: Ledger, data, max_ops: int, shuffle: bool) -> None:
 
     if shuffle:
         ledger.reset()
-        ledger.enter_any_order(txs, random.Random(data.draw(st.integers(0, 2**32 - 1), label="seed")))
+        assume(ledger.enter_any_order(txs, random.Random(data.draw(st.integers(0, 2**32 - 1), label="seed"))))
         assert ledger.snapshot() == before, "entry order changed the results"
 
 
@@ -332,3 +337,28 @@ def test_random_ledgers_keep_the_invariants(ledger, data):
 @given(data=st.data())
 def test_random_ledgers_keep_the_invariants_many(ledger, data):
     run_property(ledger, data, max_ops=25, shuffle=True)
+
+
+def test_an_order_no_one_could_enter_is_discarded_not_failed(ledger):
+    """Why the slow property test failed now and then (2026-09-29): two
+    transfers that feed each other, with a sale relying on the round trip,
+    can only be entered together, and the app rightly refuses each alone.
+    Such a shuffled order is thrown away (Hypothesis draws another), not
+    reported as "stuck"."""
+    ledger.reset()
+    ledger.enter([
+        dict(type="Deposit", timestamp="2023-01-01T12:00:00Z", from_account_id=99, to_account_id=1,
+             amount="50000", fee_amount="0", fee_currency="USD", source="N/A"),
+        dict(type="Buy", timestamp="2023-01-02T12:00:00Z", from_account_id=1, to_account_id=4,
+             amount="1", cost_basis_usd="20000", fee_amount="0", fee_currency="USD"),
+        dict(type="Sell", timestamp="2023-01-05T12:00:00Z", from_account_id=4, to_account_id=3,
+             amount="1", gross_proceeds_usd="25000", fee_amount="0", fee_currency="USD"),
+    ])
+    out_and_back = [
+        dict(type="Transfer", timestamp="2023-01-03T12:00:00Z", from_account_id=4, to_account_id=2,
+             amount="1", fee_amount="0", fee_currency="BTC"),
+        dict(type="Transfer", timestamp="2023-01-04T12:00:00Z", from_account_id=2, to_account_id=4,
+             amount="1", fee_amount="0", fee_currency="BTC"),
+    ]
+    assert ledger.enter_any_order(out_and_back, random.Random(0)) is False
+    ledger.reset()
