@@ -233,7 +233,7 @@ const Settings: React.FC = () => {
       const res = await api.post("/backup/restore", formData);
       setMessage(res.data.message || "Backup restored. Redirecting to login...");
       // After restore, the session may be invalid (different user_id in restored DB)
-      // Redirect to login so user can authenticate with restored credentials
+      // Redirect to login: the login in use stays (the backup's doesn't come back)
       setTimeout(() => {
         window.location.href = "/login";
       }, 2000);

@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
+from backend.models.user import User
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
@@ -89,6 +91,20 @@ def _copy_at_most(src, dst, limit: int) -> None:
         dst.write(chunk)
 
 
+def _login_in_use(db: Session) -> Optional[tuple]:
+    user = db.query(User).order_by(User.id).first()
+    return (user.username, user.password_hash) if user else None
+
+
+def _keep_login(db: Session, login: Optional[tuple]) -> None:
+    """Put the login from before a restore back on the restored account."""
+    user = db.query(User).order_by(User.id).first()
+    if login is None or user is None:
+        return
+    user.username, user.password_hash = login
+    db.commit()
+
+
 @router.post("/restore")
 def restore_encrypted_backup(
     request: Request,
@@ -97,14 +113,17 @@ def restore_encrypted_backup(
     db: Session = Depends(get_db),
 ):
     """
-    Restore the database from an encrypted backup file.
-    Clears the session after restore since the user_id may no longer be valid.
+    Restore the database from an encrypted backup file. The login in use (and
+    the AI key) stays: an old backup never brings back an old password, and
+    on StartOS Show Credentials stays right. Clears the session after restore
+    since the user_id may no longer be valid.
     """
     _require_auth(request)
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     ai_state = ai_key.snapshot(db)
+    login = _login_in_use(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             temp_path = Path(temp_file.name)
@@ -124,6 +143,11 @@ def restore_encrypted_backup(
             ai_key.carry_over(db, ai_state)
         except Exception:
             logger.exception("Could not keep the AI key after restore")
+        db.close()
+        try:
+            _keep_login(db, login)
+        except Exception:
+            logger.exception("Could not keep the login after restore")
         # The restored login may be the default one (a setup code) or not
         db.close()
         try:
@@ -134,7 +158,7 @@ def restore_encrypted_backup(
         # Clear session - the restored database may have different user IDs
         request.session.clear()
 
-        return {"message": "✅ Database successfully restored. Please log in again."}
+        return {"message": "✅ Database successfully restored. Log in again with your current username and password."}
     except HTTPException:
         raise
     except Exception as e:

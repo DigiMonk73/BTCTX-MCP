@@ -180,7 +180,8 @@ So derived values must be recomputable from the Transaction row alone.
   app: the key is in the owner-only `mcp.json` and works only from localhost.
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
-  switch. It works only while AI access is on (off by default) and only on
+  switch (and the login in use: an in-app restore never brings back a
+  backup's password). It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or

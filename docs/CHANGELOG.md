@@ -73,6 +73,13 @@ All notable changes to BitcoinTX are documented in this file.
   transaction, e.g. "Withdrawal of 0.01 BTC on 2024-06-01: its network fee
   has no USD value (edit that transaction to enter it)".
 
+- **Restoring a backup file in the app keeps your current login.** It
+  brought back the backup's username and password, so a password changed
+  since stopped working, and on StartOS Show Credentials showed one that
+  no longer logged in. Like the AI key, the login in use now stays; the
+  ledger and settings come from the backup. StartOS's own backups were
+  never affected (they restore the login and the ledger together).
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,
