@@ -2,7 +2,7 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
-## [Unreleased]
+## [v1.2.2] - 2026-09-29 - Stability: tax-figure fixes from a bug hunt, privacy audit, no new features
 
 Stabilization after 1.2.1: no new features. Found by testing the published
 1.2.1 on a StartOS VM, a bug hunt of the tax engine, the imports and the AI
