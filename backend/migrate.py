@@ -206,44 +206,55 @@ def adopt_unversioned(conn: Connection) -> list[str]:
 
     ref_tables, ref_indexes, ref_columns = _baseline_reference()
     repairs: list[str] = []
-
     for table, ddl in ref_tables.items():
         if table not in have:
             conn.exec_driver_sql(ddl)
             repairs.append(f"created table {table}")
-            continue
-        existing = {row[1] for row in conn.exec_driver_sql(f'PRAGMA table_info("{table}")')}
-        for _cid, name, col_type, notnull, default, _pk in ref_columns[table]:
-            if name in existing:
-                continue
-            if notnull and default is None:
-                raise MigrationError(
-                    f"Column {table}.{name} is missing and required; this database "
-                    "can't be upgraded automatically."
-                )
-            ddl_col = f'ALTER TABLE "{table}" ADD COLUMN "{name}" {col_type}'
-            if notnull:
-                ddl_col += " NOT NULL"
-            if default is not None:
-                ddl_col += f" DEFAULT {default}"
-            try:
-                conn.exec_driver_sql(ddl_col)
-            except Exception as e:  # e.g. SQLite refuses non-constant defaults
-                raise MigrationError(f"Couldn't add missing column {table}.{name}: {e}") from e
-            repairs.append(f"added column {table}.{name}")
-
-    existing_indexes = {
-        row[0] for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'index'")
-    }
-    for name, ddl in ref_indexes.items():
-        if name not in existing_indexes:
-            conn.exec_driver_sql(ddl)
-            repairs.append(f"created index {name}")
+        else:
+            repairs += _add_missing_columns(conn, table, ref_columns[table])
+    repairs += _create_missing_indexes(conn, ref_indexes)
 
     cfg = alembic_config()
     cfg.attributes["connection"] = conn
     command.stamp(cfg, BASELINE)
     return repairs
+
+
+def _add_missing_columns(conn: Connection, table: str, reference: list) -> list[str]:
+    """The baseline's columns the table lacks, added when that keeps its rows."""
+    existing = {row[1] for row in conn.exec_driver_sql(f'PRAGMA table_info("{table}")')}
+    added = []
+    for _cid, name, col_type, notnull, default, _pk in reference:
+        if name in existing:
+            continue
+        if notnull and default is None:
+            raise MigrationError(
+                f"Column {table}.{name} is missing and required; this database "
+                "can't be upgraded automatically."
+            )
+        ddl_col = f'ALTER TABLE "{table}" ADD COLUMN "{name}" {col_type}'
+        if notnull:
+            ddl_col += " NOT NULL"
+        if default is not None:
+            ddl_col += f" DEFAULT {default}"
+        try:
+            conn.exec_driver_sql(ddl_col)
+        except Exception as e:  # e.g. SQLite refuses non-constant defaults
+            raise MigrationError(f"Couldn't add missing column {table}.{name}: {e}") from e
+        added.append(f"added column {table}.{name}")
+    return added
+
+
+def _create_missing_indexes(conn: Connection, reference: dict[str, str]) -> list[str]:
+    existing = {
+        row[0] for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'index'")
+    }
+    created = []
+    for name, ddl in reference.items():
+        if name not in existing:
+            conn.exec_driver_sql(ddl)
+            created.append(f"created index {name}")
+    return created
 
 
 # Entry point
