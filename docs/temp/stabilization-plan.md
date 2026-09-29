@@ -46,6 +46,24 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
 - The full release walk on the VM: `docs/AGENT-TESTS.md` (golden ledger with
   hand-worked figures, Tracks A, B, C).
 
+## Progress (2026-09-29)
+
+- [x] 1. Baseline: all green (693 pytest, 45 vitest, smoke, audit, Docker,
+      e2e Chromium 127 + WebKit 90, CI 11/11). No flaky tests; the two red
+      CI runs of 2026-09-28 were a reworded message, fixed the next commit.
+- [~] 2. VM, on the published 1.2.1: Track A all PASS except the steps that
+      need a password typed (owner: `~/code/btctx-vm-lab/owner-checks.sh`),
+      BAK-5 BLOCKED (no second disk), PRC-4 partial (no Mempool). Track B
+      1.2.0 → 1.2.1 and 1.1.0 → 1.2.1 PASS (data identical). Track C
+      skipped (the Mac's app holds the owner's real ledger). Report:
+      `~/code/btctx-vm-lab/scenarios/agent-test-1.2.1-published.md`.
+- [~] 3. Bug hunt: VM findings fixed (8858dd5). Two hunt agents found ~19
+      real bugs (proof tests in `.claude/worktrees/agent-ac7e…` and
+      `agent-a5e5…`); four fix agents are on them. Waits for the owner:
+      the entry-import dedup of a same-amount Buy within 48 h (M2).
+- [~] 4. Privacy audit: `privacy-audit.md`; the four plain bug fixes done
+      (348616a); the rest are owner decisions, one at a time.
+
 ## Plan
 
 1. **Baseline:** `make check`, `make test`, `make e2e` (with WebKit if it
