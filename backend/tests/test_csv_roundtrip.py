@@ -35,7 +35,7 @@ LEDGER.append(dict(type="Transfer", timestamp="2025-02-01T16:00:00Z", from_accou
 
 USER_FIELDS = ("type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
                "fee_usd", "cost_basis_usd", "gross_proceeds_usd", "proceeds_usd", "realized_gain_usd",
-               "holding_period", "fmv_usd", "source", "purpose", "broker_reporting")
+               "holding_period", "fmv_usd", "source", "purpose", "broker_reporting", "fee_usd_manual")
 
 
 def user_fields(tx):

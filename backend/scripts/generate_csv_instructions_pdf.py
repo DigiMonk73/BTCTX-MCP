@@ -209,6 +209,7 @@ def generate_csv_instructions_pdf():
         ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that day's BTC price"],
         ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value that day (shown in the tax report)"],
         ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
+        ["fee_usd_typed", "No", "With fee_usd: yes (or blank) if you typed that value, no if it was that day's price (the export writes it)"],
     ]
 
     col_table = Table(wrap_cells(columns_data), colWidths=[1.3*inch, 0.9*inch, 4.5*inch])

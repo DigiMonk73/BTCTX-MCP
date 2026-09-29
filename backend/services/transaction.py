@@ -96,6 +96,10 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _record_gross_proceeds(tx_data)
     _value_income_deposit(tx_data, db)
     _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
+    if tx_data.get("fee_usd_from_price") and tx_data.get("fee_usd") is not None:
+        # A CSV re-import of a value once priced from the day (not typed):
+        # kept as it was, and still re-priced if the date or fee changes.
+        tx_data["fee_usd_manual"] = False
 
     # 4) Insert Transaction
     now_utc = datetime.now(timezone.utc)

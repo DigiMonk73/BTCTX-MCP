@@ -90,6 +90,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 - Deleting a transaction asks "Are you sure?" once, not twice.
 
+- **Export CSV** has a fourth new optional column, `fee_usd_typed`: whether
+  a BTC fee's USD value was typed (yes) or that day's price (no). A
+  re-import marked every fee value as typed, so editing such a
+  transaction's date later kept the old value instead of pricing it
+  again. Files without the column import as before.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

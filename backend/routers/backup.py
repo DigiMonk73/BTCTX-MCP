@@ -275,6 +275,7 @@ def export_transactions_csv(
             "fee_usd": fmt_decimal(txn.fee_usd, 2) if btc_fee else "",
             "fmv_usd": fmt_decimal(txn.fmv_usd, 2) if gift_like else "",
             "broker_reporting": csv_text(txn.broker_reporting),
+            "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
         }
         writer.writerow(row)
 

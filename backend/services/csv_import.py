@@ -44,15 +44,17 @@ REQUIRED_COLUMNS = {
 
 # Every column, in order. The template, the import and the CSV export
 # (routers/backup.py) all use this list, so an export always imports back to
-# the same ledger. The last three came later and are optional (older files
+# the same ledger. The last four came later and are optional (older files
 # import as before): a BTC fee's USD value (blank: fee x that day's price), a
-# gift's, donation's or lost BTC's fair market value, and the Broker form
-# override (none / proceeds / basis; blank: automatic).
+# gift's, donation's or lost BTC's fair market value, the Broker form
+# override (none / proceeds / basis; blank: automatic), and whether that fee
+# value was typed (yes, or blank) or priced from the day (no: kept, but
+# priced again if the date or fee is edited).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
-    "fee_usd", "fmv_usd", "broker_reporting",
+    "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed",
 ]
 
 # Withdrawal purposes that aren't a sale; only these carry an FMV
@@ -339,6 +341,14 @@ def _validate_row(
     purpose = row.get("purpose", "").strip() or None
     notes = row.get("notes", "").strip() or None
     broker_reporting = row.get("broker_reporting", "").strip().lower() or None
+    fee_usd_typed = (row.get("fee_usd_typed") or "").strip().lower()
+    if fee_usd_typed not in ("", "yes", "no"):
+        errors.append(CSVParseError(
+            row_number=row_number,
+            column="fee_usd_typed",
+            message=f"Invalid fee_usd_typed '{fee_usd_typed}'. Must be yes, no or blank.",
+        ))
+        return None, None, errors, warnings
 
     if broker_reporting and broker_reporting not in BROKER_REPORTING_VALUES:
         errors.append(CSVParseError(
@@ -406,7 +416,9 @@ def _validate_row(
         tx_data["purpose"] = purpose
     if fee_usd is not None:
         if tx_data.get("fee_currency") == "BTC":
-            tx_data["fee_usd"] = fee_usd  # kept as given, never re-priced
+            tx_data["fee_usd"] = fee_usd  # kept as given
+            if fee_usd_typed == "no":
+                tx_data["fee_usd_from_price"] = True
         else:
             warnings.append(CSVParseError(
                 row_number=row_number,
