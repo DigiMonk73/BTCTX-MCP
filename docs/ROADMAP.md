@@ -17,8 +17,9 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       2026-02-08 send (0.02353629 → fee on top, today's code is right;
       0.02353311 → Sent includes the fee and the importer counts it twice).
       See `HARDENING_FINDINGS.md` F20.
-- [ ] **StartOS own node**: offer the local mempool app as "Your own mempool
-      server" in Settings → Privacy & Network.
+- [x] **StartOS own node**: offer the local mempool app as "Your own mempool
+      server" in Settings → Privacy & Network. (Shipped in 1.2.0: the Price
+      Source & Privacy action's My Mempool.)
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
       backup password).
 
@@ -27,6 +28,15 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
+- [ ] **The AI connector follows the app's version** (after Start9's review):
+      at start it reads BitcoinTX's version (`/api/health`) and, when it
+      differs, restarts itself as `uvx btctx-mcp==<that version>`, so nobody
+      edits their AI app's config after updating BitcoinTX. It is never ahead
+      of the app (Start9 publishes StartOS updates only after review), and
+      PyPI is asked only when the app's version changes. The version-matched
+      pin stays the documented setup. Chosen over `uvx btctx-mcp@latest`
+      (2026-09-29): that runs ahead of StartOS's app, skips Start9's review
+      for the code holding the AI key, and contacts PyPI on every launch.
 
 ## Later
 
