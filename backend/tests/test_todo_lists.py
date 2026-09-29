@@ -3,7 +3,9 @@ The to-do discipline (owner decision 2026-09-29; CLAUDE.md and
 docs/temp/README.md): specific to-dos live in docs/temp/TODO.md, the StartOS
 package's in startos/TODO.md (Start9's standard file, mirrored to the
 repository Start9 forks), and what's next in docs/ROADMAP.md. Every item is
-a checkbox, ticked when done and cleared at the release that ships it.
+a checkbox, ticked when done and cleared at the release that ships it; in
+startos/TODO.md, Start9's rule, it is removed instead
+(test_startos_conformance.py).
 """
 
 import re

@@ -48,6 +48,11 @@ If unsure which branch to use, use `develop` and ask.
   a `hiddenimports` entry in `desktop/BitcoinTX.spec`.
 - **IRS forms**: read `docs/IRS_FORM_GENERATION.md`; for a new tax year follow
   `docs/IRS_ANNUAL_FORM_UPDATE.md` (`python scripts/irs_new_year.py YEAR`).
+- **StartOS package** (`startos/`): it always keeps Start9's packaging rules
+  (<https://docs.start9.com/packaging>: layout, README headings,
+  `instructions.md`, `TODO.md`), since Start9 reviews it against them. Read
+  `startos/AGENTS.md`; `backend/tests/test_startos_conformance.py` checks what
+  a script can. When Start9's guide changes, update the package and the test.
 
 ## Data model
 
@@ -214,8 +219,8 @@ Full steps, the package version and the signing/mirror secrets:
    the image tag in `startos/startos/manifest/index.ts`,
    `startos/startos/versions/current.ts` and `mcp_server/pyproject.toml`
    (`backend/tests/test_versions_agree.py` fails until they agree). Move the CHANGELOG's Unreleased section to the
-   version and clear the ticked items from `docs/temp/TODO.md`,
-   `startos/TODO.md` and `docs/ROADMAP.md`. Minor bump when a new tax year's forms are added. Push; wait for CI.
+   version and clear the ticked items from `docs/temp/TODO.md` and
+   `docs/ROADMAP.md`. Minor bump when a new tax year's forms are added. Push; wait for CI.
    Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that commit's CI
    artifacts; a blocker FAIL stops the release.
 2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
@@ -252,12 +257,12 @@ Checkboxes everywhere: tick a box when the thing is done (rules:
 `docs/temp/README.md`; look there at the start of a session).
 
 - `docs/temp/TODO.md`: specific to-dos, one `- [ ]` line each.
-  `startos/TODO.md`: the StartOS package's own (Start9's standard file,
-  mirrored to their repository).
+  `startos/TODO.md`: the StartOS package's own, under Start9's rule: an
+  item is removed when it's done, not ticked (mirrored to their repository).
 - Plans and checklists: `docs/temp/<topic>.md`. When done, move anything
   lasting to the code, CHANGELOG or docs, tick its box in `docs/ROADMAP.md`,
   and delete the file. Never in `startos/`.
-- At each release, clear the ticked items from both TODO files and the
+- At each release, clear the ticked items from `docs/temp/TODO.md` and the
   roadmap (the CHANGELOG has them). `test_todo_lists.py` checks the format.
 
 ## Ending a session

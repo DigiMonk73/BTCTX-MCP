@@ -14,8 +14,9 @@ Everything here is checkboxes: tick a box when the thing is done.
   them.
 
 The StartOS package keeps its own `startos/TODO.md`: Start9's standard file,
-copied to the repository Start9 forks, for package-only items under the same
-rules. Plans stay here, never in `startos/`.
+copied to the repository Start9 forks, for package-only items. It follows
+Start9's rule instead: an item is removed when it's done, not ticked (the
+CHANGELOG records it). Plans stay here, never in `startos/`.
 
 `backend/tests/test_todo_lists.py` fails if a TODO file is missing or an
 item isn't a checkbox.

@@ -12,6 +12,14 @@ All notable changes to BitcoinTX are documented in this file.
   ships it; a finished plan is deleted and its roadmap box ticked.
   `test_todo_lists.py` checks the format. The 1.2.2 privacy audit is now
   `docs/PRIVACY_AUDIT.md`; the finished stabilization plan is gone.
+- **The StartOS package always keeps Start9's packaging rules**, checked by
+  `test_startos_conformance.py`: the standard layout, the README's fixed
+  headings (each opening with a sentence) and no version numbers,
+  documentation links Start9's indexer can parse, and `TODO.md` as Start9's
+  worklist (`# TODO`, an item removed when done rather than ticked). Fixed
+  on the way: the Quick Reference section now opens with a sentence, and
+  `instructions.md` links whole files without `#anchors` and drops the
+  package's own README, which isn't upstream documentation.
 
 ## [v1.2.2] - 2026-09-29 - Stability: tax-figure fixes from a bug hunt, privacy audit, no new features
 

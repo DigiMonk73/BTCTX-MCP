@@ -1,7 +1,7 @@
-# To do
+# TODO
 
-Pending work on the StartOS package, one line each. Tick `[x]` when done;
-ticked items are cleared at the release that ships them. BitcoinTX's own
+Pending work on this package. Remove an item when it's done (BitcoinTX's
+CHANGELOG records it) and add one when you defer work. BitcoinTX's own
 to-dos are in [DigiMonk73/BTCTX-MCP](https://github.com/DigiMonk73/BTCTX-MCP)
 (`docs/temp/TODO.md`).
 
