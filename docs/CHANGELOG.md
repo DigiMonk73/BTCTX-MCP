@@ -36,6 +36,10 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
 - **Keyboard focus shows in the Mac app on older macOS.** On Safari before
   15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
   own ring now stays there, and newer versions keep the gold one.
+- **AI connector fixes from a bug hunt (2026-09-29):**
+  - A time ending in " UTC" (`2025-01-01 03:00:00 UTC`) given to the AI is
+    read as UTC, as the CSV import reads it; it was read in the tax
+    timezone, hours off and sometimes in the wrong tax year.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

@@ -85,9 +85,9 @@ def _dec_str(value: Optional[Decimal]) -> str:
 def _normalize_date(raw: str, tz) -> str:
     """
     Parse a user/AI-supplied date into a UTC string _validate_row accepts.
-    Explicit offsets / "Z" are honored. Without one, the time is local to
-    the tax timezone `tz`; a bare date (no time) means noon there, safely
-    inside that calendar day.
+    Explicit offsets, "Z" and " UTC" are honored. Without one, the time is
+    local to the tax timezone `tz`; a bare date (no time) means noon there,
+    safely inside that calendar day.
     """
     raw = (raw or "").strip()
     if not raw:
@@ -95,10 +95,9 @@ def _normalize_date(raw: str, tz) -> str:
     try:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
-        dt = _parse_date(raw)  # e.g. 01/15/2024 — returned as naive-UTC-tagged
-        if dt is None:
-            return raw  # let _validate_row report it
-        dt = dt.replace(tzinfo=None)
+        # e.g. 01/15/2024 or "2024-01-15 10:00:00 UTC", read as the CSV import reads them
+        dt = _parse_date(raw, tz)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ") if dt else raw  # None: _validate_row reports it
     date_only = len(raw) <= 10 and ":" not in raw
     if dt.tzinfo is None:
         dt = local_noon_utc(dt.date(), tz) if date_only else dt.replace(tzinfo=tz)

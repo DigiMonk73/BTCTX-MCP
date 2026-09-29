@@ -145,3 +145,13 @@ class TestEntryImportDates:
             "date": "2025-03-05T10:00:00Z", "type": "Buy", "amount": "0.1", "from_account": "Bank",
             "to_account": "Exchange BTC", "cost_basis_usd": "5000"}]})
         assert r.json()["results"][0]["normalized"]["date"] == "2025-03-05T10:00:00Z"
+
+    def test_a_utc_suffix_is_honoured(self):
+        """Bug hunt 2026-09-29: "... UTC" was read as a tax-timezone time (the
+        CSV import reads it as UTC): 03:00 UTC on Jan 1, 10 pm Dec 31 in New
+        York, was saved as 08:00 UTC, in the next tax year there."""
+        set_tz(NY)
+        r = CLIENT.post("/api/import/entries/preview", json={"rows": [{
+            "date": "2025-01-01 03:00:00 UTC", "type": "Buy", "amount": "0.1", "from_account": "Bank",
+            "to_account": "Exchange BTC", "cost_basis_usd": "5000"}]})
+        assert r.json()["results"][0]["normalized"]["date"] == "2025-01-01T03:00:00Z"
