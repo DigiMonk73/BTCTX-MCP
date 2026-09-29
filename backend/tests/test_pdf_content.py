@@ -351,6 +351,14 @@ class TestCompleteTaxReportContent:
         for section in expected_sections:
             assert section in text, f"Report should contain '{section}' section"
 
+    def test_report_says_where_prices_come_from(self, sample_buy_sell_data):
+        """VM test 2026-09-29 (F4): the notes claimed "the average market value
+        at the time of disposal"; values are the ones typed, else the day's
+        stored price, and the tax timezone decides the dates."""
+        text = normalize_whitespace(extract_pdf_text(get_complete_tax_report(2024)))
+        assert "average market value" not in text
+        assert "daily BTC price" in text and "tax timezone" in text
+
     def test_report_shows_capital_gains(self, sample_buy_sell_data):
         """Report should show capital gains from sales."""
         pdf_bytes = get_complete_tax_report(2024)

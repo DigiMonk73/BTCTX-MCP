@@ -202,7 +202,9 @@ def test_your_own_mempool_server_only(auth_client, requests_seen):
     assert requests_seen == [NODE + "/api/v1/prices", NODE + "/api/blocks/tip/height"]
     node_down()
     r = auth_client.get("/api/bitcoin/blockheight")
-    assert r.status_code == 503 and "falling back to public price sites is off" in r.json()["detail"]
+    # 502, an error: the owner chose a source and it failed. 503 means prices
+    # are off by choice, which the Dashboard shows as "Prices off".
+    assert r.status_code == 502 and "falling back to public price sites is off" in r.json()["detail"]
     assert all(u.startswith(NODE) for u in requests_seen)  # never a public site
 
 
@@ -360,7 +362,10 @@ def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_en
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
     assert outbound.current().own_node is None
     r = auth_client.get("/api/bitcoin/blockheight")
-    assert r.status_code == 503 and "install and start Mempool" in r.json()["detail"]
+    # VM test 2026-09-29 (F6): the Dashboard said "Prices off" for this; and
+    # one pair of brackets, not "(… (on StartOS: …))".
+    assert r.status_code == 502 and "install and start Mempool" in r.json()["detail"]
+    assert "))" not in r.json()["detail"]
     r = auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2023-03-03T12:00:00Z", from_account_id=99, to_account_id=2,
         amount="0.01", source="Income", fee_amount="0", fee_currency="BTC"))

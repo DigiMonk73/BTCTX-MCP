@@ -39,6 +39,19 @@ test("converter, auto mode: live price", async ({ authedPage: page }) => {
   await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("50000000");
 });
 
+test("converter with prices off says so, never $0.00", async ({ authedPage: page }) => {
+  // VM test 2026-09-29 (F2): it read "BTC Price: $0.00" and kept old USD figures.
+  const off = { price_source: "off", mempool_url: null, mempool_fallback: false, proxy_url: null };
+  const r = await page.request.put("/api/settings/network", { data: off });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByText("BTC Price: Prices off")).toBeVisible();
+  await expect(page.getByText(/BTC Price: \$/)).toHaveCount(0);
+  await page.getByLabel("BTC", { exact: true }).fill("0.5");
+  await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("50000000");
+  await expect(page.getByLabel("USD", { exact: true })).toHaveValue("");
+});
+
 test("converter keeps BTC to the satoshi (F6)", async ({ authedPage: page }) => {
   // $1 at $60,000 = 0.0000166666… BTC; it used to show 0.00002 (5 decimals).
   await page.getByLabel("USD", { exact: true }).fill("1");

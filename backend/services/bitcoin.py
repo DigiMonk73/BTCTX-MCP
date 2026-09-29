@@ -98,7 +98,7 @@ def _kraken_price(resp) -> Optional[dict]:
 async def get_current_price() -> dict:
     """
     The current BTC price in USD: the own mempool server, or CoinGecko then
-    Kraken. 503 when no source may be asked, 502 when none answers.
+    Kraken. 503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     settings = outbound.current()
     async with _one_at_a_time():
@@ -120,8 +120,8 @@ def _height(resp) -> dict:
 async def get_block_height() -> dict:
     """
     The current block height: the own mempool server, or Blockchain.info,
-    Blockstream, mempool.space. 503 when no source may be asked, 502 when
-    none answers.
+    Blockstream, mempool.space. 503 when prices are off or not chosen, 502
+    when the chosen source fails.
     """
     height = await _from_own_node("/api/blocks/tip/height", _height)
     if height is not None:

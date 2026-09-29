@@ -427,7 +427,8 @@ Set `KEY` to the key from AI-3, and use
   (BTCTX_URL)" = `$API`, a "Root CA certificate" (save it as `ca.crt` if you
   haven't), and a "Claude Desktop configuration" and "Claude Code command"
   that run `uvx btctx-mcp==X.Y.Z` with `YOUR_BITCOINTX_AI_KEY`. Settings >
-  Setup prompt contains the same version and `$API`.
+  Setup prompt contains the same version and `$URL` (the connector accepts
+  the address with or without `/api`).
 - **AI-8** List the connector's tools with the MCP Inspector CLI. In
   Inspector 2.8.0 the server command comes first, then `--`, then the
   Inspector's own options:
@@ -483,7 +484,7 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting`
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
   export downloaded." appears.
 - **BAK-2** **Download** (Download Encrypted Backup) with the password
@@ -537,7 +538,9 @@ Set `KEY` to the key from AI-3, and use
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
   Expect: 401 for each.
-- **SEC-2** `$URL/docs` and `$URL/openapi.json`. Expect: 404.
+- **SEC-2** `$URL/openapi.json`. Expect: 404. `$URL/docs` and `$URL/redoc`
+  show the app itself (its login page or Dashboard, like any unknown
+  path), never the API documentation.
 - **SEC-3** `curl --cacert ca.crt -sI $URL/`. Expect these headers:
   `content-security-policy` (including `frame-ancestors 'none'`),
   `referrer-policy: no-referrer`, `x-content-type-options: nosniff`,

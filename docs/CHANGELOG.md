@@ -2,6 +2,31 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
+## [Unreleased]
+
+### Fixes
+Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
+- **The Sats Converter no longer shows "BTC Price: $0.00" without a
+  price.** With prices off it says "Prices off", after an error or for a
+  day with no stored price "No price", and the USD field empties instead of
+  keeping an old figure (BTC and sats still convert).
+- **My Mempool not answering is an error, not "Prices off".** With your
+  Mempool chosen but missing or not answering (and the fallback off), the
+  Dashboard said "Prices off"; it now says "Error", and hovering it shows
+  why (e.g. install and start Mempool). The message lost its doubled
+  brackets.
+- **Clearer messages when no price is stored.** A transfer's missing fee
+  value now names the form's **Fee value (USD)** field (and `fee_usd` for
+  imports), and a new Spent withdrawal without proceeds is no longer told
+  to "edit that transaction".
+- **The complete tax report says where its prices come from.** It claimed
+  "the average market value at the time of disposal"; it now says values
+  are the ones entered, a blank one comes from that day's stored daily
+  price, and dates are in the tax timezone (named).
+- **Keyboard focus shows in the Mac app on older macOS.** On Safari before
+  15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
+  own ring now stays there, and newer versions keep the gold one.
+
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
 ### Fixes

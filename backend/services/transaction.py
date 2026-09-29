@@ -380,7 +380,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         # network fee's (its own disposal), never a gross to recover.
         return Decimal("0")
     if tx.proceeds_usd is None:
-        gross = (_price_for(tx, "it has no proceeds value", db) * amount).quantize(Decimal("0.01"))
+        gross = (_price_for(tx, "it has no Proceeds (USD) value", db) * amount).quantize(Decimal("0.01"))
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
@@ -883,7 +883,7 @@ def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
-            detail=f"{e.detail} (for the network fee: enter its value in USD as fee_usd)",
+            detail=f"{e.detail} For the network fee, type its USD value in Fee value (USD) (fee_usd in an import).",
         )
     data["fee_usd"] = (price * Decimal(data["fee_amount"])).quantize(Decimal("0.01"))
     data["fee_usd_manual"] = False
@@ -913,7 +913,7 @@ def _price_for(tx: Transaction, missing: str, db: Session) -> Decimal:
         amount = format(Decimal(tx.amount or 0).normalize(), "f")
         raise HTTPException(
             status_code=e.status_code,
-            detail=f"{tx.type} of {amount} BTC on {day}: {missing} (edit that transaction to enter it). {e.detail}",
+            detail=f"{tx.type} of {amount} BTC on {day}: {missing} (enter it in that transaction). {e.detail}",
         ) from e
 
 

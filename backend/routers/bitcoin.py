@@ -15,7 +15,7 @@ router = APIRouter(
 async def get_current_bitcoin_price():
     """
     The current BTC price (USD) from the chosen source (services/bitcoin.py):
-    503 when none may be asked, 502 when none answers.
+    503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     return await bitcoin.get_current_price()
 
@@ -43,6 +43,6 @@ def get_historical_bitcoin_price(date: str, db: Session = Depends(get_db)):
 async def get_current_block_height():
     """
     The current block height from the chosen source (services/bitcoin.py):
-    503 when none may be asked, 502 when none answers.
+    503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     return await bitcoin.get_block_height()

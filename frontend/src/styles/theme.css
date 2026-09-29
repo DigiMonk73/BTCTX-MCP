@@ -104,7 +104,8 @@
 /* ============================================
    Focus, selection, scrollbars, motion
 ============================================ */
-*:focus { outline: none; }
+/* Before Safari 15.4 neither rule applies, so the browser's own ring stays. */
+*:focus:not(:focus-visible) { outline: none; }
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

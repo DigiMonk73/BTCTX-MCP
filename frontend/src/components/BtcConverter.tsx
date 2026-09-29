@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
 import api from "../api";
 import "../styles/converter.css";
 
@@ -13,20 +14,32 @@ const BtcConverter: React.FC = () => {
   // ---------------------------------------------------------------------------
   const [mode, setMode] = useState<Mode>("auto");
   const [btcPrice, setBtcPrice] = useState<number>(0);
+  // Why there's no price, when there's none: never shown as "$0.00"
+  const [noPrice, setNoPrice] = useState<"loading" | "off" | "none">("loading");
   // Bumped by every mode switch and every typed price: an answer to an older
   // request (slow to arrive) is dropped instead of overwriting the price.
   const priceTicket = useRef(0);
   const fetchPrice = async (url: string) => {
     const ticket = priceTicket.current;
     let price = 0;
+    let why: "off" | "none" = "none";
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
-    } catch {
-      // no price: 0
+    } catch (err) {
+      // no price: 0; 503 is prices off (or not chosen yet) by choice
+      if (axios.isAxiosError(err) && err.response?.status === 503) why = "off";
     }
-    if (ticket === priceTicket.current) setBtcPrice(price);
+    if (ticket === priceTicket.current) {
+      setBtcPrice(price);
+      setNoPrice(why);
+    }
   };
+
+  const priceText = () =>
+    btcPrice > 0
+      ? "$" + btcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : noPrice === "loading" ? "…" : noPrice === "off" ? "Prices off" : "No price";
 
   // For date mode
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -69,6 +82,8 @@ const BtcConverter: React.FC = () => {
   useEffect(() => {
     if (mode !== "date" || !selectedDate) return;
 
+    setBtcPrice(0);
+    setNoPrice("loading");
     fetchPrice(`/bitcoin/price/history?date=${selectedDate}`);
   }, [mode, selectedDate]);
 
@@ -84,6 +99,8 @@ const BtcConverter: React.FC = () => {
     priceTicket.current += 1;
     setMode(newMode);
     setSelectedDate("");
+    setBtcPrice(0);
+    setNoPrice(newMode === "date" ? "none" : "loading");
 
     if (newMode === "manual") {
       fetchManualPriceOnce();
@@ -150,9 +167,9 @@ const BtcConverter: React.FC = () => {
   //    to auto-update the others.
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    // If there's nothing typed yet, do nothing
+    // If there's nothing typed yet, do nothing. Without a price the USD side
+    // empties (BTC and sats still convert), rather than keeping an old figure.
     if (!usdValue && !btcValue && !satsValue) return;
-    if (btcPrice === 0) return;
 
     if (lastChangedField === "USD" && usdValue) {
       handleUsdChange(usdValue, false);
@@ -237,13 +254,7 @@ const BtcConverter: React.FC = () => {
       {/* Auto mode: show live price */}
       {mode === "auto" && (
         <div className="auto-price-row">
-          <p className="btc-price">
-            BTC Price: $
-            {btcPrice.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </p>
+          <p className="btc-price">BTC Price: {priceText()}</p>
         </div>
       )}
 
@@ -260,13 +271,7 @@ const BtcConverter: React.FC = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
             />
           </div>
-          <p className="btc-price">
-            BTC Price: $
-            {btcPrice.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </p>
+          {selectedDate && <p className="btc-price">BTC Price: {priceText()}</p>}
         </div>
       )}
 

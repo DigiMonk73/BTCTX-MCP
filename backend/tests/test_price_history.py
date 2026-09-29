@@ -269,6 +269,22 @@ def test_no_price_is_a_clear_422_everywhere_never_the_live_price(sources, auth_c
         auth_client.delete("/api/transactions/delete_all")
 
 
+def test_no_price_messages_speak_to_the_form_as_well_as_the_api(sources, auth_client, funded):
+    """VM test 2026-09-29 (F1, F3): the transfer's refusal named only the API
+    field (fee_usd), and a new Spent entry was told to "edit that
+    transaction", which was never saved."""
+    ts = "2024-05-01T12:00:00Z"
+    r = auth_client.post("/api/transactions", json=dict(
+        type="Transfer", timestamp=ts, from_account_id=EXCH_BTC, to_account_id=WALLET, amount="0.1",
+        fee_amount="0.0001", fee_currency="BTC"))
+    assert r.status_code == 422 and "Fee value (USD)" in r.json()["detail"] and "fee_usd" in r.json()["detail"]
+    r = auth_client.post("/api/transactions", json=dict(
+        type="Withdrawal", timestamp=ts, from_account_id=EXCH_BTC, to_account_id=EXTERNAL, amount="0.01",
+        purpose="Spent", fee_amount="0", fee_currency="BTC"))
+    detail = r.json()["detail"]
+    assert r.status_code == 422 and "edit that transaction" not in detail and "Proceeds (USD)" in detail
+
+
 def test_the_refresh_button_and_the_server_use_the_same_price(auth_client):
     """F3: the form's FMV Refresh and the server's income valuation read the
     same stored price for the same UTC day."""

@@ -222,15 +222,18 @@ def save(
 
 
 def refuse_public() -> HTTPException:
-    """503 saying why no public price site may be asked."""
+    """Why no public price site may be asked: 503 when prices are off or
+    not chosen yet (the Dashboard says "Prices off"), 502 when the chosen
+    mempool server is missing or didn't answer (an error, not a choice)."""
     s = _current
     where = SET_BY_SERVER if s.managed else SETTINGS_PAGE
-    if s.price_source == "mempool" and not s.mempool_url:
-        detail = ("Your mempool server isn't available (on StartOS: install and start Mempool), and "
-                  f"falling back to public price sites is off ({where}).")
-    elif s.price_source == "mempool":
-        detail = f"Your mempool server didn't answer, and falling back to public price sites is off ({where})."
-    elif s.price_source == "off":
+    if s.price_source == "mempool":
+        missing = ("isn't available (on StartOS: install and start Mempool)" if not s.mempool_url
+                   else "didn't answer")
+        return HTTPException(status_code=502, detail=(
+            f"Your mempool server {missing}, and falling back to public price sites is off. "
+            f"Change that in {where}."))
+    if s.price_source == "off":
         detail = f"Price lookups are off ({where})."
     else:
         detail = f"Choose where BitcoinTX gets prices: {where}."
