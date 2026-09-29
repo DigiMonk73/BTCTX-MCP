@@ -112,69 +112,122 @@ def widget_rects(path: Path) -> dict[str, list[float]]:
 
 
 def verify(year: int, folder: Path, draft: bool = False) -> bool:
-    from backend.services.reports.form_8949 import (
-        Form8949Row, _determine_box, get_8949_field_config, line2_field_names,
-        map_8949_rows_to_field_data, map_schedule_d_fields,
-    )
-    from decimal import Decimal
+    forms_ok = _check_forms(year, folder, draft)
+    if forms_ok is None:
+        return False
+    rows = _sample_rows(year)
+    ok = forms_ok
+    ok &= _check_8949_fields(year, folder, rows)
+    ok &= _check_line2_positions(year, folder, rows)
+    ok &= _check_printed_boxes(year, folder)
+    ok &= _check_schedule_d(year, folder)
+    _report_field_changes(year, folder, draft)
+    return ok
 
+
+def _check_forms(year: int, folder: Path, draft: bool) -> bool | None:
+    """Each form is there, the year's revision, and final unless `draft`;
+    None when one is missing (nothing else can be checked)."""
     ok = True
     for name, label in FORMS.items():
         path = folder / name
         if not say(path.exists(), f"{label} template present ({name})"):
-            return False
+            return None
         ok &= say(form_year(path) == year, f"{label} is the {year} revision (form says {form_year(path)})")
         if not draft:
             ok &= say(not is_draft(path), f"{label} is final, not a draft")
+    return ok
 
-    config = get_8949_field_config(year)
-    tpl = field_names(folder / "f8949.pdf")
-    rows = [Form8949Row("0.01 BTC", "01/01/2020", f"06/01/{year}", Decimal(1), Decimal(1), Decimal(0), hp,
-                        _determine_box(hp, False, year)) for hp in ("SHORT",)] * config["rows_per_page"]
-    long_rows = [Form8949Row("0.01 BTC", "01/01/2020", f"06/01/{year}", Decimal(1), Decimal(1), Decimal(0), "LONG",
-                             _determine_box("LONG", False, year))] * config["rows_per_page"]
-    wanted = set(map_8949_rows_to_field_data(rows, 1, year)) | set(map_8949_rows_to_field_data(long_rows, 2, year))
-    missing = sorted(wanted - tpl)
-    ok &= say(not missing, f"8949: all {len(wanted)} field names the app writes exist"
-              + (f" — MISSING {len(missing)}, e.g. {missing[:2]}" if missing else ""))
 
-    # Line 2 "Totals": each field under its column (x of the last row's cell), below that row
-    rects, n = widget_rects(folder / "f8949.pdf"), config["rows_per_page"]
-    for page, page_rows in ((1, rows), (2, long_rows)):
-        last = dict(zip("abcdefgh", [k for k in map_8949_rows_to_field_data(page_rows, page, year)
+def _sample_rows(year: int) -> dict:
+    """A full page of short-term rows for Part I (page 1) and of long-term
+    rows for Part II (page 2)."""
+    # Imported here: the backend opens its database on import, which
+    # --watch and --draft don't need.
+    from decimal import Decimal
+
+    from backend.services.reports.form_8949 import Form8949Row, _determine_box, get_8949_field_config
+
+    per_page = get_8949_field_config(year)["rows_per_page"]
+    return {
+        page: [Form8949Row("0.01 BTC", "01/01/2020", f"06/01/{year}", Decimal(1), Decimal(1), Decimal(0), term,
+                           _determine_box(term, False, year))] * per_page
+        for page, term in ((1, "SHORT"), (2, "LONG"))
+    }
+
+
+def _check_8949_fields(year: int, folder: Path, rows: dict) -> bool:
+    from backend.services.reports.form_8949 import map_8949_rows_to_field_data
+
+    wanted = set(map_8949_rows_to_field_data(rows[1], 1, year)) | set(map_8949_rows_to_field_data(rows[2], 2, year))
+    missing = sorted(wanted - field_names(folder / "f8949.pdf"))
+    return say(not missing, f"8949: all {len(wanted)} field names the app writes exist"
+               + (f" — MISSING {len(missing)}, e.g. {missing[:2]}" if missing else ""))
+
+
+def _check_line2_positions(year: int, folder: Path, rows: dict) -> bool:
+    """Line 2 "Totals": each field under its column (x of the last row's
+    cell), below that row."""
+    from backend.services.reports.form_8949 import (
+        get_8949_field_config, line2_field_names, map_8949_rows_to_field_data,
+    )
+
+    rects, n = widget_rects(folder / "f8949.pdf"), get_8949_field_config(year)["rows_per_page"]
+    ok = True
+    for page in (1, 2):
+        last = dict(zip("abcdefgh", [k for k in map_8949_rows_to_field_data(rows[page], page, year)
                                       if f".Row{n}[0]." in k]))
         wrong = [col for col, name in line2_field_names(page, year).items()
                  if name not in rects or last.get(col) not in rects
                  or abs(rects[name][0] - rects[last[col]][0]) >= 1 or rects[name][3] > rects[last[col]][1]]
         ok &= say(not wrong, f"Part {'I' if page == 1 else 'II'} line 2 totals fields sit under columns (d)-(h)"
                   + (f" — WRONG for {wrong}" if wrong else ""))
+    return ok
 
+
+def _check_printed_boxes(year: int, folder: Path) -> bool:
+    """The boxes printed on each Part, in order, are the config's."""
+    from backend.services.reports.form_8949 import get_8949_field_config
+
+    config = get_8949_field_config(year)
     reader = PdfReader(str(folder / "f8949.pdf"))
     # IRS drafts open with a "the draft begins on the next page" cover sheet
     first = 1 if "begins on the next page" in (reader.pages[0].extract_text() or "") else 0
+    ok = True
     for page, key in ((first, "boxes_part1"), (first + 1, "boxes_part2")):
         printed = re.findall(r"\(([A-L])\)\s+(?:Short|Long)-term", reader.pages[page].extract_text())
         ok &= say(printed == config[key], f"Part {'I' if key == 'boxes_part1' else 'II'} boxes on form {printed} match config")
+    return ok
+
+
+def _check_schedule_d(year: int, folder: Path) -> bool:
+    from decimal import Decimal
+
+    from backend.services.reports.form_8949 import map_schedule_d_fields
 
     one = {"proceeds": Decimal(1), "cost": Decimal(1), "gain_loss": Decimal(0)}
     sd = map_schedule_d_fields({"lines": {ln: one for ln in ("1b", "2", "3", "8b", "9", "10")}}, year=year)
     sd_missing = sorted(set(sd) - field_names(folder / "f1040sd.pdf"))
-    ok &= say(not sd_missing, "Schedule D lines 1b, 2, 3, 8b, 9, 10 fields exist"
-              + (f" — MISSING {sd_missing[:2]}" if sd_missing else ""))
+    return say(not sd_missing, "Schedule D lines 1b, 2, 3, 8b, 9, 10 fields exist"
+               + (f" — MISSING {sd_missing[:2]}" if sd_missing else ""))
 
+
+def _report_field_changes(year: int, folder: Path, draft: bool) -> None:
+    """How each form's field names differ from the latest installed year's
+    (listed, for a draft)."""
     prev = [y for y in sorted(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit()) if y < year]
-    if prev:
-        for name, label in FORMS.items():
-            new = field_names(folder / name)
-            before = field_names(TEMPLATES / str(prev[-1]) / name)
-            added, removed = sorted(new - before), sorted(before - new)
-            print(f"  • {label} field names vs {prev[-1]}: {len(added)} added, {len(removed)} removed"
-                  + (" (identical layout)" if not added and not removed else " — review the diff"))
-            if draft:
-                for tag, names in (("+", added), ("-", removed)):
-                    for n in names[:25]:
-                        print(f"      {tag} {n}")
-    return ok
+    if not prev:
+        return
+    for name, label in FORMS.items():
+        new = field_names(folder / name)
+        before = field_names(TEMPLATES / str(prev[-1]) / name)
+        added, removed = sorted(new - before), sorted(before - new)
+        print(f"  • {label} field names vs {prev[-1]}: {len(added)} added, {len(removed)} removed"
+              + (" (identical layout)" if not added and not removed else " — review the diff"))
+        if draft:
+            for tag, names in (("+", added), ("-", removed)):
+                for n in names[:25]:
+                    print(f"      {tag} {n}")
 
 
 def draft_check() -> int:
@@ -229,34 +282,43 @@ def main() -> int:
     if not a.year:
         ap.error("year is required")
 
-    dest = TEMPLATES / str(a.year)
-    if not a.check:
-        print(f"Getting {a.year} templates")
-        with tempfile.TemporaryDirectory() as d:
-            staging = Path(d)
-            if a.from_dir:
-                for name in FORMS:
-                    shutil.copy(a.from_dir.expanduser() / name, staging / name)
-            elif not download(a.year, staging):
-                return 1
-            print(f"\nVerifying {a.year}")
-            if not verify(a.year, staging):
-                print("\n✗ Not installed — see the ✗ lines above. If field names changed, follow docs/IRS_ANNUAL_FORM_UPDATE.md Step 4.")
-                return 1
-            dest.mkdir(parents=True, exist_ok=True)
-            for name in FORMS:
-                shutil.copy(staging / name, dest / name)
-            print(f"  ✓ installed to {dest.relative_to(ROOT)}")
-    else:
+    if a.check:
         print(f"Verifying installed {a.year} templates")
-        if not verify(a.year, dest):
+        if not verify(a.year, TEMPLATES / str(a.year)):
             return 1
+    elif not install(a.year, a.from_dir):
+        return 1
+    return run_template_tests(a.year)
 
+
+def install(year: int, from_dir: Path | None) -> bool:
+    """Download (or copy) the year's templates, verify them and install them."""
+    print(f"Getting {year} templates")
+    with tempfile.TemporaryDirectory() as d:
+        staging = Path(d)
+        if from_dir:
+            for name in FORMS:
+                shutil.copy(from_dir.expanduser() / name, staging / name)
+        elif not download(year, staging):
+            return False
+        print(f"\nVerifying {year}")
+        if not verify(year, staging):
+            print("\n✗ Not installed — see the ✗ lines above. If field names changed, follow docs/IRS_ANNUAL_FORM_UPDATE.md Step 4.")
+            return False
+        dest = TEMPLATES / str(year)
+        dest.mkdir(parents=True, exist_ok=True)
+        for name in FORMS:
+            shutil.copy(staging / name, dest / name)
+        print(f"  ✓ installed to {dest.relative_to(ROOT)}")
+    return True
+
+
+def run_template_tests(year: int) -> int:
     print("\nRunning template tests")
     r = subprocess.run([sys.executable, "-m", "pytest", "-q", "backend/tests/test_irs_templates.py",
-                        "-k", str(a.year), "-p", "no:cacheprovider"], cwd=ROOT)
+                        "-k", str(year), "-p", "no:cacheprovider"], cwd=ROOT)
     if r.returncode != 0:
-        print(f"\nIf the only failure is 'not verified for {a.year}': the layout matches. Add {a.year} to\n"
+        print(f"\nIf the only failure is 'not verified for {year}': the layout matches. Add {year} to\n"
               f"\"verified_years\" in backend/services/reports/form_8949.py, rerun, commit.")
     return r.returncode
 

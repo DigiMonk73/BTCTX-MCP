@@ -156,7 +156,18 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
     c = httpx.Client(base_url=url, timeout=120)
     if setup_code:
         claim(c, user, password, setup_code)
+    check_serving(c)
+    check_auth(c, user, password, setup_code)
+    sell = check_ledger(c, own_server)
+    check_entry_import(c)
+    check_recalculate(c, sell)
+    check_reports(c)
+    print("\nLogout")
+    c.post("/api/logout")
+    check("logged out", c.get("/api/transactions").status_code == 401)
 
+
+def check_serving(c: httpx.Client) -> None:
     print("\nServing")
     r = c.get("/")
     if "text/html" in r.headers.get("content-type", ""):
@@ -168,6 +179,8 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
     r = c.get("/api/does-not-exist")
     check("unknown API route is a JSON 404", r.status_code == 404 and r.json().get("detail"))
 
+
+def check_auth(c: httpx.Client, user: str, password: str, setup_code: str | None) -> None:
     print("\nAuth")
     check("protected API rejects anonymous", c.get("/api/transactions").status_code == 401)
     check("wrong password rejected",
@@ -180,38 +193,31 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
         r = c.put("/api/settings/network", json={"price_source": "public"})
         check("price source chosen (public sites)", r.status_code == 200, r.text)
 
+
+def create(c: httpx.Client, **data) -> dict:
+    r = c.post("/api/transactions", json=data)
+    if r.status_code != 200:
+        raise SmokeFailure(f"create {data['type']} failed: {r.status_code} {r.text}")
+    return r.json()
+
+
+def check_ledger(c: httpx.Client, own_server: bool) -> dict:
+    """A deposit, a buy, a move to cold storage and a long-term sale; the
+    balances they leave. Returns the sale."""
     print("\nLedger")
     accounts = {a["id"]: a["name"] for a in c.get("/api/accounts/").json()}
     check("six core accounts exist", {1, 2, 3, 4, 5, 6} <= set(accounts), str(accounts))
     if c.get("/api/transactions").json():
         raise SmokeFailure("target already has transactions — use an empty instance")
 
-    def tx(**data):
-        r = c.post("/api/transactions", json=data)
-        if r.status_code != 200:
-            raise SmokeFailure(f"create {data['type']} failed: {r.status_code} {r.text}")
-        return r.json()
-
-    tx(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
-       amount="20000", fee_amount="0", fee_currency="USD")
-    buy = tx(type="Buy", timestamp="2024-01-10T12:00:00Z", from_account_id=1, to_account_id=4,
-             amount="0.2", cost_basis_usd="9000.00", fee_amount="10.00", fee_currency="USD")
+    create(c, type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
+           amount="20000", fee_amount="0", fee_currency="USD")
+    buy = create(c, type="Buy", timestamp="2024-01-10T12:00:00Z", from_account_id=1, to_account_id=4,
+                 amount="0.2", cost_basis_usd="9000.00", fee_amount="10.00", fee_currency="USD")
     check("buy recorded", Decimal(buy["cost_basis_usd"]) == Decimal("9000.00"))
-
-    fee_ok = True
-    try:
-        tx(type="Transfer", timestamp="2024-01-12T12:00:00Z", from_account_id=4, to_account_id=2,
-           amount="0.1", fee_amount="0.0001", fee_currency="BTC")
-    except SmokeFailure as exc:
-        if own_server or "price" not in str(exc).lower():
-            raise
-        fee_ok = False
-        skip("transfer with network fee", "price APIs unreachable from server")
-        tx(type="Transfer", timestamp="2024-01-12T12:00:00Z", from_account_id=4, to_account_id=2,
-           amount="0.1", fee_amount="0", fee_currency="BTC")
-
-    sell = tx(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=4, to_account_id=3,
-              amount="0.05", gross_proceeds_usd="5000.00", fee_amount="5.00", fee_currency="USD")
+    fee_ok = move_to_cold_storage(c, own_server)
+    sell = create(c, type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=4, to_account_id=3,
+                  amount="0.05", gross_proceeds_usd="5000.00", fee_amount="5.00", fee_currency="USD")
     check("long-term sell realizes a gain", Decimal(sell["realized_gain_usd"]) > 0
           and sell["holding_period"] == "LONG", str(sell))
 
@@ -220,7 +226,27 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
     expected_wallet = Decimal("0.0999") if fee_ok else Decimal("0.1")
     check("cold wallet balance", balances["Wallet"] == expected_wallet, str(balances))
     check("exchange balance", balances["Exchange BTC"] == Decimal("0.05"), str(balances))
+    return sell
 
+
+def move_to_cold_storage(c: httpx.Client, own_server: bool) -> bool:
+    """A transfer with a network fee; without one when the server can't
+    price it (price sites unreachable from a server not our own). Whether
+    the fee went in."""
+    try:
+        create(c, type="Transfer", timestamp="2024-01-12T12:00:00Z", from_account_id=4, to_account_id=2,
+               amount="0.1", fee_amount="0.0001", fee_currency="BTC")
+        return True
+    except SmokeFailure as exc:
+        if own_server or "price" not in str(exc).lower():
+            raise
+        skip("transfer with network fee", "price APIs unreachable from server")
+        create(c, type="Transfer", timestamp="2024-01-12T12:00:00Z", from_account_id=4, to_account_id=2,
+               amount="0.1", fee_amount="0", fee_currency="BTC")
+        return False
+
+
+def check_entry_import(c: httpx.Client) -> None:
     print("\nMCP entry import")
     rows = [{"date": "2025-03-01", "type": "Deposit", "amount": "0.001",
              "from_account": "External", "to_account": "Wallet",
@@ -233,6 +259,8 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
     r = c.post("/api/import/entries/execute", json={"rows": rows})
     check("re-import skips the duplicate", r.json()["skipped_duplicates"] == 1, r.text)
 
+
+def check_recalculate(c: httpx.Client, sell: dict) -> None:
     print("\nRecalculate")
     before = c.get(f"/api/transactions/{sell['id']}").json()["realized_gain_usd"]
     r = c.post("/api/transactions/recalculate")
@@ -240,22 +268,19 @@ def run(url: str, user: str, password: str, own_server: bool, setup_code: str | 
     after = c.get(f"/api/transactions/{sell['id']}").json()["realized_gain_usd"]
     check("recalculate is stable", before == after, f"{before} -> {after}")
 
+
+def check_reports(c: httpx.Client) -> None:
     print("\nReports")
     r = c.get("/api/reports/complete_tax_report", params={"year": 2025})
     check("complete tax report PDF", r.status_code == 200 and r.content[:4] == b"%PDF", r.text[:200])
     r = c.get("/api/reports/irs_reports", params={"year": 2025})
-    if r.status_code == 200:
-        check("IRS Form 8949 / Schedule D PDF", r.content[:4] == b"%PDF")
-    else:
+    if r.status_code != 200:
         raise SmokeFailure(f"IRS forms failed: {r.status_code} {r.text[:200]}")
+    check("IRS Form 8949 / Schedule D PDF", r.content[:4] == b"%PDF")
     r = c.get("/api/reports/simple_transaction_history", params={"year": 2025, "format": "csv"})
     check("transaction history CSV", r.status_code == 200 and "Sell" in r.text, r.text[:200])
     r = c.get("/api/backup/csv")
     check("CSV export", r.status_code == 200 and r.text.count("\n") >= 5, r.text[:200])
-
-    print("\nLogout")
-    c.post("/api/logout")
-    check("logged out", c.get("/api/transactions").status_code == 401)
 
 
 def main() -> int:

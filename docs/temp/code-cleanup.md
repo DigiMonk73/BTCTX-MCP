@@ -323,7 +323,7 @@ fixed inside a cleanup commit.
       replace.
 - [x] `get_gains_and_losses`. Same keys in the same order, same rounding, same
       log text.
-- [ ] The remaining over-limit functions outside the engine:
+- [x] The remaining over-limit functions outside the engine:
   - `build_review`, `simulate`, `public_history`, `fill_pdf_form`
   - the MCP client's `request` and the `update_transaction` body
   - `adopt_unversioned` (with the migration tests as the net)
