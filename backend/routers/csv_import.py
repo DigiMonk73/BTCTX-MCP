@@ -245,9 +245,13 @@ def execute_csv_import(
         )
     except HTTPException as e:
         # A row the ledger refused (no price for a fee, not enough BTC...)
+        detail = str(e.detail).rstrip(".") + "."
+        if "Not enough BTC" in detail:
+            detail += (" Rows are imported by date, and rows at the same time in the file's order:"
+                       " list a buy before a sale or move it pays for.")
         raise HTTPException(
             status_code=e.status_code,
-            detail=f"Import failed: {e.detail} No transactions were saved."
+            detail=f"Import failed: {detail} No transactions were saved."
         )
     except Exception as e:
         raise HTTPException(

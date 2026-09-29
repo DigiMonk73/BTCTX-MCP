@@ -214,3 +214,26 @@ def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, t
     assert sell() == (Decimal("2000"), "LONG")
     assert ledger_state(auth_client, test_engine) == before
     auth_client.delete("/api/transactions/delete_all")
+
+
+def test_a_sale_listed_before_its_same_time_buy_says_to_reorder(auth_client):
+    """Same-time rows now import in the file's order: a hand-made file that
+    lists a sale before the same-day buy paying for it is refused (nothing
+    saved), and the message says how to fix the file."""
+    auth_client.delete("/api/transactions/delete_all")
+    header = ",".join(CSV_COLUMNS)
+    blank = {c: "" for c in CSV_COLUMNS}
+    rows = [
+        {**blank, "date": "2024-03-05", "type": "Deposit", "amount": "10000", "from_account": "External",
+         "to_account": "Bank", "fee_amount": "0", "fee_currency": "USD", "source": "N/A"},
+        {**blank, "date": "2024-03-06", "type": "Sell", "amount": "0.1", "from_account": "Exchange BTC",
+         "to_account": "Exchange USD", "proceeds_usd": "6000", "fee_amount": "0", "fee_currency": "USD"},
+        {**blank, "date": "2024-03-06", "type": "Buy", "amount": "0.1", "from_account": "Bank",
+         "to_account": "Exchange BTC", "cost_basis_usd": "5000", "fee_amount": "0", "fee_currency": "USD"},
+    ]
+    text = header + "\n" + "\n".join(",".join(r[c] for c in CSV_COLUMNS) for r in rows) + "\n"
+    r = auth_client.post("/api/import/execute", files=csv_file(text))
+    assert r.status_code == 400, r.text
+    detail = r.json()["detail"]
+    assert "Not enough BTC" in detail and "file's order" in detail and ". No transactions were saved." in detail
+    assert auth_client.get("/api/transactions").json() == []
