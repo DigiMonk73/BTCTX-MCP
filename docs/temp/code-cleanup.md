@@ -306,7 +306,7 @@ fixed inside a cleanup commit.
       helper. PDF bytes identical.
 - [ ] CSV instructions PDF, divided the same way. Bytes identical; the
       committed `csv_import_instructions.pdf` untouched.
-- [ ] `map_8949_rows_to_field_data` and the transaction history
+- [x] `map_8949_rows_to_field_data` and the transaction history
       `_generate_pdf`. Field data identical in the same order; PDF bytes
       identical.
 

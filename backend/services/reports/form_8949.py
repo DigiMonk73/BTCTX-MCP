@@ -374,7 +374,8 @@ def line2_field_names(page: int, year: int) -> dict[str, str]:
 
 def map_8949_rows_to_field_data(rows: list[Form8949Row], page: int = 1, year: int = 2024) -> dict[str, str]:
     """
-    Fills the rows of ONE part of a Form 8949 sheet, using year-specific naming.
+    The field values of ONE Part of a Form 8949 sheet: its box's checkbox,
+    each row's columns (a) to (h), and line 2 "Totals".
 
     The template only defines fields for its two physical pages:
       page=1 => Part I (short-term) table on Page1, f1_* fields
@@ -386,109 +387,82 @@ def map_8949_rows_to_field_data(rows: list[Form8949Row], page: int = 1, year: in
     - 2024: Table_Line1, f1_3, f1_4, ... (not zero-padded), 14 rows/page
     - 2025: Table_Line1_Part1/Part2, f1_03... (zero-padded row 1), 11 rows/page
 
-    Also fills line 2 "Totals" of the Part with the totals of THESE rows: the
-    caller passes one sheet's chunk of one box, and Schedule D adds up the
-    box's sheets. Columns (f) and (g) stay blank there too.
-
-    Args:
-        rows: List of Form8949Row objects (max rows_per_page for the year)
-        page: 1 = Part I (short-term), 2 = Part II (long-term)
-        year: Tax year for field name selection
-
-    Returns:
-        Dictionary mapping field names to values
+    Line 2 has the totals of THESE rows: the caller passes one sheet's chunk
+    of one box, and Schedule D adds up the box's sheets.
     """
     if page not in (1, 2):
         raise ValueError("page must be 1 (Part I) or 2 (Part II)")
-
-    # Get year-specific configuration
     config = get_8949_field_config(year)
-
     if len(rows) > config["rows_per_page"]:
         raise ValueError(
             f"Cannot fit more than {config['rows_per_page']} rows on one {year} Form 8949 page"
         )
 
-    table_name = config["table_name_page1"] if page == 1 else config["table_name_page2"]
-
-    # Use page as the prefix number => f1_, f2_, ...
-    prefix_num = page
-    prefix = f"f{prefix_num}_"
-
     field_data: dict[str, str] = {}
+    box = _page_box(rows)
+    if box:
+        cb_name, cb_state = checkbox_field_for_box(box, page, year)
+        field_data[cb_name] = cb_state
+    for row_number, row in enumerate(rows, start=1):
+        field_data.update(zip(_row_field_names(config, page, row_number), _row_values(row)))
+    if rows:
+        field_data.update(_line2_totals(rows, page, year))
+    return field_data
 
-    # One box per Part per sheet: every row on the page must share it
+
+def _page_box(rows: list[Form8949Row]) -> str | None:
+    """The box every row on the page shares: a Part has one checkbox per sheet."""
     boxes = {r.box for r in rows}
     if len(boxes) > 1:
         raise ValueError(f"Rows for one Form 8949 page must share a box, got {sorted(boxes)}")
-    if boxes:
-        cb_name, cb_state = checkbox_field_for_box(boxes.pop(), page, year)
-        field_data[cb_name] = cb_state
+    return boxes.pop() if boxes else None
 
-    for i, row_obj in enumerate(rows, start=1):
-        # row1 => base=3, row2 => base=11, row3 => base=19, etc.
-        base_index = 3 + (i - 1) * 8
 
-        # Helper to format field number based on year/row
-        def format_field_no(field_no: int, row_num: int) -> str:
-            # In 2025, row 1 fields (3-10) are zero-padded, but row 2+ are not
-            if config["row1_zero_pad"] and row_num == 1 and field_no < 10:
-                return f"{field_no:02d}"
-            return str(field_no)
+def _row_field_names(config: dict, page: int, row_number: int) -> list[str]:
+    """
+    The field names of a table row's columns (a) to (h): eight consecutive
+    numbers from 3 + 8 x (row - 1), those of row 1 zero-padded on the 2025
+    form (f1_03, but f1_11).
+    """
+    table = config["table_name_page1"] if page == 1 else config["table_name_page2"]
+    first = 3 + (row_number - 1) * 8
+    names = []
+    for number in range(first, first + 8):
+        padded = config["row1_zero_pad"] and row_number == 1 and number < 10
+        field_no = f"{number:02d}" if padded else str(number)
+        names.append(f"topmostSubform[0].Page{page}[0].{table}[0].Row{row_number}[0].f{page}_{field_no}[0]")
+    return names
 
-        # Helper to build the actual PDF field name
-        def field_name(row_i: int, field_no: int) -> str:
-            formatted_no = format_field_no(field_no, row_i)
-            return (
-                f"topmostSubform[0].Page{prefix_num}[0].{table_name}[0].Row{row_i}[0].{prefix}{formatted_no}[0]"
-            )
 
-        # col (a) => offset=0 => description
-        col_a = field_name(i, base_index + 0)
-        field_data[col_a] = row_obj.description
+def _row_values(row: Form8949Row) -> list[str]:
+    """Columns (a) to (h); no adjustment codes (f) or amounts (g) are recorded."""
+    return [
+        row.description,
+        row.date_acquired,
+        row.date_sold,
+        str(row.proceeds),
+        str(row.cost),
+        "",
+        "",
+        str(row.gain_loss),
+    ]
 
-        # col (b) => offset=1 => date acquired
-        col_b = field_name(i, base_index + 1)
-        field_data[col_b] = row_obj.date_acquired
 
-        # col (c) => offset=2 => date sold
-        col_c = field_name(i, base_index + 2)
-        field_data[col_c] = row_obj.date_sold
+def _line2_totals(rows: list[Form8949Row], page: int, year: int) -> dict[str, str]:
+    """Line 2: this page's (d), (e) and (h) added up as printed, to the cent;
+    (f) and (g) blank, as on the rows."""
+    line2 = line2_field_names(page, year)
+    return {
+        line2["d"]: _printed_total(r.proceeds for r in rows),
+        line2["e"]: _printed_total(r.cost for r in rows),
+        line2["f"]: "",
+        line2["g"]: "",
+        line2["h"]: _printed_total(r.gain_loss for r in rows),
+    }
 
-        # col (d) => offset=3 => proceeds
-        col_d = field_name(i, base_index + 3)
-        field_data[col_d] = str(row_obj.proceeds)
 
-        # col (e) => offset=4 => cost
-        col_e = field_name(i, base_index + 4)
-        field_data[col_e] = str(row_obj.cost)
-
-        # col (f) => offset=5 => adjustment code(s) => none recorded
-        col_f = field_name(i, base_index + 5)
-        field_data[col_f] = ""
-
-        # col (g) => offset=6 => adjustment => empty unless needed
-        col_g = field_name(i, base_index + 6)
-        field_data[col_g] = ""
-
-        # col (h) => offset=7 => gain_loss
-        col_h = field_name(i, base_index + 7)
-        field_data[col_h] = str(row_obj.gain_loss)
-
-    # Line 2 "Totals": add up this page's (d), (e), (h) as printed, to the cent
-    if rows:
-        line2 = line2_field_names(page, year)
-
-        def total(amounts) -> str:
-            return str(Form8949Row._round(sum((Form8949Row._round(a) for a in amounts), Decimal("0"))))
-
-        field_data[line2["d"]] = total(r.proceeds for r in rows)
-        field_data[line2["e"]] = total(r.cost for r in rows)
-        field_data[line2["f"]] = ""  # no codes, as on the rows
-        field_data[line2["g"]] = ""  # no adjustments, as on the rows
-        field_data[line2["h"]] = total(r.gain_loss for r in rows)
-
-    return field_data
+def _printed_total(amounts) -> str:
+    return str(Form8949Row._round(sum((Form8949Row._round(a) for a in amounts), Decimal("0"))))
 
 
 def map_schedule_d_fields(schedule_d: dict, year: int = 2024) -> dict[str, str]:

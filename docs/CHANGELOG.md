@@ -26,6 +26,10 @@ All notable changes to BitcoinTX are documented in this file.
   (`complete_tax_report.py`, from one 510-line function), with the paragraph
   styles and grid tables it shares with the transaction history in
   `reports/pdf_layout.py`. Its PDFs are byte-identical.
+- **The transaction history and the Form 8949 field mapping** are divided
+  the same way: the history's columns and widths are one table, its PDF
+  uses the shared layout; a Form 8949 page's checkbox, row fields and line 2
+  totals are named steps. Same PDFs, CSVs and field values.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a
