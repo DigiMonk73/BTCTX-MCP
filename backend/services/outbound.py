@@ -166,6 +166,28 @@ def from_env() -> Optional[NetworkSettings]:
     return settings
 
 
+def snapshot(db: Session) -> dict:
+    """The owner's own price settings (not the server's), to keep across a restore."""
+    kept = {key: _get(db, key) for key in (FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY)}
+    # Not chosen yet stays "unset": a restored database's stored prices must
+    # not pass for a pre-1.1.0 install's public choice (_upgrade_from_live_data)
+    kept[SOURCE_KEY] = _get(db, SOURCE_KEY) or "unset"
+    kept[OLD_LIVE_KEY] = None
+    return kept
+
+
+def carry_over(db: Session, before: dict) -> NetworkSettings:
+    """
+    After a restore, put back the price settings from before it (owner
+    decision 2026-09-29): a backup from before a switch to Tor or Off must
+    not ask the public sites directly again. As for the AI key and login.
+    """
+    for key, value in before.items():
+        _set(db, key, value)
+    db.commit()
+    return load(db)
+
+
 def load(db: Session) -> NetworkSettings:
     """Read the settings (at startup, after a restore): the server's, else the database's."""
     global _current

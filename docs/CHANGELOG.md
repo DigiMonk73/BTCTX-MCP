@@ -106,6 +106,9 @@ failed before it.
   it's written.
 - Making reports no longer logs how many transactions, disposals and lots
   each year has (now only at the DEBUG log level).
+- Restoring a backup in the app keeps the price settings in use, as it
+  keeps your login and AI key: a backup from before a switch to Tor or Off
+  brought back direct lookups of the public sites (owner decision).
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

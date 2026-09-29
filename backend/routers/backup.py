@@ -114,7 +114,7 @@ def restore_encrypted_backup(
 ):
     """
     Restore the database from an encrypted backup file. The login in use (and
-    the AI key) stays: an old backup never brings back an old password, and
+    the AI key and the price settings) stays: an old backup never brings back an old password, and
     on StartOS Show Credentials stays right. Clears the session after restore
     since the user_id may no longer be valid.
     """
@@ -123,6 +123,7 @@ def restore_encrypted_backup(
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     ai_state = ai_key.snapshot(db)
+    price_settings = outbound.snapshot(db)
     login = _login_in_use(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
@@ -130,14 +131,15 @@ def restore_encrypted_backup(
             _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
         restore_backup(password, temp_path)
-        # The restored database carries its own network settings.
+        # The price settings in use stay (a backup from before a switch to
+        # Tor or Off must not ask public sites directly again)...
         db.close()  # a fresh connection sees the restored file
         try:
-            outbound.load(db)
+            outbound.carry_over(db, price_settings)
         except Exception:
-            logger.exception("Could not read the network settings after restore")
-        # ...but not its own AI key or switch: the ones in use stay, so an old
-        # backup can't bring back a revoked key.
+            logger.exception("Could not keep the price settings after restore")
+        # ...and so do the AI key and switch, so an old backup can't bring
+        # back a revoked key.
         db.close()
         try:
             ai_key.carry_over(db, ai_state)
