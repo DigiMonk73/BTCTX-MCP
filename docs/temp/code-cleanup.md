@@ -283,7 +283,7 @@ fixed inside a cleanup commit.
 - [x] The guard test for Transaction columns (a new test in its own file).
 
 **Low risk**
-- [ ] Delete the stray `backend/services/ __init__.py`. It never counted as a
+- [x] Delete the stray `backend/services/ __init__.py`. It never counted as a
       package file (the space in its name), so `backend.services` stays
       exactly what it is today. Checked with CI's macOS and Docker jobs.
 - [ ] Comments and docstrings. Check: each module's syntax tree, with
