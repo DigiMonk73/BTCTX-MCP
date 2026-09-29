@@ -32,6 +32,8 @@ MEMPOOL_HEIGHT_URL = "https://mempool.space/api/blocks/tip/height"
 # requests at the same moment (the dashboard and the sidebar) wait for one.
 PRICE_CACHE_SECONDS = 60
 _price_cache: dict = {"settings": None, "at": 0.0, "value": None}
+# The block height too: the Dashboard asked on every visit
+_height_cache: dict = {"settings": None, "at": 0.0, "value": None}
 _price_lock: dict = {"loop": None, "lock": None}
 
 
@@ -97,8 +99,9 @@ def _kraken_price(resp) -> Optional[dict]:
 
 async def get_current_price() -> dict:
     """
-    The current BTC price in USD: the own mempool server, or CoinGecko then
-    Kraken. 503 when prices are off or not chosen, 502 when the chosen source fails.
+    The current BTC price in USD: the own mempool server, or Kraken then
+    CoinGecko (which refuses VPN and Tor users, so it's only the fallback).
+    503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     settings = outbound.current()
     async with _one_at_a_time():
@@ -108,7 +111,7 @@ async def get_current_price() -> dict:
         price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
         if price is None:
             price = await _first_public(
-                [(COINGECKO_PRICE_URL, _coingecko_price), (KRAKEN_TICKER_URL, _kraken_price)], "BTC price")
+                [(KRAKEN_TICKER_URL, _kraken_price), (COINGECKO_PRICE_URL, _coingecko_price)], "BTC price")
         _price_cache.update(settings=settings, at=time.monotonic(), value=price)
         return price
 
@@ -123,10 +126,15 @@ async def get_block_height() -> dict:
     Blockstream, mempool.space. 503 when prices are off or not chosen, 502
     when the chosen source fails.
     """
+    settings = outbound.current()
+    cached = _height_cache
+    if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
+        return cached["value"]
     height = await _from_own_node("/api/blocks/tip/height", _height)
-    if height is not None:
-        return height
-    return await _first_public(
-        [(BLOCKCHAIN_INFO_HEIGHT_URL, _height), (BLOCKSTREAM_HEIGHT_URL, _height), (MEMPOOL_HEIGHT_URL, _height)],
-        "block height",
-    )
+    if height is None:
+        height = await _first_public(
+            [(BLOCKCHAIN_INFO_HEIGHT_URL, _height), (BLOCKSTREAM_HEIGHT_URL, _height), (MEMPOOL_HEIGHT_URL, _height)],
+            "block height",
+        )
+    _height_cache.update(settings=settings, at=time.monotonic(), value=height)
+    return height

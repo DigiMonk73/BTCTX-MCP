@@ -34,7 +34,7 @@ export const PRICE_SOURCES: { value: PriceSource; label: string; help: string }[
     value: "public",
     label: "Public price sites",
     help:
-      "The live price from CoinGecko or Kraken, the block height from Blockchain.info or " +
+      "The live price from Kraken or CoinGecko, the block height from Blockchain.info or " +
       "Blockstream. Past prices come from one download of the whole daily history (Bitstamp), " +
       "the same for every install, so your transaction dates are never sent. The sites see your " +
       "IP address; a VPN, or a Tor proxy set in Settings, hides it.",

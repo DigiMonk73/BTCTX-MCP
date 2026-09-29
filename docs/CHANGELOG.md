@@ -114,6 +114,11 @@ failed before it.
 - The encrypted backup's password is typed in a hidden field, twice: it
   was a plain pop-up that showed it and asked once, so a typo made a backup
   no one could open (owner decision).
+- Fewer requests to public price sites: the live price asks Kraken first
+  and CoinGecko only if Kraken fails (CoinGecko refuses VPN and Tor users,
+  so each refresh used to contact both), and the block height is kept for a
+  minute like the price instead of being asked on every Dashboard visit
+  (owner decision).
 - Restoring a backup in the app keeps the price settings in use, as it
   keeps your login and AI key: a backup from before a switch to Tor or Off
   brought back direct lookups of the public sites (owner decision).

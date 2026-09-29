@@ -41,6 +41,7 @@ def defaults_after(auth_client):
     yield
     auth_client.put("/api/settings/network", json=PUBLIC)
     bitcoin._price_cache.update(settings=None)
+    bitcoin._height_cache.update(settings=None)
 
 
 @pytest.fixture
@@ -49,6 +50,7 @@ def real_network_code(monkeypatch):
     monkeypatch.setattr("backend.services.bitcoin.get_block_height", real_block_height)
     monkeypatch.setattr(price_history, "find_prices", real_find_prices)
     bitcoin._price_cache.update(settings=None)
+    bitcoin._height_cache.update(settings=None)
 
 
 NODE_UP = {"up": True}
@@ -201,6 +203,7 @@ def test_your_own_mempool_server_only(auth_client, requests_seen):
     assert auth_client.get("/api/bitcoin/blockheight").json() == {"height": 912345}
     assert requests_seen == [NODE + "/api/v1/prices", NODE + "/api/blocks/tip/height"]
     node_down()
+    bitcoin._height_cache.update(settings=None)  # a minute later
     r = auth_client.get("/api/bitcoin/blockheight")
     # 502, an error: the owner chose a source and it failed. 503 means prices
     # are off by choice, which the Dashboard shows as "Prices off".
@@ -418,3 +421,39 @@ def test_the_startos_package_passes_the_names_the_app_reads():
     assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY}
     for source in ("off", "public", "mempool"):
         assert source in outbound.SOURCES and f"'{source}'" in package
+
+
+def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
+    """Privacy audit 2026-09-29 (1k), owner decision: CoinGecko was asked
+    first and refuses VPN and Tor users, so each refresh contacted two
+    sites. Kraken first; CoinGecko only when Kraken fails."""
+    asked = []
+
+    def sites(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.host)
+        if request.url.host == "api.kraken.com" and "kraken-down" in asked_mode:
+            return httpx.Response(503)
+        if request.url.host == "api.kraken.com":
+            return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": ["61000.5", "1"]}}})
+        return httpx.Response(200, json={"bitcoin": {"usd": 60999}})
+
+    asked_mode: list = []
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
+    auth_client.put("/api/settings/network", json=PUBLIC)
+    bitcoin._price_cache.update(settings=None)
+    assert asyncio.run(real_current_price()) == {"USD": 61000.5}
+    assert asked == ["api.kraken.com"]
+
+    asked.clear(); asked_mode.append("kraken-down")
+    bitcoin._price_cache.update(settings=None)
+    assert asyncio.run(real_current_price()) == {"USD": 60999.0}
+    assert asked == ["api.kraken.com", "api.coingecko.com"]
+
+
+def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_seen):
+    """Privacy audit 2026-09-29 (1d): every Dashboard visit asked for it."""
+    auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE})
+    bitcoin._height_cache.update(settings=None)
+    assert asyncio.run(real_block_height()) == {"height": 912345}
+    assert asyncio.run(real_block_height()) == {"height": 912345}
+    assert requests_seen == [NODE + "/api/blocks/tip/height"]
