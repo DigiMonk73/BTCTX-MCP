@@ -30,6 +30,10 @@ All notable changes to BitcoinTX are documented in this file.
   the same way: the history's columns and widths are one table, its PDF
   uses the shared layout; a Form 8949 page's checkbox, row fields and line 2
   totals are named steps. Same PDFs, CSVs and field values.
+- **The CSV import guide's script** keeps its tables as data and builds
+  one section per method (`backend/scripts/generate_csv_instructions_pdf.py`,
+  from one 395-line function); the PDF it writes is byte-identical, and the
+  committed one is unchanged.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a
