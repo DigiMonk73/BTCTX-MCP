@@ -200,35 +200,35 @@ class BtctxClient:
         if not self._logged_in:
             await self._connect()
         try:
-            try:
-                r = await self._http.request(method, path, **kwargs)
-            except httpx.ConnectError:
-                if not self.uses_key_file:
-                    raise
-                # The app restarted (maybe elsewhere): read the file again.
-                await self._connect()
-                r = await self._http.request(method, path, **kwargs)
-            if r.status_code == 401 and self.uses_key_file:
-                await self._connect()  # the key was reset: read the file again
-                r = await self._http.request(method, path, **kwargs)
+            r = await self._send(method, path, **kwargs)
         except httpx.HTTPError as exc:
             raise BtctxError(f"Request to BitcoinTX at {self._http.base_url} failed: {exc}") from exc
+        return self._answer(r, path)
 
+    async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """The request; with the Mac app's key file, sent again once the file
+        is read afresh when the app restarted or the key was reset."""
+        try:
+            r = await self._http.request(method, path, **kwargs)
+        except httpx.ConnectError:
+            if not self.uses_key_file:
+                raise
+            # The app restarted (maybe elsewhere): read the file again.
+            await self._connect()
+            r = await self._http.request(method, path, **kwargs)
+        if r.status_code == 401 and self.uses_key_file:
+            await self._connect()  # the key was reset: read the file again
+            r = await self._http.request(method, path, **kwargs)
+        return r
+
+    def _answer(self, r: httpx.Response, path: str) -> Any:
+        """The response's JSON (None when empty), or BtctxError saying why not."""
         if 300 <= r.status_code < 400:
             raise BtctxError(self._redirected(r))
         if r.status_code == 403:
             raise BtctxError(KEY_REFUSED)
         if r.is_error:
-            try:
-                detail = r.json().get("detail", r.text)
-            except ValueError:
-                detail = r.text
-            if r.status_code == 404 and path.startswith("/api/import/entries"):
-                detail = (
-                    "This BitcoinTX server has no /api/import/entries endpoint — "
-                    "upgrade it to a version that includes the MCP import API."
-                )
-            raise BtctxError(f"BitcoinTX returned {r.status_code}: {detail}")
+            raise BtctxError(f"BitcoinTX returned {r.status_code}: {_error_detail(r, path)}")
         if r.status_code == 204 or not r.content:
             return None
         return r.json()
@@ -277,3 +277,16 @@ class BtctxClient:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _error_detail(r: httpx.Response, path: str) -> str:
+    try:
+        detail = r.json().get("detail", r.text)
+    except ValueError:
+        detail = r.text
+    if r.status_code == 404 and path.startswith("/api/import/entries"):
+        detail = (
+            "This BitcoinTX server has no /api/import/entries endpoint — "
+            "upgrade it to a version that includes the MCP import API."
+        )
+    return detail

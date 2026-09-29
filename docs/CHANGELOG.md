@@ -55,7 +55,10 @@ All notable changes to BitcoinTX are documented in this file.
   one step each. Same figures on every ledger compared, including ones with
   sales this year.
 - **Ledger Review, the CSV export, the AI entry dry run, the public price
-  download and the IRS form filler** are divided into named steps too.
+  download, the IRS form filler, the adoption of a pre-migration database
+  and the AI connector's request and `update_transaction`** are divided
+  into named steps too; the connector's tools, their schemas and outputs
+  are unchanged.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

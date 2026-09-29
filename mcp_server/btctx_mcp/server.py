@@ -419,49 +419,60 @@ async def update_transaction(
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
     changes: dict[str, Any] = {}
     if date is not None:
-        parsed = _parse_date_text(date.strip())
-        if parsed is None:
-            raise ToolError(f"Invalid date '{date}'.")
-        # Whole seconds, as add_transactions stores them
-        changes["timestamp"] = _in_utc(parsed, await _tax_zone(), time(12)).replace(microsecond=0).isoformat()
-    if type is not None:
-        changes["type"] = type
-    if from_account is not None:
-        changes["from_account_id"] = ACCOUNT_IDS[from_account]
-    if to_account is not None:
-        changes["to_account_id"] = ACCOUNT_IDS[to_account]
-    for key, val in (("amount", amount), ("cost_basis_usd", cost_basis_usd),
-                     ("fee_amount", fee_amount), ("fmv_usd", fmv_usd), ("fee_usd", fee_usd)):
-        if val is not None:
-            changes[key] = format(val, "f")
-    if proceeds_usd is not None:
-        changes["proceeds_usd"] = format(proceeds_usd, "f")
-    if fee_currency is not None:
-        changes["fee_currency"] = fee_currency
-    if source is not None:
-        changes["source"] = source
-    if purpose is not None:
-        changes["purpose"] = purpose
+        changes["timestamp"] = await _timestamp_from(date)
+    fields = (
+        ("type", type),
+        ("from_account_id", None if from_account is None else ACCOUNT_IDS[from_account]),
+        ("to_account_id", None if to_account is None else ACCOUNT_IDS[to_account]),
+        ("amount", _text(amount)),
+        ("cost_basis_usd", _text(cost_basis_usd)),
+        ("fee_amount", _text(fee_amount)),
+        ("fmv_usd", _text(fmv_usd)),
+        ("fee_usd", _text(fee_usd)),
+        ("proceeds_usd", _text(proceeds_usd)),
+        ("fee_currency", fee_currency),
+        ("source", source),
+        ("purpose", purpose),
+    )
+    changes.update((key, value) for key, value in fields if value is not None)
     if broker_reporting is not None:
         changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
     if not changes:
         raise ToolError("No changes given.")
 
-    needs_current = proceeds_usd is not None or any(
-        k in changes for k in ("type", "from_account_id", "to_account_id"))
-    current = await _call("GET", f"/api/transactions/{transaction_id}") if needs_current else None
-
-    if any(k in changes for k in ("type", "from_account_id", "to_account_id")):
-        # The server validates type rules against the full set; fill in what wasn't passed
-        changes.setdefault("type", current["type"])
-        changes.setdefault("from_account_id", current["from_account_id"])
-        changes.setdefault("to_account_id", current["to_account_id"])
-    if proceeds_usd is not None and changes.get("type", current["type"]) == "Sell":
-        # Sells keep the gross so recalculation doesn't re-subtract the USD fee
-        changes["gross_proceeds_usd"] = changes["proceeds_usd"]
-
+    await _complete_for_server_rules(transaction_id, changes, proceeds_given=proceeds_usd is not None)
     updated = await _call("PUT", f"/api/transactions/{transaction_id}", json=changes)
     return _compact(updated)
+
+
+def _text(value: Decimal | None) -> str | None:
+    return None if value is None else format(value, "f")
+
+
+async def _timestamp_from(date: str) -> str:
+    """The date as add_transactions reads it, in whole seconds."""
+    parsed = _parse_date_text(date.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{date}'.")
+    return _in_utc(parsed, await _tax_zone(), time(12)).replace(microsecond=0).isoformat()
+
+
+async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any], proceeds_given: bool) -> None:
+    """
+    The server checks the type rules on the type and both accounts together:
+    the ones not changed come from the transaction. A Sell keeps its gross
+    proceeds, so recalculation doesn't subtract the USD fee again.
+    """
+    type_fields = ("type", "from_account_id", "to_account_id")
+    changes_type = any(k in changes for k in type_fields)
+    if not (proceeds_given or changes_type):
+        return
+    current = await _call("GET", f"/api/transactions/{transaction_id}")
+    if changes_type:
+        for key in type_fields:
+            changes.setdefault(key, current[key])
+    if proceeds_given and changes.get("type", current["type"]) == "Sell":
+        changes["gross_proceeds_usd"] = changes["proceeds_usd"]
 
 
 @mcp.tool(annotations=ToolAnnotations(
