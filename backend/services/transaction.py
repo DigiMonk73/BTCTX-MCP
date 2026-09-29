@@ -183,6 +183,17 @@ _VALIDATED_FIELDS = (
     "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "source", "purpose",
 )
 
+# What each type takes as input. A Sell's or Withdrawal's cost basis (and a
+# Sell's net proceeds) is worked out from its lots on every recalculation.
+_TYPE_INPUTS = {
+    "Deposit": ("source", "cost_basis_usd"),
+    "Buy": ("cost_basis_usd",),
+    "Sell": ("proceeds_usd", "gross_proceeds_usd"),
+    "Withdrawal": ("purpose", "proceeds_usd", "gross_proceeds_usd", "fmv_usd"),
+    "Transfer": (),
+}
+_TYPE_FIELDS = ("purpose", "source", "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd")
+
 
 def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
@@ -202,15 +213,28 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
     old_timestamp = tx.timestamp
 
+    # A type change keeps only the fields the new type takes too (unless the
+    # edit sends them): a Gift changed into a Sell kept purpose "Gift" and was
+    # left off Form 8949; a withdrawal changed into an income deposit kept its
+    # FIFO cost basis as the income. The figures are then worked out afresh.
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
+    type_changed = "type" in tx_data and new_type != tx.type
+    if type_changed:
+        kept = set(_TYPE_INPUTS.get(tx.type, ())) & set(_TYPE_INPUTS.get(new_type, ()))
+        for key in _TYPE_FIELDS:
+            if key in tx_data or key in kept:
+                continue
+            if key == "gross_proceeds_usd" and "proceeds_usd" in tx_data:
+                continue  # a proceeds edit is the new gross (step 3)
+            tx_data[key] = None
+
     # Step 2) Validate the transaction as it will be after the change (a
     # partial edit was checked on the fields sent only, which failed with
     # "Unknown transaction type: None" or let a mismatch through).
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
     # Only a source this edit sets (or a new type) is checked against the list
-    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
-    check_source = ("source" in tx_data and tx_data["source"] != tx.source) or (
-        "type" in tx_data and new_type != tx.type)
+    check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     _validate_transaction(merged, db, check_source=check_source)
     for key in ("type", "purpose", "source"):  # canonical spellings
         if merged.get(key) != getattr(tx, key) or key in tx_data:
@@ -274,6 +298,8 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
         # A proceeds edit is user input, i.e. the new gross
         tx.gross_proceeds_usd = tx_data["proceeds_usd"]
+    if type_changed:  # the old type's gain; a Sell's or Withdrawal's is worked out again
+        tx.realized_gain_usd = tx.holding_period = None
 
     tx.updated_at = datetime.now(timezone.utc)
 

@@ -128,6 +128,34 @@ def test_editing_another_field_keeps_an_entered_basis():
     assert basis(r.json()) == Decimal("4.10")
 
 
+def test_a_withdrawal_changed_into_an_income_deposit_is_valued_at_receipt():
+    """Bug hunt 2026-09-29: a type change kept the old type's fields. A
+    withdrawal changed into an Income deposit (the AI connector sends type,
+    accounts and source) kept the withdrawal's FIFO cost basis, so the
+    income reported was the old lots' $2,000, not 0.1 BTC at the day's price.
+    Changed into a deposit that isn't income, it asks for the basis."""
+    assert deposit(amount="1", source="MyBTC", cost_basis_usd="20000").status_code == 200
+
+    def withdrawal():
+        r = CLIENT.post("/api/transactions", json={
+            "type": "Withdrawal", "timestamp": "2026-04-02T12:00:00Z", "from_account_id": EXCHANGE_BTC,
+            "to_account_id": EXTERNAL, "amount": "0.1", "fee_amount": "0", "purpose": "Spent",
+            "proceeds_usd": "5000"})
+        assert r.status_code == 200, r.text
+        assert basis(r.json()) == Decimal("2000.00")  # 0.1 of the 20,000 deposit
+        return r.json()["id"]
+
+    change = {"type": "Deposit", "from_account_id": EXTERNAL, "to_account_id": EXCHANGE_BTC}
+    r = CLIENT.put(f"/api/transactions/{withdrawal()}", json={**change, "source": "Income"})
+    assert r.status_code == 200, r.text
+    tx = r.json()
+    assert basis(tx) == Decimal("0.1") * Decimal(str(STUB_HISTORICAL_USD))
+    assert (tx["purpose"], tx["proceeds_usd"], tx["realized_gain_usd"]) == (None, None, None)
+
+    r = CLIENT.put(f"/api/transactions/{withdrawal()}", json={**change, "source": "MyBTC"})
+    assert r.status_code == 422 and "cost basis" in r.text, r.text
+
+
 def test_csv_import_values_income_deposit_without_basis():
     csv = (
         "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,"

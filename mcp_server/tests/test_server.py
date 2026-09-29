@@ -221,6 +221,24 @@ async def test_update_and_delete(mcp_client):
     assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0
 
 
+async def test_a_gift_changed_into_a_sell_is_on_form_8949(mcp_client, backend_db):
+    """Bug hunt 2026-09-29: update_transaction(type="Sell") on a Gift kept
+    purpose 'Gift' (the tool can't clear it), so Form 8949 left the sale out."""
+    from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+
+    gift = {"date": "2024-03-01T14:00:00Z", "type": "Withdrawal", "amount": "0.005",
+            "from_account": "Exchange BTC", "to_account": "External", "purpose": "Gift"}
+    created = (await call(mcp_client, "add_transactions", {"transactions": [BUY, gift]}))["created"]
+    updated = await call(mcp_client, "update_transaction", {
+        "transaction_id": created[1]["id"], "type": "Sell", "to_account": "Exchange USD",
+        "proceeds_usd": "300.00"})
+    assert updated["type"] == "Sell" and "purpose" not in updated
+    with sessionmaker(bind=backend_db)() as db:
+        rows = build_form_8949_and_schedule_d(2024, db)["short_term"]
+    # basis: 0.005 of the buy's 420.00 + 4.20 fee
+    assert [(str(r["proceeds"]), str(r["cost"])) for r in rows] == [("300.00", "212.10")]
+
+
 async def test_recalculate_ledger(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     out = await call(mcp_client, "recalculate_ledger")

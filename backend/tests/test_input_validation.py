@@ -145,6 +145,43 @@ def test_lowercase_gift_saved_before_normalizing_stays_off_form_8949(auth_client
     assert forms["short_term"] == [] and forms["long_term"] == []
 
 
+def _form_8949_rows(test_engine, year=2024):
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+
+    with sessionmaker(bind=test_engine)() as db:
+        forms = build_form_8949_and_schedule_d(year, db)
+    return [(str(r["proceeds"]), str(r["cost"]), str(r["gain_loss"])) for r in forms["short_term"] + forms["long_term"]]
+
+
+def test_a_gift_changed_into_a_sell_is_on_form_8949(auth_client, test_engine):
+    """Bug hunt 2026-09-29: a type change kept the old type's fields. A Gift
+    withdrawal changed into a Sell (the AI connector sends type and accounts
+    only) stayed purpose 'Gift', so Form 8949 and Schedule D left the sale
+    out while the dashboard counted its gain."""
+    gift = post(auth_client, type="Withdrawal", from_account_id=EXCH_BTC, to_account_id=EXTERNAL, amount="0.1",
+                fee_currency="BTC", purpose="Gift").json()
+    r = auth_client.put(f"/api/transactions/{gift['id']}", json={
+        "type": "Sell", "from_account_id": EXCH_BTC, "to_account_id": EXCH_USD, "proceeds_usd": "5000"})
+    assert r.status_code == 200, r.text
+    assert r.json()["purpose"] is None
+    assert _form_8949_rows(test_engine) == [("5000.00", "4000.00", "1000.00")]  # 0.1 of the 40,000 buy
+
+
+def test_a_sell_is_on_form_8949_whatever_its_purpose_says(auth_client, test_engine):
+    """Bug hunt 2026-09-29: a Sell that kept a gift's purpose (saved by a type
+    change before the fix above) was left off Form 8949 as a gift. Only a
+    withdrawal can be a gift."""
+    from sqlalchemy import text
+
+    sell = post(auth_client, type="Sell", from_account_id=EXCH_BTC, to_account_id=EXCH_USD, amount="0.1",
+                fee_currency="USD", gross_proceeds_usd="5000").json()
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET purpose = 'Gift' WHERE id = :id"), {"id": sell["id"]})
+    assert _form_8949_rows(test_engine) == [("5000.00", "4000.00", "1000.00")]
+
+
 def test_bare_api_path_is_a_json_404_not_the_web_page():
     """F39: /api (no slash) returned the SPA's index.html."""
     from fastapi.testclient import TestClient

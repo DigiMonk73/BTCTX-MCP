@@ -78,6 +78,12 @@ Found in a bug hunt of the imports (2026-09-29):
   of its own rows in (d), (e) and (h), which add up to the Schedule D line;
   it was left blank on the locked PDF, so it couldn't be typed in either.
 
+Found by a bug hunt of the tax engine (2026-09-29).
+- **Changing a transaction's type no longer keeps the old type's fields.**
+  A Gift changed into a Sell stayed a "gift" and was missing from Form 8949
+  and Schedule D; a withdrawal changed into an Income deposit reported the
+  old lots' cost basis as the income instead of that day's value.
+
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
 ### Fixes

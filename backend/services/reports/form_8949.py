@@ -86,7 +86,8 @@ def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
     The lot disposals that go on Form 8949 for [start, end): sales, spends
     and network fees (a gift's fee too); not gifts, donations or lost coins. The complete tax
     report's capital-gains sections use the same list, so they can't
-    disagree with the forms.
+    disagree with the forms. Only a withdrawal can be a gift: a Sell is
+    always here, whatever an old type change left in its purpose.
     """
     return (
         db.query(LotDisposal)
@@ -94,6 +95,7 @@ def taxable_disposals(db: Session, start, end) -> List[LotDisposal]:
           .filter(Transaction.timestamp >= start, Transaction.timestamp < end)
           .filter(
               LotDisposal.is_fee
+              | (Transaction.type != "Withdrawal")
               | (Transaction.purpose.is_(None))
               | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
           )
