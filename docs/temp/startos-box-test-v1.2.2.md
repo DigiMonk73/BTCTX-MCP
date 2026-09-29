@@ -34,6 +34,8 @@ goes into 1.2.3.
 
 ## Price source: your own Mempool
 
+**Owner, 2026-09-29: My Mempool tested with a fully synced node.**
+
 - [ ] Run the **Price Source & Privacy** action (StartOS reminds you after
       the update) and choose **My Mempool on this server**. If you typed a
       mempool address into BitcoinTX in 1.1.0, this replaces it.
