@@ -61,6 +61,8 @@ Found in a bug hunt of the imports (2026-09-29):
   import put them in a fixed type order (moves before sales), which could
   change which coins a sale used and its gain; rows at the same time now
   go in the file's order (the export's is the ledger's).
+- **The CSV import reads Excel's "CSV UTF-8" files.** Their invisible
+  byte-order mark made the import say "Missing required columns: date".
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

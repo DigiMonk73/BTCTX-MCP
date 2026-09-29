@@ -89,3 +89,13 @@ def test_a_btc_deposit_that_isnt_income_needs_a_basis():
         "2024-01-05,Deposit,100,External,Bank,,,,,,,",               # USD: no basis
     )
     assert not r.errors, messages(r)
+
+
+def test_a_utf8_file_with_a_byte_order_mark_is_read():
+    """Bug hunt 2026-09-29: Excel's "CSV UTF-8" starts the file with a
+    byte-order mark; it was kept in the first header ("\\ufeffdate"), so the
+    file was refused with "Missing required columns: date"."""
+    content = b"\xef\xbb\xbf" + f"{HEADER}\n2024-01-05,Deposit,100,External,Bank,,,,,,,\n".encode()
+    r = parse_csv_file(content, CHICAGO)
+    assert not r.errors, messages(r)
+    assert len(r.transactions) == 1

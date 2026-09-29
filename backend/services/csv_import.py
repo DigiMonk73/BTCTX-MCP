@@ -89,23 +89,21 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
     """
     result = ParseResult()
 
-    # Try to decode the content
+    # Decode: UTF-8, with or without a byte-order mark (Excel's "CSV UTF-8"
+    # adds one; plain utf-8 would keep it in the first header), else Latin-1
     try:
-        text = content.decode("utf-8")
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         try:
-            text = content.decode("utf-8-sig")  # UTF-8 with BOM
+            text = content.decode("latin-1")
         except UnicodeDecodeError:
-            try:
-                text = content.decode("latin-1")
-            except UnicodeDecodeError:
-                result.errors.append(CSVParseError(
-                    row_number=0,
-                    column=None,
-                    message="File encoding not supported. Please save as UTF-8.",
-                    severity="error"
-                ))
-                return result
+            result.errors.append(CSVParseError(
+                row_number=0,
+                column=None,
+                message="File encoding not supported. Please save as UTF-8.",
+                severity="error"
+            ))
+            return result
 
     # Parse CSV
     try:
