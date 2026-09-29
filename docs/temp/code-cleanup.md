@@ -280,7 +280,7 @@ fixed inside a cleanup commit.
 - [x] The equivalence check. The baseline taken on `v1.2.2-1`, and a clean
       first run against the working copy. (The UI snapshot script comes at the
       start of the frontend track.)
-- [ ] The guard test for Transaction columns (a new test in its own file).
+- [x] The guard test for Transaction columns (a new test in its own file).
 
 **Low risk**
 - [ ] Delete the stray `backend/services/ __init__.py`. It never counted as a

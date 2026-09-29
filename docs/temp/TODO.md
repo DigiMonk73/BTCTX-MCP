@@ -27,7 +27,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 `code-cleanup.md`; the standards: `docs/CODE_STYLE.md`.
 
 - [x] The equivalence check (`scripts/equivalence_check.py`): every figure, PDF, CSV, API answer and MCP output of this checkout compared with a release's.
-- [ ] Guard test: every `Transaction` column is in the CSV export or on a "not exported, because…" list (a new column was once left out of the export).
+- [x] Guard test: every `Transaction` column is in the CSV export or on a "not exported, because…" list (a new column was once left out of the export).
 
 - [ ] Tax report PDF: split `generate_comprehensive_tax_report` (510 lines, `reports/complete_tax_report.py`) into one function per section, with one shared table-style helper instead of the copy-pasted style blocks.
 - [ ] CSV instructions PDF: split `generate_csv_instructions_pdf` (395 lines, `backend/scripts/generate_csv_instructions_pdf.py`) the same way.
