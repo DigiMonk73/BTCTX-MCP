@@ -37,6 +37,12 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
   15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
   own ring now stays there, and newer versions keep the gold one.
 - **AI connector fixes from a bug hunt (2026-09-29):**
+  - Changing a transaction's date with the AI reads it as adding one does:
+    a date alone is midday in your tax timezone, a time without a timezone
+    is a time there. It was read as UTC, so in the US a sale moved to Jan 1
+    landed on Dec 31, in the previous tax year.
+  - Finding transactions by date with the AI uses days in your tax
+    timezone: a 9 pm Dec 31 entry in Chicago is on Dec 31, not Jan 1.
   - A time ending in " UTC" (`2025-01-01 03:00:00 UTC`) given to the AI is
     read as UTC, as the CSV import reads it; it was read in the tax
     timezone, hours off and sometimes in the wrong tax year.

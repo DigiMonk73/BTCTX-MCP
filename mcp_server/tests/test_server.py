@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key
+from backend.services.tax_time import set_tax_timezone
 from backend.tests.conftest import init_test_db, stub_daily_prices
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient
@@ -260,6 +261,57 @@ async def test_list_filters_by_date_and_type(mcp_client):
     assert [t["type"] for t in only_jan_15["transactions"]] == ["Buy"]
     transfers = await call(mcp_client, "list_transactions", {"type": "Transfer"})
     assert transfers["total_matching"] == 1
+
+
+def tax_timezone(engine, name):
+    """What the owner does in Settings."""
+    db = sessionmaker(bind=engine)()
+    try:
+        set_tax_timezone(db, name)
+        db.commit()
+    finally:
+        db.close()
+
+
+async def test_update_transaction_reads_dates_in_the_tax_timezone(mcp_client, backend_db):
+    """Bug hunt 2026-09-29: update_transaction read a date without a timezone as
+    UTC (a bare date as 00:00 UTC), while the guide and add_transactions read it
+    in the tax timezone (a bare date is midday there). In Chicago a sale moved
+    to "2025-01-01" was saved on Dec 31, 2024 at 6 pm there: the 2024 tax year."""
+    tax_timezone(backend_db, "America/Chicago")
+    tx_id = (await call(mcp_client, "add_transactions", {"transactions": [BUY]}))["created"][0]["id"]
+    for given, stored in (
+        ("2025-01-01", "2025-01-01T18:00:00Z"),           # midday in Chicago
+        ("2024-12-31T21:00:00", "2025-01-01T03:00:00Z"),  # 9 pm Dec 31 in Chicago
+        ("2024-12-31T21:00:00Z", "2024-12-31T21:00:00Z"),  # a stated timezone is kept
+    ):
+        updated = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "date": given})
+        assert updated["date"] == stored, given
+
+
+@pytest.mark.parametrize("given", [
+    "2025-01-01", "2024-12-31T21:00:00", "2025-01-01T03:00:00.123Z", "2024-12-31T21:00:00-05:00",
+    "2025-01-01 03:00:00 UTC", "01/02/2025", "01/02/2025 21:00:00",
+])
+async def test_update_transaction_reads_a_date_as_add_transactions_does(mcp_client, backend_db, given):
+    """Bug hunt 2026-09-29: the same text is the same moment in both tools."""
+    tax_timezone(backend_db, "America/Chicago")
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [dict(BUY, date=given)]})
+    expected = preview["results"][0]["normalized"]["date"]
+    tx_id = (await call(mcp_client, "add_transactions", {"transactions": [BUY]}))["created"][0]["id"]
+    updated = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "date": given})
+    assert updated["date"] == expected
+
+
+async def test_list_transactions_days_are_in_the_tax_timezone(mcp_client, backend_db):
+    """Bug hunt 2026-09-29: list_transactions filtered by UTC days, so a 9 pm
+    Dec 31 buy in Chicago (03:00 UTC Jan 1) was missing from Dec 31 and listed
+    under Jan 1."""
+    tax_timezone(backend_db, "America/Chicago")
+    await call(mcp_client, "add_transactions", {"transactions": [dict(BUY, date="2024-12-31T21:00:00")]})
+    dec_31 = await call(mcp_client, "list_transactions", {"start_date": "2024-12-31", "end_date": "2024-12-31"})
+    jan_1 = await call(mcp_client, "list_transactions", {"start_date": "2025-01-01", "end_date": "2025-01-01"})
+    assert (dec_31["total_matching"], jan_1["total_matching"]) == (1, 0)
 
 
 async def test_portfolio_and_price(mcp_client):

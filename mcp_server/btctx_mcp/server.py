@@ -23,9 +23,10 @@ import functools
 import importlib.metadata
 import inspect
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone, tzinfo
 from decimal import Decimal
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -165,20 +166,68 @@ def _rows(transactions: List[TransactionInput]) -> List[Dict[str, Any]]:
 
 
 def _parse_ts(value: str) -> datetime:
+    """A timestamp BitcoinTX sent (stored in UTC)."""
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _parse_filter_date(value: Optional[str], end_of_day: bool) -> Optional[datetime]:
+# Besides ISO 8601, the formats add_transactions reads (the list in
+# backend/services/csv_import.py, _DATE_FORMATS): (format, date only).
+_OTHER_DATE_FORMATS = (
+    ("%Y-%m-%dT%H:%M:%SZ", False), ("%Y-%m-%dT%H:%M:%S%z", False), ("%Y-%m-%d %H:%M:%S UTC", False),
+    ("%Y-%m-%dT%H:%M:%S", False), ("%Y-%m-%d %H:%M:%S", False), ("%Y-%m-%d", True),
+    ("%m/%d/%Y %H:%M:%S", False), ("%m/%d/%Y", True),
+)
+
+
+def _parse_date_text(raw: str) -> Optional[Tuple[datetime, bool]]:
+    """(the date, whether it is a date alone), or None if it isn't one. Naive
+    when no timezone is stated. Same reading as add_transactions
+    (backend/services/entry_import.py, _normalize_date)."""
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")), len(raw) <= 10 and ":" not in raw
+    except ValueError:
+        pass
+    for fmt, date_only in _OTHER_DATE_FORMATS:
+        try:
+            dt = datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+        if fmt.endswith(("Z", " UTC")):
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt, date_only
+    return None
+
+
+async def _tax_zone() -> tzinfo:
+    """The user's tax timezone (BitcoinTX Settings): dates without a timezone are read in it."""
+    data = await _call("GET", "/api/settings/tax-timezone")
+    name = (data.get("timezone") if isinstance(data, dict) else None) or "UTC"
+    if name == "UTC":
+        return timezone.utc
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ToolError(f"This computer's timezone data doesn't know the tax timezone {name}; "
+                        "update the connector (btctx-mcp) or its tzdata package.") from exc
+
+
+def _in_utc(parsed: Tuple[datetime, bool], zone: tzinfo, bare_date_at: time) -> datetime:
+    """A parsed date in UTC: without a timezone it is in `zone`, and a date
+    alone is at `bare_date_at` there (midday for a transaction)."""
+    dt, date_only = parsed
+    if dt.tzinfo is None:
+        dt = datetime.combine(dt.date(), bare_date_at, tzinfo=zone) if date_only else dt.replace(tzinfo=zone)
+    return dt.astimezone(timezone.utc)
+
+
+def _parse_filter_date(value: Optional[str]) -> Optional[Tuple[datetime, bool]]:
     if not value:
         return None
-    try:
-        dt = _parse_ts(value)
-    except ValueError as exc:
-        raise ToolError(f"Invalid date '{value}'. Use YYYY-MM-DD.") from exc
-    if end_of_day and len(value) == 10:
-        dt = dt.replace(hour=23, minute=59, second=59)
-    return dt
+    parsed = _parse_date_text(value.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{value}'. Use YYYY-MM-DD.")
+    return parsed
 
 
 def _compact(tx: Dict[str, Any]) -> Dict[str, Any]:
@@ -255,11 +304,14 @@ async def list_transactions(
     account: Optional[AccountName] = None,
     limit: int = 50,
 ) -> Dict[str, Any]:
-    """Find recorded transactions, newest first. Filter by date range (YYYY-MM-DD, inclusive),
-    type, and an account on either side. Use it to find an id before updating or deleting."""
+    """Find recorded transactions, newest first. Filter by date range (YYYY-MM-DD, inclusive,
+    days in the user's tax timezone), type, and an account on either side. Use it to find an
+    id before updating or deleting."""
+    first, last = _parse_filter_date(start_date), _parse_filter_date(end_date)
+    zone = await _tax_zone() if first or last else timezone.utc
+    start = _in_utc(first, zone, time.min) if first else None  # a date alone: the whole day
+    end = _in_utc(last, zone, time.max) if last else None
     txs = await _call("GET", "/api/transactions")
-    start = _parse_filter_date(start_date, end_of_day=False)
-    end = _parse_filter_date(end_date, end_of_day=True)
     acct_id = ACCOUNT_IDS[account] if account else None
 
     matched = []
@@ -352,6 +404,8 @@ async def update_transaction(
 ) -> Dict[str, Any]:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
     recalculated, so gains on later sales may change. Confirm with the user first.
+    date is read as add_transactions reads it: without a timezone, in the user's tax
+    timezone (a bare date is midday there).
     Changing type or accounts requires passing type, from_account and to_account together.
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
@@ -359,10 +413,11 @@ async def update_transaction(
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
     changes: Dict[str, Any] = {}
     if date is not None:
-        try:
-            changes["timestamp"] = _parse_ts(date).isoformat()
-        except ValueError as exc:
-            raise ToolError(f"Invalid date '{date}'.") from exc
+        parsed = _parse_date_text(date.strip())
+        if parsed is None:
+            raise ToolError(f"Invalid date '{date}'.")
+        # Whole seconds, as add_transactions stores them
+        changes["timestamp"] = _in_utc(parsed, await _tax_zone(), time(12)).replace(microsecond=0).isoformat()
     if type is not None:
         changes["type"] = type
     if from_account is not None:

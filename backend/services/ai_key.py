@@ -69,7 +69,7 @@ AI_KEY_ROUTES = (
     ("GET", "/api/calculations/average-cost-basis", "get_portfolio"),
     ("GET", "/api/bitcoin/price", "get_portfolio, get_btc_price"),
     ("GET", "/api/bitcoin/price/history", "get_btc_price"),
-    ("GET", "/api/settings/tax-timezone", "get_portfolio"),
+    ("GET", "/api/settings/tax-timezone", "get_portfolio, list_transactions, update_transaction"),
     ("GET", "/api/review", "review_ledger"),
     ("POST", "/api/backup/ai-copy", "backup_ledger"),
 )
