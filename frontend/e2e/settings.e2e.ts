@@ -95,10 +95,12 @@ test("delete all transactions asks first", async ({ authedPage: page }) => {
 test("encrypted backup downloads and restores", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  acceptDialogs(page, "backup-secret");
+  acceptDialogs(page); // the "Delete ALL transactions?" confirm below
   await openSettings(page);
 
   const download = page.waitForEvent("download");
+  await page.getByLabel("Encrypt with password").fill("backup-secret");
+  await page.getByLabel("Repeat password").fill("backup-secret");
   await page.getByRole("button", { name: "Download" }).click();
   const d = await download;
   expect(d.suggestedFilename()).toBe("bitcoin_backup.btx");
@@ -126,11 +128,19 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   expect(after.map((t) => t.realized_gain_usd)).toEqual(before.map((t) => t.realized_gain_usd));
 });
 
-test("a blank backup password cancels", async ({ authedPage: page }) => {
-  acceptDialogs(page, "");
+test("the backup password is hidden and must be typed twice alike", async ({ authedPage: page }) => {
+  // Privacy audit 2026-09-29 (3b), owner decision: it was a plain pop-up,
+  // shown as typed and asked once, so a typo made a backup no one could open.
+  let downloads = 0;
+  page.on("download", () => downloads++);
   await openSettings(page);
+  await expect(page.getByLabel("Encrypt with password")).toHaveAttribute("type", "password");
+  await expect(page.getByLabel("Repeat password")).toHaveAttribute("type", "password");
+  await page.getByLabel("Encrypt with password").fill("backup-secret");
+  await page.getByLabel("Repeat password").fill("backup-secreT");
   await page.getByRole("button", { name: "Download" }).click();
-  await expect(page.getByText("Backup canceled.")).toBeVisible();
+  await expect(page.getByText("The two passwords don't match.")).toBeVisible();
+  expect(downloads).toBe(0);
 });
 
 test("export as CSV", async ({ authedPage: page }) => {

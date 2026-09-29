@@ -111,6 +111,9 @@ failed before it.
   other devices; the old command sent your password and ledger unencrypted
   across your network. The AI connector warns once in its log when it talks
   to another machine over plain `http://` (owner decision).
+- The encrypted backup's password is typed in a hidden field, twice: it
+  was a plain pop-up that showed it and asked once, so a typo made a backup
+  no one could open (owner decision).
 - Restoring a backup in the app keeps the price settings in use, as it
   keeps your login and AI key: a backup from before a switch to Tor or Off
   brought back direct lookups of the public sites (owner decision).

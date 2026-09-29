@@ -176,10 +176,14 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleDownloadBackup = async () => {
-    const password = prompt("Enter a password to encrypt the backup:");
-    if (!password) {
-      setMessage("Backup canceled.");
+  const handleDownloadBackup = async (event: React.FormEvent<HTMLFormElement>) => {
+    // A hidden field typed twice (it was a plain pop-up shown as typed: a
+    // typo made a backup no one could open)
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get("password") || "");
+    if (password !== String(form.get("repeat") || "")) {
+      setMessage("The two passwords don't match.");
       return;
     }
 
@@ -747,15 +751,22 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="settings-option">
-          <div className="option-info">
+          <form onSubmit={handleDownloadBackup} className="option-info">
             <span className="settings-option-title">Download Encrypted Backup</span>
             <p className="settings-option-subtitle">
-              Save a secure backup of all app data (encrypted SQLite file).
+              Save a secure backup of all app data (encrypted SQLite file). Keep the password:
+              without it the backup can't be opened.
             </p>
-          </div>
-          <button onClick={handleDownloadBackup} disabled={loading} className="btn btn-primary">
-            {loading ? "Processing..." : "Download"}
-          </button>
+            <div className="restore-input-row">
+              <input type="password" name="password" placeholder="Password" required autoComplete="new-password"
+                className="input" aria-label="Encrypt with password" />
+              <input type="password" name="repeat" placeholder="Repeat password" required autoComplete="new-password"
+                className="input" aria-label="Repeat password" />
+              <button type="submit" disabled={loading} className="btn btn-primary">
+                {loading ? "Processing..." : "Download"}
+              </button>
+            </div>
+          </form>
         </div>
 
         <div className="settings-option">

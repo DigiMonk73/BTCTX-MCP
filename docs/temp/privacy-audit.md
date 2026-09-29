@@ -37,7 +37,7 @@ minor, and some things that are only documented.
 | 1k | CoinGecko refuses VPN and Tor addresses | info | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
 | 2 | Browser: CSP, headers, cookie, storage, links, Mac webview | no leak | strict CSP, no-referrer, HttpOnly cookie, no browser storage, only self-hosted fonts | VM (SEC-3, SEC-7) |
 | 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
-| 3b | Encrypted backup file | fix proposed | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
+| 3b | Encrypted backup file | **fixed** (owner: hidden, typed twice, no minimum) | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
 | 3c | Temporary plain copy while backing up | **fixed** | a plain SQLite snapshot in the system temp folder (0700, deleted after); the restore's staging file is chmod'ed after writing | yes |
 | 3d | Plain copies in `<data>/backups/` | documented only | up to 5 pre-upgrade/pre-restore + 3 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
 | 3e | Deleted rows stay in the SQLite file | leak (minor) | no `secure_delete`, no VACUUM | |

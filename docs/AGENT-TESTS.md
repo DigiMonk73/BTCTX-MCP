@@ -487,8 +487,10 @@ Set `KEY` to the key from AI-3, and use
   `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
   export downloaded." appears.
-- **BAK-2** **Download** (Download Encrypted Backup) with the password
-  `backup-pass-123`. Expect: the file `bitcoin_backup.btx` and "Backup
+- **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
+  password boxes (hidden as typed), then **Download**. Different entries
+  in the two boxes say "The two passwords don't match." and download
+  nothing. Expect: the file `bitcoin_backup.btx` and "Backup
   downloaded."
 - **IMP-1** Data Management > **Template** and **Instructions**. Expect:
   `btctx_import_template.csv`, whose header is the same as BAK-1's, and
