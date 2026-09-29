@@ -104,7 +104,7 @@ test("saving an edit without changes changes nothing", async ({ authedPage: page
   expect(normalize(after)).toEqual(normalize(created));
 });
 
-test("delete asks twice, then removes the transaction", async ({ authedPage: page }) => {
+test("delete asks once, then removes the transaction", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await createTx(page.request, CASES[4].tx);
   const dialogs: string[] = [];
@@ -115,10 +115,7 @@ test("delete asks twice, then removes the transaction", async ({ authedPage: pag
   await openEdit(page, "Sell");
   await page.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByRole("heading", { name: "Edit Transaction" })).toHaveCount(0);
-  expect(dialogs).toEqual([
-    "Are you sure you want to delete this transaction?",
-    "Are you sure you want to delete this transaction?",
-  ]);
+  expect(dialogs).toEqual(["Are you sure you want to delete this transaction?"]);
   expect((await listTx(page.request)).map((t) => t.type).sort()).toEqual(["Buy", "Deposit"]);
   await expect(page.getByRole("listitem").filter({ hasText: "Sell" })).toHaveCount(0);
 });

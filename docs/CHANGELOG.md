@@ -88,6 +88,8 @@ All notable changes to BitcoinTX are documented in this file.
   stopped), the error says so and asks whether Tor is running, instead of
   only "No public site answered".
 
+- Deleting a transaction asks "Are you sure?" once, not twice.
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

@@ -96,12 +96,8 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
               type="button"
               className="btn btn-danger"
               onClick={() => {
-                const confirmed = window.confirm("Are you sure you want to delete this transaction?");
-                if (confirmed) {
-                  // We’ll call the form’s delete handler
-                  const deleteBtn = document.querySelector<HTMLButtonElement>("#trigger-form-delete");
-                  deleteBtn?.click();
-                }
+                // The form's delete handler asks "Are you sure?" (once) and deletes
+                document.querySelector<HTMLButtonElement>("#trigger-form-delete")?.click();
               }}
               disabled={isUpdating}
             >
