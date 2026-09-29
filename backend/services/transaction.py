@@ -857,7 +857,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
 
-    if total_proceeds > 0:
+    if tx.type == "Withdrawal" and (tx.purpose or "").lower() in ("gift", "donation", "lost"):
+        # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
+        # edited into a Gift kept its old proceeds, printed with the gifts.
+        tx.proceeds_usd = None
+    elif total_proceeds > 0:
         tx.proceeds_usd = total_proceeds
 
     if earliest_date:

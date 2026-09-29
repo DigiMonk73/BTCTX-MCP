@@ -152,6 +152,22 @@ class TestSpentWithdrawals:
         assert Decimal(after["gross_proceeds_usd"]) == Decimal("2000.00")
         assert Decimal(after["proceeds_usd"]) == Decimal("2000.00")  # no fee cut
 
+    def test_a_spend_changed_into_a_gift_has_no_proceeds(self):
+        """Bug hunt 2026-09-29: a Spent withdrawal edited into a Gift (the form
+        keeps sending its read-only proceeds) kept its $1,000 proceeds, which
+        the complete tax report's Gifts section printed. A gift's amount has
+        no proceeds; its network fee is its own disposal."""
+        from backend.services.reports.reporting_core import generate_report_data
+
+        buy()
+        tx = post(**SPENT)
+        r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"purpose": "Gift", "proceeds_usd": "1000.00"})
+        assert r.status_code == 200, r.text
+        with sessionmaker(bind=ENGINE)() as db:
+            gifts = generate_report_data(db, 2024)["gifts_donations_lost"]
+        assert [g["proceeds_usd"] for g in gifts] == [0.0]
+        assert (r.json()["proceeds_usd"], fee_gain(tx["id"])) == (None, Decimal("8.00"))
+
     def test_gift_ignores_proceeds_but_its_fee_is_a_disposal(self):
         buy()
         tx = post(**dict(SPENT, purpose="Gift", proceeds_usd="0"))

@@ -98,6 +98,9 @@ Found by a bug hunt of the tax engine (2026-09-29).
   A sale entered (through the API or the AI connector) half a second after
   midnight on Jan 1 counted in the year before; times are now saved in
   whole seconds.
+- **A Spent withdrawal changed into a Gift, Donation or Lost no longer
+  keeps its proceeds**, which the complete tax report printed in its Gifts
+  section. (The network fee is still its own taxable disposal.)
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
