@@ -46,6 +46,10 @@ All notable changes to BitcoinTX are documented in this file.
   sample rows are data. Two branches that could never run are gone.
   Checked on 40,728 generated rows: the same errors, warnings, previews and
   transactions.
+- **The River import** reads each kind of River row in its own step, finds
+  duplicates in an exact and a rough pass, and the import endpoint checks,
+  stubs and saves rows in named steps. Same proposals, warnings, matches and
+  imports (3,000 random files and 3,000 random ledgers compared).
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

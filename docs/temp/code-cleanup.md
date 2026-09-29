@@ -318,7 +318,7 @@ fixed inside a cleanup commit.
     `parse_csv_file` and `generate_template_csv` divided.
 
   The bad-row messages, previews and template are identical.
-- [ ] River import: `adapt_river_rows`, `annotate_duplicates`, and the router's
+- [x] River import: `adapt_river_rows`, `annotate_duplicates`, and the router's
       `execute_river_import`, which keeps calling the module names the tests
       replace.
 - [ ] `get_gains_and_losses`. Same keys in the same order, same rounding, same

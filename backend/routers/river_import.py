@@ -18,6 +18,7 @@ from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth
 from backend.schemas.river_import import (
     RiverExecuteRequest,
+    RiverExecuteRow,
     RiverImportResponse,
     RiverPreviewResponse,
     RiverProposalOut,
@@ -174,52 +175,8 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    # Re-validate via the battle-tested CSV row validator
-    tx_datas = []
-    stubs: list[RiverProposal] = []
-    all_errors: list[str] = []
-    for i, row in enumerate(payload.rows, start=1):
-        ts = row.date
-        str_row = {
-            "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "type": row.type,
-            "amount": format(
-                ledger_amount(row.type, row.amount, row.fee_amount, row.fee_currency), "f"
-            ),
-            "from_account": row.from_account,
-            "to_account": row.to_account,
-            "cost_basis_usd": format(row.cost_basis_usd, "f") if row.cost_basis_usd is not None else "",
-            "proceeds_usd": format(row.proceeds_usd, "f") if row.proceeds_usd is not None else "",
-            "fee_amount": format(row.fee_amount, "f") if row.fee_amount is not None else "",
-            "fee_currency": row.fee_currency or "",
-            "source": row.source or "",
-            "purpose": row.purpose or "",
-            "notes": "",
-        }
-        tx_data, _preview, errors, _warnings = _validate_row(str_row, i)
-        if errors:
-            all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
-            continue
-        tx_datas.append(tx_data)
-        stubs.append(RiverProposal(
-            row_number=i,
-            timestamp=tx_data["timestamp"],
-            river_tag=None,
-            type=tx_data["type"],
-            from_account_id=tx_data["from_account_id"],
-            to_account_id=tx_data["to_account_id"],
-            amount=tx_data["amount"],
-            cost_basis_usd=tx_data.get("cost_basis_usd"),
-            proceeds_usd=tx_data.get("proceeds_usd"),
-        ))
-
-    if all_errors:
-        detail = "Rows have errors: " + "; ".join(all_errors[:5])
-        if len(all_errors) > 5:
-            detail += f" ...and {len(all_errors) - 5} more"
-        raise HTTPException(status_code=400, detail=detail)
-
-    # Double-submit guard: skip rows that exactly match an existing tx
+    tx_datas = _validated_rows(payload.rows)
+    stubs = [_stub(i, tx_data) for i, tx_data in enumerate(tx_datas, start=1)]
     annotate_duplicates(stubs, db, exact_only=True)
     new_tx_datas = [
         tx_data for tx_data, stub in zip(tx_datas, stubs) if stub.status == STATUS_NEW
@@ -256,4 +213,60 @@ def execute_river_import(
         imported_count=imported_count,
         skipped_existing=skipped,
         message=message,
+    )
+
+
+def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
+    """Each row checked by the CSV import's row check; 400 listing the first
+    five errors when any row has one."""
+    tx_datas = []
+    all_errors: list[str] = []
+    for i, row in enumerate(rows, start=1):
+        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row), i)
+        if errors:
+            all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
+        else:
+            tx_datas.append(tx_data)
+    if all_errors:
+        detail = "Rows have errors: " + "; ".join(all_errors[:5])
+        if len(all_errors) > 5:
+            detail += f" ...and {len(all_errors) - 5} more"
+        raise HTTPException(status_code=400, detail=detail)
+    return tx_datas
+
+
+def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
+    """A row as the CSV import reads it: text, a Transfer's amount with its
+    BTC fee (BitcoinTX's meaning)."""
+    ts = row.date
+    return {
+        "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "type": row.type,
+        "amount": format(
+            ledger_amount(row.type, row.amount, row.fee_amount, row.fee_currency), "f"
+        ),
+        "from_account": row.from_account,
+        "to_account": row.to_account,
+        "cost_basis_usd": format(row.cost_basis_usd, "f") if row.cost_basis_usd is not None else "",
+        "proceeds_usd": format(row.proceeds_usd, "f") if row.proceeds_usd is not None else "",
+        "fee_amount": format(row.fee_amount, "f") if row.fee_amount is not None else "",
+        "fee_currency": row.fee_currency or "",
+        "source": row.source or "",
+        "purpose": row.purpose or "",
+        "notes": "",
+    }
+
+
+def _stub(row_number: int, tx_data: dict) -> RiverProposal:
+    """A checked row in the shape the duplicate check reads."""
+    return RiverProposal(
+        row_number=row_number,
+        timestamp=tx_data["timestamp"],
+        river_tag=None,
+        type=tx_data["type"],
+        from_account_id=tx_data["from_account_id"],
+        to_account_id=tx_data["to_account_id"],
+        amount=tx_data["amount"],
+        cost_basis_usd=tx_data.get("cost_basis_usd"),
+        proceeds_usd=tx_data.get("proceeds_usd"),
     )
