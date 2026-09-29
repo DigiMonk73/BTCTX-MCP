@@ -507,7 +507,9 @@ Set `KEY` to the key from AI-3, and use
   backup holds an older one). **Restore from Backup** with BAK-2's file and
   the password `wrong-pass`. Expect "Failed to restore backup." with the
   ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
-  successfully restored. Please log in again.", then the login page. Log in.
+  successfully restored. Log in again with your current username and
+  password.", then the login page. Log in with the login in use before the
+  restore (a restore never brings back the backup's password).
   Expect: every golden figure, and the key made just before the restore
   still works (a restore never brings back an older key).
 - **IMP-4** River import. Save this file as `river.csv`:
