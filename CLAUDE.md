@@ -248,8 +248,16 @@ Full steps, the package version and the signing/mirror secrets:
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the
 registry. The mirror is generated: never edit it directly, change `startos/`
-here. It updates at releases, or by hand for doc-only changes (plus a
-`next` branch kept by Start9's `syncNext` workflow). Before a release, bring
+here. It updates at releases (plus a `next` branch kept by Start9's
+`syncNext` workflow), and **stays current between them** (owner's rule): when
+a change to `startos/` is docs only (its root-level `*.md`), fast-forward
+`main` and run `scripts/sync-startos-mirror.sh --push` right away. The
+mirror's Tag and Release ignores root-level `*.md`, so nothing is rebuilt;
+check the sync's commit lists only those files. Anything else in `startos/`
+(code, `icon.*`, `assets/`, workflows) waits for a release. Once Start9 has
+forked, such a sync also needs its pull request to their fork (or rides in
+one of ours still open), or the next release's `--check` takes the mirror's
+newer docs for Start9 undoing them. Before a release, bring
 Start9's changes to their fork back into `startos/` with
 `scripts/start9-pull.sh` (`--apply` on `develop`), or the sync undoes them;
 the release workflow's first job stops if you haven't (`--check`). By hand: `scripts/sync-startos-mirror.sh --push`;
