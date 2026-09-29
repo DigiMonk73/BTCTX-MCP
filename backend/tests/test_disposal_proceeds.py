@@ -206,6 +206,24 @@ class TestSells:
         force_recalc()
         assert Decimal(get(tx["id"])["proceeds_usd"]) == Decimal("4990.00")
 
+    def test_a_sale_across_lots_keeps_every_cent(self):
+        """Bug hunt 2026-09-29: each lot's share of a sale's proceeds was
+        rounded on its own and nothing took the remainder: $100.00 over three
+        equal lots was 3 x 33.33, so $99.99 on Form 8949 and as the sale's
+        proceeds. The last share now takes the remainder."""
+        from backend.models.transaction import LotDisposal
+        from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+
+        for month in (1, 2, 3):
+            buy(month=month)
+        tx = post(**dict(SELL, amount="0.3", fee_amount="0"), gross_proceeds_usd="100.00")
+        with sessionmaker(bind=ENGINE)() as db:
+            shares = sorted(d.proceeds_usd_for_that_portion for d in db.query(LotDisposal).filter_by(
+                transaction_id=tx["id"]))
+            reported = build_form_8949_and_schedule_d(2024, db)["schedule_d"]["long_term"]["proceeds"]
+        assert shares == [Decimal("33.33"), Decimal("33.33"), Decimal("33.34")]
+        assert (Decimal(str(reported)), Decimal(get(tx["id"])["proceeds_usd"])) == (Decimal("100.00"),) * 2
+
     def test_a_fee_sent_without_its_currency_is_usd(self):
         """Bug hunt 2026-09-29: a fee_amount with no fee_currency was read as
         BTC by the ledger lines, so a Sell's fee wasn't taken off its proceeds

@@ -771,6 +771,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     remaining_fee = fee_btc
     remaining_amount = amount_btc
     fee_proceeds_so_far = Decimal("0")
+    proceeds_so_far = Decimal("0")
 
     def dispose(lot, qty, proceeds, gain_zero, is_fee):
         cost_per_btc = lot.cost_basis_usd / lot.total_btc if lot.total_btc else Decimal("0")
@@ -801,7 +802,11 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
             remaining_fee -= qty
         if remaining_amount > 0 and lot.remaining_btc > 0:
             qty = min(lot.remaining_btc, remaining_amount)
-            proceeds = (qty / amount_btc * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            if qty == remaining_amount:  # last part takes the remainder: the parts add up to the proceeds
+                proceeds = total_proceeds - proceeds_so_far
+            else:
+                proceeds = (qty / amount_btc * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            proceeds_so_far += proceeds
             dispose(lot, qty, proceeds, gain_zero=not_a_sale, is_fee=False)
             remaining_amount -= qty
 

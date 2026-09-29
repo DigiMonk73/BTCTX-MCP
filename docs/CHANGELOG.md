@@ -89,6 +89,9 @@ Found by a bug hunt of the tax engine (2026-09-29).
   no disposal or value. The fee now gets its type's currency (USD for Buy
   and Sell, else the account's) and is saved with it; entries already saved
   that way are fixed by the next recalculation.
+- **A sale drawn from several lots no longer loses cents.** Each lot's
+  share of the proceeds was rounded on its own ($100.00 over three lots
+  showed as $99.99 on Form 8949); the last share now takes the remainder.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
