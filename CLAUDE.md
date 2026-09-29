@@ -38,6 +38,8 @@ If unsure which branch to use, use `develop` and ask.
 
 ## Before you change…
 
+- **Any code**: follow `docs/CODE_STYLE.md` (one job per function, comments
+  say why, the same idioms everywhere).
 - **Database paths, file storage, env vars, Docker**: read `docs/STARTOS_COMPATIBILITY.md`.
   Everything persistent lives in the directory of `DATABASE_FILE`.
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,

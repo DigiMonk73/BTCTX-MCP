@@ -5,6 +5,9 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Development
+- **Code cleanup, no change in behaviour** (plan: `docs/temp/code-cleanup.md`):
+  the standards are written down in `docs/CODE_STYLE.md`, and `CLAUDE.md`
+  points to them.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a
