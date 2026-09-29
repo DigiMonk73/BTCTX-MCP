@@ -62,8 +62,18 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
       decision (a same-amount Buy at another price: saved, flagged).
       The slow property test's rare "stuck" failure was the test's own
       shuffled entry (fixed in the test). Full suite 747, e2e 219 green.
-- [~] 4. Privacy audit: `privacy-audit.md`; the four plain bug fixes done
-      (348616a); the rest are owner decisions, one at a time.
+- [x] 4. Privacy audit: `privacy-audit.md`. Plain bug fixes done
+      (348616a); the owner decided the rest on 2026-09-29 (restore keeps
+      price settings, Docker on 127.0.0.1 + connector http warning, backup
+      password typed twice, Kraken first + block height cached, all sites
+      named + timing, secure delete, copies noted, no server header, /data
+      700, PyPI note). Left as documented: clearnet mempool bypasses Tor
+      (1i), httpx URLs in the log (3a), StartOS backup contents (3h), the AI
+      provider sees the ledger (4a/4b), `/api/health` shows the version (5c).
+- [ ] Left: the owner's password checks on the VM
+      (`~/code/btctx-vm-lab/owner-checks.sh`, against the installed 1.2.1),
+      then a 1.2.2 release candidate through `docs/AGENT-TESTS.md` when the
+      owner decides to release.
 
 ## Plan
 
