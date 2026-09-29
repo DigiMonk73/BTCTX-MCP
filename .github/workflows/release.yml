@@ -12,9 +12,13 @@ name: Release
 # ghcr.io/digimonk73/btctx-mcp:vX.Y.Z (published here if main hasn't
 # already). Then startos/ is mirrored to DigiMonk73/BTCTX-StartOS if the
 # MIRROR_TOKEN secret exists; the mirror's own Tag and Release workflow
-# (Start9's) tags and releases it there. Branch-based so a release doesn't depend on being
-# able to push tags. An existing release is left alone. Setup of the two
-# secrets: startos/UPDATING.md.
+# (Start9's) tags and releases it there. Once Start9 has forked the mirror,
+# a release stops at the start if Start9 changed their fork and startos/
+# doesn't have it yet (scripts/start9-pull.sh --check), and after the mirror
+# push an issue here holds the one-click link for the pull request to their
+# fork (the only way a release reaches them). Branch-based so a release
+# doesn't depend on being able to push tags. An existing release is left
+# alone. Setup of the two secrets: startos/UPDATING.md.
 on:
   push:
     branches: ['release/v*']
@@ -62,6 +66,11 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Start9's changes to their fork are in startos/ (once they've forked it)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          START9_FORK: ${{ vars.START9_FORK }}
+        run: scripts/start9-pull.sh --check
 
   image:
     needs: check
@@ -216,11 +225,17 @@ jobs:
   mirror:
     needs: [check, release]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write   # the reminder to open the pull request to Start9's fork
     steps:
       - uses: actions/checkout@v7
-      - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS
+      - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS, then the pull request to Start9
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          START9_FORK: ${{ vars.START9_FORK }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
           if [ -z "$MIRROR_TOKEN" ]; then
             echo "::notice::MIRROR_TOKEN is not set: mirror not updated. Run scripts/sync-startos-mirror.sh --push by hand (startos/UPDATING.md)."
@@ -231,3 +246,33 @@ jobs:
           MIRROR_URL="https://x-access-token:${MIRROR_TOKEN}@github.com/DigiMonk73/BTCTX-StartOS.git" \
             scripts/sync-startos-mirror.sh --push "$RUNNER_TEMP/BTCTX-StartOS"
           echo "::notice::Pushed to the mirror: its Tag and Release workflow tags and releases it (needs REFERENCE_REGISTRY and DEV_KEY there; otherwise scripts/mirror-startos-release.sh by hand)."
+
+          # Start9's fork gets the release only through a pull request from
+          # the mirror (the token can't open one there): an open one of ours
+          # already carries it; otherwise an issue here holds the link.
+          FORK_INFO="$(scripts/start9-pull.sh --fork)"
+          read -r FORK BRANCH <<< "$FORK_INFO"
+          if [ -z "$FORK" ]; then
+            echo "Start9 hasn't forked the mirror yet: no pull request to open."
+            exit 0
+          fi
+          OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number \
+            --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | "#\(.number)"')"
+          if [ -n "$OPEN" ]; then
+            echo "::notice::Our pull request $OPEN on $FORK is still open; it now carries $TAG too."
+            exit 0
+          fi
+          COMPARE="https://github.com/$FORK/compare/$BRANCH...DigiMonk73:BTCTX-StartOS:main?expand=1"
+          NOTES="https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
+          cat > body.md <<EOF
+          $TAG is released and the StartOS package is on our mirror. Start9's copy, **$FORK**, only gets it through a pull request: only Start9 can change it.
+
+          1. Open [this link]($COMPARE), signed in to GitHub. It shows "Comparing changes" from DigiMonk73/BTCTX-StartOS \`main\` into $FORK \`$BRANCH\`.
+          2. Click **Create pull request**. Title: \`BitcoinTX $TAG\`. Description: the release notes, $NOTES
+          3. Click **Create pull request** again. Start9 reviews it (their comments come by email), merges it and publishes it.
+          4. Close this issue.
+
+          Or ask Claude: "open the Start9 pull request for $TAG".
+          EOF
+          gh issue create -R "$GITHUB_REPOSITORY" --title "Send $TAG to Start9: open the pull request" --body-file body.md
+          echo "::warning::Open the pull request to $FORK: see the new issue \"Send $TAG to Start9\"."

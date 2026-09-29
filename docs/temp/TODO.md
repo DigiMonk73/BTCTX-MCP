@@ -10,11 +10,11 @@ Rules: `README.md` here.
 
 - [ ] Run the password checks on the VM: `cd ~/code/btctx-vm-lab && ./vm.sh start && bash owner-checks.sh` (backup and restore, login cookie, cross-site refusal, password change, login throttle, Reset Login Credentials); results in `scenarios/owner-checks.log`.
 - [ ] Finish the 1.2.2 box test on your own server (`startos-box-test-v1.2.2.md`; My Mempool is done).
-- [ ] Send the Start9 submission email to submissions@start9.com (drafted 2026-09-29).
+- [x] Send the Start9 submission email to submissions@start9.com (sent 2026-09-29).
 
 ## Next
 
-- [ ] After Start9 forks the mirror: before each release run `scripts/start9-pull.sh`, and after it open a PR from DigiMonk73/BTCTX-StartOS to their fork (`startos/UPDATING.md`).
+- [ ] When Start9 forks the mirror: check `scripts/start9-pull.sh --fork` finds it (if they made a new repository instead, set the repository variable `START9_FORK`). From then on, each release stops if their changes aren't in `startos/` and opens the "Send vX.Y.Z to Start9" issue with the pull-request link (`startos/UPDATING.md`, "After Start9 forks the mirror").
 
 ## Code cleanup
 

@@ -20,6 +20,16 @@ All notable changes to BitcoinTX are documented in this file.
   on the way: the Quick Reference section now opens with a sentence, and
   `instructions.md` links whole files without `#anchors` and drops the
   package's own README, which isn't upstream documentation.
+- **After Start9 forks the package, releases reach them only by pull
+  request, and the release makes sure it isn't forgotten.** The release
+  workflow's first job runs `scripts/start9-pull.sh --check` and stops before
+  publishing anything if Start9 changed their fork and `startos/` doesn't
+  have it yet (the mirror sync would undo it). After the mirror push it
+  opens an issue, "Send vX.Y.Z to Start9", with a link that opens the pull
+  request ready to create, unless one of ours is still open there (it then
+  carries the new release). The script finds the fork itself (`--fork`),
+  since Start9 renames forks and may use another branch; tests cover it
+  with local repositories.
 
 ## [v1.2.2] - 2026-09-29 - Stability: tax-figure fixes from a bug hunt, privacy audit, no new features
 

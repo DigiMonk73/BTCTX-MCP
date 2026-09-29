@@ -236,16 +236,23 @@ Full steps, the package version and the signing/mirror secrets:
    There, Start9's Tag and Release workflow tags it `v<upstream>_<revision>`
    and releases it (needs the mirror's `DEV_KEY` secret and
    `REFERENCE_REGISTRY` variable).
-4. Once Start9 has forked the mirror: open a PR from the mirror's `main` to
-   their fork.
+4. Once Start9 has forked the mirror, a release reaches them **only as a
+   pull request** from the mirror's `main` to their fork: nobody but Start9
+   can change the fork, and the mirror is never edited by hand. The release
+   run opens an issue here, "Send vX.Y.Z to Start9", with the one-click link
+   and steps for the owner; or open it yourself with the owner's OK
+   (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
+   `scripts/start9-pull.sh --fork`). While a pull request of ours is still
+   open there, it carries the new release too, and no issue is opened.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the
 registry. The mirror is generated: never edit it directly, change `startos/`
-here. It updates only on releases (plus a `next` branch kept by Start9's
-`syncNext` workflow). Before a release, bring Start9's changes to their fork
-back into `startos/` with `scripts/start9-pull.sh` (`--apply` on `develop`),
-or the sync undoes them. By hand: `scripts/sync-startos-mirror.sh --push`;
+here. It updates at releases, or by hand for doc-only changes (plus a
+`next` branch kept by Start9's `syncNext` workflow). Before a release, bring
+Start9's changes to their fork back into `startos/` with
+`scripts/start9-pull.sh` (`--apply` on `develop`), or the sync undoes them;
+the release workflow's first job stops if you haven't (`--check`). By hand: `scripts/sync-startos-mirror.sh --push`;
 if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
