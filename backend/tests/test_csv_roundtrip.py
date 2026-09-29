@@ -11,6 +11,7 @@ changing gains, and failed outright with price lookups off.
 import copy
 import csv
 import io
+from decimal import Decimal
 
 import pytest
 from sqlalchemy.orm import sessionmaker
@@ -174,3 +175,42 @@ def test_a_row_the_ledger_refuses_says_why_and_saves_nothing(auth_client, monkey
     assert r.json()["detail"].startswith("Import failed: No BTC price is stored for 2024-01-03.")
     assert r.json()["detail"].endswith("No transactions were saved.")
     assert auth_client.get("/api/transactions").json() == []
+
+
+def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, test_engine, monkeypatch):
+    """Bug hunt 2026-09-29: the import put same-time rows in a fixed type
+    order (Transfer before Sell) while the ledger keeps the order they were
+    entered in, so a round trip changed FIFO: here the Sell's basis went from
+    $2,000 to $4,000 and LONG to SHORT. Same-time rows now import in the
+    file's order, which is the ledger's order in an export."""
+    stub_daily_prices(monkeypatch, lambda day: 50000)
+    auth_client.delete("/api/transactions/delete_all")
+    for tx in (
+        dict(type="Buy", timestamp="2023-01-02T12:00:00Z", from_account_id=1, to_account_id=4,
+             amount="0.5", cost_basis_usd="10000"),
+        dict(type="Buy", timestamp="2024-01-02T12:00:00Z", from_account_id=1, to_account_id=4,
+             amount="0.5", cost_basis_usd="20000"),
+        # Both at noon (e.g. two date-only entries): the sale saved first, then the move
+        dict(type="Sell", timestamp="2024-03-05T12:00:00Z", from_account_id=4, to_account_id=3,
+             amount="0.1", gross_proceeds_usd="6000", proceeds_usd="6000"),
+        dict(type="Transfer", timestamp="2024-03-05T12:00:00Z", from_account_id=4, to_account_id=2,
+             amount="0.9"),
+    ):
+        r = auth_client.post("/api/transactions", json=tx)
+        assert r.status_code == 200, r.text
+
+    def sell():
+        [s] = [t for t in auth_client.get("/api/transactions").json() if t["type"] == "Sell"]
+        return Decimal(str(s["cost_basis_usd"])), s["holding_period"]
+
+    assert sell() == (Decimal("2000"), "LONG")  # FIFO: 0.1 of the 2023 lot
+    before = ledger_state(auth_client, test_engine)
+
+    exported = auth_client.get("/api/backup/csv").text
+    assert auth_client.delete("/api/transactions/delete_all").status_code == 204
+    r = auth_client.post("/api/import/execute", files=csv_file(exported))
+    assert r.status_code == 200, r.text
+
+    assert sell() == (Decimal("2000"), "LONG")
+    assert ledger_state(auth_client, test_engine) == before
+    auth_client.delete("/api/transactions/delete_all")

@@ -793,14 +793,12 @@ def execute_import(db: Session, transactions: List[Dict[str, Any]]) -> int:
     Raises:
         Exception on failure (all transactions rolled back)
     """
-    # Sort by timestamp, then by type to ensure FIFO is calculated correctly
-    # Type ordering ensures acquisitions (Deposit, Buy) are processed before
-    # disposals (Sell, Withdrawal), with Transfers in the middle
-    TYPE_ORDER = {"Deposit": 0, "Buy": 1, "Transfer": 2, "Sell": 3, "Withdrawal": 4}
-    sorted_txns = sorted(
-        transactions,
-        key=lambda x: (x["timestamp"], TYPE_ORDER.get(x["type"], 99))
-    )
+    # By timestamp only; rows at the same time keep the file's order (a
+    # stable sort). The ledger replays same-time transactions in the order
+    # they were saved, and an export lists them in that order, so a round
+    # trip gives back the same FIFO results. (A fixed type order here, e.g.
+    # Transfer before Sell, changed which lots a same-time sale used.)
+    sorted_txns = sorted(transactions, key=lambda x: x["timestamp"])
 
     imported_count = 0
 

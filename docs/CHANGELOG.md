@@ -56,6 +56,12 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
     failing with an unclear error or a blank price. It still never follows
     a redirect, so the AI key only goes to that address.
 
+Found in a bug hunt of the imports (2026-09-29):
+- **Export CSV then Import CSV keeps the order of same-time entries.** The
+  import put them in a fixed type order (moves before sales), which could
+  change which coins a sale used and its gain; rows at the same time now
+  go in the file's order (the export's is the ledger's).
+
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
 ### Fixes
