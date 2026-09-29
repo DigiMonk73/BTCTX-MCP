@@ -114,8 +114,8 @@ So derived values must be recomputable from the Transaction row alone.
   (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
   2026-01-01 and never moved G/J; self-custody spends and fees I/L. A
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
-  rules for that transaction. One sheet per box, Schedule D line per box,
-  column (f) blank.
+  rules for that transaction. One sheet per box, line 2 totals that sheet's
+  rows, Schedule D line per box, column (f) blank.
 
 ## Key files
 
