@@ -1,12 +1,12 @@
 # Privacy and leak audit: BitcoinTX 1.2.1 (2026-09-29)
 
-Part of `stabilization-plan.md`, step 4. Every way data or metadata leaves
-the machine or sits on disk, with a verdict. Code read on `develop`
-(1.2.1 plus the VM-test fixes, 8858dd5); live checks on the StartOS VM
-(`~/code/btctx-vm-lab/scenarios/agent-test-1.2.1-published.md`).
-"Checked" means Claude re-read the code or saw it on the VM, not only the
-audit agent. Go through the "decide" items with the owner one at a time;
-lasting results go to the code, CHANGELOG or docs, then delete this file.
+Every way data or metadata leaves the machine or sits on disk, with a
+verdict. Code read on `develop` (1.2.1 plus the VM-test fixes, 8858dd5);
+live checks on the StartOS VM. "Checked" means Claude re-read the code or
+saw it on the VM, not only the audit agent. The fixes shipped in **1.2.2**
+(`docs/CHANGELOG.md`, "Privacy"); the owner decided each one that changes
+what they see (recorded in the table). Keep this file as the record; when a
+change touches what leaves the machine, check it against the table.
 
 Verdicts: **no leak** (verified) · **leak** (real, not documented) ·
 **documented only** (real, the app warns) · **fix proposed**.
@@ -86,32 +86,13 @@ minor, and some things that are only documented.
   code still protects a fresh install, but after that the login travels
   in clear to any LAN client.
 
-## Proposed fixes, smallest safe change each (priority order)
+## Outcome (1.2.2)
 
-1. **4d** Connector: `logging.getLogger("httpx").setLevel(logging.WARNING)`
-   in `mcp_server/btctx_mcp/server.py`, with a test.
-2. **1h** `.onion` mempool address needs a proxy: 422 in `outbound.save`
-   ("An .onion address needs a Tor proxy"), and `own_node_client` refuses.
-3. **1j** Restore keeps the privacy settings in use (like the AI key), or
-   at least says in the restore message that they came from the backup.
-   Owner decides.
-4. **5b / 4c** README: `-p 127.0.0.1:8080:80` plus one line on plain HTTP;
-   connector: warn (or refuse without `BTCTX_ALLOW_HTTP=1`) on `http://` to
-   a host that isn't loopback.
-5. **3b** Backup password: a password field with confirmation and a
-   12-character minimum checked on the server.
-6. **3c** Snapshot in memory instead of a temp file; create `.restoring`
-   with mode 0600 from the start.
-7. **1d / 1k** Fewer requests: cache block height 60 s; ask Kraken before
-   CoinGecko (or drop CoinGecko, which refuses VPN and Tor users).
-8. **1e** Name all the hosts in Settings' help text, plus one line on
-   timing.
-9. **3e / 3d** `PRAGMA secure_delete=ON`; a Settings note that `backups/`
-   holds plain copies.
-10. **3a** Per-year count logs to DEBUG; document that DEBUG logs rows.
-11. **Low (3g, 5c, 4e)** `chmod 700 /data`; `--no-server-header`; health
-    version only to loopback or logged-in callers (the Mac app reads it
-    from loopback); one README line on what PyPI sees.
-
-Items 1, 2, 6 and 10 were plain bug fixes: done (commit after cb834be). 3, 4, 5, 7, 8, 9 and 11 change
-behaviour or text the owner sees: decide each.
+All eleven proposed fixes were made, smallest safe change each; the "fixed",
+"documented" and "warned" verdicts above are their results. Left as they
+are, on purpose: 1i (a clearnet mempool server doesn't go through Tor;
+Settings says so), 3h (a StartOS backup holds the whole service, as
+expected), 4a and 4b (what the AI provider sees; warned in the app and
+docs), and the health endpoint's version (5c; the Mac app and the connector
+read it). httpx still logs outbound URLs in the app's own service log (3a):
+no secrets or dates.

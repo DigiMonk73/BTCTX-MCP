@@ -2,6 +2,17 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
+## [Unreleased]
+
+### Development
+- **To-dos are checkboxes.** Specific to-dos live in `docs/temp/TODO.md`,
+  the StartOS package's in `startos/TODO.md` (Start9's standard file, so it
+  reaches the repository Start9 forks), and what's next in `docs/ROADMAP.md`.
+  Every item is `- [ ]`, ticked when done and cleared at the release that
+  ships it; a finished plan is deleted and its roadmap box ticked.
+  `test_todo_lists.py` checks the format. The 1.2.2 privacy audit is now
+  `docs/PRIVACY_AUDIT.md`; the finished stabilization plan is gone.
+
 ## [v1.2.2] - 2026-09-29 - Stability: tax-figure fixes from a bug hunt, privacy audit, no new features
 
 Stabilization after 1.2.1: no new features. Found by testing the published
@@ -103,7 +114,7 @@ failed before it.
   15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
   own ring now stays there, and newer versions keep the gold one.
 
-### Privacy (`docs/temp/privacy-audit.md`)
+### Privacy (`docs/PRIVACY_AUDIT.md`)
 - The AI connector no longer writes request addresses to the AI app's log
   files; past-price lookups named your transaction dates there.
 - An `.onion` mempool address needs the proxy: it's refused without one (it

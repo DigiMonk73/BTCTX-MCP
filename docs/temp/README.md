@@ -1,13 +1,21 @@
-# docs/temp: short-lived notes
+# docs/temp: work in progress
 
-Checklists, plans, to-do lists and feature ideas we're working through right
-now. Check items off as they're done, and **delete the file** once all of it
-is done or decided. Nothing here is permanent.
+Everything here is checkboxes: tick a box when the thing is done.
 
-- Anything worth keeping moves somewhere lasting before the file goes: a fix
-  or feature to the code and `docs/CHANGELOG.md`, what's next to
-  `docs/ROADMAP.md`, a lasting how-to to the docs it belongs in.
-- One file per topic, named for what it is (`startos-box-test-v1.2.0.md`,
-  not `notes.md`).
-- Not in `startos/`: that folder is mirrored to Start9's repository, which
-  keeps no to-do files.
+- **`TODO.md`**: specific to-dos, one line each (`- [ ] …`). Tick `[x]` when
+  done. At each release, remove the ticked items: the CHANGELOG has them then.
+- **Plans and checklists**: one file per topic, named for what it is
+  (`startos-box-test-v1.2.2.md`, not `notes.md`), with its steps as
+  checkboxes. When it's all done, move anything worth keeping somewhere
+  lasting (the code and CHANGELOG, a doc), tick its box in
+  `docs/ROADMAP.md` if it was on the roadmap, and **delete the file**.
+- **What's next overall** (features, larger work) is in `docs/ROADMAP.md`,
+  also checkboxes, ticked when done and cleared at the release that ships
+  them.
+
+The StartOS package keeps its own `startos/TODO.md`: Start9's standard file,
+copied to the repository Start9 forks, for package-only items under the same
+rules. Plans stay here, never in `startos/`.
+
+`backend/tests/test_todo_lists.py` fails if a TODO file is missing or an
+item isn't a checkbox.

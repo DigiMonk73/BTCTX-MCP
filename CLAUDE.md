@@ -214,7 +214,8 @@ Full steps, the package version and the signing/mirror secrets:
    the image tag in `startos/startos/manifest/index.ts`,
    `startos/startos/versions/current.ts` and `mcp_server/pyproject.toml`
    (`backend/tests/test_versions_agree.py` fails until they agree). Move the CHANGELOG's Unreleased section to the
-   version. Minor bump when a new tax year's forms are added. Push; wait for CI.
+   version and clear the ticked items from `docs/temp/TODO.md`,
+   `startos/TODO.md` and `docs/ROADMAP.md`. Minor bump when a new tax year's forms are added. Push; wait for CI.
    Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that commit's CI
    artifacts; a blocker FAIL stops the release.
 2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
@@ -245,12 +246,19 @@ if the mirror's own workflow can't release,
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
 `startos/UPDATING.md`).
 
-## Plans and checklists
+## Plans, to-dos and the roadmap
 
-Short-lived checklists, plans, to-do lists and feature ideas go in
-`docs/temp/` (one file per topic; its README has the rules): check items off,
-move anything lasting to the code, CHANGELOG or ROADMAP, then delete the
-file. Look there at the start of a session. Never in `startos/`.
+Checkboxes everywhere: tick a box when the thing is done (rules:
+`docs/temp/README.md`; look there at the start of a session).
+
+- `docs/temp/TODO.md`: specific to-dos, one `- [ ]` line each.
+  `startos/TODO.md`: the StartOS package's own (Start9's standard file,
+  mirrored to their repository).
+- Plans and checklists: `docs/temp/<topic>.md`. When done, move anything
+  lasting to the code, CHANGELOG or docs, tick its box in `docs/ROADMAP.md`,
+  and delete the file. Never in `startos/`.
+- At each release, clear the ticked items from both TODO files and the
+  roadmap (the CHANGELOG has them). `test_todo_lists.py` checks the format.
 
 ## Ending a session
 

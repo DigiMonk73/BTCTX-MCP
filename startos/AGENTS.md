@@ -18,8 +18,10 @@ Keep `README.md` (technical reference for an AI support or administering
 agent) and `instructions.md` (end-user docs) in sync with your changes.
 Releasing, bumping versions and the signing/mirror secrets: `UPDATING.md`.
 
-Bugs and feature requests are GitHub issues on BTCTX-MCP. Don't record work in
-the repo instead: no `TODO.md`, `NOTES.md` or `PLAN.md`.
+Bugs and feature requests are GitHub issues on BTCTX-MCP. Pending package work
+goes in `TODO.md`: one `- [ ]` line per item, ticked `[x]` when done, cleared
+at the release that ships it. No `NOTES.md` or `PLAN.md`: plans live in
+BTCTX-MCP's `docs/temp/`.
 
 ## This package
 
