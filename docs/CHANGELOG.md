@@ -4,6 +4,18 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.2-1] - 2026-09-29 - StartOS package: BitcoinTX's own logo as its icon
+
+Package-only update; BitcoinTX itself is unchanged.
+
+### StartOS package
+- **The icon is BitcoinTX's own logo**, the gold coin the app, the landing
+  page and the screenshots show, as a 39 KB WebP (`startos/icon.webp`, under
+  Start9's 40 KiB limit). It replaces the simplified vector copy drawn for
+  the size limit (decision of 2026-09-23); Start9's guide asks for the real
+  asset rather than a redrawn one. The release notes still carry 1.2.2's
+  for anyone updating from 1.2.1 or earlier.
+
 ### Documentation
 - **Screenshots of 1.2.2** in the README and on the landing page (same demo
   ledger): the whole taller calculator, 2025 picked in Reports, and the

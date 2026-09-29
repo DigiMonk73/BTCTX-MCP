@@ -22,7 +22,6 @@ LAYOUT = [
     ".gitignore",
     "AGENTS.md",
     "CLAUDE.md",
-    "icon.svg",
     "instructions.md",
     "LICENSE",
     "Makefile",
@@ -83,13 +82,23 @@ def test_claude_md_only_imports_agents_md():
     assert read("CLAUDE.md").strip() == "@AGENTS.md"
 
 
-def test_the_icon_is_at_most_40_kib():
-    assert (PKG / "icon.svg").stat().st_size <= 40 * 1024
+def the_icon():
+    # start-cli packs the one file named icon.* at the root (more than one is
+    # an error); project-structure.md: .svg, .png, .jpg or .webp, at most 40 KiB.
+    icons = [p for p in PKG.iterdir() if p.is_file() and p.stem.lower() == "icon"]
+    assert len(icons) == 1, f"one icon file at startos/, found {[p.name for p in icons]}"
+    return icons[0]
+
+
+def test_one_icon_of_an_accepted_type_at_most_40_kib():
+    icon = the_icon()
+    assert icon.suffix.lower() in {".svg", ".png", ".jpg", ".webp"}, icon.name
+    assert icon.stat().st_size <= 40 * 1024, f"{icon.name}: {icon.stat().st_size} bytes"
 
 
 def test_readme_opens_with_the_logo_title_and_scoping_note():
     text = read("README.md")
-    assert text.startswith('<p align="center">\n  <img src="icon.svg"')
+    assert text.startswith(f'<p align="center">\n  <img src="{the_icon().name}"')
     assert "\n# BitcoinTX on StartOS\n" in text
     assert "> Everything not listed in this document should behave the same as upstream" in text
 

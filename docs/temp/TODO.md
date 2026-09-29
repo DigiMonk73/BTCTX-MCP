@@ -10,7 +10,6 @@ Rules: `README.md` here.
 
 - [ ] Run the password checks on the VM: `cd ~/code/btctx-vm-lab && ./vm.sh start && bash owner-checks.sh` (backup and restore, login cookie, cross-site refusal, password change, login throttle, Reset Login Credentials); results in `scenarios/owner-checks.log`.
 - [ ] Finish the 1.2.2 box test on your own server (`startos-box-test-v1.2.2.md`; My Mempool is done).
-- [x] Send the Start9 submission email to submissions@start9.com (sent 2026-09-29).
 
 ## Next
 
