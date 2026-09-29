@@ -302,7 +302,7 @@ fixed inside a cleanup commit.
       `{"result": …}` wrapper, which the check caught.
 
 **Reports** (a characterization-test commit first, where coverage is thin)
-- [ ] Complete tax report: one function per section, plus one table-style
+- [x] Complete tax report: one function per section, plus one table-style
       helper. PDF bytes identical.
 - [ ] CSV instructions PDF, divided the same way. Bytes identical; the
       committed `csv_import_instructions.pdf` untouched.

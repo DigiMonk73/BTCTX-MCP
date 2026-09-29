@@ -22,6 +22,10 @@ All notable changes to BitcoinTX are documented in this file.
   `__main__` block and an unused `services.user.delete_user`.
 - **Modern type hints** (`list[str]`, `dict`, `X | None`) in the app code,
   and ruff's `UP` rules keep it that way (tests and migrations excepted).
+- **The complete tax report** is built one section at a time
+  (`complete_tax_report.py`, from one 510-line function), with the paragraph
+  styles and grid tables it shares with the transaction history in
+  `reports/pdf_layout.py`. Its PDFs are byte-identical.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

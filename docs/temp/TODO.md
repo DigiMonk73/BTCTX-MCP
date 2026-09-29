@@ -29,7 +29,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 - [x] The equivalence check (`scripts/equivalence_check.py`): every figure, PDF, CSV, API answer and MCP output of this checkout compared with a release's.
 - [x] Guard test: every `Transaction` column is in the CSV export or on a "not exported, because…" list (a new column was once left out of the export).
 
-- [ ] Tax report PDF: split `generate_comprehensive_tax_report` (510 lines, `reports/complete_tax_report.py`) into one function per section, with one shared table-style helper instead of the copy-pasted style blocks.
+- [x] Tax report PDF: split `generate_comprehensive_tax_report` (510 lines, `reports/complete_tax_report.py`) into one function per section, with one shared table-style helper instead of the copy-pasted style blocks.
 - [ ] CSV instructions PDF: split `generate_csv_instructions_pdf` (395 lines, `backend/scripts/generate_csv_instructions_pdf.py`) the same way.
 - [ ] CSV import (`csv_import.py`): `_validate_row` (276 lines), `generate_template_csv` (147), `_validate_type_specific` (105), `parse_csv_file` (102); one helper for the repeated error-building blocks, one check per field.
 - [ ] Ledger engine (`transaction.py`, 1,540 lines): `build_ledger_entries_for_transaction` (215), `update_transaction_record` (128), `maybe_transfer_bitcoin_lot` (121), `maybe_dispose_lots_fifo` (113), `create_transaction_record` (112) into named steps; kept as one file (tests replace its `get_btc_price` by name; see `code-cleanup.md`). The tax-invariant tests are the safety net.
@@ -38,7 +38,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 - [ ] Reports: `map_8949_rows_to_field_data` (117 lines, `form_8949.py`) and `_generate_pdf` (109, `transaction_history.py`).
 - [ ] Frontend: split `TransactionForm.tsx` (1,049 lines) into a section per transaction type and `Settings.tsx` (799) into one component per card; `RiverImport.tsx` (486) and `Dashboard.tsx` (470) if it helps.
 - [x] Delete the stray empty `backend/services/ __init__.py` (a leading space in its name, there since the first commit).
-- [ ] Remove stale or wordy comments and docstrings: history notes ("remains unchanged since … ghostscript"), comments that repeat the code.
+- [x] Remove stale or wordy comments and docstrings: history notes ("remains unchanged since … ghostscript"), comments that repeat the code.
 - [x] Modern type hints (`dict`, `list`, `X | None`) instead of `typing.Dict/List/Optional` in 46 files, with ruff's `UP` rules added to lint so it stays that way.
 - [ ] Other functions over the limits: `_validate_transaction`, `_enforce_transaction_type_rules`, `_validate_accounts_for_type`, `annotate_duplicates`, `build_review`, `simulate`, `public_history`, `fill_pdf_form`, `adopt_unversioned`, `export_transactions_csv`, the MCP `update_transaction` body and client `request`, and the scripts `smoke_test.run` and `irs_new_year` `main`/`verify`.
 - [ ] Keep it clean: once the long functions are divided, add a lint limit on function size and complexity (ruff `C901` / `PLR0911` / `PLR0912` / `PLR0915`, ESLint `complexity` / `max-lines`) so they can't grow back.
