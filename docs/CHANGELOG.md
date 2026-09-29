@@ -92,6 +92,8 @@ Found by a bug hunt of the tax engine (2026-09-29).
 - **A sale drawn from several lots no longer loses cents.** Each lot's
   share of the proceeds was rounded on its own ($100.00 over three lots
   showed as $99.99 on Form 8949); the last share now takes the remainder.
+- **A withdrawal of 1 satoshi more than you hold is refused**, like a
+  transfer or sale. It was accepted and left the balance at -1 sat.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

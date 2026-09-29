@@ -95,6 +95,19 @@ def test_a_fee_saved_without_its_currency_gets_it_on_recalculation(auth_client, 
     assert rows(test_engine) == [("0.00010000 BTC", "5.00", "2.00", "3.00", "I")]
 
 
+def test_one_satoshi_more_than_held_is_refused(auth_client, ledger):
+    """Bug hunt 2026-09-29: a withdrawal 1 satoshi more than held was accepted
+    (a "rounding tolerance" left from when amounts were floats; they are
+    exact decimals now): the balance went to -1 sat with no lot behind it."""
+    spend = dict(type="Withdrawal", timestamp="2025-06-01T12:00:00Z", from_account_id=EXCH_BTC,
+                 to_account_id=EXTERNAL, purpose="Spent", proceeds_usd="1000", fee_currency="BTC")
+    for amount, fee in (("1.00000001", "0"), ("0.9999", "0.00010001")):  # 1 BTC held
+        r = auth_client.post("/api/transactions", json={**spend, "amount": amount, "fee_amount": fee})
+        assert r.status_code == 400 and "Not enough BTC" in r.text, r.text
+    r = auth_client.post("/api/transactions", json={**spend, "amount": "0.9999", "fee_amount": "0.0001"})
+    assert r.status_code == 200, r.text  # everything held, fee included
+
+
 def test_a_spends_fee_is_its_own_row_and_never_broker_reported(auth_client, test_engine, ledger):
     withdraw(auth_client, purpose="Spent", proceeds_usd="1000", broker_reporting="basis")
     assert rows(test_engine) == [

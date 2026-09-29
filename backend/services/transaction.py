@@ -810,8 +810,10 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
             dispose(lot, qty, proceeds, gain_zero=not_a_sale, is_fee=False)
             remaining_amount -= qty
 
-    # Validate that we had enough BTC to complete the disposal
-    if remaining_fee + remaining_amount > Decimal("0.00000001"):  # 1 satoshi tolerance for rounding
+    # Validate that we had enough BTC to complete the disposal. No tolerance:
+    # amounts are exact decimals of at most 8 places (the 1 sat allowed here
+    # was left from when they were floats, and let a withdrawal overdraw).
+    if remaining_fee + remaining_amount > 0:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to {tx.type.lower()} {btc_outflow:.8f} BTC"
