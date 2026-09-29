@@ -49,3 +49,12 @@ test("current price and block height", async ({ authedPage: page }) => {
   await expect(page.getByText(/Block Height: 900,?000/)).toBeVisible();
   expect(CURRENT_PRICE).toBe(60000);
 });
+
+test("with prices off, unrealized gains say so instead of loading forever", async ({ authedPage: page }) => {
+  const off = { price_source: "off", mempool_url: null, mempool_fallback: false, proxy_url: null };
+  const r = await page.request.put("/api/settings/network", { data: off });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await page.reload();
+  const row = page.getByRole("paragraph").filter({ hasText: /^\s*Unrealized Gains\/Losses/ });
+  await expect(row).toContainText("Prices off");
+});

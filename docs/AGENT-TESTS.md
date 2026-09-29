@@ -712,8 +712,6 @@ Found while this document was written (v1.2.0). Report these as KNOWN.
 Delete a line when its fix is merged into `develop`, since release
 candidates are built from it.
 
-- **GLD-3**: with prices Off, Unrealized Gains/Losses reads "Loading..."
-  forever.
 - **GLD-6**: Delete shows its confirm twice (`TransactionPanel.tsx` and
   `TransactionForm.tsx`).
 - **PRC, 1.2.0 and earlier only (Track B's previous release)**: an install

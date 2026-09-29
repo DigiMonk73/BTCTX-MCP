@@ -184,6 +184,10 @@ const Dashboard: React.FC = () => {
 
   // ------------------ 8) UNREALIZED GAINS HELPER ------------------
   const renderUnrealizedGains = () => {
+    // Without a price there is nothing to wait for: say why, as the price card does
+    if (!isPriceLoading && currentBtcPrice === null) {
+      return pricesOff ? "Prices off" : "No price";
+    }
     if (isPriceLoading || currentBtcPrice === null || averageBtcCostBasis === null) {
       return "Loading...";
     }

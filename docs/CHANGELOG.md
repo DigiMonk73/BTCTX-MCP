@@ -80,6 +80,10 @@ All notable changes to BitcoinTX are documented in this file.
   ledger and settings come from the backup. StartOS's own backups were
   never affected (they restore the login and the ledger together).
 
+- With prices off, the dashboard's Unrealized Gains/Losses said
+  "Loading..." forever; it now says "Prices off" (or "No price" when a
+  lookup failed).
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,
