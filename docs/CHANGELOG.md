@@ -7,7 +7,11 @@ All notable changes to BitcoinTX are documented in this file.
 ### Development
 - **Code cleanup, no change in behaviour** (plan: `docs/temp/code-cleanup.md`):
   the standards are written down in `docs/CODE_STYLE.md`, and `CLAUDE.md`
-  points to them.
+  points to them. `scripts/equivalence_check.py` compares everything the
+  app produces (database rows, API answers, Form 8949 field values, report
+  PDFs byte for byte, CSV files, import previews, MCP tool outputs, the
+  error message of each of about 2,200 bad inputs) with v1.2.2-1's, and
+  times recalculation (`docs/TESTING.md`).
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

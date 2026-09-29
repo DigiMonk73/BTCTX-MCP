@@ -71,6 +71,41 @@ Mark anything slower than ~5 s with `@pytest.mark.slow`.
   in the docstring, with the exact Form 8949 rows, boxes and Schedule D lines.
   If a change moves one of these numbers, it changes users' tax forms.
 
+## Before/after equivalence check
+
+For a change that must not change behaviour (a refactor, a cleanup, a type
+hint pass), compare everything the app produces with a release:
+
+```bash
+python scripts/equivalence_check.py            # against v1.2.2-1, ~5 min
+python scripts/equivalence_check.py --bench    # plus recalculation time (fails if >5% slower)
+python scripts/equivalence_check.py --against v1.3.0
+```
+
+It checks out the release in a temporary git worktree and snapshots both
+it and this checkout on the same inputs:
+- **Ledgers:** the golden ledger, the 65-transaction seed ledger, and 40
+  random ledgers from the property test's generator (fixed seeds, in UTC,
+  Chicago and Tokyo time).
+- **Bad inputs:** each invalid API payload, CSV row and file in
+  `scripts/equivalence_inputs.py`, and a locked row.
+
+Everything the app produces is compared:
+- database rows
+- every API answer (`/openapi.json` included)
+- Form 8949 / Schedule D field values, sheet by sheet
+- report PDFs: ReportLab's in invariant mode, compared byte for byte, plus
+  their text
+- CSV files and import previews
+- River and entry imports
+- every MCP tool's schema and output
+- the CSV instructions PDF
+
+The snapshots are JSON files in `.equivalence/` (gitignored). The release's
+is reused for the rest of the day while `scripts/equivalence_*.py` are
+unchanged. Any difference is printed as a short diff per item and makes it
+exit 1.
+
 ## Click-through tests (Playwright)
 
 Specs live in `frontend/e2e/*.e2e.ts`; the config is

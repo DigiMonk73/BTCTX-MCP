@@ -108,3 +108,6 @@ frontend/playwright-report/
 
 # Claude Code worktrees (separate working copies)
 .claude/worktrees/
+
+# --- Before/after snapshots (scripts/equivalence_check.py) ---
+.equivalence/

@@ -235,8 +235,9 @@ field values and text. Values that depend on "now" are masked. So are ids and
 save times.
 
 It also times recalculation (`--bench`): a 2,000-transaction ledger, the
-median of 7 runs, old code against new on the same machine. It fails if the
-new code is more than 5% slower; a rerun rules out noise.
+fastest of 9 runs, old code against new on the same machine (identical code
+measured 3–4% apart as a median, so the fastest run is compared). It fails
+if the new code is more than 5% slower; a rerun rules out noise.
 
 UI: a Playwright script records the accessibility tree (every label, role and
 visible text) of each form variant, Settings, the Dashboard and the River
@@ -276,8 +277,9 @@ fixed inside a cleanup commit.
 - [x] This plan in `docs/temp/code-cleanup.md`. `docs/CODE_STYLE.md` and its
       pointer in `CLAUDE.md`. The TODO line fixed (46 files), the guard test
       added, and a new "Next" to-do for the lock flag.
-- [ ] The equivalence check and the UI snapshot script. The baseline taken on
-      `v1.2.2-1`, and a clean first run against the working copy.
+- [x] The equivalence check. The baseline taken on `v1.2.2-1`, and a clean
+      first run against the working copy. (The UI snapshot script comes at the
+      start of the frontend track.)
 - [ ] The guard test for Transaction columns (a new test in its own file).
 
 **Low risk**
@@ -338,6 +340,8 @@ tests, the equivalence check, and `--bench` on every commit)
 
 **Frontend** (a separate track; `make e2e` and the UI snapshot on every
 commit)
+- [ ] The UI snapshot script, and a clean first run of the 1.2.2-1 build
+      against itself.
 - [ ] `TransactionForm.tsx`: a component per transaction type's fields, plus
       the shared fee fields. `#transaction-form` and `#trigger-form-delete`
       stay.
@@ -371,6 +375,12 @@ commit)
       tests (`docs/AGENT-TESTS.md`).
 
 ## Findings (noted, not fixed; each needs the owner's OK)
+
+- **A CSV row with an unexpected `fee_usd_typed` value** (say "maybe")
+  crashes the import preview with a server error (500) instead of the
+  message "Must be yes, no or blank.": the error is built without its
+  `severity` (`csv_import._validate_row`). Found by the equivalence check's
+  bad inputs; the check records the 500 as today's answer.
 
 - **The lock flag is half-built.** The owner decided to leave it for later; a
   "Next" to-do will decide between finishing it and removing it. Today:
