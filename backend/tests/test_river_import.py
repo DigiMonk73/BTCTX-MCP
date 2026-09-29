@@ -456,3 +456,38 @@ def test_a_fee_in_an_unexpected_currency_is_flagged():
     ])
     flagged = sorted(w.row_number for w in warnings if w.column == "Fee Currency")
     assert flagged == [2, 3]
+
+
+@pytest.mark.parametrize("line", [
+    "2026-01-05 10:00:00,100,USD,0.001,BTC,1,USD,Buy,",   # a trailing comma
+    "2026-01-05 10:00:00,1,000.00,USD,0.01,BTC,,,Buy",    # an unquoted 1,000.00
+])
+def test_a_row_with_an_extra_field_is_a_row_error_not_a_crash(line):
+    """Bug hunt 2026-09-29: a row with one field more than the header
+    crashed the River import with a 500 (the csv reader puts the extra
+    fields in a list, and .strip() failed on it). It's now that row's error;
+    the other rows are read."""
+    rows, errors = parse_river_csv(river_csv([line, SYNTHETIC_ROWS[0]]))
+    assert [(e.row_number, e.severity) for e in errors] == [(2, "error")]
+    assert "more fields than the header" in errors[0].message
+    assert [r.row_number for r in rows] == [3]
+
+
+def test_a_sell_fee_without_a_fee_currency_is_in_usd():
+    """Bug hunt 2026-09-29: a Sell with a fee but a blank Fee Currency kept
+    River's Received Amount as the gross while the fee was still taken as
+    USD and subtracted, so the sale landed a fee short, with no warning.
+    River's Buy and Sell fees are in USD, so a blank one is USD too and the
+    gross is Received + fee (CLAUDE.md, River Sells)."""
+    delete_all_transactions()
+    data = preview([
+        "2026-07-01 12:00:00,1000.00,USD,0.01000000,BTC,,,Buy",
+        "2026-07-31 20:16:07,0.00500000,BTC,500.00,USD,5.00,,Sell",
+    ])
+    proposal = next(p for p in data["proposals"] if p["type"] == "Sell")
+    assert (proposal["fee_currency"], Decimal(proposal["proceeds_usd"])) == ("USD", Decimal("505.00"))
+    execute(proposals_to_execute_rows(data))
+
+    sell = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Sell")
+    assert Decimal(str(sell["proceeds_usd"])) == Decimal("500.00")  # River's Received Amount
+    delete_all_transactions()

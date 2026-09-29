@@ -171,6 +171,17 @@ def parse_river_csv(content: bytes) -> Tuple[List[RiverRow], List[CSVParseError]
         return rows, errors
 
     for row_number, raw in enumerate(reader, start=2):
+        if None in raw:
+            # More fields than the header (the reader lists the extras under
+            # None): the columns no longer line up, so the row can't be read.
+            errors.append(CSVParseError(
+                row_number=row_number, column=None, severity="error",
+                message=(
+                    "This row has more fields than the header: a stray comma, or an amount "
+                    "written with a comma (write 1000.00, not 1,000.00)?"
+                ),
+            ))
+            continue
         r = {(k or "").lower().strip(): (v or "").strip() for k, v in raw.items()}
 
         date_str = r.get("date", "")
@@ -213,7 +224,11 @@ def parse_river_csv(content: bytes) -> Tuple[List[RiverRow], List[CSVParseError]
 
 
 def _usd_fee(row: RiverRow) -> Decimal:
-    if row.fee is not None and row.fee_currency == "USD":
+    """River's USD fee on a Buy or Sell. River charges those in USD, and the
+    proposal records the fee as USD even when Fee Currency is blank, so a
+    blank one counts as USD here too (else a Sell's gross would leave out a
+    fee the ledger still subtracts)."""
+    if row.fee is not None and row.fee_currency in ("USD", None):
         return row.fee
     return Decimal("0")
 

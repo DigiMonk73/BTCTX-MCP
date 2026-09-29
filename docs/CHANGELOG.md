@@ -63,6 +63,13 @@ Found in a bug hunt of the imports (2026-09-29):
   go in the file's order (the export's is the ledger's).
 - **The CSV import reads Excel's "CSV UTF-8" files.** Their invisible
   byte-order mark made the import say "Missing required columns: date".
+- **A River file row with one comma too many is that row's error.** A
+  trailing comma or an amount written 1,000.00 made the River import fail
+  with a server error.
+- **A River Sell whose Fee Currency is blank is no longer a fee short.**
+  The fee was still subtracted as USD but not added to the gross first; a
+  blank fee currency on a River Buy or Sell now counts as USD, as River
+  charges it, so the sale lands at River's Received Amount.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 
