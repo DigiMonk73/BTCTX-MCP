@@ -89,6 +89,7 @@ class BtctxClient:
             verify=verify,
             timeout=120.0,  # previews fetch historical prices
             transport=transport,
+            follow_redirects=False,  # the key goes only to BitcoinTX's own address
         )
         self._logged_in = False
 
@@ -191,6 +192,8 @@ class BtctxClient:
         except httpx.HTTPError as exc:
             raise BtctxError(f"Request to BitcoinTX at {self._http.base_url} failed: {exc}") from exc
 
+        if 300 <= r.status_code < 400:
+            raise BtctxError(self._redirected(r))
         if r.status_code == 403:
             raise BtctxError(KEY_REFUSED)
         if r.is_error:
@@ -207,6 +210,23 @@ class BtctxClient:
         if r.status_code == 204 or not r.content:
             return None
         return r.json()
+
+    def _redirected(self, r: httpx.Response) -> str:
+        """A redirect is never followed (the key would go wherever it points): say where to."""
+        location = r.headers.get("location")
+        if not location:
+            return f"BitcoinTX at {self._http.base_url} answered {r.status_code}, a redirect with no address."
+        target = r.url.join(location)
+        shown = f"{target.scheme}://{target.netloc.decode()}{target.path}"
+        path = r.request.url.path  # the request's own path: what's before it is the server root
+        root = f"{target.scheme}://{target.netloc.decode()}"
+        if target.path.endswith(path):
+            root += target.path[: -len(path)]
+        return (
+            f"BitcoinTX at {self._http.base_url} answered with a redirect to {shown}. If BitcoinTX "
+            f"is there, set BTCTX_URL to {root} (the connector doesn't follow redirects, so the AI "
+            "key only goes to BTCTX_URL)."
+        )
 
     async def app_version(self) -> Optional[str]:
         """BitcoinTX's version from /api/health, or None if it can't be read now."""

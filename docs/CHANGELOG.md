@@ -51,6 +51,10 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
   - A time ending in " UTC" (`2025-01-01 03:00:00 UTC`) given to the AI is
     read as UTC, as the CSV import reads it; it was read in the tax
     timezone, hours off and sometimes in the wrong tax year.
+  - When BitcoinTX's address redirects (e.g. `http://` to `https://`), the
+    connector says so and which address to set in `BTCTX_URL`, instead of
+    failing with an unclear error or a blank price. It still never follows
+    a redirect, so the AI key only goes to that address.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

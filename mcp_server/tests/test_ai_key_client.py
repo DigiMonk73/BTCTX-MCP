@@ -104,6 +104,28 @@ async def test_the_key_is_sent_as_a_bearer_token_and_nothing_logs_in():
     await btctx.aclose()
 
 
+@pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
+async def test_a_redirect_is_a_clear_error_and_is_not_followed(status):
+    """Bug hunt 2026-09-29: with BTCTX_URL http://… on a server that redirects
+    (to https, or a proxy that moves the path), a 3xx came back as an empty
+    success: tools failed with an opaque error and get_btc_price said
+    usd: null. It is an error naming the address, and it is not followed, so
+    the key never goes to another address."""
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(status, headers={"Location": "https://btctx.example/api/transactions"})
+
+    btctx = BtctxClient(base_url="http://btctx.test", ai_key=KEY, transport=httpx.MockTransport(handler))
+    with pytest.raises(BtctxError) as e:
+        await btctx.get("/api/transactions")
+    assert "redirect to https://btctx.example/api/transactions" in str(e.value)
+    assert "set BTCTX_URL to https://btctx.example" in str(e.value)
+    assert [r.url.host for r in seen] == ["btctx.test"]
+    await btctx.aclose()
+
+
 async def test_the_key_never_shows_in_errors_or_logs(caplog):
     caplog.set_level(logging.DEBUG)
     transport, seen = mock(401, {"detail": "AI key not accepted: it was replaced or revoked, or was copied wrong."})
