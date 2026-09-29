@@ -22,7 +22,7 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
 - **v1.2.1** released 2026-09-28 (GitHub release, `ghcr.io/digimonk73/btctx-mcp:v1.2.1`,
   PyPI `btctx-mcp==1.2.1`, StartOS mirror `v1.2.1_0`). `develop` = 1.2.1 plus
   react-hook-form 7.89 (Dependabot #21).
-- The owner hasn't done the box test yet (`startos-box-test-v1.2.1.md`,
+- The owner hasn't done the box test yet (`startos-box-test-v1.2.2.md`,
   mainly My Mempool, which the VM can't test).
 - Dependabot opens weekly PRs against `develop` (`docs/MAINTENANCE.md`).
 
@@ -72,6 +72,8 @@ work is done; lasting results go to the CHANGELOG, docs or the code.
       provider sees the ledger (4a/4b), `/api/health` shows the version (5c).
 - [x] The owner's one UI change: the calculator ends level with the Realized
       Gains/Losses card; the converter's modes are one height.
+- [x] 1.2.2 released 2026-09-29 (the owner's go-ahead): RC d478bc3 passed CI
+      11/11 and the VM checks (updates from 1.2.1 and 1.1.0, fresh install).
 - [ ] Left: the owner's password checks on the VM
       (`~/code/btctx-vm-lab/owner-checks.sh`, against the installed 1.2.1),
       then a 1.2.2 release candidate through `docs/AGENT-TESTS.md` when the
