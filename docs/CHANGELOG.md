@@ -70,6 +70,10 @@ Found in a bug hunt of the imports (2026-09-29):
   The fee was still subtracted as USD but not added to the gross first; a
   blank fee currency on a River Buy or Sell now counts as USD, as River
   charges it, so the sale lands at River's Received Amount.
+- **An import no longer freezes the whole app while it works.** A CSV,
+  River or AI-assistant import (or its preview) held up every other
+  request, StartOS's health check included, for as long as it ran (10
+  seconds in one test); that work now runs beside them.
 
 ## [v1.2.1] - 2026-09-28 - Fixes from testing 1.2.0: prices stay off until you choose, restore keeps your login, reports say why
 

@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _autofill_fmv_basis(
+def _autofill_fmv_basis(
     proposals: List[RiverProposal], warnings: List[CSVParseError], db: Session
 ) -> None:
     """
@@ -61,7 +61,7 @@ async def _autofill_fmv_basis(
         date_str = proposal.timestamp.strftime("%Y-%m-%d")
         if date_str not in price_cache:
             try:
-                price_cache[date_str] = await price_history.daily_price_async(db, proposal.timestamp)
+                price_cache[date_str] = price_history.daily_price(db, proposal.timestamp)
             except Exception as exc:
                 price_cache[date_str] = None
                 # The day (a transaction's date) only in the DEBUG log
@@ -106,7 +106,7 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
 
 
 @router.post("/preview", response_model=RiverPreviewResponse)
-async def preview_river_import(
+def preview_river_import(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -115,10 +115,13 @@ async def preview_river_import(
     Parse a River bitcoin-activity CSV, map rows to proposed transactions,
     autofill FMV basis for Interest/Income, and mark rows that already
     exist in the ledger. Nothing is written to the database.
+
+    Both endpoints here are plain `def`: FastAPI runs them in a worker
+    thread, so their ledger work never stops the server answering others.
     """
     _require_auth(request)
 
-    content = await _read_validated_csv(file)
+    content = _read_validated_csv(file)
 
     rows, errors = parse_river_csv(content)
     proposals, adapt_errors, warnings = adapt_river_rows(rows)
@@ -130,7 +133,7 @@ async def preview_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    await _autofill_fmv_basis(proposals, warnings, db)
+    _autofill_fmv_basis(proposals, warnings, db)
     db.commit()  # keep the prices it looked up (nothing else is written)
     annotate_duplicates(proposals, db)
 
@@ -151,7 +154,7 @@ async def preview_river_import(
 
 
 @router.post("/execute", response_model=RiverImportResponse)
-async def execute_river_import(
+def execute_river_import(
     request: Request,
     payload: RiverExecuteRequest,
     db: Session = Depends(get_db),

@@ -7,12 +7,18 @@ AI assistant can turn pasted text or plain English into ledger entries.
 
 A logged-in session or the AI key (main.get_current_user; the key's
 allow-list in services/ai_key.py lists both routes).
+
+The ledger work runs in a worker thread (run_in_threadpool), never on the
+event loop: a dry run replays the whole ledger, and on the loop it stopped
+the server answering anything else, /api/health included. The endpoints
+stay `async` for the one async step, the FMV price fill.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from backend.database import get_db
 from backend.services.tax_time import get_tax_timezone
@@ -62,11 +68,11 @@ async def preview_entries(
     """
     _check_size(payload)
 
-    prepared = validate_rows(payload.rows, get_tax_timezone(db))
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
     await autofill_fmv(prepared, db)
     db.commit()  # keep the prices it looked up (nothing else is written yet)
-    mark_duplicates(prepared, db)
-    affected, balances = simulate(prepared, db)
+    await run_in_threadpool(mark_duplicates, prepared, db)
+    affected, balances = await run_in_threadpool(simulate, prepared, db)
 
     results = [p.result for p in prepared]
     for p in prepared:
@@ -102,7 +108,7 @@ async def execute_entries(
     """
     _check_size(payload)
 
-    prepared = validate_rows(payload.rows, get_tax_timezone(db))
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
     invalid = [p.result for p in prepared if p.result.status == STATUS_INVALID]
     if invalid:
         msgs = [f"Row {r.row}: {'; '.join(r.errors)}" for r in invalid]
@@ -113,10 +119,10 @@ async def execute_entries(
 
     await autofill_fmv(prepared, db)
     db.commit()  # keep the prices it looked up (nothing else is written yet)
-    mark_duplicates(prepared, db, exact_only=True)
+    await run_in_threadpool(mark_duplicates, prepared, db, exact_only=True)
     skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
 
-    created = write_rows(prepared, db)
+    created = await run_in_threadpool(write_rows, prepared, db)
     out = [
         CreatedTransaction(
             row=p.row,

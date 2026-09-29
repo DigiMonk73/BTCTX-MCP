@@ -50,15 +50,21 @@ def _require_auth(request: Request):
     return user_id
 
 
-async def _read_validated_csv(file: UploadFile) -> bytes:
-    """Validate the uploaded file's extension, size, and non-emptiness; return its content."""
+def _read_validated_csv(file: UploadFile) -> bytes:
+    """Validate the uploaded file's extension, size, and non-emptiness; return its content.
+
+    For the plain `def` import endpoints: FastAPI runs those in a worker
+    thread, so the parsing and ledger work never holds up the event loop
+    (it used to freeze every other request, /api/health included), and
+    they read the upload with the file's own blocking read.
+    """
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(
             status_code=400,
             detail="File must be a CSV file (.csv extension)"
         )
 
-    content = await file.read()
+    content = file.file.read()
 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -150,7 +156,7 @@ async def check_import_status(
 
 
 @router.post("/preview", response_model=CSVPreviewResponse)
-async def preview_import(
+def preview_import(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -163,7 +169,7 @@ async def preview_import(
     """
     _require_auth(request)
 
-    content = await _read_validated_csv(file)
+    content = _read_validated_csv(file)
 
     # Parse CSV
     result = parse_csv_file(content, get_tax_timezone(db))
@@ -187,7 +193,7 @@ async def preview_import(
 
 
 @router.post("/execute", response_model=CSVImportResponse)
-async def execute_csv_import(
+def execute_csv_import(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -209,7 +215,7 @@ async def execute_csv_import(
             detail=f"Database has {count} existing transaction(s). Please delete all transactions before importing."
         )
 
-    content = await _read_validated_csv(file)
+    content = _read_validated_csv(file)
 
     # Parse CSV
     result = parse_csv_file(content, get_tax_timezone(db))
