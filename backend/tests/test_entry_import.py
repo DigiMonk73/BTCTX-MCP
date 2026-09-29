@@ -152,6 +152,25 @@ class TestAutofill:
         assert res["autofilled_fields"] == ["proceeds_usd"]
         assert Decimal(res["normalized"]["proceeds_usd"]) == Decimal("1000.00")
 
+    def test_usd_moves_are_not_valued_at_the_btc_price(self):
+        """Bug hunt 2026-09-29: $5,000 of pay into Bank (source Income) got a
+        cost basis, and income, of 5,000 x the BTC price; a Spent or Gift
+        withdrawal from Bank got proceeds or FMV the same way. Only deposits
+        into and withdrawals from a BTC account are valued at the BTC price."""
+        rows = [
+            {"date": "2024-03-01", "type": "Deposit", "amount": "5000",
+             "from_account": "External", "to_account": "Bank", "source": "Income"},
+            {"date": "2024-03-02", "type": "Withdrawal", "amount": "100",
+             "from_account": "Bank", "to_account": "External", "purpose": "Spent"},
+            {"date": "2024-03-03", "type": "Withdrawal", "amount": "50",
+             "from_account": "Bank", "to_account": "External", "purpose": "Gift"},
+        ]
+        for res in preview(rows)["results"]:
+            assert res["status"] == "ready", res
+            assert res["autofilled_fields"] == [], res
+            assert not {"cost_basis_usd", "proceeds_usd", "fmv_usd"} & set(res["normalized"]), res
+            assert not any("BTC price" in w or "market value" in w for w in res["warnings"]), res
+
     def test_mybtc_deposit_needs_a_basis_and_is_not_autofilled(self):
         """F15: the AI can't save a MyBTC deposit without a basis (it used to be $0)."""
         dep = {

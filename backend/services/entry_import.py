@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_ID_TO_NAME, INCOME_SOURCES
+from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_ID_TO_NAME, ACCOUNT_WALLET, INCOME_SOURCES
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -66,6 +66,8 @@ STATUS_NOT_SIMULATED = "not_simulated"
 
 # Rows with these statuses are written by execute
 WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
+
+BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 
 @dataclass
@@ -176,13 +178,17 @@ def validate_rows(rows: List[EntryRow], tz=timezone.utc) -> List[PreparedRow]:
 # FMV autofill
 # ------------------------------------------------------------------------------
 def _autofill_target(tx_data: Dict[str, Any]) -> Optional[str]:
-    """Which USD field (if any) should be filled from the day's BTC price."""
+    """
+    Which USD field (if any) should be filled from the day's BTC price. Only
+    BTC moves: a deposit into or withdrawal from Bank or Exchange USD is in
+    USD, so its amount times the BTC price means nothing.
+    """
     tx_type = tx_data["type"]
-    if tx_type == "Deposit":
+    if tx_type == "Deposit" and tx_data["to_account_id"] in BTC_ACCOUNTS:
         source = (tx_data.get("source") or "").lower()
         if source in INCOME_SOURCES and tx_data.get("cost_basis_usd") is None:
             return "cost_basis_usd"
-    elif tx_type == "Withdrawal":
+    elif tx_type == "Withdrawal" and tx_data["from_account_id"] in BTC_ACCOUNTS:
         purpose = (tx_data.get("purpose") or "").lower()
         if purpose == "spent" and tx_data.get("proceeds_usd") is None:
             return "proceeds_usd"

@@ -43,6 +43,11 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
     landed on Dec 31, in the previous tax year.
   - Finding transactions by date with the AI uses days in your tax
     timezone: a 9 pm Dec 31 entry in Chicago is on Dec 31, not Jan 1.
+  - Pay the AI adds as an Income deposit into Bank or Exchange USD is no
+    longer valued at the BTC price ($5,000 became $250 million of income);
+    likewise a Spent or Gift withdrawal from a USD account. Only BTC
+    accounts are valued at the day's BTC price, and the preview (and the
+    CSV import) no longer says such a USD entry will be.
   - A time ending in " UTC" (`2025-01-01 03:00:00 UTC`) given to the AI is
     read as UTC, as the CSV import reads it; it was read in the tax
     timezone, hours off and sometimes in the wrong tax year.

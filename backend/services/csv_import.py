@@ -703,7 +703,8 @@ def _validate_type_specific(
                 message=DEPOSIT_SOURCE_UNKNOWN,
                 severity="error"
             ))
-        elif not cost_basis_usd and source and source.lower() in INCOME_SOURCES:
+        elif (not cost_basis_usd and source and source.lower() in INCOME_SOURCES
+              and to_account_id in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)):
             warnings.append(CSVParseError(
                 row_number=row_number,
                 column="cost_basis_usd",
@@ -731,7 +732,7 @@ def _validate_type_specific(
                 message="A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.",
                 severity="error"
             ))
-        if purpose and purpose.lower() in ("spent",) and proceeds_usd is None:
+        if from_btc and purpose and purpose.lower() in ("spent",) and proceeds_usd is None:
             warnings.append(CSVParseError(
                 row_number=row_number,
                 column="proceeds_usd",
