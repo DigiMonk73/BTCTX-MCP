@@ -46,11 +46,11 @@ minor, and some things that are only documented.
 | 3h | StartOS backup contents | documented only | the database, secret key, plain copies, and `store.json` with the generated password in clear (stale once changed) | |
 | 4a | What the AI provider sees | documented only | the whole ledger through the tools, plus the tax timezone; warned in four places | VM (AI-1) |
 | 4b | Setup prompt contains the server address | documented only | a LAN or `.onion` address and the app version go to the provider when pasted | VM |
-| 4c | AI key over `http://` | leak | no scheme check in the connector; the README's own example is `http://192.168.1.50:8080` | |
+| 4c | AI key over `http://` | **warned** (owner: connector warns once) | no scheme check in the connector; the README's own example is `http://192.168.1.50:8080` | |
 | 4d | Connector logs | **fixed** (was: leak) | the MCP SDK logs at INFO, so httpx writes `…/price/history?date=2024-03-05` into the AI app's log files | yes |
 | 4e | `uvx` fetches from PyPI | documented only (partly) | PyPI sees the IP, time and exact version | |
 | 5a | StartOS interfaces | no leak | only HTTPS is offered on the LAN; plain HTTP only inside the server (lo, lxcbr0); nothing public unless the owner turns it on | VM (host bindings) |
-| 5b | Docker publishes plain HTTP on all interfaces | leak | README uses `-p 8080:80` with no warning: password, cookie and ledger in clear on the LAN | yes |
+| 5b | Docker publishes plain HTTP on all interfaces | **fixed** (README: 127.0.0.1 + HTTPS note) | README uses `-p 8080:80` with no warning: password, cookie and ledger in clear on the LAN | yes |
 | 5c | `/api/health` version; `server: uvicorn` | fix proposed (low) | version fingerprinting from the LAN or Tor | VM (SEC-3) |
 
 ## Details worth reading

@@ -16,6 +16,7 @@ before any request, so the password never leaves the computer again.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -48,6 +49,23 @@ def normalize_base_url(url: str) -> str:
     if url.endswith("/api"):
         url = url[: -len("/api")]
     return url
+
+
+logger = logging.getLogger(__name__)
+
+PLAIN_HTTP_WARNING = (
+    "BTCTX_URL is plain http:// to another machine: the AI key and your ledger cross the "
+    "network unencrypted. Use an https:// address (e.g. BitcoinTX behind a reverse proxy) "
+    "or run the connector on the same computer as BitcoinTX."
+)
+_warned_plain_http = False
+
+
+def _plain_http_to_another_machine(url: str) -> bool:
+    u = httpx.URL(url)
+    host = u.host or ""
+    local = host == "localhost" or host.endswith(".localhost") or host.startswith("127.") or host == "::1"
+    return u.scheme == "http" and not local
 
 
 def default_key_file() -> Path:
@@ -84,6 +102,10 @@ class BtctxClient:
         self._key_file = key_file
         self._refusal = refusal  # set: every request fails with this, sending nothing
         self._configured_url = normalize_base_url(base_url) if base_url else None
+        global _warned_plain_http
+        if self._configured_url and not _warned_plain_http and _plain_http_to_another_machine(self._configured_url):
+            _warned_plain_http = True  # once: it goes to the AI app's log
+            logger.warning(PLAIN_HTTP_WARNING)
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",
             verify=verify,

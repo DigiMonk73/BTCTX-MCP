@@ -70,9 +70,14 @@ server uses.
 ### Docker
 
 ```bash
-docker run -d -p 8080:80 -v btctx-data:/data ghcr.io/digimonk73/btctx-mcp:latest
+docker run -d -p 127.0.0.1:8080:80 -v btctx-data:/data ghcr.io/digimonk73/btctx-mcp:latest
 # open http://localhost:8080
 ```
+
+This makes BitcoinTX reachable from this computer only. The container speaks
+plain HTTP: to use it from other devices, put it behind HTTPS (a reverse
+proxy such as Caddy) rather than publishing `-p 8080:80`, which sends your
+password and ledger unencrypted across your network.
 
 Images are amd64 and arm64; pin a version with `:vX.Y.Z`. To build it
 yourself: `docker build -t btctx .`

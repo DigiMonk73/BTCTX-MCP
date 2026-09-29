@@ -106,6 +106,11 @@ failed before it.
   it's written.
 - Making reports no longer logs how many transactions, disposals and lots
   each year has (now only at the DEBUG log level).
+- The Docker instructions start BitcoinTX reachable from your computer
+  only (`-p 127.0.0.1:8080:80`), with a note to put it behind HTTPS for
+  other devices; the old command sent your password and ledger unencrypted
+  across your network. The AI connector warns once in its log when it talks
+  to another machine over plain `http://` (owner decision).
 - Restoring a backup in the app keeps the price settings in use, as it
   keeps your login and AI key: a backup from before a switch to Tor or Off
   brought back direct lookups of the public sites (owner decision).

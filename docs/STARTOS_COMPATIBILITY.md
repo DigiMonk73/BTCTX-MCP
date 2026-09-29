@@ -74,7 +74,7 @@ An `-e DATABASE_FILE=...` at run time still overrides the image default.
 Standalone run, with the data on a named volume:
 
 ```bash
-docker build -t btctx . && docker run -d -p 8080:80 -v btctx-data:/data btctx
+docker build -t btctx . && docker run -d -p 127.0.0.1:8080:80 -v btctx-data:/data btctx
 ```
 
 Without a `-v` mount, `/data` lives in the container and is lost when the
@@ -178,7 +178,7 @@ storage, also check by hand:
 
 ```bash
 docker build -t btctx:test .
-docker run -d --name btctx-test -p 8080:80 -v btctx-test-data:/data btctx:test
+docker run -d --name btctx-test -p 127.0.0.1:8080:80 -v btctx-test-data:/data btctx:test
 
 # Database, key and backup service all point at /data
 docker exec btctx-test ls -la /data/
