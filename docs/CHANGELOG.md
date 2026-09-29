@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- **The StartOS mirror stays current between releases**: a docs-only change
+  to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
+  since Start9's build there ignores those files. Anything else waits for a
+  release.
+- Roadmap: the AI connector will follow the app's version, chosen over
+  `uvx btctx-mcp@latest`.
+
 ## [v1.2.2-1] - 2026-09-29 - StartOS package: BitcoinTX's own logo as its icon
 
 Package-only update; BitcoinTX itself is unchanged.
