@@ -37,7 +37,7 @@
 
     # Create the /app directory and /data for DB storage
     WORKDIR /app
-    RUN mkdir -p /data && chmod 777 /data
+    RUN mkdir -p /data && chmod 700 /data
     
     # If you remain root in python:3.11-slim, you don't need chown. 
     # But if you switch to a non-root user, do:
@@ -58,6 +58,7 @@
     EXPOSE 80
     
     # Final command: run the FastAPI app with Uvicorn on port 80. No access
-    # log: request lines carry client addresses and dates (?date=...).
-    CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80", "--no-access-log"]
+    # log: request lines carry client addresses and dates (?date=...). No
+    # "server: uvicorn" header on the responses.
+    CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80", "--no-access-log", "--no-server-header"]
     

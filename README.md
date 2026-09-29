@@ -133,9 +133,10 @@ claude mcp add --scope user bitcointx -- uvx btctx-mcp==X.Y.Z
 
 The MCP server ([`btctx-mcp` on PyPI](https://pypi.org/project/btctx-mcp/)) is
 pinned to your BitcoinTX release (`==X.Y.Z`), so your AI app runs exactly that
-version and fetches nothing new on its own. After you update
-BitcoinTX, every tool reply says so until you change the version in the
-command.
+version and fetches nothing new on its own. `uvx` downloads it from PyPI
+the first time (PyPI sees your IP address and the version; it's cached
+after that). After you update BitcoinTX, every tool reply says so until you
+change the version in the command.
 
 Docker and StartOS use `BTCTX_URL` and `BTCTX_AI_KEY` instead: create the key
 in the same Settings section (it's shown once) and paste it into your AI app's

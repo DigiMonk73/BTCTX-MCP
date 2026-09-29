@@ -179,7 +179,7 @@ def run_backend(sock: socket.socket):
     """Run the FastAPI backend with Uvicorn on an already-bound socket."""
     import uvicorn
 
-    config = uvicorn.Config("backend.main:app", log_level="warning", access_log=False)
+    config = uvicorn.Config("backend.main:app", log_level="warning", access_log=False, server_header=False)
     uvicorn.Server(config).run(sockets=[sock])
 
 

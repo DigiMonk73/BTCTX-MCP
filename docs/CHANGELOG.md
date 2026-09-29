@@ -114,6 +114,15 @@ failed before it.
 - The encrypted backup's password is typed in a hidden field, twice: it
   was a plain pop-up that showed it and asked once, so a typo made a backup
   no one could open (owner decision).
+- Deleted transactions are erased from the database file (SQLite's secure
+  delete), instead of staying readable in it and its copies until it was
+  compacted.
+- Settings > Backup & Restore says BitcoinTX keeps a few unencrypted safety
+  copies of its database in its data folder.
+- Responses no longer name the web server ("server: uvicorn"), and the
+  Docker image's data folder is owner-only (it was writable by everyone).
+- The READMEs say that `uvx` downloads the AI connector from PyPI once,
+  which sees your IP address and the version.
 - Settings (and StartOS's Price Source & Privacy action and instructions)
   name every public site BitcoinTX may contact (mempool.space and Coinbase
   were missing) and say the sites see your IP address and when BitcoinTX is

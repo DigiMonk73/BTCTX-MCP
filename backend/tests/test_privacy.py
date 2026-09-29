@@ -293,3 +293,29 @@ def test_settings_names_every_site_public_prices_may_contact():
     public = help_text[help_text.index('value: "public"'):help_text.index('value: "off"')]
     assert [names[h] for h in sorted(hosts) if names[h] not in public] == []
     assert "when BitcoinTX is open" in public and "IP address" in public
+
+
+def test_deleted_rows_are_erased_from_the_database_file(tmp_path):
+    """Privacy audit 2026-09-29 (3e), owner decision: a deleted row's bytes
+    stayed in the SQLite file (and in every copy of it) until compacted."""
+    import backend.database  # noqa: F401  (the app's connection setup)
+
+    path = tmp_path / "t.db"
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE TABLE t (x TEXT)")
+        conn.exec_driver_sql("INSERT INTO t VALUES ('" + "SECRET-MARKER-" * 200 + "')")
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DELETE FROM t")
+    engine.dispose()
+    assert b"SECRET-MARKER-" not in path.read_bytes()
+
+
+def test_no_server_header_and_an_owner_only_docker_data_folder():
+    """Privacy audit 2026-09-29 (5c, 3g), owner decision: every response
+    said "server: uvicorn", and the image made /data world-writable (777)."""
+    root = Path(__file__).resolve().parents[2]
+    dockerfile = (root / "Dockerfile").read_text()
+    assert '"--no-server-header"' in dockerfile and "chmod 700 /data" in dockerfile and "777" not in dockerfile
+    assert "'--no-server-header'" in (root / "startos/startos/main.ts").read_text()
+    assert "server_header=False" in (root / "desktop/entrypoint.py").read_text()

@@ -737,6 +737,10 @@ const Settings: React.FC = () => {
       {/* ✅ Backup & Restore */}
       <div className="settings-section" role="region" aria-label="Backup & Restore">
         <h3 className="section-title">Backup & Restore</h3>
+        <p className="settings-option-subtitle">
+          BitcoinTX also keeps a few unencrypted safety copies of its database in its data folder,
+          next to the database: from before updates and restores, and those an AI assistant makes.
+        </p>
 
         <div className="settings-option">
           <div className="option-info">

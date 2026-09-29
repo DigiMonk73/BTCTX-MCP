@@ -22,7 +22,10 @@ import os
 import logging
 import datetime
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+import sqlite3
+
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.types import TypeDecorator, String
 import bcrypt
@@ -73,6 +76,14 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+@event.listens_for(Engine, "connect")
+def _erase_deleted_data(dbapi_connection, _record):
+    """Every SQLite connection overwrites what it deletes: a deleted
+    transaction doesn't stay readable in the file (or in copies of it)."""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        dbapi_connection.execute("PRAGMA secure_delete = ON")
 
 # ------------------------------------------------------------------
 # 3) Custom UTC DateTime for SQLite

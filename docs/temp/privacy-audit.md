@@ -39,19 +39,19 @@ minor, and some things that are only documented.
 | 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
 | 3b | Encrypted backup file | **fixed** (owner: hidden, typed twice, no minimum) | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
 | 3c | Temporary plain copy while backing up | **fixed** | a plain SQLite snapshot in the system temp folder (0700, deleted after); the restore's staging file is chmod'ed after writing | yes |
-| 3d | Plain copies in `<data>/backups/` | documented only | up to 5 pre-upgrade/pre-restore + 3 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
-| 3e | Deleted rows stay in the SQLite file | leak (minor) | no `secure_delete`, no VACUUM | |
+| 3d | Plain copies in `<data>/backups/` | **documented in Settings** | up to 5 pre-upgrade/pre-restore + 3 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
+| 3e | Deleted rows stay in the SQLite file | **fixed** (secure_delete) | no `secure_delete`, no VACUUM | |
 | 3f | File permissions | no leak | database, secret key, setup code, `mcp.json`: 0600 | VM (`/data` listing) |
-| 3g | Docker `/data` is `chmod 777` | fix proposed | cosmetic in a root-only container | |
+| 3g | Docker `/data` is `chmod 777` | **fixed** (700) | cosmetic in a root-only container | |
 | 3h | StartOS backup contents | documented only | the database, secret key, plain copies, and `store.json` with the generated password in clear (stale once changed) | |
 | 4a | What the AI provider sees | documented only | the whole ledger through the tools, plus the tax timezone; warned in four places | VM (AI-1) |
 | 4b | Setup prompt contains the server address | documented only | a LAN or `.onion` address and the app version go to the provider when pasted | VM |
 | 4c | AI key over `http://` | **warned** (owner: connector warns once) | no scheme check in the connector; the README's own example is `http://192.168.1.50:8080` | |
 | 4d | Connector logs | **fixed** (was: leak) | the MCP SDK logs at INFO, so httpx writes `…/price/history?date=2024-03-05` into the AI app's log files | yes |
-| 4e | `uvx` fetches from PyPI | documented only (partly) | PyPI sees the IP, time and exact version | |
+| 4e | `uvx` fetches from PyPI | **documented** (READMEs) | PyPI sees the IP, time and exact version | |
 | 5a | StartOS interfaces | no leak | only HTTPS is offered on the LAN; plain HTTP only inside the server (lo, lxcbr0); nothing public unless the owner turns it on | VM (host bindings) |
 | 5b | Docker publishes plain HTTP on all interfaces | **fixed** (README: 127.0.0.1 + HTTPS note) | README uses `-p 8080:80` with no warning: password, cookie and ledger in clear on the LAN | yes |
-| 5c | `/api/health` version; `server: uvicorn` | fix proposed (low) | version fingerprinting from the LAN or Tor | VM (SEC-3) |
+| 5c | `/api/health` version; `server: uvicorn` | **server header fixed**; health version kept (the Mac app and connector read it) | version fingerprinting from the LAN or Tor | VM (SEC-3) |
 
 ## Details worth reading
 

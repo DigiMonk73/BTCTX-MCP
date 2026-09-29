@@ -97,6 +97,8 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   const before = await listTx(page.request);
   acceptDialogs(page); // the "Delete ALL transactions?" confirm below
   await openSettings(page);
+  // Privacy audit 2026-09-29 (3d): the plain safety copies are mentioned
+  await expect(page.getByText("unencrypted safety copies")).toBeVisible();
 
   const download = page.waitForEvent("download");
   await page.getByLabel("Encrypt with password").fill("backup-secret");

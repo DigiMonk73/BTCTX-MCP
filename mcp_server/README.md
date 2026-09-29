@@ -45,7 +45,8 @@ There is deliberately no bulk delete.
   app **v0.9.2 or later** (its key file). `backup_ledger` needs v1.0.3.
   Install the server pinned to your BitcoinTX release (`btctx-mcp==X.Y.Z`
   from PyPI; the setup prompt in Settings fills in your version), so your AI
-  app runs exactly that version. Versions before 1.2.0 aren't on PyPI: use
+  app runs exactly that version. The first `uvx` run downloads it from PyPI,
+  which sees your IP address and the version; it's cached after that. Versions before 1.2.0 aren't on PyPI: use
   `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`.
   When the server and your BitcoinTX are different versions, every tool
   reply starts with a line saying so and what to change.
