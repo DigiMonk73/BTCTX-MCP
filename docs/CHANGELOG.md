@@ -4,6 +4,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A CSV row with an unknown `fee_usd_typed` value** (anything but yes, no
+  or blank) crashed the import preview with a server error; it is now a row
+  error, "Must be yes, no or blank." Found by the new equivalence check's
+  bad inputs.
+
 ### Development
 - **Code cleanup, no change in behaviour** (plan: `docs/temp/code-cleanup.md`):
   the standards are written down in `docs/CODE_STYLE.md`, and `CLAUDE.md`

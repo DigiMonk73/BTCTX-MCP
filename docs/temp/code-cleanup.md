@@ -382,11 +382,12 @@ commit)
 
 ## Findings (noted, not fixed; each needs the owner's OK)
 
-- **A CSV row with an unexpected `fee_usd_typed` value** (say "maybe")
-  crashes the import preview with a server error (500) instead of the
-  message "Must be yes, no or blank.": the error is built without its
-  `severity` (`csv_import._validate_row`). Found by the equivalence check's
-  bad inputs; the check records the 500 as today's answer.
+- **Fixed (owner's OK, 2026-09-29):** a CSV row with an unexpected
+  `fee_usd_typed` value (say "maybe") crashed the import preview with a
+  server error (500) instead of the message "Must be yes, no or blank.":
+  the error was built without its `severity`. Its own commit, with a test;
+  from then on the cleanup's equivalence runs use that commit as the
+  baseline (`--against`), so the fix isn't counted as a difference.
 
 - **The lock flag is half-built.** The owner decided to leave it for later; a
   "Next" to-do will decide between finishing it and removing it. Today:

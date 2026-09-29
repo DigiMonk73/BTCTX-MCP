@@ -343,6 +343,7 @@ def _validate_row(
             row_number=row_number,
             column="fee_usd_typed",
             message=f"Invalid fee_usd_typed '{fee_usd_typed}'. Must be yes, no or blank.",
+            severity="error"
         ))
         return None, None, errors, warnings
 
