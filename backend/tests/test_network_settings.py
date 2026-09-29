@@ -242,6 +242,23 @@ def test_the_dashboard_and_sidebar_asking_at_once_make_one_request(auth_client, 
     assert asked == [NODE + "/api/v1/prices"]
 
 
+@pytest.mark.parametrize("proxy", [None, "socks5h://127.0.0.1:9050"])
+def test_a_proxy_that_is_down_is_named(auth_client, monkeypatch, proxy):
+    """Seen on StartOS with Tor stopped: every public request failed to
+    connect, and the error said only "No public site answered"."""
+    def down(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("All connection attempts failed")
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(down))
+    auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": proxy})
+    bitcoin._price_cache.update(settings=None)
+    for call in (real_current_price, real_block_height):
+        with pytest.raises(HTTPException) as e:
+            asyncio.run(call())
+        assert e.value.status_code == 502
+        assert ("Tor, is it running?" in e.value.detail) == (proxy is not None), e.value.detail
+
+
 def test_the_proxy_carries_public_requests_and_skips_a_local_mempool(auth_client, real_network_code, monkeypatch):
     made = []
 

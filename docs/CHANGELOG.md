@@ -84,6 +84,10 @@ All notable changes to BitcoinTX are documented in this file.
   "Loading..." forever; it now says "Prices off" (or "No price" when a
   lookup failed).
 
+- When public price sites go through a proxy that's down (e.g. Tor
+  stopped), the error says so and asks whether Tor is running, instead of
+  only "No public site answered".
+
 ### Development
 - `docs/AGENT-TESTS.md`: the release tests an AI agent runs on a StartOS VM
   before each release (install, actions, the update from the last release,

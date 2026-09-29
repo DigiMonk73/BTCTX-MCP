@@ -242,6 +242,12 @@ def require_public() -> None:
         raise refuse_public()
 
 
+def unreachable(exc: Exception) -> bool:
+    """Whether a request never got an answer: no connection (a proxy down,
+    e.g. Tor stopped), a proxy refusal or a timeout."""
+    return isinstance(exc, httpx.TransportError)
+
+
 def async_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
     """A client for public sites: through the proxy when one is set."""
     if _transport is not None:

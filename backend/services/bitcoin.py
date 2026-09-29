@@ -60,8 +60,10 @@ async def _from_own_node(path: str, parse: Callable):
 
 
 async def _first_public(urls_and_parsers, what: str):
-    """The first public site that answers, or 502."""
+    """The first public site that answers, or 502 (naming the proxy when
+    none could even be reached through it, e.g. Tor stopped)."""
     outbound.require_public()
+    unreached = 0
     async with outbound.async_client() as client:
         for url, parse in urls_and_parsers:
             try:
@@ -71,7 +73,12 @@ async def _first_public(urls_and_parsers, what: str):
                     if value is not None:
                         return value
             except Exception as exc:
+                unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
+    if outbound.current().proxy_url and unreached == len(urls_and_parsers):
+        raise HTTPException(status_code=502, detail=(
+            f"No public site answered for the {what}: none could be reached through the proxy for "
+            "public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)"))
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
