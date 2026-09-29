@@ -126,8 +126,8 @@ def generate_transaction_history_report(
         .all()
     )
 
-    logger.info(
-        "DEBUG: Found %d transactions for year=%d in date range [%s -> %s].",
+    logger.debug(
+        "Found %d transactions for year=%d in date range [%s -> %s].",
         len(txs), year, start_of_year, end_of_year
     )
 
@@ -299,7 +299,7 @@ def _generate_csv(rows: List[dict], year: int) -> str:
     """
     lines = [",".join(COLUMNS)]
 
-    logger.info("DEBUG: Starting _generate_csv with %d rows for year=%s", len(rows), year)
+    logger.debug("Starting _generate_csv with %d rows for year=%s", len(rows), year)
 
     for idx, r in enumerate(rows):
         # Text cells can't start a spreadsheet formula; numbers stay numbers
@@ -312,7 +312,7 @@ def _generate_csv(rows: List[dict], year: int) -> str:
         lines.append(final_line)
 
     csv_data = "\n".join(lines)
-    logger.info(f"Generated Transaction History CSV for {year}, {len(rows)} rows.")
+    logger.debug(f"Generated Transaction History CSV for {year}, {len(rows)} rows.")
     return csv_data
 
 
@@ -393,7 +393,7 @@ def _generate_pdf(rows: List[dict], year: int) -> bytes:
     # Table header
     data = [list(COLUMNS)]
 
-    logger.info("DEBUG: Building PDF table with %d rows for year=%s", len(rows), year)
+    logger.debug("Building PDF table with %d rows for year=%s", len(rows), year)
 
     # Add table rows
     for idx, r in enumerate(rows):
@@ -438,5 +438,5 @@ def _generate_pdf(rows: List[dict], year: int) -> bytes:
     doc.build(story, onFirstPage=on_first_page, onLaterPages=on_later_pages)
     pdf_bytes = buffer.getvalue()
     buffer.close()
-    logger.info(f"Generated Transaction History PDF for {year}, {len(rows)} rows.")
+    logger.debug(f"Generated Transaction History PDF for {year}, {len(rows)} rows.")
     return pdf_bytes

@@ -23,6 +23,16 @@ Found testing the published 1.2.1 on a StartOS VM (2026-09-29).
   "the average market value at the time of disposal"; it now says values
   are the ones entered, a blank one comes from that day's stored daily
   price, and dates are in the tax timezone (named).
+- **Privacy fixes from an audit of 1.2.1** (`docs/temp/privacy-audit.md`):
+  - The AI connector no longer writes request addresses to the AI app's
+    log files; past-price lookups named your transaction dates there.
+  - An `.onion` mempool address needs the proxy: it's refused without one
+    (it was looked up through the normal DNS, which then saw the name).
+  - An encrypted backup no longer passes through a plain copy in the
+    system's temp folder, and a restore's decrypted file is owner-only from
+    the moment it's written.
+  - Making reports no longer logs how many transactions, disposals and
+    lots each year has (now only at the DEBUG log level).
 - **Keyboard focus shows in the Mac app on older macOS.** On Safari before
   15.4 (macOS 10.15 to 12.2) no focus ring was drawn at all; the browser's
   own ring now stays there, and newer versions keep the gold one.

@@ -103,7 +103,7 @@ def get_irs_reports(
         short_rows = [Form8949Row(**r) for r in report_data["short_term"]]
         long_rows = [Form8949Row(**r) for r in report_data["long_term"]]
 
-        logger.info(f"Generating IRS reports for {year}: {len(short_rows)} short-term, {len(long_rows)} long-term disposals")
+        logger.debug(f"Generating IRS reports for {year}: {len(short_rows)} short-term, {len(long_rows)} long-term disposals")
 
         partial_pdfs: List[bytes] = []
 

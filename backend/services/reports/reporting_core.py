@@ -180,7 +180,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> List[Dict[str, Any]
             "value": cur_value,  # None: no Jan 1 price
         })
 
-    logger.info(f"Found {len(results)} leftover BTC lots as of start-of-year {year}")
+    logger.debug(f"Found {len(results)} leftover BTC lots as of start-of-year {year}")
     return results
 
 

@@ -71,6 +71,31 @@ def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
         assert day not in info
 
 
+def test_reports_log_no_counts_of_the_ledger_at_info(auth_client, caplog):
+    """Privacy audit 2026-09-29 (3a): making reports logged how many
+    transactions, disposals and lots each year had, at INFO."""
+    auth_client.delete("/api/transactions/delete_all")
+    for body in (
+        dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
+             amount="50000", fee_amount="0", fee_currency="USD", source="N/A"),
+        dict(type="Buy", timestamp="2024-01-03T12:00:00Z", from_account_id=1, to_account_id=4,
+             amount="1", cost_basis_usd="40000", fee_amount="0", fee_currency="USD"),
+        dict(type="Sell", timestamp="2024-06-03T12:00:00Z", from_account_id=4, to_account_id=3,
+             amount="0.5", gross_proceeds_usd="30000", fee_amount="0", fee_currency="USD"),
+    ):
+        assert auth_client.post("/api/transactions", json=body).status_code == 200
+    with caplog.at_level("INFO", logger="backend"):
+        for path, params in (("irs_reports", {}), ("complete_tax_report", {}),
+                             ("simple_transaction_history", {"format": "csv"}),
+                             ("simple_transaction_history", {"format": "pdf"})):
+            r = auth_client.get(f"/api/reports/{path}", params={"year": 2024, **params})
+            assert r.status_code == 200, (path, r.text)
+    auth_client.delete("/api/transactions/delete_all")
+    info = [rec.getMessage() for rec in caplog.records if rec.levelno >= 20]
+    counted = [m for m in info if any(w in m for w in ("transactions for", "rows", "disposals", "lots"))]
+    assert counted == []
+
+
 def test_fonts_are_bundled_not_fetched_from_google():
     index = (REPO / "frontend" / "index.html").read_text()
     assert "fonts.googleapis.com" not in index and "fonts.gstatic.com" not in index
@@ -208,3 +233,44 @@ def test_the_database_file_is_owner_only(tmp_path):
     init_db(engine)
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
     engine.dispose()
+
+
+def test_a_backup_leaves_no_plain_copy_outside_the_data_folder(tmp_path, monkeypatch):
+    """Privacy audit 2026-09-29 (3c): the consistent snapshot was written in
+    plain to the system's temp folder (another filesystem on Docker or
+    StartOS) before being encrypted."""
+    data = tmp_path / "data"
+    data.mkdir()
+    live = _db(data / "btctx.db")
+    opened = []
+    real_connect = sqlite3.connect
+    monkeypatch.setattr(backup.sqlite3, "connect", lambda p, *a, **k: opened.append(str(p)) or real_connect(p, *a, **k))
+    backup.make_backup("pw", tmp_path / "out.btx", db_path=live)
+    assert opened and all(p == ":memory:" or p.startswith(str(data)) for p in opened), opened
+    assert sorted(f.name for f in data.iterdir()) == ["btctx.db"]
+
+
+def test_a_restore_never_writes_the_decrypted_ledger_readable_by_others(tmp_path, monkeypatch):
+    """Privacy audit 2026-09-29 (3c): the staging file was written with the
+    default permissions, then made owner-only."""
+    live = _db(tmp_path / "btctx.db")
+    blob = tmp_path / "b.btx"
+    backup.make_backup("pw", blob, db_path=live)
+    modes = []
+    real_write = Path.write_bytes
+
+    def spy(self, data):
+        n = real_write(self, data)
+        if self.name.endswith(".restoring"):
+            modes.append(stat.S_IMODE(os.stat(self).st_mode))
+        return n
+
+    monkeypatch.setattr(Path, "write_bytes", spy)
+    old = os.umask(0o022)
+    try:
+        engine = create_engine(f"sqlite:///{live}")
+        with pytest.raises(Exception):  # the toy database isn't a BitcoinTX schema; staging is what matters
+            backup.restore_backup("pw", blob, db_path=live, engine=engine)
+    finally:
+        os.umask(old)
+    assert all(m == 0o600 for m in modes), [oct(m) for m in modes]

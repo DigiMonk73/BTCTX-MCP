@@ -116,6 +116,15 @@ async def test_the_key_never_shows_in_errors_or_logs(caplog):
     await btctx.aclose()
 
 
+def test_request_urls_stay_out_of_the_ai_apps_logs():
+    """Privacy audit 2026-09-29 (4d): the MCP SDK logs at INFO, and httpx
+    then wrote every request line (e.g. …/price/history?date=2024-03-05)
+    to stderr, which AI apps keep in their log files."""
+    import btctx_mcp.server  # noqa: F401  (sets up logging like a real run)
+
+    assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
+
+
 async def test_a_refused_action_says_to_do_it_in_bitcointx():
     transport, _ = mock(403, {"detail": "The AI key can't do this. Log in to BitcoinTX to do it."})
     btctx = BtctxClient(base_url="http://btctx.test", ai_key=KEY, transport=transport)

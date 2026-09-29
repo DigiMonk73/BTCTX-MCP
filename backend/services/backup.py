@@ -146,16 +146,29 @@ def make_backup(password: str, output_file: Path, db_path: Optional[Path] = None
         raise FileNotFoundError(f"Database file not found: {db_path}")
 
     # sqlite3's backup API gives a consistent snapshot even while the app
-    # is writing (a plain file read could catch a half-written page).
-    with tempfile.TemporaryDirectory() as tmp:
-        snapshot = Path(tmp) / "snapshot.db"
-        src, dst = sqlite3.connect(str(db_path)), sqlite3.connect(str(snapshot))
-        try:
-            src.backup(dst)
-        finally:
-            dst.close()
-            src.close()
-        db_data = snapshot.read_bytes()
+    # is writing (a plain file read could catch a half-written page). The
+    # plain snapshot stays in memory, or (Python 3.10, no serialize) in a
+    # private folder next to the database, never in the system's temp folder.
+    src = sqlite3.connect(str(db_path))
+    try:
+        if hasattr(sqlite3.Connection, "serialize"):
+            dst = sqlite3.connect(":memory:")
+            try:
+                src.backup(dst)
+                db_data = dst.serialize()
+            finally:
+                dst.close()
+        else:
+            with tempfile.TemporaryDirectory(dir=db_path.parent, prefix=".backup-") as tmp:
+                snapshot = Path(tmp) / "snapshot.db"
+                dst = sqlite3.connect(str(snapshot))
+                try:
+                    src.backup(dst)
+                finally:
+                    dst.close()
+                db_data = snapshot.read_bytes()
+    finally:
+        src.close()
 
     # Owner-only, like the database itself.
     fd = os.open(output_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -187,8 +200,10 @@ def restore_backup(password: str, encrypted_file: Path, db_path: Optional[Path] 
         raise ValueError("This file isn't a BitcoinTX backup (no database inside).")
 
     staging = db_path.with_name(db_path.name + ".restoring")
-    staging.write_bytes(decrypted)
-    os.chmod(staging, 0o600)
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # owner-only from the start, also over a leftover file
+    with os.fdopen(fd, "wb") as f:
+        f.write(decrypted)
     staged = create_engine(f"sqlite:///{staging}", poolclass=NullPool)
     try:
         result = upgrade_database(staged, backup=False)

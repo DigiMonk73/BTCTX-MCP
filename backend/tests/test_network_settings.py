@@ -357,6 +357,25 @@ def test_mempool_on_startos_through_the_bridge_address(auth_client, server_env, 
     assert requests_seen == [BRIDGE + "/api/blocks/tip/height"]
 
 
+ONION = "http://mempoolabcdefghijklmnopqrstuvwxyz234567abcdefghijklmnop.onion"
+
+
+def test_an_onion_mempool_address_needs_the_proxy(auth_client):
+    """Privacy audit 2026-09-29 (1h): saved without a proxy, the .onion name
+    went to the system's DNS resolver on every price lookup."""
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": ONION})
+    assert r.status_code == 422 and ".onion" in r.json()["detail"]
+    r = auth_client.put("/api/settings/network", json={
+        **PUBLIC, "price_source": "mempool", "mempool_url": ONION, "proxy_url": "socks5h://127.0.0.1:9050"})
+    assert r.status_code == 200, r.text
+
+
+def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_env, requests_seen):
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=ONION, BTCTX_PROXY_URL="")
+    assert auth_client.get("/api/bitcoin/price").status_code == 502
+    assert requests_seen == []
+
+
 def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen):
     """StartOS passes no address while Mempool is missing: nothing is asked, and the reason says so."""
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")

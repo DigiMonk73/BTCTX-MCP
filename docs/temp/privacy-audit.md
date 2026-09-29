@@ -31,14 +31,14 @@ minor, and some things that are only documented.
 | 1e | Hosts named in Settings | leak (disclosure gap) | mempool.space, Coinbase and Kraken's history are contacted but never named | yes |
 | 1f | User-Agent `python-httpx/0.28.1` | no leak | the same for every install; don't add a version | |
 | 1g | socks5 vs socks5h, fail closed | no leak | the hostname goes to the proxy either way; no direct retry | VM (PRC-3) |
-| 1h | `.onion` mempool address with no proxy | leak | accepted, then looked up through normal DNS | yes |
+| 1h | `.onion` mempool address with no proxy | **fixed** (was: leak) | accepted, then looked up through normal DNS | yes |
 | 1i | Clearnet mempool server bypasses Tor | documented only | Settings says only `.onion` uses the proxy | |
 | 1j | In-app restore brings back the backup's price settings | decide | an old "public, no proxy" backup turns lookups on again, directly; the code does it on purpose (the AI key and login, by contrast, stay) | yes |
 | 1k | CoinGecko refuses VPN and Tor addresses | info | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
 | 2 | Browser: CSP, headers, cookie, storage, links, Mac webview | no leak | strict CSP, no-referrer, HttpOnly cookie, no browser storage, only self-hosted fonts | VM (SEC-3, SEC-7) |
-| 3a | Service logs | leak (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
+| 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
 | 3b | Encrypted backup file | fix proposed | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
-| 3c | Temporary plain copy while backing up | fix proposed | a plain SQLite snapshot in the system temp folder (0700, deleted after); the restore's staging file is chmod'ed after writing | yes |
+| 3c | Temporary plain copy while backing up | **fixed** | a plain SQLite snapshot in the system temp folder (0700, deleted after); the restore's staging file is chmod'ed after writing | yes |
 | 3d | Plain copies in `<data>/backups/` | documented only | up to 5 pre-upgrade/pre-restore + 3 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
 | 3e | Deleted rows stay in the SQLite file | leak (minor) | no `secure_delete`, no VACUUM | |
 | 3f | File permissions | no leak | database, secret key, setup code, `mcp.json`: 0600 | VM (`/data` listing) |
@@ -47,7 +47,7 @@ minor, and some things that are only documented.
 | 4a | What the AI provider sees | documented only | the whole ledger through the tools, plus the tax timezone; warned in four places | VM (AI-1) |
 | 4b | Setup prompt contains the server address | documented only | a LAN or `.onion` address and the app version go to the provider when pasted | VM |
 | 4c | AI key over `http://` | leak | no scheme check in the connector; the README's own example is `http://192.168.1.50:8080` | |
-| 4d | Connector logs | leak | the MCP SDK logs at INFO, so httpx writes `…/price/history?date=2024-03-05` into the AI app's log files | yes |
+| 4d | Connector logs | **fixed** (was: leak) | the MCP SDK logs at INFO, so httpx writes `…/price/history?date=2024-03-05` into the AI app's log files | yes |
 | 4e | `uvx` fetches from PyPI | documented only (partly) | PyPI sees the IP, time and exact version | |
 | 5a | StartOS interfaces | no leak | only HTTPS is offered on the LAN; plain HTTP only inside the server (lo, lxcbr0); nothing public unless the owner turns it on | VM (host bindings) |
 | 5b | Docker publishes plain HTTP on all interfaces | leak | README uses `-p 8080:80` with no warning: password, cookie and ledger in clear on the LAN | yes |
@@ -113,5 +113,5 @@ minor, and some things that are only documented.
     version only to loopback or logged-in callers (the Mac app reads it
     from loopback); one README line on what PyPI sees.
 
-Items 1, 2, 6 and 10 are plain bug fixes. 3, 4, 5, 7, 8, 9 and 11 change
+Items 1, 2, 6 and 10 were plain bug fixes: done (commit after cb834be). 3, 4, 5, 7, 8, 9 and 11 change
 behaviour or text the owner sees: decide each.

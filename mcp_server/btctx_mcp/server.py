@@ -22,6 +22,7 @@ from __future__ import annotations
 import functools
 import importlib.metadata
 import inspect
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Literal, Optional
@@ -206,6 +207,9 @@ mcp = MCPServer(
     description="Add and correct transactions in a self-hosted BitcoinTX Bitcoin tax ledger.",
     instructions=LEDGER_GUIDE,
 )
+# The SDK logs at INFO to stderr, which AI apps keep in log files; httpx's
+# request lines (…/price/history?date=…) would name the ledger's dates there.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 

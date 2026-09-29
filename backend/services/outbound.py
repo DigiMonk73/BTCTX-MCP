@@ -213,6 +213,10 @@ def save(
     proxy = _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
     if price_source == "mempool" and not mempool:
         raise HTTPException(status_code=422, detail="Enter your mempool server's address to use it.")
+    if _is_onion(mempool) and not proxy:
+        raise HTTPException(status_code=422, detail=(
+            "An .onion mempool server is reached through the proxy: set it below "
+            "(e.g. Tor, socks5h://127.0.0.1:9050)."))
     _set(db, SOURCE_KEY, price_source)
     _set(db, MEMPOOL_KEY, mempool)
     _set(db, FALLBACK_KEY, "on" if mempool_fallback else "off")
@@ -263,8 +267,14 @@ def own_node_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
     A client for the owner's mempool server: direct (it's on their network
     or their StartOS), except an .onion, which needs the proxy.
     """
+    onion = _is_onion(_current.mempool_url)
+    if onion and not _current.proxy_url:
+        # Never directly: the system's DNS resolver would see the .onion name.
+        raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
     if _transport is not None:
         return httpx.AsyncClient(timeout=timeout, transport=_transport)
-    host = urlparse(_current.mempool_url or "").hostname or ""
-    proxy = _current.proxy_url if host.endswith(".onion") else None
-    return httpx.AsyncClient(timeout=timeout, proxy=proxy)
+    return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None)
+
+
+def _is_onion(url: Optional[str]) -> bool:
+    return (urlparse(url or "").hostname or "").endswith(".onion")
