@@ -31,7 +31,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 
 - [x] Tax report PDF: split `generate_comprehensive_tax_report` (510 lines, `reports/complete_tax_report.py`) into one function per section, with one shared table-style helper instead of the copy-pasted style blocks.
 - [x] CSV instructions PDF: split `generate_csv_instructions_pdf` (395 lines, `backend/scripts/generate_csv_instructions_pdf.py`) the same way.
-- [ ] CSV import (`csv_import.py`): `_validate_row` (276 lines), `generate_template_csv` (147), `_validate_type_specific` (105), `parse_csv_file` (102); one helper for the repeated error-building blocks, one check per field.
+- [x] CSV import (`csv_import.py`): `_validate_row` (276 lines), `generate_template_csv` (147), `_validate_type_specific` (105), `parse_csv_file` (102); one helper for the repeated error-building blocks, one check per field.
 - [ ] Ledger engine (`transaction.py`, 1,540 lines): `build_ledger_entries_for_transaction` (215), `update_transaction_record` (128), `maybe_transfer_bitcoin_lot` (121), `maybe_dispose_lots_fifo` (113), `create_transaction_record` (112) into named steps; kept as one file (tests replace its `get_btc_price` by name; see `code-cleanup.md`). The tax-invariant tests are the safety net.
 - [ ] Gains: `get_gains_and_losses` (179 lines, `calculation.py`).
 - [ ] River import: `adapt_river_rows` (149 lines, `river_import.py`) and the router's `execute_river_import` (106, `routers/river_import.py`).

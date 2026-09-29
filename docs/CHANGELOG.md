@@ -40,6 +40,12 @@ All notable changes to BitcoinTX are documented in this file.
   one section per method (`backend/scripts/generate_csv_instructions_pdf.py`,
   from one 395-line function); the PDF it writes is byte-identical, and the
   committed one is unchanged.
+- **The CSV import** checks a row one field at a time (`csv_import.py`:
+  `_validate_row` was 276 lines), with the account rules per type as a
+  table and each type's own rules in their own function; the template's
+  sample rows are data. Two branches that could never run are gone.
+  Checked on 40,728 generated rows: the same errors, warnings, previews and
+  transactions.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

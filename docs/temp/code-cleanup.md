@@ -311,7 +311,7 @@ fixed inside a cleanup commit.
       identical.
 
 **Imports and gains**
-- [ ] `csv_import.py`:
+- [x] `csv_import.py`:
   - One helper builds a row error.
   - One check per field.
   - `_validate_type_specific`, `_validate_accounts_for_type`,
