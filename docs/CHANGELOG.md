@@ -59,6 +59,12 @@ All notable changes to BitcoinTX are documented in this file.
   and the AI connector's request and `update_transaction`** are divided
   into named steps too; the connector's tools, their schemas and outputs
   are unchanged.
+- **The ledger engine** (`transaction.py`) reads as its steps: create and
+  edit (check, complete, insert or apply, recalculate), the ledger lines per
+  kind of transaction, FIFO disposal and transfer lot moves, the input checks
+  in their fixed order and each type's account rules as a table. Two unused
+  functions are gone. Same lines, lots, disposals, figures and messages on
+  every ledger and bad input compared; recalculation no slower.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

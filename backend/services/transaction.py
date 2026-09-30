@@ -1,19 +1,11 @@
 """
-Core logic for BitcoinTX with a hybrid double-entry system:
- - Single-entry inputs (type, amount, from_account, to_account, etc.)
- - Multi-line LedgerEntry creation for same-currency double-entry
- - Cross-currency Buy/Sell skip net-zero checks for simpler personal ledgers
- - BTC FIFO logic for sells/withdrawals
- - Transfer logic that handles partial-lot fee disposal
-
-Implementation Notes:
- - "Scorched Earth": after editing or deleting a transaction, we remove
-   all ledger entries and re-lot everything in strict chronological order.
-   This is acceptable for a single-user system with a relatively small dataset.
- - If we backdate (change the timestamp to earlier), we run a partial re-lot
-   from that timestamp forward, then also do the "scorched earth" re-lot to
-   ensure consistency.
-
+The ledger engine. A transaction is saved as the user entered it; from it
+come its debit and credit lines and its effect on the BTC lots: a Deposit
+or Buy acquires a lot, a Sell or Withdrawal disposes of the account's
+oldest BTC first (FIFO), a Transfer moves lots between accounts, and a BTC
+network fee is a disposal of its own. Every edit or delete recalculates the
+whole ledger in time order ("scorched earth", recalculate_all_transactions),
+so everything derived must follow from the saved transactions alone.
 """
 
 import logging
@@ -41,11 +33,8 @@ from backend.constants import (
 logger = logging.getLogger(__name__)
 
 
-# Public Functions (CRUD + retrieval)
 def get_all_transactions(db: Session):
-    """
-    Return all Transactions, typically ordered descending by timestamp.
-    """
+    """Every transaction, newest first."""
     return (
         db.query(Transaction)
         .order_by(Transaction.timestamp.desc())
@@ -54,36 +43,40 @@ def get_all_transactions(db: Session):
 
 
 def get_transaction_by_id(db: Session, transaction_id: int):
-    """
-    Retrieve a single Transaction by its ID (returns None if not found).
-    """
+    """The transaction, or None."""
     return db.query(Transaction).filter(Transaction.id == transaction_id).first()
 
 
 def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = True) -> Transaction:
     """
-    Creates a new Transaction in the hybrid multi-line ledger system.
-
-    Steps:
-      1) Ensure "BTC Fees" account exists.
-      2) Validate transaction type usage.
-      3) Validate fee usage for transaction type.
-      4) Create Transaction row in DB.
-      5) Convert single-entry fields => multiple ledger lines.
-      6) Possibly skip net-zero check if cross-currency (Buy/Sell).
-      7) If Deposit/Buy => create BTC lot if to_acct=BTC
-      8) If Withdrawal/Sell => do FIFO disposal if from_acct=BTC
-      9) If disposal => compute realized gains summary
-
-    Args:
-        tx_data: Transaction data dictionary
-        db: Database session
-        auto_commit: If True (default), commits after creating. Set to False for bulk operations.
+    Save a new transaction: check and complete its input, then add its
+    ledger lines and its effect on the lots. One dated before the latest
+    transaction recalculates the whole ledger, so FIFO stays in time order.
+    auto_commit=False leaves the commit to the caller (an import commits
+    once, for all its rows).
     """
-    # 1) Ensure BTC Fees account
     ensure_fee_account_exists(db)
+    _prepare_input(tx_data, db)
+    new_tx = _insert(tx_data, db)
 
-    # 2 & 3) Validate the input, the transaction type and fee rules
+    remove_ledger_entries_for_tx(new_tx, db)
+    build_ledger_entries_for_transaction(new_tx, tx_data, db)
+    _maybe_verify_balance_for_internal(new_tx, db)
+    if new_tx.type == "Transfer":
+        _default_btc_transfer_fee(new_tx, db)
+    _post_lots(new_tx, tx_data, db)
+    _recalculate_if_backdated(new_tx, db)
+
+    if auto_commit:
+        db.commit()
+        db.refresh(new_tx)
+    return new_tx
+
+
+def _prepare_input(tx_data: dict, db: Session) -> None:
+    """Check a new transaction's input against the ledger's rules, and
+    complete it: canonical spellings, the fee's currency, the gross
+    proceeds, an income deposit's value, a BTC fee's USD value."""
     _validate_transaction(tx_data, db)
     _fill_fee_currency(tx_data, db)
     _enforce_transaction_type_rules(tx_data, db)
@@ -97,7 +90,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         # kept as it was, and still re-priced if the date or fee changes.
         tx_data["fee_usd_manual"] = False
 
-    # 4) Insert Transaction
+
+def _insert(tx_data: dict, db: Session) -> Transaction:
     now_utc = datetime.now(timezone.utc)
     new_tx = Transaction(
         from_account_id=tx_data.get("from_account_id"),
@@ -112,7 +106,6 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         broker_reporting=tx_data.get("broker_reporting"),
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
-        # If the front end sends gross_proceeds_usd
         gross_proceeds_usd=tx_data.get("gross_proceeds_usd"),
         fmv_usd=tx_data.get("fmv_usd"),
         fee_usd=tx_data.get("fee_usd"),
@@ -123,21 +116,12 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     )
     db.add(new_tx)
     db.flush()  # new_tx.id is now available
+    return new_tx
 
-    # 5) Build ledger lines
-    remove_ledger_entries_for_tx(new_tx, db)
-    build_ledger_entries_for_transaction(new_tx, tx_data, db)
 
-    # 6) Possibly skip net-zero if cross-currency
-    _maybe_verify_balance_for_internal(new_tx, db)
-
-    # 7-9) Partial-lot logic
-    if new_tx.type == "Transfer":
-        _default_btc_transfer_fee(new_tx, db)
-    _post_lots(new_tx, tx_data, db)
-
-    # Check if this is a backdated transaction (timestamp earlier than existing transactions)
-    # If so, we need to recalculate to ensure FIFO ordering is correct
+def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
+    """A transaction dated before the latest one changes which lots the
+    later ones used: recalculate everything, in time order."""
     latest_other_tx = (
         db.query(Transaction)
         .filter(Transaction.id != new_tx.id)
@@ -151,11 +135,6 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
             f"existing tx {latest_other_tx.id} at {latest_other_tx.timestamp}. Triggering recalculation."
         )
         recalculate_all_transactions(db)
-
-    if auto_commit:
-        db.commit()
-        db.refresh(new_tx)
-    return new_tx
 
 
 _VALIDATED_FIELDS = (
@@ -177,26 +156,44 @@ _TYPE_FIELDS = ("purpose", "source", "cost_basis_usd", "proceeds_usd", "gross_pr
 
 def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
-    Update an existing Transaction if not locked.
-
-    Steps:
-      1) If locked => return None
-      2) Re-validate usage & fee rules if relevant fields changed
-      3) Overwrite transaction fields
-      4) Rebuild ledger lines & partial-lot usage
-      5) Possibly do partial-lot re-lot if backdated
-      6) Finally do "scorched earth" re-lot of everything
+    Change a transaction (only the fields in tx_data), checked as the whole
+    transaction it becomes, then recalculate the whole ledger. None when it
+    doesn't exist or is locked.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx or tx.is_locked:
         return None
 
     old_timestamp = tx.timestamp
+    type_changed = _drop_fields_of_old_type(tx, tx_data)
+    _check_edit(tx, tx_data, type_changed, db)
+    _revalue_btc_fee(tx, tx_data, db)
+    _apply_edit(tx, tx_data, type_changed)
+    tx.updated_at = datetime.now(timezone.utc)
+    db.flush()
 
-    # A type change keeps only the fields the new type takes too (unless the
-    # edit sends them): a Gift changed into a Sell kept purpose "Gift" and was
-    # left off Form 8949; a withdrawal changed into an income deposit kept its
-    # FIFO cost basis as the income. The figures are then worked out afresh.
+    # One full recalculation handles every edit, a backdated one included:
+    # replaying only from the new date left the earlier lots short of the
+    # BTC the old version of the transaction had used.
+    logger.debug(
+        f"[Update] Tx {tx.id} timestamp {old_timestamp} => {tx.timestamp}. "
+        f"Running scorched earth re-lot."
+    )
+    recalculate_all_transactions(db)
+
+    db.commit()
+    db.refresh(tx)
+    return tx
+
+
+def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
+    """
+    A type change keeps only the fields the new type takes too (unless the
+    edit sends them): a Gift changed into a Sell kept purpose "Gift" and was
+    left off Form 8949; a withdrawal changed into an income deposit kept its
+    FIFO cost basis as the income. The figures are then worked out afresh.
+    Whether the type changes.
+    """
     new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
     type_changed = "type" in tx_data and new_type != tx.type
     if type_changed:
@@ -205,12 +202,18 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
             if key in tx_data or key in kept:
                 continue
             if key == "gross_proceeds_usd" and "proceeds_usd" in tx_data:
-                continue  # a proceeds edit is the new gross (step 3)
+                continue  # a proceeds edit is the new gross (_apply_edit)
             tx_data[key] = None
+    return type_changed
 
-    # Step 2) Validate the transaction as it will be after the change (a
-    # partial edit was checked on the fields sent only, which failed with
-    # "Unknown transaction type: None" or let a mismatch through).
+
+def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session) -> None:
+    """
+    Check the transaction as it will be after the change (a partial edit
+    checked on the fields sent only failed with "Unknown transaction type:
+    None" or let a mismatch through), and complete the edit as a new
+    transaction's input is completed.
+    """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
     # Only a source this edit sets (or a new type) is checked against the list
@@ -225,56 +228,54 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         _enforce_transaction_type_rules(merged, db)
     if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id")):
         _enforce_fee_rules(merged, db)
-    # An edit that leaves an income deposit without a basis (the form sends
-    # 0 for a blank one) values it, as on create.
-    if any(k in tx_data for k in ("cost_basis_usd", "source", "type")):
-        merged = {
-            k: tx_data.get(k, getattr(tx, k))
-            for k in ("type", "source", "to_account_id", "amount", "timestamp", "cost_basis_usd")
-        }
-        if _value_income_deposit(merged, db):
-            tx_data["cost_basis_usd"] = merged["cost_basis_usd"]
+    _revalue_income_deposit(tx, tx_data, db)
 
-    # A BTC fee's USD value: a typed one is kept; otherwise it is priced again
-    # when the fee or the date changes (fee_usd sent as null clears a typed one).
-    if "fee_usd" in tx_data or (not tx.fee_usd_manual and _fee_inputs_changed(tx, tx_data)):
-        fee = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "fee_amount", "fee_currency", "timestamp")}
-        fee["fee_usd"] = tx_data["fee_usd"] if "fee_usd" in tx_data else (
-            tx.fee_usd if tx.fee_usd_manual else None)
-        _value_btc_fee(fee, db, manual=fee["fee_usd"] is not None)
-        tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
 
-    # Step 3) Overwrite relevant fields
-    if "from_account_id" in tx_data:
-        tx.from_account_id = tx_data["from_account_id"]
-    if "to_account_id" in tx_data:
-        tx.to_account_id = tx_data["to_account_id"]
-    if "amount" in tx_data:
-        tx.amount = tx_data["amount"]
-    if "fee_amount" in tx_data:
-        tx.fee_amount = tx_data["fee_amount"]
-    if "fee_currency" in tx_data:
-        tx.fee_currency = tx_data["fee_currency"]
-    if "type" in tx_data:
-        tx.type = tx_data["type"]
-    if "timestamp" in tx_data:
-        tx.timestamp = tx_data["timestamp"]
-    if "source" in tx_data:
-        tx.source = tx_data["source"]
-    if "purpose" in tx_data:
-        tx.purpose = tx_data["purpose"]
+def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """An edit that leaves an income deposit without a basis (the form sends
+    0 for a blank one) values it, as on create."""
+    if not any(k in tx_data for k in ("cost_basis_usd", "source", "type")):
+        return
+    edited = {
+        k: tx_data.get(k, getattr(tx, k))
+        for k in ("type", "source", "to_account_id", "amount", "timestamp", "cost_basis_usd")
+    }
+    if _value_income_deposit(edited, db):
+        tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
+
+
+def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """A BTC fee's USD value: a typed one is kept; otherwise it is priced
+    again when the fee or the date changes (fee_usd sent as null clears a
+    typed one)."""
+    if "fee_usd" not in tx_data and (tx.fee_usd_manual or not _fee_inputs_changed(tx, tx_data)):
+        return
+    fee = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "fee_amount", "fee_currency", "timestamp")}
+    fee["fee_usd"] = tx_data["fee_usd"] if "fee_usd" in tx_data else (
+        tx.fee_usd if tx.fee_usd_manual else None)
+    _value_btc_fee(fee, db, manual=fee["fee_usd"] is not None)
+    tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
+
+
+# Written as given when the edit sends them, in this order.
+_EDITED_FIELDS = (
+    "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency", "type", "timestamp",
+    "source", "purpose",
+)
+
+
+def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
+    for key in _EDITED_FIELDS:
+        if key in tx_data:
+            setattr(tx, key, tx_data[key])
     if "broker_reporting" in tx_data:
         _enforce_broker_reporting(tx_data.get("type", tx.type), tx_data["broker_reporting"])
         tx.broker_reporting = tx_data["broker_reporting"]
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
-    if "cost_basis_usd" in tx_data:
-        tx.cost_basis_usd = tx_data["cost_basis_usd"]
-    if "proceeds_usd" in tx_data:
-        tx.proceeds_usd = tx_data["proceeds_usd"]
-    if "fmv_usd" in tx_data:
-        tx.fmv_usd = tx_data["fmv_usd"]
-    # Partial update of gross_proceeds_usd
+    for key in ("cost_basis_usd", "proceeds_usd", "fmv_usd"):
+        if key in tx_data:
+            setattr(tx, key, tx_data[key])
     if "gross_proceeds_usd" in tx_data:
         tx.gross_proceeds_usd = tx_data["gross_proceeds_usd"]
     elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
@@ -282,27 +283,6 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         tx.gross_proceeds_usd = tx_data["proceeds_usd"]
     if type_changed:  # the old type's gain; a Sell's or Withdrawal's is worked out again
         tx.realized_gain_usd = tx.holding_period = None
-
-    tx.updated_at = datetime.now(timezone.utc)
-
-    # Flush the transaction field changes first
-    db.flush()
-
-    # Do a single "Scorched Earth" re-lot to rebuild everything correctly.
-    # This handles all cases (backdating, forward-dating, same timestamp) uniformly.
-    # The partial recalculate_subsequent_transactions was causing issues when
-    # lots from before the new timestamp still had reduced remaining_btc from
-    # the original transaction's consumption.
-    new_timestamp = tx.timestamp
-    logger.debug(
-        f"[Update] Tx {tx.id} timestamp {old_timestamp} => {new_timestamp}. "
-        f"Running scorched earth re-lot."
-    )
-    recalculate_all_transactions(db)
-
-    db.commit()
-    db.refresh(tx)
-    return tx
 
 
 def delete_transaction_record(transaction_id: int, db: Session):
@@ -331,7 +311,6 @@ def delete_transaction_record(transaction_id: int, db: Session):
     return True
 
 
-# Internal Helpers
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
     """
     IRS rule (Pub. 544): long-term only if held MORE than one year, counting
@@ -1172,14 +1151,32 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
     canonical spellings in `data`. Used on create, and on update with the
     stored row merged with the change, so a partial edit is checked as a
     whole transaction. check_source=False keeps a deposit's stored source
-    unchecked (an edit that doesn't change it).
+    unchecked (an edit that doesn't change it). The checks run in a fixed
+    order, and the first that fails is the message.
     """
+    tx_type = _checked_type(data)
+    _check_timestamp(data)
+    from_acct, to_acct = _checked_accounts(data, db)
+    _check_amount(data, tx_type, from_acct, to_acct)
+    fee = Decimal(data.get("fee_amount") or 0)
+    _check_not_negative(data, fee)
+    _check_fee_currency(data, tx_type, fee, from_acct, to_acct)
+    if tx_type == "Sell":
+        _check_sell_proceeds(data, fee)
+    _set_canonical_spellings(data)
+    _check_type_requirements(data, tx_type, check_source, from_acct, to_acct)
+
+
+def _checked_type(data: dict) -> str:
     tx_type = data.get("type")
     tx_type = getattr(tx_type, "value", tx_type)
     if tx_type not in TX_TYPES:
         _bad(f"Unknown transaction type: {tx_type}.")
     data["type"] = tx_type
+    return tx_type
 
+
+def _check_timestamp(data: dict) -> None:
     ts = data.get("timestamp")
     if ts is None:
         _bad("A date and time is required.")
@@ -1193,13 +1190,20 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
     # into a year fell in the year before).
     data["timestamp"] = ts.replace(microsecond=0)
 
+
+def _checked_accounts(data: dict, db: Session) -> tuple[Account | None, Account | None]:
+    """(from account, to account); an id that isn't one of the user's
+    accounts or External is refused."""
     for key in ("from_account_id", "to_account_id"):
         acct_id = data.get(key)
         if acct_id is not None and acct_id not in USER_ACCOUNTS:
             _bad(f"Unknown account id {acct_id}.")
     from_acct = db.get(Account, data["from_account_id"]) if data.get("from_account_id") else None
     to_acct = db.get(Account, data["to_account_id"]) if data.get("to_account_id") else None
+    return from_acct, to_acct
 
+
+def _check_amount(data: dict, tx_type: str, from_acct: Account | None, to_acct: Account | None) -> None:
     amount = data.get("amount")
     if amount is None or Decimal(amount) <= 0:
         _bad("The amount must be more than 0.")
@@ -1212,28 +1216,39 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
     if main_acct is not None and main_acct.currency == "BTC" and amount > MAX_BTC:
         _bad("A BTC amount can't be more than 21,000,000.")
 
-    fee = Decimal(data.get("fee_amount") or 0)
+
+def _check_not_negative(data: dict, fee: Decimal) -> None:
     if fee < 0:
         _bad("The fee can't be negative.")
     for key in ("cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd"):
         if data.get(key) is not None and Decimal(data[key]) < 0:
             _bad(f"{key} can't be negative.")
 
+
+def _check_fee_currency(data: dict, tx_type: str, fee: Decimal, from_acct: Account | None,
+                        to_acct: Account | None) -> None:
+    """A withdrawal's fee is in the currency of the account it leaves, a
+    deposit's in that of the account it reaches."""
     fee_cur = (data.get("fee_currency") or "").upper()
     if fee > 0 and tx_type in ("Withdrawal", "Deposit"):
         acct = from_acct if tx_type == "Withdrawal" else to_acct
         if acct is not None and fee_cur and fee_cur != acct.currency:
             _bad(f"A {tx_type.lower()} fee must be in {acct.currency}, the account's currency.")
 
-    if tx_type == "Sell":
-        gross = data.get("gross_proceeds_usd")
-        if gross is None:
-            gross = data.get("proceeds_usd")
-        if gross is None:
-            _bad("A sell needs its proceeds (gross_proceeds_usd).")
-        if fee > Decimal(gross):
-            _bad("The sell's fee is more than its proceeds.")
 
+def _check_sell_proceeds(data: dict, fee: Decimal) -> None:
+    gross = data.get("gross_proceeds_usd")
+    if gross is None:
+        gross = data.get("proceeds_usd")
+    if gross is None:
+        _bad("A sell needs its proceeds (gross_proceeds_usd).")
+    if fee > Decimal(gross):
+        _bad("The sell's fee is more than its proceeds.")
+
+
+def _set_canonical_spellings(data: dict) -> None:
+    """A purpose or source in the listed spelling ("gift" is Gift); either
+    one too long is refused."""
     for key, choices in (("purpose", WITHDRAWAL_PURPOSES), ("source", DEPOSIT_SOURCES)):
         value = data.get(key)
         if value is not None and len(str(value)) > MAX_TEXT:
@@ -1242,6 +1257,9 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
         if canonical:
             data[key] = canonical
 
+
+def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_acct: Account | None,
+                             to_acct: Account | None) -> None:
     # A deposit's source is one of the listed ones (blank means N/A). Rows
     # saved before v1.1.0 may hold other text: they still load, recalculate
     # and keep it through an edit that leaves the source alone.
@@ -1253,9 +1271,9 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
         if data.get("purpose") not in WITHDRAWAL_PURPOSES:
             _bad("A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
 
-    # F15: a BTC deposit that isn't income (MyBTC, Gift, N/A...) needs its
-    # cost basis stated; blank used to mean $0, all gain when it's sold.
-    # Income is valued at the day's price instead (_value_income_deposit).
+    # A BTC deposit that isn't income (MyBTC, Gift, N/A...) needs its cost
+    # basis stated: a blank one would make its whole value gain when it's
+    # sold. Income is valued at the day's price instead (_value_income_deposit).
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
             and (data.get("source") or "").lower() not in INCOME_SOURCES and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
@@ -1336,56 +1354,53 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
             )
 
 
+# Each type's rules for its accounts: (broken(from_id, to_id), message), in
+# the order they're checked.
+_TYPE_ACCOUNT_RULES = {
+    "Deposit": [
+        (lambda f, t: f != ACCOUNT_EXTERNAL, "Deposit => from must be External."),
+        (lambda f, t: not t or t == ACCOUNT_EXTERNAL, "Deposit => to must be an internal account."),
+    ],
+    "Withdrawal": [
+        (lambda f, t: not f or f == ACCOUNT_EXTERNAL, "Withdrawal => from must be an internal account."),
+        (lambda f, t: t != ACCOUNT_EXTERNAL, "Withdrawal => to must be External."),
+    ],
+    "Transfer": [
+        (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL,
+         "Transfer => both from/to must be internal."),
+        (lambda f, t: f == t, "Transfer => from and to must be different accounts."),
+    ],
+    "Buy": [
+        (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), "Buy => from must be Bank or Exchange USD."),
+        (lambda f, t: t != ACCOUNT_EXCHANGE_BTC, "Buy => to must be Exchange BTC."),
+    ],
+    "Sell": [
+        (lambda f, t: f != ACCOUNT_EXCHANGE_BTC, "Sell => from must be Exchange BTC."),
+        (lambda f, t: t != ACCOUNT_EXCHANGE_USD, "Sell => to must be Exchange USD."),
+    ],
+}
+
+
 def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     """
-    Enforce correct usage of from/to for each transaction type:
-      - Deposit => from=External => to=any internal account (BTC or USD)
-      - Withdrawal => from=any internal account => to=External
-      - Transfer => from/to internal & same currency
-      - Buy => from=Exchange USD => to=Exchange BTC
-      - Sell => from=Exchange BTC => to=Exchange USD
-      - Otherwise => error
+    The accounts each type allows: a Deposit from External to one of the
+    user's accounts, a Withdrawal the other way, a Transfer between two of
+    them in the same currency, a Buy from Bank or Exchange USD to Exchange
+    BTC, a Sell from Exchange BTC to Exchange USD.
     """
     tx_type = tx_data.get("type")
     from_id = tx_data.get("from_account_id")
     to_id = tx_data.get("to_account_id")
-
-    if tx_type == "Deposit":
-        if from_id != ACCOUNT_EXTERNAL:
-            raise HTTPException(400, "Deposit => from must be External.")
-        if not to_id or to_id == ACCOUNT_EXTERNAL:
-            raise HTTPException(400, "Deposit => to must be an internal account.")
-
-    elif tx_type == "Withdrawal":
-        if not from_id or from_id == ACCOUNT_EXTERNAL:
-            raise HTTPException(400, "Withdrawal => from must be an internal account.")
-        if to_id != ACCOUNT_EXTERNAL:
-            raise HTTPException(400, "Withdrawal => to must be External.")
-
-    elif tx_type == "Transfer":
-        if not from_id or from_id == ACCOUNT_EXTERNAL or not to_id or to_id == ACCOUNT_EXTERNAL:
-            raise HTTPException(400, "Transfer => both from/to must be internal.")
-        if from_id == to_id:
-            raise HTTPException(400, "Transfer => from and to must be different accounts.")
+    if tx_type not in _TYPE_ACCOUNT_RULES:
+        raise HTTPException(400, f"Unknown transaction type: {tx_type}")
+    for broken, message in _TYPE_ACCOUNT_RULES[tx_type]:
+        if broken(from_id, to_id):
+            raise HTTPException(400, message)
+    if tx_type == "Transfer":
         db_from = db.get(Account, from_id)
         db_to = db.get(Account, to_id)
         if db_from and db_to and db_from.currency != db_to.currency:
             raise HTTPException(400, "Transfer => same currency required.")
-
-    elif tx_type == "Buy":
-        if from_id not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD):
-            raise HTTPException(400, "Buy => from must be Bank or Exchange USD.")
-        if to_id != ACCOUNT_EXCHANGE_BTC:
-            raise HTTPException(400, "Buy => to must be Exchange BTC.")
-
-    elif tx_type == "Sell":
-        if from_id != ACCOUNT_EXCHANGE_BTC:
-            raise HTTPException(400, "Sell => from must be Exchange BTC.")
-        if to_id != ACCOUNT_EXCHANGE_USD:
-            raise HTTPException(400, "Sell => to must be Exchange USD.")
-
-    else:
-        raise HTTPException(400, f"Unknown transaction type: {tx_type}")
 
 
 def delete_all_transactions(db: Session) -> int:

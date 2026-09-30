@@ -341,7 +341,7 @@ tests, the equivalence check, and `--bench` on every commit)
       type.
 - [x] `maybe_dispose_lots_fifo` and `maybe_transfer_bitcoin_lot`: FIFO, the
       fee disposal and the moved lot as named steps.
-- [ ] `create_transaction_record`, `update_transaction_record`,
+- [x] `create_transaction_record`, `update_transaction_record`,
       `_validate_transaction` and `_enforce_transaction_type_rules`.
 
 **Frontend** (a separate track; `make e2e` and the UI snapshot on every
