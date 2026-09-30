@@ -40,10 +40,7 @@ USER_FIELDS = ("type", "timestamp", "from_account_id", "to_account_id", "amount"
 
 
 def user_fields(tx):
-    row = {f: tx[f] for f in USER_FIELDS}
-    if not float(row["fee_amount"] or 0):  # a zero fee imports as no fee: the same thing
-        row["fee_amount"] = row["fee_currency"] = None
-    return row
+    return {f: tx[f] for f in USER_FIELDS}
 
 
 def ledger_state(client, engine):
@@ -159,6 +156,22 @@ def test_a_value_the_row_cant_use_is_a_warning_and_left_out(auth_client, row, co
     assert auth_client.post("/api/import/execute", files=csv_file(content)).status_code == 200
     buy = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Buy")
     assert buy["fee_usd"] is None and buy["fmv_usd"] is None
+    auth_client.delete("/api/transactions/delete_all")
+
+
+@pytest.mark.parametrize("fee, currency, stored", [
+    ("", "", (None, None)),        # blank: no fee
+    ("0", "USD", (0.0, "USD")),    # a zero fee stays a zero fee (the 1.2.3 VM walk: it became "no fee")
+    ("0", "", (0.0, "USD")),       # its currency filled as for any fee
+])
+def test_a_blank_fee_is_no_fee_and_a_zero_fee_is_kept(auth_client, fee, currency, stored):
+    auth_client.delete("/api/transactions/delete_all")
+    row = f"2024-01-02T12:00:00Z,Buy,0.01,Bank,Exchange BTC,500,,{fee},{currency},,,,,,"
+    r = auth_client.post("/api/import/execute", files=csv_file(f"{HEADER}\n{BANK}\n{row}\n"))
+    assert r.status_code == 200, r.text
+    buy = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Buy")
+    fee_amount = None if buy["fee_amount"] is None else float(buy["fee_amount"])
+    assert (fee_amount, buy["fee_currency"]) == stored
     auth_client.delete("/api/transactions/delete_all")
 
 

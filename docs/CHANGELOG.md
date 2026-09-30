@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A CSV export re-imported gives back its zero fees.** The import dropped
+  a fee of 0, so rows saved with "0 USD" or "0 BTC" came back with no fee
+  and no fee currency. Every figure was already the same (a zero fee and no
+  fee count alike), but a CSV backup now restores exactly what was saved. A
+  blank fee in a file still means no fee. Found by the 1.2.3 VM walk.
+
 ### Development
 - **A release's title names its StartOS package version**, for example
   "v1.2.3 · StartOS package 1.2.3:0", and so does its StartOS download line:

@@ -18,6 +18,6 @@ Rules: `README.md` here.
 - [ ] The CSV export writes numbers through a float (`routers/backup.py`, `_csv_number`): exact for every realistic value, but a USD amount over about $67 million with more than two decimals could print a wrong last digit. Format the Decimal directly (low priority).
 - [ ] `test_stress_and_forms.py`: `create_tx` swallows failed saves and its random numbers are unseeded, so a failure there can hide or be hard to repeat. Make failures fail and seed the generator (test quality, not an app bug).
 - [ ] `frontend/src/hooks/useApiCall.ts` holds only the error-message helper now (the hooks it was named after were never used). Move it to `src/utils/`? Its test file moves with it and only its import line changes; the owner decides, since existing tests were to stay as they are.
-- [ ] A CSV export re-imported stores a zero fee as no fee (fee_amount and fee_currency empty instead of 0 USD/BTC): every figure is the same, but the round trip isn't exact (`csv_import.py` keeps a fee only when it's above 0; found by the 1.2.3 VM walk, IMP-3).
+- [x] A CSV export re-imported stores a zero fee as no fee (fee_amount and fee_currency empty instead of 0 USD/BTC): every figure is the same, but the round trip isn't exact (`csv_import.py` keeps a fee only when it's above 0; found by the 1.2.3 VM walk, IMP-3).
 - [ ] At phone width (375 px) the header's Logout link is cut off at the right edge and can't be scrolled to (Settings > Account > Logout still works).
 - [ ] Escape doesn't close the transaction panel (clicking outside does).

@@ -343,7 +343,7 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
             # scorched-earth recalculation re-derives net proceeds from the
             # already-net stored value and subtracts the USD fee again.
             fields["gross_proceeds_usd"] = row.proceeds_usd
-    if row.fee_amount is not None and row.fee_amount > 0:
+    if row.fee_amount is not None:  # a 0 too: an export's zero fee comes back as it was saved
         fields["fee_amount"] = row.fee_amount
         fields["fee_currency"] = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
     return fields
