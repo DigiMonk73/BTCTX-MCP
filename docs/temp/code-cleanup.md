@@ -346,7 +346,7 @@ tests, the equivalence check, and `--bench` on every commit)
 
 **Frontend** (a separate track; `make e2e` and the UI snapshot on every
 commit)
-- [ ] The UI snapshot script, and a clean first run of the 1.2.2-1 build
+- [x] The UI snapshot script, and a clean first run of the 1.2.2-1 build
       against itself.
 - [ ] `TransactionForm.tsx`: a component per transaction type's fields, plus
       the shared fee fields. `#transaction-form` and `#trigger-form-delete`

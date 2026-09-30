@@ -108,6 +108,19 @@ exit 1. The API descriptions (text only the API docs show, with DEBUG)
 are listed but not counted; MCP tool descriptions are, since the AI reads
 them.
 
+For the frontend, `frontend/e2e/ui-snapshot.e2e.ts` records every page and
+each variant of the transaction form, as the accessibility tree (the labels,
+roles and text the click-through tests find elements by) and as HTML; it is
+skipped unless `UI_SNAPSHOT_DIR` is set:
+
+```bash
+cd frontend
+UI_SNAPSHOT_DIR=/tmp/ui-before npx playwright test ui-snapshot --project=chicago
+# change the code; the run rebuilds frontend/dist
+UI_SNAPSHOT_DIR=/tmp/ui-after npx playwright test ui-snapshot --project=chicago
+diff -r /tmp/ui-before /tmp/ui-after
+```
+
 ## Click-through tests (Playwright)
 
 Specs live in `frontend/e2e/*.e2e.ts`; the config is
