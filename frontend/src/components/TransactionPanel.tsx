@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
 
@@ -27,13 +27,26 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     }
   }, [isOpen]);
 
-  const handleOverlayClick = () => {
+  // A click outside or Escape: close, or ask first when there are unsaved changes
+  const requestClose = useCallback(() => {
     if (isFormDirty) {
       setShowDiscardModal(true);
     } else {
       onClose();
     }
-  };
+  }, [isFormDirty, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // With "Discard changes?" showing, Escape is its safe answer: Go back
+      if (showDiscardModal) setShowDiscardModal(false);
+      else requestClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, showDiscardModal, requestClose]);
 
   const handleDiscardChanges = () => {
     setShowDiscardModal(false);
@@ -58,7 +71,7 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
 
   return (
     <React.Fragment>
-      <div className="transaction-panel-overlay" onClick={handleOverlayClick} />
+      <div className="transaction-panel-overlay" onClick={requestClose} />
       <div className="transaction-panel">
         <div className="panel-header">
           <h2>{transactionId ? "Edit Transaction" : "Add Transaction"}</h2>

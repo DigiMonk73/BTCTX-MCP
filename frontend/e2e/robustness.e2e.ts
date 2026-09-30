@@ -80,3 +80,33 @@ test("a failed report says why", async ({ authedPage: page }) => {
   await page.getByRole("button", { name: "Export" }).click();
   await expect(page.getByText("Failed to generate the report. Please try again.")).toBeVisible();
 });
+
+test("Escape or a click outside closes the panel, asking first about unsaved changes", async ({ authedPage: page }) => {
+  const heading = page.getByRole("heading", { name: "Add Transaction" });
+  const question = page.getByRole("dialog").getByRole("heading", { name: "Discard changes?" });
+  const openPanel = async () => {
+    await page.getByRole("link", { name: "Transactions" }).click();
+    await page.getByRole("button", { name: "Add Transaction" }).click();
+    await expect(heading).toBeVisible();
+  };
+
+  // Nothing changed: each closes at once
+  await openPanel();
+  await page.keyboard.press("Escape");
+  await expect(heading).toHaveCount(0);
+  await openPanel();
+  await page.locator(".transaction-panel-overlay").click({ position: { x: 10, y: 10 } });
+  await expect(heading).toHaveCount(0);
+
+  // A change: Escape asks; Escape on the question goes back, the change kept
+  await openAddForm(page, "Deposit");
+  await page.getByLabel("Account", { exact: true }).selectOption("Bank");
+  await page.keyboard.press("Escape");
+  await expect(question).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(question).toHaveCount(0);
+  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  await page.locator(".transaction-panel-overlay").click({ position: { x: 10, y: 10 } });
+  await page.getByRole("button", { name: "Discard changes" }).click();
+  await expect(heading).toHaveCount(0);
+});
