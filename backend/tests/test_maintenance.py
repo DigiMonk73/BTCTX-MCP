@@ -321,8 +321,8 @@ def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, c
     for tx_id, purpose, gross in rows:
         con.execute(
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount,"
-            " fee_amount, fee_currency, purpose, gross_proceeds_usd, is_locked)"
-            " VALUES (?, 'Withdrawal', '2024-05-01 12:00:00', 2, 99, '0.1', '0', 'BTC', ?, ?, 0)",
+            " fee_amount, fee_currency, purpose, gross_proceeds_usd)"
+            " VALUES (?, 'Withdrawal', '2024-05-01 12:00:00', 2, 99, '0.1', '0', 'BTC', ?, ?)",
             (tx_id, purpose, gross),
         )
     con.commit()

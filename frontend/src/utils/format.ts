@@ -63,7 +63,6 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     to_account_id: rawTx.to_account_id,
     type: rawTx.type,
     timestamp: rawTx.timestamp,
-    is_locked: rawTx.is_locked,
 
     amount: parseDecimal(rawTx.amount),
     fee_amount: parseDecimal(rawTx.fee_amount),

@@ -175,7 +175,6 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     """
     Schema for partial updates. All fields optional, with TxType for type changes.
-    Added is_locked to allow toggling lock state (e.g., for admin use).
     """
     type: TxType | None = None
     timestamp: datetime | None = None
@@ -197,8 +196,6 @@ class TransactionUpdate(BaseModel):
     fee_usd: Decimal | None = None  # send null to go back to the day's price
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
-
-    is_locked: bool | None = None  # accepted but not applied (docs/temp/TODO.md)
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
@@ -244,7 +241,6 @@ class TransactionRead(TransactionBase):
     Includes audit fields required for accounting software.
     """
     id: int
-    is_locked: bool
     fee_usd_manual: bool = False  # fee_usd was typed by the user
     created_at: datetime
     updated_at: datetime

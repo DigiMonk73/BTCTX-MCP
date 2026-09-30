@@ -88,7 +88,7 @@ it and this checkout on the same inputs:
   random ledgers from the property test's generator (fixed seeds, in UTC,
   Chicago and Tokyo time).
 - **Bad inputs:** each invalid API payload, CSV row and file in
-  `scripts/equivalence_inputs.py`, and a locked row.
+  `scripts/equivalence_inputs.py`.
 
 Everything the app produces is compared:
 - database rows

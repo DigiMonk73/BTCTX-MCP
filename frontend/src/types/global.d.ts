@@ -119,7 +119,6 @@ declare global {
     fmv_usd?: string | number;
     realized_gain_usd?: string | number;
     timestamp: string;
-    is_locked: boolean;
     holding_period?: string | null;
     external_ref?: string | null;
     source?: string | null;
@@ -148,7 +147,6 @@ declare global {
     fmv_usd?: number;
     realized_gain_usd: number;
     timestamp: string;   // ISO8601
-    is_locked: boolean;
     holding_period?: string;
     external_ref?: string;
     source?: string;
@@ -170,7 +168,7 @@ declare global {
     to_account_id: number;
   }
 
-  /** The body of POST /api/transactions (PUT sends the same without is_locked). */
+  /** The body of POST and PUT /api/transactions. */
   interface ICreateTransactionPayload {
     from_account_id: number;
     to_account_id: number;
@@ -184,7 +182,6 @@ declare global {
     fmv_usd?: number | null;
     source?: string;
     purpose?: string;
-    is_locked: boolean;   // only on creation
 
     gross_proceeds_usd?: number;
     broker_reporting?: BrokerReporting | null;

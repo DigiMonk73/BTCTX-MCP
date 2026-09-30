@@ -1,10 +1,7 @@
 """
-The ledger engine on inputs its other tests don't reach: a locked row (the
-app has no way to lock one yet: it is set here in the database) and a BTC
-amount over the 21 million that can exist.
+The ledger engine on inputs its other tests don't reach: a transaction that
+isn't there, and a BTC amount over the 21 million that can exist.
 """
-
-from sqlalchemy import text
 
 BANK, WALLET, EXCH_BTC, EXTERNAL = 1, 2, 4, 99
 
@@ -21,17 +18,14 @@ def enter_ledger(client):
     return [client.post("/api/transactions", json=tx).json()["id"] for tx in LEDGER]
 
 
-def test_a_locked_row_refuses_edits_and_deletes(auth_client, test_engine):
+def test_editing_or_deleting_a_missing_transaction_is_404_and_changes_nothing(auth_client):
     _, buy_id = enter_ledger(auth_client)
     try:
-        with test_engine.begin() as con:
-            con.execute(text("UPDATE transactions SET is_locked = 1 WHERE id = :id"), {"id": buy_id})
-        r = auth_client.put(f"/api/transactions/{buy_id}", json={"amount": "0.5"})
-        assert (r.status_code, r.json()) == (404, {"detail": "Transaction not found or is locked."})
-        r = auth_client.delete(f"/api/transactions/{buy_id}")
-        assert (r.status_code, r.json()) == (404, {"detail": "Transaction not found or cannot be deleted."})
-        # Recalculation still rebuilds the locked row's lot.
-        assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        missing = buy_id + 1000
+        r = auth_client.put(f"/api/transactions/{missing}", json={"amount": "0.5"})
+        assert (r.status_code, r.json()) == (404, {"detail": "Transaction not found."})
+        r = auth_client.delete(f"/api/transactions/{missing}")
+        assert (r.status_code, r.json()) == (404, {"detail": "Transaction not found."})
         lots = auth_client.get("/api/debug/lots").json()
         assert [(lot["created_txn_id"], lot["total_btc"]) for lot in lots] == [(buy_id, "1.00000000")]
     finally:

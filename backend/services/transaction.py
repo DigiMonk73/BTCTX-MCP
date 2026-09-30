@@ -110,7 +110,6 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
         fmv_usd=tx_data.get("fmv_usd"),
         fee_usd=tx_data.get("fee_usd"),
         fee_usd_manual=tx_data.get("fee_usd_manual", False),
-        is_locked=tx_data.get("is_locked", False),
         created_at=now_utc,
         updated_at=now_utc
     )
@@ -158,10 +157,10 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
     Change a transaction (only the fields in tx_data), checked as the whole
     transaction it becomes, then recalculate the whole ledger. None when it
-    doesn't exist or is locked.
+    doesn't exist.
     """
     tx = get_transaction_by_id(db, transaction_id)
-    if not tx or tx.is_locked:
+    if not tx:
         return None
 
     old_timestamp = tx.timestamp
@@ -287,13 +286,13 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
 
 def delete_transaction_record(transaction_id: int, db: Session):
     """
-    Delete a transaction if not locked.
-    Removes ledger entries, partial-lot usage, and re-lots everything.
+    Delete a transaction: its ledger entries and lot usage go, and every lot
+    is rebuilt.
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
     """
     tx = get_transaction_by_id(db, transaction_id)
-    if not tx or tx.is_locked:
+    if not tx:
         return False
 
     db.delete(tx)

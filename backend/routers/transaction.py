@@ -88,12 +88,12 @@ def recalculate_ledger(db: Session = Depends(get_db)):
 def update_transaction(transaction_id: int, tx: TransactionUpdate, db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
-    transaction doesn't exist or is locked.
+    transaction doesn't exist.
     """
     tx_data = tx.model_dump(exclude_unset=True)
     updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
     if not updated_tx:
-        raise HTTPException(status_code=404, detail="Transaction not found or is locked.")
+        raise HTTPException(status_code=404, detail="Transaction not found.")
     return _attach_utc_and_build_read_model(updated_tx)
 
 
@@ -111,10 +111,9 @@ def delete_all_transactions_endpoint(request: Request, db: Session = Depends(get
 def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
-    exist or is locked; refused, changing nothing, when later transactions
-    need its BTC.
+    exist; refused, changing nothing, when later transactions need its BTC.
     """
     success = tx_service.delete_transaction_record(transaction_id, db)
     if not success:
-        raise HTTPException(status_code=404, detail="Transaction not found or cannot be deleted.")
+        raise HTTPException(status_code=404, detail="Transaction not found.")
     return

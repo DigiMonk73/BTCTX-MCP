@@ -8,7 +8,6 @@ import {
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
 const base = {
   id: 1,
-  is_locked: false,
   timestamp: "2025-03-01T12:00:00Z",
   fee_amount: 0,
   cost_basis_usd: 0,

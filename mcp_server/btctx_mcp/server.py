@@ -251,8 +251,6 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
-    if tx.get("is_locked"):
-        out["locked"] = True
     return out
 
 
@@ -479,7 +477,7 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
     read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False))
 @with_version_notice
 async def delete_transaction(transaction_id: int) -> ToolResult:
-    """Permanently delete one transaction (locked transactions can't be deleted). The ledger is
+    """Permanently delete one transaction. The ledger is
     recalculated afterward. Confirm with the user first and tell them what you're deleting."""
     current = await _call("GET", f"/api/transactions/{transaction_id}")
     await _call("DELETE", f"/api/transactions/{transaction_id}")

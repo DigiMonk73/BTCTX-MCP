@@ -282,8 +282,8 @@ async def test_review_ledger_lists_a_zero_basis_deposit(mcp_client, backend_db):
     with backend_db.begin() as con:
         con.execute(text(
             "INSERT INTO transactions (type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
-            " fee_currency, source, cost_basis_usd, is_locked)"
-            " VALUES ('Deposit', '2024-02-01 12:00:00', 99, 2, '0.5', '0', 'BTC', 'MyBTC', '0', 0)"))
+            " fee_currency, source, cost_basis_usd)"
+            " VALUES ('Deposit', '2024-02-01 12:00:00', 99, 2, '0.5', '0', 'BTC', 'MyBTC', '0')"))
     out = await call(mcp_client, "review_ledger")
     assert out["read_only"] is True
     check = next(c for c in out["checks"] if c["key"] == "deposit_without_basis")

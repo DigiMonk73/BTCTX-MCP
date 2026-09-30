@@ -11,7 +11,6 @@ import {
 
 const sell = {
   id: 7,
-  is_locked: false,
   type: "Sell",
   from_account_id: 4,
   to_account_id: 3,

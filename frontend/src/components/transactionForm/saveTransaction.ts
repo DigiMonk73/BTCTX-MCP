@@ -16,11 +16,7 @@ export async function saveTransaction(data: TransactionFormData, transactionId?:
     }
     return savedMessage("updated", response.data as ITransactionRaw);
   }
-  const createPayload: ICreateTransactionPayload = {
-    ...payload,
-    is_locked: false,
-  };
-  const response = await api.post("/transactions", createPayload);
+  const response = await api.post("/transactions", payload);
   return savedMessage("created", response.data as ITransactionRaw);
 }
 

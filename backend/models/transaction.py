@@ -41,12 +41,6 @@ class Transaction(Base):
         doc="When the transaction happened, as the user entered it."
     )
 
-    is_locked = Column(
-        Boolean,
-        default=False,
-        nullable=False,
-        doc="A locked row refuses edits and deletes; nothing in the app sets it yet (docs/temp/TODO.md)."
-    )
     created_at = Column(
         UTCDateTime,
         server_default=func.now(),
@@ -184,7 +178,7 @@ class Transaction(Base):
     def __repr__(self):
         return (
             f"<Transaction(id={self.id}, type={self.type}, "
-            f"timestamp={self.timestamp}, locked={self.is_locked})>"
+            f"timestamp={self.timestamp})>"
         )
 
 

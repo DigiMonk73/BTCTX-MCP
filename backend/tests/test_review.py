@@ -32,9 +32,9 @@ def ledger(auth_client, test_engine):
             con.execute(text(
                 "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount,"
                 " fee_amount, fee_currency, source, purpose, cost_basis_usd, gross_proceeds_usd,"
-                " realized_gain_usd, is_locked)"
+                " realized_gain_usd)"
                 " VALUES (:id, :type, '2024-01-01 03:00:00', :frm, :to, '0.1', '0', 'BTC', :source, :purpose,"
-                " :basis, :gross, :gain, 0)"),
+                " :basis, :gross, :gain)"),
                 dict(id=tx_id, type=typ, frm=frm, to=to, source=source, purpose=purpose, basis=basis,
                      gross=gross, gain=gain))
     with test_engine.connect() as con:

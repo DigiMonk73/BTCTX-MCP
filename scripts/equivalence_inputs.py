@@ -57,7 +57,6 @@ API_CHANGES = (
     + [("broker_reporting", v) for v in ("none", "proceeds", "basis", "automatic", "weird")]
     + [("fmv_usd", v) for v in ("-1", "50")]
     + [("fee_usd", v) for v in ("-1", "5")]
-    + [("is_locked", True)]
 )
 
 CSV_COLUMNS = (

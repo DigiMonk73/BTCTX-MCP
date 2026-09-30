@@ -37,7 +37,6 @@ NOT_EXPORTED = {
     "updated_at": "set when the row is saved",
     "realized_gain_usd": "worked out from the lots on every recalculation",
     "holding_period": "worked out from the lots on every recalculation",
-    "is_locked": "nothing in the app can lock a row yet (docs/temp/TODO.md)",
 }
 
 # CSV columns with no Transaction column behind them.

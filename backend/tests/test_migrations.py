@@ -99,7 +99,8 @@ def test_second_start_changes_nothing(tmp_path):
 # Adopting databases from before migrations
 # ---------------------------------------------------------------------------
 def old_columns(table: str) -> str:
-    return ", ".join(row[1] for row in q(FIXTURE, f"PRAGMA table_info({table})"))
+    """The fixture's columns that are still there at head (0005 drops is_locked)."""
+    return ", ".join(row[1] for row in q(FIXTURE, f"PRAGMA table_info({table})") if row[1] != "is_locked")
 
 
 def test_v0_7_0_database_is_backed_up_adopted_and_usable(v070):
@@ -167,6 +168,28 @@ def test_0004_stores_each_transfer_fee_at_the_value_it_already_had(v070):
         recalculate_all_transactions(db)
         db.commit()
     assert q(v070, disposals) == [(4.21,)]
+
+
+@pytest.mark.parametrize("sqlite_version", [None, (3, 34, 0)], ids=["in place", "rebuilt"])
+def test_0005_drops_the_lock_column_and_keeps_every_row(v070, monkeypatch, sqlite_version):
+    """The lock column goes and every other value stays, whether SQLite drops
+    the column in place (3.35+) or the table is rebuilt (older SQLite)."""
+    engine = engine_for(v070)
+    if sqlite_version:
+        monkeypatch.setattr(engine.dialect.dbapi, "sqlite_version_info", sqlite_version)
+    tables = ("transactions", "ledger_entries", "bitcoin_lots", "lot_disposals")
+    before = {t: q(v070, f"SELECT {old_columns(t)} FROM {t} ORDER BY id") for t in tables}
+    assert all(before.values())
+
+    init_db(engine)
+
+    assert "is_locked" not in [row[1] for row in q(v070, "PRAGMA table_info(transactions)")]
+    assert {t: q(v070, f"SELECT {old_columns(t)} FROM {t} ORDER BY id") for t in tables} == before
+    rebuilt = q(v070, "SELECT sql FROM sqlite_master WHERE name = 'transactions'")[0][0].startswith(
+        'CREATE TABLE "transactions"')
+    assert rebuilt == bool(sqlite_version)
+    with engine.connect() as conn:
+        assert compare_metadata(MigrationContext.configure(conn, opts={"compare_type": True}), Base.metadata) == []
 
 
 def test_pre_2026_database_gets_its_missing_indexes(v070):

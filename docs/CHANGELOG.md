@@ -4,6 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- **The unused transaction lock.** Nothing in the app could lock a row (no
+  button, API field or import set it), yet a locked row would have refused
+  edits and deletes with "not found" while recalculation still changed its
+  figures. It is gone rather than finished: database schema 0005 drops the
+  column (the usual copy of the database goes to `backups/` first), API
+  answers no longer carry `is_locked`, and editing or deleting a missing
+  transaction says "Transaction not found." No figure changes (checked on
+  every test ledger). As with any schema change, an older BitcoinTX then
+  refuses the database; the backup copy is the way back.
+
 ### Fixed
 - **Escape closes the transaction panel**, like a click outside it: at
   once when nothing was changed, else after "Discard changes?". With that

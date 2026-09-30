@@ -114,8 +114,8 @@ def test_older_installs_keep_what_they_did(old, expected):
 
 def _add_entry(db):
     db.execute(text(
-        "INSERT INTO transactions (type, timestamp, amount, from_account_id, to_account_id, fee_amount, is_locked, "
-        "fee_currency) VALUES ('Deposit', '2024-01-01 00:00:00', 1, 99, 1, 0, 0, 'USD')"))
+        "INSERT INTO transactions (type, timestamp, amount, from_account_id, to_account_id, fee_amount, "
+        "fee_currency) VALUES ('Deposit', '2024-01-01 00:00:00', 1, 99, 1, 0, 'USD')"))
     db.commit()
 
 

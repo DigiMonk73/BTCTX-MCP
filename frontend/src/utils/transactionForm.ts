@@ -238,7 +238,7 @@ function feeUsd(data: TransactionFormData, feeCurrency: Currency): number | null
 /** Form values => the body for POST/PUT /api/transactions. */
 export function buildTransactionPayload(
   data: TransactionFormData,
-): Omit<ICreateTransactionPayload, "is_locked"> {
+): ICreateTransactionPayload {
   const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data);
   const typePayload = TYPE_PAYLOAD[data.type];
   const values: TypePayload = typePayload ? typePayload(data) : { amount: 0, feeCurrency: "USD", cost_basis_usd: null };

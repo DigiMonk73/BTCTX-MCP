@@ -206,13 +206,6 @@ def test_account_balances_non_null(db_session):
     assert not problems, f"Zero balances detected: {problems}"
 
 # ----------------------------
-# Test 9: No Locked Transactions
-# ----------------------------
-def test_locked_flag_respected(db_session):
-    locked = db_session.query(Transaction).filter_by(is_locked=True).count()
-    assert locked == 0, f"{locked} transactions are unexpectedly locked."
-
-# ----------------------------
 # Test 10: LotDisposal vs BTC Amount Consistency
 # ----------------------------
 def test_disposal_amount_matches_transaction(db_session):

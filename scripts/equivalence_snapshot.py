@@ -448,7 +448,6 @@ def _bad_input_snapshot(work: Path) -> dict:
         "create": _api_trials(instance, "POST"),
         "edit": _api_trials(instance, "PUT"),
         "delete": _delete_trials(instance),
-        "locked": _locked_trials(instance),
     }
     empty = Instance(work, "bad_csv")
     snap["csv_rows"] = _csv_row_trials(empty.client)
@@ -491,19 +490,6 @@ def _delete_trials(instance: Instance) -> list:
         with instance.trial():
             results.append([tx["id"], _status(instance.client.delete(f"/api/transactions/{tx['id']}"))])
     return results
-
-
-def _locked_trials(instance: Instance) -> dict:
-    """A locked row (set in the database: the app has no way to lock one)."""
-    with instance.trial():
-        with instance.engine.begin() as con:
-            con.execute(text("UPDATE transactions SET is_locked = 1 WHERE id = 2"))
-        return {
-            "edit": answer(instance.client.put("/api/transactions/2", json={"amount": "0.9"})),
-            "delete": _status(instance.client.delete("/api/transactions/2")),
-            "recalculate": answer(instance.client.post("/api/transactions/recalculate")),
-            "rows": answer(instance.client.get("/api/transactions")),
-        }
 
 
 def _csv_row_trials(client) -> list:
