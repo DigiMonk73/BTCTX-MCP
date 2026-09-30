@@ -337,7 +337,7 @@ tests, the equivalence check, and `--bench` on every commit)
       else coverage shows as unrun.
 - [x] Remove the dead `recalculate_subsequent_transactions`. Give the replay
       step (repeated in the recalculation loop) one name.
-- [ ] `build_ledger_entries_for_transaction`: one named step per transaction
+- [x] `build_ledger_entries_for_transaction`: one named step per transaction
       type.
 - [ ] `maybe_dispose_lots_fifo` and `maybe_transfer_bitcoin_lot`: FIFO, the
       fee disposal and the moved lot as named steps.

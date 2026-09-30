@@ -422,14 +422,11 @@ def remove_ledger_entries_for_tx(tx: Transaction, db: Session):
 
 def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Session):
     """
-    Convert single-entry data => multi-line ledger.
-    Handles cross-currency Buy/Sell logic, Transfer fees, etc.
-
-    CHANGES FOR GROSS_PROCEEDS_USD:
-    For Sells, we now read 'gross_proceeds_usd' and subtract fees
-    to produce a net 'proceeds_usd' value. That net is stored in
-    the DB (used by partial-lot disposal and aggregator). Meanwhile,
-    the original user-typed gross remains in 'gross_proceeds_usd'.
+    The transaction's debit and credit lines. A Buy or Sell moves USD one
+    way and BTC the other (so its lines don't net to zero); a BTC transfer
+    sends the amount with its fee included. For a Sell, the net proceeds
+    are worked out here and stored in proceeds_usd, which the disposals and
+    the totals read; the gross the user entered stays in gross_proceeds_usd.
     """
     from_acct_id = tx_data.get("from_account_id")
     to_acct_id = tx_data.get("to_account_id")
@@ -438,195 +435,128 @@ def build_ledger_entries_for_transaction(tx: Transaction, tx_data: dict, db: Ses
     fee_amount = Decimal(tx_data.get("fee_amount") or "0.0")
     fee_currency = (tx_data.get("fee_currency") or "").upper()  # stored with any fee (_fill_fee_currency)
 
-    # If user provided None or empty proceeds_usd, treat it as "0"
-    proceeds_raw = tx_data.get("proceeds_usd") or "0"
-    proceeds_usd = Decimal(proceeds_raw)
-
     from_acct = db.get(Account, from_acct_id) if from_acct_id else None
     to_acct = db.get(Account, to_acct_id) if to_acct_id else None
 
-    # 1) Transfer with BTC fee
-    if (
-        tx_type == "Transfer"
-        and from_acct
-        and from_acct.currency == "BTC"
-        and fee_amount > 0
-    ):
-        # Debit from_acct
-        db.add(LedgerEntry(
-            transaction_id=tx.id,
-            account_id=from_acct.id,
-            amount=-amount,
-            currency=from_acct.currency,
-            entry_type="MAIN_OUT"
-        ))
-        # Credit to_acct minus fee
-        if to_acct and amount > 0:
-            net_in = amount - fee_amount
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=to_acct.id,
-                amount=net_in if net_in > 0 else Decimal("0"),
-                currency=to_acct.currency,
-                entry_type="MAIN_IN"
-            ))
-        fee_acct = db.query(Account).filter_by(name="BTC Fees").first()
-        if fee_acct:
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=fee_acct.id,
-                amount=fee_amount,
-                currency="BTC",
-                entry_type="FEE"
-            ))
-        db.flush()
-        return
-
-    # 2) Sell => from BTC => to USD
-    if (
-        tx_type == "Sell"
-        and from_acct and from_acct.currency == "BTC"
-        and to_acct and to_acct.currency == "USD"
-    ):
-        # Subtract BTC out of from_acct
-        if amount > 0:
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=from_acct.id,
-                amount=-amount,
-                currency="BTC",
-                entry_type="MAIN_OUT"
-            ))
-
-        # Check if user typed 'gross_proceeds_usd'; if present, derive net from that.
-        gross_raw = tx_data.get("gross_proceeds_usd") or "0"
-        gross_usd = Decimal(gross_raw)
-
-        if gross_usd > 0:
-            # If fee is in USD, net = (gross - fee)
-            if fee_currency == "USD":
-                net_usd_in = gross_usd - fee_amount
-                if net_usd_in < 0:
-                    net_usd_in = Decimal("0")
-            else:
-                # If fee is BTC, we do not reduce the gross USD
-                net_usd_in = gross_usd
-
-            # Overwrite proceeds_usd so aggregator & partial-lot disposal see net
-            tx_data["proceeds_usd"] = str(net_usd_in)
-            tx.proceeds_usd = net_usd_in
-            # Also store the user's typed gross in DB
-            tx.gross_proceeds_usd = gross_usd
-        else:
-            # No gross recorded. create_transaction_record always records it,
-            # so only rows saved before that reach here, and their stored
-            # proceeds_usd is ALREADY net of the USD fee. Keep it as the net
-            # and recover the gross once; re-subtracting the fee here is what
-            # used to shrink proceeds on every recalculation.
-            net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
-            if net_usd_in > 0:
-                tx.gross_proceeds_usd = (
-                    net_usd_in + fee_amount if fee_currency == "USD" else net_usd_in
-                )
-            tx_data["proceeds_usd"] = str(net_usd_in)
-            tx.proceeds_usd = net_usd_in
-
-        # Credit net to the to_acct
-        if net_usd_in > 0:
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=to_acct.id,
-                amount=net_usd_in,
-                currency="USD",
-                entry_type="MAIN_IN"
-            ))
-        # Fee line if fee is USD
-        if fee_amount > 0 and fee_currency == "USD":
-            fee_acct = db.query(Account).filter_by(name="USD Fees").first()
-            if fee_acct:
-                db.add(LedgerEntry(
-                    transaction_id=tx.id,
-                    account_id=fee_acct.id,
-                    amount=fee_amount,
-                    currency="USD",
-                    entry_type="FEE"
-                ))
-
-        db.flush()
-        return
-
-    # 3) Buy => from USD => to BTC
-    if (
-        tx_type == "Buy"
-        and from_acct and from_acct.currency == "USD"
-        and to_acct and to_acct.currency == "BTC"
-    ):
-        amount_btc = Decimal(tx_data.get("amount") or 0)
-        fee_amt = Decimal(tx_data.get("fee_amount") or 0)
-        cost_basis_usd = Decimal(tx_data.get("cost_basis_usd") or 0)
-
-        total_usd_out = cost_basis_usd + fee_amt
-        db.add(LedgerEntry(
-            transaction_id=tx.id,
-            account_id=from_acct.id,
-            amount=-total_usd_out,
-            currency="USD",
-            entry_type="MAIN_OUT"
-        ))
-        if amount_btc > 0:
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=to_acct.id,
-                amount=amount_btc,
-                currency="BTC",
-                entry_type="MAIN_IN"
-            ))
-        if fee_amt > 0 and fee_currency == "USD":
-            fee_acct = db.query(Account).filter_by(name="USD Fees").first()
-            if fee_acct:
-                db.add(LedgerEntry(
-                    transaction_id=tx.id,
-                    account_id=fee_acct.id,
-                    amount=fee_amt,
-                    currency="USD",
-                    entry_type="FEE"
-                ))
-        db.flush()
-        return
-
-    # 4) Fallback: Deposits, Withdrawals, or other
-    if from_acct and amount > 0:
-        main_out_amt = -(amount + fee_amount)
-        db.add(LedgerEntry(
-            transaction_id=tx.id,
-            account_id=from_acct.id,
-            amount=main_out_amt,
-            currency=from_acct.currency,
-            entry_type="MAIN_OUT"
-        ))
-    if to_acct and amount > 0:
-        db.add(LedgerEntry(
-            transaction_id=tx.id,
-            account_id=to_acct.id,
-            amount=amount,
-            currency=to_acct.currency,
-            entry_type="MAIN_IN"
-        ))
-    if fee_amount > 0:
-        # Fee to either BTC Fees or USD Fees
-        if fee_currency == "BTC":
-            fee_acct = db.query(Account).filter_by(name="BTC Fees").first()
-        else:
-            fee_acct = db.query(Account).filter_by(name="USD Fees").first()
-        if fee_acct:
-            db.add(LedgerEntry(
-                transaction_id=tx.id,
-                account_id=fee_acct.id,
-                amount=fee_amount,
-                currency=fee_currency,
-                entry_type="FEE"
-            ))
+    if tx_type == "Transfer" and from_acct and from_acct.currency == "BTC" and fee_amount > 0:
+        _btc_transfer_lines(tx, from_acct, to_acct, amount, fee_amount, db)
+    elif tx_type == "Sell" and _in_currency(from_acct, "BTC") and _in_currency(to_acct, "USD"):
+        _sell_lines(tx, tx_data, from_acct, to_acct, amount, fee_amount, fee_currency, db)
+    elif tx_type == "Buy" and _in_currency(from_acct, "USD") and _in_currency(to_acct, "BTC"):
+        _buy_lines(tx, tx_data, from_acct, to_acct, fee_currency, db)
+    else:
+        _plain_lines(tx, from_acct, to_acct, amount, fee_amount, fee_currency, db)
     db.flush()
+
+
+def _in_currency(account: Account | None, currency: str) -> bool:
+    return bool(account and account.currency == currency)
+
+
+def _add_line(tx: Transaction, account_id: int, amount: Decimal, currency: str, entry_type: str, db: Session) -> None:
+    db.add(LedgerEntry(
+        transaction_id=tx.id,
+        account_id=account_id,
+        amount=amount,
+        currency=currency,
+        entry_type=entry_type
+    ))
+
+
+def _fee_account(currency: str, db: Session) -> Account | None:
+    """BTC Fees or USD Fees."""
+    return db.query(Account).filter_by(name=f"{currency} Fees").first()
+
+
+def _btc_transfer_lines(tx, from_acct, to_acct, amount: Decimal, fee_amount: Decimal, db: Session) -> None:
+    """The amount out of the source (fee included), the amount less the fee
+    into the destination, the fee to BTC Fees."""
+    _add_line(tx, from_acct.id, -amount, from_acct.currency, "MAIN_OUT", db)
+    if to_acct and amount > 0:
+        net_in = amount - fee_amount
+        _add_line(tx, to_acct.id, net_in if net_in > 0 else Decimal("0"), to_acct.currency, "MAIN_IN", db)
+    fee_acct = _fee_account("BTC", db)
+    if fee_acct:
+        _add_line(tx, fee_acct.id, fee_amount, "BTC", "FEE", db)
+
+
+def _sell_lines(tx, tx_data: dict, from_acct, to_acct, amount: Decimal, fee_amount: Decimal, fee_currency: str,
+                db: Session) -> None:
+    """The BTC out, the net USD in, a USD fee to USD Fees."""
+    if amount > 0:
+        _add_line(tx, from_acct.id, -amount, "BTC", "MAIN_OUT", db)
+    net_usd_in = _sell_net_proceeds(tx, tx_data, fee_amount, fee_currency)
+    if net_usd_in > 0:
+        _add_line(tx, to_acct.id, net_usd_in, "USD", "MAIN_IN", db)
+    if fee_amount > 0 and fee_currency == "USD":
+        fee_acct = _fee_account("USD", db)
+        if fee_acct:
+            _add_line(tx, fee_acct.id, fee_amount, "USD", "FEE", db)
+
+
+def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_currency: str) -> Decimal:
+    """
+    A Sell's proceeds net of its USD fee, from the gross the user entered,
+    stored in tx.proceeds_usd (and tx_data). Always from the gross: the net
+    again, less the fee, would shrink with every recalculation.
+    """
+    gross_usd = Decimal(tx_data.get("gross_proceeds_usd") or "0")
+    if gross_usd > 0:
+        if fee_currency == "USD":
+            net_usd_in = gross_usd - fee_amount
+            if net_usd_in < 0:
+                net_usd_in = Decimal("0")
+        else:
+            # A BTC fee doesn't reduce the USD received
+            net_usd_in = gross_usd
+        tx_data["proceeds_usd"] = str(net_usd_in)
+        tx.proceeds_usd = net_usd_in
+        tx.gross_proceeds_usd = gross_usd
+        return net_usd_in
+
+    # No gross recorded. create_transaction_record always records it, so only
+    # rows saved before that reach here, and their stored proceeds_usd is
+    # ALREADY net of the USD fee: keep it as the net and recover the gross
+    # once.
+    proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
+    net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
+    if net_usd_in > 0:
+        tx.gross_proceeds_usd = (
+            net_usd_in + fee_amount if fee_currency == "USD" else net_usd_in
+        )
+    tx_data["proceeds_usd"] = str(net_usd_in)
+    tx.proceeds_usd = net_usd_in
+    return net_usd_in
+
+
+def _buy_lines(tx, tx_data: dict, from_acct, to_acct, fee_currency: str, db: Session) -> None:
+    """The cost and a USD fee out of the USD account, the BTC in, the fee to USD Fees."""
+    amount_btc = Decimal(tx_data.get("amount") or 0)
+    fee_amt = Decimal(tx_data.get("fee_amount") or 0)
+    cost_basis_usd = Decimal(tx_data.get("cost_basis_usd") or 0)
+
+    total_usd_out = cost_basis_usd + fee_amt
+    _add_line(tx, from_acct.id, -total_usd_out, "USD", "MAIN_OUT", db)
+    if amount_btc > 0:
+        _add_line(tx, to_acct.id, amount_btc, "BTC", "MAIN_IN", db)
+    if fee_amt > 0 and fee_currency == "USD":
+        fee_acct = _fee_account("USD", db)
+        if fee_acct:
+            _add_line(tx, fee_acct.id, fee_amt, "USD", "FEE", db)
+
+
+def _plain_lines(tx, from_acct, to_acct, amount: Decimal, fee_amount: Decimal, fee_currency: str,
+                 db: Session) -> None:
+    """Deposits, withdrawals and USD transfers: the amount and the fee out
+    of the sender, the amount into the receiver, the fee to its fee account."""
+    if from_acct and amount > 0:
+        _add_line(tx, from_acct.id, -(amount + fee_amount), from_acct.currency, "MAIN_OUT", db)
+    if to_acct and amount > 0:
+        _add_line(tx, to_acct.id, amount, to_acct.currency, "MAIN_IN", db)
+    if fee_amount > 0:
+        fee_acct = _fee_account("BTC" if fee_currency == "BTC" else "USD", db)
+        if fee_acct:
+            _add_line(tx, fee_acct.id, fee_amount, fee_currency, "FEE", db)
 
 
 def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
