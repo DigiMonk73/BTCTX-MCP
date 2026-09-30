@@ -113,6 +113,18 @@ test("logout from the header", async ({ authedPage: page }) => {
   expect((await page.request.get("/api/transactions")).status()).toBe(401);
 });
 
+test("on a phone every header tab, Logout too, is on screen without scrolling", async ({ authedPage: page }) => {
+  // The 1.2.3 VM walk: at 375px the header was 407px wide and Logout read "Logo".
+  for (const width of [375, 430]) {
+    await page.setViewportSize({ width, height: 800 });
+    const header = page.locator(".header");
+    const { scrollWidth, clientWidth } = await header.evaluate((h) => ({ scrollWidth: h.scrollWidth, clientWidth: h.clientWidth }));
+    expect(scrollWidth, `${width}px`).toBeLessThanOrEqual(clientWidth);
+    const logout = await page.getByRole("link", { name: "Logout" }).boundingBox();
+    expect(logout!.x + logout!.width, `${width}px`).toBeLessThanOrEqual(width);
+  }
+});
+
 test("logout from Settings", async ({ authedPage: page }) => {
   page.on("dialog", (d) => void d.accept());
   await page.getByRole("link", { name: "Settings" }).click();

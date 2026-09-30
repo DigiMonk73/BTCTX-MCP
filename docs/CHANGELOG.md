@@ -5,6 +5,11 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **On a phone, every tab in the header fits on screen.** At 375 px the
+  header needed 407 px, so Logout was cut off at the edge ("Logo") and only
+  reachable by scrolling the header sideways. Up to 480 px wide the tabs are
+  now a little smaller and spread across the width; they fit from 340 px
+  (narrower screens still scroll). Found by the 1.2.3 VM walk.
 - **A CSV export re-imported gives back its zero fees.** The import dropped
   a fee of 0, so rows saved with "0 USD" or "0 BTC" came back with no fee
   and no fee currency. Every figure was already the same (a zero fee and no

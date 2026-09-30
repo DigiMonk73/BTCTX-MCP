@@ -132,6 +132,10 @@
   .price-source-prompt { margin: var(--space-3) var(--space-3) 0; }
 }
 
-@media (max-width: 420px) {
-  .header-nav-item { padding: 0 10px; font-size: var(--text-13); }
+/* Phones: all five tabs fit from 340px (20px to spare at 360px, in the
+   system font: Inter isn't bundled); narrower, the nav still scrolls */
+@media (max-width: 480px) {
+  .header { padding: 0 var(--space-1); }
+  .header-nav { justify-content: space-between; }
+  .header-nav-item { padding: 0 6px; font-size: var(--text-xs); }
 }
