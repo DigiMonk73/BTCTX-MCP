@@ -379,9 +379,13 @@ commit)
   - `transaction.py` 1,540 → 1,416 lines; `csv_import.py` 965 → 677;
     `complete_tax_report.py` 529 → 331; `calculation.py` 270 → 213.
   - All app Python 14,493 → 12,858 lines; frontend source 7,589 → 6,775.
-- [ ] A clean equivalence run against `v1.2.2-1`, and `--bench` no slower.
-- [ ] CHANGELOG (Unreleased, "Development"). `CLAUDE.md` if the key-files
-      table changed.
+- [x] A clean equivalence run against `v1.2.2-1`, and `--bench` no slower.
+      2026-09-29, at the fix commit: against `3646a15` (1.2.2-1 plus the
+      CSV fix) "No difference", recalculation 2.280 s before, 2.119 s after
+      (-7%); against `v1.2.2-1` the one difference is that fix, plus the
+      reworded API docs text (shown, not counted).
+- [x] CHANGELOG (Unreleased, "Development"). `CLAUDE.md` if the key-files
+      table changed (it didn't; it points to `docs/CODE_STYLE.md`).
 - [ ] A release **only when the owner says so**: full CI and the StartOS VM
       tests (`docs/AGENT-TESTS.md`).
 
