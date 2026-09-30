@@ -142,6 +142,8 @@ jobs:
   s9pk:
     needs: [check, image]
     runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.pack.outputs.package }}
     env:
       START_CLI_VERSION: v2.1.0
     steps:
@@ -169,6 +171,7 @@ jobs:
           DEV_KEY: ${{ secrets.DEV_KEY }}
         run: startos/scripts/signing-key.sh "$GITHUB_WORKSPACE/.."
       - name: Pack btctx.s9pk
+        id: pack
         working-directory: startos
         run: |
           npm ci
@@ -178,6 +181,7 @@ jobs:
             '.id == "btctx" and (.version | startswith(($v | ltrimstr("v")) + ":"))
              and (.gitHash | endswith("-modified") | not)
              and ([.images.main.arch[]] | sort) == ["aarch64", "x86_64"]' manifest.json
+          echo "package=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           name: s9pk
@@ -203,7 +207,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.check.outputs.tag }}
           VERSION: ${{ needs.check.outputs.version }}
+          # The StartOS package's own version (1.2.3:0): what StartOS and the
+          # mirror's releases show, so it's in the title here too.
+          PACKAGE: ${{ needs.s9pk.outputs.package }}
         run: |
+          [ -n "$PACKAGE" ] || { echo "no package version from the s9pk job"; exit 1; }
           awk -v tag="$TAG" '
             $0 ~ "^## \\[" tag "\\]" {on=1; next}
             on && /^## \[/ {exit}
@@ -214,12 +222,12 @@ jobs:
 
           ## Downloads
 
-          - **StartOS:** \`btctx.s9pk\`. In StartOS, open **Sideload** and upload it; installs of earlier versions update in place.
+          - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. In StartOS, open **Sideload** and upload it; installs of earlier versions update in place.
           - **macOS:** \`BitcoinTX-macOS.dmg\` (or the \`.zip\`). The app is not signed by Apple: the first time, right-click (Control-click) BitcoinTX in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64).
           - **AI connector:** \`uvx btctx-mcp==${VERSION#v}\` (PyPI); Settings → Connect an AI Assistant has it ready to paste.
           EOF
-          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md \
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG · StartOS package $PACKAGE" --notes-file notes.md \
             dist/btctx.s9pk dist/BitcoinTX-macOS.dmg dist/BitcoinTX-macOS.zip
 
   mirror:

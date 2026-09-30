@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- **A release's title names its StartOS package version**, for example
+  "v1.2.3 · StartOS package 1.2.3:0", and so does its StartOS download line:
+  the number StartOS and the mirror's releases show (the app version plus
+  the package's own revision). The tag stays `vX.Y.Z`, which the Mac app,
+  the Docker image and the AI connector share. v1.2.3's release was
+  retitled to match.
+
 ## [v1.2.3] - 2026-09-29 - Code cleanup: the same app, easier to maintain
 
 A maintenance release with no new features. The code behind the app was
