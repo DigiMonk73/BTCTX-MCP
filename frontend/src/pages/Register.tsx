@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
-import { extractErrorMessage } from '../hooks/useApiCall';
+import { extractErrorMessage } from '../utils/apiError';
 import { useToast } from '../contexts/useToast';
 import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/credentials';
 import '../styles/login.css';

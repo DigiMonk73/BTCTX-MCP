@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from '../api';
-import { extractErrorMessage } from '../hooks/useApiCall';
+import { extractErrorMessage } from '../utils/apiError';
 import "../styles/login.css";
 import { ensureTaxTimezone } from "../utils/taxTimezone";
 import { SETUP_CODE_HINT } from "../utils/credentials";

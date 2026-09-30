@@ -12,6 +12,9 @@ All notable changes to BitcoinTX are documented in this file.
   blank fee in a file still means no fee. Found by the 1.2.3 VM walk.
 
 ### Development
+- **The web app's error-message helper moved** from `hooks/useApiCall.ts`
+  (it held no hooks) into `utils/apiError.ts`, beside the other one; its
+  tests moved unchanged.
 - **The stress tests fail on a refused save** instead of carrying on
   without the row, except where a random ledger may ask for more than is on
   hand, and their random amounts and dates are the same on every run. The

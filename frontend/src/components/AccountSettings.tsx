@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
-import { extractErrorMessage } from "../hooks/useApiCall";
+import { extractErrorMessage } from "../utils/apiError";
 import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from "../utils/credentials";
 import TaxTimezoneSetting from "./TaxTimezoneSetting";
 
