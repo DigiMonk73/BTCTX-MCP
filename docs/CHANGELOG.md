@@ -98,9 +98,10 @@ All notable changes to BitcoinTX are documented in this file.
   files and four API hooks (`src/hooks/` keeps the error message),
   `formatTimestamp`, two types, and five dashboard fields the server has
   never sent. The built app is byte-identical but for those five fields.
-- **Lint limits each Python function** (ruff: complexity 10, 12 branches,
-  50 statements, 6 returns; tests and migrations exempt), so the long
-  functions can't grow back.
+- **Lint limits each function's size**, so the long functions can't grow
+  back: Python (ruff: complexity 10, 12 branches, 50 statements, 6 returns;
+  tests and migrations exempt) and the frontend (ESLint: complexity 15 per
+  function, 400 lines per file; tests exempt).
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

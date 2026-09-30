@@ -17,7 +17,7 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt) | secs |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
 | Unit + integration | `make test-fast` | ~650 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, the AI key, MCP tools | ~1 min |
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~3 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |

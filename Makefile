@@ -8,7 +8,7 @@
 # make e2e          → Playwright click-through tests of every UI flow (Chromium)
 # make preview      → This checkout in a browser at 127.0.0.1:8777 (throwaway data)
 # make docker-smoke → Build the Docker image here and run CI's container checks
-# make lint         → Bug-level Python lint + frontend lint/type check
+# make lint         → Python + frontend lint (with size limits), type check, unit tests
 # make audit-deps   → Known-vulnerability scan of Python + npm dependencies
 # make check        → Everything CI runs (except Docker/macOS builds)
 # -----------------------------------------------------------------------------

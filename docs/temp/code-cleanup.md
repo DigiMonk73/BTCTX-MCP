@@ -360,7 +360,7 @@ commit)
 - [x] Switch on ruff's `C901`, `PLR0911`, `PLR0912` and `PLR0915` (the
       Python code met them once the engine was divided; tests and
       migrations exempt). `docs/TESTING.md`, `CLAUDE.md`, the pre-push label.
-- [ ] Switch on ESLint's `complexity` and `max-lines` after the frontend
+- [x] Switch on ESLint's `complexity` and `max-lines` after the frontend
       track.
 
 **After the cleanup (a fix, not a cleanup)**
@@ -369,13 +369,16 @@ commit)
 
 ## 7. Finish
 
-- [ ] Before/after numbers:
-  - the longest functions
-  - how many are over 50 lines (41 now) and over 100 (17 now)
-  - complexity over 10 (29 now)
-  - line counts per file
-  - the `transaction.py` size
-  - the frontend file sizes
+- [x] Before/after numbers (v1.2.2-1 → now; app code, no tests or
+      migrations; measured the same way both times):
+  - Python functions over 50 lines: 39 → 11; over 100: 17 → 0; the longest
+    510 → 88 lines (`parse_river_csv`).
+  - Python functions over complexity 10: 25 → 0 (ruff now refuses them).
+  - Frontend functions over complexity 15: 11 → 0; files over 400 lines:
+    4 → 0; the largest file 1,049 → 350 lines (`types/global.d.ts`).
+  - `transaction.py` 1,540 → 1,416 lines; `csv_import.py` 965 → 677;
+    `complete_tax_report.py` 529 → 331; `calculation.py` 270 → 213.
+  - All app Python 14,493 → 12,858 lines; frontend source 7,589 → 6,775.
 - [ ] A clean equivalence run against `v1.2.2-1`, and `--bench` no slower.
 - [ ] CHANGELOG (Unreleased, "Development"). `CLAUDE.md` if the key-files
       table changed.
@@ -402,6 +405,11 @@ commit)
   up to 21 million, USD to the cent), but a USD amount over about $67
   million with more than two decimals could print a wrong last digit.
   Low priority; a fix would format the Decimal directly.
+- **`src/hooks/useApiCall.ts` now holds only the error-message helper**
+  (the hooks it was named after were never used). Its natural home is
+  `src/utils/`, but moving it moves its test file too (only the import
+  line would change), and the plan says existing tests stay as they are:
+  the owner's call.
 - **`test_stress_and_forms.py`'s `create_tx` swallows failed saves**, and its
   random numbers are unseeded, so a failure there can hide or be hard to
   repeat. These are test-quality issues, not app bugs.

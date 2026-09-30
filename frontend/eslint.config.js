@@ -23,7 +23,15 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      // Past these, divide the function or file (docs/CODE_STYLE.md)
+      complexity: ['error', 15],
+      'max-lines': ['error', 400],
     },
+  },
+  {
+    // A test scenario can be long.
+    files: ['src/**/*.test.ts'],
+    rules: { complexity: 'off', 'max-lines': 'off' },
   },
   {
     // Playwright end-to-end tests: Node, no React.

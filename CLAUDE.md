@@ -211,7 +211,8 @@ make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docke
 Tests never touch a real database or the network (temp SQLite, stubbed BTC
 prices). A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app
-code), and ESLint with zero warnings; `docs/CODE_STYLE.md` has the rest.
+code), and ESLint with zero warnings and a size limit per function and
+file; `docs/CODE_STYLE.md` has the rest.
 
 ## Releasing
 
