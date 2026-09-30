@@ -41,6 +41,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -128,7 +129,7 @@ def fee_price_changes(db: Session, ids=None) -> list[dict[str, Any]]:
             continue
         try:
             price = price_history.daily_price(db, t.timestamp)
-        except Exception:
+        except HTTPException:  # no price for that day: nothing to compare
             continue
         expected = (price * Decimal(t.fee_amount)).quantize(CENT)
         if _off(t.fee_usd, expected):

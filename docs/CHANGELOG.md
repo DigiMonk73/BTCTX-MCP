@@ -9,6 +9,11 @@ All notable changes to BitcoinTX are documented in this file.
   or blank) crashed the import preview with a server error; it is now a row
   error, "Must be yes, no or blank." Found by the new equivalence check's
   bad inputs.
+- **Ledger Review's fee check no longer hides errors.** Looking for
+  transfers whose fee value is off the day's price, it passed over a
+  transfer on *any* error while getting that day's price, so a broken
+  database or a bug looked like "nothing to fix". It now passes over only
+  a day with no price; anything else is reported as an error.
 
 ### Development
 - **Code cleanup, no change in behaviour** (plan: `docs/temp/code-cleanup.md`):

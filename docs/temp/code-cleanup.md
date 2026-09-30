@@ -364,7 +364,7 @@ commit)
       track.
 
 **After the cleanup (a fix, not a cleanup)**
-- [ ] `review.fee_price_changes` catches only the no-price error, with a test
+- [x] `review.fee_price_changes` catches only the no-price error, with a test
       showing the difference. Its own commit.
 
 ## 7. Finish
