@@ -351,7 +351,7 @@ commit)
 - [x] `TransactionForm.tsx`: a component per transaction type's fields, plus
       the shared fee fields. `#transaction-form` and `#trigger-form-delete`
       stay.
-- [ ] `Settings.tsx`: Account, Data Management, and Backup & Restore as their
+- [x] `Settings.tsx`: Account, Data Management, and Backup & Restore as their
       own components. `#csv-file-input`, the `aria-label`s and the
       `.settings-option` layout stay.
 - [ ] `RiverImport.tsx` and `Dashboard.tsx`, only if still over the limit.

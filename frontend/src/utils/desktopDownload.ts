@@ -100,3 +100,23 @@ export async function downloadFile(
     return downloadInBrowser(blob, filename);
   }
 }
+
+/**
+ * Save a download and say how it went: where the Mac app saved it, or that
+ * it downloaded; why saving failed; null when the user cancelled the save.
+ */
+export async function downloadMessage(
+  blob: Blob,
+  filename: string,
+  fileType: "pdf" | "csv" | "btx",
+  what: string
+): Promise<string | null> {
+  const result = await downloadFile(blob, filename, fileType);
+  if (result.success) {
+    return isDesktopApp() && result.path ? `${what} saved to: ${result.path}` : `${what} downloaded.`;
+  }
+  if (result.error && result.error !== "Save cancelled") {
+    return `Save failed: ${result.error}`;
+  }
+  return null;
+}

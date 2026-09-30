@@ -70,6 +70,11 @@ All notable changes to BitcoinTX are documented in this file.
   shared account and fee fields, the autofill and the save request are their
   own files in `components/transactionForm/`. Every form variant renders the
   same labels, roles and HTML (`e2e/ui-snapshot.e2e.ts`).
+- **The Settings page** (799 lines) is its sections: Account, Data
+  Management (with the CSV import's preview) and Backup & Restore are their
+  own components, next to the ones it already had; the page keeps the one
+  action at a time and the message line they share. Same page, labels and
+  messages.
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.
