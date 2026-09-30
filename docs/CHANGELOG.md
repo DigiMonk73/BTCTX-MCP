@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
+
+Small fixes found by the 1.2.3 test walk on StartOS, with no change to any
+tax figure: checked on every test ledger and, before release, on the owner's
+own ledger upgraded from 1.2.3 (every row, form, gain and CSV row the same).
+The database moves to schema 0005 once (a copy is kept in `backups/` first).
+
 ### Removed
 - **The unused transaction lock.** Nothing in the app could lock a row (no
   button, API field or import set it), yet a locked row would have refused
