@@ -339,7 +339,7 @@ tests, the equivalence check, and `--bench` on every commit)
       step (repeated in the recalculation loop) one name.
 - [x] `build_ledger_entries_for_transaction`: one named step per transaction
       type.
-- [ ] `maybe_dispose_lots_fifo` and `maybe_transfer_bitcoin_lot`: FIFO, the
+- [x] `maybe_dispose_lots_fifo` and `maybe_transfer_bitcoin_lot`: FIFO, the
       fee disposal and the moved lot as named steps.
 - [ ] `create_transaction_record`, `update_transaction_record`,
       `_validate_transaction` and `_enforce_transaction_type_rules`.

@@ -611,99 +611,119 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if btc_outflow <= 0:
         return
 
-    # 1) Proceeds for the amount. Use tx.proceeds_usd as the authoritative
-    # value for a Sell (build_ledger_entries_for_transaction derived it from
-    # gross_proceeds_usd). Withdrawals have no ledger-side net step, so they
-    # start from the gross.
-    if tx.type == "Withdrawal":
-        total_proceeds = _withdrawal_gross_proceeds(tx, btc_outflow, db)
-    elif tx.proceeds_usd is not None:
-        total_proceeds = Decimal(tx.proceeds_usd)
-    else:
-        raw_proceeds = tx_data.get("proceeds_usd")
-        if raw_proceeds is None:
-            total_proceeds = Decimal("0")
-        else:
-            try:
-                total_proceeds = Decimal(str(raw_proceeds))
-            except (ValueError, TypeError, InvalidOperation):
-                total_proceeds = Decimal("0")
-
-    # 2) Gift/Donation/Lost => no gain or loss on the amount: not a sale, and
-    # not on Form 8949 (form_8949.NON_TAXABLE_PURPOSES). Lost used to carry a
-    # loss of its basis, which the dashboard and the tax report's summary
-    # counted although the forms leave it out (owner decision 2026-09-26).
-    purpose_lower = (tx.purpose or "").lower()
-    not_a_sale = tx.type == "Withdrawal" and purpose_lower in ("gift", "donation", "lost")
+    total_proceeds = _amount_proceeds(tx, tx_data, btc_outflow, db)
+    # Gift/Donation/Lost => no gain or loss on the amount: not a sale, and
+    # not on Form 8949 (form_8949.NON_TAXABLE_PURPOSES); the dashboard and
+    # the tax report's summary leave it out too (owner decision 2026-09-26).
+    not_a_sale = tx.type == "Withdrawal" and (tx.purpose or "").lower() in ("gift", "donation", "lost")
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
 
-    # 3) FIFO disposal across lots (account-specific)
-    # Only consume lots from the account we're selling/withdrawing from
-    lots = (
-        db.query(BitcoinLot)
-        .join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
-        .filter(
-            BitcoinLot.remaining_btc > 0,
-            Transaction.to_account_id == tx.from_account_id
-        )
-        .order_by(BitcoinLot.acquired_date.asc())
-        .all()
-    )
-    tz = get_tax_timezone(db)
-    remaining_fee = fee_btc
-    remaining_amount = amount_btc
-    fee_proceeds_so_far = Decimal("0")
-    proceeds_so_far = Decimal("0")
-
-    def dispose(lot, qty, proceeds, gain_zero, is_fee):
-        cost_per_btc = lot.cost_basis_usd / lot.total_btc if lot.total_btc else Decimal("0")
-        basis = (cost_per_btc * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-        db.add(LotDisposal(
-            lot_id=lot.id,
-            transaction_id=tx.id,
-            disposed_btc=qty,
-            disposal_basis_usd=basis,
-            proceeds_usd_for_that_portion=proceeds,
-            realized_gain_usd=Decimal("0.0") if gain_zero else proceeds - basis,
-            holding_period=holding_period(lot.acquired_date, tx.timestamp, tz),
-            is_fee=is_fee,
-        ))
-        lot.remaining_btc -= qty
-
-    for lot in lots:
-        if remaining_fee <= 0 and remaining_amount <= 0:
+    disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
+    for lot in _open_lots(tx.from_account_id, db):
+        if disposal.remaining_fee <= 0 and disposal.remaining_amount <= 0:
             break
-        if remaining_fee > 0 and lot.remaining_btc > 0:
-            qty = min(lot.remaining_btc, remaining_fee)
-            if qty == remaining_fee:  # last part takes the remainder: the parts add up to fee_usd
-                proceeds = fee_usd - fee_proceeds_so_far
-            else:
-                proceeds = (fee_usd * qty / fee_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-            fee_proceeds_so_far += proceeds
-            dispose(lot, qty, proceeds, gain_zero=False, is_fee=True)
-            remaining_fee -= qty
-        if remaining_amount > 0 and lot.remaining_btc > 0:
-            qty = min(lot.remaining_btc, remaining_amount)
-            if qty == remaining_amount:  # last part takes the remainder: the parts add up to the proceeds
-                proceeds = total_proceeds - proceeds_so_far
-            else:
-                proceeds = (qty / amount_btc * total_proceeds).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-            proceeds_so_far += proceeds
-            dispose(lot, qty, proceeds, gain_zero=not_a_sale, is_fee=False)
-            remaining_amount -= qty
+        disposal.take_from(lot)
 
     # Validate that we had enough BTC to complete the disposal. No tolerance:
-    # amounts are exact decimals of at most 8 places (the 1 sat allowed here
-    # was left from when they were floats, and let a withdrawal overdraw).
-    if remaining_fee + remaining_amount > 0:
+    # amounts are exact decimals of at most 8 places.
+    if disposal.remaining_fee + disposal.remaining_amount > 0:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to {tx.type.lower()} {btc_outflow:.8f} BTC"
         )
 
     db.flush()
+
+
+def _amount_proceeds(tx: Transaction, tx_data: dict, btc_outflow: Decimal, db: Session) -> Decimal:
+    """
+    The proceeds for the amount. A Sell's is tx.proceeds_usd, the net that
+    build_ledger_entries_for_transaction derived from gross_proceeds_usd;
+    a Withdrawal has no ledger-side net step, so it starts from the gross.
+    """
+    if tx.type == "Withdrawal":
+        return _withdrawal_gross_proceeds(tx, btc_outflow, db)
+    if tx.proceeds_usd is not None:
+        return Decimal(tx.proceeds_usd)
+    raw_proceeds = tx_data.get("proceeds_usd")
+    if raw_proceeds is None:
+        return Decimal("0")
+    try:
+        return Decimal(str(raw_proceeds))
+    except (ValueError, TypeError, InvalidOperation):
+        return Decimal("0")
+
+
+def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
+    """The account's lots with BTC left, oldest first."""
+    return (
+        db.query(BitcoinLot)
+        .join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
+        .filter(
+            BitcoinLot.remaining_btc > 0,
+            Transaction.to_account_id == account_id
+        )
+        .order_by(BitcoinLot.acquired_date.asc())
+        .all()
+    )
+
+
+class _FifoDisposal:
+    """
+    A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
+    fee's part before the amount's, each with its share of the proceeds.
+    The last part of each takes what is left, so the parts add up exactly
+    to fee_usd and to the proceeds.
+    """
+
+    def __init__(self, tx: Transaction, amount_btc: Decimal, total_proceeds: Decimal, not_a_sale: bool,
+                 fee_btc: Decimal, fee_usd: Decimal, db: Session):
+        self.tx, self.db = tx, db
+        self.amount_btc, self.total_proceeds, self.not_a_sale = amount_btc, total_proceeds, not_a_sale
+        self.fee_btc, self.fee_usd = fee_btc, fee_usd
+        self.remaining_amount = amount_btc
+        self.remaining_fee = fee_btc
+        self.proceeds_so_far = Decimal("0")
+        self.fee_proceeds_so_far = Decimal("0")
+        self.tz = get_tax_timezone(db)
+
+    def take_from(self, lot: BitcoinLot) -> None:
+        if self.remaining_fee > 0 and lot.remaining_btc > 0:
+            qty = min(lot.remaining_btc, self.remaining_fee)
+            if qty == self.remaining_fee:
+                proceeds = self.fee_usd - self.fee_proceeds_so_far
+            else:
+                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            self.fee_proceeds_so_far += proceeds
+            self.record(lot, qty, proceeds, gain_zero=False, is_fee=True)
+            self.remaining_fee -= qty
+        if self.remaining_amount > 0 and lot.remaining_btc > 0:
+            qty = min(lot.remaining_btc, self.remaining_amount)
+            if qty == self.remaining_amount:
+                proceeds = self.total_proceeds - self.proceeds_so_far
+            else:
+                proceeds = (qty / self.amount_btc * self.total_proceeds).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            self.proceeds_so_far += proceeds
+            self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)
+            self.remaining_amount -= qty
+
+    def record(self, lot: BitcoinLot, qty: Decimal, proceeds: Decimal, gain_zero: bool, is_fee: bool) -> None:
+        cost_per_btc = lot.cost_basis_usd / lot.total_btc if lot.total_btc else Decimal("0")
+        basis = (cost_per_btc * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+        self.db.add(LotDisposal(
+            lot_id=lot.id,
+            transaction_id=self.tx.id,
+            disposed_btc=qty,
+            disposal_basis_usd=basis,
+            proceeds_usd_for_that_portion=proceeds,
+            realized_gain_usd=Decimal("0.0") if gain_zero else proceeds - basis,
+            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, self.tz),
+            is_fee=is_fee,
+        ))
+        lot.remaining_btc -= qty
 
 
 def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
@@ -916,105 +936,97 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
             status_code=400,
             detail=f"Transfer fee {fee_btc} exceeds the amount sent {btc_outflow}"
         )
-    total_outflow = btc_outflow
-    if total_outflow <= 0:
+    if btc_outflow <= 0:
         return
 
-    # Gather lots from 'from_acct' in FIFO
-    lots = (
-        db.query(BitcoinLot)
-        .join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
-        .filter(
-            BitcoinLot.remaining_btc > 0,
-            Transaction.to_account_id == tx.from_account_id
-        )
-        .order_by(BitcoinLot.acquired_date.asc())
-        .all()
-    )
-
-    remaining_outflow = total_outflow
-    remaining_fee = fee_btc
-    fee_proceeds_so_far = Decimal("0")
-    transfers_for_destination = []
-
-    for lot in lots:
-        if remaining_outflow <= 0:
+    move = _LotMove(tx, btc_outflow, fee_btc, db)
+    for lot in _open_lots(tx.from_account_id, db):
+        if move.remaining_outflow <= 0:
             break
         if lot.remaining_btc <= 0:
             continue
+        move.take_from(lot)
 
-        btc_to_use = min(lot.remaining_btc, remaining_outflow)
-        cost_per_btc = (
-            lot.cost_basis_usd / lot.total_btc if lot.total_btc > 0 else Decimal("0")
-        )
-        cost_portion = (cost_per_btc * btc_to_use).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-
-        lot.remaining_btc -= btc_to_use
-        db.add(lot)
-        remaining_outflow -= btc_to_use
-
-        portion_for_fee = min(btc_to_use, remaining_fee)
-        portion_for_dest = btc_to_use - portion_for_fee
-
-        # Fee disposal, at the fee's stored USD value (split by BTC when the
-        # fee spans lots; the last part takes the remainder so the parts add
-        # up to fee_usd exactly).
-        if portion_for_fee > 0:
-            disposal_basis = (cost_per_btc * portion_for_fee).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-            fee_usd = _stored_fee_usd(tx, fee_btc, db)
-            if portion_for_fee == remaining_fee:
-                proceeds_for_fee = fee_usd - fee_proceeds_so_far
-            else:
-                proceeds_for_fee = (fee_usd * portion_for_fee / fee_btc).quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-            fee_proceeds_so_far += proceeds_for_fee
-            realized_gain = proceeds_for_fee - disposal_basis
-
-            hp = holding_period(lot.acquired_date, tx.timestamp, get_tax_timezone(db))
-
-            disp = LotDisposal(
-                lot_id=lot.id,
-                transaction_id=tx.id,
-                disposed_btc=portion_for_fee,
-                disposal_basis_usd=disposal_basis,
-                proceeds_usd_for_that_portion=proceeds_for_fee,
-                realized_gain_usd=realized_gain,
-                holding_period=hp,
-                is_fee=True,
-            )
-            db.add(disp)
-            remaining_fee -= portion_for_fee
-
-        # Destination partial-lot
-        if portion_for_dest > 0:
-            transfers_for_destination.append((lot, portion_for_dest, cost_per_btc, lot.acquired_date))
-
-    if remaining_fee > 0:
+    if move.remaining_fee > 0:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to cover fee {fee_btc}"
         )
-    if remaining_outflow > 0:
+    if move.remaining_outflow > 0:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to transfer {btc_outflow} (including fee {fee_btc})"
         )
-
-    # Create partial-lot(s) in the destination
-    for (orig_lot, amt_btc, cost_per_btc, acquired_date) in transfers_for_destination:
-        if acquired_date.tzinfo is None:
-            acquired_date = acquired_date.replace(tzinfo=timezone.utc)
-        cost_portion = (cost_per_btc * amt_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
-        new_lot = BitcoinLot(
-            created_txn_id=tx.id,
-            acquired_date=acquired_date,
-            total_btc=amt_btc,
-            remaining_btc=amt_btc,
-            cost_basis_usd=cost_portion
-        )
-        db.add(new_lot)
-
+    move.add_destination_lots()
     db.flush()
+
+
+class _LotMove:
+    """
+    A BTC transfer's amount (fee included) taken from the source's lots,
+    oldest first. The fee's part is disposed of at the fee's stored USD
+    value (split by BTC when it spans lots; the last part takes the
+    remainder so the parts add up to fee_usd exactly). The rest becomes
+    lots in the destination, each keeping its source lot's acquisition date
+    and share of basis.
+    """
+
+    def __init__(self, tx: Transaction, btc_outflow: Decimal, fee_btc: Decimal, db: Session):
+        self.tx, self.fee_btc, self.db = tx, fee_btc, db
+        self.remaining_outflow = btc_outflow
+        self.remaining_fee = fee_btc
+        self.fee_proceeds_so_far = Decimal("0")
+        self.to_destination: list[tuple[Decimal, Decimal, datetime]] = []
+
+    def take_from(self, lot: BitcoinLot) -> None:
+        btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
+        cost_per_btc = (
+            lot.cost_basis_usd / lot.total_btc if lot.total_btc > 0 else Decimal("0")
+        )
+        lot.remaining_btc -= btc_to_use
+        self.db.add(lot)
+        self.remaining_outflow -= btc_to_use
+
+        portion_for_fee = min(btc_to_use, self.remaining_fee)
+        portion_for_dest = btc_to_use - portion_for_fee
+        if portion_for_fee > 0:
+            self.dispose_fee(lot, portion_for_fee, cost_per_btc)
+        if portion_for_dest > 0:
+            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date))
+
+    def dispose_fee(self, lot: BitcoinLot, portion: Decimal, cost_per_btc: Decimal) -> None:
+        disposal_basis = (cost_per_btc * portion).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+        fee_usd = _stored_fee_usd(self.tx, self.fee_btc, self.db)
+        if portion == self.remaining_fee:
+            proceeds_for_fee = fee_usd - self.fee_proceeds_so_far
+        else:
+            proceeds_for_fee = (fee_usd * portion / self.fee_btc).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+        self.fee_proceeds_so_far += proceeds_for_fee
+        self.db.add(LotDisposal(
+            lot_id=lot.id,
+            transaction_id=self.tx.id,
+            disposed_btc=portion,
+            disposal_basis_usd=disposal_basis,
+            proceeds_usd_for_that_portion=proceeds_for_fee,
+            realized_gain_usd=proceeds_for_fee - disposal_basis,
+            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, get_tax_timezone(self.db)),
+            is_fee=True,
+        ))
+        self.remaining_fee -= portion
+
+    def add_destination_lots(self) -> None:
+        for amt_btc, cost_per_btc, acquired_date in self.to_destination:
+            if acquired_date.tzinfo is None:
+                acquired_date = acquired_date.replace(tzinfo=timezone.utc)
+            cost_portion = (cost_per_btc * amt_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+            self.db.add(BitcoinLot(
+                created_txn_id=self.tx.id,
+                acquired_date=acquired_date,
+                total_btc=amt_btc,
+                remaining_btc=amt_btc,
+                cost_basis_usd=cost_portion
+            ))
 
 
 def recalculate_all_transactions(db: Session, until: datetime | None = None):
