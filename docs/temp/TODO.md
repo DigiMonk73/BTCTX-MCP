@@ -9,7 +9,7 @@ Rules: `README.md` here.
 ## Owner
 
 - [ ] Run the password checks on the VM: `cd ~/code/btctx-vm-lab && ./vm.sh start && bash owner-checks.sh` (backup and restore, login cookie, cross-site refusal, password change, login throttle, Reset Login Credentials); results in `scenarios/owner-checks.log`.
-- [ ] Finish the 1.2.2 box test on your own server (`startos-box-test-v1.2.2.md`; My Mempool is done). Install 1.2.2-1: the same app, with the real-logo icon.
+- [ ] Finish the 1.2.2 box test on your own server (`startos-box-test-v1.2.2.md`; My Mempool is done). Install 1.2.3: 1.2.2's app with the code cleanup and two small fixes (the VM tests passed).
 
 ## Next
 
