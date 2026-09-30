@@ -322,46 +322,6 @@ declare global {
     feeUSDStored?: number;  // the stored value, shown as a hint
   }
 
-  // The CSV import's preview (POST /api/import/preview) and status.
-  interface CSVRowPreview {
-    row_number: number;
-    date: string;
-    type: string;
-    amount: string;
-    from_account: string;
-    to_account: string;
-    cost_basis_usd?: string;
-    proceeds_usd?: string;
-    fee_amount?: string;
-    fee_currency?: string;
-    source?: string;
-    purpose?: string;
-    notes?: string;
-  }
-
-  interface CSVParseError {
-    row_number: number;
-    column?: string;
-    message: string;
-    severity: string;
-  }
-
-  interface CSVPreviewResponse {
-    success: boolean;
-    total_rows: number;
-    valid_rows: number;
-    transactions: CSVRowPreview[];
-    errors: CSVParseError[];
-    warnings: CSVParseError[];
-    can_import: boolean;
-  }
-
-  interface DatabaseStatusResponse {
-    is_empty: boolean;
-    transaction_count: number;
-    message: string;
-  }
-
   // A Settings section's share of the page's state: one action at a time
   // (every button waits while one runs) and one message line.
   interface SettingsSectionProps {

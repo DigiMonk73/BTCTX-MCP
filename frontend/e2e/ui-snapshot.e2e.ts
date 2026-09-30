@@ -154,6 +154,27 @@ test("imports", async ({ authedPage: page }) => {
   await expect(river.getByText(/rows in file/)).toBeVisible();
   await record(page, "river-preview");
 
+  // Every choice a row offers, set to its last option, then back to the first.
+  for (const [pick, name] of [[-1, "river-edits-last"], [0, "river-edits-first"]] as const) {
+    for (const label of ["Transaction type", "Withdrawal purpose", "Deposit source"]) {
+      const selects = river.getByLabel(label, { exact: true });
+      for (let i = 0; i < await selects.count(); i++) {
+        const options = await selects.nth(i).locator("option").allTextContents();
+        await selects.nth(i).selectOption(options.at(pick)!);
+      }
+    }
+    const funding = river.getByRole("group", { name: "Buy funding source" });
+    for (let i = 0; i < await funding.count(); i++) {
+      const buttons = funding.nth(i).getByRole("button");
+      await buttons.nth(pick === 0 ? 0 : (await buttons.count()) - 1).click();
+    }
+    const basis = river.getByLabel("Cost basis (USD)");
+    if (await basis.count()) await basis.first().fill(pick === 0 ? "" : "3.25");
+    const fee = river.getByLabel("Fee (BTC)");
+    if (await fee.count()) await fee.first().fill(pick === 0 ? "0.00000100" : "");
+    await record(page, name);
+  }
+
   const data = page.getByRole("region", { name: "Data Management" });
   await data.locator("#csv-file-input").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: Buffer.from(CSV),

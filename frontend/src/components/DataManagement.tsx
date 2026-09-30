@@ -1,18 +1,12 @@
 import React, { useState } from "react";
 import api from "../api";
+import { detailOr } from "../utils/apiError";
 import { downloadMessage } from "../utils/desktopDownload";
 import CsvImportPreview from "./CsvImportPreview";
 
-/** Clear the CSV file input. */
 function clearFileInput() {
   const fileInput = document.getElementById("csv-file-input") as HTMLInputElement;
   if (fileInput) fileInput.value = "";
-}
-
-/** The server's reason for a refused request, else `fallback`. */
-function detailOr(err: unknown, fallback: string): string {
-  const axiosErr = err as { response?: { data?: { detail?: string } } };
-  return axiosErr.response?.data?.detail || fallback;
 }
 
 /** Settings' Data Management section: delete everything, and import a CSV

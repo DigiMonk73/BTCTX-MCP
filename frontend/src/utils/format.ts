@@ -100,6 +100,12 @@ export function formatTimestamp(isoString: string): string {
   });
 }
 
+/** A date and time as the browser's locale writes them (the import
+ * previews). */
+export function formatLocalDateTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString();
+}
+
 /**
  * --------------------------------------------------------------------------
  * 4) Parsing Helpers for Transaction / GainsAndLosses

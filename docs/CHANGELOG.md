@@ -75,6 +75,12 @@ All notable changes to BitcoinTX are documented in this file.
   own components, next to the ones it already had; the page keeps the one
   action at a time and the message line they share. Same page, labels and
   messages.
+- **The River import panel** (486 lines) keeps the upload and the import;
+  the preview, one row and its editable cells are their own components, and
+  the row logic (the accounts a new type implies, the import request) is in
+  `utils/riverImport.ts` with a unit test. The two import previews share
+  one date format and one "server's reason, else…" message helper. Same
+  preview after every edit a row allows (recorded before and after).
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.

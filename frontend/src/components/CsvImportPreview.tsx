@@ -1,17 +1,9 @@
 import React from "react";
+import { formatLocalDateTime } from "../utils/format";
 
 const ERRORS_SHOWN = 10;
 const WARNINGS_SHOWN = 5;
 const ROWS_SHOWN = 50;
-
-function formatDate(dateStr: string) {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleString();
-  } catch {
-    return dateStr;
-  }
-}
 
 /** A CSV import's preview: counts, errors, warnings and the first rows, with
  * the Import and Cancel buttons. */
@@ -86,7 +78,7 @@ const CsvImportPreview: React.FC<{
             {preview.transactions.slice(0, ROWS_SHOWN).map((tx) => (
               <tr key={tx.row_number}>
                 <td>{tx.row_number}</td>
-                <td>{formatDate(tx.date)}</td>
+                <td>{formatLocalDateTime(tx.date)}</td>
                 <td>{tx.type}</td>
                 <td>{tx.amount} BTC</td>
                 <td>{tx.from_account}</td>
