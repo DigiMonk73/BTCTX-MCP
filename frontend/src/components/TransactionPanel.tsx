@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
 
@@ -36,17 +36,21 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     }
   }, [isFormDirty, onClose]);
 
+  // What Escape does now, read when the key is pressed. With "Discard
+  // changes?" showing, it is that question's safe answer: Go back.
+  const onEscape = useRef(requestClose);
+  useLayoutEffect(() => {
+    onEscape.current = showDiscardModal ? () => setShowDiscardModal(false) : requestClose;
+  }, [showDiscardModal, requestClose]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      // With "Discard changes?" showing, Escape is its safe answer: Go back
-      if (showDiscardModal) setShowDiscardModal(false);
-      else requestClose();
+      if (e.key === "Escape" && !e.defaultPrevented) onEscape.current();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, showDiscardModal, requestClose]);
+  }, [isOpen]);
 
   const handleDiscardChanges = () => {
     setShowDiscardModal(false);

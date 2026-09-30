@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { FormProvider, useForm, SubmitHandler } from "react-hook-form";
 import axios from "axios";
 import api from "../api";
@@ -71,7 +71,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [transactionId, reset, toastError]);
 
-  useEffect(() => {
+  // A layout effect: the panel knows of a change before the next key or
+  // click (a plain effect ran later, and an Escape at once closed the panel
+  // without asking)
+  useLayoutEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 

@@ -7,8 +7,9 @@ All notable changes to BitcoinTX are documented in this file.
 ### Fixed
 - **Escape closes the transaction panel**, like a click outside it: at
   once when nothing was changed, else after "Discard changes?". With that
-  question showing, Escape answers Go back and keeps your changes. Found by
-  the 1.2.3 VM walk.
+  question showing, Escape answers Go back and keeps your changes. The panel
+  learns of a change at once, so Escape or a click outside right after one
+  still asks. Found by the 1.2.3 VM walk.
 - **On a phone, every tab in the header fits on screen.** At 375 px the
   header needed 407 px, so Logout was cut off at the edge ("Logo") and only
   reachable by scrolling the header sideways. Up to 480 px wide the tabs are

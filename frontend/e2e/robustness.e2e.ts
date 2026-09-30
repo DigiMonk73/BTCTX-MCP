@@ -98,10 +98,17 @@ test("Escape or a click outside closes the panel, asking first about unsaved cha
   await page.locator(".transaction-panel-overlay").click({ position: { x: 10, y: 10 } });
   await expect(heading).toHaveCount(0);
 
-  // A change: Escape asks; Escape on the question goes back, the change kept
+  // A change: Escape asks, even pressed the moment after it (here in the same
+  // browser task, with only React's own microtask between: the full suite
+  // once pressed it before the panel knew); Escape on the question goes
+  // back, the change kept.
   await openAddForm(page, "Deposit");
-  await page.getByLabel("Account", { exact: true }).selectOption("Bank");
-  await page.keyboard.press("Escape");
+  await page.getByLabel("Account", { exact: true }).evaluate(async (select: HTMLSelectElement) => {
+    select.value = "Bank";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
   await expect(question).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(question).toHaveCount(0);
