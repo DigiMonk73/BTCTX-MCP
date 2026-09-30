@@ -12,6 +12,10 @@ All notable changes to BitcoinTX are documented in this file.
   blank fee in a file still means no fee. Found by the 1.2.3 VM walk.
 
 ### Development
+- **The stress tests fail on a refused save** instead of carrying on
+  without the row, except where a random ledger may ask for more than is on
+  hand, and their random amounts and dates are the same on every run. The
+  backdating test now checks that its ten backdates were saved.
 - **The CSV export prints numbers from their exact value**, not through a
   float. Nothing an export writes changes (checked on every test ledger):
   a value is already rounded to its column's decimals when it is read, so

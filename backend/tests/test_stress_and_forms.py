@@ -34,6 +34,12 @@ def _set_client(auth_client):
     global CLIENT
     CLIENT = auth_client
 
+
+@pytest.fixture(autouse=True)
+def _same_random_ledgers():
+    """The same random amounts and dates every run, so a failure repeats."""
+    random.seed(20260930)
+
 # Account IDs (standard BitcoinTX setup)
 EXTERNAL = 99       # External entity (for deposits/withdrawals)
 BANK_USD = 1        # Bank account (USD)
@@ -68,8 +74,10 @@ def delete_all_transactions() -> bool:
     return r.status_code in (200, 204)
 
 
-def create_tx(tx_data: Dict) -> Dict:
-    """Create a transaction and return the response."""
+def create_tx(tx_data: Dict, may_fail: bool = False) -> Dict:
+    """Create a transaction and return the response. A refused save fails
+    the test (a scenario missing a row tests less than it says) unless
+    may_fail: then the refusal comes back as an error dict."""
     r = CLIENT.post("/api/transactions", json=tx_data)
     if not r.is_success:
         error_detail = r.text
@@ -77,6 +85,7 @@ def create_tx(tx_data: Dict) -> Dict:
             error_detail = r.json()
         except Exception:
             pass
+        assert may_fail, f"save refused ({r.status_code}): {error_detail} for {tx_data}"
         return {"error": True, "status_code": r.status_code, "detail": error_detail}
     return r.json()
 
@@ -320,7 +329,7 @@ class TestVolumeStress:
                 "fee_currency": "USD",
                 "cost_basis_usd": str(round(random.uniform(3000, 50000), 2)),
             }
-            result = create_tx(tx_data)
+            result = create_tx(tx_data, may_fail=True)
             # Continue even if some fail (insufficient funds)
 
         # Now mix in sells, deposits, transfers
@@ -374,7 +383,7 @@ class TestVolumeStress:
                     "purpose": "N/A",
                 }
 
-            result = create_tx(tx_data)
+            result = create_tx(tx_data, may_fail=True)
             if "error" not in result:
                 created_count += 1
 
@@ -505,6 +514,7 @@ class TestVolumeStress:
             result = update_tx(tx_id, {"timestamp": new_ts})
             if "error" not in result:
                 backdated_count += 1
+        assert backdated_count == 10, f"only {backdated_count} of 10 backdates were saved"
 
         # Verify integrity after backdating
         is_valid, msg = assert_lots_non_negative()
