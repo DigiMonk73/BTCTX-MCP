@@ -85,6 +85,13 @@ All notable changes to BitcoinTX are documented in this file.
   cards, each its own component; the account totals and the gain/loss
   colour are in `utils/dashboard.ts` with a unit test. Same cards, figures
   and HTML.
+- **The rest of the frontend over the limit**: the transaction form's
+  mapping to and from the API is one small step per transaction type (the
+  same results on 40,000 random forms and transactions, compared), the
+  Transactions page's sorting, paging and day groups are in
+  `utils/transactionList.ts`, Privacy & network's "anything changed?" is
+  one tested function, and the error message for a failed request is read
+  in two steps (the same message for 20,000 random failures).
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.

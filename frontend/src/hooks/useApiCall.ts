@@ -152,56 +152,60 @@ export function useDelete<T>(
   };
 }
 
-/**
- * Extract error message from various error types
- */
+/** The message in the server's error body: FastAPI's `detail` (a string, or
+ * a 422's list of input errors), else an `errors` list; null when it has
+ * none. */
+function bodyMessage(data: ApiErrorResponse): string | null {
+  const detail: unknown = data.detail;
+  if (typeof detail === 'string' && detail) {
+    return detail;
+  }
+  // FastAPI's input errors (422): [{ msg: "Value error, The password ..." }]
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((d) => String((d as { msg?: unknown } | null)?.msg ?? '').replace(/^Value error, /, ''))
+      .filter(Boolean);
+    if (messages.length) return messages.join(' ');
+  }
+  if (data.errors) {
+    const messages = Object.values(data.errors).flat();
+    return messages.join(', ');
+  }
+  return null;
+}
+
+const STATUS_MESSAGES: Record<number, string> = {
+  401: 'Unauthorized. Please log in again.',
+  403: 'Access denied.',
+  404: 'Resource not found.',
+  500: 'Server error. Please try again later.',
+};
+
+/** A failed request the server didn't explain: no connection, a timeout,
+ * or the HTTP status. */
+function failureMessage(axiosError: AxiosError): string {
+  if (axiosError.code === 'ERR_NETWORK') {
+    return 'Network error. Please check your connection.';
+  }
+  if (axiosError.code === 'ECONNABORTED') {
+    return 'Request timed out. Please try again.';
+  }
+  const status = axiosError.response?.status;
+  if (status) {
+    return STATUS_MESSAGES[status] ?? `Request failed with status ${status}`;
+  }
+  return axiosError.message || 'An error occurred';
+}
+
+/** The message to show for a failed request. */
 export function extractErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const axiosError = err as AxiosError<ApiErrorResponse>;
-
-    // Check for API error response
     if (axiosError.response?.data) {
-      const data = axiosError.response.data;
-
-      const detail: unknown = data.detail;
-      if (typeof detail === 'string' && detail) {
-        return detail;
-      }
-      // FastAPI's input errors (422): [{ msg: "Value error, The password ..." }]
-      if (Array.isArray(detail)) {
-        const messages = detail
-          .map((d) => String((d as { msg?: unknown } | null)?.msg ?? '').replace(/^Value error, /, ''))
-          .filter(Boolean);
-        if (messages.length) return messages.join(' ');
-      }
-
-      if (data.errors) {
-        const messages = Object.values(data.errors).flat();
-        return messages.join(', ');
-      }
+      const message = bodyMessage(axiosError.response.data);
+      if (message !== null) return message;
     }
-
-    // Check for network error
-    if (axiosError.code === 'ERR_NETWORK') {
-      return 'Network error. Please check your connection.';
-    }
-
-    // Check for timeout
-    if (axiosError.code === 'ECONNABORTED') {
-      return 'Request timed out. Please try again.';
-    }
-
-    // Generic HTTP error
-    if (axiosError.response?.status) {
-      const status = axiosError.response.status;
-      if (status === 401) return 'Unauthorized. Please log in again.';
-      if (status === 403) return 'Access denied.';
-      if (status === 404) return 'Resource not found.';
-      if (status === 500) return 'Server error. Please try again later.';
-      return `Request failed with status ${status}`;
-    }
-
-    return axiosError.message || 'An error occurred';
+    return failureMessage(axiosError);
   }
 
   if (err instanceof Error) {

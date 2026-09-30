@@ -83,224 +83,194 @@ export function mapDoubleEntryAccounts(data: TransactionFormData): IAccountMappi
   }
 }
 
-/**
- * mapTransactionToFormData:
- * Converts an ITransaction (fetched from backend) into TransactionFormData
- * so we can populate the form fields in edit mode.
- *
- * // NEW: GROSS PROCEEDS FOR SELL
- * We read tx.gross_proceeds_usd (if present) into 'grossProceedsUSD' for the user to see.
- */
-export function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
-  // Common fields
-  const baseData: TransactionFormData = {
+function accountIdToType(id: number): AccountType {
+  switch (id) {
+    case 1:
+      return "Bank";
+    case 2:
+      return "Wallet";
+    case 3:
+    case 4:
+      return "Exchange";
+    default:
+      return "External";
+  }
+}
+
+function accountCurrency(id: number): Currency {
+  return id === 1 || id === 3 ? "USD" : "BTC";
+}
+
+/** The fields every type's form shows. */
+function commonFormData(tx: ITransaction): TransactionFormData {
+  return {
     type: tx.type,
-    timestamp: toDatetimeLocal(new Date(tx.timestamp)), // local time, for datetime-local
+    timestamp: toDatetimeLocal(new Date(tx.timestamp)),
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,
     fmv_usd: tx.fmv_usd ?? 0,
-
-    // NEW: GROSS PROCEEDS FOR SELL
     grossProceedsUSD: tx.gross_proceeds_usd ?? 0,
     brokerReporting: tx.broker_reporting ?? "",
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,
     feeUSDManual: tx.fee_usd_manual ?? false,
     feeUSDStored: tx.fee_usd ?? undefined,
   };
-
-  // Helper to convert account_id => "Bank", "Wallet", "Exchange", etc.
-  const accountIdToType = (id: number): AccountType => {
-    switch (id) {
-      case 1:
-        return "Bank";
-      case 2:
-        return "Wallet";
-      case 3:
-      case 4:
-        return "Exchange";
-      default:
-        return "External";
-    }
-  };
-
-  // Helper to guess currency from ID
-  const getCurrencyFromAccountId = (id: number): Currency =>
-    id === 1 || id === 3 ? "USD" : "BTC";
-
-  switch (tx.type) {
-    case "Deposit": {
-      const toAcctId = tx.to_account_id ?? 0;
-      return {
-        ...baseData,
-        account: accountIdToType(toAcctId),
-        currency: getCurrencyFromAccountId(toAcctId),
-        amount: tx.amount,
-        source: (tx.source ?? "N/A") as DepositSource,
-      };
-    }
-    case "Withdrawal": {
-      const fromAcctId = tx.from_account_id ?? 0;
-      return {
-        ...baseData,
-        account: accountIdToType(fromAcctId),
-        currency: getCurrencyFromAccountId(fromAcctId),
-        amount: tx.amount,
-        purpose: (tx.purpose ?? "N/A") as WithdrawalPurpose,
-        // Stored proceeds_usd is net of the BTC fee; edit the user's gross
-        proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
-      };
-    }
-    case "Transfer": {
-      const fromAcctId = tx.from_account_id ?? 0;
-      const toAcctId = tx.to_account_id ?? 0;
-      const fromAccount = accountIdToType(fromAcctId);
-      const toAccount = accountIdToType(toAcctId);
-      const fromCurrency = getCurrencyFromAccountId(fromAcctId);
-      const toCurrency = getCurrencyFromAccountId(toAcctId);
-
-      return {
-        ...baseData,
-        fromAccount,
-        toAccount,
-        fromCurrency,
-        toCurrency,
-        amountFrom: tx.amount,
-        // If it was BTC with a fee, "amountTo" is (amount - fee).
-        amountTo:
-          tx.type === "Transfer" && fromCurrency === "BTC"
-            ? tx.amount - (tx.fee_amount ?? 0)
-            : tx.amount,
-      };
-    }
-    case "Buy": {
-      // Determine if Buy was from Bank (ID 1) or Exchange USD (ID 3)
-      const buyFromAccount = tx.from_account_id === 1 ? "Bank" : "Exchange";
-      return {
-        ...baseData,
-        account: "Exchange",
-        buyFromAccount,
-        amountUSD: tx.cost_basis_usd ?? 0,
-        amountBTC: tx.amount,
-      };
-    }
-    case "Sell":
-      return {
-        ...baseData,
-        account: "Exchange",
-        amountBTC: tx.amount,
-
-        // OLD: form used "amountUSD" for net proceeds
-        // NEW: we treat "amountUSD" as "grossProceedsUSD" for user input
-        grossProceedsUSD: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
-      };
-    default:
-      // Return the base for safety
-      return baseData;
-  }
 }
 
-/**
- * buildTransactionPayload:
- * Form values => the body for POST/PUT /api/transactions.
- */
-export function buildTransactionPayload(
-  data: TransactionFormData,
-): Omit<ICreateTransactionPayload, "is_locked"> {
-  data = { ...data }; // never modify the caller's form values
+/** Each type's own form fields, read back from a saved transaction. */
+const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
+  Deposit: (tx) => {
+    const accountId = tx.to_account_id ?? 0;
+    return {
+      account: accountIdToType(accountId),
+      currency: accountCurrency(accountId),
+      amount: tx.amount,
+      source: (tx.source ?? "N/A") as DepositSource,
+    };
+  },
+  Withdrawal: (tx) => {
+    const accountId = tx.from_account_id ?? 0;
+    return {
+      account: accountIdToType(accountId),
+      currency: accountCurrency(accountId),
+      amount: tx.amount,
+      purpose: (tx.purpose ?? "N/A") as WithdrawalPurpose,
+      // Stored proceeds_usd is net of the BTC fee; edit the user's gross
+      proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+    };
+  },
+  Transfer: (tx) => {
+    const fromId = tx.from_account_id ?? 0;
+    const toId = tx.to_account_id ?? 0;
+    const fromCurrency = accountCurrency(fromId);
+    return {
+      fromAccount: accountIdToType(fromId),
+      toAccount: accountIdToType(toId),
+      fromCurrency,
+      toCurrency: accountCurrency(toId),
+      amountFrom: tx.amount,
+      // A BTC transfer's fee comes out of the amount: what arrived is the rest
+      amountTo: fromCurrency === "BTC" ? tx.amount - (tx.fee_amount ?? 0) : tx.amount,
+    };
+  },
+  Buy: (tx) => ({
+    account: "Exchange",
+    buyFromAccount: tx.from_account_id === 1 ? "Bank" : "Exchange",
+    amountUSD: tx.cost_basis_usd ?? 0,
+    amountBTC: tx.amount,
+  }),
+  Sell: (tx) => ({
+    account: "Exchange",
+    amountBTC: tx.amount,
+    // The user's figure: stored proceeds_usd is net of the fee
+    grossProceedsUSD: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+  }),
+};
 
-  // 2) from/to IDs
-  const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data);
+/** A saved transaction as the form shows it for editing. */
+export function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
+  const typeFormData = TYPE_FORM_DATA[tx.type];
+  return typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
+}
 
-  // 3) Convert datetime => ISO
-  const isoTimestamp = localDatetimeToIso(data.timestamp);
-
-  // 4) Prepare fields for the payload
-  let amount = 0;
-  let feeCurrency: Currency = "USD";
-  let source: string | undefined;
-  let purpose: string | undefined;
+/** What the payload says depends on the transaction's type. */
+interface TypePayload {
+  amount: number;
+  feeCurrency: Currency;
+  source?: string;
+  purpose?: string;
   // null = not given: the server fills what it can (an income deposit's
   // basis, a Spent withdrawal's proceeds, a gift's FMV) from that day's price.
-  let cost_basis_usd: number | null = null;
-  let proceeds_usd: number | null | undefined;
-  let fmv_usd: number | null | undefined;
-  let gross_proceeds_usd: number | undefined; // <-- new
+  cost_basis_usd: number | null;
+  proceeds_usd?: number | null;
+  fmv_usd?: number | null;
+  gross_proceeds_usd?: number;
+}
 
-  switch (data.type) {
-    case "Deposit":
-      amount = parseDecimal(data.amount);
-      feeCurrency = data.currency === "BTC" ? "BTC" : "USD";
-      source = data.source && data.source !== "N/A" ? data.source : "N/A";
-      if (
-        data.currency === "BTC" &&
-        (data.account === "Wallet" || data.account === "Exchange")
-      ) {
-        cost_basis_usd = optionalDecimal(data.costBasisUSD);
-      }
-      break;
+const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypePayload> = {
+  Deposit: (data) => ({
+    amount: parseDecimal(data.amount),
+    feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
+    source: data.source && data.source !== "N/A" ? data.source : "N/A",
+    // Only BTC received has a basis
+    cost_basis_usd:
+      data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange")
+        ? optionalDecimal(data.costBasisUSD)
+        : null,
+  }),
+  Withdrawal: (data) => ({
+    amount: parseDecimal(data.amount),
+    feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
+    purpose: data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A",
+    cost_basis_usd: null,
+    proceeds_usd: optionalDecimal(data.proceeds_usd),
+    fmv_usd: optionalDecimal(data.fmv_usd),
+  }),
+  Transfer: (data) => ({
+    amount: parseDecimal(data.amountFrom),
+    feeCurrency: data.fromCurrency === "BTC" ? "BTC" : "USD",
+    cost_basis_usd: null,
+  }),
+  Buy: (data) => ({
+    amount: parseDecimal(data.amountBTC),
+    feeCurrency: "USD",
+    cost_basis_usd: parseDecimal(data.amountUSD),
+  }),
+  Sell: (data) => ({
+    amount: parseDecimal(data.amountBTC),
+    feeCurrency: "USD",
+    cost_basis_usd: null,
+    // The user's figure; the server works out the net proceeds
+    gross_proceeds_usd: parseDecimal(data.grossProceedsUSD),
+  }),
+};
 
-    case "Withdrawal":
-      amount = parseDecimal(data.amount);
-      feeCurrency = data.currency === "BTC" ? "BTC" : "USD";
-      purpose = data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A";
-      proceeds_usd = optionalDecimal(data.proceeds_usd);
-      fmv_usd = optionalDecimal(data.fmv_usd);
-      break;
-
-    case "Transfer":
-      amount = parseDecimal(data.amountFrom);
-      feeCurrency = data.fromCurrency === "BTC" ? "BTC" : "USD";
-      break;
-
-    case "Buy":
-      amount = parseDecimal(data.amountBTC);
-      feeCurrency = "USD";
-      cost_basis_usd = parseDecimal(data.amountUSD);
-      break;
-
-    case "Sell":
-      // NEW: we interpret "amountBTC" as the BTC being sold
-      amount = parseDecimal(data.amountBTC);
-      feeCurrency = "USD";
-
-      // Instead of storing net proceeds in "proceeds_usd," we store user input as "gross_proceeds_usd"
-      gross_proceeds_usd = parseDecimal(data.grossProceedsUSD);
-      break;
-  }
-
-  // Form 1099-DA override: only sales and BTC spends reach a broker form
+/** The Form 1099-DA override: only sales and BTC spends reach a broker form. */
+function brokerReporting(data: TransactionFormData): BrokerReporting | null {
   const brokerApplies =
     data.type === "Sell" ||
     (data.type === "Withdrawal" && data.currency === "BTC" && data.purpose === "Spent");
-  const broker_reporting =
-    brokerApplies && data.brokerReporting ? data.brokerReporting : null;
+  return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
+}
 
-  // A BTC fee's USD value (transfers and BTC withdrawals): typed -> kept;
-  // cleared after being typed -> null (back to the day's price); otherwise
-  // left out, so a stored value is kept and a new fee is priced by the server.
-  let fee_usd: number | null | undefined;
+/**
+ * A BTC fee's USD value (transfers and BTC withdrawals): typed -> kept;
+ * cleared after being typed -> null (back to the day's price); otherwise
+ * undefined, left out, so a stored value is kept and a new fee is priced by
+ * the server.
+ */
+function feeUsd(data: TransactionFormData, feeCurrency: Currency): number | null | undefined {
   if (feeCurrency === "BTC" && (data.type === "Transfer" || data.type === "Withdrawal")) {
     const typed = optionalDecimal(data.feeUSD);
-    fee_usd = typed ?? (data.feeUSDManual ? null : undefined);
+    return typed ?? (data.feeUSDManual ? null : undefined);
   }
+  return undefined;
+}
 
-  // 5) Build payload
+/** Form values => the body for POST/PUT /api/transactions. */
+export function buildTransactionPayload(
+  data: TransactionFormData,
+): Omit<ICreateTransactionPayload, "is_locked"> {
+  const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data);
+  const typePayload = TYPE_PAYLOAD[data.type];
+  const values: TypePayload = typePayload ? typePayload(data) : { amount: 0, feeCurrency: "USD", cost_basis_usd: null };
+  const fee_usd = feeUsd(data, values.feeCurrency);
   return {
     type: data.type,
-    timestamp: isoTimestamp,
+    timestamp: localDatetimeToIso(data.timestamp),
     from_account_id,
     to_account_id,
-    amount,
+    amount: values.amount,
     fee_amount: parseDecimal(data.fee),
-    fee_currency: feeCurrency,
-    cost_basis_usd,
-    proceeds_usd,   // might be undefined if Sell
-    gross_proceeds_usd, // <-- new field for Sell
-    fmv_usd,
-    source,
-    purpose,
-    broker_reporting,
+    fee_currency: values.feeCurrency,
+    cost_basis_usd: values.cost_basis_usd,
+    proceeds_usd: values.proceeds_usd,
+    gross_proceeds_usd: values.gross_proceeds_usd,
+    fmv_usd: values.fmv_usd,
+    source: values.source,
+    purpose: values.purpose,
+    broker_reporting: brokerReporting(data),
     ...(fee_usd !== undefined ? { fee_usd } : {}),
   };
 }

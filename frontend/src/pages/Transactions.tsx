@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
+import api from "../api";
+import Pagination from "../components/Pagination";
 import TransactionPanel from "../components/TransactionPanel";
 import TransactionRow from "../components/TransactionRow";
-import "../styles/transactions.css";
-import api from "../api";
 import { parseTransaction } from "../utils/format";
+import { groupByDay, pageOf, sortTransactions } from "../utils/transactionList";
+import "../styles/transactions.css";
 
-/* --------------------------------------------------------------------------
-   MAIN COMPONENT
-------------------------------------------------------------------------- */
 const Transactions: React.FC = () => {
-  // Panel & data states
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [transactions, setTransactions] = useState<ITransaction[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("TIMESTAMP_DESC");
@@ -19,13 +17,9 @@ const Transactions: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [editingTransactionId, setEditingTransactionId] = useState<number | null>(null);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10); // default 10, user can change it
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  // --------------------------------------------------
-  // Fetch Transactions
-  // --------------------------------------------------
   const fetchTransactions = async () => {
     setIsLoading(true);
     setFetchError(null);
@@ -49,9 +43,6 @@ const Transactions: React.FC = () => {
     fetchTransactions();
   }, []);
 
-  // --------------------------------------------------
-  // Dialog Toggles
-  // --------------------------------------------------
   const openPanel = () => setIsPanelOpen(true);
   const closePanel = () => {
     setIsPanelOpen(false);
@@ -69,45 +60,9 @@ const Transactions: React.FC = () => {
     }
   };
 
-  // --------------------------------------------------
-  // Sorting
-  // --------------------------------------------------
-  const sortedTransactions = transactions
-    ? [...transactions].sort((a, b) => {
-        if (sortMode === "TIMESTAMP_DESC") {
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        } else {
-          // CREATION_DESC => sort by ID descending
-          return b.id - a.id;
-        }
-      })
-    : [];
-
-  // --------------------------------------------------
-  // Pagination
-  // --------------------------------------------------
-  const totalTransactions = sortedTransactions.length;
-  const totalPages = Math.ceil(totalTransactions / pageSize);
-
-  // clamp currentPage to [1, totalPages]
-  const page = Math.min(Math.max(currentPage, 1), totalPages || 1);
-
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const transactionsForPage = sortedTransactions.slice(startIndex, endIndex);
-
-  // group by date for only the current page
-  const groupedByDate: Record<string, ITransaction[]> = {};
-  for (const tx of transactionsForPage) {
-    const dateLabel = new Date(tx.timestamp).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    if (!groupedByDate[dateLabel]) groupedByDate[dateLabel] = [];
-    groupedByDate[dateLabel].push(tx);
-  }
-  const dateGroups = Object.entries(groupedByDate);
+  const sorted = transactions ? sortTransactions(transactions, sortMode) : [];
+  const { page, totalPages, items: transactionsForPage } = pageOf(sorted, currentPage, pageSize);
+  const dateGroups = groupByDay(transactionsForPage);
 
   const handlePrevPage = () => {
     if (page > 1) setCurrentPage(page - 1);
@@ -116,15 +71,11 @@ const Transactions: React.FC = () => {
     if (page < totalPages) setCurrentPage(page + 1);
   };
 
-  // If the user changes page size, reset to page 1
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setPageSize(Number(e.target.value));
-    setCurrentPage(1); // Reset pagination
+    setCurrentPage(1);
   };
 
-  // --------------------------------------------------
-  // Render
-  // --------------------------------------------------
   return (
     <div className="transactions-page">
       <div className="transactions-header">
@@ -193,48 +144,17 @@ const Transactions: React.FC = () => {
             ))}
           </div>
 
-          <div className="pagination">
-            <div className="pagination-pages">
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handlePrevPage}
-                disabled={page <= 1}
-              >
-                « Prev
-              </button>
-              <span className="pagination-info">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleNextPage}
-                disabled={page >= totalPages}
-              >
-                Next »
-              </button>
-            </div>
-
-            <div className="pagination-size">
-              <label htmlFor="pageSize">Items per page</label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={handlePageSizeChange}
-                className="input input-sm"
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
+            onPageSizeChange={handlePageSizeChange}
+          />
         </>
       )}
 
-      {/* TransactionPanel for adding/editing */}
       <TransactionPanel
         isOpen={isPanelOpen}
         onClose={closePanel}

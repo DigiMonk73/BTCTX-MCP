@@ -51,3 +51,24 @@ export const PRICE_SOURCES: { value: PriceSource; label: string; help: string }[
 ];
 
 export const MEMPOOL_PLACEHOLDER = "http://umbrel.local:3006";
+
+/** The Privacy & network form as the owner is filling it in. */
+export interface NetworkSettingsForm {
+  source: PriceSource | "";
+  mempoolUrl: string;
+  fallback: boolean;
+  proxyUrl: string;
+}
+
+/** Whether the form differs from the saved settings (addresses compared
+ * without surrounding spaces). Nothing to save until a source is chosen. */
+export function networkSettingsChanged(saved: NetworkSettingsData | null, form: NetworkSettingsForm): boolean {
+  return (
+    saved !== null &&
+    form.source !== "" &&
+    (form.source !== saved.price_source ||
+      form.mempoolUrl.trim() !== (saved.mempool_url ?? "") ||
+      form.fallback !== saved.mempool_fallback ||
+      form.proxyUrl.trim() !== (saved.proxy_url ?? ""))
+  );
+}

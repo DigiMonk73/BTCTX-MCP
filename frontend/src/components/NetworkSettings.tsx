@@ -8,6 +8,7 @@ import {
   NetworkSettingsData,
   PRICE_SOURCES,
   PriceSource,
+  networkSettingsChanged,
 } from "../utils/priceSource";
 
 /**
@@ -41,13 +42,7 @@ const NetworkSettings: React.FC = () => {
       .catch(() => undefined);
   }, []);
 
-  const changed =
-    saved !== null &&
-    source !== "" &&
-    (source !== saved.price_source ||
-      mempoolUrl.trim() !== (saved.mempool_url ?? "") ||
-      fallback !== saved.mempool_fallback ||
-      proxyUrl.trim() !== (saved.proxy_url ?? ""));
+  const changed = networkSettingsChanged(saved, { source, mempoolUrl, fallback, proxyUrl });
 
   const save = async () => {
     setSaving(true);
