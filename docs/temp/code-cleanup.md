@@ -354,7 +354,7 @@ commit)
 - [x] `Settings.tsx`: Account, Data Management, and Backup & Restore as their
       own components. `#csv-file-input`, the `aria-label`s and the
       `.settings-option` layout stay.
-- [ ] `RiverImport.tsx` and `Dashboard.tsx`, only if still over the limit.
+- [x] `RiverImport.tsx` and `Dashboard.tsx`, only if still over the limit.
 
 **Keep it clean**
 - [x] Switch on ruff's `C901`, `PLR0911`, `PLR0912` and `PLR0915` (the

@@ -81,6 +81,10 @@ All notable changes to BitcoinTX are documented in this file.
   `utils/riverImport.ts` with a unit test. The two import previews share
   one date format and one "server's reason, else…" message helper. Same
   preview after every edit a row allows (recorded before and after).
+- **The Dashboard** (470 lines) fetches its figures and lays out four
+  cards, each its own component; the account totals and the gain/loss
+  colour are in `utils/dashboard.ts` with a unit test. Same cards, figures
+  and HTML.
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.
