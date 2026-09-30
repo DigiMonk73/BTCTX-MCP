@@ -65,6 +65,9 @@ All notable changes to BitcoinTX are documented in this file.
   in their fixed order and each type's account rules as a table. Two unused
   functions are gone. Same lines, lots, disposals, figures and messages on
   every ledger and bad input compared; recalculation no slower.
+- **Lint limits each Python function** (ruff: complexity 10, 12 branches,
+  50 statements, 6 returns; tests and migrations exempt), so the long
+  functions can't grow back.
 - **The StartOS mirror stays current between releases**: a docs-only change
   to `startos/` goes to DigiMonk73/BTCTX-StartOS right away (`CLAUDE.md`),
   since Start9's build there ignores those files. Anything else waits for a

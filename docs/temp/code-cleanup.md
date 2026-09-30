@@ -357,9 +357,11 @@ commit)
 - [ ] `RiverImport.tsx` and `Dashboard.tsx`, only if still over the limit.
 
 **Keep it clean**
-- [ ] Switch on ruff's `C901`, `PLR0911`, `PLR0912` and `PLR0915`, and
-      ESLint's `complexity` and `max-lines`. Update `docs/TESTING.md` and
-      `docs/MAINTENANCE.md`.
+- [x] Switch on ruff's `C901`, `PLR0911`, `PLR0912` and `PLR0915` (the
+      Python code met them once the engine was divided; tests and
+      migrations exempt). `docs/TESTING.md`, `CLAUDE.md`, the pre-push label.
+- [ ] Switch on ESLint's `complexity` and `max-lines` after the frontend
+      track.
 
 **After the cleanup (a fix, not a cleanup)**
 - [ ] `review.fee_price_changes` catches only the no-price error, with a test

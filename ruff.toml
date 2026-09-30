@@ -1,15 +1,25 @@
 # Lint gate for pre-push and CI: all Pyflakes rules (undefined names, unused
-# imports/variables, redefinitions), syntax errors, bare `except:`, and
-# modern syntax (pyupgrade: list[str], X | None) in the app code.
-# Pure-style rules (line length, import order) stay off.
+# imports/variables, redefinitions), syntax errors, bare `except:`, and in the
+# app code modern syntax (pyupgrade: list[str], X | None) and a size limit on
+# each function (docs/CODE_STYLE.md). Pure-style rules (line length, import
+# order) stay off.
 target-version = "py310"
 extend-exclude = ["desktop/build", "desktop/dist", "desktop/.venv", "frontend"]
 
 [lint]
-select = ["E9", "E722", "F", "UP"]
+select = ["E9", "E722", "F", "UP", "C901", "PLR0911", "PLR0912", "PLR0915"]
+
+[lint.mccabe]
+max-complexity = 10
+
+[lint.pylint]
+max-branches = 12
+max-statements = 50
+max-returns = 6
 
 [lint.per-file-ignores]
-# Tests and migrations keep the style they were written in.
-"backend/tests/*" = ["UP"]
-"mcp_server/tests/*" = ["UP"]
-"backend/migrations/*" = ["UP"]
+# Tests and migrations keep the style they were written in; a test scenario
+# may be long.
+"backend/tests/*" = ["UP", "C901", "PLR0911", "PLR0912", "PLR0915"]
+"mcp_server/tests/*" = ["UP", "C901", "PLR0911", "PLR0912", "PLR0915"]
+"backend/migrations/*" = ["UP", "C901", "PLR0911", "PLR0912", "PLR0915"]
