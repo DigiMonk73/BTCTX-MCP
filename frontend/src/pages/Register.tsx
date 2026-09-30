@@ -1,5 +1,3 @@
-// FILE: frontend/src/pages/Register.tsx
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
@@ -9,13 +7,11 @@ import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/cr
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {
-  // States for new credentials.
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  // This state is used only when the default account has been updated already.
+  // Asked for once the default login has been claimed
   const [overridePassword, setOverridePassword] = useState('');
-  // Track whether the current account is still the default account.
-  // (Checking if username is "admin" indicates default status.)
+  // Still the shipped default login; null until the server says
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
   // Outside the Mac app, claiming the default login needs the first-run setup code.
   const [codeRequired, setCodeRequired] = useState(false);
@@ -25,7 +21,6 @@ const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // On mount, fetch the current user and check if the account is still default.
   useEffect(() => {
     const checkDefaultAccount = async () => {
       try {
@@ -35,7 +30,7 @@ const RegisterPage: React.FC = () => {
         setIsDefault(status.is_default || !status.has_user);
         setCodeRequired(Boolean(status.setup_code_required));
       } catch {
-        // In case of error, assume registration is not allowed.
+        // Unknown: treat it as claimed, so the current password is asked for
         setIsDefault(false);
       }
     };
@@ -47,14 +42,11 @@ const RegisterPage: React.FC = () => {
     setIsSubmitting(true);
     setErrorMsg("");
 
-    // ----------------- INSERTED LOGIC -----------------
-    // Prevent registration using the reserved username "admin"
     if (username.trim().toLowerCase() === "admin") {
       setErrorMsg("The username 'admin' is reserved and cannot be used. Please choose a different username.");
       setIsSubmitting(false);
       return;
     }
-    // ----------------------------------------------------
 
     if (password.length < MIN_PASSWORD_LENGTH) {
       setErrorMsg(`The new password is too short. ${PASSWORD_RULE}`);
@@ -67,10 +59,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    // Check registration flow based on account state.
     if (isDefault === false) {
-      // If the account is already registered (i.e. not default),
-      // require the current password (verified by the server).
       if (!overridePassword) {
         setErrorMsg("Account is already registered. Enter your current password to proceed.");
         setIsSubmitting(false);
@@ -81,7 +70,6 @@ const RegisterPage: React.FC = () => {
         return;
       }
     } else {
-      // If the account is still default, confirm the registration action.
       if (!window.confirm("This will update your username and password and delete any existing transactions. Continue?")) {
         setIsSubmitting(false);
         return;
@@ -108,7 +96,6 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  // Until the account status is determined, show a loading message.
   if (isDefault === null) {
     return <div>Loading...</div>;
   }
@@ -169,7 +156,6 @@ const RegisterPage: React.FC = () => {
             </div>
           )}
 
-          {/* If the account is already registered, require the current password */}
           {isDefault === false && (
             <div className="field">
               <label htmlFor="override" className="field-label">Current Password</label>

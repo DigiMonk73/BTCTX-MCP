@@ -61,7 +61,6 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  /** Toggle input type between 'password' and 'text' */
   const toggleShowPassword = () => {
     setShowPassword((prev) => !prev);
   };
@@ -77,7 +76,6 @@ const LoginPage: React.FC = () => {
         <h2 className="login-card-title">Sign in</h2>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {/* ---------- USERNAME FIELD ---------- */}
           <div className="field">
             <label htmlFor="username" className="field-label">
               Username
@@ -92,9 +90,7 @@ const LoginPage: React.FC = () => {
             />
           </div>
 
-          {/* ---------- PASSWORD FIELD WITH 'SHOW PASSWORD' TEXT ABOVE THE LABEL ---------- */}
           <div className="field">
-            {/* Row for label + show/hide link */}
             <div className="password-label-row">
               <label htmlFor="password" className="field-label">
                 Password
@@ -108,7 +104,6 @@ const LoginPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Actual password input below */}
             <input
               id="password"
               type={showPassword ? "text" : "password"}

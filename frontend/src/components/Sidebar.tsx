@@ -1,14 +1,10 @@
-// src/components/Sidebar.tsx
 import React from 'react';
 import logo from '../assets/logo.svg';
 import Calculator from './Calculator';
 import BtcConverter from './BtcConverter';
 import "../styles/app.css";
 
-/**
- * Renders the top brand row of the sidebar,
- * including the site logo and the "BitcoinTX" title.
- */
+/** The logo and name at the top of the sidebar. */
 const SidebarBrand: React.FC = () => {
   return (
     <div className="sidebar-brand">
@@ -18,13 +14,7 @@ const SidebarBrand: React.FC = () => {
   );
 };
 
-/**
- * SidebarTools
- * ------------
- * Displays:
- *   1) BTC Converter (top)
- *   2) Calculator (below)
- */
+/** The sidebar's tools: the sats converter above the calculator. */
 const SidebarTools: React.FC = () => {
   return (
     <div className="sidebar-tools">
@@ -39,20 +29,12 @@ const SidebarTools: React.FC = () => {
   );
 };
 
-/**
- * The main Sidebar component:
- *  - Brand (logo + title)
- *  - Tools (Converter + Calculator)
- * 
- * No nav links here, as they've been moved to the header.
- */
+/** The sidebar: the brand, then the tools. The page links are in the header. */
 const Sidebar: React.FC = () => {
   return (
     <aside className="sidebar">
-      {/* Brand row */}
       <SidebarBrand />
 
-      {/* Tools (Converter + Calculator) */}
       <SidebarTools />
     </aside>
   );

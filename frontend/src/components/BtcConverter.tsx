@@ -3,15 +3,10 @@ import axios from "axios";
 import api from "../api";
 import "../styles/converter.css";
 
-// Types LiveBtcPriceResponse is defined in types/global.d.ts
-
 type Mode = "manual" | "auto" | "date";
 type Field = "USD" | "BTC" | "SATS" | null;
 
 const BtcConverter: React.FC = () => {
-  // ---------------------------------------------------------------------------
-  // 1) Mode & Price
-  // ---------------------------------------------------------------------------
   const [mode, setMode] = useState<Mode>("auto");
   const [btcPrice, setBtcPrice] = useState<number>(0);
   // Why there's no price, when there's none: never shown as "$0.00"
@@ -41,28 +36,22 @@ const BtcConverter: React.FC = () => {
       ? "$" + btcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : noPrice === "loading" ? "…" : noPrice === "off" ? "Prices off" : "No price";
 
-  // For date mode
+  // Date mode's day
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  // ---------------------------------------------------------------------------
-  // 2) Fields & "last-changed" tracking
-  // ---------------------------------------------------------------------------
   const [usdValue, setUsdValue] = useState<string>("");
   const [btcValue, setBtcValue] = useState<string>("");
   const [satsValue, setSatsValue] = useState<string>("");
 
-  // Which field the user last typed in (USD, BTC, or SATS)?
+  // The field typed in last: the other two are worked out from it
   const [lastChangedField, setLastChangedField] = useState<Field>(null);
 
-  // Small helper to round BTC to 5 decimal places
   // BTC to the satoshi (8 decimals), USD to the cent.
   // As a plain decimal: 1 sat is "0.00000001", never "1e-8".
   const roundBtc = (num: number) => num.toFixed(8).replace(/\.?0+$/, "");
   const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
-  // ---------------------------------------------------------------------------
-  // 3) Auto Mode: Fetch live price periodically
-  // ---------------------------------------------------------------------------
+  // Auto mode: the live price, every 2 minutes
   useEffect(() => {
     if (mode !== "auto") return;
 
@@ -76,9 +65,7 @@ const BtcConverter: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [mode]);
 
-  // ---------------------------------------------------------------------------
-  // 4) Date Mode: Fetch historical price
-  // ---------------------------------------------------------------------------
+  // Date mode: that day's price
   useEffect(() => {
     if (mode !== "date" || !selectedDate) return;
 
@@ -87,14 +74,9 @@ const BtcConverter: React.FC = () => {
     fetchPrice(`/bitcoin/price/history?date=${selectedDate}`);
   }, [mode, selectedDate]);
 
-  // ---------------------------------------------------------------------------
-  // 5) Manual Mode: fetch once to seed the price
-  // ---------------------------------------------------------------------------
+  // Manual mode starts from the live price, fetched once
   const fetchManualPriceOnce = () => fetchPrice("/bitcoin/price");
 
-  // ---------------------------------------------------------------------------
-  // 6) Mode Switch
-  // ---------------------------------------------------------------------------
   const handleModeChange = (newMode: Mode) => {
     priceTicket.current += 1;
     setMode(newMode);
@@ -107,10 +89,8 @@ const BtcConverter: React.FC = () => {
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // 7) Conversion Handlers (stable via useCallback)
-  //    - The second param, updateLastField, is false when we auto-recalc.
-  // ---------------------------------------------------------------------------
+  // A typed value converts the other two fields. updateLastField is false
+  // when a new price converts them again.
   const handleUsdChange = useCallback(
     (value: string, updateLastField = true) => {
       setUsdValue(value);
@@ -162,10 +142,7 @@ const BtcConverter: React.FC = () => {
     [btcPrice]
   );
 
-  // ---------------------------------------------------------------------------
-  // 8) If btcPrice changes, recalc from whichever field was last typed
-  //    to auto-update the others.
-  // ---------------------------------------------------------------------------
+  // A new price converts again from the field typed in last.
   useEffect(() => {
     // If there's nothing typed yet, do nothing. Without a price the USD side
     // empties (BTC and sats still convert), rather than keeping an old figure.
@@ -189,14 +166,10 @@ const BtcConverter: React.FC = () => {
     handleSatsChange,
   ]);
 
-  // ---------------------------------------------------------------------------
-  // 9) Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="converter">
       <div className="converter-title">Sats Converter</div>
 
-      {/* Three mode buttons */}
       <div className="segmented price-toggle">
         <button
           type="button"
@@ -224,7 +197,6 @@ const BtcConverter: React.FC = () => {
         </button>
       </div>
 
-      {/* Manual mode: editable price input */}
       {mode === "manual" && (
         <div className="manual-price-row price-mode-row">
           <label htmlFor="manualPrice" className="field-label">BTC price (USD)</label>
@@ -251,14 +223,12 @@ const BtcConverter: React.FC = () => {
         </div>
       )}
 
-      {/* Auto mode: show live price */}
       {mode === "auto" && (
         <div className="auto-price-row price-mode-row">
           <p className="btc-price">BTC Price: {priceText()}</p>
         </div>
       )}
 
-      {/* Date mode: date picker and historical price */}
       {mode === "date" && (
         <div className="date-price-row price-mode-row">
           {/* The day's price beside the label, so this mode is as tall as the others */}
@@ -276,7 +246,6 @@ const BtcConverter: React.FC = () => {
         </div>
       )}
 
-      {/* Conversion fields */}
       <div className="converter-row">
         <label className="field-label" htmlFor="usdInput">USD</label>
         <input

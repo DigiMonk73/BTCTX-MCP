@@ -1,4 +1,3 @@
-// frontend/src/api.ts
 import axios from "axios";
 import { API_BASE_URL } from "./config";
 

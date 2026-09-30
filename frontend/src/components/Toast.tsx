@@ -18,7 +18,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    // Start exit animation before removal
+    // The exit animation starts before the toast is removed
     if (toast.duration && toast.duration > 0) {
       const exitTimer = setTimeout(() => {
         setIsExiting(true);

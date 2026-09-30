@@ -1,5 +1,3 @@
-// FILE: frontend/src/components/ConnectAiSetting.tsx
-//
 // Settings section: AI access and the AI key, a prompt to hand to an AI app
 // (Claude, Grok Build, any MCP client) so it installs the BitcoinTX MCP server
 // on this computer, and the configurations for doing it by hand. See

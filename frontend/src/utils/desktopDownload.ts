@@ -1,31 +1,21 @@
 /**
- * FILE: frontend/src/utils/desktopDownload.ts
- *
- * Desktop-aware file download utility for pywebview integration.
- *
- * In browser mode, uses standard anchor download. In desktop mode
- * (pywebview), uses native macOS save dialog via the Python API.
+ * Downloads that work in the browser and in the Mac app: a browser saves
+ * through a link; the Mac app's webview (pywebview) can't, so it asks the
+ * app for the native Save dialog.
  */
 
-/**
- * Result of a download operation
- */
+/** How a download went: where the Mac app saved it, or why it failed. */
 export interface DownloadResult {
   success: boolean;
   path?: string;
   error?: string;
 }
 
-/**
- * Check if running in pywebview desktop mode
- */
+/** In the Mac app, whose webview (pywebview) provides window.pywebview. */
 export function isDesktopApp(): boolean {
   return typeof window.pywebview !== "undefined";
 }
 
-/**
- * Convert a Blob to base64 string
- */
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -40,9 +30,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-/**
- * Download a file in browser mode using anchor element
- */
+/** A browser saves a download through a temporary link. */
 function downloadInBrowser(blob: Blob, filename: string): DownloadResult {
   const blobUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -55,9 +43,7 @@ function downloadInBrowser(blob: Blob, filename: string): DownloadResult {
   return { success: true };
 }
 
-/**
- * Download a file using desktop native save dialog
- */
+/** The Mac app shows the native Save dialog and writes the file itself. */
 async function downloadInDesktop(
   blob: Blob,
   filename: string,
@@ -81,14 +67,7 @@ async function downloadInDesktop(
   }
 }
 
-/**
- * Download a file with automatic desktop/browser detection
- *
- * @param blob - File content as Blob
- * @param filename - Suggested filename
- * @param fileType - File type (pdf or csv)
- * @returns Download result with success status and optional path/error
- */
+/** Save a file, in the browser or the Mac app, under a suggested name. */
 export async function downloadFile(
   blob: Blob,
   filename: string,

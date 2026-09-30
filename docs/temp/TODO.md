@@ -36,7 +36,7 @@ normal release (full CI and the VM tests). The plan and its checklist:
 - [x] Gains: `get_gains_and_losses` (179 lines, `calculation.py`).
 - [x] River import: `adapt_river_rows` (149 lines, `river_import.py`) and the router's `execute_river_import` (106, `routers/river_import.py`).
 - [x] Reports: `map_8949_rows_to_field_data` (117 lines, `form_8949.py`) and `_generate_pdf` (109, `transaction_history.py`).
-- [ ] Frontend: split `TransactionForm.tsx` (1,049 lines) into a section per transaction type and `Settings.tsx` (799) into one component per card; `RiverImport.tsx` (486) and `Dashboard.tsx` (470) if it helps.
+- [x] Frontend: split `TransactionForm.tsx` (1,049 lines) into a section per transaction type and `Settings.tsx` (799) into one component per card; `RiverImport.tsx` (486) and `Dashboard.tsx` (470) if it helps.
 - [x] Delete the stray empty `backend/services/ __init__.py` (a leading space in its name, there since the first commit).
 - [x] Remove stale or wordy comments and docstrings: history notes ("remains unchanged since … ghostscript"), comments that repeat the code.
 - [x] Modern type hints (`dict`, `list`, `X | None`) instead of `typing.Dict/List/Optional` in 46 files, with ruff's `UP` rules added to lint so it stays that way.

@@ -5,10 +5,8 @@ import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
 import { reportErrorMessage } from "../utils/reportError";
 import "../styles/reports.css";
 
-// Hardcoded base URL for your FastAPI server:
 const API_BASE = "/api";
 
-// Example list of possible reports
 const REPORTS = [
   {
     key: "completeTax",
@@ -49,12 +47,10 @@ function fallbackYears(): ReportYears {
 }
 
 const Reports: React.FC = () => {
-  // Default to Complete Tax (PDF)
   const [selectedReport, setSelectedReport] = useState<string>("completeTax");
   const [taxYear, setTaxYear] = useState<string>("");
   const [format, setFormat] = useState<string>("pdf");
 
-  // Loading states for the spinner & progress
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
 
@@ -75,7 +71,6 @@ const Reports: React.FC = () => {
   const missingForms = taxYear !== "" && !hasForms(Number(taxYear));
 
   const handleExport = async () => {
-    // Basic validation
     if (!taxYear) {
       toast.warning("Please enter a valid year (e.g. 2024).");
       return;
@@ -85,39 +80,33 @@ const Reports: React.FC = () => {
       return;
     }
 
-    // If it's PDF-only but user selected CSV, override
     let finalFormat = format;
     if (reportDef.pdfOnly && format === "csv") {
       finalFormat = "pdf";
     }
 
-    // Build final URL
     const url = `${API_BASE}${reportDef.endpoint}?year=${taxYear}&format=${finalFormat}`;
 
     setIsLoading(true);
     setProgress(0);
 
     try {
-      // 1) Download as Blob with onProgress
       const blob = await downloadPdfWithAxios(url, (percent) => {
         setProgress(percent);
       });
 
-      // 2) Build a filename
       const safeLabel = reportDef.label.replace(/\s+/g, "");
       const fileExt = finalFormat.toLowerCase() as "pdf" | "csv";
       const fileName = `${safeLabel}_${taxYear}.${fileExt}`;
 
-      // 3) Download using desktop-aware utility
       const result = await downloadFile(blob, fileName, fileExt);
 
       if (result.success) {
-        // Show success message with path in desktop mode
+        // A browser shows its own download; the Mac app says where it saved
         if (isDesktopApp() && result.path) {
           toast.success(`Saved to: ${result.path}`);
         }
       } else if (result.error && result.error !== "Save cancelled") {
-        // Only show error if not a user cancellation
         toast.error(`Save failed: ${result.error}`);
       }
 
@@ -127,12 +116,6 @@ const Reports: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  // ------------------------------------------------------------
-  // We removed the user-selectable dropdown for format.
-  // Instead, we auto-set "csv" if Transaction History is chosen,
-  // otherwise "pdf".
-  // ------------------------------------------------------------
 
   return (
     <div className="reports-page">

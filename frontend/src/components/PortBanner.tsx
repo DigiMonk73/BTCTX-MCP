@@ -1,4 +1,3 @@
-// src/components/PortBanner.tsx
 // Mac app only: a persistent notice when this session runs on another port
 // than the usual one (the user chose it because the port was taken), since
 // AI assistants look for BitcoinTX on the usual port.

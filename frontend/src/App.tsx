@@ -1,5 +1,3 @@
-// frontend/src/App.tsx
-
 import React from 'react';
 import './styles/app.css';
 import './styles/errorBoundary.css';
@@ -26,23 +24,16 @@ import ToastContainer from './components/ToastContainer';
 import { ToastProvider } from './contexts/ToastContext';
 
 /**
- * App
- * ---
- * Main application component with routing.
- * - '/' redirects to '/dashboard'
- * - Protected routes require authentication via PrivateRoute
- * - Login and Register are public routes
- * - Wrapped in ErrorBoundary and ToastProvider for error handling and notifications
+ * The app's pages. All but login and registration need a signed-in user
+ * (PrivateRoute); any other address goes to the dashboard.
  */
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <ToastProvider>
         <Routes>
-          {/* Default route: go to dashboard (PrivateRoute will handle auth check) */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          {/* PROTECTED ROUTES */}
           <Route
             path="/dashboard"
             element={
@@ -94,15 +85,12 @@ const App: React.FC = () => {
             }
           />
 
-          {/* PUBLIC ROUTES */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Fallback route - go to dashboard (requires auth) */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
 
-        {/* Toast notifications container */}
         <ToastContainer position="top-right" />
       </ToastProvider>
     </ErrorBoundary>

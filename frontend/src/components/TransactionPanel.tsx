@@ -1,4 +1,3 @@
-//frontend/src/components/TransactionPanel.tsx
 import React, { useEffect, useState } from "react";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
@@ -76,7 +75,6 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
         </div>
 
         <div className="panel-footer">
-          {/* Save button on the left */}
           <button
             className="btn btn-primary"
             type="submit"
@@ -90,7 +88,6 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
               : "Save transaction"}
           </button>
         
-          {/* Delete button only if editing */}
           {transactionId && (
             <button
               type="button"

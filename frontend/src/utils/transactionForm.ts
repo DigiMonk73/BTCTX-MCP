@@ -1,20 +1,13 @@
-// FILE: frontend/src/utils/transactionForm.ts
-//
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { optionalDecimal, parseDecimal } from "./format";
 
-/**
- * localDatetimeToIso:
- * Converts "datetime-local" (e.g. "2025-03-01T12:00")
- * to a full ISO8601 string for the backend.
- */
+/** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
 }
 
 /**
- * toDatetimeLocal:
  * The inverse of localDatetimeToIso: a moment as this computer's wall-clock
  * time for a "datetime-local" input (e.g. "2026-07-31T15:16:07"), seconds
  * included. Not toISOString(), which gives UTC wall time: the input would
@@ -28,16 +21,13 @@ export function toDatetimeLocal(date: Date): string {
   );
 }
 
-// Hardcoded account IDs
+// The server's fixed account ids
 const BANK_ID = 1;
 const EXTERNAL_ID = 99;
 const EXCHANGE_USD_ID = 3;
 const EXCHANGE_BTC_ID = 4;
 
-/**
- * mapAccountToId:
- * Convert an AccountType + Currency to the numeric ID recognized by the backend.
- */
+/** The account id for a form's account and currency (0: none chosen). */
 export function mapAccountToId(account?: AccountType, currency?: Currency): number {
   if (account === "Bank") return 1;
   if (account === "Wallet") return 2;
@@ -47,10 +37,7 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
   return 0;
 }
 
-/**
- * mapDoubleEntryAccounts:
- * Single-entry style => from/to IDs for the ledger.
- */
+/** The ledger's from and to accounts for what the form shows as one account. */
 export function mapDoubleEntryAccounts(data: TransactionFormData): IAccountMapping {
   switch (data.type) {
     case "Deposit":

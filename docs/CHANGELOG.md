@@ -92,6 +92,12 @@ All notable changes to BitcoinTX are documented in this file.
   `utils/transactionList.ts`, Privacy & network's "anything changed?" is
   one tested function, and the error message for a failed request is read
   in two steps (the same message for 20,000 random failures).
+- **Frontend comments and unused code**, as in the backend: no file-path
+  headers, banner dividers, history notes ("NEW", "ADDED", "legacy") or
+  comments that repeat the code. Gone because nothing used them: three hook
+  files and four API hooks (`src/hooks/` keeps the error message),
+  `formatTimestamp`, two types, and five dashboard fields the server has
+  never sent. The built app is byte-identical but for those five fields.
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.

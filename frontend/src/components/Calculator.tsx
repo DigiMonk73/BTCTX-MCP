@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import '../styles/calculator.css';
 
-/**
- * We used to define type Operation = '+' | '-' | '*' | '/' | null
- * locally. Now it's declared globally in global.d.ts.
- */
-
 const Calculator: React.FC = () => {
   const [display, setDisplay] = useState<string>('0');
   const [currentOperation, setCurrentOperation] = useState<Operation>(null);

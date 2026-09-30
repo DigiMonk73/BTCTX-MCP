@@ -1,5 +1,3 @@
-// FILE: frontend/src/components/PriceSourcePrompt.tsx
-//
 // A fresh install contacts nothing until the owner chooses where prices come
 // from. Until then this panel sits at the top of every page. The same choice
 // stays in Settings → Privacy & network.

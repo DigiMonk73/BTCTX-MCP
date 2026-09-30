@@ -49,7 +49,6 @@ const Header: React.FC = () => {
           Settings
         </NavLink>
 
-        {/* Logout now styled like a nav link */}
         <a
           href="#"
           className="header-nav-item logout-link"

@@ -15,7 +15,6 @@ export interface ToastContextValue {
   addToast: (message: string, type?: ToastType, duration?: number) => void;
   removeToast: (id: string) => void;
   clearToasts: () => void;
-  // Convenience methods
   success: (message: string, duration?: number) => void;
   error: (message: string, duration?: number) => void;
   warning: (message: string, duration?: number) => void;
@@ -47,7 +46,7 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
       };
 
       setToasts((prev) => {
-        // Remove oldest toasts if we exceed maxToasts
+        // At most maxToasts: the oldest go first
         const updated = [...prev, newToast];
         if (updated.length > maxToasts) {
           return updated.slice(-maxToasts);
@@ -55,7 +54,6 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
         return updated;
       });
 
-      // Auto-remove after duration
       if (duration > 0) {
         setTimeout(() => {
           removeToast(id);
@@ -69,7 +67,6 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
     setToasts([]);
   }, []);
 
-  // Convenience methods
   const success = useCallback(
     (message: string, duration?: number) => addToast(message, 'success', duration),
     [addToast]
