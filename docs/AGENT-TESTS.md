@@ -279,7 +279,7 @@ Start from the `clean` snapshot.
     receipt as its cost basis."
   - Transfer from `Exchange` `BTC`, Amount (From) `0.01`, Amount (To)
     `0.0099`, Fee value (USD) blank. Expect the error to contain "No BTC
-    price is stored for 2025-07-01" and "for the network fee".
+    price is stored for 2025-07-01" and "For the network fee".
   - Withdrawal from `Bitcoin Wallet`, `0.001`, `Spent`, Proceeds blank.
     Expect "No BTC price is stored for 2025-07-01".
   - Deposit to `Bitcoin Wallet`, Source `MyBTC`, Cost Basis blank. Expect
