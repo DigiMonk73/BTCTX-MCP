@@ -65,6 +65,11 @@ All notable changes to BitcoinTX are documented in this file.
   in their fixed order and each type's account rules as a table. Two unused
   functions are gone. Same lines, lots, disposals, figures and messages on
   every ledger and bad input compared; recalculation no slower.
+- **The transaction form** (`TransactionForm.tsx`, 1,049 lines) keeps the
+  form's state, saving and deleting; each transaction type's fields, the
+  shared account and fee fields, the autofill and the save request are their
+  own files in `components/transactionForm/`. Every form variant renders the
+  same labels, roles and HTML (`e2e/ui-snapshot.e2e.ts`).
 - **Lint limits each Python function** (ruff: complexity 10, 12 branches,
   50 statements, 6 returns; tests and migrations exempt), so the long
   functions can't grow back.

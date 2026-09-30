@@ -348,7 +348,7 @@ tests, the equivalence check, and `--bench` on every commit)
 commit)
 - [x] The UI snapshot script, and a clean first run of the 1.2.2-1 build
       against itself.
-- [ ] `TransactionForm.tsx`: a component per transaction type's fields, plus
+- [x] `TransactionForm.tsx`: a component per transaction type's fields, plus
       the shared fee fields. `#transaction-form` and `#trigger-form-delete`
       stay.
 - [ ] `Settings.tsx`: Account, Data Management, and Backup & Restore as their
