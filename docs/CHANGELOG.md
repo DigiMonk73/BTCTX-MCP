@@ -4,6 +4,18 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.3] - 2026-09-29 - Code cleanup: the same app, easier to maintain
+
+A maintenance release with no new features. The code behind the app was
+reorganized (long functions divided into named steps, the web app's big
+components split, filler comments and unused code removed) with one rule:
+nothing it produces may change. Every figure, database row, Form 8949 field,
+report PDF (byte for byte), CSV, import preview, API answer, AI tool output
+and error message was compared with 1.2.2-1's on the golden ledger, the
+seed ledger, 40 random ledgers in three timezones and about 2,200 bad
+inputs; every page and form was recorded before and after. The only
+differences are the two fixes below. Recalculation is about 7% faster.
+
 ### Fixed
 - **A CSV row with an unknown `fee_usd_typed` value** (anything but yes, no
   or blank) crashed the import preview with a server error; it is now a row
@@ -16,7 +28,7 @@ All notable changes to BitcoinTX are documented in this file.
   a day with no price; anything else is reported as an error.
 
 ### Development
-- **Code cleanup, no change in behaviour** (plan: `docs/temp/code-cleanup.md`):
+- **Code cleanup, no change in behaviour**:
   the standards are written down in `docs/CODE_STYLE.md`, and `CLAUDE.md`
   points to them. `scripts/equivalence_check.py` compares everything the
   app produces (database rows, API answers, Form 8949 field values, report

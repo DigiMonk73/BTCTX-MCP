@@ -64,3 +64,28 @@ output, message and database row as it was, with the existing tests
 unedited. `scripts/equivalence_check.py` compares all of them against a
 release (`docs/TESTING.md`). Found a bug on the way? Note it and fix it in
 its own commit, with its own test.
+
+What the tests depend on, beyond the public functions (a refactor that
+moves these breaks or silently weakens a test):
+
+- **Names tests replace** (monkeypatch): `backend.services.transaction.get_btc_price`
+  (every price lookup in the ledger engine goes through that module name,
+  which is why `transaction.py` stays one file), and the routers'
+  `parse_csv_file`, `execute_import` and `annotate_duplicates`. Those
+  handlers keep calling the module names and stay plain `def` (a test
+  checks imports don't block the server). `get_historical_btc_price` and
+  `get_btc_price` look alike but both stay: tests replace only one.
+- **Private names tests import**: `csv_import._validate_row`,
+  `form_8949._determine_box`, `routers.backup._copy_at_most`,
+  `transaction.holding_period`.
+- **Text `pre_commit_tests.py` looks for**: in `transaction.py`
+  (`def recalculate_all_transactions`, `order_by`, `timestamp`,
+  `tx.proceeds_usd`, `backdated`), the CSV column names as literals in
+  `routers/backup.py` and `csv_import.py`, `NON_TAXABLE_PURPOSES` and
+  similar in `form_8949.py`.
+- **Order and text**: `map_8949_rows_to_field_data` adds a row's columns
+  a→h (`irs_new_year.py` pairs them with "abcdefgh"); log lines keep their
+  level and text (`test_privacy` fails on a date at INFO).
+- **The frontend's e2e tests** find elements by label, role and text; the
+  UI snapshot (`e2e/ui-snapshot.e2e.ts`) records every page and form
+  variant before and after a change (`docs/TESTING.md`).

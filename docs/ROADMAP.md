@@ -17,9 +17,6 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
       2026-02-08 send (0.02353629 → fee on top, today's code is right;
       0.02353311 → Sent includes the fee and the importer counts it twice).
       See `HARDENING_FINDINGS.md` F20.
-- [x] **StartOS own node**: offer the local mempool app as "Your own mempool
-      server" in Settings → Privacy & Network. (Shipped in 1.2.0: the Price
-      Source & Privacy action's My Mempool.)
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
       backup password).
 
