@@ -40,6 +40,10 @@ The database moves to schema 0005 once (a copy is kept in `backups/` first).
   blank fee in a file still means no fee. Found by the 1.2.3 VM walk.
 
 ### Development
+- **CI and the release build pin Node 22.23.2 for the StartOS package.**
+  GitHub's runners moved to Node 22.23.3, whose headers fail to build
+  `diskusage`, a native module that Start9's `mempool-startos` dependency
+  pulls in; the release's package build would have failed the same way.
 - **The web app's error-message helper moved** from `hooks/useApiCall.ts`
   (it held no hooks) into `utils/apiError.ts`, beside the other one; its
   tests moved unchanged.

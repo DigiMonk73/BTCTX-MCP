@@ -212,7 +212,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
+          # via mempool-startos): pinned until a later 22 does (docs/temp/TODO.md)
+          node-version: 22.23.2
           cache: npm
           cache-dependency-path: startos/package-lock.json
       - run: npm ci
@@ -236,7 +238,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
+          # via mempool-startos): pinned until a later 22 does (docs/temp/TODO.md)
+          node-version: 22.23.2
           cache: npm
           cache-dependency-path: startos/package-lock.json
       - name: Tools (squashfs, start-cli, containerd image store)
