@@ -132,25 +132,9 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _maybe_verify_balance_for_internal(new_tx, db)
 
     # 7-9) Partial-lot logic
-    if new_tx.type in ("Deposit", "Buy"):
-        maybe_create_bitcoin_lot(new_tx, tx_data, db)
-    elif new_tx.type in ("Withdrawal", "Sell"):
-        maybe_dispose_lots_fifo(new_tx, tx_data, db)
-        compute_sell_summary_from_disposals(new_tx, db)
-    elif new_tx.type == "Transfer":
-        from_acct = db.get(Account, new_tx.from_account_id)
-        # If from_acct is BTC, ensure fee_amount/currency are set
-        if from_acct and from_acct.currency == "BTC":
-            if new_tx.fee_amount is None or new_tx.fee_amount <= 0:
-                logger.warning(f"Transfer {new_tx.id} missing fee_amount; defaulting to 0")
-                new_tx.fee_amount = Decimal("0")
-            if not new_tx.fee_currency:
-                new_tx.fee_currency = "BTC"
-        maybe_transfer_bitcoin_lot(new_tx, tx_data, db)
-
-    # If disposal => finalize realized gain summary
-    if new_tx.type in ("Sell", "Withdrawal"):
-        compute_sell_summary_from_disposals(new_tx, db)
+    if new_tx.type == "Transfer":
+        _default_btc_transfer_fee(new_tx, db)
+    _post_lots(new_tx, tx_data, db)
 
     # Check if this is a backdated transaction (timestamp earlier than existing transactions)
     # If so, we need to recalculate to ensure FIFO ordering is correct
@@ -433,21 +417,6 @@ def remove_ledger_entries_for_tx(tx: Transaction, db: Session):
     """
     for entry in list(tx.ledger_entries):
         db.delete(entry)
-    db.flush()
-
-
-def remove_lot_usage_for_tx(tx: Transaction, db: Session):
-    """
-    Remove partial-lot disposals & newly created lots for the transaction.
-
-    Note: This function is currently unused - update_transaction_record and
-    delete_transaction_record both use scorched earth (recalculate_all_transactions)
-    instead. Kept for potential future use.
-    """
-    for disp in list(tx.lot_disposals):
-        db.delete(disp)
-    for lot in list(tx.bitcoin_lots_created):
-        db.delete(lot)
     db.flush()
 
 
@@ -1138,86 +1107,55 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     for rec_tx in all_txs:
         _fill_stored_fee_currency(rec_tx, db)
-        sub_tx_data = {
-            "from_account_id": rec_tx.from_account_id,
-            "to_account_id": rec_tx.to_account_id,
-            "type": rec_tx.type,
-            "amount": rec_tx.amount,
-            "fee_amount": rec_tx.fee_amount,
-            "fee_currency": rec_tx.fee_currency,
-            "cost_basis_usd": rec_tx.cost_basis_usd,
-            "proceeds_usd": rec_tx.proceeds_usd,
-            "timestamp": rec_tx.timestamp,
-            "source": rec_tx.source,
-            "purpose": rec_tx.purpose,
-            "gross_proceeds_usd": rec_tx.gross_proceeds_usd,
-            "fmv_usd": rec_tx.fmv_usd,
-        }
-        build_ledger_entries_for_transaction(rec_tx, sub_tx_data, db)
+        stored = _stored_inputs(rec_tx)
+        build_ledger_entries_for_transaction(rec_tx, stored, db)
         _maybe_verify_balance_for_internal(rec_tx, db)
-
-        if rec_tx.type in ("Deposit", "Buy"):
-            maybe_create_bitcoin_lot(rec_tx, sub_tx_data, db)
-        elif rec_tx.type in ("Sell", "Withdrawal"):
-            maybe_dispose_lots_fifo(rec_tx, sub_tx_data, db)
-            compute_sell_summary_from_disposals(rec_tx, db)
-        elif rec_tx.type == "Transfer":
-            maybe_transfer_bitcoin_lot(rec_tx, sub_tx_data, db)
+        _post_lots(rec_tx, stored, db)
 
     db.flush()
 
 
-def recalculate_subsequent_transactions(db: Session, from_timestamp: datetime):
-    """
-    Partial-lot re-lot for transactions >= from_timestamp, more efficient
-    than "scorched earth" for large datasets.
-    """
-    logger.debug(f"[Partial Re-Lot] Starting from {from_timestamp.isoformat()}")
+def _stored_inputs(tx: Transaction) -> dict:
+    """A saved transaction's inputs, as the ledger steps read them."""
+    return {
+        "from_account_id": tx.from_account_id,
+        "to_account_id": tx.to_account_id,
+        "type": tx.type,
+        "amount": tx.amount,
+        "fee_amount": tx.fee_amount,
+        "fee_currency": tx.fee_currency,
+        "cost_basis_usd": tx.cost_basis_usd,
+        "proceeds_usd": tx.proceeds_usd,
+        "timestamp": tx.timestamp,
+        "source": tx.source,
+        "purpose": tx.purpose,
+        "gross_proceeds_usd": tx.gross_proceeds_usd,
+        "fmv_usd": tx.fmv_usd,
+    }
 
-    affected_txs = (
-        db.query(Transaction)
-        .filter(Transaction.timestamp >= from_timestamp)
-        .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
-        .all()
-    )
-    tx_ids = [t.id for t in affected_txs]
 
-    db.query(LedgerEntry).filter(LedgerEntry.transaction_id.in_(tx_ids)).delete(synchronize_session=False)
-    db.query(LotDisposal).filter(LotDisposal.transaction_id.in_(tx_ids)).delete(synchronize_session=False)
-    db.query(BitcoinLot).filter(BitcoinLot.created_txn_id.in_(tx_ids)).delete(synchronize_session=False)
-    db.flush()
+def _post_lots(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """Its effect on the BTC lots: a Deposit or Buy acquires a lot, a Sell or
+    Withdrawal disposes of the oldest BTC first (then its figures are summed
+    up from those disposals), a Transfer moves lots between accounts."""
+    if tx.type in ("Deposit", "Buy"):
+        maybe_create_bitcoin_lot(tx, tx_data, db)
+    elif tx.type in ("Sell", "Withdrawal"):
+        maybe_dispose_lots_fifo(tx, tx_data, db)
+        compute_sell_summary_from_disposals(tx, db)
+    elif tx.type == "Transfer":
+        maybe_transfer_bitcoin_lot(tx, tx_data, db)
 
-    for rec_tx in affected_txs:
-        _fill_stored_fee_currency(rec_tx, db)
-        sub_tx_data = {
-            "from_account_id": rec_tx.from_account_id,
-            "to_account_id": rec_tx.to_account_id,
-            "type": rec_tx.type,
-            "amount": rec_tx.amount,
-            "fee_amount": rec_tx.fee_amount,
-            "fee_currency": rec_tx.fee_currency,
-            "cost_basis_usd": rec_tx.cost_basis_usd,
-            "proceeds_usd": rec_tx.proceeds_usd,
-            "timestamp": rec_tx.timestamp,
-            "source": rec_tx.source,
-            "purpose": rec_tx.purpose,
-            # If present, re-inject gross_proceeds_usd
-            "gross_proceeds_usd": rec_tx.gross_proceeds_usd,
-            "fmv_usd": rec_tx.fmv_usd,
-        }
-        build_ledger_entries_for_transaction(rec_tx, sub_tx_data, db)
-        _maybe_verify_balance_for_internal(rec_tx, db)
 
-        if rec_tx.type in ("Deposit", "Buy"):
-            maybe_create_bitcoin_lot(rec_tx, sub_tx_data, db)
-        elif rec_tx.type in ("Sell", "Withdrawal"):
-            maybe_dispose_lots_fifo(rec_tx, sub_tx_data, db)
-            compute_sell_summary_from_disposals(rec_tx, db)
-        elif rec_tx.type == "Transfer":
-            maybe_transfer_bitcoin_lot(rec_tx, sub_tx_data, db)
-
-    db.flush()
-    logger.info("[Partial Re-Lot] Completed partial-lot recalculation.")
+def _default_btc_transfer_fee(tx: Transaction, db: Session) -> None:
+    """A new BTC transfer without a fee gets 0 in BTC, which its lot move reads."""
+    from_acct = db.get(Account, tx.from_account_id)
+    if from_acct and from_acct.currency == "BTC":
+        if tx.fee_amount is None or tx.fee_amount <= 0:
+            logger.warning(f"Transfer {tx.id} missing fee_amount; defaulting to 0")
+            tx.fee_amount = Decimal("0")
+        if not tx.fee_currency:
+            tx.fee_currency = "BTC"
 
 
 # Double-Entry (with Cross-Currency Skip) & Fee Rules

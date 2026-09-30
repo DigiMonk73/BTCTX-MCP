@@ -333,9 +333,9 @@ fixed inside a cleanup commit.
 
 **Ledger engine** (`transaction.py`; `make test` including the slow property
 tests, the equivalence check, and `--bench` on every commit)
-- [ ] Characterization tests: a locked row refuses edit and delete; anything
+- [x] Characterization tests: a locked row refuses edit and delete; anything
       else coverage shows as unrun.
-- [ ] Remove the dead `recalculate_subsequent_transactions`. Give the replay
+- [x] Remove the dead `recalculate_subsequent_transactions`. Give the replay
       step (repeated in the recalculation loop) one name.
 - [ ] `build_ledger_entries_for_transaction`: one named step per transaction
       type.
