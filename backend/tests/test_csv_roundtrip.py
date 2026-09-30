@@ -16,6 +16,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import sessionmaker
 
+from backend.routers.backup import _csv_number
 from backend.services import outbound
 from backend.services.csv_import import CSV_COLUMNS
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
@@ -118,6 +119,13 @@ def test_the_export_has_every_column_the_import_reads(auth_client, ledger):
     assert gift["fmv_usd"] == "6000.00"
     assert sell["broker_reporting"] == "basis"
     assert all(r["fee_usd"] == "" for r in rows if r["fee_currency"] != "BTC" or float(r["fee_amount"] or 0) == 0)
+
+
+def test_the_export_writes_a_numbers_own_digits():
+    """Through a float, a number with more than about 16 digits lost its last ones."""
+    assert _csv_number(Decimal("1234567890.12345678"), 8) == "1234567890.12345678"
+    assert _csv_number(Decimal("0E-8"), 8) == "0.00000000"
+    assert _csv_number(None, 2) == ""
 
 
 HEADER = ",".join(CSV_COLUMNS)

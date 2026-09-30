@@ -11,6 +11,7 @@ import io
 import os
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -261,4 +262,6 @@ def _export_row(txn: Transaction) -> dict[str, str]:
 
 
 def _csv_number(value, decimals: int) -> str:
-    return "" if value is None else f"{float(value):.{decimals}f}"
+    # The Decimal's own digits: a float keeps about 16, and an amount with
+    # all eight decimals can have more.
+    return "" if value is None else f"{Decimal(value):.{decimals}f}"

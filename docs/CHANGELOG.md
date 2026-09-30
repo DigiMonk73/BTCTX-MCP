@@ -12,6 +12,10 @@ All notable changes to BitcoinTX are documented in this file.
   blank fee in a file still means no fee. Found by the 1.2.3 VM walk.
 
 ### Development
+- **The CSV export prints numbers from their exact value**, not through a
+  float. Nothing an export writes changes (checked on every test ledger):
+  a value is already rounded to its column's decimals when it is read, so
+  the float could only lose digits past about 16, far beyond real amounts.
 - **A release's title names its StartOS package version**, for example
   "v1.2.3 · StartOS package 1.2.3:0", and so does its StartOS download line:
   the number StartOS and the mirror's releases show (the app version plus
