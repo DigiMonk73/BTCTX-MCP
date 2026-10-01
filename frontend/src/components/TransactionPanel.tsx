@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
 
@@ -27,7 +28,8 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     }
   }, [isOpen]);
 
-  // A click outside or Escape: close, or ask first when there are unsaved changes
+  // A click outside, Escape or the close button: close, or ask first when
+  // there are unsaved changes
   const requestClose = useCallback(() => {
     if (isFormDirty) {
       setShowDiscardModal(true);
@@ -79,6 +81,17 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
       <div className="transaction-panel">
         <div className="panel-header">
           <h2>{transactionId ? "Edit Transaction" : "Add Transaction"}</h2>
+          {/* On a phone the panel covers the page: no outside to click, no
+              Escape key, so this is the only way out without saving */}
+          <button
+            type="button"
+            className="btn btn-quiet panel-close"
+            onClick={requestClose}
+            aria-label="Close"
+            title="Close"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
         </div>
 
         <div className="panel-body">

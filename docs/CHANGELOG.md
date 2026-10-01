@@ -4,6 +4,15 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **On a phone, the transaction panel can be closed.** Up to 460 px wide the
+  Add or Edit Transaction panel covers the whole page, so there was nothing
+  outside it to tap and no Escape key: Save was the only button, and the
+  phone's Back button left the page and dropped what was typed without
+  asking. A close button (✕) in the panel's header now closes it, on every
+  screen, like a click outside: at once when nothing was changed, else after
+  "Discard changes?". Found by the full test run of 1.2.4.
+
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 
 Small fixes found by the 1.2.3 test walk on StartOS, with no change to any

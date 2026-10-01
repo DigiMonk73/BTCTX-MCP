@@ -117,3 +117,31 @@ test("Escape or a click outside closes the panel, asking first about unsaved cha
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(heading).toHaveCount(0);
 });
+
+test("on a phone the panel's close button closes it, asking first about unsaved changes", async ({ authedPage: page }) => {
+  // The 1.2.4 test run: at 375px the panel covered the page, with no outside
+  // to tap and no Escape key, and Save was its only button.
+  await page.setViewportSize({ width: 375, height: 800 });
+  const heading = page.getByRole("heading", { name: "Add Transaction" });
+  const close = page.getByRole("button", { name: "Close", exact: true });
+  const question = page.getByRole("dialog").getByRole("heading", { name: "Discard changes?" });
+
+  // Nothing changed: it closes at once
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await page.getByRole("button", { name: "Add Transaction" }).click();
+  await expect(close).toBeInViewport({ ratio: 1 });
+  await close.click();
+  await expect(heading).toHaveCount(0);
+
+  // A change: it asks; Go back keeps the change, Discard changes closes
+  await openAddForm(page, "Deposit");
+  await page.getByLabel("Account", { exact: true }).selectOption("Bank");
+  await close.click();
+  await expect(question).toBeVisible();
+  await page.getByRole("button", { name: "Go back" }).click();
+  await expect(question).toHaveCount(0);
+  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  await close.click();
+  await page.getByRole("button", { name: "Discard changes" }).click();
+  await expect(heading).toHaveCount(0);
+});

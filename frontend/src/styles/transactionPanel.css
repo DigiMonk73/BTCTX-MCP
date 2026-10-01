@@ -24,8 +24,20 @@
 }
 
 .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--color-border);
+}
+/* A round 40px touch target; the negative margins keep the header's height
+   and put the icon near the form's right edge */
+.panel-close {
+  flex-shrink: 0;
+  width: var(--control-height);
+  padding: 0;
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0;
 }
 .panel-header h2 {
   margin: 0;
