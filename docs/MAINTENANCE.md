@@ -58,11 +58,23 @@ pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 
 ## Updating a dependency
 
-Python dependencies are **exact-pinned** (`==`) in `backend/requirements.txt`
-so Docker, macOS and CI builds are reproducible. Desktop-only packages
-(`pyinstaller`, `pywebview`) are in `desktop/requirements.txt` with `>=`
-minimums; dev tools (`ruff`, `pip-audit`) are in `requirements-dev.txt`.
-Frontend packages are in `frontend/package.json` / `package-lock.json`.
+**Pinning.** Everything that ships or builds is pinned exactly, so Docker,
+macOS and CI builds are reproducible and nothing changes without a pull
+request:
+
+- Python: `==` in `backend/requirements.txt` (the app),
+  `desktop/requirements.txt` (the Mac app's build tools) and
+  `requirements-dev.txt` (test and CI tools).
+- JavaScript: `frontend/package-lock.json` and `startos/package-lock.json`
+  (`npm ci` installs exactly what they hold).
+- Docker base images: tag and digest (`python:3.11-slim@sha256:…`).
+- GitHub Actions: a full commit SHA with the release as a comment
+  (`actions/checkout@<sha> # v7.0.1`): a tag can be moved, a commit can't.
+- The exception is the AI connector (`mcp_server/pyproject.toml`): it is
+  installed next to other software, so it takes ranges, capped below the
+  next major version (`httpx>=0.27,<1`).
+
+Dependabot proposes the updates (below).
 
 1. Read the package changelog for breaking changes.
 2. Edit the version, then `pip install -r backend/requirements.txt`.
@@ -90,9 +102,11 @@ reinstall, and rerun `make check`.
 
 `.github/dependabot.yml` opens pull requests against `develop` every week:
 one grouped PR per directory for minor and patch updates (`backend/`,
-`mcp_server/`, the dev tools in `requirements-dev.txt`, `frontend/`,
-`startos/`), majors one per PR, and one PR for the GitHub Actions in
-`.github/workflows/`. CI runs on each. Treat them like
+`mcp_server/`, `desktop/`, the dev tools in `requirements-dev.txt`,
+`frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
+in `.github/workflows/`, and one per Dockerfile base image when its tag gets
+a new build (Python 3.11 and Node 22 themselves change only on purpose).
+CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
 merge into `develop`. Nothing reaches `main` before a release.
 
@@ -111,8 +125,8 @@ merge into `develop`. Nothing reaches `main` before a release.
   the SDK).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff and pip-audit. A new pinned dev tool
-  goes on that list.
+  allows only pytest, hypothesis, ruff, pip-audit and anyio. A new pinned
+  dev tool goes on that list.
 
 ### Audit scope
 

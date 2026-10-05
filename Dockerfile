@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------
     # Built on the build machine's own architecture: the output is static files,
     # so a multi-arch build doesn't have to run npm under emulation.
-    FROM --platform=$BUILDPLATFORM node:22-slim AS frontend-builder
+    FROM --platform=$BUILDPLATFORM node:22-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c AS frontend-builder
 
     # 1) Create and move into /app/frontend
     WORKDIR /app/frontend
@@ -23,7 +23,7 @@
     # ------------------------------------------------------------------
     # Stage 2: Final (Backend + Frontend)
     # ------------------------------------------------------------------
-    FROM python:3.11-slim AS backend
+    FROM python:3.11-slim@sha256:6f31d6e9ba2b0a787a3f81c37b004155b87b9efa1b771182bd550c1615745be5 AS backend
     
     # Ensures stdout/stderr is unbuffered, so logs appear immediately
     ENV PYTHONUNBUFFERED=1
