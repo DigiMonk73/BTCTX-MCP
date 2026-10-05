@@ -28,7 +28,8 @@ All notable changes to BitcoinTX are documented in this file.
   are GitHub issues, labelled `claude`, `owner`, `ask-grok` or `start9`,
   instead of `docs/temp/TODO.md` (its open items moved to issues #29–#34);
   `test_todo_lists.py` keeps a to-do file from coming back. Every change
-  goes into `develop` by pull request, from `.github/pull_request_template.md`.
+  goes into `develop` by pull request, from `.github/pull_request_template.md`,
+  and only the owner merges (or tells Claude to).
 
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 

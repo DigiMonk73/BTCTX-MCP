@@ -320,11 +320,13 @@ One home for each kind of information, so nothing is kept twice:
 
 Every change, Claude's included, goes into `develop` by pull request, filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
-for the owner, how it was tested, the risk. CI must pass. Claude then merges
-it with a squash (one commit per change), except what waits for the owner's
-OK: a change in what the app does or computes, the database schema,
-anything that reaches Start9, and releases. Dependabot's pull requests are
-merged the same way once their changelogs are read.
+for the owner, how it was tested, the risk. CI must pass. Nothing is merged
+without the owner: they press "Squash and merge" on GitHub, or tell Claude
+to merge it (a squash, one commit per change). Claude says plainly when a
+pull request needs a closer look: a change in what the app does or
+computes, the database schema, anything that reaches Start9, a release.
+Dependabot's pull requests go the same way, after Claude has read their
+changelogs.
 
 ## Ending a session
 
