@@ -20,6 +20,15 @@ All notable changes to BitcoinTX are documented in this file.
   than CI's `START_CLI_VERSION`. Each issue links the release notes and
   says to look at Start9's fork first, since Start9 may send the bump
   there themselves.
+- **One rules file and one to-do list for every AI.** The rules moved
+  from `CLAUDE.md` to `AGENTS.md`, the file other AI tools read too
+  (`CLAUDE.md` now only points to it); it now says who does what (the
+  owner decides, Claude Code develops, Grok Bot brainstorms and
+  double-checks from links) and where each kind of information lives. To-dos
+  are GitHub issues, labelled `claude`, `owner`, `ask-grok` or `start9`,
+  instead of `docs/temp/TODO.md` (its open items moved to issues #29–#34);
+  `test_todo_lists.py` keeps a to-do file from coming back. Every change
+  goes into `develop` by pull request, from `.github/pull_request_template.md`.
 
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 

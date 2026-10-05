@@ -711,7 +711,7 @@ Steps: …  Expected: …  Observed: …  Evidence: <screenshot or text>
 ```
 
 Every FAIL that gets fixed also gets an automated test that fails on the
-old code (CLAUDE.md), so the next run of this walk has less to catch.
+old code (AGENTS.md), so the next run of this walk has less to catch.
 
 ## Known issues
 

@@ -1,22 +1,18 @@
-# docs/temp: work in progress
+# docs/temp: checklists for work under way
 
-Everything here is checkboxes: tick a box when the thing is done.
+To-dos and plans are GitHub issues on this repository (`AGENTS.md`,
+"Working through GitHub"). This folder holds only what doesn't fit an issue
+well: a long checklist for work under way, one file per topic, named for what
+it is (`startos-box-test-v1.2.2.md`, not `notes.md`), with its steps as
+checkboxes and a link to its issue.
 
-- **`TODO.md`**: specific to-dos, one line each (`- [ ] …`). Tick `[x]` when
-  done. At each release, remove the ticked items: the CHANGELOG has them then.
-- **Plans and checklists**: one file per topic, named for what it is
-  (`startos-box-test-v1.2.2.md`, not `notes.md`), with its steps as
-  checkboxes. When it's all done, move anything worth keeping somewhere
-  lasting (the code and CHANGELOG, a doc), tick its box in
-  `docs/ROADMAP.md` if it was on the roadmap, and **delete the file**.
-- **What's next overall** (features, larger work) is in `docs/ROADMAP.md`,
-  also checkboxes, ticked when done and cleared at the release that ships
-  them.
+When it's all done, move anything worth keeping somewhere lasting (the code
+and CHANGELOG, a doc), close the issue, tick its box in `docs/ROADMAP.md` if
+it was on the roadmap, and **delete the file**.
 
-The StartOS package keeps its own `startos/TODO.md`: Start9's standard file,
-copied to the repository Start9 forks, for package-only items. It follows
-Start9's rule instead: an item is removed when it's done, not ticked (the
-CHANGELOG records it). Plans stay here, never in `startos/`.
+What's next overall is in `docs/ROADMAP.md`. The StartOS package keeps its
+own `startos/TODO.md`, Start9's standard file, under Start9's rule: an item is
+removed when it's done, not ticked. Checklists stay here, never in `startos/`.
 
-`backend/tests/test_todo_lists.py` fails if a TODO file is missing or an
-item isn't a checkbox.
+`backend/tests/test_todo_lists.py` checks that every item is a checkbox and
+that no separate to-do file comes back.

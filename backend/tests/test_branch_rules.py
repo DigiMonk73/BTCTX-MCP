@@ -1,7 +1,7 @@
 """
 backend/tests/test_branch_rules.py
 
-The pre-push branch rules (.githooks/branch-rules.sh, CLAUDE.md "Branches"):
+The pre-push branch rules (.githooks/branch-rules.sh, AGENTS.md "Branches"):
 main only fast-forwards to commits already on develop and is never deleted,
 rewound or force-pushed. Other AI assistants work in this repo too, so the
 rule is enforced, not just written down.

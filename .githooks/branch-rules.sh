@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Branch rules (CLAUDE.md, "Branches"), run by pre-push with git's list of
+# Branch rules (AGENTS.md, "Branches"), run by pre-push with git's list of
 # pushed refs on stdin: main holds released code and only fast-forwards to
 # commits already on develop; it is never deleted, rewound or force-pushed.
 # Tested by backend/tests/test_branch_rules.py.
@@ -14,9 +14,9 @@ while read -r _ local_sha remote_ref remote_sha; do
   for d in refs/heads/develop refs/remotes/origin/develop; do
     git merge-base --is-ancestor "$local_sha" "$d" 2>/dev/null && on_develop=1
   done
-  [ -n "$on_develop" ] || fail "main only takes commits already on develop: commit on develop, push it, then fast-forward main (CLAUDE.md, Branches)"
+  [ -n "$on_develop" ] || fail "main only takes commits already on develop: commit on develop, push it, then fast-forward main (AGENTS.md, Branches)"
   if ! [[ "$remote_sha" =~ ^0+$ ]]; then
     git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null \
-      || fail "main can't be rewound or force-pushed (CLAUDE.md, Branches)"
+      || fail "main can't be rewound or force-pushed (AGENTS.md, Branches)"
   fi
 done
