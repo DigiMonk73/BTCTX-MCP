@@ -13,6 +13,14 @@ All notable changes to BitcoinTX are documented in this file.
   screen, like a click outside: at once when nothing was changed, else after
   "Discard changes?". Found by the full test run of 1.2.4.
 
+### Development
+- **The weekly StartOS check also watches start-cli.** Besides a newer
+  `@start9labs/start-sdk` on npm, `startos-sdk-check.yml` opens an issue
+  when Start9 releases a newer start-cli (the tool that packs `btctx.s9pk`)
+  than CI's `START_CLI_VERSION`. Each issue links the release notes and
+  says to look at Start9's fork first, since Start9 may send the bump
+  there themselves.
+
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 
 Small fixes found by the 1.2.3 test walk on StartOS, with no change to any

@@ -1,8 +1,11 @@
 name: StartOS SDK check
 
-# Weekly: opens an issue when npm has a newer @start9labs/start-sdk than the
-# exact version startos/package.json pins, so SDK upgrades are deliberate
-# (startos/UPDATING.md, "Bumping the SDK").
+# Weekly: opens an issue when Start9 has a newer @start9labs/start-sdk (npm)
+# than startos/package.json pins, or a newer start-cli (the tool that packs
+# btctx.s9pk) than START_CLI_VERSION in ci.yml, so upgrades are deliberate
+# (startos/UPDATING.md, "Bumping the SDK"). An SDK bump reaches Start9's
+# community registry only through a pull request to their fork, and Start9
+# may open that one themselves: the issue says to look there first.
 on:
   schedule:
     - cron: '23 8 * * 1'
@@ -17,18 +20,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Compare the pinned SDK with npm
+      - name: Compare the pinned SDK and start-cli with Start9's latest
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTES=https://github.com/Start9Labs/start-technologies/releases/tag
+          # Opens "<name> <latest> is available (<where> pins <pinned>)" once,
+          # when latest is newer than pinned.
+          report() {
+            local name="$1" pinned="$2" latest="$3" where="$4" body="$5"
+            echo "$name: pinned $pinned, latest $latest"
+            [ -n "$latest" ] && [ "$pinned" != "$latest" ] || return 0
+            [ "$(printf '%s\n%s\n' "$pinned" "$latest" | sort -V | tail -1)" = "$latest" ] || return 0
+            if [ -n "$(gh issue list --state open --search "in:title \"$name $latest\"" --json number --jq '.[0].number // empty')" ]; then
+              echo "already tracked"; return 0
+            fi
+            gh issue create --title "$name $latest is available ($where pins $pinned)" --body "$body"
+          }
+
           PINNED=$(jq -r '.dependencies["@start9labs/start-sdk"]' startos/package.json)
           LATEST=$(npm view @start9labs/start-sdk version)
-          echo "pinned $PINNED, npm latest $LATEST"
-          [ "$PINNED" = "$LATEST" ] && exit 0
-          NEWER=$(printf '%s\n%s\n' "$PINNED" "$LATEST" | sort -V | tail -1)
-          [ "$NEWER" = "$LATEST" ] || exit 0
-          TITLE="start-sdk $LATEST is available (startos/ pins $PINNED)"
-          if [ -n "$(gh issue list --state open --search "in:title \"start-sdk $LATEST\"" --json number --jq '.[0].number // empty')" ]; then
-            echo "already tracked"; exit 0
-          fi
-          gh issue create --title "$TITLE" --body "$(printf 'npm has `@start9labs/start-sdk` %s; `startos/package.json` pins %s.\n\nRead the SDK CHANGELOG for breaking changes and the StartOS version it requires, then follow startos/UPDATING.md, "Bumping the SDK".' "$LATEST" "$PINNED")"
+          report start-sdk "$PINNED" "$LATEST" startos/ "$(printf '%s\n\n%s\n\n%s' \
+            "npm has \`@start9labs/start-sdk\` $LATEST; \`startos/package.json\` pins $PINNED." \
+            "Read its release notes ($NOTES/start-sdk/v$LATEST) for the edits it needs and the StartOS version it requires, then follow startos/UPDATING.md, \"Bumping the SDK\"." \
+            "First look at Start9's fork (\`scripts/start9-pull.sh --fork\` names it): if Start9 has opened or merged the bump there, take theirs with \`scripts/start9-pull.sh\` instead of writing a second one.")"
+
+          PINNED=$(sed -n 's/^ *START_CLI_VERSION: *//p' .github/workflows/ci.yml | head -1)
+          LATEST=$(gh release list -R Start9Labs/start-technologies --limit 50 \
+            --exclude-drafts --exclude-pre-releases --json tagName \
+            --jq '[.[].tagName | select(startswith("start-cli/"))][0] // "" | ltrimstr("start-cli/")')
+          report start-cli "$PINNED" "$LATEST" CI "$(printf '%s\n\n%s' \
+            "Start9 released start-cli $LATEST; CI and the release pack btctx.s9pk with $PINNED (\`START_CLI_VERSION\` in \`.github/workflows/ci.yml\` and \`release.yml\`)." \
+            "Read its release notes ($NOTES/start-cli/$LATEST) and bump it together with the SDK it goes with (startos/UPDATING.md, \"Bumping the SDK\", step 3).")"
