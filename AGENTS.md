@@ -32,9 +32,9 @@ Branches).
   databases, `make preview` or the StartOS test VM.
 - Other people install BitcoinTX from Start9's community registry: a
   release that breaks an update or loses data hurts users who trust it.
-- Start9's reviewers and users care about privacy: nothing contacts the
-  internet until the owner picks a price source ("Prices" under Tax
-  invariants).
+- Start9's reviewers and users care about privacy: no price is asked of
+  anyone until the owner picks a price source, and no request names a day
+  ("Prices" under Tax invariants).
 
 ## Who does what
 
@@ -320,15 +320,13 @@ if the mirror's own workflow can't release,
 ## Start9
 
 - Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
-  built and published. A change reaches it only as a pull request from our
-  mirror, after their changes are brought back (`scripts/start9-pull.sh`),
-  or it undoes their review ("Releasing").
+  built and published; how a change reaches it is under "Releasing".
 - Each merge there publishes to Community Beta
   (`https://community-beta-registry.start9.com`). The owner tests it on
   their server, then asks Start9 in an issue on the fork to promote it to
   `https://community-registry.start9.com`. Promotion is the owner's call.
-- Start9 sends changes too (template updates about monthly, SDK bumps).
-  Anything for Start9 waits for the owner's OK.
+- Start9 sends changes too (template updates about monthly, SDK bumps),
+  which `scripts/start9-pull.sh` brings back.
 
 ## Working through GitHub
 
