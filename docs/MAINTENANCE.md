@@ -153,10 +153,10 @@ merge into `develop`. Nothing reaches `main` before a release.
 - The locked directories (`backend/`, `desktop/`, `.github/release-tools/`)
   are `uv` entries: Dependabot edits the pin in `requirements.in` and
   recompiles `requirements.txt` with the command in its header (so the
-  header must stay `make lock`'s). `desktop/` updates only pyinstaller and
-  pywebview; when a `backend/` PR moves a package the Mac lock shares
-  (typing-extensions, cffi…), `test_pinning.py` fails on it until
-  `make lock` is run on that branch.
+  header must stay `make lock`'s). `desktop/` updates only pyinstaller,
+  pywebview and setuptools (it builds proxy-tools); when a `backend/` PR
+  moves a package the Mac lock shares (typing-extensions, cffi…),
+  `test_pinning.py` fails on it until `make lock` is run on that branch.
 - Dependabot reads a Dockerfile `FROM` only at the start of a line, so the
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.

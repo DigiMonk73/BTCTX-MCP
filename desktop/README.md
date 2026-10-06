@@ -64,6 +64,6 @@ open desktop/dist/BitcoinTX.app
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
 | `BitcoinTX.spec` | PyInstaller configuration (hidden imports, bundle version) |
 | `build-mac.sh` | Build script |
-| `requirements.in` | Desktop-only packages (pyinstaller, pywebview), pinned |
+| `requirements.in` | Desktop-only packages (pyinstaller, pywebview, and setuptools to build proxy-tools), pinned |
 | `requirements.txt` | Their lock, with hashes (`make lock`; docs/MAINTENANCE.md) |
 | `resources/icon.icns` | App icon |
