@@ -264,11 +264,11 @@ def test_the_record_is_set_aside_once_a_sync_is_built_on_it(repos, tmp_path):
     git(mirror, "pull", "-q", "--ff-only", str(fork), "HEAD")
     (mirror / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
     git(mirror, "commit", "-qam", "Sync from DigiMonk73/BTCTX-MCP@abcdef0 (1.0.0:1)")
-    git(fork, "pull", "-q", "--no-rebase", "--no-edit", str(mirror), "main")
+    git(fork, "pull", "-q", "--no-rebase", "--no-ff", "--no-edit", str(mirror), "main")
     r = run(proj, "--check", **FORKED)
     assert r.returncode == 0, r.stderr
     r = run(proj, **FORKED)
-    assert "and as we do" not in r.stdout, "our own edit shown as Start9's"
+    assert "nothing to take" in r.stdout, f"our own edit shown as Start9's: {r.stdout}"
 
 
 def test_a_record_committed_without_the_take_back_doesnt_count(repos):
