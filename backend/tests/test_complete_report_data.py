@@ -93,3 +93,23 @@ def test_building_the_report_does_not_touch_the_ledger(auth_client, test_engine)
     held = sum(r["quantity"] for r in data["end_of_year_balances"] if r["asset"].startswith("BTC"))
     assert abs(held - 0.9999) < 1e-9          # 2025 sale excluded, only the fee left
     CLIENT.delete("/api/transactions/delete_all")
+
+
+def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_engine):
+    """#58: the report's Expenses section is gone (the app's forms never
+    offered the purpose). A BTC withdrawal an old ledger has with purpose
+    "Expenses" (and its gross stored) stays in the capital gains section."""
+    from sqlalchemy import text
+
+    _setup(auth_client, test_engine)
+    CLIENT.delete("/api/transactions/delete_all")
+    tx(type="Buy", timestamp="2024-03-01T12:00:00Z", from_account_id=1, to_account_id=4,
+       amount="0.1", cost_basis_usd="4000")
+    tx(type="Withdrawal", timestamp="2024-09-01T12:00:00Z", from_account_id=4, to_account_id=99,
+       amount="0.01", purpose="Spent", gross_proceeds_usd="600.00")
+    with ENGINE.begin() as con:
+        con.execute(text("UPDATE transactions SET purpose = 'Expenses' WHERE purpose = 'Spent'"))
+    data = report(2024)
+    CLIENT.delete("/api/transactions/delete_all")
+    assert "expenses" not in data
+    assert [(r["amount"], r["proceeds"]) for r in data["capital_gains_transactions"]] == [(0.01, 600.0)]

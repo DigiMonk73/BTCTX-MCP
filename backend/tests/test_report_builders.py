@@ -48,11 +48,6 @@ REPORT = {
         {"date": "2024-08-02T12:00:00Z", "asset": "BTC", "amount": 0.03, "proceeds_usd": 0.0, "fmv_usd": None,
          "type": "Lost"},
     ],
-    # No valid purpose leads here any more; an old ledger's "Expenses" rows would.
-    "expenses": [
-        {"date": "2024-09-01T12:00:00Z", "asset": "BTC", "amount": 0.001, "value_usd": 60.0, "type": "Expenses"},
-        {"date": "2024-09-02T12:00:00Z", "asset": "ETH", "amount": 1, "value_usd": 1, "type": "left out"},
-    ],
 }
 
 EMPTY_REPORT = {"tax_year": 2023, "report_date": "2024-01-02 03:04:05", "period": "2023-01-01 to 2023-12-31"}
@@ -78,7 +73,6 @@ def test_complete_report_sections():
         "06/30/2024 not a date BTC 0.10000000 $3,000.00 $6,000.00 $3,000.00 LONG",
         "02/29/2024 BTC 0.01000000 $600.00 Income salary 03/02/2024 USD",
         "08/01/2024 BTC 0.02000000 $0.00 $1,200.00 Gift 08/02/2024 BTC 0.03000000 $0.00 not given Lost",
-        "2024 Expenses Date Asset Amount Value (USD) Type 09/01/2024 BTC 0.00100000 $60.00 Expenses",
     ):
         assert expected in text
     assert "left out" not in text and "USD (Bank)" not in text and "ETH" not in text
@@ -89,7 +83,7 @@ def test_complete_report_with_nothing_in_it():
     assert "in the tax timezone (UTC)" in text
     assert "2023 Beginning of Year Holdings No data for beginning of year holdings" in text
     assert "2023 End of Year Balances No data for end of year balances" in text
-    assert "2023 Expenses No transactions" in text
+    assert "Expenses" not in text  # #58: no transaction could ever fill it
     for omitted in ("Capital Gains/Losses Transactions", "Income Transactions", "Gifts, Donations"):
         assert f"2023 {omitted}" not in text
 

@@ -28,7 +28,6 @@ CONTENTS = (
     "5. Capital Gains/Losses Transactions",
     "6. Income Transactions",
     "7. Gifts, Donations & Lost Assets",
-    "8. Expenses",
 )
 
 INCOME_TYPES = ("Income", "Reward", "Interest")
@@ -47,7 +46,6 @@ def generate_comprehensive_tax_report(report_dict: dict[str, Any]) -> bytes:
         *report.capital_gains_transactions(),
         *report.income_transactions(),
         *report.gifts_donations_lost(),
-        *report.expenses(),
         Spacer(1, 0.5 * inch),
     ]
     buffer = BytesIO()
@@ -312,20 +310,3 @@ class _TaxReport:
             grid_table(rows, [1.0, 0.8, 0.9, 0.9, 0.9, 1.3], columns=(2, 4)),
             Spacer(1, 0.5 * inch),
         ]
-
-    def expenses(self) -> list:
-        expenses = self.data.get("expenses", [])
-        story = self.heading("Expenses")
-        if not expenses:
-            return story + [self.text("No transactions", self.styles.normal)]
-        rows = [["Date", "Asset", "Amount", "Value (USD)", "Type"]]
-        for expense in expenses:
-            if expense.get("asset") in ("BTC", "USD"):
-                rows.append([
-                    self.text(self.date(expense.get("date", ""))),
-                    self.text(expense["asset"]),
-                    self.number(fmt_btc(expense.get("amount", 0.0))),
-                    self.number(fmt_usd(expense.get("value_usd", 0.0))),
-                    self.text(expense.get("type", "")),
-                ])
-        return story + [grid_table(rows, [1.0, 0.8, 0.9, 0.9, 1.3], columns=(2, 3))]

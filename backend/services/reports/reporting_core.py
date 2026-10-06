@@ -1,6 +1,6 @@
 """
 The complete tax report's data for one tax year: holdings at its start and
-end, capital gains (the Form 8949 disposals), income, gifts and expenses.
+end, capital gains (the Form 8949 disposals, spending included), income and gifts.
 complete_tax_report.py turns it into the PDF.
 """
 
@@ -110,7 +110,6 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
     income_txs        = _build_income_transactions(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
-    expense_list      = _build_expenses_list(txns)
     data_sources_list = _gather_data_sources(txns)
 
     # 5) Construct final dictionary
@@ -132,7 +131,6 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
         "income_transactions": income_txs,
         "gifts_donations_lost": gifts_lost,
-        "expenses": expense_list,
         "data_sources": data_sources_list,
     }
     return result
@@ -421,25 +419,6 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
                 # not as $0 (which reads like a worthless gift).
                 "fmv_usd": float(tx.fmv_usd) if tx.fmv_usd is not None else None,
                 "type": tx.purpose,
-            }
-            results.append(row)
-    return results
-
-
-def _build_expenses_list(txns: list[Transaction]) -> list[dict[str, Any]]:
-    """
-    Identifies transactions marked as a "Withdrawal" with purpose="Expenses."
-    Useful for business expense tracking or personal record-keeping.
-    """
-    results = []
-    for tx in txns:
-        if tx.type == "Withdrawal" and tx.purpose and tx.purpose.lower() == "expenses":
-            row = {
-                "date": tx.timestamp.isoformat() if tx.timestamp else "",
-                "asset": "BTC",
-                "amount": float(tx.amount or 0),
-                "value_usd": float(tx.proceeds_usd or 0),
-                "type": "Expense",
             }
             results.append(row)
     return results
