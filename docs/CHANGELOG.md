@@ -34,9 +34,11 @@ All notable changes to BitcoinTX are documented in this file.
   only by pull request (GitHub rulesets now protect `main` and `develop`),
   from `.github/pull_request_template.md`. Each one gets two independent
   reviews before it merges: a fresh Claude reviewer and Grok
-  (`scripts/grok-review.sh`, read-only). Claude merges once the required
-  checks pass and nothing is open, except changes to tax figures, the
-  database or what reaches Start9, and releases, which wait for the owner.
+  (`scripts/grok-review.sh`, which gives Grok the pull request and no tool
+  that touches anything). Claude merges once the required checks pass and
+  nothing is open, except a change in tax figures or what the app computes,
+  the database, the StartOS package or anything that reaches Start9, and
+  releases, which wait for the owner.
   The pre-push hook now fast-forwards `main` only to GitHub's `develop`, and
   `scripts/start9-pull.sh --apply` runs on a branch for a pull request.
 

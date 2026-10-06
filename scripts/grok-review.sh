@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-# Grok's review of a pull request (AGENTS.md, "Reviews"): Grok Build reads the
-# pull request in its own clone and prints its findings, for Claude to post on
-# the pull request. Grok gets only read_file, list_dir and grep: no shell, no
-# file writes, no web, so it can't change anything. Don't widen this: with a
-# shell it inherits Claude's allow rules and ran a command it was told not to.
+# Grok's review of a pull request (AGENTS.md, "Reviews"): Grok Build gets the
+# pull request (its description, the diff, the rules and the full text of
+# each changed file) and prints its findings, for Claude to post on the pull
+# request ending "— Grok (scripts/grok-review.sh)".
+#
+# Grok gets no tool that touches anything: only its own to-do list. Not a
+# file reader (it could read secrets that would end up in a public review),
+# not a shell, not the web, and not its connectors: the owner's Grok has the
+# BitcoinTX connector to the real ledger, with always-approve. Its sandbox
+# profiles don't start on this Mac (a Docker socket symlink), so tools are
+# the only lock. Don't widen them.
 #
 #   scripts/grok-review.sh <pull request number>
 #
-# GROK_CLONE  Grok's own clone of this repository, cloned on first use
-#             (default ~/code/BTCTX-MCP-grok; never a clone anyone works in)
 # GROK_MODEL  default grok-4.7, at its highest reasoning effort
 set -euo pipefail
 
 PR="${1:?usage: $0 <pull request number>}"
 REPO=DigiMonk73/BTCTX-MCP
-CLONE="${GROK_CLONE:-$HOME/code/BTCTX-MCP-grok}"
+MAX_FILE_BYTES=80000
+ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 command -v grok >/dev/null || { echo "Grok Build (grok) isn't installed" >&2; exit 1; }
 
-[ -d "$CLONE/.git" ] || git clone -q "https://github.com/$REPO.git" "$CLONE"
-git -C "$CLONE" fetch -q origin "pull/$PR/head"
-git -C "$CLONE" checkout -q --detach FETCH_HEAD
+git -C "$ROOT" fetch -q origin "pull/$PR/head"
+HEAD_SHA="$(git -C "$ROOT" rev-parse FETCH_HEAD)"
 
 BRIEF="$(mktemp)"
 trap 'rm -f "$BRIEF"' EXIT
@@ -27,7 +31,7 @@ trap 'rm -f "$BRIEF"' EXIT
   cat <<'EOF'
 You are reviewing a pull request for BitcoinTX, a self-hosted Bitcoin portfolio and tax tracker. You did not write this change: review it skeptically, as an independent second reviewer. Claude wrote it; your job is to catch what it missed.
 
-You can read any file in this checkout (the pull request's head). The project's rules are in AGENTS.md (CLAUDE.md before it), docs/CODE_STYLE.md and docs/MAINTENANCE.md. You can't run commands or reach the network, so judge from the code and the diff below, and say when a point needs checking by someone who can.
+Everything you get is below: the pull request, its diff, the full text of each changed file as it is in the pull request, and the project's rules (AGENTS.md). You can't open other files, run commands or go online, so say when a point needs checking by someone who can.
 
 Look for: bugs, wrong assumptions, anything that would break CI, a release, the Docker image or the macOS app, tax figures that could change, tests that pass for the wrong reason or miss cases, docs that now say something untrue, and anything unclear or sloppy. Don't list what is fine.
 
@@ -42,8 +46,24 @@ EOF
   echo
   echo "=== Diff ==="
   gh pr diff "$PR" -R "$REPO"
+  # The rules first (CLAUDE.md held them before AGENTS.md), each file once.
+  files="$(printf '%s\n' AGENTS.md CLAUDE.md \
+    $(gh pr view "$PR" -R "$REPO" --json files --jq '.files[].path') | awk '!seen[$0]++')"
+  for file in $files; do
+    echo
+    echo "=== File at the pull request's head: $file ==="
+    if ! git -C "$ROOT" cat-file -e "$HEAD_SHA:$file" 2>/dev/null; then
+      echo "(deleted, or not in this commit)"
+    elif [ "$(git -C "$ROOT" cat-file -s "$HEAD_SHA:$file")" -gt "$MAX_FILE_BYTES" ]; then
+      echo "(over $MAX_FILE_BYTES bytes: only the diff above)"
+    elif ! git -C "$ROOT" show "$HEAD_SHA:$file" | LC_ALL=C grep -qI .; then
+      echo "(binary or empty)"
+    else
+      git -C "$ROOT" show "$HEAD_SHA:$file"
+    fi
+  done
 } > "$BRIEF"
 
-cd "$CLONE"
 grok --prompt-file "$BRIEF" -m "${GROK_MODEL:-grok-4.7}" --reasoning-effort xhigh \
-  --tools read_file,list_dir,grep --disable-web-search --no-subagents --max-turns 40
+  --tools todo_write --disallowed-tools search_tool,use_tool \
+  --disable-web-search --no-subagents --max-turns 5

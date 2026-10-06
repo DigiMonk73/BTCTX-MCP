@@ -9,7 +9,8 @@ and short; history belongs in `docs/CHANGELOG.md`.
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
 (double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
 This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
-for AI-assisted entry. Work on `develop` (see Branches).
+for AI-assisted entry. Work goes into `develop` by pull request (see
+Branches).
 
 | Part | Where | Notes |
 |---|---|---|
@@ -342,13 +343,16 @@ didn't write it, without anyone having to ask:
 1. **A fresh Claude reviewer:** a separate agent with no memory of writing
    the change, working read-only, that checks the diff and verifies its
    claims (runs the tests, looks things up) instead of trusting them.
-2. **Grok:** `scripts/grok-review.sh <number>` runs Grok Build in its own
-   clone, at its highest reasoning effort, able to read the code but not to
-   run commands, write files or go online.
+2. **Grok:** `scripts/grok-review.sh <number>` hands Grok Build the pull
+   request (its description, the diff, the rules and the full text of each
+   changed file), at its highest reasoning effort, with no tool that
+   touches anything: no files, shell, web or connectors. The owner's Grok
+   has the BitcoinTX connector to the real ledger, so this stays that way.
 
-Claude posts each review on the pull request, then fixes every finding (a
-bug fix with a test that fails on the old code) or answers it there with
-the evidence. A reviewer whose finding was fixed checks the fix.
+Claude posts each review on the pull request (Grok's ending "— Grok
+(scripts/grok-review.sh)"), then fixes every finding (a bug fix with a test
+that fails on the old code) or answers it there with the evidence. A
+reviewer whose finding was fixed checks the fix.
 
 ## Pull requests
 
