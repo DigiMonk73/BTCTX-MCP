@@ -244,11 +244,13 @@ def fetch_draft(folder: Path) -> bool:
     return True
 
 
-UNREACHABLE: list[str] = []  # irs.gov didn't answer (not a 404): --due fails
+UNREACHABLE: list[str] = []  # irs.gov didn't answer (not a 404 or 410): --due fails
 
 
 def note_unreachable(url: str, error: Exception) -> None:
-    if not isinstance(error, urllib.error.HTTPError):
+    """A 404 or 410 means "not published (yet)"; anything else, a refusal
+    (403), a server error or no answer, is a break the run must show."""
+    if getattr(error, "code", None) not in (404, 410):
         UNREACHABLE.append(f"{url}: {error}")
 
 

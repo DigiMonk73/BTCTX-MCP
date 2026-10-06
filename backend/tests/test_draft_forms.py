@@ -370,13 +370,13 @@ def test_the_watch_fails_when_irs_gov_doesnt_answer(tmp_path, monkeypatch):
 
     monkeypatch.setattr(script.urllib.request, "urlopen", offline)
     monkeypatch.setattr(draft_forms, "SHIPPED_DIR", tmp_path / "shipped")
-    monkeypatch.setattr("sys.argv", ["irs_new_year.py", "--due", str(tmp_path / "due.json")])
-    assert script.main() == 1 and script.UNREACHABLE
+    assert script.write_due(tmp_path / "due.json") == 1 and script.UNREACHABLE
     assert json.loads((tmp_path / "due.json").read_text()) == []
 
-    def not_yet(url, timeout=None):
-        raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+    for code, broken in ((404, False), (410, False), (403, True), (503, True)):
+        def answer(url, timeout=None, code=code):
+            raise urllib.error.HTTPError(url, code, "", {}, None)
 
-    monkeypatch.setattr(script.urllib.request, "urlopen", not_yet)
-    monkeypatch.setattr(script, "UNREACHABLE", [])
-    assert script.main() == 0
+        monkeypatch.setattr(script.urllib.request, "urlopen", answer)
+        monkeypatch.setattr(script, "UNREACHABLE", [])
+        assert script.write_due(tmp_path / "due.json") == int(broken), code

@@ -24,7 +24,7 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
      has the final forms (usually December or January): the steps here.
    It checks `develop` (where the steps land; `main` moves only at a
    release), so an issue isn't opened again once its pull request merged. A
-   run fails when irs.gov doesn't answer (a 404 just means "not out yet"),
+   run fails when irs.gov doesn't answer or refuses (a 404 just means "not out yet"),
    so a lasting break shows up as a failed run. A push only runs the checks.
    You can also run it by hand from the Actions tab (`workflow_dispatch`).
 

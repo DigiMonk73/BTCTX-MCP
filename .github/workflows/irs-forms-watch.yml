@@ -41,9 +41,12 @@ jobs:
       - name: Preview the IRS draft forms (informational)
         run: python scripts/irs_new_year.py --draft
       - name: What irs.gov calls for
+        id: due
         run: python scripts/irs_new_year.py --due due.json
+      # Also when part of irs.gov didn't answer (the run still fails): what
+      # was found gets its issue
       - name: Open an issue for each step (unless one is open)
-        if: github.event_name != 'push'
+        if: ${{ !cancelled() && github.event_name != 'push' && steps.due.outcome != 'skipped' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
