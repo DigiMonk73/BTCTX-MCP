@@ -24,7 +24,7 @@ __pycache__/
 # -----------------------------
 # OS-specific files
 # -----------------------------
-.DS_Store
+**/.DS_Store
 Thumbs.db
 
 # -----------------------------
@@ -32,6 +32,13 @@ Thumbs.db
 # -----------------------------
 .env
 .env.*
+
+# What a dev run leaves next to the default database (backend/bitcoin_tracker.db)
+backend/*.db
+backend/*.db-*
+backend/.btctx_secret_key
+backend/setup-code.txt
+backend/backups/
 environment.yml
 
 # -----------------------------
