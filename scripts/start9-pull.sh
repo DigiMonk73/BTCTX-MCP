@@ -15,7 +15,8 @@
 # brought back and synced to the mirror no longer show.
 # --apply: applies that difference to startos/ in the working tree,
 # three-way, for you to review, test, commit and send to develop by pull
-# request. Refused on main.
+# request, and records their commit in scripts/start9-taken (commit it too:
+# later runs then count only what they changed since). Refused on main.
 # --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
 # or in the commit since our last sync that took them, edited since);
 # exit 0 when they are, when there is no fork yet, or when their branch is
@@ -80,15 +81,29 @@ if git -C "$TMP/mirror" merge-base --is-ancestor start9 main; then
   exit 0
 fi
 
-# The fork's tree against the mirror's (two dots: trees, not history, so a
-# squash-merged pull request of ours doesn't count as theirs).
-git -C "$TMP/mirror" diff --binary main start9 > "$TMP/start9.patch"
+# What to compare their branch with. scripts/start9-taken records the commit
+# of theirs that --apply last took (committed with the take-back, so squash
+# merges don't lose it): then only what they did since counts, and it is
+# exactly theirs. Without a record, the mirror's main: two dots, trees not
+# history, so a squash-merged pull request of ours doesn't count as theirs;
+# while one of ours is open there, that also holds the reverse of ours.
+TAKEN_FILE="$ROOT/scripts/start9-taken"
+TAKEN="$( { git -C "$ROOT" show HEAD:scripts/start9-taken 2>/dev/null || true; } | sed -n 1p | tr -cd '0-9a-f')"  # committed: what a release builds
+BASE=main
+if [ -n "$TAKEN" ] && git -C "$TMP/mirror" merge-base --is-ancestor "$TAKEN" start9 2>/dev/null; then
+  BASE="$TAKEN"
+fi
+git -C "$TMP/mirror" diff --binary "$BASE" start9 > "$TMP/start9.patch"
 if [ ! -s "$TMP/start9.patch" ]; then
-  echo "$FORK matches the mirror: nothing to take."
+  if [ "$BASE" = main ]; then echo "$FORK matches the mirror: nothing to take."
+  else echo "$FORK has nothing new since ${TAKEN:0:7}, which startos/ took: nothing to take."; fi
   exit 0
 fi
-OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number,title \
-  --jq '.[] | select(.headRepositoryOwner.login == "'"${MIRROR%%/*}"'") | "#\(.number) \(.title)"' 2>/dev/null || true)"
+OPEN=""
+if [ "$BASE" = main ]; then
+  OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number,title \
+    --jq '.[] | select(.headRepositoryOwner.login == "'"${MIRROR%%/*}"'") | "#\(.number) \(.title)"' 2>/dev/null || true)"
+fi
 
 if [ "$MODE" = --check ]; then
   # Their changes are in startos/ when the patch un-applies there: at HEAD,
@@ -113,7 +128,7 @@ if [ "$MODE" = --check ]; then
       exit 0
     fi
   done
-  git -C "$TMP/mirror" diff --stat main start9 >&2
+  git -C "$TMP/mirror" diff --stat "$BASE" start9 >&2
   if [ -n "$OPEN" ]; then
     echo "Start9 changed $FORK while our pull request there is still open ($OPEN), so their changes can't be told from ours. Ask them to merge (or close) it, then take their changes: scripts/start9-pull.sh --apply on a branch cut from develop." >&2
     exit 1
@@ -127,17 +142,18 @@ if [ -n "$OPEN" ]; then
   echo "$OPEN" >&2
   echo "The difference below also undoes what they contain; take only Start9's own hunks." >&2
 fi
-git -C "$TMP/mirror" log --oneline main..start9
-git -C "$TMP/mirror" diff --stat main start9
+git -C "$TMP/mirror" log --oneline "$BASE..start9"
+git -C "$TMP/mirror" diff --stat "$BASE" start9
 
 if [ "$MODE" = show ]; then
   echo
-  echo "Full diff: git -C <clone of $MIRROR> diff main start9 (after fetching $FORK). Apply with --apply."
+  echo "Full diff: git -C <clone of $MIRROR> diff $BASE start9 (after fetching $FORK). Apply with --apply."
   exit 0
 fi
 if git -C "$ROOT" apply --3way --directory=startos "$TMP/start9.patch"; then
   git -C "$ROOT" reset -q -- startos  # unstaged, so plain git diff shows it
-  echo "Applied to startos/. Review (git diff), run the StartOS checks, then commit and open a pull request into develop."
+  git -C "$TMP/mirror" rev-parse start9 > "$TAKEN_FILE"
+  echo "Applied to startos/, and scripts/start9-taken records what was taken. Review (git diff), run the StartOS checks, then commit both and open a pull request into develop."
 else
   echo "Some hunks didn't apply cleanly: resolve the conflict markers in startos/ (git status), then commit." >&2
   exit 1

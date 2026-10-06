@@ -195,3 +195,57 @@ def test_apply_is_refused_on_main(repos):
     r = run(proj, "--apply", **FORKED)
     assert r.returncode == 1 and "on main" in r.stderr
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo\n"
+
+
+def take_record(proj, fork):
+    """What --apply writes, committed with the take-back."""
+    (proj / "scripts" / "start9-taken").write_text(git(fork, "rev-parse", "HEAD"))
+
+
+def test_apply_records_what_it_took(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    run(proj, "--apply", **FORKED)
+    assert (proj / "scripts" / "start9-taken").read_text().strip() == git(fork, "rev-parse", "HEAD").strip()
+
+
+def test_check_passes_after_a_squash_merged_take_back(repos):
+    """GitHub squashes the take-back and our edits of their lines into one commit
+    (#48): the record, not the history, says what was taken."""
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
+    take_record(proj, fork)
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "Take Start9's review, and our edits (squashed)")
+    r = run(proj, "--check", **FORKED)
+    assert r.returncode == 0, r.stderr
+    assert "nothing new since" in r.stdout
+
+
+def test_a_record_not_committed_doesnt_count(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as we do\n")
+    git(proj, "commit", "-qam", "ours")
+    take_record(proj, fork)
+    assert run(proj, "--check", **FORKED).returncode == 1
+
+
+def test_only_what_start9_did_since_the_record_counts(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
+    take_record(proj, fork)
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "taken, squashed")
+    (fork / "extra.ts").write_text("new from Start9\n")
+    git(fork, "add", "-A")
+    git(fork, "commit", "-qm", "Start9 again")
+    r = run(proj, "--check", **FORKED)
+    assert r.returncode == 1, "their newer change isn't in startos/"
+    r = run(proj, "--apply", **FORKED)
+    assert r.returncode == 0, r.stderr
+    assert (proj / "startos" / "extra.ts").read_text() == "new from Start9\n"
+    assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it, and as we do\n", "the old change isn't applied again"
+    assert (proj / "scripts" / "start9-taken").read_text().strip() == git(fork, "rev-parse", "HEAD").strip()
