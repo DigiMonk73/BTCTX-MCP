@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
+
 ### Added
 - **A preview of the 2026 tax forms.** The IRS's final 2026 Form 8949 and
   Schedule D usually come out in December or January; until then Reports
@@ -85,6 +87,9 @@ All notable changes to BitcoinTX are documented in this file.
   "Discard changes?". Found by the full test run of 1.2.4.
 
 ### StartOS package
+- **Package 1.2.5:0.** Release notes in five languages; 1.2.4:1's
+  one-time cleanup of the retired Show Credentials task moved to its own
+  version file, so installs from before it still get it.
 - **Start9's review, taken back (package 1.2.4:1, on Community Beta).**
   Start9 reviewed the package on their fork
   (Start9-Community/BTCTX-StartOS#1) and merged it on 2026-10-05; `startos/`
