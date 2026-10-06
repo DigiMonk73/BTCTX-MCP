@@ -116,7 +116,7 @@ def restore_encrypted_backup(
     """
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and the price settings) stays: an old backup never brings back an old password, and
-    on StartOS Show Credentials stays right. Clears the session after restore
+    on StartOS the password Set Login Credentials gave stays right. Clears the session after restore
     since the user_id may no longer be valid.
     """
     _require_auth(request)

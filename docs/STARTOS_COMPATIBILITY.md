@@ -135,8 +135,8 @@ Change these only together with the package (`startos/`):
     the package runs it as a oneshot before the web server starts.
   - `python -m backend.cli set-password [--username NAME] --password-stdin`:
     sets the first user's password through the app's own bcrypt hashing
-    (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used on
-    install and by Reset Login Credentials. Never takes the password as an
+    (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used by
+    Set Login Credentials. Never takes the password as an
     argument. With `--if-default` it changes only a login still on
     `admin` / `password`, printing `Password set for user 'admin'.` when it
     did and `Not the default login: nothing changed.` otherwise; the update

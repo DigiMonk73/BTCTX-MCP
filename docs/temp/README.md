@@ -3,7 +3,7 @@
 To-dos and plans are GitHub issues on this repository (`AGENTS.md`,
 "Working through GitHub"). This folder holds only what doesn't fit an issue
 well: a long checklist for work under way, one file per topic, named for what
-it is (`startos-box-test-v1.2.2.md`, not `notes.md`), with its steps as
+it is (`startos-box-test-v1.2.4.md`, not `notes.md`), with its steps as
 checkboxes and a link to its issue.
 
 When it's all done, move anything worth keeping somewhere lasting (the code

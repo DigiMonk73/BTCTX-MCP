@@ -2,7 +2,7 @@
 Restoring a backup file inside the app keeps the login in use, as it keeps
 the AI key (owner decision 2026-09-28, after Grok Bot's StartOS test): the
 restored database brought back the backup's username and password, so on
-StartOS the password Show Credentials displays stopped working.
+StartOS the password the package gave stopped working.
 """
 
 from sqlalchemy import text

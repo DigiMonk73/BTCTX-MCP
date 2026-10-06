@@ -175,7 +175,7 @@ the same place).
 `BTCTX_USERNAME` and `BTCTX_PASSWORD`, every tool answers "BitcoinTX no longer
 uses your password for AI access…". Replace both with `BTCTX_AI_KEY` (the
 placeholder, as above), have them paste a new key, then suggest they change
-their BitcoinTX password (StartOS: the **Reset Login Credentials** action),
+their BitcoinTX password (StartOS: stop BitcoinTX and run the **Set Login Credentials** action),
 since the old one sat in a plain-text file.
 
 ## 4. Check it works

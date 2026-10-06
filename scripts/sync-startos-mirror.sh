@@ -12,10 +12,12 @@
 #             (default: a new temporary directory)
 # --push      push the commit; without it, it stays local to inspect
 # MIRROR_URL  clone URL override (the release workflow passes one with a token)
+# START9_FORK, START9_BRANCH, FORK_URL  Start9's fork, as for start9-pull.sh
 #
 # Only committed files are mirrored; uncommitted changes in startos/ abort.
-# Run scripts/start9-pull.sh first once Start9 has changed its fork, so this
-# never undoes their changes.
+# Once Start9 has forked the mirror, the commit goes on top of their fork's
+# branch (below). Run scripts/start9-pull.sh first once Start9 has changed
+# its fork, so this never undoes their changes.
 set -euo pipefail
 
 PUSH=false
@@ -38,6 +40,28 @@ if [ -d "$DIR/.git" ]; then
   git -C "$DIR" checkout -q -B "$BRANCH" "origin/$BRANCH"
 else
   git clone -q --branch "$BRANCH" "$URL" "$DIR"
+fi
+
+# Start our commit on top of Start9's fork, so a pull request from the mirror
+# to it shows only our changes, not theirs undone. Normally their branch has
+# merged ours and moved on: fast-forward. Already in ours (a pull request of
+# ours still open there): nothing to do. Diverged (e.g. they squash-merged):
+# record theirs as merged, keeping our tree; startos/ must already hold their
+# changes (scripts/start9-pull.sh --check, which the release runs first).
+FORK_INFO="$("$ROOT/scripts/start9-pull.sh" --fork)"
+read -r FORK FORK_BRANCH <<< "$FORK_INFO" || true
+if [ -n "${FORK:-}" ]; then
+  git -C "$DIR" fetch -q "${FORK_URL:-https://github.com/$FORK.git}" "$FORK_BRANCH" \
+    || { echo "can't fetch $FORK ($FORK_BRANCH)" >&2; exit 1; }
+  if git -C "$DIR" merge-base --is-ancestor FETCH_HEAD HEAD; then
+    echo "$FORK $FORK_BRANCH is already in the mirror's $BRANCH."
+  elif git -C "$DIR" merge-base --is-ancestor HEAD FETCH_HEAD; then
+    git -C "$DIR" merge -q --ff-only FETCH_HEAD
+    echo "Fast-forwarded the mirror's $BRANCH to $FORK $FORK_BRANCH ($(git -C "$DIR" rev-parse --short HEAD))."
+  else
+    git -C "$DIR" merge -q -s ours --no-edit -m "Merge $FORK $FORK_BRANCH" FETCH_HEAD
+    echo "WARNING: the mirror's $BRANCH and $FORK $FORK_BRANCH had diverged: merged it, keeping startos/ as the content." >&2
+  fi
 fi
 
 # Replace everything but .git with the committed startos/ tree.

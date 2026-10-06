@@ -13,7 +13,33 @@ All notable changes to BitcoinTX are documented in this file.
   screen, like a click outside: at once when nothing was changed, else after
   "Discard changes?". Found by the full test run of 1.2.4.
 
+### StartOS package
+- **Start9's review, taken back (package 1.2.4:1, on Community Beta).**
+  Start9 reviewed the package on their fork
+  (Start9-Community/BTCTX-StartOS#1) and merged it on 2026-10-05; `startos/`
+  now has it as they wrote it. One **Set Login Credentials** action
+  replaces Show Credentials and Reset Login Credentials: it makes a new
+  random password and shows it once, at install (a critical task; install
+  no longer creates the database) and whenever the owner has lost it, only
+  while the service is stopped. A login StartOS already made stays; an
+  older install whose password was set in the app gets the critical task,
+  and running it replaces that login. The update clears any leftover Show
+  Credentials task. The package repository is now Start9's fork; their
+  workflows and template updates came too. Our docs, comments, the agent
+  release tests and the box test name the new action (#29).
+
 ### Development
+- **The mirror sync builds on Start9's fork.**
+  `scripts/sync-startos-mirror.sh` first fast-forwards the mirror's `main`
+  to Start9's fork (or, if the two have diverged, records it as merged,
+  keeping `startos/`), so each pull request to Start9 shows only our
+  changes, not theirs undone. `startos/`'s `UPDATING.md`, `TODO.md` and
+  `AGENTS.md` now say that `develop` takes pull requests and that to-dos
+  are issues (#29).
+- **The pre-push tests no longer touch the repository in a worktree.** Git
+  hands its hook the repository's path; in a worktree it's absolute, so the
+  tests that build throwaway git repositories ran git on the real one (and
+  turned it bare). The tests now drop those variables first.
 - **What to do when a dependency update breaks something.**
   `docs/MAINTENANCE.md` now says that an update to the app's or the Mac
   app's Python packages or to the GitHub Actions merges only after the Mac
