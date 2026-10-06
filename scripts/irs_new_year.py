@@ -7,6 +7,7 @@ Add (or check) a tax year's IRS Form 8949 + Schedule D templates.
     python scripts/irs_new_year.py 2026 --from-dir ~/Downloads   # use PDFs you downloaded
     python scripts/irs_new_year.py --watch         # CI: is a new final form out yet?
     python scripts/irs_new_year.py --draft         # preview: check the IRS DRAFT forms now
+    python scripts/irs_new_year.py --draft --ship  # ...and ship them as the app's preview of that year
 
 What it verifies (the things that silently break printed forms):
   1. It's the FINAL form for that year, not a draft or another year.
@@ -15,7 +16,8 @@ What it verifies (the things that silently break printed forms):
      row, and the checkbox order matches the boxes printed on the form.
   3. Field-name differences vs the previous year, so you know whether
      get_8949_field_config needs a new branch.
-Then it runs backend/tests/test_irs_templates.py.
+Then it runs backend/tests/test_irs_templates.py. Installing a year's final
+forms removes that year's shipped draft (backend/assets/irs_templates/drafts/).
 
 If everything matches, the last manual step is adding the year to
 "verified_years" in backend/services/reports/form_8949.py (the tests
@@ -35,7 +37,6 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-logging.disable(logging.CRITICAL)
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 TEMPLATES = ROOT / "backend" / "assets" / "irs_templates"
@@ -221,8 +222,10 @@ def _report_field_changes(year: int, folder: Path, draft: bool) -> None:
                     print(f"      {tag} {n}")
 
 
-def draft_check() -> int:
-    """Informational: run every check against the IRS's current DRAFT forms."""
+def draft_check(ship: bool = False) -> int:
+    """Run every check against the IRS's current DRAFT forms; with `ship`,
+    put them in backend/assets/irs_templates/drafts/<year>/ when they pass,
+    the app's preview of that year (services/reports/draft_forms.py)."""
     have = max(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit())
     with tempfile.TemporaryDirectory() as d:
         folder = Path(d)
@@ -233,16 +236,35 @@ def draft_check() -> int:
                     f.write(r.read())
             except Exception as e:
                 print(f"  ✗ couldn't download {url}: {e}")
-                return 0
+                return 1 if ship else 0
         year = form_year(folder / "f8949.pdf")
         sd_year = form_year(folder / "f1040sd.pdf")
         print(f"IRS drafts on irs.gov: Form 8949 for {year}, Schedule D for {sd_year} (latest bundled: {have})")
         if not year or year <= have:
             print("No draft newer than the bundled forms; nothing to preview.")
-            return 0
+            return 1 if ship else 0
         print(f"\nChecking the {year} DRAFT against the app (drafts can still change)")
         ok = verify(year, folder, draft=True)
         print(f"\n{'✓ The app already fits the draft.' if ok else '✗ Differences above need a config change when the final form ships.'}")
+        if ship:
+            return ship_draft(year, folder) if ok else 1
+    return 0
+
+
+def ship_draft(year: int, folder: Path) -> int:
+    """The drafts in `folder` become the shipped preview of `year` (the only one)."""
+    from backend.services.reports import draft_forms
+
+    found = draft_forms.problems(year, folder)
+    if found:
+        print("✗ Not shipped: " + "; ".join(found))
+        return 1
+    shutil.rmtree(draft_forms.SHIPPED_DIR, ignore_errors=True)
+    dest = draft_forms.SHIPPED_DIR / str(year)
+    dest.mkdir(parents=True)
+    for name in FORMS:
+        shutil.copy(folder / name, dest / name)
+    print(f"  ✓ shipped as the {year} preview: {dest.relative_to(ROOT)} (offered until {year + 1}-01-01)")
     return 0
 
 
@@ -259,17 +281,21 @@ def watch() -> int:
 
 
 def main() -> int:
+    logging.disable(logging.CRITICAL)  # pypdf's font warnings; here, not at import (tests load this module)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("year", type=int, nargs="?")
     ap.add_argument("--check", action="store_true", help="verify the installed templates only")
     ap.add_argument("--from-dir", type=Path, help="use f8949.pdf / f1040sd.pdf from this folder")
     ap.add_argument("--watch", action="store_true", help="CI: fail if a new final year is available")
     ap.add_argument("--draft", action="store_true", help="preview: check the IRS draft forms (installs nothing)")
+    ap.add_argument("--ship", action="store_true", help="with --draft: ship them as the app's preview of that year")
     a = ap.parse_args()
+    if a.ship and not a.draft:
+        ap.error("--ship goes with --draft")
     if a.watch:
         return watch()
     if a.draft:
-        return draft_check()
+        return draft_check(a.ship)
     if not a.year:
         ap.error("year is required")
 
@@ -301,6 +327,10 @@ def install(year: int, from_dir: Path | None) -> bool:
         for name in FORMS:
             shutil.copy(staging / name, dest / name)
         print(f"  ✓ installed to {dest.relative_to(ROOT)}")
+        draft = TEMPLATES / "drafts" / str(year)
+        if draft.exists():
+            shutil.rmtree(draft)
+            print(f"  ✓ removed the {year} draft preview ({draft.relative_to(ROOT)})")
     return True
 
 

@@ -5,6 +5,14 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A preview of the 2026 tax forms.** The IRS's final 2026 Form 8949 and
+  Schedule D usually come out in December or January; until then Reports
+  offers 2026 as "2026 – IRS draft (preview, not for filing)", filled from
+  the IRS's draft forms, which say "DRAFT — DO NOT FILE" on every page,
+  with a warning not to file them. On January 1, 2027 the preview stops by
+  itself, so nobody files a draft from a version they never updated: the
+  final forms come in an update, which replaces it. Reports now also says,
+  for a year without forms yet, that they come in an update (#53).
 - **A full test ledger on any server, and 2026's forms from the IRS
   drafts, for testing only.** `scripts/seed_ledger.py` loads 76
   transactions (2023 to 2026) into a running BitcoinTX over its API: the
@@ -14,11 +22,10 @@ All notable changes to BitcoinTX are documented in this file.
   transactions and the Mac app's address. On a test install,
   `python -m backend.cli install-draft-forms` puts the IRS's draft 2026
   Form 8949 and Schedule D in the data folder; Reports then offers 2026,
-  labelled "IRS draft forms, test only", and prints them with the IRS's
-  "DRAFT — DO NOT FILE" on every page. The drafts are never bundled, are
-  checked like a final form (year, marking, every field the app writes),
-  and are ignored once a version has that year's final forms. A normal
-  install is unchanged. The StartOS test lab's `vmtest seed` uses both, so
+  labelled as the IRS draft, and prints them with the IRS's
+  "DRAFT — DO NOT FILE" on every page. The drafts are checked like a final
+  form (year, marking, every field the app writes), and are ignored once a
+  version has that year's final forms. The StartOS test lab's `vmtest seed` uses both, so
   every report can be clicked through on the VM without the owner's real
   ledger (#51).
 

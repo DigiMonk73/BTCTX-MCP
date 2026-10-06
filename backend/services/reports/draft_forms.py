@@ -1,13 +1,16 @@
 """
-Test-only IRS DRAFT forms: Form 8949 and Schedule D for a year this version
-has no final forms for, so a test install can print that year's forms before
-the IRS publishes them.
+IRS DRAFT forms: Form 8949 and Schedule D for a year this version has no
+final forms for, so it can be previewed before the IRS publishes them.
 
-Off unless the drafts are in the data folder (DATABASE_FILE's), as
-irs-draft-forms/<year>/f8949.pdf and f1040sd.pdf; `python -m backend.cli
-install-draft-forms` puts them there. Never bundled
-(docs/IRS_ANNUAL_FORM_UPDATE.md), and a year with bundled forms ignores its
-drafts, so the yearly update replaces them.
+From two places, a test install's first:
+- the data folder (DATABASE_FILE's), irs-draft-forms/<year>/f8949.pdf and
+  f1040sd.pdf, put there by `python -m backend.cli install-draft-forms`;
+- the preview shipped with the app, backend/assets/irs_templates/drafts/
+  <year>/ (the owner's decision, #53). It is offered only until January 1
+  after its year, so nobody files a draft from an old version once the
+  final forms can be out; then Reports asks for an update.
+A year with final forms ignores its drafts, so the yearly update replaces
+them (docs/IRS_ANNUAL_FORM_UPDATE.md).
 
 A year counts only when both files are the IRS's drafts for it that the app
 can fill: that year printed on them, "DRAFT — DO NOT FILE" on every form
@@ -29,6 +32,7 @@ import re
 import shutil
 import tempfile
 import urllib.request
+from datetime import date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -44,6 +48,7 @@ DRAFT_URL = "https://www.irs.gov/pub/irs-dft/{stem}--dft.pdf"
 COVER_NOTE = "begins on the next page"
 
 DATA_DIR: str | None = None  # None: DATABASE_FILE's folder; tests point this elsewhere
+SHIPPED_DIR = Path(__file__).resolve().parents[2] / "assets" / "irs_templates" / "drafts"
 
 
 def folder() -> Path:
@@ -71,21 +76,42 @@ def first_form_page(path: Path) -> int:
     return 1 if COVER_NOTE in (PdfReader(str(path)).pages[0].extract_text() or "") else 0
 
 
+def today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
 def draft_years(bundled: list[int]) -> list[int]:
     """The years with checked drafts, each newer than every bundled year."""
+    return sorted(_drafts(bundled))
+
+
+def template_path(year: int, form_name: str, bundled: list[int]) -> str | None:
+    """The year's draft of `form_name`, or None when it has none (now)."""
+    path = _drafts(bundled).get(year)
+    return str(path / form_name) if path else None
+
+
+def _drafts(bundled: list[int]) -> dict[int, Path]:
+    """Year -> the folder of its checked drafts: a test install's, else the
+    shipped preview until its year is over."""
     newest = max(bundled, default=0)
+    found: dict[int, Path] = {}
+    for base, until_year_end in ((folder(), False), (SHIPPED_DIR, True)):
+        for year, path in _year_folders(base):
+            over = until_year_end and today() >= date(year + 1, 1, 1)
+            if year > newest and year not in found and not over and _usable(year, path):
+                found[year] = path
+    return found
+
+
+def _year_folders(base: Path) -> list[tuple[int, Path]]:
     try:
-        years = [(int(d.name), d) for d in folder().iterdir() if re.fullmatch(r"[0-9]{4}", d.name)]
+        return [(int(d.name), d) for d in base.iterdir() if re.fullmatch(r"[0-9]{4}", d.name)]
     except FileNotFoundError:
         return []
     except OSError as e:
-        logger.warning("IRS draft forms in %s left out: %s", folder(), e)
+        logger.warning("IRS draft forms in %s left out: %s", base, e)
         return []
-    return sorted(year for year, d in years if year > newest and _usable(year, d))
-
-
-def template_path(year: int, form_name: str) -> str:
-    return str(folder() / str(year) / form_name)
 
 
 def _usable(year: int, path: Path) -> bool:

@@ -168,9 +168,11 @@ given, plus 2026 rows that land in Form 8949 boxes G, H, I, J, K and L. It
 loads with the price source Off and contacts nothing but the server. It
 refuses a ledger that has transactions, and the Mac app's address
 (`127.0.0.1:8765`) outright. `--setup-code` claims a fresh Docker install
-first. For the 2026 forms, add the IRS's drafts to the same server
-(`python -m backend.cli install-draft-forms`, see
-docs/IRS_FORM_GENERATION.md, "Draft forms on a test install"). On the
+first. The app ships the 2026 drafts as a preview until 2027-01-01; to keep
+them on a test server after that, or on an older version, install them
+there (`python -m backend.cli install-draft-forms`, see
+docs/IRS_FORM_GENERATION.md, "Draft forms: the preview, and test
+installs"). On the
 StartOS test VM, the lab's `tools/vmtest seed` does both.
 `backend/tests/test_seed_ledger.py` runs it against the in-process app.
 
@@ -200,6 +202,6 @@ built by the migrations, not `create_all()`.
 `python scripts/irs_new_year.py YEAR --check` verifies an installed year's
 templates; `backend/tests/test_irs_templates.py` runs the same checks for
 every bundled year on each test run. See docs/IRS_ANNUAL_FORM_UPDATE.md.
-`backend/tests/test_draft_forms.py` covers a test install's draft forms with
-a stand-in draft made from the newest bundled form (no IRS draft is kept in
-the repository).
+`backend/tests/test_draft_forms.py` covers the draft forms (the shipped
+preview and its cut-off, a test install's) with a stand-in draft made from
+the newest bundled form, and checks the shipped draft itself.
