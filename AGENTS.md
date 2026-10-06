@@ -21,6 +21,21 @@ Branches).
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
+## What's at stake
+
+- BitcoinTX holds the owner's real tax records, and its figures go on IRS
+  forms: a wrong number is a real-world problem. So a change to tax figures
+  gets the full review, the before-and-after comparison and the owner's
+  "merge" ("Reviews").
+- The owner's real ledger is the installed Mac app's data. Never test on it,
+  run a script against it or point the AI connector at it; use temp
+  databases, `make preview` or the StartOS test VM.
+- Other people install BitcoinTX from Start9's community registry: a
+  release that breaks an update or loses data hurts users who trust it.
+- Start9's reviewers and users care about privacy: nothing contacts the
+  internet until the owner picks a price source ("Prices" under Tax
+  invariants).
+
 ## Who does what
 
 - **The owner** (DigiMonk73) decides: releases, anything sent to Start9,
@@ -301,6 +316,19 @@ if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
 `startos/UPDATING.md`).
+
+## Start9
+
+- Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
+  built and published. A change reaches it only as a pull request from our
+  mirror, after their changes are brought back (`scripts/start9-pull.sh`),
+  or it undoes their review ("Releasing").
+- Each merge there publishes to Community Beta
+  (`https://community-beta-registry.start9.com`). The owner tests it on
+  their server, then asks Start9 in an issue on the fork to promote it to
+  `https://community-registry.start9.com`. Promotion is the owner's call.
+- Start9 sends changes too (template updates about monthly, SDK bumps).
+  Anything for Start9 waits for the owner's OK.
 
 ## Working through GitHub
 

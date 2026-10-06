@@ -44,6 +44,10 @@ All notable changes to BitcoinTX are documented in this file.
   it last (`AGENTS.md`, "Starting a session"). Reviewed pull requests now
   merge through GitHub's auto-merge once the required checks pass, and a
   branch behind `develop` is updated by merging `develop` in, not rebasing.
+- **`AGENTS.md` says what's at stake and how Start9 works.** Two new
+  sections: the owner's real tax records and ledger, other people's
+  installs, privacy; and Start9's fork, Community Beta, promotion, and their
+  own changes coming back.
 
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 
