@@ -200,6 +200,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
+| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `scripts/seed_ledger.py` | full test ledger (2023–2026, every 8949 box) into an empty server over the API; refuses the Mac app |
@@ -408,12 +409,22 @@ clean anyway.
 
 ## Starting a session
 
-Read issue #41 (`gh issue view 41`), then the open pull requests and issues
-(`gh pr list`, `gh issue list`), and carry on from #41's "Next for Claude".
-Project status comes from there, not from an AI tool's memory.
+Run `make sync-check`: it brings local `main` and `develop` down from
+GitHub and says whether anything exists only on this computer: work not
+committed in any working folder, branches or commits not on GitHub,
+stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
+(`gh issue view 41`), the open pull requests and issues (`gh pr list`,
+`gh issue list`), and carry on from #41's "Next for Claude". Project status
+comes from there, not from an AI tool's memory.
 
 ## Ending a session
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
 and the issues worked on, rewrite #41's body for the next session (dated),
 and update this file if architecture, invariants or the way we work changed.
+Last, run `make sync-check` (or `scripts/sync-check.sh --tidy`, which also
+deletes local branches already on GitHub, safe while other sessions run:
+never a checked-out branch or a working folder) and end the message to the
+owner with its answer in one line: **Git: in sync** (everything on GitHub),
+or what is only on this computer and why. The owner can't see where work
+is, so this line is how they know.
