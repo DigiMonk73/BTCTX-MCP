@@ -37,58 +37,76 @@ worktrees() {
 checked_out() { worktrees | cut -f2 | grep -qxF "$1"; }
 folder_of() { worktrees | awk -F'\t' -v b="$1" '$2 == b {print $1; exit}'; }
 
+# Is <commit> on GitHub: on one of origin's branches, or inside a merged
+# pull request of <branch> (GitHub deletes the branch after a squash merge)?
+GH_FAILED=false
+on_github() {
+  local tip="$1" name="$2" n head prs
+  [ -n "$(g for-each-ref --contains "$tip" refs/remotes/origin)" ] && return 0
+  [ -n "$name" ] || return 1
+  prs="$(gh pr list -R "$REPO" --state merged --head "$name" \
+    --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' 2>/dev/null)" || { GH_FAILED=true; return 1; }
+  while read -r n head; do
+    [ -n "$head" ] || continue
+    [ "$head" = "$tip" ] && return 0
+    g cat-file -e "$head^{commit}" 2>/dev/null || g fetch -q origin "pull/$n/head" 2>/dev/null || continue
+    g merge-base --is-ancestor "$tip" "$head" && return 0
+  done <<< "$prs"
+  return 1
+}
+
 # main and develop: down from GitHub when only behind.
 for b in main develop; do
   g rev-parse -q --verify "refs/heads/$b" >/dev/null || continue
+  if ! g rev-parse -q --verify "refs/remotes/origin/$b" >/dev/null; then
+    PROBLEMS+=("GitHub has no $b branch: local $b can't be compared")
+    continue
+  fi
   read -r ahead behind < <(g rev-list --left-right --count "$b...origin/$b")
   if [ "$ahead" -gt 0 ]; then
     PROBLEMS+=("local $b has $ahead commit(s) GitHub doesn't: never commit on $b (AGENTS.md, Branches)")
   elif [ "$behind" -gt 0 ]; then
     dir="$(folder_of "$b")"
     if [ -z "$dir" ]; then
-      g fetch -q origin "$b:$b" && echo "$b: brought $behind commit(s) down from GitHub."
-    elif [ -z "$(git -C "$dir" status --porcelain)" ]; then
-      git -C "$dir" merge -q --ff-only "origin/$b" && echo "$b: brought $behind commit(s) down from GitHub ($dir)."
+      if g fetch -q origin "$b:$b"; then echo "$b: brought $behind commit(s) down from GitHub."
+      else echo "$b: $behind commit(s) behind GitHub; bringing them down failed (see above)."; fi
+    elif [ -z "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ] \
+      && git -C "$dir" merge -q --ff-only "origin/$b"; then
+      echo "$b: brought $behind commit(s) down from GitHub ($dir)."
     else
       echo "$b: $behind commit(s) behind GitHub, not brought down: $dir has changes."
     fi
   fi
 done
 
-# Working folders: anything not committed.
+# Working folders: anything not committed, and a detached HEAD's commits.
 echo "Working folders:"
 while IFS=$'\t' read -r dir br; do
   if [ ! -d "$dir" ]; then
     echo "  ? $dir: folder gone (scripts/sync-check.sh --tidy forgets it)"
     continue
   fi
-  changed="$(git -C "$dir" status --porcelain --untracked-files=no | wc -l | tr -d ' ')"
-  new=0  # new files; a symlink (e.g. a worktree's node_modules) isn't work
-  while IFS= read -r f; do
-    [ -L "$dir/${f%/}" ] || new=$((new + 1))
-  done < <(git -C "$dir" status --porcelain | sed -n 's/^?? //p')
-  if [ "$changed$new" = 00 ]; then
-    echo "  ✓ $dir ($br): clean"
-  else
+  if ! status="$(git -C "$dir" status --porcelain 2>/dev/null)"; then
+    echo "  ✗ $dir: git can't read this folder"
+    PROBLEMS+=("$dir: git can't read it (git -C \"$dir\" status says why)")
+    continue
+  fi
+  changed=0; new=0  # a new symlink (e.g. a worktree's node_modules) isn't work
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    if [ "${line:0:3}" != "?? " ]; then changed=$((changed + 1))
+    else f="${line:3}"; [ -L "$dir/${f%/}" ] || new=$((new + 1)); fi
+  done <<< "$status"
+  if [ "$changed$new" != 00 ]; then
     echo "  ✗ $dir ($br): $changed changed, $new new file(s), only here"
     PROBLEMS+=("$dir has work not committed: commit and push it, or throw it away")
+  elif [ "$br" = - ] && ! on_github "$(git -C "$dir" rev-parse HEAD)" ""; then
+    echo "  ✗ $dir (no branch): its commit isn't on GitHub"
+    PROBLEMS+=("$dir has commits on no branch: put them on a branch and push it (git -C \"$dir\" switch -c <name>)")
+  else
+    echo "  ✓ $dir ($br): clean"
   fi
 done < <(worktrees)
-
-# Is <commit> on GitHub: on a branch there, or inside a merged pull request
-# of <branch>?
-on_github() {
-  local tip="$1" name="$2" n head
-  [ -n "$(g branch -r --contains "$tip" 2>/dev/null)" ] && return 0
-  while read -r n head; do
-    [ -n "$head" ] || continue
-    [ "$head" = "$tip" ] && return 0
-    g cat-file -e "$head^{commit}" 2>/dev/null || g fetch -q origin "pull/$n/head" 2>/dev/null || continue
-    g merge-base --is-ancestor "$tip" "$head" && return 0
-  done < <(gh pr list -R "$REPO" --state merged \
-    --head "$name" --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' 2>/dev/null || true)
-  return 1
-}
 
 # Branches: commits only here; --tidy deletes the ones already on GitHub.
 total=0; tidy=0; tidied=0
@@ -103,7 +121,7 @@ for b in $(g for-each-ref --format='%(refname:short)' refs/heads); do
   fi
   checked_out "$b" && continue
   if $TIDY; then
-    g branch -q -D "$b" && tidied=$((tidied + 1))
+    if g branch -q -D "$b"; then tidied=$((tidied + 1)); else echo "  couldn't delete $b (see above)"; fi
   else
     tidy=$((tidy + 1))
   fi
@@ -111,6 +129,8 @@ done
 echo "Branches: $total here."
 [ "$tidied" -gt 0 ] && echo "  Deleted $tidied whose work is on GitHub."
 [ "$tidy" -gt 0 ] && echo "  $tidy are on GitHub already and could go: scripts/sync-check.sh --tidy"
+
+$GH_FAILED && PROBLEMS+=("gh couldn't ask GitHub about merged pull requests (gh auth status): branches above may be on GitHub after all")
 
 stashes="$(g stash list | wc -l | tr -d ' ')"
 [ "$stashes" -gt 0 ] && PROBLEMS+=("$stashes stash(es), only here: git stash list")

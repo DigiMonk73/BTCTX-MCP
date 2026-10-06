@@ -410,8 +410,9 @@ clean anyway.
 ## Starting a session
 
 Run `make sync-check`: it brings local `main` and `develop` down from
-GitHub and says whether anything exists only on this computer (work not
-committed or not pushed, in any working folder). Then read issue #41
+GitHub and says whether anything exists only on this computer: work not
+committed in any working folder, branches or commits not on GitHub,
+stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
 (`gh issue view 41`), the open pull requests and issues (`gh pr list`,
 `gh issue list`), and carry on from #41's "Next for Claude". Project status
 comes from there, not from an AI tool's memory.
@@ -421,8 +422,9 @@ comes from there, not from an AI tool's memory.
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
 and the issues worked on, rewrite #41's body for the next session (dated),
 and update this file if architecture, invariants or the way we work changed.
-Last, run `make sync-check` (with `--tidy` through `scripts/sync-check.sh`
-to delete local branches already on GitHub) and end the message to the
+Last, run `make sync-check` (or `scripts/sync-check.sh --tidy`, which also
+deletes local branches already on GitHub, safe while other sessions run:
+never a checked-out branch or a working folder) and end the message to the
 owner with its answer in one line: **Git: in sync** (everything on GitHub),
 or what is only on this computer and why. The owner can't see where work
 is, so this line is how they know.

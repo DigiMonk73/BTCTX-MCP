@@ -16,6 +16,7 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "sync-check.sh"
 
 # Merged pull requests: lines "<branch> <number> <head sha>" in $FAKE_PRS.
 FAKE_GH = """#!/bin/sh
+[ -n "$FAKE_GH_FAIL" ] && exit 1
 head=""
 while [ $# -gt 0 ]; do [ "$1" = --head ] && head="$2"; shift; done
 [ -f "$FAKE_PRS" ] && awk -v b="$head" '$1 == b {print $2 " " $3}' "$FAKE_PRS"
@@ -40,6 +41,7 @@ def repos(tmp_path, monkeypatch):
         "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com",
         "FAKE_PRS": str(tmp_path / "prs.txt"),
     }.items():
+        monkeypatch.delenv("FAKE_GH_FAIL", raising=False)
         monkeypatch.setenv(key, value)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -164,3 +166,77 @@ def test_a_stash_is_reported(repos):
     git(proj, "stash", "-q")
     r = run(proj)
     assert r.returncode == 1 and "1 stash(es)" in r.stdout
+
+
+def test_a_commit_on_no_branch_in_a_worktree_is_reported(repos, tmp_path):
+    proj, _ = repos
+    wt = tmp_path / "wt one"
+    git(proj, "worktree", "add", "-q", "--detach", str(wt), "origin/main")
+    (wt / "app.txt").write_text("detached\n")
+    git(wt, "commit", "-qam", "detached")
+    r = run(proj)
+    assert r.returncode == 1 and "commits on no branch" in r.stdout
+
+
+def test_a_detached_worktree_at_a_pushed_commit_is_fine(repos, tmp_path):
+    proj, _ = repos
+    git(proj, "worktree", "add", "-q", "--detach", str(tmp_path / "wt"), "origin/main")
+    assert run(proj).returncode == 0
+
+
+def test_a_broken_worktree_still_gets_a_verdict(repos, tmp_path):
+    proj, _ = repos
+    wt = tmp_path / "wt"
+    git(proj, "worktree", "add", "-q", "-b", "side", str(wt), "origin/main")
+    (wt / ".git").write_text("gitdir: /nowhere\n")
+    r = run(proj)
+    assert r.returncode == 1 and "git can't read" in r.stdout and "NOT IN SYNC" in r.stdout
+
+
+def test_develop_gone_on_github_is_reported_not_a_crash(repos):
+    proj, seed = repos
+    git(seed, "push", "-q", str(seed.parent / "origin.git"), ":develop")
+    r = run(proj)
+    assert r.returncode == 1 and "GitHub has no develop branch" in r.stdout
+
+
+def test_gh_failing_is_said(repos, monkeypatch):
+    proj, _ = repos
+    git(proj, "switch", "-qc", "done")
+    (proj / "app.txt").write_text("done\n")
+    git(proj, "commit", "-qam", "done")
+    git(proj, "switch", "-q", "main")
+    monkeypatch.setenv("FAKE_GH_FAIL", "1")
+    r = run(proj)
+    assert r.returncode == 1 and "gh couldn't ask GitHub" in r.stdout
+
+
+def test_develop_checked_out_with_only_a_symlink_is_brought_down(repos, tmp_path):
+    proj, seed = repos
+    wt = tmp_path / "wt"
+    git(proj, "worktree", "add", "-q", str(wt), "develop")
+    (wt / "node_modules").symlink_to(proj.parent)
+    push_from_seed(seed, "develop", "newer\n")
+    r = run(proj)
+    assert "develop: brought 1 commit(s) down" in r.stdout, r.stdout
+    assert git(wt, "rev-parse", "HEAD") == git(proj, "rev-parse", "origin/develop")
+
+
+def test_a_branch_older_than_its_merged_pull_request_counts_as_on_github(repos, tmp_path):
+    """The pull request's head is only on GitHub (refs/pull/N/head), not here."""
+    proj, seed = repos
+    git(proj, "switch", "-qc", "old")
+    (proj / "app.txt").write_text("old\n")
+    git(proj, "commit", "-qam", "old")
+    git(proj, "push", "-q", "origin", "old")
+    git(seed, "fetch", "-q", str(seed.parent / "origin.git"), "old")
+    git(seed, "switch", "-qc", "later", "FETCH_HEAD")
+    (seed / "app.txt").write_text("later\n")
+    git(seed, "commit", "-qam", "later, from elsewhere")
+    head = git(seed, "rev-parse", "HEAD")
+    git(seed, "push", "-q", str(seed.parent / "origin.git"), "HEAD:refs/pull/9/head")
+    git(proj, "push", "-q", "origin", ":old")
+    git(proj, "switch", "-q", "main")
+    (tmp_path / "prs.txt").write_text(f"old 9 {head}\n")
+    r = run(proj)
+    assert r.returncode == 0, r.stdout
