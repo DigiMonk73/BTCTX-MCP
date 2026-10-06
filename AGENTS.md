@@ -189,7 +189,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
-| `backend/services/reports/draft_forms.py` | test installs only: next year's IRS draft forms from `<data dir>/irs-draft-forms/` (`cli install-draft-forms`); never bundled |
+| `backend/services/reports/draft_forms.py` | next year's IRS draft forms: the shipped preview (`assets/irs_templates/drafts/`, until January 1 after its year) and a test install's (`<data dir>/irs-draft-forms/`, `cli install-draft-forms`) |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |

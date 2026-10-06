@@ -71,6 +71,8 @@ const Reports: React.FC = () => {
     !reportDef?.needsForms || years?.form_years == null || years.form_years.includes(year);
   const missingForms = taxYear !== "" && !hasForms(Number(taxYear));
   const isDraft = (year: number) => !!reportDef?.needsForms && !!years?.draft_years?.includes(year);
+  // A year after every year with forms: its final forms come in an update
+  const formsToCome = (year: number) => year > Math.max(0, ...(years?.form_years ?? []));
 
   const handleExport = async () => {
     if (!taxYear) {
@@ -138,7 +140,7 @@ const Reports: React.FC = () => {
               {years?.ledger_years.map((y) => (
                 <option key={y} value={String(y)} disabled={!hasForms(y)}>
                   {y}
-                  {hasForms(y) ? (isDraft(y) ? " (IRS draft forms, test only)" : "") : " (no IRS forms yet)"}
+                  {hasForms(y) ? (isDraft(y) ? " – IRS draft (preview, not for filing)" : "") : " (no IRS forms yet)"}
                 </option>
               ))}
             </select>
@@ -150,14 +152,16 @@ const Reports: React.FC = () => {
         </div>
         {missingForms && (
           <p className="note note-warning" role="status">
-            IRS forms for {taxYear} aren't in this version of BitcoinTX yet. The Complete Tax Report
-            and Transaction History work for any year.
+            {formsToCome(Number(taxYear))
+              ? `The final IRS forms for ${taxYear} come in a BitcoinTX update once the IRS publishes them.`
+              : `IRS forms for ${taxYear} aren't in this version of BitcoinTX yet.`}{" "}
+            The Complete Tax Report and Transaction History work for any year.
           </p>
         )}
         {taxYear !== "" && isDraft(Number(taxYear)) && (
           <p className="note note-warning" role="status">
-            Test only: this server has the IRS's DRAFT {taxYear} forms. Every page says DRAFT — DO NOT
-            FILE; the final forms come with a later version of BitcoinTX.
+            Preview: these are the IRS's draft {taxYear} forms, marked DRAFT — DO NOT FILE on every
+            page. Don't file them: the final forms come in a BitcoinTX update once the IRS publishes them.
           </p>
         )}
 

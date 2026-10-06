@@ -39,8 +39,8 @@ def get_report_years(db: Session = Depends(get_db)) -> dict[str, list[int]]:
     The years the Reports page offers: `ledger_years` from the first
     transaction's tax year (in the tax timezone) to this year, newest first,
     and `form_years`, the years this version has IRS Form 8949 / Schedule D
-    templates for: `draft_years` of them only as the IRS's drafts, on a test
-    install that has them (services/reports/draft_forms.py).
+    templates for: `draft_years` of them only as the IRS's drafts, a preview
+    (services/reports/draft_forms.py).
     """
     from datetime import datetime, timezone
 
@@ -210,17 +210,18 @@ def get_supported_years() -> list[int]:
 
 
 def get_form_years() -> list[int]:
-    """The bundled years, and a newer year's IRS drafts on a test install."""
+    """The bundled years, and a newer year's IRS drafts (draft_forms.py)."""
     bundled = get_supported_years()
     return sorted(bundled + draft_forms.draft_years(bundled))
 
 
 def get_template_path(year: int, form_name: str) -> str:
     """The path of a year's template ("f8949.pdf", "f1040sd.pdf"): the
-    bundled one, else a test install's draft; or 400."""
+    bundled one, else the year's draft; or 400."""
     template_path = os.path.join(_ASSETS_DIR, str(year), form_name)
-    if not os.path.exists(template_path) and year in draft_forms.draft_years(get_supported_years()):
-        template_path = draft_forms.template_path(year, form_name)
+    bundled = get_supported_years()
+    if not os.path.exists(template_path) and year in draft_forms.draft_years(bundled):
+        template_path = draft_forms.template_path(year, form_name, bundled)
     if not os.path.exists(template_path):
         supported = get_form_years()
         raise HTTPException(

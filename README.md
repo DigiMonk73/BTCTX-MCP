@@ -25,7 +25,9 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
   tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
   says something different for a sale, record that on the transaction and the
-  right Form 8949 box follows.
+  right Form 8949 box follows. Each year's final IRS forms come in an update
+  once the IRS publishes them; until then the IRS's draft of that year is a
+  preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
 - **Imports**: River CSV export, generic CSV (into an empty ledger), and the
   AI route below
 - **AI entry (MCP)**: paste an exchange email or a wallet history, or type
@@ -197,7 +199,9 @@ release.
 
 `python scripts/irs_new_year.py 2026` downloads the year's final Form 8949
 and Schedule D, checks every field the app fills, and runs the form tests. A
-scheduled GitHub workflow flags when new forms are published. See
+scheduled GitHub workflow flags when new forms are published. Before that,
+`python scripts/irs_new_year.py --draft --ship` ships the IRS's drafts as
+the year's preview. See
 [docs/IRS_ANNUAL_FORM_UPDATE.md](docs/IRS_ANNUAL_FORM_UPDATE.md).
 
 ## Development

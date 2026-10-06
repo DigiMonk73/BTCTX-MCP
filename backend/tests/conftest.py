@@ -109,13 +109,16 @@ def _first_run_files(tmp_path_factory):
 
 @pytest.fixture(autouse=True, scope="session")
 def _no_draft_forms(tmp_path_factory):
-    """IRS draft forms are looked for in an empty temp folder, never next to
-    the database DATABASE_FILE names (services/reports/draft_forms.py);
-    a test that installs some points DATA_DIR at its own."""
+    """IRS draft forms are looked for in empty temp folders, never next to
+    the database DATABASE_FILE names, and without the shipped preview, so
+    the years offered don't depend on the date (services/reports/
+    draft_forms.py); a test that wants drafts points DATA_DIR or
+    SHIPPED_DIR at its own."""
     from backend.services.reports import draft_forms
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(draft_forms, "DATA_DIR", str(tmp_path_factory.mktemp("no-drafts")))
+        mp.setattr(draft_forms, "SHIPPED_DIR", tmp_path_factory.mktemp("no-shipped-drafts"))
         yield
 
 

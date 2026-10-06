@@ -1,18 +1,21 @@
 """
-Test-only IRS draft forms (services/reports/draft_forms.py): off unless a
-year's drafts are in the data folder's irs-draft-forms/<year>/; then Reports
-offers that year and prints its Form 8949 and Schedule D from them, every
-page marked DRAFT — DO NOT FILE. Only drafts of a year newer than the bundled
-ones, that say so on every page and have every field the app writes.
+IRS draft forms (services/reports/draft_forms.py): a year's drafts from the
+data folder's irs-draft-forms/<year>/ (a test install) or shipped as the
+app's preview (backend/assets/irs_templates/drafts/<year>/, offered until
+the year is over). Reports then offers that year and prints its Form 8949
+and Schedule D from them, every page marked DRAFT — DO NOT FILE. Only drafts
+of a year newer than the bundled ones, that say so on every page and have
+every field the app writes.
 
-No IRS draft is kept in the repository (never bundled): the stand-in is the
-newest bundled form with the draft's cover sheet and markings added, which
-is how the IRS's drafts look (2026's did, May 2026).
+The stand-in draft is the newest bundled form with the draft's cover sheet
+and markings added, which is how the IRS's drafts look (2026's did, May
+2026), so these tests don't depend on which draft ships.
 """
 
 import io
 import shutil
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 import pytest
 from pypdf import PdfReader, PdfWriter
@@ -149,6 +152,51 @@ def test_a_damaged_draft_never_stops_the_bundled_forms(auth_client, data_dir, ca
     r = auth_client.get("/api/reports/irs_reports", params={"year": max(BUNDLED)})
     assert r.status_code == 200 and r.content[:4] == b"%PDF"
     assert "left out: unreadable" in caplog.text
+
+
+@pytest.fixture
+def shipped(tmp_path, monkeypatch):
+    """A shipped preview of YEAR (a stand-in), and `set_today(day)`."""
+    make_draft(tmp_path / "shipped" / str(YEAR))
+    monkeypatch.setattr(draft_forms, "SHIPPED_DIR", tmp_path / "shipped")
+    return lambda day: monkeypatch.setattr(draft_forms, "today", lambda: day)
+
+
+def test_the_shipped_preview_is_offered_during_its_year(auth_client, shipped):
+    shipped(date(YEAR, 10, 6))
+    years = auth_client.get("/api/reports/years").json()
+    assert (years["form_years"], years["draft_years"]) == (BUNDLED + [YEAR], [YEAR])
+    assert draft_forms.FOLDER_NAME not in get_template_path(YEAR, "f8949.pdf")
+
+
+def test_the_shipped_preview_ends_with_its_year(auth_client, shipped):
+    """From January 1 after its year the final forms can be out: nobody may
+    file the draft from an old version, so it's no longer offered."""
+    shipped(date(YEAR, 12, 31))
+    assert auth_client.get("/api/reports/years").json()["draft_years"] == [YEAR]
+    shipped(date(YEAR + 1, 1, 1))
+    years = auth_client.get("/api/reports/years").json()
+    assert (years["form_years"], years["draft_years"]) == (BUNDLED, [])
+    assert auth_client.get("/api/reports/irs_reports", params={"year": YEAR}).status_code == 400
+
+
+def test_a_test_install_keeps_its_drafts_after_the_year(auth_client, with_drafts, shipped):
+    shipped(date(YEAR + 1, 2, 1))
+    assert auth_client.get("/api/reports/years").json()["draft_years"] == [YEAR]
+    assert draft_forms.FOLDER_NAME in get_template_path(YEAR, "f8949.pdf")  # the test install's first
+
+
+REAL_SHIPPED = Path(draft_forms.__file__).resolve().parents[2] / "assets" / "irs_templates" / "drafts"
+
+
+@pytest.mark.parametrize("folder", sorted(REAL_SHIPPED.glob("[0-9][0-9][0-9][0-9]")), ids=lambda p: p.name)
+def test_the_shipped_draft_is_the_irs_draft_of_a_year_without_final_forms(folder):
+    """At the yearly update the final forms replace the draft:
+    scripts/irs_new_year.py removes it, and this fails if it's still there."""
+    year = int(folder.name)
+    assert year > max(BUNDLED), f"{year}'s final forms are bundled: delete {folder}"
+    assert draft_forms.problems(year, folder) == []
+    assert sorted(p.name for p in REAL_SHIPPED.iterdir()) == [folder.name]  # one preview at a time
 
 
 def test_the_drafts_are_checked_like_a_final_form(tmp_path):

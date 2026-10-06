@@ -83,11 +83,18 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 | `python scripts/irs_new_year.py YYYY --check` | Verify templates already in `backend/assets/irs_templates/YYYY/` and run the template tests |
 | `python scripts/irs_new_year.py --watch` | For CI: exit 1 when final forms for the next year are on irs.gov |
 
-Never bundle a draft (`irs.gov/pub/irs-dft/...`). The IRS changes field layouts
-before a form is final. A test install can use the drafts from its data
-folder (`python -m backend.cli install-draft-forms`, see
-[IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md#draft-forms-on-a-test-install));
-once the year's final forms are bundled, it ignores them.
+A draft is never installed as a year's forms: the IRS can still change the
+layout. It ships only as that year's **preview**, in its own folder
+(`backend/assets/irs_templates/drafts/YYYY/`), offered until January 1 after
+its year and marked DRAFT — DO NOT FILE on every page (the owner's decision,
+#53; [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md#draft-forms-the-preview-and-test-installs)):
+
+| When | Command |
+|---|---|
+| The IRS publishes the next year's drafts (usually spring) | `python scripts/irs_new_year.py --draft --ship`, then a pull request and a release, like any change to the forms |
+| The final forms are out | `python scripts/irs_new_year.py YYYY` (as above): it also removes `drafts/YYYY`. `test_draft_forms.py` fails while a shipped draft's year has final forms |
+
+`--draft` alone only checks the drafts and installs nothing.
 
 ### Visual check (do not skip)
 
