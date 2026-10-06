@@ -1,7 +1,7 @@
 # Dependabot version updates: weekly, one grouped PR per directory for
 # minor and patch updates, majors one per PR (read the changelog first).
 #
-# Every entry targets develop: main holds released code only (CLAUDE.md,
+# Every entry targets develop: main holds released code only (AGENTS.md,
 # "Branches"). GitHub reads this file from the default branch (main), so a
 # change here takes effect once main is fast-forwarded to develop.
 # Review and merge like any dependency change: docs/MAINTENANCE.md,

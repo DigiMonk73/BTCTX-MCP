@@ -1,13 +1,15 @@
 """
 backend/tests/test_branch_rules.py
 
-The pre-push branch rules (.githooks/branch-rules.sh, CLAUDE.md "Branches"):
-main only fast-forwards to commits already on develop and is never deleted,
-rewound or force-pushed. Other AI assistants work in this repo too, so the
-rule is enforced, not just written down.
+The pre-push branch rules (.githooks/branch-rules.sh, AGENTS.md "Branches"):
+main only fast-forwards to commits already on GitHub's develop
+(origin/develop) and is never deleted, rewound or force-pushed. Other AI
+assistants work in this repo too, so the rule is enforced, not just written
+down.
 
-History in a temp repo: A (main) -> B (develop); C branches off A (not on
-develop). Each case feeds the script the line git gives pre-push.
+History in a temp repo: A (main) -> B (develop, also origin/develop) -> D (on
+a local develop only, never pushed: develop takes changes by pull request);
+C branches off A. Each case feeds the script the line git gives pre-push.
 """
 
 import os
@@ -42,10 +44,13 @@ def repo(tmp_path_factory):
     git("checkout", "-q", "-b", "develop")
     git("commit", "-q", "--allow-empty", "-m", "B")
     b = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/develop", b)
+    git("commit", "-q", "--allow-empty", "-m", "D")
+    d = git("rev-parse", "HEAD")
     git("checkout", "-q", "-b", "other", a)
     git("commit", "-q", "--allow-empty", "-m", "C")
     c = git("rev-parse", "HEAD")
-    return path, env, {"A": a, "B": b, "C": c, "0": ZERO}
+    return path, env, {"A": a, "B": b, "C": c, "D": d, "0": ZERO}
 
 
 def push(repo, *lines):
@@ -75,9 +80,10 @@ def test_allowed(repo, lines):
 @pytest.mark.parametrize(
     "lines, message",
     [
-        ([("refs/heads/main", "C", "A")], "only takes commits already on develop"),
+        ([("refs/heads/main", "C", "A")], "only takes commits already on GitHub's develop"),
         ([("refs/heads/develop", "B", "A"), ("refs/heads/main", "C", "A")],
-         "only takes commits already on develop"),
+         "only takes commits already on GitHub's develop"),
+        ([("refs/heads/main", "D", "A")], "only takes commits already on GitHub's develop"),
         ([("refs/heads/main", "0", "A")], "can't be deleted"),
         ([("refs/heads/main", "A", "B")], "can't be rewound or force-pushed"),
     ],

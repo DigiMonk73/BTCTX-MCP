@@ -35,7 +35,7 @@ jobs:
             if [ -n "$(gh issue list --state open --search "in:title \"$name $latest\"" --json number --jq '.[0].number // empty')" ]; then
               echo "already tracked"; return 0
             fi
-            gh issue create --title "$name $latest is available ($where pins $pinned)" --body "$body"
+            gh issue create --title "$name $latest is available ($where pins $pinned)" --label start9 --body "$body"
           }
 
           PINNED=$(jq -r '.dependencies["@start9labs/start-sdk"]' startos/package.json)
