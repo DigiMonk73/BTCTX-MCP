@@ -4,7 +4,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a close button on phones, Start9's review of the StartOS package
+## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
 
 ### Added
 - **A preview of the 2026 tax forms.** The IRS's final 2026 Form 8949 and
