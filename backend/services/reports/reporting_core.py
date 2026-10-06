@@ -21,8 +21,11 @@ from backend.models.transaction import (
     BitcoinLot,
     LotDisposal,
 )
+from backend.models.account import Account
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
-from backend.services.reports.form_8949 import taxable_disposals
+from backend.services.reports.form_8949 import (
+    SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
+)
 
 from backend.services.transaction import (
     recalculate_all_transactions,
@@ -106,7 +109,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     gains_dict        = _build_capital_gains_summary(disposals)
     income_dict       = _build_income_summary(txns)
     asset_list        = _build_asset_summary(db, start_dt, end_dt)
-    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals)
+    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals, year, get_tax_timezone(db))
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
     income_txs        = _build_income_transactions(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
@@ -128,6 +131,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
         # Summaries of disposal transactions
         "capital_gains_transactions": cap_gain_txs_sum,
         "capital_gains_transactions_detailed": cap_gain_txs_det,
+        "form_8949_boxes": _build_form_8949_boxes(db, year),
 
         "income_transactions": income_txs,
         "gifts_donations_lost": gifts_lost,
@@ -267,6 +271,7 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
         .order_by(BitcoinLot.acquired_date.asc())
         .all()
     )
+    account_names = {a.id: a.name for a in db.query(Account)}
 
     dec31 = datetime(year, 12, 31, 12, tzinfo=timezone.utc)
     eoy_price = _held_value_price(db, dec31, f"{year}-12-31") if open_lots else None
@@ -291,8 +296,12 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
         cur_value = None if eoy_price is None else \
             (rem_btc * eoy_price).quantize(Decimal("0.01"), ROUND_HALF_DOWN)
 
+        origin = lot.created_transaction
         rows.append({
             "asset": "BTC (Bitcoin)",
+            # A lot belongs to the account it was created in (FIFO per account)
+            "account": account_names.get(origin.to_account_id, "") if origin else "",
+            "acquired": lot.acquired_date.isoformat() if lot.acquired_date else "",
             "quantity": float(rem_btc),
             "cost": float(partial_cost),
             "value": None if cur_value is None else float(cur_value),  # None: no Dec 31 price
@@ -315,6 +324,16 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     return rows
 
 
+def _disposal_kind(d: LotDisposal) -> str:
+    """What gave rise to a disposal: a sale, a spend, or a network fee."""
+    tx = d.transaction
+    if d.is_fee or (tx is not None and tx.type == "Transfer"):
+        return "Network fee"
+    if tx is not None and tx.type == "Withdrawal":
+        return "Spend"
+    return "Sale"
+
+
 def _disposal_row(d: LotDisposal) -> dict[str, Any]:
     tx = d.transaction
     lot = d.lot
@@ -331,12 +350,31 @@ def _disposal_row(d: LotDisposal) -> dict[str, Any]:
     }
 
 
-def _build_capital_gains_transactions_summary(disposals: list[LotDisposal]) -> list[dict[str, Any]]:
+def _build_capital_gains_transactions_summary(disposals: list[LotDisposal], year: int,
+                                              tz) -> list[dict[str, Any]]:
     """
     One line per Form 8949 disposal (a sale across lots gives one line per
-    lot, each in its own holding period), including transfer fees.
+    lot, each in its own holding period), including transfer fees, with
+    its kind and Form 8949 box.
     """
-    return [_disposal_row(d) for d in disposals]
+    return [{**_disposal_row(d), "kind": _disposal_kind(d), "box": disposal_box(d, year, tz)} for d in disposals]
+
+
+def _build_form_8949_boxes(db: Session, year: int) -> list[dict[str, Any]]:
+    """
+    Each Form 8949 box of the year with its rows' totals, as the IRS forms
+    BitcoinTX fills add them up (form_8949.py), and its Schedule D line.
+    """
+    forms = build_form_8949_and_schedule_d(year, db)
+    boxes: dict[str, dict[str, Any]] = {}
+    for row in forms["short_term"] + forms["long_term"]:
+        box = boxes.setdefault(row["box"], {"box": row["box"], "line": SCHEDULE_D_LINE_FOR_BOX[row["box"]],
+                                            "rows": 0, "proceeds": Decimal(0), "cost": Decimal(0),
+                                            "gain_loss": Decimal(0)})
+        box["rows"] += 1
+        for key in ("proceeds", "cost", "gain_loss"):
+            box[key] += row[key]
+    return [{**b, **{k: float(b[k]) for k in ("proceeds", "cost", "gain_loss")}} for _, b in sorted(boxes.items())]
 
 
 def _build_capital_gains_transactions_detailed(disposals: list[LotDisposal]) -> list[dict[str, Any]]:

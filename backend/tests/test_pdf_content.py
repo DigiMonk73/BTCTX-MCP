@@ -343,9 +343,10 @@ class TestCompleteTaxReportContent:
         text = extract_pdf_text(pdf_bytes)
 
         expected_sections = [
-            "Capital Gains Summary",
-            "Income Summary",
-            "End of Year Balances",
+            "1. Summary",
+            "Capital gains and losses",
+            "3. Income",
+            "Holdings at year end",
         ]
 
         for section in expected_sections:
@@ -369,8 +370,7 @@ class TestCompleteTaxReportContent:
             "Report should show $50,000 proceeds"
 
         # Should indicate short-term (held < 1 year)
-        assert "Short Term" in text or "Short-Term" in text, \
-            "Report should indicate short-term gains"
+        assert "Short-term" in text, "Report should indicate short-term gains"
 
     def test_report_shows_ending_balance(self, sample_buy_sell_data):
         """Report should show remaining BTC balance."""
@@ -396,8 +396,7 @@ class TestCompleteTaxReportContent:
         text = extract_pdf_text(pdf_bytes)
 
         # Should show long-term classification
-        assert "Long Term" in text or "Long-Term" in text, \
-            "Report should indicate long-term gains"
+        assert "Long-term" in text, "Report should indicate long-term gains"
 
 
 # =============================================================================
