@@ -14,6 +14,10 @@ All notable changes to BitcoinTX are documented in this file.
   "Discard changes?". Found by the full test run of 1.2.4.
 
 ### Development
+- **Comments tidied where the linters don't look.** The `Dockerfile`,
+  `Makefile` and `scripts/backup-db.sh` lost their banners and the comments
+  that only restated the next line; the ones left say why. No change in
+  behaviour.
 - **Everything we name to build with is pinned exactly.** The Docker base
   images are pinned by digest and the GitHub Actions by commit (a tag can be
   moved later; the publishing step for the AI connector followed a branch),
