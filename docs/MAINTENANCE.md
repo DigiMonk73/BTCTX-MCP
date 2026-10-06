@@ -165,6 +165,52 @@ merge into `develop`. Nothing reaches `main` before a release.
   dev tool goes on that list; never one a lock holds (anyio comes from
   `backend/requirements.txt`), or this pip entry would edit the lock.
 
+### Before a Dependabot pull request merges
+
+The 10 required checks gate every merge, and Claude reads the release notes
+first (AGENTS.md, "Pull requests"). Two cases need more than that:
+
+- **The Mac app.** Its build and launch check runs on each branch push, not
+  on pull requests, so it is not a required check and auto-merge does not
+  wait for it. An update to `backend/` or `desktop/` requirements, or to
+  the GitHub Actions (the Mac job uses them too), merges only after that
+  run has passed on the pull request's head commit. Claude checks it:
+  `gh run list -b <branch> -e push -w ci.yml -L 1 --json databaseId,headSha`,
+  then `gh run view <id> --json jobs` (the "macOS app build + launch check"
+  job). Turn on auto-merge only once it is green.
+- **Figures and forms.** An update to a package marked High in "Current
+  versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
+  (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
+  (`scripts/equivalence_check.py`) and waits for the owner's "merge".
+
+### When an update breaks something
+
+A failing check stops the merge; find out why before anything else.
+
+- **Our code needs a small change:** close Dependabot's pull request and
+  make the update in our own, with the fix and a test. (Dependabot stops
+  maintaining a branch once someone else commits to it.)
+- **The upgrade needs real work, or the release itself is broken:** skip
+  it. Add an `ignore` rule to `.github/dependabot.yml` with a one-line
+  reason (for the versions that break, e.g. `versions: [">=4.5"]`, so fixes
+  below them still come), add a row to "Deferred upgrades" below with an
+  "Unblock when" condition, and open an issue labelled `claude` that links
+  both. In a grouped pull request, ignore only the package that broke: the
+  rest of the group comes back the next week.
+- **It would change tax figures or forms:** the owner decides, with the
+  before-and-after comparison in front of them.
+
+### Taking a skipped update
+
+The weekly check (Mondays) looks at each "Deferred upgrades" row for a newer
+release or a fix to the problem and reports it. A skipped version that
+becomes the only one with a security fix fails the audit on every pull
+request when the audit scans that package (`make audit-deps`: the app's
+Python packages, the dev tools, and high or critical frontend advisories);
+for the rest, the Monday check's security alerts catch it. Once the "Unblock when" condition is met,
+take the update in a normal pull request with all the checks, remove its
+`ignore` rule and its row, and close the issue.
+
 ### Audit scope
 
 `make audit-deps` and the CI audit job check the three locks (what ships:

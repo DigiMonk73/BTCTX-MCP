@@ -14,6 +14,14 @@ All notable changes to BitcoinTX are documented in this file.
   "Discard changes?". Found by the full test run of 1.2.4.
 
 ### Development
+- **What to do when a dependency update breaks something.**
+  `docs/MAINTENANCE.md` now says that an update to the app's or the Mac
+  app's Python packages or to the GitHub Actions merges only after the Mac
+  build has passed (it isn't
+  one of the required checks), that updates which could move a tax figure
+  get the before-and-after comparison, how a breaking update is fixed or
+  skipped (an `ignore` rule, a "Deferred upgrades" row and an issue), and
+  how a skipped one is taken later.
 - **Comments tidied where the linters don't look.** The `Dockerfile`,
   `Makefile` and `scripts/backup-db.sh` lost their banners and the comments
   that only restated the next line; the ones left say why. No change in
