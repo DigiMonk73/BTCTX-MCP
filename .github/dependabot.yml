@@ -38,6 +38,18 @@ updates:
       mcp-server:
         update-types: [minor, patch]
 
+  # The Mac app's build tools (desktop/requirements.txt)
+  - package-ecosystem: pip
+    directory: /desktop
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      desktop:
+        update-types: [minor, patch]
+
   # Test and CI tools (requirements-dev.txt), not shipped in the app. At "/"
   # Dependabot also reads backend/ and desktop/ requirements (without the
   # rules above), so only these are allowed: add a new pinned dev tool here.
@@ -53,6 +65,7 @@ updates:
       - dependency-name: hypothesis
       - dependency-name: ruff
       - dependency-name: pip-audit
+      - dependency-name: anyio
     groups:
       dev-tools:
         update-types: [minor, patch]
@@ -119,8 +132,25 @@ updates:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
-  # "/" covers /.github/workflows only, never startos/.github/workflows
-  # (Start9's standard files, mirrored as they are).
+  # The Dockerfile's base images, pinned by digest: a new build of the same
+  # tag (OS security fixes) comes as a PR. Python 3.11 and Node 22 change
+  # only on purpose (MAINTENANCE.md).
+  - package-ecosystem: docker
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
+
+  # Actions are pinned to a commit with the release as a comment; Dependabot
+  # updates both. "/" covers /.github/workflows only, never
+  # startos/.github/workflows (Start9's standard files, mirrored as they are).
   - package-ecosystem: github-actions
     directory: /
     target-branch: develop

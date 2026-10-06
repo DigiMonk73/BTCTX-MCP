@@ -39,7 +39,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       exists: ${{ steps.v.outputs.exists }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # origin/main, for the check below
       - name: Commit is on main; branch, VERSION, CHANGELOG and package version agree
@@ -90,13 +90,13 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
       - name: Build the connector
         run: python -m pip install build && python -m build mcp_server --outdir dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist
 
@@ -105,11 +105,11 @@ jobs:
     if: needs.check.outputs.exists == 'false'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       - name: Build BitcoinTX.app
@@ -132,7 +132,7 @@ jobs:
           ln -s /Applications dmg/Applications
           hdiutil create -volname BitcoinTX -srcfolder dmg -ov -format UDZO BitcoinTX-macOS.dmg
           ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos
           path: |
@@ -147,8 +147,8 @@ jobs:
     env:
       START_CLI_VERSION: v2.1.0
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
           # via mempool-startos): pinned until a later 22 does (issue #32)
@@ -184,7 +184,7 @@ jobs:
              and (.gitHash | endswith("-modified") | not)
              and ([.images.main.arch[]] | sort) == ["aarch64", "x86_64"]' manifest.json
           echo "package=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: s9pk
           path: startos/btctx.s9pk
@@ -193,14 +193,14 @@ jobs:
     needs: [check, macos, s9pk]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # By name: when this run builds the image, build-push-action adds its
       # own build-record artifact, which an unnamed download would take too.
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: macos
           path: dist
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: s9pk
           path: dist
@@ -239,7 +239,7 @@ jobs:
       contents: read
       issues: write   # the reminder to open the pull request to Start9's fork
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS, then the pull request to Start9
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}

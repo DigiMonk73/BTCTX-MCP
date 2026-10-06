@@ -14,6 +14,16 @@ All notable changes to BitcoinTX are documented in this file.
   "Discard changes?". Found by the full test run of 1.2.4.
 
 ### Development
+- **Everything we name to build with is pinned exactly.** The Docker base
+  images are pinned by digest and the GitHub Actions by commit (a tag can be
+  moved later; the publishing step for the AI connector followed a branch),
+  the Mac app's build tools and `anyio` by version; Dependabot now also
+  proposes updates for `desktop/` and the base images (the Dockerfile lost
+  its indentation, which hid its `FROM` lines from Dependabot). The packages
+  those pull in themselves aren't locked yet (#37). The AI connector
+  keeps version ranges, now capped below the next major version of `httpx`
+  and `pydantic`. The rules are in `docs/MAINTENANCE.md`, "Updating a
+  dependency".
 - **The weekly StartOS check also watches start-cli.** Besides a newer
   `@start9labs/start-sdk` on npm, `startos-sdk-check.yml` opens an issue
   when Start9 releases a newer start-cli (the tool that packs `btctx.s9pk`)
