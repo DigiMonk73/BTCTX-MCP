@@ -427,7 +427,10 @@ and the issues worked on, rewrite #41's body for the next session (dated),
 and update this file if architecture, invariants or the way we work changed.
 Last, run `make sync-check` (or `scripts/sync-check.sh --tidy`, which also
 deletes local branches already on GitHub, safe while other sessions run:
-never a checked-out branch or a working folder) and end the message to the
+never a checked-out branch or a working folder), then remove old session
+folders by hand: only clean ones whose pull request merged and that no
+running session uses (`git worktree remove`; the owner's choice,
+2026-10-06). End the message to the
 owner with its answer in one line: **Git: in sync** (everything on GitHub),
 or what is only on this computer and why. The owner can't see where work
 is, so this line is how they know.
