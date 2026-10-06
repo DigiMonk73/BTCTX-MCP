@@ -240,6 +240,8 @@ jobs:
       issues: write   # the reminder to open the pull request to Start9's fork
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # the sync's start9-pull.sh --check looks back to our last sync
       - name: Mirror startos/ to DigiMonk73/BTCTX-StartOS, then the pull request to Start9
         env:
           MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}

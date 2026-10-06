@@ -71,6 +71,13 @@ git clone -q --branch main "$MIRROR_URL" "$TMP/mirror"
 git -C "$TMP/mirror" fetch -q "$FORK_URL" "$FORK_BRANCH:start9" \
   || { echo "can't fetch $FORK ($FORK_BRANCH)" >&2; exit 1; }
 
+# Their branch already in the mirror's history (the sync builds on it, and
+# they haven't committed since): whatever differs is ours, not yet merged there.
+if git -C "$TMP/mirror" merge-base --is-ancestor start9 main; then
+  echo "$FORK $FORK_BRANCH is already in the mirror: nothing to take."
+  exit 0
+fi
+
 # The fork's tree against the mirror's (two dots: trees, not history, so a
 # squash-merged pull request of ours doesn't count as theirs).
 git -C "$TMP/mirror" diff --binary main start9 > "$TMP/start9.patch"
@@ -86,8 +93,8 @@ if [ "$MODE" = --check ]; then
   # or at the commit since our last sync that took them (a later change of
   # ours to the same lines no longer un-applies it, and is fine: the pull
   # request to them shows it). Committed only: the release builds HEAD.
-  SYNCED="$(git -C "$TMP/mirror" log -1 --format=%s --grep='^Sync from DigiMonk73/BTCTX-MCP@' main start9 \
-    | sed -n 's/^Sync from DigiMonk73\/BTCTX-MCP@\([0-9a-f]*\).*/\1/p')"
+  SYNCED="$(git -C "$TMP/mirror" log --format=%s main start9 \
+    | sed -n 's/^Sync from DigiMonk73\/BTCTX-MCP@\([0-9a-f]*\).*/\1/p' | sed -n 1p)"  # reads it all: no SIGPIPE under pipefail
   HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
   COMMITS="$HEAD_SHA"
   if [ -n "$SYNCED" ] && git -C "$ROOT" merge-base --is-ancestor "$SYNCED" HEAD 2>/dev/null; then

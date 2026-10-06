@@ -38,7 +38,9 @@ All notable changes to BitcoinTX are documented in this file.
   The check (also the release's first step) now accepts their changes
   taken in a commit since our last sync and edited afterwards; before, our
   edits to two lines Start9 had rewritten would have stopped the next
-  release. `startos/`'s `UPDATING.md`, `TODO.md` and
+  release (the release's mirror step now fetches the whole history for
+  it). It also passes when Start9's branch is already in the mirror's
+  history: what differs then is ours, waiting for them to merge. `startos/`'s `UPDATING.md`, `TODO.md` and
   `AGENTS.md` now say that `develop` takes pull requests and that to-dos
   are issues (#29).
 - **The pre-push tests no longer touch the repository in a worktree.** Git

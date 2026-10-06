@@ -126,6 +126,18 @@ def test_check_passes_when_we_changed_their_lines_after_taking_them(repos):
     assert "taken in" in r.stdout and "Take Start9's changes" in r.stdout
 
 
+def test_check_passes_after_our_sync_before_start9_merges_it(repos, tmp_path):
+    """The mirror built on their branch and they haven't committed since: the
+    difference is ours, waiting on them (a docs-only sync between releases)."""
+    proj, fork = repos
+    mirror = tmp_path / "mirror"
+    (mirror / "main.ts").write_text("one\ntwo\nthree, ours\n")
+    git(mirror, "commit", "-qam", "Sync from DigiMonk73/BTCTX-MCP@abcdef0 (1.0.0:1)")
+    r = run(proj, "--check", **FORKED)
+    assert r.returncode == 0, r.stderr
+    assert "already in the mirror" in r.stdout
+
+
 def test_check_still_stops_when_we_changed_their_lines_without_taking_them(repos):
     proj, fork = repos
     start9_changes(fork)
