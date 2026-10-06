@@ -58,9 +58,8 @@ pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 
 ## Updating a dependency
 
-**Pinning.** Everything that ships or builds is pinned exactly, so Docker,
-macOS and CI builds are reproducible and nothing changes without a pull
-request:
+**Pinning.** Everything we name to ship or build with is pinned exactly, so
+it changes only by pull request:
 
 - Python: `==` in `backend/requirements.txt` (the app),
   `desktop/requirements.txt` (the Mac app's build tools) and
@@ -74,7 +73,10 @@ request:
   installed next to other software, so it takes ranges, capped below the
   next major version (`httpx>=0.27,<1`).
 
-Dependabot proposes the updates (below).
+Dependabot proposes the updates (below). Not yet locked: the packages those
+pull in themselves (pydantic-core under pydantic, the pyobjc packages under
+pywebview…), which resolve at build time, and the `build`, `pip` and `wheel`
+tools the release and the Mac build install (#37).
 
 1. Read the package changelog for breaking changes.
 2. Edit the version, then `pip install -r backend/requirements.txt`.
@@ -122,7 +124,10 @@ merge into `develop`. Nothing reaches `main` before a release.
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
   bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"), and TypeScript
   6.1 or newer there (the SDK's typescript-eslint needs < 6.1; it moves with
-  the SDK).
+  the SDK). Docker: Python minor and major versions and Node majors, so the
+  base images stay `3.11-slim` and `22-slim` and only their digests move.
+- Dependabot reads a Dockerfile `FROM` only at the start of a line, so the
+  Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
   allows only pytest, hypothesis, ruff, pip-audit and anyio. A new pinned
