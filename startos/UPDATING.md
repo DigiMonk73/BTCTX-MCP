@@ -76,7 +76,9 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
 - **Before each sync, take their changes:** on a branch cut from `develop`,
   run `scripts/start9-pull.sh` to see what they changed since they last took
   ours, then `scripts/start9-pull.sh --apply`, review, run the checks,
-  commit and open a pull request into `develop`. The mirror sync replaces
+  commit and open a pull request into `develop`. `--apply` also records
+  their commit in BTCTX-MCP's `scripts/start9-taken`; commit it with the
+  change, so later checks count only what they changed since. The mirror sync replaces
   the mirror's contents with `startos/`, so anything not brought back here
   would be undone. The sync runs `scripts/start9-pull.sh --check` first and
   stops if their changes aren't in `startos/`, and so does the release
