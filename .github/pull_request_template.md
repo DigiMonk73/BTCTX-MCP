@@ -12,9 +12,11 @@
 
 ## Risk
 
-<!-- What could go wrong and who would notice. Say if it changes tax figures,
-the database, the StartOS package or what reaches Start9: those wait for the
-owner's OK. "None: docs only" is a fine answer. -->
+<!-- What could go wrong and who would notice. Say if it changes tax figures
+or what the app computes, the database, the StartOS package or anything that
+reaches Start9: those wait for the owner's "merge" (AGENTS.md, "Pull
+requests"). "None: docs only" is a fine answer. -->
 
 - [ ] `docs/CHANGELOG.md` updated, if a user or maintainer would notice
 - [ ] `AGENTS.md` updated, if a rule, invariant or the way we work changed
+- [ ] Both reviews posted (Claude reviewer, Grok), every finding fixed or answered

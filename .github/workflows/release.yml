@@ -284,5 +284,5 @@ jobs:
 
           Or ask Claude: "open the Start9 pull request for $TAG".
           EOF
-          gh issue create -R "$GITHUB_REPOSITORY" --title "Send $TAG to Start9: open the pull request" --body-file body.md
+          gh issue create -R "$GITHUB_REPOSITORY" --title "Send $TAG to Start9: open the pull request" --label start9,owner --body-file body.md
           echo "::warning::Open the pull request to $FORK: see the new issue \"Send $TAG to Start9\"."

@@ -26,37 +26,43 @@ for AI-assisted entry. Work on `develop` (see Branches).
   and changes in what the app does or computes. The owner is not a
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
-  releases, docs and the weekly check.
-- **Grok Bot**, the owner's web assistant, brainstorms and double-checks.
-  It doesn't commit; it reads this public repository from links the owner
-  gives it ("Working through GitHub").
+  releases, docs, and a read-only report each Monday of what needs
+  attention (a scheduled task on the owner's Mac).
+- **Grok** reviews and brainstorms; it never commits. Grok Build reviews
+  every pull request ("Reviews"); Grok Bot, the owner's web assistant,
+  reads this public repository from links the owner gives it ("Working
+  through GitHub").
 
-Everything goes through GitHub under the owner's account, so each AI signs
-what it posts there ("— Claude", "— Grok"), and Claude's commits carry its
-`Co-Authored-By` line.
+Everything goes through GitHub under the owner's account, so each AI ends
+what it posts there with its name ("— Claude", "— Claude (reviewer)",
+"— Grok"), and Claude's commits carry its `Co-Authored-By` line.
 
 ## Branches
 
-- **`develop`**: all work, arriving by pull request from a short-lived
-  branch named for the change ("Pull requests").
+- **`develop`**: all work, arriving by pull request
+  (`gh pr create --base develop`) from a short-lived branch named for the
+  change ("Pull requests"). Never commit on a local `develop`: GitHub
+  refuses the push.
 - **`main`**: released code only; it is what users get (the `:main` Docker
   image; releases are cut from it). Never commit on `main`, never
-  force-push or rewind it. It moves only by fast-forwarding to
-  `develop` (`git checkout main && git merge --ff-only develop && git push`),
-  at a release, or when everything on `develop` not yet on `main` is docs,
-  tests or tooling (nothing that ships in the app or the connector).
+  force-push or rewind it. It moves only by fast-forwarding to GitHub's
+  `develop` (`git fetch origin && git checkout main && git merge --ff-only
+  origin/develop && git push`), at a release, or when everything on
+  `develop` not yet on `main` is docs, tests or tooling (nothing that ships
+  in the app or the connector).
 - **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
   deleted.
 
 The pre-push hook refuses a push to `main` of anything not already on
-`develop`, and `release.yml` refuses a release commit that isn't on `main`.
-GitHub enforces this with rulesets (Settings → Rules, changed only by the
-owner): `main` can't be deleted or force-pushed ("Protect main", also on the
+GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
+`main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
+add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
-squash-merged, once the jobs of `ci.yml` have passed ("Protect develop";
-all of them except the macOS build, which doesn't run on pull requests).
-Renaming or adding a CI job means updating that list too, or every pull
-request waits for a check that never comes. If unsure, branch from
+squash-merged, once the 10 jobs of `ci.yml` other than the macOS build
+(which doesn't run on pull requests) have passed ("Protect develop").
+Renaming or removing a CI job (changing a Python version in the test matrix
+renames one) blocks every pull request until the owner updates that list; a
+new job isn't required until it's added there. If unsure, branch from
 `develop` and ask.
 
 ## Before you change…
@@ -242,15 +248,16 @@ file; `docs/CODE_STYLE.md` has the rest.
 Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
 
-1. On `develop`: bump `VERSION`, the version in `desktop/BitcoinTX.spec`,
-   the image tag in `startos/startos/manifest/index.ts`,
-   `startos/startos/versions/current.ts` and `mcp_server/pyproject.toml`
-   (`backend/tests/test_versions_agree.py` fails until they agree). Move the CHANGELOG's Unreleased section to the
+1. In a pull request into `develop`: bump `VERSION`, the version in
+   `desktop/BitcoinTX.spec`, the image tag in
+   `startos/startos/manifest/index.ts`, `startos/startos/versions/current.ts`
+   and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
+   fails until they agree). Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
-   when a new tax year's forms are added. Merge it; wait for CI on `develop`.
-   Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that commit's CI
-   artifacts; a blocker FAIL stops the release.
-2. Fast-forward `main` to `develop` and push: `.github/workflows/image.yml`
+   when a new tax year's forms are added. Once it has merged, wait for CI on
+   `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
+   commit's CI artifacts; a blocker FAIL stops the release.
+2. Fast-forward `main` to GitHub's `develop` ("Branches") and push: `.github/workflows/image.yml`
    publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
    `:main`.
 3. Push a branch `release/vX.Y.Z` from `main`, and delete it once the
@@ -286,7 +293,8 @@ forked, such a sync also needs its pull request to their fork (or rides in
 one of ours still open), or the next release's `--check` takes the mirror's
 newer docs for Start9 undoing them. Before a release, bring
 Start9's changes to their fork back into `startos/` with
-`scripts/start9-pull.sh` (`--apply` on `develop`), or the sync undoes them;
+`scripts/start9-pull.sh` (`--apply` on a branch cut from `develop`, then a
+pull request), or the sync undoes them;
 the release workflow's first job stops if you haven't (`--check`). By hand: `scripts/sync-startos-mirror.sh --push`;
 if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
@@ -308,31 +316,53 @@ One home for each kind of information, so nothing is kept twice:
 
 - **Labels say who has an issue:** `claude` (Claude is on it), `owner`
   (needs the owner: a decision, a test, a click), `ask-grok` (waiting for
-  Grok Bot's view), `start9` (the package, Start9's fork or registry). A
-  pull request that finishes one says `Closes #N`.
+  Grok Bot's view), `start9` (the package, Start9's fork or registry); the
+  workflows label the issues they open. A pull request that finishes one
+  says `Closes #N`, and Claude closes the issue when it merges: GitHub
+  closes issues by itself only for pull requests into the default branch,
+  `main`.
 - **A long checklist** for work under way may live in `docs/temp/<topic>.md`
   (`docs/temp/README.md`), deleted when done. No other notes, plan or status
   files, and no project status in an AI tool's private memory: it goes in
-  an issue, where everyone sees it.
-- **Asking Grok Bot:** Claude writes the question as an issue comment that
-  stands on its own (what, why, links) and adds `ask-grok`; the owner gives
-  Grok the link. Grok's answer comes back as a comment starting "Grok:"
-  (pasted by the owner, or by Claude from the chat), and the label comes off.
-- **This repository is public**, and so are its issues and pull requests:
-  never post the owner's ledger figures, personal data, keys, passwords or
-  server addresses there.
+  an issue, where everyone sees it (private details never do, see below).
+- **Asking Grok Bot:** Claude writes the question as a comment that stands
+  on its own (what, why, links) on an issue or pull request and adds
+  `ask-grok`; the owner gives Grok Bot the link. Grok's answer comes back as
+  a comment ending "— Grok" (the owner posts it there, or pastes it into
+  their chat with Claude, who posts it), and Claude takes the label off.
+- **This repository is public, and so is everything in it:** commits, pull
+  requests, issues, the CHANGELOG. Never put the owner's ledger figures,
+  personal data, keys, passwords or server addresses in any of them.
+
+## Reviews
+
+Every pull request gets two reviews before it merges, by reviewers that
+didn't write it, without anyone having to ask:
+
+1. **A fresh Claude reviewer:** a separate agent with no memory of writing
+   the change, working read-only, that checks the diff and verifies its
+   claims (runs the tests, looks things up) instead of trusting them.
+2. **Grok:** `scripts/grok-review.sh <number>` runs Grok Build in its own
+   clone, at its highest reasoning effort, able to read the code but not to
+   run commands, write files or go online.
+
+Claude posts each review on the pull request, then fixes every finding (a
+bug fix with a test that fails on the old code) or answers it there with
+the evidence. A reviewer whose finding was fixed checks the fix.
 
 ## Pull requests
 
 Every change, Claude's included, goes into `develop` by pull request, filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
-for the owner, how it was tested, the risk. CI must pass. Nothing is merged
-without the owner: they press "Squash and merge" on GitHub, or tell Claude
-to merge it (a squash, one commit per change). Claude says plainly when a
-pull request needs a closer look: a change in what the app does or
-computes, the database schema, anything that reaches Start9, a release.
-Dependabot's pull requests go the same way, after Claude has read their
-changelogs.
+for the owner, how it was tested, the risk. Claude merges it (a squash, one
+commit per change) once the 10 required checks have passed and neither
+review has anything open; the owner allowed `gh pr merge` in this project's
+local Claude settings for that. These wait for the owner's "merge" in chat
+instead: a change in tax figures or what the app computes, the database,
+the StartOS package or anything that reaches Start9, and releases. A change
+in what the app does for the owner is agreed with them before it's written,
+not at merge time. Dependabot's pull requests go the same way, after Claude
+has read their changelogs.
 
 ## Ending a session
 

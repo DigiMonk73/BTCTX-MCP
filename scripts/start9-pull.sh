@@ -2,8 +2,9 @@
 # Bring Start9's changes to their fork of the StartOS package (template
 # updates, SDK bumps, review fixes) into startos/ here, so the next mirror
 # sync (sync-startos-mirror.sh) never undoes them. Once Start9 has forked the
-# mirror, run this on develop before every sync; the release workflow runs
-# --check and stops if you haven't.
+# mirror, run this before every sync, on a branch cut from develop (develop
+# takes changes only by pull request); the release workflow runs --check and
+# stops if you haven't.
 #
 #   scripts/start9-pull.sh [--apply | --check | --fork]
 #
@@ -13,7 +14,8 @@
 # it also holds the reverse of ours, and the script says so. Changes already
 # brought back and synced to the mirror no longer show.
 # --apply: applies that difference to startos/ in the working tree,
-# three-way, for you to review, test and commit on develop.
+# three-way, for you to review, test, commit and send to develop by pull
+# request. Refused on main.
 # --check: exit 1 if their changes are not in startos/ at HEAD (committed);
 # exit 0 when they are, when there is no fork yet, or while a pull request of
 # ours is open there (it can't tell theirs from ours then; it says so).
@@ -55,7 +57,7 @@ MIRROR_URL="${MIRROR_URL:-https://github.com/$MIRROR.git}"
 
 if [ "$MODE" = --apply ]; then
   BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
-  [ "$BRANCH" = develop ] || { echo "on $BRANCH: switch to develop first" >&2; exit 1; }
+  [ "$BRANCH" != main ] || { echo "on main: cut a branch from develop first (git switch -c start9-changes origin/develop)" >&2; exit 1; }
   if [ -n "$(git -C "$ROOT" status --porcelain -- startos)" ]; then
     echo "startos/ has uncommitted changes; commit them first" >&2
     exit 1
@@ -92,7 +94,7 @@ if [ "$MODE" = --check ]; then
     exit 0
   fi
   git -C "$TMP/mirror" diff --stat main start9 >&2
-  echo "Start9 changed $FORK, and startos/ doesn't have it yet. On develop: scripts/start9-pull.sh --apply, review, run the checks, commit and push; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
+  echo "Start9 changed $FORK, and startos/ doesn't have it yet. On a branch cut from develop: scripts/start9-pull.sh --apply, review, run the checks, commit and open a pull request into develop; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
   exit 1
 fi
 
@@ -111,7 +113,7 @@ if [ "$MODE" = show ]; then
 fi
 if git -C "$ROOT" apply --3way --directory=startos "$TMP/start9.patch"; then
   git -C "$ROOT" reset -q -- startos  # unstaged, so plain git diff shows it
-  echo "Applied to startos/. Review (git diff), run the StartOS checks, then commit on develop."
+  echo "Applied to startos/. Review (git diff), run the StartOS checks, then commit and open a pull request into develop."
 else
   echo "Some hunks didn't apply cleanly: resolve the conflict markers in startos/ (git status), then commit." >&2
   exit 1

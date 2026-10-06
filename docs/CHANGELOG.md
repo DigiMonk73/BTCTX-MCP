@@ -22,14 +22,23 @@ All notable changes to BitcoinTX are documented in this file.
   there themselves.
 - **One rules file and one to-do list for every AI.** The rules moved
   from `CLAUDE.md` to `AGENTS.md`, the file other AI tools read too
-  (`CLAUDE.md` now only points to it); it now says who does what (the
-  owner decides, Claude Code develops, Grok Bot brainstorms and
-  double-checks from links) and where each kind of information lives. To-dos
-  are GitHub issues, labelled `claude`, `owner`, `ask-grok` or `start9`,
-  instead of `docs/temp/TODO.md` (its open items moved to issues #29–#34);
-  `test_todo_lists.py` keeps a to-do file from coming back. Every change
-  goes into `develop` by pull request, from `.github/pull_request_template.md`,
-  and only the owner merges (or tells Claude to).
+  (`CLAUDE.md` now only points to it, which a test checks); it now says who
+  does what (the owner decides, Claude Code develops, Grok reviews and
+  brainstorms) and where each kind of information lives. To-dos are GitHub
+  issues, labelled `claude`, `owner`, `ask-grok` or `start9` (the workflows
+  label theirs), instead of `docs/temp/TODO.md`: its open items went to
+  #29–#32 (checking that `start9-pull.sh --fork` finds Start9's fork was
+  done), the roadmap's two specific to-dos to #38 and #39, and
+  `test_todo_lists.py` keeps a to-do file from coming back.
+- **Every change arrives by reviewed pull request.** `develop` takes changes
+  only by pull request (GitHub rulesets now protect `main` and `develop`),
+  from `.github/pull_request_template.md`. Each one gets two independent
+  reviews before it merges: a fresh Claude reviewer and Grok
+  (`scripts/grok-review.sh`, read-only). Claude merges once the required
+  checks pass and nothing is open, except changes to tax figures, the
+  database or what reaches Start9, and releases, which wait for the owner.
+  The pre-push hook now fast-forwards `main` only to GitHub's `develop`, and
+  `scripts/start9-pull.sh --apply` runs on a branch for a pull request.
 
 ## [v1.2.4] - 2026-09-30 - Fixes from testing 1.2.3: zero fees kept, phone header, Escape; the unused lock removed
 
