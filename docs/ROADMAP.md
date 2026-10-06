@@ -1,22 +1,11 @@
 # Roadmap
 
-Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists what's next.
-
-## Owner check
-
-- [ ] Upgrade your real v0.7 database with the current version: backup →
-      start (automatic migration) → Settings → Ledger Review → Recalculate
-      Ledger → compare the 2024/2025 reports with the old ones. (Upgrading a
-      v0.7.0 database is covered by tests and CI; this checks your actual
-      data.)
+Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
+and larger work coming next; specific to-dos and checks are GitHub issues
+(`AGENTS.md`, "Working through GitHub").
 
 ## Next release
 
-- [ ] **River sends with a network fee (F20)**: does River's "Sent Amount"
-      include the fee? Check what the destination received from the
-      2026-02-08 send (0.02353629 → fee on top, today's code is right;
-      0.02353311 → Sent includes the fee and the importer counts it twice).
-      See `HARDENING_FINDINGS.md` F20.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
       backup password).
 

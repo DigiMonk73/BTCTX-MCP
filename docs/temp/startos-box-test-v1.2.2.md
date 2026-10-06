@@ -3,7 +3,8 @@
 Test the released v1.2.2 package on your own StartOS server. You're
 updating from 1.1.0 (1.2.0's and 1.2.1's changes come with it), and your
 data stays in place. Delete this file once it's done and the result has
-gone into `docs/CHANGELOG.md` or a fix.
+gone into `docs/CHANGELOG.md` or a fix. Issue: #30 (it moves to the
+Community Beta build of 1.2.4:1).
 
 **Already checked on a StartOS VM (2026-09-28/29):** the updates 1.1.0 →
 1.2.2, 1.1.0 → 1.2.0 → 1.2.1 → 1.2.2 and 1.2.0 → 1.2.1, every stored

@@ -213,7 +213,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
-          # via mempool-startos): pinned until a later 22 does (docs/temp/TODO.md)
+          # via mempool-startos): pinned until a later 22 does (issue #32)
           node-version: 22.23.2
           cache: npm
           cache-dependency-path: startos/package-lock.json
@@ -239,7 +239,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
-          # via mempool-startos): pinned until a later 22 does (docs/temp/TODO.md)
+          # via mempool-startos): pinned until a later 22 does (issue #32)
           node-version: 22.23.2
           cache: npm
           cache-dependency-path: startos/package-lock.json

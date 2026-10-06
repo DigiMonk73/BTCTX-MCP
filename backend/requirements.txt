@@ -1,5 +1,5 @@
 # Core framework
-fastapi==0.141.1
+fastapi==0.142.2
 pydantic==2.13.5
 starlette==1.7.0
 uvicorn==0.54.0
@@ -18,13 +18,13 @@ requests==2.34.2
 python-multipart==0.0.32
 
 # Utilities
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 python-dateutil==2.9.0.post0
 itsdangerous==2.2.0
 tzdata==2026.4  # timezone rules for the tax timezone (bundled, OS-independent)
 
 # Encryption (for backups)
-cryptography==50.0.1
+cryptography==50.0.2
 
 # PDF generation & manipulation
 pypdf==6.19.0

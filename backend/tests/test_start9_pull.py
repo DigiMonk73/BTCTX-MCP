@@ -138,3 +138,23 @@ def test_apply_brings_their_changes_into_startos(repos):
     r = run(proj, "--apply", **FORKED)
     assert r.returncode == 0, r.stderr
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it\n"
+
+
+def test_apply_runs_on_a_branch_cut_from_develop(repos):
+    """develop takes changes only by pull request, so --apply runs on a branch."""
+    proj, fork = repos
+    start9_changes(fork)
+    git(proj, "switch", "-qc", "start9-changes")
+    r = run(proj, "--apply", **FORKED)
+    assert r.returncode == 0, r.stderr
+    assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it\n"
+    assert "pull request" in r.stdout
+
+
+def test_apply_is_refused_on_main(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    git(proj, "switch", "-qc", "main")
+    r = run(proj, "--apply", **FORKED)
+    assert r.returncode == 1 and "on main" in r.stderr
+    assert (proj / "startos" / "main.ts").read_text() == "one\ntwo\n"

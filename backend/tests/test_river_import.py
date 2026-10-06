@@ -478,7 +478,7 @@ def test_a_sell_fee_without_a_fee_currency_is_in_usd():
     River's Received Amount as the gross while the fee was still taken as
     USD and subtracted, so the sale landed a fee short, with no warning.
     River's Buy and Sell fees are in USD, so a blank one is USD too and the
-    gross is Received + fee (CLAUDE.md, River Sells)."""
+    gross is Received + fee (AGENTS.md, River Sells)."""
     delete_all_transactions()
     data = preview([
         "2026-07-01 12:00:00,1000.00,USD,0.01000000,BTC,,,Buy",

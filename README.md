@@ -211,7 +211,7 @@ make check        # everything CI runs except the Docker/macOS builds
 ```
 
 Testing guide: [docs/TESTING.md](docs/TESTING.md). Architecture and
-conventions: [CLAUDE.md](CLAUDE.md).
+conventions: [AGENTS.md](AGENTS.md).
 
 | Layer | Tech |
 |---|---|
