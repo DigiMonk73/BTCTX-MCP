@@ -40,7 +40,7 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   ├── .btctx_secret_key    per-install session signing key (mode 600)
   ├── setup-code.txt       one-time first-run code while the account still has
   │                        the default login (mode 600; deleted once claimed;
-  │                        never on StartOS, whose login is set at install)
+  │                        never on StartOS, whose login is set before the first start)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or asked for with the AI key (mode 600;
                            only created when needed)
@@ -136,8 +136,8 @@ Change these only together with the package (`startos/`):
     the package runs it as a oneshot before the web server starts.
   - `python -m backend.cli set-password [--username NAME] --password-stdin`:
     sets the first user's password through the app's own bcrypt hashing
-    (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used on
-    install and by Reset Login Credentials. Never takes the password as an
+    (also `BTCTX_NEW_PASSWORD` env; at least 12 characters); used by
+    Set Login Credentials. Never takes the password as an
     argument. With `--if-default` it changes only a login still on
     `admin` / `password`, printing `Password set for user 'admin'.` when it
     did and `Not the default login: nothing changed.` otherwise; the update
