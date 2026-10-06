@@ -21,6 +21,21 @@ Branches).
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
+## What's at stake
+
+- BitcoinTX holds the owner's real tax records, and its figures go on IRS
+  forms: a wrong number is a real-world problem. So a change to tax figures
+  gets the full review, the before-and-after comparison and the owner's
+  "merge" ("Reviews").
+- The owner's real ledger is the installed Mac app's data. Never test on it,
+  run a script against it or point the AI connector at it; use temp
+  databases, `make preview` or the StartOS test VM.
+- Other people install BitcoinTX from Start9's community registry: a
+  release that breaks an update or loses data hurts users who trust it.
+- Start9's reviewers and users care about privacy: no price is asked of
+  anyone until the owner picks a price source, and no request names a day
+  ("Prices" under Tax invariants).
+
 ## Who does what
 
 - **The owner** (DigiMonk73) decides: releases, anything sent to Start9,
@@ -302,6 +317,17 @@ if the mirror's own workflow can't release,
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
 `startos/UPDATING.md`).
 
+## Start9
+
+- Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
+  built and published; how a change reaches it is under "Releasing".
+- Each merge there publishes to Community Beta
+  (`https://community-beta-registry.start9.com`). The owner tests it on
+  their server, then asks Start9 in an issue on the fork to promote it to
+  `https://community-registry.start9.com`. Promotion is the owner's call.
+- Start9 sends changes too (template updates about monthly, SDK bumps),
+  which `scripts/start9-pull.sh` brings back.
+
 ## Working through GitHub
 
 One home for each kind of information, so nothing is kept twice:
@@ -309,7 +335,8 @@ One home for each kind of information, so nothing is kept twice:
 | What | Where |
 |---|---|
 | How we work | this file |
-| To-dos, work under way, questions | GitHub issues on this repo, one per task (look at the open ones at the start of a session) |
+| Where things stand | pinned issue #41, "Where we are": in flight, next for Claude, waiting on Start9 or the owner |
+| To-dos, work under way, questions | GitHub issues on this repo, one per task |
 | A change | one branch and one pull request into `develop` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
@@ -358,18 +385,31 @@ comments end "— Grok".
 
 Every change, Claude's included, goes into `develop` by pull request, filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
-for the owner, how it was tested, the risk. Claude merges it (a squash, one
-commit per change) once the 10 required checks have passed and the
-review has nothing open; the owner allowed `gh pr merge` in this project's
-local Claude settings for that. These wait for the owner's "merge" in chat
-instead: a change in tax figures or what the app computes, the database,
-the StartOS package or anything that reaches Start9, and releases. A change
-in what the app does for the owner is agreed with them before it's written,
-not at merge time. Dependabot's pull requests go the same way, after Claude
-has read their changelogs.
+for the owner, how it was tested, the risk. Once the review has nothing
+open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
+--match-head-commit <sha>`), and GitHub squashes it, one commit per change,
+when the 10 required checks pass (if they already have, GitHub refuses
+`--auto`; the same command without `--auto` merges it at once). The owner
+allowed `gh pr merge` in this project's local Claude settings for that.
+These pull requests get auto-merge only after the owner's "merge" in chat:
+a change in tax figures or what the app computes, the database, the StartOS
+package or anything that reaches Start9, and releases. A change in what the
+app does for the owner is agreed with them before it's written, not at
+merge time. Dependabot's pull requests go the same way, after Claude has
+read their changelogs.
+
+A branch that falls behind `develop` gets `develop` merged into it, never a
+rebase: a pushed branch is not rewritten, and the squash keeps `develop`
+clean anyway.
+
+## Starting a session
+
+Read issue #41 (`gh issue view 41`), then the open pull requests and issues
+(`gh pr list`, `gh issue list`), and carry on from #41's "Next for Claude".
+Project status comes from there, not from an AI tool's memory.
 
 ## Ending a session
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
-and the issues worked on, and update this file if architecture, invariants
-or the way we work changed.
+and the issues worked on, rewrite #41's body for the next session (dated),
+and update this file if architecture, invariants or the way we work changed.
