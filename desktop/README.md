@@ -22,8 +22,9 @@ Nothing else: IRS forms are filled in pure Python (pypdf).
 ./desktop/build-mac.sh
 ```
 
-Creates `desktop/.venv`, installs `backend/requirements.txt` and
-`desktop/requirements.txt`, builds the frontend, and runs PyInstaller.
+Creates `desktop/.venv`, installs the locks `backend/requirements.txt` and
+`desktop/requirements.txt` (hashes checked), builds the frontend, and runs
+PyInstaller.
 Output: `desktop/dist/BitcoinTX.app` (plus `BitcoinTX.dmg` if `create-dmg`
 is installed).
 
@@ -63,5 +64,6 @@ open desktop/dist/BitcoinTX.app
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
 | `BitcoinTX.spec` | PyInstaller configuration (hidden imports, bundle version) |
 | `build-mac.sh` | Build script |
-| `requirements.txt` | Desktop-only packages (pyinstaller, pywebview) |
+| `requirements.in` | Desktop-only packages (pyinstaller, pywebview), pinned |
+| `requirements.txt` | Their lock, with hashes (`make lock`; docs/MAINTENANCE.md) |
 | `resources/icon.icns` | App icon |

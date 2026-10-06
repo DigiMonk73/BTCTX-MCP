@@ -7,9 +7,14 @@
 # Review and merge like any dependency change: docs/MAINTENANCE.md,
 # "Updating a dependency". Ignored below: the deferred upgrades listed there,
 # and what is bumped by hand.
+#
+# backend/, desktop/ and .github/release-tools/ are `uv` entries: each holds a
+# requirements.in (what we name, pinned) and the requirements.txt lock that
+# `uv pip compile` made from it (MAINTENANCE.md, "Pinning"). Dependabot edits
+# the pin and recompiles the lock with the command in its header.
 version: 2
 updates:
-  - package-ecosystem: pip
+  - package-ecosystem: uv
     directory: /backend
     target-branch: develop
     schedule:
@@ -38,16 +43,33 @@ updates:
       mcp-server:
         update-types: [minor, patch]
 
-  # The Mac app's build tools (desktop/requirements.txt)
-  - package-ecosystem: pip
+  # The Mac app's build tools. Only these two: the rest of the lock is held
+  # to backend/'s versions (`make lock` after a backend PR that moves one the
+  # two share; test_pinning.py says when).
+  - package-ecosystem: uv
     directory: /desktop
     target-branch: develop
     schedule:
       interval: weekly
     commit-message:
       prefix: deps
+    allow:
+      - dependency-name: pyinstaller
+      - dependency-name: pywebview
     groups:
       desktop:
+        update-types: [minor, patch]
+
+  # What release.yml builds the AI connector with
+  - package-ecosystem: uv
+    directory: /.github/release-tools
+    target-branch: develop
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      release-tools:
         update-types: [minor, patch]
 
   # Test and CI tools (requirements-dev.txt), not shipped in the app. At "/"
@@ -66,6 +88,7 @@ updates:
       - dependency-name: ruff
       - dependency-name: pip-audit
       - dependency-name: anyio
+      - dependency-name: uv
     groups:
       dev-tools:
         update-types: [minor, patch]

@@ -33,7 +33,9 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+        run: |
+          pip install --require-hashes -r backend/requirements.txt
+          pip install -r requirements-dev.txt ./mcp_server
       - name: Lint (bug-level)
         run: ruff check .
       - name: Static compatibility checks
@@ -81,7 +83,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r backend/requirements.txt
+      - run: pip install --require-hashes -r backend/requirements.txt
       - run: python scripts/smoke_test.py
 
   e2e:
@@ -108,7 +110,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r backend/requirements.txt
+      - run: pip install --require-hashes -r backend/requirements.txt
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -153,7 +155,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
-      - run: pip install httpx
+      - run: pip install --require-hashes -r backend/requirements.txt  # httpx, for the smoke test
       - name: Smoke test the container (live prices)
         run: |
           # A fresh container logs its first-run setup code and keeps it on /data;
@@ -269,19 +271,29 @@ jobs:
           retention-days: 7
 
   audit:
-    name: Dependency vulnerability audit
-    runs-on: ubuntu-latest
+    # pip-audit reads only the lock entries for the machine it runs on, so
+    # the locks are audited on Linux (the Docker image) and on macOS (the
+    # Mac app, with its pyobjc packages).
+    name: Dependency vulnerability audit (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
       - run: pip install -r requirements-dev.txt
-      - run: pip-audit -r backend/requirements.txt -r requirements-dev.txt
+      - run: pip-audit --disable-pip -r backend/requirements.txt -r desktop/requirements.txt -r .github/release-tools/requirements.txt
+      - run: pip-audit -r requirements-dev.txt
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: runner.os == 'Linux'
         with:
           node-version: 22
-      - run: cd frontend && npm audit --audit-level=high
+      - if: runner.os == 'Linux'
+        run: cd frontend && npm audit --audit-level=high
 
   macos-app:
     name: macOS app build + launch check

@@ -92,7 +92,7 @@ Download `btctx.s9pk` from the latest release and upload it in StartOS under
 Requires Python 3.10+ and Node.js 20+.
 
 ```bash
-pip install -r backend/requirements.txt
+pip install --require-hashes -r backend/requirements.txt
 (cd frontend && npm ci && npm run build)
 uvicorn backend.main:app --port 8000     # open http://localhost:8000
 ```
@@ -203,7 +203,8 @@ scheduled GitHub workflow flags when new forms are published. See
 ## Development
 
 ```bash
-pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+pip install --require-hashes -r backend/requirements.txt
+pip install -r requirements-dev.txt ./mcp_server
 make hooks        # pre-push gate: lint, static checks, fast tests, smoke test
 make test         # full hermetic suite (temp DB, stubbed prices, no network)
 make e2e          # click-through tests in real browsers (Playwright)

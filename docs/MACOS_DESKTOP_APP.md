@@ -82,8 +82,9 @@ Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 22).
 The script:
 
 1. Finds a Python 3.10+ interpreter (`python3.13` … `python3.10`, `python3`)
-2. Creates/reuses `desktop/.venv` and installs `backend/requirements.txt` plus
-   `desktop/requirements.txt` (PyInstaller, pywebview)
+2. Creates/reuses `desktop/.venv` and installs the locks
+   `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
+   pywebview), each package checked against its hash
 3. Builds the frontend (`npm ci && npm run build` in `frontend/`)
 4. Checks `desktop/resources/icon.icns` (warns if missing) and
    `backend/assets/irs_templates/` (fails if missing)
@@ -98,7 +99,7 @@ Output: `desktop/dist/BitcoinTX.app`. Test with `open desktop/dist/BitcoinTX.app
 ```bash
 cd desktop
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r ../backend/requirements.txt -r requirements.txt
+# then the two pip installs of build-mac.sh, step 2 (the locks, hashes checked)
 (cd ../frontend && npm ci && npm run build)
 pyinstaller --clean --noconfirm BitcoinTX.spec
 ```
