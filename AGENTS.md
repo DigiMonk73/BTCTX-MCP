@@ -90,7 +90,8 @@ new job isn't required until it's added there. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
-- **Dependencies**: read `docs/MAINTENANCE.md`.
+- **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
+  `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
   a `hiddenimports` entry in `desktop/BitcoinTX.spec`.
 - **IRS forms**: read `docs/IRS_FORM_GENERATION.md`; for a new tax year follow

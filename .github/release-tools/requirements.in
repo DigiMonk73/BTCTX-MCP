@@ -1,0 +1,6 @@
+# What release.yml builds the AI connector with (published to PyPI), pinned
+# exactly. requirements.txt is the lock compiled from this file, with hashes:
+# after an edit here, run `make lock` (docs/MAINTENANCE.md). setuptools must
+# stay inside mcp_server/pyproject.toml's build-system range.
+build==1.6.1
+setuptools==84.0.0

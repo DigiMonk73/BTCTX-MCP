@@ -9,12 +9,13 @@
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
 # make audit-deps   known-vulnerability scan of Python + npm dependencies
+# make lock         recompile the Python locks after editing a requirements.in
 # make check        lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 # make check-fast   the pre-push gate, without pushing
 
 PY ?= python3
 
-.PHONY: hooks test test-fast smoke e2e preview docker-smoke lint audit-deps check check-fast frontend-dist
+.PHONY: hooks test test-fast smoke e2e preview docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -49,9 +50,25 @@ lint:
 	$(PY) -m ruff check .
 	cd frontend && npm run lint && npx tsc -b && npm test
 
+# The locks as they are (this machine's packages: Linux in CI, and macOS,
+# where the Mac app's pyobjc packages are), then the dev tools.
 audit-deps:
-	$(PY) -m pip_audit -r backend/requirements.txt -r requirements-dev.txt
+	$(PY) -m pip_audit --disable-pip -r backend/requirements.txt -r desktop/requirements.txt -r .github/release-tools/requirements.txt
+	$(PY) -m pip_audit -r requirements-dev.txt
 	cd frontend && npm audit --audit-level=high
+
+# Each requirements.in → requirements.txt: every indirect package, with its
+# hashes, for every platform and Python ≥ 3.10. Run in the file's directory, so
+# the command in the lock's header is the one Dependabot re-runs there.
+# backend/ first: desktop/ is held to its versions. `make lock LOCK_ARGS=--upgrade`
+# also moves the indirect packages to their latest versions.
+# A PY given as a relative path (.venv/bin/python) still works after the cd.
+LOCK = $(if $(findstring /,$(PY)),$(abspath $(PY)),$(PY)) -m uv pip compile --quiet --universal --python-version 3.10 --generate-hashes \
+	requirements.in --output-file requirements.txt $(LOCK_ARGS)
+lock:
+	cd backend && $(LOCK)
+	cd desktop && $(LOCK)
+	cd .github/release-tools && $(LOCK)
 
 check: lint test smoke audit-deps
 	@echo "✓ all checks passed"

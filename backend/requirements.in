@@ -1,0 +1,35 @@
+# What the app needs, pinned exactly. requirements.txt is the lock compiled
+# from this file (every indirect package too, with hashes), and the one that
+# is installed: after an edit here, run `make lock` (docs/MAINTENANCE.md).
+
+# Core framework
+fastapi==0.142.2
+pydantic==2.13.5
+starlette==1.7.0
+uvicorn==0.54.0
+
+# Database
+sqlalchemy==2.0.54
+alembic==1.20.0  # schema migrations (backend/migrations/, run at startup)
+
+# Authentication
+bcrypt==5.0.0
+
+# HTTP & networking
+httpx==0.28.1
+socksio==1.0.0  # httpx SOCKS proxy support (Settings → Privacy & network, e.g. Tor)
+requests==2.34.2
+python-multipart==0.0.32
+
+# Utilities
+python-dotenv==1.2.4
+python-dateutil==2.9.0.post0
+itsdangerous==2.2.0
+tzdata==2026.4  # timezone rules for the tax timezone (bundled, OS-independent)
+
+# Encryption (for backups)
+cryptography==50.0.2
+
+# PDF generation & manipulation
+pypdf==6.19.0
+reportlab==4.4.10

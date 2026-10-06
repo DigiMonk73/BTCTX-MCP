@@ -24,7 +24,8 @@ changes come back here: `startos/UPDATING.md`.
 `Dockerfile` is a two-stage build:
 
 1. `node:22-slim`: `npm ci && npm run build` in `frontend/`
-2. `python:3.11-slim`: `pip install -r backend/requirements.txt`, copies
+2. `python:3.11-slim`: `pip install --require-hashes --only-binary :all: -r
+   backend/requirements.txt` (the lock, wheels only), copies
    `backend/` to `/app/backend` and the built frontend to `/app/frontend/dist`,
    creates `/data`, sets `ENV DATABASE_FILE=/data/btctx.db`, and runs
    `uvicorn backend.main:app --host 0.0.0.0 --port 80`.

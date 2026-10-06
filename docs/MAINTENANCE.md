@@ -51,7 +51,8 @@ make check       # lint, test, smoke, audit-deps (CI also runs e2e, StartOS and 
 tools with:
 
 ```bash
-pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+pip install --require-hashes -r backend/requirements.txt
+pip install -r requirements-dev.txt ./mcp_server
 ```
 
 ---
@@ -61,9 +62,19 @@ pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
 **Pinning.** Everything we name to ship or build with is pinned exactly, so
 it changes only by pull request:
 
-- Python: `==` in `backend/requirements.txt` (the app),
-  `desktop/requirements.txt` (the Mac app's build tools) and
-  `requirements-dev.txt` (test and CI tools).
+- Python: `==` in `backend/requirements.in` (the app),
+  `desktop/requirements.in` (the Mac app's build tools),
+  `.github/release-tools/requirements.in` (what `release.yml` builds the
+  connector with) and `requirements-dev.txt` (test and CI tools).
+- Each `requirements.in` has a lock beside it, `requirements.txt`, compiled
+  by `make lock` (`uv pip compile`): every package, indirect ones too, at a
+  fixed version with its hashes, for Linux and macOS and Python 3.10 and up
+  (`--universal`). What ships installs only from a lock, with
+  `--require-hashes`: the Docker image (wheels only, `--only-binary :all:`),
+  the Mac app (`desktop/build-mac.sh` installs both locks; `desktop/`'s is
+  held to `backend/`'s versions) and the connector's PyPI build. The CI jobs
+  that run the app install the same lock; only the dev tools and the
+  connector under test install without hashes.
 - JavaScript: `frontend/package-lock.json` and `startos/package-lock.json`
   (`npm ci` installs exactly what they hold).
 - Docker base images: tag and digest (`python:3.11-slim@sha256:…`).
@@ -73,17 +84,20 @@ it changes only by pull request:
   installed next to other software, so its dependencies take ranges, each
   capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,
   timezone data numbered by year, which is meant to float. Its build
-  backend (`setuptools>=77`) isn't pinned yet (#37).
+  backend takes a capped range too (`setuptools>=77,<85`); the release
+  builds with the locked setuptools, which must stay inside it.
 
 The CI runtimes (`python-version: "3.11"`, `node-version: 22`) and GitHub's
 runner images follow their release line. Dependabot proposes the updates
-(below). Not yet locked: the packages those
-pull in themselves (pydantic-core under pydantic, the pyobjc packages under
-pywebview…), which resolve at build time, and the `build`, `pip` and `wheel`
-tools the release and the Mac build install (#37).
+(below). The Mac build uses the `pip` its venv comes with and installs no
+`wheel`; proxy-tools (under pywebview), published only as source, is built
+with the locked setuptools (`--no-build-isolation`), since pip doesn't check
+the hashes of what it fetches for an isolated build.
 
 1. Read the package changelog for breaking changes.
-2. Edit the version, then `pip install -r backend/requirements.txt`.
+2. Edit the version in the `requirements.in`, run `make lock` (it needs `uv`,
+   from `requirements-dev.txt`), then
+   `pip install --require-hashes -r backend/requirements.txt`.
 3. Run `make check`.
 4. If the package affects PDFs (pypdf, reportlab), open a generated Form 8949,
    Schedule D and Complete Tax Report and look at them. `make test` covers
@@ -93,8 +107,16 @@ tools the release and the Mac build install (#37).
 6. Commit one package (or one coupled group) per commit, e.g.
    `deps: update sqlalchemy 2.0.54 → 2.0.55`.
 
-To roll back, restore the previous `backend/requirements.txt` from git,
-reinstall, and rerun `make check`.
+To roll back, restore the previous `requirements.in` and `requirements.txt`
+from git, reinstall, and rerun `make check`.
+
+The indirect packages move only when a lock is recompiled and a pin needs
+it, so they are refreshed once a month: the first Monday's weekly check
+reports how many have newer versions, and Claude then runs
+`make lock LOCK_ARGS=--upgrade` in a pull request reviewed like any update
+(sooner for a security fix in one).
+`test_pinning.py` fails when a lock is older than its pins, lacks hashes or
+the `make lock` command, or when the Mac lock and the backend's disagree.
 
 ### When to update
 
@@ -108,8 +130,8 @@ reinstall, and rerun `make check`.
 
 `.github/dependabot.yml` opens pull requests against `develop` every week:
 one grouped PR per directory for minor and patch updates (`backend/`,
-`mcp_server/`, `desktop/`, the dev tools in `requirements-dev.txt`,
-`frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
+`mcp_server/`, `desktop/`, `.github/release-tools/`, the dev tools in
+`requirements-dev.txt`, `frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
 in `.github/workflows/`, and one per Dockerfile base image when its tag gets
 a new build (Python 3.11 and Node 22 themselves change only on purpose).
 CI runs on each. Treat them like
@@ -130,12 +152,20 @@ merge into `develop`. Nothing reaches `main` before a release.
   6.1 or newer there (the SDK's typescript-eslint needs < 6.1; it moves with
   the SDK). Docker: Python minor and major versions and Node majors, so the
   base images stay `3.11-slim` and `22-slim` and only their digests move.
+- The locked directories (`backend/`, `desktop/`, `.github/release-tools/`)
+  are `uv` entries: Dependabot edits the pin in `requirements.in` and
+  recompiles `requirements.txt` with the command in its header (so the
+  header must stay `make lock`'s). `desktop/` updates only pyinstaller,
+  pywebview and setuptools (it builds proxy-tools); when a `backend/` PR
+  moves a package the Mac lock shares (typing-extensions, cffi…),
+  `test_pinning.py` fails on it until `make lock` is run on that branch.
 - Dependabot reads a Dockerfile `FROM` only at the start of a line, so the
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff, pip-audit and anyio. A new pinned
-  dev tool goes on that list.
+  allows only pytest, hypothesis, ruff, pip-audit and uv. A new pinned
+  dev tool goes on that list; never one a lock holds (anyio comes from
+  `backend/requirements.txt`), or this pip entry would edit the lock.
 
 ### Before a Dependabot pull request merges
 
@@ -185,20 +215,23 @@ take the update in a normal pull request with all the checks, remove its
 
 ### Audit scope
 
-`make audit-deps` and the CI audit job check `backend/requirements.txt` (what
-ships) and `requirements-dev.txt` (test/CI tools) with no exceptions. Test-only
-packages belong in `requirements-dev.txt`, never in `backend/requirements.txt`,
+`make audit-deps` and the CI audit job check the three locks (what ships:
+`backend/`, `desktop/` and `.github/release-tools/requirements.txt`, every
+package in them) and `requirements-dev.txt` (test/CI tools) with no
+exceptions. pip-audit reads only the lock entries for the machine it runs on,
+so CI audits on Linux and on macOS (the Mac app's pyobjc packages). Test-only
+packages belong in `requirements-dev.txt`, never in `backend/requirements.in`,
 which is what the Docker image installs.
 
 ---
 
 ## Current versions and risk
 
-From `backend/requirements.txt`:
+From `backend/requirements.in`:
 
 | Package | Pinned | Risk | Notes |
 |---------|--------|------|-------|
-| `fastapi` | 0.141.1 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
+| `fastapi` | 0.142.2 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
 | `starlette` | 1.7.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event` |
 | `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
@@ -209,15 +242,15 @@ From `backend/requirements.txt`:
 | `requests` | 2.34.2 | Low | |
 | `python-multipart` | 0.0.32 | Caution | "Patch" releases add hardening limits (header count, boundary size) |
 | `bcrypt` | 5.0.0 | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
-| `cryptography` | 50.0.1 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
+| `cryptography` | 50.0.2 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
 | `itsdangerous` | 2.2.0 | Low | Session cookie signing |
-| `python-dotenv` | 1.2.3 | Low | Only `load_dotenv` is used |
+| `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.4 | Low | Timezone rules for the tax timezone; update yearly |
 | `pypdf` | 6.19.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.4.10 | High | Complete Tax Report and transaction history PDFs. Stay on 4.4.x (see below) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.1 | Low | Test only: property tests |
+| `hypothesis` | 6.168.3 | Low | Test only: property tests |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
 ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.

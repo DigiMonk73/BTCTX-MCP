@@ -24,8 +24,11 @@ WORKDIR /app
 # The ledger is private: only the app's user (root here) can read /data.
 RUN mkdir -p /data && chmod 700 /data
 
+# The lock: every package, indirect ones too, at a fixed version whose hash
+# must match, and only ready-built wheels, so nothing is built (with tools no
+# lock pins) during the install.
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r requirements.txt
 
 # VERSION sits where backend/version.py reads it.
 COPY backend/ ./backend

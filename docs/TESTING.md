@@ -8,7 +8,8 @@ your real database.
 ## One-time setup
 
 ```bash
-pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+pip install --require-hashes -r backend/requirements.txt
+pip install -r requirements-dev.txt ./mcp_server
 cd frontend && npm ci && cd ..
 make hooks          # installs the pre-push gate
 ```

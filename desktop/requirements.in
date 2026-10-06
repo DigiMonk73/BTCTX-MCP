@@ -1,0 +1,8 @@
+# The Mac app's build tools, pinned exactly; build-mac.sh installs them with
+# the backend. requirements.txt is the lock compiled from this file (their
+# own dependencies too, with hashes), held by the -c line to the versions the
+# backend's lock has: after an edit here, run `make lock` (docs/MAINTENANCE.md).
+-c ../backend/requirements.txt
+pyinstaller==6.22.3
+pywebview==6.2.1
+setuptools==84.0.0  # builds proxy-tools (source only) in build-mac.sh

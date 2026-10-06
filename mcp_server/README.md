@@ -237,7 +237,8 @@ you to approve each tool call unless you tell it not to.
 
 ```bash
 # from the repo root
-pip install -r backend/requirements.txt -r requirements-dev.txt ./mcp_server
+pip install --require-hashes -r backend/requirements.txt
+pip install -r requirements-dev.txt ./mcp_server
 mkdir -p frontend/dist
 pytest mcp_server/tests backend/tests/test_entry_import.py
 ```

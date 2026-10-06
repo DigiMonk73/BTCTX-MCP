@@ -43,13 +43,9 @@ All notable changes to BitcoinTX are documented in this file.
   history: what differs then is ours, waiting for them to merge. And it
   now stops, instead of warning, when Start9 changed their fork while a
   pull request of ours is open there: theirs can't be told from ours then,
-  and a sync could record their commits without their content. `startos/`'s `UPDATING.md`, `TODO.md` and
-  `AGENTS.md` now say that `develop` takes pull requests and that to-dos
+  and a sync could record their commits without their content.
+  `startos/`'s `UPDATING.md`, `TODO.md` and `AGENTS.md` now say that `develop` takes pull requests and that to-dos
   are issues (#29).
-- **The pre-push tests no longer touch the repository in a worktree.** Git
-  hands its hook the repository's path; in a worktree it's absolute, so the
-  tests that build throwaway git repositories ran git on the real one (and
-  turned it bare). The tests now drop those variables first.
 - **What to do when a dependency update breaks something.**
   `docs/MAINTENANCE.md` now says that an update to the app's or the Mac
   app's Python packages or to the GitHub Actions merges only after the Mac
@@ -72,6 +68,31 @@ All notable changes to BitcoinTX are documented in this file.
   keeps version ranges, now capped below the next major version of `httpx`
   and `pydantic`. The rules are in `docs/MAINTENANCE.md`, "Updating a
   dependency".
+- **Every Python package that ships is locked, with its hash.** Each shipped
+  requirements file is now a `requirements.in` (what we name, pinned) with a
+  lock beside it, `requirements.txt`, made by `make lock` (`uv pip
+  compile`): every package, the indirect ones too (32 of them were pinned
+  nowhere and resolved at build time), at a fixed version with its hashes,
+  for Linux (both chip types), macOS and Python 3.10 and up. The Docker
+  image installs its lock with `--require-hashes` and ready-built wheels
+  only; the Mac app installs the backend's and `desktop/`'s locks the same
+  way, and builds its one source-only package with the locked setuptools;
+  the connector's PyPI build uses a lock of `build` and setuptools
+  (`.github/release-tools/`) and no longer fetches them unpinned. The Mac
+  build no longer upgrades `pip` or installs `wheel`, and CI's container
+  smoke test installs the lock rather than an unpinned `httpx`. Dependabot
+  keeps the locks current (`uv` entries); the dependency audit now covers
+  all three locks, on Linux and macOS. `test_pinning.py` checks that each
+  lock has every hash and matches its pins, and that whatever ships installs
+  with `--require-hashes`. The indirect packages are refreshed once a month
+  (`make lock LOCK_ARGS=--upgrade`), when the first Monday's weekly check
+  reports newer versions (#37).
+- **The pre-push check can't break the repository any more.** Run from a
+  worktree, git hands the hook `GIT_DIR`; the tests that build throwaway
+  repositories inherited it, and their `git init` set `core.bare = true` in
+  the shared `.git/config`, so git refused to work in every checkout until
+  it was set back. The hook now unsets those variables first (git's advice
+  for hooks), and a test keeps that line there.
 - **The weekly StartOS check also watches start-cli.** Besides a newer
   `@start9labs/start-sdk` on npm, `startos-sdk-check.yml` opens an issue
   when Start9 releases a newer start-cli (the tool that packs `btctx.s9pk`)

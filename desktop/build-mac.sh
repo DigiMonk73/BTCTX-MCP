@@ -76,10 +76,20 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-# Install dependencies
-pip install --upgrade pip wheel > /dev/null 2>&1
-pip install -r "$PROJECT_ROOT/backend/requirements.txt" > /dev/null 2>&1
-pip install -r "$SCRIPT_DIR/requirements.txt" > /dev/null 2>&1
+# Install dependencies from the locks, every package checked against its
+# hash. proxy-tools (under pywebview) is published only as source: it is
+# built with the locked setuptools, installed first, not with whatever
+# setuptools pip would fetch for the build (that fetch has no hash check).
+export PIP_DISABLE_PIP_VERSION_CHECK=1
+awk '/^setuptools==/ { on = 1; print; next } on && /^ / { print; next } { on = 0 }' \
+    "$SCRIPT_DIR/requirements.txt" > "$VENV_DIR/setuptools.txt"
+if [ ! -s "$VENV_DIR/setuptools.txt" ]; then
+    echo "ERROR: no setuptools in desktop/requirements.txt (run make lock)"
+    exit 1
+fi
+pip install -q --require-hashes --no-deps -r "$VENV_DIR/setuptools.txt"
+pip install -q --require-hashes --no-build-isolation \
+    -r "$PROJECT_ROOT/backend/requirements.txt" -r "$SCRIPT_DIR/requirements.txt"
 echo "  Dependencies installed"
 
 # Step 3: Build frontend
