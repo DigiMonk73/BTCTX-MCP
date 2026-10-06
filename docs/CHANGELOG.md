@@ -16,7 +16,8 @@ All notable changes to BitcoinTX are documented in this file.
 ### Development
 - **What to do when a dependency update breaks something.**
   `docs/MAINTENANCE.md` now says that an update to the app's or the Mac
-  app's Python packages merges only after the Mac build has passed (it isn't
+  app's Python packages or to the GitHub Actions merges only after the Mac
+  build has passed (it isn't
   one of the required checks), that updates which could move a tax figure
   get the before-and-after comparison, how a breaking update is fixed or
   skipped (an `ignore` rule, a "Deferred upgrades" row and an issue), and

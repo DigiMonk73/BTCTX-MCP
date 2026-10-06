@@ -144,8 +144,9 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
 - **The Mac app.** Its build and launch check runs on each branch push, not
   on pull requests, so it is not a required check and auto-merge does not
-  wait for it. An update to `backend/` or `desktop/` requirements merges
-  only after that run has passed on the pull request's head commit:
+  wait for it. An update to `backend/` or `desktop/` requirements, or to
+  the GitHub Actions (the Mac job uses them too), merges only after that
+  run has passed on the pull request's head commit. Claude checks it:
   `gh run list -b <branch> -e push -w ci.yml -L 1 --json databaseId,headSha`,
   then `gh run view <id> --json jobs` (the "macOS app build + launch check"
   job). Turn on auto-merge only once it is green.
@@ -176,7 +177,9 @@ A failing check stops the merge; find out why before anything else.
 The weekly check (Mondays) looks at each "Deferred upgrades" row for a newer
 release or a fix to the problem and reports it. A skipped version that
 becomes the only one with a security fix fails the audit on every pull
-request, so it can't be missed. Once the "Unblock when" condition is met,
+request when the audit scans that package (`make audit-deps`: the app's
+Python packages, the dev tools, and high or critical frontend advisories);
+for the rest, the Monday check's security alerts catch it. Once the "Unblock when" condition is met,
 take the update in a normal pull request with all the checks, remove its
 `ignore` rule and its row, and close the issue.
 
