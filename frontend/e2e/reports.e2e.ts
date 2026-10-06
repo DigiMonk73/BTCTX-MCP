@@ -28,7 +28,7 @@ test("the tax year is a list from the first transaction to this year; IRS forms 
   await expect(year.locator("option").last()).toHaveText("2023");
   await expect(year.locator('option[value="2023"]')).toBeEnabled();
 
-  // IRS forms ship for 2024 and 2025 only: 2023 can't be picked for them.
+  // No IRS forms for 2023 (final forms ship from 2024): it can't be picked for them.
   await year.selectOption("2023");
   await page.getByLabel("IRS Reports (Form 8949, Schedule D, etc.)").check();
   await expect(year.locator('option[value="2023"]')).toBeDisabled();

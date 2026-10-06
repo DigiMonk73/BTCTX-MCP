@@ -85,8 +85,10 @@ def draft_years(bundled: list[int]) -> list[int]:
     return sorted(_drafts(bundled))
 
 
-def template_path(year: int, form_name: str, bundled: list[int]) -> str:
-    return str(_drafts(bundled)[year] / form_name)
+def template_path(year: int, form_name: str, bundled: list[int]) -> str | None:
+    """The year's draft of `form_name`, or None when it has none (now)."""
+    path = _drafts(bundled).get(year)
+    return str(path / form_name) if path else None
 
 
 def _drafts(bundled: list[int]) -> dict[int, Path]:

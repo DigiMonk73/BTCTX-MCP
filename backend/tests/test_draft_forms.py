@@ -78,6 +78,18 @@ def test_the_draft_year_is_offered(auth_client, with_drafts):
     assert years["draft_years"] == [YEAR]
 
 
+def _sale(year: int) -> list[dict]:
+    """A 2026-style covered exchange sale (Box G): $4,400 for $3,600 of basis."""
+    return [
+        dict(type="Deposit", timestamp=f"{year}-01-02T12:00:00Z", from_account_id=99, to_account_id=3,
+             amount="10000", fee_amount="0", fee_currency="USD", source="N/A"),
+        dict(type="Buy", timestamp=f"{year}-01-05T12:00:00Z", from_account_id=3, to_account_id=4,
+             amount="0.1", cost_basis_usd="9000.00", fee_amount="0", fee_currency="USD"),
+        dict(type="Sell", timestamp=f"{year}-03-05T12:00:00Z", from_account_id=4, to_account_id=3,
+             amount="0.04", gross_proceeds_usd="4400.00", fee_amount="0", fee_currency="USD"),
+    ]
+
+
 class _EndOfDraftYear(datetime):
     """"Now" late in the draft year, so its sales aren't in the future
     (review of #52: right after a yearly update, YEAR's spring still is)."""
@@ -92,14 +104,7 @@ def test_forms_print_from_the_drafts_marked_on_every_page(auth_client, data_dir,
     make_draft(data_dir / draft_forms.FOLDER_NAME / str(YEAR), cover=cover)
     monkeypatch.setattr("backend.services.transaction.datetime", _EndOfDraftYear)
     auth_client.delete("/api/transactions/delete_all")
-    for tx in (
-        dict(type="Deposit", timestamp=f"{YEAR}-01-02T12:00:00Z", from_account_id=99, to_account_id=3,
-             amount="10000", fee_amount="0", fee_currency="USD", source="N/A"),
-        dict(type="Buy", timestamp=f"{YEAR}-01-05T12:00:00Z", from_account_id=3, to_account_id=4,
-             amount="0.1", cost_basis_usd="9000.00", fee_amount="0", fee_currency="USD"),
-        dict(type="Sell", timestamp=f"{YEAR}-03-05T12:00:00Z", from_account_id=4, to_account_id=3,
-             amount="0.04", gross_proceeds_usd="4400.00", fee_amount="0", fee_currency="USD"),
-    ):
+    for tx in _sale(YEAR):
         assert auth_client.post("/api/transactions", json=tx).status_code == 200
     try:
         r = auth_client.get("/api/reports/irs_reports", params={"year": YEAR})
@@ -180,6 +185,13 @@ def test_the_shipped_preview_ends_with_its_year(auth_client, shipped):
     assert auth_client.get("/api/reports/irs_reports", params={"year": YEAR}).status_code == 400
 
 
+def test_a_test_install_s_drafts_come_before_the_shipped_ones(auth_client, with_drafts, shipped):
+    """Review of #54: during the year both are offered; the test install's win."""
+    shipped(date(YEAR, 10, 6))
+    assert auth_client.get("/api/reports/years").json()["draft_years"] == [YEAR]
+    assert draft_forms.FOLDER_NAME in get_template_path(YEAR, "f8949.pdf")
+
+
 def test_a_test_install_keeps_its_drafts_after_the_year(auth_client, with_drafts, shipped):
     shipped(date(YEAR + 1, 2, 1))
     assert auth_client.get("/api/reports/years").json()["draft_years"] == [YEAR]
@@ -189,14 +201,52 @@ def test_a_test_install_keeps_its_drafts_after_the_year(auth_client, with_drafts
 REAL_SHIPPED = Path(draft_forms.__file__).resolve().parents[2] / "assets" / "irs_templates" / "drafts"
 
 
-@pytest.mark.parametrize("folder", sorted(REAL_SHIPPED.glob("[0-9][0-9][0-9][0-9]")), ids=lambda p: p.name)
+SHIPPED_YEARS = sorted(REAL_SHIPPED.glob("[0-9][0-9][0-9][0-9]"))
+
+
+def _irs_new_year():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "irs_new_year", Path(__file__).resolve().parents[2] / "scripts" / "irs_new_year.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("folder", SHIPPED_YEARS, ids=lambda p: p.name)
 def test_the_shipped_draft_is_the_irs_draft_of_a_year_without_final_forms(folder):
     """At the yearly update the final forms replace the draft:
-    scripts/irs_new_year.py removes it, and this fails if it's still there."""
+    scripts/irs_new_year.py removes it, and this fails if it's still there.
+    Checked as a final form is (review of #54): fields, line 2 positions,
+    box order, Schedule D lines."""
     year = int(folder.name)
     assert year > max(BUNDLED), f"{year}'s final forms are bundled: delete {folder}"
     assert draft_forms.problems(year, folder) == []
-    assert sorted(p.name for p in REAL_SHIPPED.iterdir()) == [folder.name]  # one preview at a time
+    assert _irs_new_year().verify(year, folder, draft=True)
+    assert len(SHIPPED_YEARS) == 1  # one preview at a time
+
+
+@pytest.mark.parametrize("folder", SHIPPED_YEARS, ids=lambda p: p.name)
+def test_the_shipped_draft_prints_marked_on_every_page(auth_client, monkeypatch, folder):
+    """The real files, through the route: a sale lands, every page says
+    DRAFT — DO NOT FILE, no IRS cover page."""
+    year = int(folder.name)
+    monkeypatch.setattr(draft_forms, "SHIPPED_DIR", REAL_SHIPPED)
+    monkeypatch.setattr(draft_forms, "today", lambda: date(year, 12, 31))
+    monkeypatch.setattr("backend.services.transaction.datetime", _EndOfDraftYear)
+    auth_client.delete("/api/transactions/delete_all")
+    try:
+        for tx in _sale(year):
+            assert auth_client.post("/api/transactions", json=tx).status_code == 200
+        r = auth_client.get("/api/reports/irs_reports", params={"year": year})
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+    assert r.status_code == 200, r.text
+    texts = [p.extract_text() or "" for p in PdfReader(io.BytesIO(r.content)).pages]
+    assert len(texts) == 4 and all(draft_forms.DRAFT_MARK in t for t in texts)
+    assert not any(draft_forms.COVER_NOTE in t for t in texts)
+    assert "4400.00" in texts[0] and "800.00" in texts[2]
 
 
 def test_the_drafts_are_checked_like_a_final_form(tmp_path):

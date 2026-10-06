@@ -314,6 +314,13 @@ Start from the `clean` snapshot.
   Part II. Column (f) is blank.
 - **RPT-3** The same for 2025. Expect: box H ticked on Part I and box L
   on Part II, with the 2025 rows and lines above.
+- **RPT-3b** The draft preview (until January 1 after the preview's year;
+  in 2026: the 2026 draft). With **IRS Reports** selected, the year shows as
+  "2026 – IRS draft (preview, not for filing)" and choosing it shows the
+  warning not to file it. **Export**: every page of the PDF says "DRAFT — DO
+  NOT FILE" and none is the IRS's cover note ("the draft you are looking for
+  begins on the next page"). From January 1 after its year, the year shows
+  "(no IRS forms yet)" and the note says to update BitcoinTX.
 - **RPT-4** Transaction History for 2023, 2024 and 2025. Expect the files
   `TransactionHistory_<year>.csv` with 6, 4 and 4 data rows.
 - **RPT-5** Complete Tax Report 2023 and 2024, with Off and no stored

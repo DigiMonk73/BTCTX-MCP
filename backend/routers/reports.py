@@ -219,9 +219,8 @@ def get_template_path(year: int, form_name: str) -> str:
     """The path of a year's template ("f8949.pdf", "f1040sd.pdf"): the
     bundled one, else the year's draft; or 400."""
     template_path = os.path.join(_ASSETS_DIR, str(year), form_name)
-    bundled = get_supported_years()
-    if not os.path.exists(template_path) and year in draft_forms.draft_years(bundled):
-        template_path = draft_forms.template_path(year, form_name, bundled)
+    if not os.path.exists(template_path):
+        template_path = draft_forms.template_path(year, form_name, get_supported_years()) or template_path
     if not os.path.exists(template_path):
         supported = get_form_years()
         raise HTTPException(

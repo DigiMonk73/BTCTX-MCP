@@ -237,13 +237,13 @@ def draft_check(ship: bool = False) -> int:
                     f.write(r.read())
             except Exception as e:
                 print(f"  ✗ couldn't download {url}: {e}")
-                return 0
+                return 1 if ship else 0
         year = form_year(folder / "f8949.pdf")
         sd_year = form_year(folder / "f1040sd.pdf")
         print(f"IRS drafts on irs.gov: Form 8949 for {year}, Schedule D for {sd_year} (latest bundled: {have})")
         if not year or year <= have:
             print("No draft newer than the bundled forms; nothing to preview.")
-            return 0
+            return 1 if ship else 0
         print(f"\nChecking the {year} DRAFT against the app (drafts can still change)")
         ok = verify(year, folder, draft=True)
         print(f"\n{'✓ The app already fits the draft.' if ok else '✗ Differences above need a config change when the final form ships.'}")
@@ -290,6 +290,8 @@ def main() -> int:
     ap.add_argument("--draft", action="store_true", help="preview: check the IRS draft forms (installs nothing)")
     ap.add_argument("--ship", action="store_true", help="with --draft: ship them as the app's preview of that year")
     a = ap.parse_args()
+    if a.ship and not a.draft:
+        ap.error("--ship goes with --draft")
     if a.watch:
         return watch()
     if a.draft:

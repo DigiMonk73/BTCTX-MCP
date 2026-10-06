@@ -37,7 +37,7 @@ const REPORTS = [
 interface ReportYears {
   ledger_years: number[];
   form_years: number[] | null; // null: unknown, nothing is disabled
-  draft_years?: number[]; // test installs only: the IRS's draft forms
+  draft_years?: number[]; // the IRS's draft forms: a preview, not for filing
 }
 
 // If the year list can't be loaded, offer every year back to 2010.
@@ -153,7 +153,7 @@ const Reports: React.FC = () => {
         {missingForms && (
           <p className="note note-warning" role="status">
             {formsToCome(Number(taxYear))
-              ? `The final IRS forms for ${taxYear} come in a BitcoinTX update once the IRS publishes them.`
+              ? `Update BitcoinTX to get the final IRS forms for ${taxYear} (the IRS usually publishes them in December or January).`
               : `IRS forms for ${taxYear} aren't in this version of BitcoinTX yet.`}{" "}
             The Complete Tax Report and Transaction History work for any year.
           </p>
@@ -161,7 +161,8 @@ const Reports: React.FC = () => {
         {taxYear !== "" && isDraft(Number(taxYear)) && (
           <p className="note note-warning" role="status">
             Preview: these are the IRS's draft {taxYear} forms, marked DRAFT — DO NOT FILE on every
-            page. Don't file them: the final forms come in a BitcoinTX update once the IRS publishes them.
+            page. Don't file them: update BitcoinTX for the final forms once the IRS publishes them. The
+            preview ends on January 1, {Number(taxYear) + 1}.
           </p>
         )}
 
