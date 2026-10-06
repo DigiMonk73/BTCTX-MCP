@@ -34,7 +34,11 @@ All notable changes to BitcoinTX are documented in this file.
   to Start9's fork (or, if the two have diverged, records it as merged,
   keeping `startos/`), so each pull request to Start9 shows only our
   changes, not theirs undone. It runs `start9-pull.sh --check` first, also
-  for a docs-only sync by hand, and stops if `startos/` lacks theirs. `startos/`'s `UPDATING.md`, `TODO.md` and
+  for a docs-only sync by hand, and stops if `startos/` lacks theirs.
+  The check (also the release's first step) now accepts their changes
+  taken in a commit since our last sync and edited afterwards; before, our
+  edits to two lines Start9 had rewritten would have stopped the next
+  release. `startos/`'s `UPDATING.md`, `TODO.md` and
   `AGENTS.md` now say that `develop` takes pull requests and that to-dos
   are issues (#29).
 - **The pre-push tests no longer touch the repository in a worktree.** Git

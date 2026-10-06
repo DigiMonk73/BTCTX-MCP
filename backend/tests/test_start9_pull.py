@@ -58,7 +58,7 @@ def repos(tmp_path, monkeypatch):
     git(tmp_path, "init", "-q", "-b", "main", str(mirror))
     (mirror / "main.ts").write_text("one\ntwo\n")
     git(mirror, "add", "-A")
-    git(mirror, "commit", "-qm", "sync")
+    git(mirror, "commit", "-qm", f"Sync from DigiMonk73/BTCTX-MCP@{git(proj, 'rev-parse', '--short', 'HEAD').strip()} (1.0.0:0)")
 
     fork = tmp_path / "fork"
     git(tmp_path, "clone", "-q", str(mirror), str(fork))
@@ -110,6 +110,28 @@ def test_check_passes_once_their_changes_are_committed_in_startos(repos):
     git(proj, "commit", "-qam", "Take Start9's changes")
     r = run(proj, "--check", **FORKED)
     assert r.returncode == 0 and "are in startos/" in r.stdout
+
+
+def test_check_passes_when_we_changed_their_lines_after_taking_them(repos):
+    """Taken in one commit, then edited (as #29 did to their AGENTS.md): HEAD alone
+    no longer un-applies their patch, the commit that took it does."""
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as Start9 wants it\n")
+    git(proj, "commit", "-qam", "Take Start9's changes")
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
+    git(proj, "commit", "-qam", "Ours on top")
+    r = run(proj, "--check", **FORKED)
+    assert r.returncode == 0, r.stderr
+    assert "taken in" in r.stdout and "Take Start9's changes" in r.stdout
+
+
+def test_check_still_stops_when_we_changed_their_lines_without_taking_them(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as we do\n")
+    git(proj, "commit", "-qam", "Ours, not theirs")
+    assert run(proj, "--check", **FORKED).returncode == 1
 
 
 def test_check_warns_but_passes_while_our_pull_request_is_open(repos):

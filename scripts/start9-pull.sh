@@ -16,7 +16,8 @@
 # --apply: applies that difference to startos/ in the working tree,
 # three-way, for you to review, test, commit and send to develop by pull
 # request. Refused on main.
-# --check: exit 1 if their changes are not in startos/ at HEAD (committed);
+# --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
+# or in the commit since our last sync that took them, edited since);
 # exit 0 when they are, when there is no fork yet, or while a pull request of
 # ours is open there (it can't tell theirs from ours then; it says so).
 # --fork: prints "<owner/repo> <branch>" of their fork, nothing before it exists.
@@ -81,14 +82,28 @@ OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number,tit
   --jq '.[] | select(.headRepositoryOwner.login == "'"${MIRROR%%/*}"'") | "#\(.number) \(.title)"' 2>/dev/null || true)"
 
 if [ "$MODE" = --check ]; then
-  # Their changes are in HEAD's startos/ when the patch un-applies there.
-  mkdir "$TMP/head"
-  git -C "$TMP/head" init -q
-  git -C "$ROOT" archive HEAD startos | tar -x -C "$TMP/head"
-  if git -C "$TMP/head" apply --check --reverse --directory=startos "$TMP/start9.patch" 2>/dev/null; then
-    echo "Start9's changes to $FORK are in startos/."
-    exit 0
+  # Their changes are in startos/ when the patch un-applies there: at HEAD,
+  # or at the commit since our last sync that took them (a later change of
+  # ours to the same lines no longer un-applies it, and is fine: the pull
+  # request to them shows it). Committed only: the release builds HEAD.
+  SYNCED="$(git -C "$TMP/mirror" log -1 --format=%s --grep='^Sync from DigiMonk73/BTCTX-MCP@' main start9 \
+    | sed -n 's/^Sync from DigiMonk73\/BTCTX-MCP@\([0-9a-f]*\).*/\1/p')"
+  HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+  COMMITS="$HEAD_SHA"
+  if [ -n "$SYNCED" ] && git -C "$ROOT" merge-base --is-ancestor "$SYNCED" HEAD 2>/dev/null; then
+    COMMITS="$COMMITS $(git -C "$ROOT" rev-list HEAD "^$SYNCED" -- startos)"
   fi
+  for C in $COMMITS; do
+    GIT_INDEX_FILE="$TMP/index" git -C "$ROOT" read-tree "$C:startos"
+    if GIT_INDEX_FILE="$TMP/index" git -C "$ROOT" apply --cached --check --reverse "$TMP/start9.patch" 2>/dev/null; then
+      if [ "$C" = "$HEAD_SHA" ]; then
+        echo "Start9's changes to $FORK are in startos/."
+      else
+        echo "Start9's changes to $FORK are in startos/: taken in $(git -C "$ROOT" log -1 --format='%h %s' "$C"), changed since."
+      fi
+      exit 0
+    fi
+  done
   if [ -n "$OPEN" ]; then
     echo "::warning::Our pull request on $FORK is still open ($OPEN), so Start9's own changes can't be told apart: check with scripts/start9-pull.sh."
     exit 0
