@@ -249,3 +249,32 @@ def test_only_what_start9_did_since_the_record_counts(repos):
     assert (proj / "startos" / "extra.ts").read_text() == "new from Start9\n"
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it, and as we do\n", "the old change isn't applied again"
     assert (proj / "scripts" / "start9-taken").read_text().strip() == git(fork, "rev-parse", "HEAD").strip()
+
+
+def test_the_record_is_set_aside_once_a_sync_is_built_on_it(repos, tmp_path):
+    """After our next sync (built on their branch) and their merge of it, the
+    mirror's main is the base again: our own edits never show as theirs."""
+    proj, fork = repos
+    start9_changes(fork)
+    (proj / "startos" / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
+    take_record(proj, fork)
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "taken, squashed")
+    mirror = tmp_path / "mirror"
+    git(mirror, "pull", "-q", "--ff-only", str(fork), "HEAD")
+    (mirror / "main.ts").write_text("one\ntwo, as Start9 wants it, and as we do\n")
+    git(mirror, "commit", "-qam", "Sync from DigiMonk73/BTCTX-MCP@abcdef0 (1.0.0:1)")
+    git(fork, "pull", "-q", "--no-rebase", "--no-edit", str(mirror), "main")
+    r = run(proj, "--check", **FORKED)
+    assert r.returncode == 0, r.stderr
+    r = run(proj, **FORKED)
+    assert "and as we do" not in r.stdout, "our own edit shown as Start9's"
+
+
+def test_a_record_committed_without_the_take_back_doesnt_count(repos):
+    proj, fork = repos
+    start9_changes(fork)
+    take_record(proj, fork)
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "only the record")
+    assert run(proj, "--check", **FORKED).returncode == 1

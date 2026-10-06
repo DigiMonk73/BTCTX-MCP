@@ -8,17 +8,20 @@
 #
 #   scripts/start9-pull.sh [--apply | --check | --fork]
 #
-# No option: shows how their fork's default branch differs from our mirror's
-# main. Once they have merged our latest mirror commit (merge or squash), that
-# is exactly their changes; while a pull request of ours is still open there,
-# it also holds the reverse of ours, and the script says so. Changes already
-# brought back and synced to the mirror no longer show.
+# No option: shows what Start9 changed on their fork's default branch: since
+# the commit of theirs we last took (scripts/start9-taken, until a sync is
+# built on it), or else against our mirror's main. Once they have merged our
+# latest mirror commit (merge or squash), that is exactly their changes;
+# while a pull request of ours is still open there, the mirror comparison
+# also holds the reverse of ours, and the script says so.
 # --apply: applies that difference to startos/ in the working tree,
 # three-way, for you to review, test, commit and send to develop by pull
 # request, and records their commit in scripts/start9-taken (commit it too:
 # later runs then count only what they changed since). Refused on main.
 # --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
-# or in the commit since our last sync that took them, edited since);
+# or in the commit since our last sync that took them, edited since; nothing
+# new since the recorded commit counts as taken, so the record is only as
+# true as the commit that carries it);
 # exit 0 when they are, when there is no fork yet, or when their branch is
 # already in the mirror's history (what differs is ours, waiting for them).
 # Start9 changes made while a pull request of ours is open there can't be
@@ -89,8 +92,16 @@ fi
 # while one of ours is open there, that also holds the reverse of ours.
 TAKEN_FILE="$ROOT/scripts/start9-taken"
 TAKEN="$( { git -C "$ROOT" show HEAD:scripts/start9-taken 2>/dev/null || true; } | sed -n 1p | tr -cd '0-9a-f')"  # committed: what a release builds
+# The record counts only while no sync has been built on it yet (after that,
+# the mirror's main is the right base again), and only if the commit that
+# last set it also changed startos/ (the take-back came with it).
+RECORDED_IN="$(git -C "$ROOT" log -1 --format=%H HEAD -- scripts/start9-taken 2>/dev/null || true)"
 BASE=main
-if [ -n "$TAKEN" ] && git -C "$TMP/mirror" merge-base --is-ancestor "$TAKEN" start9 2>/dev/null; then
+if [ -n "$TAKEN" ] \
+  && git -C "$TMP/mirror" merge-base --is-ancestor "$TAKEN" start9 2>/dev/null \
+  && ! git -C "$TMP/mirror" merge-base --is-ancestor "$TAKEN" main 2>/dev/null \
+  && [ -n "$RECORDED_IN" ] \
+  && [ -n "$(git -C "$ROOT" diff-tree --no-commit-id --name-only -r "$RECORDED_IN" -- startos)" ]; then
   BASE="$TAKEN"
 fi
 git -C "$TMP/mirror" diff --binary "$BASE" start9 > "$TMP/start9.patch"
