@@ -12,8 +12,13 @@ drafts, so the yearly update replaces them.
 A year counts only when both files are the IRS's drafts for it that the app
 can fill: that year printed on them, "DRAFT — DO NOT FILE" on every form
 page (so on every page the app prints), and every field the app writes and
-the boxes in the config's order (form_8949.py). Anything else is left out,
-with a warning in the log.
+the boxes in the config's order (form_8949.py). Anything else, a file that
+can't be read included, is left out with a warning in the log: it never
+stops the bundled years' forms.
+
+install() downloads from irs.gov itself, not through services/outbound.py:
+it runs only when an admin runs `install-draft-forms` on a test install,
+never in the app, so the owner's price settings don't apply to it.
 """
 
 from __future__ import annotations
@@ -68,14 +73,15 @@ def first_form_page(path: Path) -> int:
 
 def draft_years(bundled: list[int]) -> list[int]:
     """The years with checked drafts, each newer than every bundled year."""
-    base = folder()
-    if not base.is_dir():
-        return []
     newest = max(bundled, default=0)
-    return sorted(
-        int(d.name) for d in base.iterdir()
-        if d.is_dir() and d.name.isdigit() and int(d.name) > newest and _usable(int(d.name), d)
-    )
+    try:
+        years = [(int(d.name), d) for d in folder().iterdir() if re.fullmatch(r"[0-9]{4}", d.name)]
+    except FileNotFoundError:
+        return []
+    except OSError as e:
+        logger.warning("IRS draft forms in %s left out: %s", folder(), e)
+        return []
+    return sorted(year for year, d in years if year > newest and _usable(year, d))
 
 
 def template_path(year: int, form_name: str) -> str:
@@ -83,17 +89,22 @@ def template_path(year: int, form_name: str) -> str:
 
 
 def _usable(year: int, path: Path) -> bool:
-    files = [path / name for name in FORMS]
-    if not all(f.is_file() for f in files):
+    try:
+        stats = [(path / name).stat() for name in FORMS]
+    except OSError as e:
+        logger.warning("IRS draft forms in %s left out: %s", path, e)
         return False
-    signature = tuple((f.stat().st_mtime_ns, f.stat().st_size) for f in files)
+    signature = tuple((s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns) for s in stats)
     return not _checked(year, str(path), signature)
 
 
 @lru_cache(maxsize=16)
 def _checked(year: int, path: str, signature: tuple) -> tuple[str, ...]:
     """problems() once per version of the files (`signature`), logged."""
-    found = tuple(problems(year, Path(path)))
+    try:
+        found = tuple(problems(year, Path(path)))
+    except Exception as e:  # a damaged or half-copied PDF: leave it out, never fail the request
+        found = (f"unreadable: {type(e).__name__}: {e}",)
     if found:
         logger.warning("IRS draft forms in %s left out: %s", path, "; ".join(found))
     return found

@@ -12,6 +12,7 @@ is how the IRS's drafts look (2026's did, May 2026).
 
 import io
 import shutil
+from datetime import datetime, timezone
 
 import pytest
 from pypdf import PdfReader, PdfWriter
@@ -74,7 +75,19 @@ def test_the_draft_year_is_offered(auth_client, with_drafts):
     assert years["draft_years"] == [YEAR]
 
 
-def test_forms_print_from_the_drafts_marked_on_every_page(auth_client, with_drafts):
+class _EndOfDraftYear(datetime):
+    """"Now" late in the draft year, so its sales aren't in the future
+    (review of #52: right after a yearly update, YEAR's spring still is)."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return datetime(YEAR, 12, 31, tzinfo=timezone.utc).astimezone(tz)
+
+
+@pytest.mark.parametrize("cover", [True, False])
+def test_forms_print_from_the_drafts_marked_on_every_page(auth_client, data_dir, monkeypatch, cover):
+    make_draft(data_dir / draft_forms.FOLDER_NAME / str(YEAR), cover=cover)
+    monkeypatch.setattr("backend.services.transaction.datetime", _EndOfDraftYear)
     auth_client.delete("/api/transactions/delete_all")
     for tx in (
         dict(type="Deposit", timestamp=f"{YEAR}-01-02T12:00:00Z", from_account_id=99, to_account_id=3,
@@ -121,6 +134,21 @@ def test_anything_but_that_years_drafts_is_left_out(auth_client, data_dir, why, 
     make(folder)
     assert auth_client.get("/api/reports/years").json()["draft_years"] == [], why
     assert auth_client.get("/api/reports/irs_reports", params={"year": YEAR}).status_code == 400
+
+
+def test_a_damaged_draft_never_stops_the_bundled_forms(auth_client, data_dir, caplog):
+    """Review of #52: an unreadable PDF in the draft folder made every
+    year's IRS forms, and the year list, fail with a 500."""
+    folder = data_dir / draft_forms.FOLDER_NAME / str(YEAR)
+    folder.mkdir(parents=True)
+    for name in draft_forms.FORMS:
+        (folder / name).write_bytes(b"%PDF-1.7 half copied")
+    (data_dir / draft_forms.FOLDER_NAME / "²").mkdir()  # isdigit(), but not a year
+    years = auth_client.get("/api/reports/years")
+    assert years.status_code == 200 and years.json()["draft_years"] == []
+    r = auth_client.get("/api/reports/irs_reports", params={"year": max(BUNDLED)})
+    assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    assert "left out: unreadable" in caplog.text
 
 
 def test_the_drafts_are_checked_like_a_final_form(tmp_path):

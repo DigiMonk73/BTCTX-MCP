@@ -88,7 +88,12 @@ def test_a_ledger_with_transactions_is_refused(seeded):
         assert db.query(Transaction).count() == 65 + len(seed_ledger.LEDGER_2026)
 
 
-@pytest.mark.parametrize("url", ["http://127.0.0.1:8765", "http://localhost:8765/", "http://[::1]:8765"])
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1:8765", "http://localhost:8765/", "http://[::1]:8765", "http://LOCALHOST:8765",
+    # Review of #52: other spellings of this computer
+    "http://127.1:8765", "http://2130706433:8765", "http://localhost.:8765", "http://foo.localhost:8765",
+    "http://[::]:8765", "http://0.0.0.0:8765", "http://[::ffff:127.0.0.1]:8765",
+])
 def test_the_mac_app_is_refused_before_anything_is_sent(url, monkeypatch, capsys):
     def no_connection(*args, **kwargs):
         raise AssertionError("connected to the Mac app")
@@ -101,4 +106,10 @@ def test_the_mac_app_is_refused_before_anything_is_sent(url, monkeypatch, capsys
 
 def test_other_local_ports_are_allowed():
     seed_ledger.refuse_mac_app("http://127.0.0.1:8777")  # make preview
-    seed_ledger.refuse_mac_app("https://startos-box.local:8765")
+    seed_ledger.refuse_mac_app("https://192.0.2.10:8765")  # another computer
+
+
+def test_a_bad_address_is_a_message_not_a_traceback(monkeypatch, capsys):
+    monkeypatch.setenv(seed_ledger.PASSWORD_ENV, PASSWORD)
+    assert seed_ledger.main(["--url", "http://host:abc", "--user", USER]) == 1
+    assert "not a valid address" in capsys.readouterr().err

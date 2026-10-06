@@ -33,6 +33,7 @@ import argparse
 import ipaddress
 import json
 import os
+import socket
 import ssl
 import sys
 from bisect import bisect_left
@@ -158,15 +159,31 @@ def _days(timestamp: str) -> int:
 
 # The server
 def refuse_mac_app(url: str) -> None:
-    """The Mac app holds its owner's real ledger and is only on loopback port 8765."""
+    """The Mac app holds its owner's real ledger and listens on this
+    computer's port 8765: refuse any address that reaches it (127.1,
+    localhost., [::] too, as the system resolves them)."""
     parts = urlsplit(url)
-    host, port = parts.hostname or "", parts.port
     try:
-        loopback = host == "localhost" or ipaddress.ip_address(host).is_loopback or host == "0.0.0.0"
+        port = parts.port
     except ValueError:
-        loopback = False
-    if loopback and port == MAC_APP_PORT:
+        raise SeedError(f"{url} is not a valid address") from None
+    if port != MAC_APP_PORT:
+        return
+    host = (parts.hostname or "").rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
         raise SeedError(f"{url} is the Mac app's address: its ledger is real data. Never seed it.")
+    try:
+        addresses = {info[4][0].split("%")[0] for info in socket.getaddrinfo(host, port)}
+    except socket.gaierror:
+        return  # nothing to connect to
+    if any(_this_computer(a) for a in addresses):
+        raise SeedError(f"{url} is the Mac app's address: its ledger is real data. Never seed it.")
+
+
+def _this_computer(address: str) -> bool:
+    ip = ipaddress.ip_address(address)
+    ip = getattr(ip, "ipv4_mapped", None) or ip  # ::ffff:127.0.0.1
+    return ip.is_loopback or ip.is_unspecified
 
 
 def connect(url: str, ca: str | None) -> httpx.Client:
@@ -196,7 +213,8 @@ def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
     for n, row in enumerate(rows, start=1):
         r = c.post("/api/transactions", json=row)
         if r.status_code != 200:
-            raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}")
+            raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
+                            f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
     return len(rows)
 
 

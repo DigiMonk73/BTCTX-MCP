@@ -24,7 +24,10 @@ read-only ("managed"). A mempool choice may come without an address (StartOS
 while Mempool isn't installed): then nothing answers but the fallback. An
 invalid value turns price lookups off rather than guessing.
 
-A test checks no other backend module builds its own client.
+A test checks no other backend module builds its own client. The one
+exception is an admin's command, not the app: `python -m backend.cli
+install-draft-forms` (services/reports/draft_forms.py) fetches the IRS's
+draft forms from irs.gov when run on a test install.
 """
 
 from __future__ import annotations

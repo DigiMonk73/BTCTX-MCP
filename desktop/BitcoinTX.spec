@@ -166,6 +166,7 @@ hidden_imports = [
     "backend.services.reports.transaction_history",
     "backend.services.reports.reporting_core",
     "backend.services.reports.pdf_form_filler",
+    "backend.services.reports.draft_forms",
     "backend.services.reports.safe_text",
     "backend.services.reports.pdf_layout",
 
