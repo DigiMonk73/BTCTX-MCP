@@ -52,7 +52,9 @@ All notable changes to BitcoinTX are documented in this file.
   keeps the locks current (`uv` entries); the dependency audit now covers
   all three locks, on Linux and macOS. `test_pinning.py` checks that each
   lock has every hash and matches its pins, and that whatever ships installs
-  with `--require-hashes` (#37).
+  with `--require-hashes`. The indirect packages are refreshed once a month
+  (`make lock LOCK_ARGS=--upgrade`), when the first Monday's weekly check
+  reports newer versions (#37).
 - **The pre-push check can't break the repository any more.** Run from a
   worktree, git hands the hook `GIT_DIR`; the tests that build throwaway
   repositories inherited it, and their `git init` set `core.bare = true` in

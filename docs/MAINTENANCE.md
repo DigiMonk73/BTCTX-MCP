@@ -111,8 +111,10 @@ To roll back, restore the previous `requirements.in` and `requirements.txt`
 from git, reinstall, and rerun `make check`.
 
 The indirect packages move only when a lock is recompiled and a pin needs
-it. To bring them up to date (now and then, or for a security fix in one),
-run `make lock LOCK_ARGS=--upgrade` and review the diff like any update.
+it, so they are refreshed once a month: the first Monday's weekly check
+reports how many have newer versions, and Claude then runs
+`make lock LOCK_ARGS=--upgrade` in a pull request reviewed like any update
+(sooner for a security fix in one).
 `test_pinning.py` fails when a lock is older than its pins, lacks hashes or
 the `make lock` command, or when the Mac lock and the backend's disagree.
 
