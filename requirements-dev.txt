@@ -5,5 +5,6 @@ pytest==9.1.1
 hypothesis==6.168.3  # property tests (backend/tests/test_invariants_property.py)
 ruff==0.16.10
 pip-audit==2.10.1
-anyio==4.15.1  # pytest plugin for the MCP server's async tests
+# anyio, the pytest plugin of the MCP server's async tests, comes pinned from
+# backend/requirements.txt: a pin here too could drift from the lock.
 uv==0.12.23  # compiles the requirements.txt locks (make lock)

@@ -43,7 +43,7 @@ updates:
       mcp-server:
         update-types: [minor, patch]
 
-  # The Mac app's build tools. Only these two: the rest of the lock is held
+  # The Mac app's build tools. Only these: the rest of the lock is held
   # to backend/'s versions (`make lock` after a backend PR that moves one the
   # two share; test_pinning.py says when).
   - package-ecosystem: uv
@@ -56,6 +56,7 @@ updates:
     allow:
       - dependency-name: pyinstaller
       - dependency-name: pywebview
+      - dependency-name: setuptools
     groups:
       desktop:
         update-types: [minor, patch]
@@ -87,7 +88,6 @@ updates:
       - dependency-name: hypothesis
       - dependency-name: ruff
       - dependency-name: pip-audit
-      - dependency-name: anyio
       - dependency-name: uv
     groups:
       dev-tools:

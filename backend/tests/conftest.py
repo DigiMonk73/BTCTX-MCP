@@ -7,6 +7,8 @@ never touch the production database.
 
 import os
 import pytest
+import shutil
+import subprocess
 import tempfile
 from decimal import Decimal
 from sqlalchemy import create_engine
@@ -23,6 +25,23 @@ from backend.models.account import Account    # noqa: F401
 from backend.models.transaction import (      # noqa: F401
     Transaction, LedgerEntry, BitcoinLot, LotDisposal,
 )
+
+
+
+def _drop_git_repository_variables() -> None:
+    """Run from a git hook or `git rebase --exec`, the suite inherits the
+    variables naming that repository (GIT_DIR in a worktree): the tests that
+    build throwaway repositories would `git init` it instead, setting
+    core.bare = true and breaking every checkout."""
+    if shutil.which("git"):
+        names = subprocess.run(
+            ["git", "rev-parse", "--local-env-vars"], capture_output=True, text=True
+        ).stdout.split()
+        for name in names:
+            os.environ.pop(name, None)
+
+
+_drop_git_repository_variables()
 
 LOGIN_CREDS = {"username": "admin", "password": "password"}
 

@@ -99,7 +99,7 @@ Output: `desktop/dist/BitcoinTX.app`. Test with `open desktop/dist/BitcoinTX.app
 ```bash
 cd desktop
 python3 -m venv .venv && source .venv/bin/activate
-# then the two pip installs of build-mac.sh, step 2 (the locks, hashes checked)
+# then run step 2 of build-mac.sh (the setuptools extraction and the two installs)
 (cd ../frontend && npm ci && npm run build)
 pyinstaller --clean --noconfirm BitcoinTX.spec
 ```

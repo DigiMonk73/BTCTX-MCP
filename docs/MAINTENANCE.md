@@ -161,8 +161,9 @@ merge into `develop`. Nothing reaches `main` before a release.
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff, pip-audit, anyio and uv. A new
-  pinned dev tool goes on that list.
+  allows only pytest, hypothesis, ruff, pip-audit and uv. A new pinned
+  dev tool goes on that list; never one a lock holds (anyio comes from
+  `backend/requirements.txt`), or this pip entry would edit the lock.
 
 ### Audit scope
 
@@ -178,11 +179,11 @@ which is what the Docker image installs.
 
 ## Current versions and risk
 
-From `backend/requirements.txt`:
+From `backend/requirements.in`:
 
 | Package | Pinned | Risk | Notes |
 |---------|--------|------|-------|
-| `fastapi` | 0.141.1 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
+| `fastapi` | 0.142.2 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
 | `starlette` | 1.7.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event` |
 | `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
@@ -193,15 +194,15 @@ From `backend/requirements.txt`:
 | `requests` | 2.34.2 | Low | |
 | `python-multipart` | 0.0.32 | Caution | "Patch" releases add hardening limits (header count, boundary size) |
 | `bcrypt` | 5.0.0 | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
-| `cryptography` | 50.0.1 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
+| `cryptography` | 50.0.2 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
 | `itsdangerous` | 2.2.0 | Low | Session cookie signing |
-| `python-dotenv` | 1.2.3 | Low | Only `load_dotenv` is used |
+| `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.4 | Low | Timezone rules for the tax timezone; update yearly |
 | `pypdf` | 6.19.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.4.10 | High | Complete Tax Report and transaction history PDFs. Stay on 4.4.x (see below) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.1 | Low | Test only: property tests |
+| `hypothesis` | 6.168.3 | Low | Test only: property tests |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
 ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.

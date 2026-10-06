@@ -83,6 +83,10 @@ source "$VENV_DIR/bin/activate"
 export PIP_DISABLE_PIP_VERSION_CHECK=1
 awk '/^setuptools==/ { on = 1; print; next } on && /^ / { print; next } { on = 0 }' \
     "$SCRIPT_DIR/requirements.txt" > "$VENV_DIR/setuptools.txt"
+if [ ! -s "$VENV_DIR/setuptools.txt" ]; then
+    echo "ERROR: no setuptools in desktop/requirements.txt (run make lock)"
+    exit 1
+fi
 pip install -q --require-hashes --no-deps -r "$VENV_DIR/setuptools.txt"
 pip install -q --require-hashes --no-build-isolation \
     -r "$PROJECT_ROOT/backend/requirements.txt" -r "$SCRIPT_DIR/requirements.txt"

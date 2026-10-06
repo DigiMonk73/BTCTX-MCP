@@ -5,3 +5,4 @@
 -c ../backend/requirements.txt
 pyinstaller==6.22.3
 pywebview==6.2.1
+setuptools==84.0.0  # builds proxy-tools (source only) in build-mac.sh

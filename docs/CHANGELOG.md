@@ -28,23 +28,23 @@ All notable changes to BitcoinTX are documented in this file.
   keeps version ranges, now capped below the next major version of `httpx`
   and `pydantic`. The rules are in `docs/MAINTENANCE.md`, "Updating a
   dependency".
-- **Every Python package that ships is locked, with its hash.** Each
+- **Every Python package that ships is locked, with its hash.** Each shipped
   requirements file is now a `requirements.in` (what we name, pinned) with a
-  lock beside it, `requirements.txt`, made by `make lock` (`uv pip compile`):
-  every package, the indirect ones too (32 of them were pinned nowhere and
-  resolved at build time), at a fixed version with its hashes, for Linux
-  (both chip types), macOS and Python 3.10 and up. The Docker image installs
-  its lock with `--require-hashes` and ready-built wheels only; the Mac app
-  installs the
-  backend's and `desktop/`'s locks the same way, and builds its one
-  source-only package with the locked setuptools; the connector's PyPI build
-  uses a lock of `build` and setuptools (`.github/release-tools/`) and no
-  longer fetches them unpinned. The Mac build no longer upgrades `pip` or
-  installs `wheel`, and CI's container smoke test installs the lock rather
-  than an unpinned `httpx`. Dependabot keeps the locks current (`uv`
-  entries); the dependency audit now covers all three locks, on Linux and
-  macOS. `test_pinning.py` checks that each lock has every hash and matches
-  its pins, and that whatever ships installs with `--require-hashes` (#37).
+  lock beside it, `requirements.txt`, made by `make lock` (`uv pip
+  compile`): every package, the indirect ones too (32 of them were pinned
+  nowhere and resolved at build time), at a fixed version with its hashes,
+  for Linux (both chip types), macOS and Python 3.10 and up. The Docker
+  image installs its lock with `--require-hashes` and ready-built wheels
+  only; the Mac app installs the backend's and `desktop/`'s locks the same
+  way, and builds its one source-only package with the locked setuptools;
+  the connector's PyPI build uses a lock of `build` and setuptools
+  (`.github/release-tools/`) and no longer fetches them unpinned. The Mac
+  build no longer upgrades `pip` or installs `wheel`, and CI's container
+  smoke test installs the lock rather than an unpinned `httpx`. Dependabot
+  keeps the locks current (`uv` entries); the dependency audit now covers
+  all three locks, on Linux and macOS. `test_pinning.py` checks that each
+  lock has every hash and matches its pins, and that whatever ships installs
+  with `--require-hashes` (#37).
 - **The pre-push check can't break the repository any more.** Run from a
   worktree, git hands the hook `GIT_DIR`; the tests that build throwaway
   repositories inherited it, and their `git init` set `core.bare = true` in
