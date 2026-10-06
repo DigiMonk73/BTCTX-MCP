@@ -164,8 +164,8 @@ python scripts/seed_ledger.py --url https://host:port --user NAME --password-std
 `scripts/seed_ledger.py` loads 103 transactions from 2023 to 2026 over the
 API: `backend/tests/transaction_seed_data.json` and the rows it lacks, so
 that every year has every kind of transaction and every report has entries
-in each part (every Form 8949 box of 2024, 2025 and 2026; not the complete
-report's Expenses, #58), in any tax timezone, with every USD
+in each part (every Form 8949 box of 2024, 2025 and 2026), in any tax
+timezone, with every USD
 value a price lookup would fill already given. It is the ledger for the
 StartOS test VM, and for a box: export it there as CSV (Settings) and
 import that into an empty ledger. Neither it nor the test data ships in

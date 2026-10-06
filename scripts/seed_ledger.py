@@ -21,10 +21,9 @@ The ledger, 103 transactions: backend/tests/transaction_seed_data.json (65
 rows, 2023-2025), what the broker's form showed for three of its sales,
 rows it lacks, and 2026. Every year has every kind of transaction (each
 deposit source and withdrawal purpose, transfers both ways, cash moves,
-buys and sells) and every report has entries in each part (not the complete
-report's Expenses, which no transaction fills: #58), every Form 8949 box of
-2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone; backend/tests/
-test_seed_ledger.py checks it. Every USD value a price lookup would fill is
+buys and sells) and every report has entries in each part, every Form 8949
+box of 2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone;
+backend/tests/test_seed_ledger.py checks it. Every USD value a price lookup would fill is
 given (network fees, gift and donation values), so it loads with the price
 source Off and contacts nothing but the server. Settings are left as they
 are. A test tool: it lives in scripts/, which no build ships.
