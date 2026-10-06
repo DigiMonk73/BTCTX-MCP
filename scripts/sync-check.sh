@@ -67,7 +67,9 @@ for b in main develop; do
     PROBLEMS+=("local $b has $ahead commit(s) GitHub doesn't: never commit on $b (AGENTS.md, Branches)")
   elif [ "$behind" -gt 0 ]; then
     dir="$(folder_of "$b")"
-    if [ -z "$dir" ]; then
+    if [ -n "$dir" ] && [ ! -d "$dir" ]; then
+      echo "$b: $behind commit(s) behind GitHub, not brought down: checked out in $dir, a folder that's gone (--tidy forgets it)."
+    elif [ -z "$dir" ]; then
       if g fetch -q origin "$b:$b"; then echo "$b: brought $behind commit(s) down from GitHub."
       else echo "$b: $behind commit(s) behind GitHub; bringing them down failed (see above)."; fi
     elif [ -z "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ] \
