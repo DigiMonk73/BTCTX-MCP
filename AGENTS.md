@@ -322,6 +322,9 @@ if the mirror's own workflow can't release,
 
 ## Start9
 
+The whole flow, in plain steps for the owner and every session:
+`docs/HOW-CHANGES-FLOW.md` (keep it in step with this file).
+
 - Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
   built and published; how a change reaches it is under "Releasing".
 - Each merge there publishes to Community Beta
