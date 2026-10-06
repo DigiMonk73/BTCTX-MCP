@@ -17,14 +17,16 @@ setup-code.txt in its data folder) as --user with that password (12+
 characters), as scripts/smoke_test.py does. --ca trusts a root certificate,
 e.g. your StartOS server's.
 
-The ledger: backend/tests/transaction_seed_data.json (65 rows, 2023-2025,
-every deposit and withdrawal kind), with every USD value a price lookup
-would fill given (network fees, gift and donation values), plus 2026 rows
-that land in every Form 8949 box a 2026 return can have: G (exchange sale
-of BTC bought there in 2026), H and K (older exchange BTC), J (a sale whose
-1099-DA showed basis), I and L (self-custody spends and network fees). So
-it loads with the price source Off and contacts nothing but the server.
-Settings are left as they are.
+The ledger, 103 transactions: backend/tests/transaction_seed_data.json (65
+rows, 2023-2025), what the broker's form showed for three of its sales,
+rows it lacks, and 2026. Every year has every kind of transaction (each
+deposit source and withdrawal purpose, transfers both ways, cash moves,
+buys and sells) and every report has entries in each part, every Form 8949
+box of 2024 (A-F), 2025 and 2026 (G-L) included; backend/tests/
+test_seed_ledger.py checks it. Every USD value a price lookup would fill is
+given (network fees, gift and donation values), so it loads with the price
+source Off and contacts nothing but the server. Settings are left as they
+are. A test tool: it lives in scripts/, which no build ships.
 """
 
 from __future__ import annotations
@@ -49,56 +51,99 @@ MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
 CENT = Decimal("0.01")
 
-EXCHANGE_USD, EXCHANGE_BTC, WALLET, EXTERNAL = 3, 4, 2, 99
+BANK, WALLET, EXCHANGE_USD, EXCHANGE_BTC, EXTERNAL = 1, 2, 3, 4, 99
 
-# 2026, in order, one box per comment. Exchange BTC starts the year with
-# 2.06461 BTC: 1.56461 from 2024, then 0.15 (2025-02-15), 0.05 (2025-05-01),
-# 0.12, 0.10 and 0.08 from later in 2025; FIFO sells the oldest first.
+
+def _tx(kind: str, when: str, from_id: int, to_id: int, amount: str, fee: str = "0",
+        fee_currency: str = "BTC", **fields: str) -> dict:
+    """A row as the API takes it, at noon UTC that day."""
+    return {"type": kind, "timestamp": f"{when}T12:00:00Z", "from_account_id": from_id,
+            "to_account_id": to_id, "amount": amount, "fee_amount": fee, "fee_currency": fee_currency, **fields}
+
+
+# What the broker's form showed for some of the 65 rows' sales
+# (transactions.broker_reporting), so 2024 and 2025 fill every Form 8949 box.
+BROKER_FORMS = {
+    "2024-02-15T14:00:00Z": "basis",     # 2024: Box A (its short-term part) and D
+    "2024-08-01T10:00:00Z": "proceeds",  # 2024: Box E
+    "2025-03-01T11:00:00Z": "basis",     # 2025: Box J
+}
+
+# What the 65 rows lack, so every year has every kind of transaction: cash
+# moves, each deposit source and withdrawal purpose, transfers both ways.
+EXTRA_ROWS = [
+    _tx("Transfer", "2023-02-01", BANK, EXCHANGE_USD, "5000", fee_currency="USD"),
+    _tx("Withdrawal", "2023-05-02", BANK, EXTERNAL, "2000", fee_currency="USD"),
+    _tx("Withdrawal", "2023-10-20", WALLET, EXTERNAL, "0.005", "0.00001", purpose="Spent",
+        gross_proceeds_usd="150.00"),
+    _tx("Withdrawal", "2023-11-25", WALLET, EXTERNAL, "0.002", purpose="Lost"),
+    # Sold on the lot's first anniversary: still short-term (held "more than
+    # one year" only from the next day). One the 1099-B showed without basis
+    # (Box B), one not on a 1099-B (Box C)
+    {**_tx("Sell", "2024-02-15", EXCHANGE_BTC, EXCHANGE_USD, "0.01", "0.75", "USD",
+           gross_proceeds_usd="500.00", broker_reporting="proceeds"), "timestamp": "2024-02-15T15:00:00Z"},
+    {**_tx("Sell", "2024-02-15", EXCHANGE_BTC, EXCHANGE_USD, "0.01", "0.75", "USD",
+           gross_proceeds_usd="500.00"), "timestamp": "2024-02-15T16:00:00Z"},
+    _tx("Deposit", "2024-03-20", EXTERNAL, WALLET, "0.003", source="Interest", cost_basis_usd="195.00"),
+    _tx("Transfer", "2024-05-01", BANK, EXCHANGE_USD, "10000", fee_currency="USD"),
+    _tx("Withdrawal", "2024-06-01", BANK, EXTERNAL, "1500", fee_currency="USD"),
+    _tx("Deposit", "2024-07-20", EXTERNAL, WALLET, "0.02", source="Gift", cost_basis_usd="900.00"),
+    # The exchange's 2023 BTC to cold storage, so 2025's exchange sales are of
+    # 2024 BTC, some held a year or less
+    _tx("Transfer", "2024-12-30", EXCHANGE_BTC, WALLET, "1.00981", "0.0001", fee_usd="9.40"),
+    # BTC bought 2024-01-15, sold within the year: the 1099-DA showed basis
+    # (Box G); a sale the broker didn't report, e.g. abroad (Box I)
+    _tx("Sell", "2025-01-12", EXCHANGE_BTC, EXCHANGE_USD, "0.1", "14.25", "USD",
+        gross_proceeds_usd="9500.00", broker_reporting="basis"),
+    _tx("Sell", "2025-01-13", EXCHANGE_BTC, EXCHANGE_USD, "0.05", "7.13", "USD",
+        gross_proceeds_usd="4750.00", broker_reporting="none"),
+    _tx("Deposit", "2025-03-20", EXTERNAL, WALLET, "0.002", source="Interest", cost_basis_usd="210.00"),
+    _tx("Transfer", "2025-04-05", BANK, EXCHANGE_USD, "8000", fee_currency="USD"),
+    _tx("Withdrawal", "2025-07-05", BANK, EXTERNAL, "2500", fee_currency="USD"),
+    _tx("Deposit", "2025-08-25", EXTERNAL, WALLET, "0.01", source="Gift", cost_basis_usd="450.00"),
+]
+
+# 2026, in order. Exchange BTC starts the year with 0.8848 BTC: 0.0348
+# (2024-10-01) and 0.35 (2024-12-01), then 0.15 (2025-02-15), 0.05, 0.12,
+# 0.10 and 0.08 from later in 2025; FIFO sells the oldest first.
 LEDGER_2026 = [
-    # All but 0.56461 of the 2024 BTC: long-term, not covered: Box K
-    {"type": "Sell", "timestamp": "2026-01-15T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXCHANGE_USD, "amount": "1.0", "gross_proceeds_usd": "152000.00",
-     "fee_amount": "228.00", "fee_currency": "USD"},
+    _tx("Deposit", "2026-01-05", EXTERNAL, BANK, "20000", fee_currency="USD", source="N/A"),
+    # 2024 BTC, long-term, not covered: Box K
+    _tx("Sell", "2026-01-15", EXCHANGE_BTC, EXCHANGE_USD, "0.20", "45.60", "USD", gross_proceeds_usd="30400.00"),
     # The rest of the 2024 BTC, and the 1099-DA showed its basis: Box J
-    {"type": "Sell", "timestamp": "2026-02-02T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXCHANGE_USD, "amount": "0.56461", "gross_proceeds_usd": "83562.28",
-     "fee_amount": "125.34", "fee_currency": "USD", "broker_reporting": "basis"},
-    # 2025 BTC held a year or less, bought before 2026 (not covered): Box H
-    {"type": "Sell", "timestamp": "2026-02-09T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXCHANGE_USD, "amount": "0.20", "gross_proceeds_usd": "29200.00",
-     "fee_amount": "43.80", "fee_currency": "USD"},
-    # The last 0.30 to cold storage; the network fee is a disposal: Box I
-    {"type": "Transfer", "timestamp": "2026-03-16T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": WALLET, "amount": "0.30", "fee_amount": "0.00004", "fee_currency": "BTC",
-     "fee_usd": "5.60"},
+    _tx("Sell", "2026-02-02", EXCHANGE_BTC, EXCHANGE_USD, "0.1848", "41.03", "USD",
+        gross_proceeds_usd="27350.40", broker_reporting="basis"),
+    # Bought 2025-02-15, held a year or less, before 2026 (not covered): Box H
+    _tx("Sell", "2026-02-09", EXCHANGE_BTC, EXCHANGE_USD, "0.15", "32.85", "USD", gross_proceeds_usd="21900.00"),
+    _tx("Transfer", "2026-02-20", BANK, EXCHANGE_USD, "10000", fee_currency="USD"),
+    # The last 0.35 to cold storage; the network fee is a disposal: Box I
+    _tx("Transfer", "2026-03-16", EXCHANGE_BTC, WALLET, "0.35", "0.00004", fee_usd="5.60"),
     # Exchange BTC is empty: from here on it holds BTC bought there in 2026 (covered)
-    {"type": "Buy", "timestamp": "2026-03-20T15:00:00Z", "from_account_id": EXCHANGE_USD,
-     "to_account_id": EXCHANGE_BTC, "amount": "0.25", "cost_basis_usd": "35052.50",
-     "fee_amount": "52.50", "fee_currency": "USD"},
+    _tx("Buy", "2026-03-20", EXCHANGE_USD, EXCHANGE_BTC, "0.25", "52.50", "USD", cost_basis_usd="35052.50"),
+    _tx("Deposit", "2026-04-10", EXTERNAL, WALLET, "0.03", source="MyBTC", cost_basis_usd="4140.00"),
     # Covered, short-term: Box G
-    {"type": "Sell", "timestamp": "2026-05-04T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXCHANGE_USD, "amount": "0.10", "gross_proceeds_usd": "13800.00",
-     "fee_amount": "20.70", "fee_currency": "USD"},
+    _tx("Sell", "2026-05-04", EXCHANGE_BTC, EXCHANGE_USD, "0.10", "20.70", "USD", gross_proceeds_usd="13800.00"),
+    _tx("Deposit", "2026-05-15", EXTERNAL, WALLET, "0.005", source="Gift", cost_basis_usd="300.00"),
     # Spent straight from the exchange account: no 1099-DA, short-term: Box I (its fee too)
-    {"type": "Withdrawal", "timestamp": "2026-06-01T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXTERNAL, "amount": "0.02", "fee_amount": "0.00002", "fee_currency": "BTC",
-     "fee_usd": "2.84", "purpose": "Spent", "gross_proceeds_usd": "2840.00"},
-    # Income into self custody
-    {"type": "Deposit", "timestamp": "2026-06-15T15:00:00Z", "from_account_id": EXTERNAL,
-     "to_account_id": WALLET, "amount": "0.01", "fee_amount": "0", "fee_currency": "BTC",
-     "source": "Income", "cost_basis_usd": "1425.00"},
-    # Self-custody spend of the wallet's oldest (2023) BTC: Box L (its fee too)
-    {"type": "Withdrawal", "timestamp": "2026-07-01T15:00:00Z", "from_account_id": WALLET,
-     "to_account_id": EXTERNAL, "amount": "0.05", "fee_amount": "0.00003", "fee_currency": "BTC",
-     "fee_usd": "4.35", "purpose": "Spent", "gross_proceeds_usd": "7250.00"},
+    _tx("Withdrawal", "2026-06-01", EXCHANGE_BTC, EXTERNAL, "0.02", "0.00002", fee_usd="2.84",
+        purpose="Spent", gross_proceeds_usd="2840.00"),
+    _tx("Deposit", "2026-06-15", EXTERNAL, WALLET, "0.01", source="Income", cost_basis_usd="1425.00"),
+    _tx("Deposit", "2026-06-20", EXTERNAL, WALLET, "0.001", source="Interest", cost_basis_usd="142.00"),
+    # Self-custody spend of the wallet's oldest (2024) BTC: Box L (its fee too)
+    _tx("Withdrawal", "2026-07-01", WALLET, EXTERNAL, "0.05", "0.00003", fee_usd="4.35",
+        purpose="Spent", gross_proceeds_usd="7250.00"),
+    _tx("Deposit", "2026-07-15", EXTERNAL, WALLET, "0.002", source="Reward", cost_basis_usd="290.00"),
     # Covered, short-term again: Box G
-    {"type": "Sell", "timestamp": "2026-08-03T15:00:00Z", "from_account_id": EXCHANGE_BTC,
-     "to_account_id": EXCHANGE_USD, "amount": "0.05", "gross_proceeds_usd": "7500.00",
-     "fee_amount": "11.25", "fee_currency": "USD"},
-    # A gift is not a sale, but its network fee is: Box L
-    {"type": "Withdrawal", "timestamp": "2026-09-01T15:00:00Z", "from_account_id": WALLET,
-     "to_account_id": EXTERNAL, "amount": "0.01", "fee_amount": "0.00002", "fee_currency": "BTC",
-     "fee_usd": "2.96", "fmv_usd": "1480.00", "purpose": "Gift"},
+    _tx("Sell", "2026-08-03", EXCHANGE_BTC, EXCHANGE_USD, "0.05", "11.25", "USD", gross_proceeds_usd="7500.00"),
+    # A gift, a donation and a loss are not sales, but their network fees are: Box L
+    _tx("Withdrawal", "2026-09-01", WALLET, EXTERNAL, "0.01", "0.00002", fee_usd="2.96", fmv_usd="1480.00",
+        purpose="Gift"),
+    _tx("Withdrawal", "2026-09-05", WALLET, EXTERNAL, "0.004", "0.00001", fee_usd="1.48", fmv_usd="592.00",
+        purpose="Donation"),
+    _tx("Withdrawal", "2026-09-08", WALLET, EXTERNAL, "0.001", purpose="Lost"),
+    # Back to the exchange after its last sale: its fee is another Box L
+    _tx("Transfer", "2026-09-10", WALLET, EXCHANGE_BTC, "0.02", "0.00002", fee_usd="2.96"),
+    _tx("Withdrawal", "2026-09-15", BANK, EXTERNAL, "3000", fee_currency="USD"),
 ]
 
 
@@ -111,7 +156,11 @@ def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it."""
     with open(LEDGER_2023_2025) as f:
         base = [{k: v for k, v in row.items() if k not in ("id", "notes")} for row in json.load(f)]
-    rows = sorted(base, key=lambda r: r["timestamp"]) + [dict(r) for r in LEDGER_2026]
+    for row in base:
+        if row["timestamp"] in BROKER_FORMS:
+            row["broker_reporting"] = BROKER_FORMS[row["timestamp"]]
+    rows = sorted(base + [dict(r) for r in EXTRA_ROWS], key=lambda r: r["timestamp"])
+    rows += [dict(r) for r in LEDGER_2026]
     fill_usd_values(rows)
     return rows
 

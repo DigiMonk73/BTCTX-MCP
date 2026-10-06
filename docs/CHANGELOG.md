@@ -14,11 +14,12 @@ All notable changes to BitcoinTX are documented in this file.
   final forms come in an update, which replaces it. Reports now also says,
   for a year without forms yet, that they come in an update (#53).
 - **A full test ledger on any server, and 2026's forms from the IRS
-  drafts, for testing only.** `scripts/seed_ledger.py` loads 76
-  transactions (2023 to 2026) into a running BitcoinTX over its API: the
-  test suite's 65-row ledger with every USD value a price lookup would fill
-  given, so it loads with the price source Off, plus 2026 rows that land in
-  Form 8949 boxes G, H, I, J, K and L. It refuses a ledger that has
+  drafts, for testing only.** `scripts/seed_ledger.py` loads 103
+  transactions (2023 to 2026) into a running BitcoinTX over its API: every
+  year has every kind of transaction, and every report has entries in each
+  part, every Form 8949 box of 2024 (A–F), 2025 and 2026 (G–L) included.
+  Every USD value a price lookup would fill is given, so it loads with the
+  price source Off. It refuses a ledger that has
   transactions and the Mac app's address. On a test install,
   `python -m backend.cli install-draft-forms` puts the IRS's draft 2026
   Form 8949 and Schedule D in the data folder; Reports then offers 2026,
@@ -30,6 +31,10 @@ All notable changes to BitcoinTX are documented in this file.
   ledger (#51).
 
 ### Fixed
+- **The Mac app no longer carries the test files.** It bundled all of
+  `backend/`, its tests and test ledgers included (harmless, never used);
+  now it leaves out `backend/tests/` and any database file left in the
+  build's checkout. Docker and StartOS never had them.
 - **On a phone, the transaction panel can be closed.** Up to 460 px wide the
   Add or Edit Transaction panel covers the whole page, so there was nothing
   outside it to tap and no Escape key: Save was the only button, and the

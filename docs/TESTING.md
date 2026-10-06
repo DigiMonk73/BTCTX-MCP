@@ -161,10 +161,14 @@ running on 127.0.0.1:8778).
 python scripts/seed_ledger.py --url https://host:port --user NAME --password-stdin [--ca root-ca.crt] < password-file
 ```
 
-`scripts/seed_ledger.py` loads 76 transactions from 2023 to 2026 over the
-API: `backend/tests/transaction_seed_data.json` (every deposit and
-withdrawal kind) with every USD value a price lookup would fill already
-given, plus 2026 rows that land in Form 8949 boxes G, H, I, J, K and L. It
+`scripts/seed_ledger.py` loads 103 transactions from 2023 to 2026 over the
+API: `backend/tests/transaction_seed_data.json` and the rows it lacks, so
+that every year has every kind of transaction and every report has entries
+in each part (every Form 8949 box of 2024, 2025 and 2026), with every USD
+value a price lookup would fill already given. It is the ledger for the
+StartOS test VM, and for a box: export it there as CSV (Settings) and
+import that into an empty ledger. Neither it nor the test data ships in
+any build (the Mac app leaves out `backend/tests/`; Docker never had it). It
 loads with the price source Off and contacts nothing but the server. It
 refuses a ledger that has transactions, and the Mac app's address
 (`127.0.0.1:8765`) outright. `--setup-code` claims a fresh Docker install

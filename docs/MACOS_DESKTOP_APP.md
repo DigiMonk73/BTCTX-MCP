@@ -119,8 +119,9 @@ the Application Support database.
 
 ## BitcoinTX.spec
 
-- **Datas:** the whole `backend/` package (including
-  `assets/irs_templates/`), `frontend/dist/` and `VERSION`.
+- **Datas:** the `backend/` package (including `assets/irs_templates/`),
+  but not `backend/tests/` (tests, fixtures, test ledgers) nor any `*.db`
+  left in the checkout; `frontend/dist/` and `VERSION`.
 - **Hidden imports:** FastAPI/Starlette/Uvicorn internals, pydantic,
   SQLAlchemy SQLite dialect, httpx, bcrypt, cryptography, pypdf, reportlab,
   tzdata, pywebview, and the `backend.*` router/service/model modules.

@@ -20,10 +20,20 @@ assert (PROJECT_ROOT / "frontend" / "dist").exists(), "frontend/dist/ not found 
 
 block_cipher = None
 
-# Collect all backend Python files and assets
+# Every backend file (code, migrations, IRS forms, assets), but never its
+# tests and test ledgers, nor a database left in the checkout: only the app ships.
+BACKEND = PROJECT_ROOT / "backend"
+
+
+def _ships(path: Path) -> bool:
+    parts = path.relative_to(BACKEND).parts
+    return (path.is_file() and "tests" not in parts and "__pycache__" not in parts
+            and not path.name.endswith((".db", ".db-journal", ".db-wal", ".db-shm")))
+
+
 backend_datas = [
-    # Backend Python packages
-    (str(PROJECT_ROOT / "backend"), "backend"),
+    (str(path), str(Path("backend") / path.parent.relative_to(BACKEND)))
+    for path in sorted(BACKEND.rglob("*")) if _ships(path)
 ]
 
 # Frontend dist
