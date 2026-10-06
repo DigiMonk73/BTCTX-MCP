@@ -131,8 +131,7 @@ def build_form_8949_and_schedule_d(
     rows_long: list[Form8949Row] = []
 
     for disp in disposals:
-        broker_reported, basis_reported = _broker_reporting(disp, year, tz)
-        box = _determine_box(disp.holding_period, basis_reported, year, broker_reported)
+        box = disposal_box(disp, year, tz)
 
         # Format date_acquired
         if disp.lot and disp.lot.acquired_date:
@@ -175,6 +174,12 @@ def build_form_8949_and_schedule_d(
         "long_term":  [r.to_dict() for r in rows_long],
         "schedule_d": schedule_d
     }
+
+
+def disposal_box(disp: LotDisposal, year: int, tz=timezone.utc) -> str:
+    """The Form 8949 box (A-L) of one lot disposal of `year`."""
+    broker_reported, basis_reported = _broker_reporting(disp, year, tz)
+    return _determine_box(disp.holding_period, basis_reported, year, broker_reported)
 
 
 # Form 1099-DA: brokers report gross proceeds for digital-asset sales from

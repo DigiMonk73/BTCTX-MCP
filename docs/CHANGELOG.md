@@ -33,6 +33,33 @@ All notable changes to BitcoinTX are documented in this file.
   every report can be clicked through on the VM without the owner's real
   ledger (#51).
 
+### Changed
+- **A professional Complete Tax Report.** Redesigned from the ground up,
+  with the same figures:
+  - a cover with the year's key figures (net capital gain, income, bitcoin
+    held and its value at year end), how the report was made (FIFO per
+    account, tax timezone, prices, when it was generated) and contents
+    with page numbers;
+  - a one-page summary: gains and losses by term, each Form 8949 box with
+    its Schedule D line and totals (the same as the IRS forms BitcoinTX
+    fills), income by source, and holdings on January 1 and December 31;
+  - the detail, each table with a totals row and its heading repeated on
+    every page it runs onto: every disposal (with its kind, Form 8949 box
+    and term, in the IRS column order: proceeds, cost basis, gain), income,
+    gifts, donations and lost coins, and the holdings at year end by
+    account and lot by lot (they listed every lot as a "balance" before,
+    with the same price note on each row);
+  - losses in parentheses as on the IRS forms, a running header and "Page X
+    of Y" on every page, and the notes at the end.
+  Fixed on the way: the number of disposals sat in the Short Term column
+  though it counted both; two column headings overlapped; and a table that
+  ran onto another page lost its heading there.
+- **The Transaction History PDF fits the page.** Its table was wider than
+  the page (columns were cut off). It is now landscape, in the same look,
+  with dates in the tax timezone, each type with its source or purpose
+  ("Withdrawal (Spent)"), amounts and fees with their currency, and page
+  numbers. The CSV is unchanged.
+
 ### Fixed
 - **The Complete Tax Report no longer has an "Expenses" section.** It
   listed withdrawals with the purpose "Expenses", which the app's forms

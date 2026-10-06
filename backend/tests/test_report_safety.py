@@ -98,7 +98,8 @@ def test_transaction_history_pdf_prints_markup_and_fetches_nothing(test_engine, 
     evil = f'<img src="http://127.0.0.1:{port}/x" width="9" height="9"/>'
     link = f'<a href="http://127.0.0.1:{port}/y">click</a>'
     tx = usd_deposit()
-    store(test_engine, tx["id"], source=evil, fee_currency=link)
+    # A fee, so the PDF shows its currency with it
+    store(test_engine, tx["id"], source=evil, fee_currency=link, fee_amount="1")
 
     r = CLIENT.get("/api/reports/simple_transaction_history", params={"year": 2024, "format": "pdf"})
     assert r.status_code == 200, r.text
@@ -122,6 +123,8 @@ def test_complete_tax_report_prints_markup_and_fetches_nothing(listener):
     }
     shown = pdf_text(generate_comprehensive_tax_report(report))
     assert hits == []
+    # Printed as written: the generation time on the cover, and the year-end
+    # price note in the summary and in the holdings section
     assert shown.count("".join(evil.split())) == 3
     assert "<b>unclosed" in shown
 
