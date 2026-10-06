@@ -70,8 +70,10 @@ it changes only by pull request:
 - GitHub Actions: a full commit SHA with the release as a comment
   (`actions/checkout@<sha> # v7.0.1`): a tag can be moved, a commit can't.
 - The exception is the AI connector (`mcp_server/pyproject.toml`): it is
-  installed next to other software, so it takes ranges, capped below the
-  next major version (`httpx>=0.27,<1`).
+  installed next to other software, so its dependencies take ranges, each
+  capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,
+  timezone data numbered by year, which is meant to float. Its build
+  backend (`setuptools>=77`) is a build tool (#37).
 
 Dependabot proposes the updates (below). Not yet locked: the packages those
 pull in themselves (pydantic-core under pydantic, the pyobjc packages under

@@ -1,8 +1,9 @@
 """
 What we name to build with is pinned exactly (docs/MAINTENANCE.md, "Updating a
 dependency"): GitHub Actions by commit, Docker base images by digest, Python
-requirements with ==. Dependabot proposes the updates, so each line must also
-stay in a form Dependabot reads. startos/ keeps Start9's template files as they
+requirements with ==. The AI connector, installed next to other software, takes
+ranges instead, each capped below the next major version. Dependabot proposes
+the updates, so each line must also stay in a form Dependabot reads. startos/ keeps Start9's template files as they
 are and is not checked here.
 """
 
@@ -22,7 +23,7 @@ REQUIREMENTS = [
 USES = re.compile(r"^\s*-?\s*uses:\s*[\"']?([^\s\"'#]+)")
 # Dependabot's docker parser only reads a FROM at the start of the line.
 FROM = re.compile(r"^FROM\s+(--platform=\S+\s+)?[^\s@:]+:[^\s@]+@sha256:[0-9a-f]{64}(\s|$)")
-REQUIREMENT = re.compile(r"^[A-Za-z0-9_.-]+(\[[^\]]+\])?==[^\s#*;]+(\s*;[^#]*)?(\s+#.*)?$")
+REQUIREMENT = re.compile(r"^[A-Za-z0-9_.-]+(\[[^\]]+\])?==[^\s#*;,]+(\s*;[^#]*)?(\s+#.*)?$")
 
 
 @pytest.mark.parametrize("path", WORKFLOWS, ids=lambda p: p.name)
@@ -58,3 +59,14 @@ def test_requirements_are_exact(path):
         if line.strip() and not line.lstrip().startswith("#") and not REQUIREMENT.match(line)
     ]
     assert loose == [], f"pin with ==: {loose}"
+
+
+def test_connector_ranges_are_capped():
+    tomllib = pytest.importorskip("tomllib")  # Python 3.11+; CI runs it there
+    project = tomllib.loads((ROOT / "mcp_server/pyproject.toml").read_text())["project"]
+    # tzdata is timezone data numbered by year (2026.4): it is meant to float.
+    uncapped = [
+        dep for dep in project["dependencies"]
+        if not dep.startswith("tzdata") and "<" not in dep and "==" not in dep
+    ]
+    assert uncapped == [], f"cap each connector dependency below its next major version: {uncapped}"
