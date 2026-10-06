@@ -45,6 +45,12 @@ All notable changes to BitcoinTX are documented in this file.
   entries); the dependency audit now covers all three locks, on Linux and
   macOS. `test_pinning.py` checks that each lock has every hash and matches
   its pins, and that whatever ships installs with `--require-hashes` (#37).
+- **The pre-push check can't break the repository any more.** Run from a
+  worktree, git hands the hook `GIT_DIR`; the tests that build throwaway
+  repositories inherited it, and their `git init` set `core.bare = true` in
+  the shared `.git/config`, so git refused to work in every checkout until
+  it was set back. The hook now unsets those variables first (git's advice
+  for hooks), and a test keeps that line there.
 - **The weekly StartOS check also watches start-cli.** Besides a newer
   `@start9labs/start-sdk` on npm, `startos-sdk-check.yml` opens an issue
   when Start9 releases a newer start-cli (the tool that packs `btctx.s9pk`)

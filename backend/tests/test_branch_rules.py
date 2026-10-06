@@ -92,3 +92,9 @@ def test_refused(repo, lines, message):
     result = push(repo, *lines)
     assert result.returncode != 0
     assert message in result.stderr
+
+
+def test_pre_push_hook_unsets_the_repository_variables():
+    """Else the tests it runs inherit GIT_DIR and `git init` the repository being pushed."""
+    hook = SCRIPT.with_name("pre-push").read_text()
+    assert "unset $(git rev-parse --local-env-vars)" in hook
