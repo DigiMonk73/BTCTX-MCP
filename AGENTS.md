@@ -345,9 +345,11 @@ didn't write it, without anyone having to ask:
    claims (runs the tests, looks things up) instead of trusting them.
 2. **Grok:** `scripts/grok-review.sh <number>` hands Grok Build the pull
    request (its description, the diff, the rules and the full text of each
-   changed file), at its highest reasoning effort, with no tool that
-   touches anything: no files, shell, web or connectors. The owner's Grok
-   has the BitcoinTX connector to the real ledger, so this stays that way.
+   changed file, large ones as the diff only), at its highest reasoning
+   effort, with no tool that touches anything: no files, shell, web or
+   connectors. The owner's Grok has the BitcoinTX connector to the real
+   ledger, so this stays that way; the script checks Grok's session record
+   afterwards and withholds a review that wasn't locked down.
 
 Claude posts each review on the pull request (Grok's ending "— Grok
 (scripts/grok-review.sh)"), then fixes every finding (a bug fix with a test
