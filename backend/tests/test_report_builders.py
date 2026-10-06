@@ -69,23 +69,26 @@ def test_complete_report_sections():
     for expected in (
         # The cover: the year's key figures and how the report was made
         "TAX YEAR 2024 Bitcoin Tax Report Capital gains, income and holdings, January 1 to December 31, 2024",
-        "NET CAPITAL GAIN (LOSS) $500.50 Short-term $500.50 · Long-term $0.00 INCOME $625.00",
+        "NET CAPITAL GAIN (LOSS) $500.50 Short-term $500.50 · Long-term $0.00 INCOME $600.00",
         "BITCOIN HELD AT YEAR END 0.50000000 BTC Cost basis $20,000.00 VALUE AT YEAR END not priced",
         "GENERATED 2025-01-05 10:00:00 UTC",
         # The summary; a loss in parentheses, as on the IRS forms
         "Total 1 $1,500.50 $1,000.00 $600.00 ($99.50) $500.50",
         "F Long-term, not on a Form 1099-B 10 1 $6,000.00 $3,000.00 $3,000.00",
-        "Income 1 0.01000000 $600.00 Reward 0 0.00000000 $0.00 Interest 1 25.00000000 $25.00 "
-        "Total 2 25.01000000 $625.00",
+        # Income rows are BTC: a USD row (none is ever built) stays out of the BTC column
+        "Income 1 0.01000000 $600.00 Reward 0 0.00000000 $0.00 Interest 0 0.00000000 $0.00 "
+        "Total 1 0.01000000 $600.00",
         "January 1, 2024 0.25000000 $7,500.00 $30,000.00 not priced December 31, 2024 0.50000000 $20,000.00 "
         "$40,000.00 not priced No BTC price is stored for 2024-01-01",
         # The detail: dates in the tax timezone; one that isn't ISO 8601 is printed as it is
         "06/30/2024 not a date Sale F Long 0.10000000 $6,000.00 $3,000.00 $3,000.00",
-        "02/29/2024 Income 0.01000000 $600.00 03/02/2024 Interest",
-        "08/01/2024 Gift 0.02000000 $1,200.00 08/02/2024 Lost 0.03000000 not given Total 0.05000000 $1,200.00",
+        "02/29/2024 Income 0.01000000 $600.00 Total 0.01000000 $600.00",
+        # An unvalued gift is never counted as $0 (review of #63)
+        "08/01/2024 Gift 0.02000000 $1,200.00 08/02/2024 Lost 0.03000000 not given "
+        "Total 0.05000000 $1,200.00 + 1 not given",
         "Wallet 1 0.50000000 $20,000.00 not priced Total 1 0.50000000 $20,000.00 not priced "
         "No BTC price for 2024-12-31: not priced Average cost: $40,000.00 per BTC",
-        "01/15/2024 Wallet 0.50000000 $20,000.00 not priced",
+        "01/15/2024 Wallet 0.50000000 $20,000.00 not priced Total 0.50000000 $20,000.00 not priced",
         "in the tax timezone (America/New_York)",
     ):
         assert expected in text, expected
@@ -117,6 +120,24 @@ def test_complete_report_pages_contents_and_numbers():
     # The contents: each entry's page number comes out of the text just before its title
     listed = {int(n): int(page) for page, n in re.findall(r"(\d+) (\d)\. [A-Z]", " ".join(pages[0].split()))}
     assert listed == starts
+
+
+def test_a_long_report_keeps_every_row_its_headers_and_page_numbers():
+    """Review of #63: a table over many pages repeats its header on each,
+    loses no row, and the contents still give each section's page."""
+    disposals = [{"asset": "BTC", "date_sold": f"2024-{1 + i % 12:02d}-{1 + i % 28:02d}T12:00:00Z",
+                  "date_acquired": "2023-01-02T12:00:00Z", "amount": 0.001 + i / 1e6, "cost": 10.0, "proceeds": 20.0,
+                  "gain_loss": 10.0, "holding_period": "LONG", "kind": "Sale", "box": "F"} for i in range(150)]
+    pdf = generate_comprehensive_tax_report({**REPORT, "capital_gains_transactions": disposals})
+    pages = [page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages]
+    detail = [text for text in pages if "Gain (loss)" in text and "Kind" in text]
+    assert len(detail) >= 4  # the header on every page of the table
+    assert sum(" ".join(text.split()).count(" Sale F Long ") for text in detail) == 150
+    starts = {n: next(i for i, text in enumerate(pages[1:], start=2)
+                      if any(line.startswith(f"{n}. ") for line in text.split("\n")))
+              for n in range(1, 7)}
+    listed = {int(n): int(page) for page, n in re.findall(r"(\d+) (\d)\. [A-Z]", " ".join(pages[0].split()))}
+    assert listed == starts and starts[3] > starts[2] + 2
 
 
 def test_transaction_history_of_a_year_without_transactions(auth_client):

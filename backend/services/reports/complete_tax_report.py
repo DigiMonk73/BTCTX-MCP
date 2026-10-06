@@ -128,7 +128,7 @@ class _TaxReport:
         self.styles = ReportStyles()
         self.running_title = f"{self.year} Bitcoin Tax Report"
         self.disposals = [d for d in data.get("capital_gains_transactions", []) if d.get("asset") == "BTC"]
-        self.income = [t for t in data.get("income_transactions", []) if t.get("asset") in ("BTC", "USD")]
+        self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
         self.gifts = [g for g in data.get("gifts_donations_lost", []) if g.get("asset") == "BTC"]
         balances = data.get("end_of_year_balances", [])
         self.lots = [b for b in balances if b.get("asset", "").startswith("BTC")]
@@ -292,8 +292,8 @@ class _TaxReport:
     # 1. Summary
     def summary(self) -> list:
         return [
-            *self.section(1, "Summary", f"The year {self.year} at a glance. Each figure is the total of the "
-                                        "detail in the sections that follow."),
+            *self.section(1, "Summary", f"The year {self.year} at a glance: the totals of the detail in the "
+                                        "sections that follow, and the holdings the year started and ended with."),
             *self.subheading("Capital gains and losses"),
             self.gains_table(),
             *self.subheading("Form 8949 and Schedule D"),
@@ -334,8 +334,9 @@ class _TaxReport:
                                        fmt_gain(b["gain_loss"]))])
         return [
             data_table(rows, [0.4, 2.35, 0.65, 0.45, 1.05, 1.05, 1.05]),
-            self.text("Each box is its own Form 8949 page, and its totals go on the Schedule D line shown: "
-                      "the totals of the IRS forms BitcoinTX fills (Reports: IRS Reports).", self.styles.note),
+            self.text("Each box is its own Form 8949 page, and its totals go on the Schedule D line shown. For "
+                      "the years BitcoinTX has the IRS forms of, they are the totals of the forms it fills "
+                      "(Reports: IRS Reports).", self.styles.note),
         ]
 
     def income_summary_table(self) -> Table:
@@ -428,9 +429,16 @@ class _TaxReport:
             rows.append([self.text(self.date(g.get("date", ""))), self.text(g.get("type", "")), *self.numbers(
                 fmt_btc(g.get("amount", 0.0)), fmt_usd(fmv) if fmv is not None else "not given")])
         rows.append([self.total_label(), "", *self.numbers(
-            fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)),
-            fmt_usd(sum(g.get("fmv_usd") or 0.0 for g in self.gifts)), bold=True)])
+            fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)), self.fmv_total(), bold=True)])
         return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)]
+
+    def fmv_total(self) -> str:
+        """The values given, and how many are not: an unvalued gift is never $0."""
+        given = [g["fmv_usd"] for g in self.gifts if g.get("fmv_usd") is not None]
+        missing = len(self.gifts) - len(given)
+        if not given:
+            return "not given"
+        return fmt_usd(sum(given)) + (f" + {missing} not given" if missing else "")
 
     # 5. Holdings at year end
     def holdings_detail(self) -> list:
@@ -473,7 +481,11 @@ class _TaxReport:
         rows += [[self.text(self.date(lot.get("acquired", ""))), self.text(lot.get("account", "")),
                   *self.numbers(fmt_btc(lot.get("quantity", 0.0)), fmt_usd(lot.get("cost", 0.0)),
                                 fmt_value(lot.get("value")))] for lot in self.lots]
-        return data_table(rows, [1.2, 1.8, 1.4, 1.3, 1.3])
+        total = self.year_end_total or {}
+        rows.append([self.total_label(), "", *self.numbers(
+            fmt_btc(total.get("quantity", 0.0)), fmt_usd(total.get("cost", 0.0)), fmt_value(total.get("value")),
+            bold=True)])
+        return data_table(rows, [1.2, 1.8, 1.4, 1.3, 1.3], total=True)
 
     # 6. Notes
     def notes(self) -> list:

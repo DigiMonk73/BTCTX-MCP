@@ -28,23 +28,11 @@ from backend.services.tax_time import format_tax_date, get_tax_timezone, tax_yea
 
 logger = logging.getLogger(__name__)
 
-# The report's columns, in order, with their PDF widths in inches.
-COLUMN_WIDTHS = {
-    "date": 1.2,
-    "type": 0.9,
-    "from_account": 1.0,
-    "to_account": 1.0,
-    "asset": 0.6,
-    "amount": 0.9,
-    "fee_amount": 0.9,
-    "fee_currency": 0.7,
-    "cost_basis_usd": 1.0,
-    "proceeds_usd": 0.9,
-    "realized_gain_usd": 1.0,
-    "holding_period": 0.9,
-    "description": 1.2,
-}
-COLUMNS = list(COLUMN_WIDTHS)
+# The CSV's columns, in order
+COLUMNS = (
+    "date", "type", "from_account", "to_account", "asset", "amount", "fee_amount", "fee_currency",
+    "cost_basis_usd", "proceeds_usd", "realized_gain_usd", "holding_period", "description",
+)
 NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "realized_gain_usd"}
 
 TYPES = ["Deposit", "Withdrawal", "Transfer", "Buy", "Sell"]
@@ -100,10 +88,17 @@ def _pdf_cells(tx: Transaction, row: dict, tz) -> dict:
         "_kind": f"{tx.type} ({detail})" if detail and detail != "N/A" else tx.type,
         "_amount": _with_currency(row["amount"], row["asset"]),
         "_fee": _with_currency(row["fee_amount"], row["fee_currency"]),
-        **{col: f"{Decimal(row[col]):,.2f}" if row[col] else "" for col in
-           ("cost_basis_usd", "proceeds_usd", "realized_gain_usd")},
+        **{col: _usd(row[col]) for col in ("cost_basis_usd", "proceeds_usd", "realized_gain_usd")},
         "holding_period": (row["holding_period"] or "").capitalize(),
     }
+
+
+def _usd(value: str) -> str:
+    """With thousands separators; a loss in parentheses, as in the tax report."""
+    if not value:
+        return ""
+    amount = Decimal(value)
+    return f"({-amount:,.2f})" if amount < 0 else f"{amount:,.2f}"
 
 
 def _with_currency(value: str, currency: str) -> str:
