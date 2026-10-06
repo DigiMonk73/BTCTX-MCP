@@ -323,6 +323,9 @@ Start from the `clean` snapshot.
   "(no IRS forms yet)" and the note says to update BitcoinTX.
 - **RPT-4** Transaction History for 2023, 2024 and 2025. Expect the files
   `TransactionHistory_<year>.csv` with 6, 4 and 4 data rows.
+  Then Transaction History 2023 with Format **PDF**: expect
+  `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
+  "Page 1 of N" at the foot of each page.
 - **RPT-5** Complete Tax Report 2023 and 2024, with Off and no stored
   prices. Expect: both generate. Every holdings value (Beginning of Year
   and End of Year) reads "not priced", with the note "No BTC price for

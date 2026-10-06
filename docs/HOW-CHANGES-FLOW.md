@@ -113,7 +113,9 @@ Start9 sometimes changes the package themselves: a review (like
 brought back in #48), template updates about monthly, *SDK* updates.
 
 1. Claude runs `scripts/start9-pull.sh --apply` on a short branch. It
-   copies their changes into `startos/` here.
+   copies their changes into `startos/` here, and writes down which of
+   their commits it took (`scripts/start9-taken`), so later checks only
+   look at what they changed after that.
 2. Claude checks and tests it, and opens a pull request into `develop`
    (never straight into `main`).
 3. Their change then goes out with our next release (sections 2 and 3),

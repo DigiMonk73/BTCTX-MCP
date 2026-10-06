@@ -58,7 +58,9 @@ All notable changes to BitcoinTX are documented in this file.
   the page (columns were cut off). It is now landscape, in the same look,
   with dates in the tax timezone, each type with its source or purpose
   ("Withdrawal (Spent)"), amounts and fees with their currency, and page
-  numbers. The CSV is unchanged.
+  numbers. Reports now offers it: with Transaction History selected,
+  Format is CSV spreadsheet (as before) or PDF; before, the PDF could only
+  be had through the API. The CSV is unchanged.
 
 ### Fixed
 - **The Complete Tax Report no longer has an "Expenses" section.** It
@@ -103,6 +105,13 @@ All notable changes to BitcoinTX are documented in this file.
   release tests and the box test name the new action (#29).
 
 ### Development
+- **The Start9 check survives squash merges.** `scripts/start9-pull.sh
+  --apply` records the Start9 commit it took in `scripts/start9-taken`
+  (committed with the take-back); the release's check then counts only
+  what Start9 changed since. Before, it looked for the take-back commit in
+  the history, which GitHub's squash merge of #48 removed: the 1.2.5
+  release would have stopped at its first step. Set to Start9's 8c030d8,
+  the review #48 took.
 - **How changes flow, on one page.** `docs/HOW-CHANGES-FLOW.md` maps the
   whole path in plain steps: an everyday change, a release, sending it to
   Start9, taking Start9's own changes back, and keeping this computer and

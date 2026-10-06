@@ -72,6 +72,32 @@ test("IRS Form 8949 / Schedule D PDF", async ({ authedPage: page }) => {
   expect(text).not.toMatch(/0\.25000000 BTC/);
 });
 
+test("transaction history PDF, chosen in Format", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  await page.getByRole("link", { name: "Reports" }).click();
+  await page.getByLabel("Tax Year").selectOption("2023");
+  await page.getByLabel("Transaction History").check();
+  await page.getByLabel("Format").selectOption("pdf");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export" }).click();
+  const d = await download;
+  expect(d.suggestedFilename()).toBe("TransactionHistory_2023.pdf");
+  const file = (await d.path())!;
+  expect(readFileSync(file).subarray(0, 4).toString()).toBe("%PDF");
+  const text = pdfText(file);
+  expect(text).toContain("Transaction History");
+  expect(text).toMatch(/Page 1 of \d/);
+  // The other reports are PDF only: no choice
+  for (const other of ["Complete Tax Report", "IRS Reports (Form 8949, Schedule D, etc.)"]) {
+    await page.getByLabel(other).check();
+    await expect(page.getByLabel("Format")).toHaveValue("pdf");
+    await expect(page.getByRole("combobox", { name: "Format" })).toHaveCount(0);
+  }
+  // Back on the history, it starts as a CSV again
+  await page.getByLabel("Transaction History").check();
+  await expect(page.getByLabel("Format")).toHaveValue("csv");
+});
+
 test("transaction history CSV", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const { name, file } = await exportReport(page, "Transaction History", "2023");
