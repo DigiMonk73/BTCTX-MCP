@@ -222,13 +222,13 @@ Start from the `clean` snapshot.
 ### INS: install
 
 - **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload). Expect: it
-  installs, and the service page shows version `X.Y.Z`. The install shows the
-  phase "Creating the BitcoinTX database".
-- **INS-2** Expect two tasks: **Show Credentials** (critical) and **Price
-  Source & Privacy** (important).
-- **INS-3** Run **Show Credentials**. Expect: title "Login Credentials",
-  username `admin`, a 24-character password. The critical task clears.
-  Record the password.
+  installs, and the service page shows version `X.Y.Z`.
+- **INS-2** Expect two tasks: **Set Login Credentials** (critical) and
+  **Price Source & Privacy** (important).
+- **INS-3** Run **Set Login Credentials** (the service is still stopped).
+  Expect: no warning (there is no login to replace yet), then title "Login
+  Credentials", username `admin`, a 24-character password, and a message
+  that it is shown only now. The critical task clears. Record the password.
 - **INS-4** Run **Price Source & Privacy**. Choose **Choose in BitcoinTX
   (Settings > Privacy & Network)** and leave both toggles off. Expect: "Price
   Source Saved"; the task clears.
@@ -574,8 +574,8 @@ Set `KEY` to the key from AI-3, and use
     password: expect "Credentials updated successfully.".
 
   The second session's next action lands on the login page. Log in as
-  `tester`. **Show Credentials** still shows `admin` and the generated
-  password: stale, as documented.
+  `tester`. Nothing in StartOS shows a password again: Set Login
+  Credentials only makes a new one.
 - **SEC-9** Last in Track A's security checks, because it makes you wait:
   send wrong passwords to `$API/login` in quick succession, at most eight.
   Expect: from the sixth or seventh on, HTTP 429 with a `Retry-After`
@@ -584,20 +584,21 @@ Set `KEY` to the key from AI-3, and use
 
 ### LCK: locked out
 
-- **LCK-1** With the service running, expect **Reset Login Credentials**
+- **LCK-1** With the service running, expect **Set Login Credentials**
   unavailable: it runs only while stopped.
-- **LCK-2** Stop the service, run **Reset Login Credentials** (read its
-  warning), and expect "Credentials Reset". Start the service. Expect:
-  Show Credentials gives `admin` and a new password; `tester` no longer
-  logs in; `admin` with the new password does; every golden figure is
-  intact.
+- **LCK-2** Stop the service, run **Set Login Credentials**. Expect its
+  warning "This replaces your current username and password. Your
+  transactions are not touched.", then "Login Credentials" with `admin`
+  and a new password; record it. Start the service. Expect: `tester` no
+  longer logs in; `admin` with the new password does; every golden figure
+  is intact.
 
 ### BAK (StartOS backup)
 
 - **BAK-5** (needs the second virtual disk) Create a StartOS backup of
   BitcoinTX, then uninstall BitcoinTX (its data goes with it). Restore it
-  from the backup. Expect: the service starts; Show Credentials gives the
-  LCK-2 password, which logs in; every golden figure; Tax Timezone
+  from the backup. Expect: no Set Login Credentials task; the service
+  starts; the LCK-2 password logs in; every golden figure; Tax Timezone
   America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
   still works.
 

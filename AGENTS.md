@@ -306,8 +306,7 @@ mirror's Tag and Release ignores root-level `*.md`, so nothing is rebuilt;
 check the sync's commit lists only those files. Anything else in `startos/`
 (code, `icon.*`, `assets/`, workflows) waits for a release. Once Start9 has
 forked, such a sync also needs its pull request to their fork (or rides in
-one of ours still open), or the next release's `--check` takes the mirror's
-newer docs for Start9 undoing them. Before a release, bring
+one of ours still open), or Start9 never gets it. Before a release, bring
 Start9's changes to their fork back into `startos/` with
 `scripts/start9-pull.sh` (`--apply` on a branch cut from `develop`, then a
 pull request), or the sync undoes them;

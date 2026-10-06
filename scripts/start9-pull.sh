@@ -16,9 +16,12 @@
 # --apply: applies that difference to startos/ in the working tree,
 # three-way, for you to review, test, commit and send to develop by pull
 # request. Refused on main.
-# --check: exit 1 if their changes are not in startos/ at HEAD (committed);
-# exit 0 when they are, when there is no fork yet, or while a pull request of
-# ours is open there (it can't tell theirs from ours then; it says so).
+# --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
+# or in the commit since our last sync that took them, edited since);
+# exit 0 when they are, when there is no fork yet, or when their branch is
+# already in the mirror's history (what differs is ours, waiting for them).
+# Start9 changes made while a pull request of ours is open there can't be
+# told from ours: exit 1, so no sync records them as taken without them.
 # --fork: prints "<owner/repo> <branch>" of their fork, nothing before it exists.
 #
 # START9_FORK    their fork (default: the mirror's fork owned by Start9-Community,
@@ -70,6 +73,13 @@ git clone -q --branch main "$MIRROR_URL" "$TMP/mirror"
 git -C "$TMP/mirror" fetch -q "$FORK_URL" "$FORK_BRANCH:start9" \
   || { echo "can't fetch $FORK ($FORK_BRANCH)" >&2; exit 1; }
 
+# Their branch already in the mirror's history (the sync builds on it, and
+# they haven't committed since): whatever differs is ours, not yet merged there.
+if git -C "$TMP/mirror" merge-base --is-ancestor start9 main; then
+  echo "$FORK $FORK_BRANCH is already in the mirror: nothing to take."
+  exit 0
+fi
+
 # The fork's tree against the mirror's (two dots: trees, not history, so a
 # squash-merged pull request of ours doesn't count as theirs).
 git -C "$TMP/mirror" diff --binary main start9 > "$TMP/start9.patch"
@@ -81,19 +91,33 @@ OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number,tit
   --jq '.[] | select(.headRepositoryOwner.login == "'"${MIRROR%%/*}"'") | "#\(.number) \(.title)"' 2>/dev/null || true)"
 
 if [ "$MODE" = --check ]; then
-  # Their changes are in HEAD's startos/ when the patch un-applies there.
-  mkdir "$TMP/head"
-  git -C "$TMP/head" init -q
-  git -C "$ROOT" archive HEAD startos | tar -x -C "$TMP/head"
-  if git -C "$TMP/head" apply --check --reverse --directory=startos "$TMP/start9.patch" 2>/dev/null; then
-    echo "Start9's changes to $FORK are in startos/."
-    exit 0
+  # Their changes are in startos/ when the patch un-applies there: at HEAD,
+  # or at the commit since our last sync that took them (a later change of
+  # ours to the same lines no longer un-applies it, and is fine: the pull
+  # request to them shows it). Committed only: the release builds HEAD.
+  SYNCED="$(git -C "$TMP/mirror" log --format=%s main start9 \
+    | sed -n 's/^Sync from DigiMonk73\/BTCTX-MCP@\([0-9a-f]*\).*/\1/p' | sed -n 1p)"  # reads it all: no SIGPIPE under pipefail
+  HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+  COMMITS="$HEAD_SHA"
+  if [ -n "$SYNCED" ] && git -C "$ROOT" merge-base --is-ancestor "$SYNCED" HEAD 2>/dev/null; then
+    COMMITS="$COMMITS $(git -C "$ROOT" rev-list HEAD "^$SYNCED" -- startos)"
   fi
-  if [ -n "$OPEN" ]; then
-    echo "::warning::Our pull request on $FORK is still open ($OPEN), so Start9's own changes can't be told apart: check with scripts/start9-pull.sh."
-    exit 0
-  fi
+  for C in $COMMITS; do
+    GIT_INDEX_FILE="$TMP/index" git -C "$ROOT" read-tree "$C:startos"
+    if GIT_INDEX_FILE="$TMP/index" git -C "$ROOT" apply --cached --check --reverse "$TMP/start9.patch" 2>/dev/null; then
+      if [ "$C" = "$HEAD_SHA" ]; then
+        echo "Start9's changes to $FORK are in startos/."
+      else
+        echo "Start9's changes to $FORK are in startos/: taken in $(git -C "$ROOT" log -1 --format='%h %s' "$C"), changed since."
+      fi
+      exit 0
+    fi
+  done
   git -C "$TMP/mirror" diff --stat main start9 >&2
+  if [ -n "$OPEN" ]; then
+    echo "Start9 changed $FORK while our pull request there is still open ($OPEN), so their changes can't be told from ours. Ask them to merge (or close) it, then take their changes: scripts/start9-pull.sh --apply on a branch cut from develop." >&2
+    exit 1
+  fi
   echo "Start9 changed $FORK, and startos/ doesn't have it yet. On a branch cut from develop: scripts/start9-pull.sh --apply, review, run the checks, commit and open a pull request into develop; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
   exit 1
 fi

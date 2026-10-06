@@ -37,7 +37,7 @@ def _init_db():
 
     result = init_db()
     # The app's price settings: a recalculation or review may look up a price.
-    # Never a reason to fail a command (Reset Login Credentials runs here too).
+    # Never a reason to fail a command (Set Login Credentials runs here too).
     try:
         with SessionLocal() as db:
             outbound.load(db)
