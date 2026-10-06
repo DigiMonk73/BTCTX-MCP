@@ -185,3 +185,24 @@ def test_a_sync_that_would_undo_start9s_changes_stops(repos):
     assert r.returncode == 1
     assert "start9-pull.sh --apply" in r.stderr
     assert git(mirror, "rev-parse", "main") == before, "nothing pushed"
+
+
+def test_start9_changes_during_our_open_pull_request_stop_the_sync(repos):
+    """Merging their commits then (keeping our tree) would record them as taken
+    without their content: the sync stops instead, and nothing is pushed."""
+    proj, mirror, fork, out = repos
+    (proj / "startos" / "main.ts").write_text(BASE + "ours, not merged yet\n")
+    git(proj, "commit", "-qam", "ours")
+    run(proj, out, "--push", **FORKED)
+    before = git(mirror, "rev-parse", "main")
+    shutil.rmtree(out)
+    start9_review(fork)
+
+    (proj / "startos" / "main.ts").write_text(BASE + "ours, not merged yet\nmore\n")
+    git(proj, "commit", "-qam", "more")
+    r = subprocess.run(
+        ["bash", str(proj / "scripts" / "sync-startos-mirror.sh"), "--push", str(out)],
+        capture_output=True, text=True, env={**os.environ, "FAKE_PR": "#3 BitcoinTX v1.2.5", **FORKED},
+    )
+    assert r.returncode == 1 and "still open" in r.stderr
+    assert git(mirror, "rev-parse", "main") == before, "nothing pushed"

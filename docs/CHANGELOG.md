@@ -40,7 +40,10 @@ All notable changes to BitcoinTX are documented in this file.
   edits to two lines Start9 had rewritten would have stopped the next
   release (the release's mirror step now fetches the whole history for
   it). It also passes when Start9's branch is already in the mirror's
-  history: what differs then is ours, waiting for them to merge. `startos/`'s `UPDATING.md`, `TODO.md` and
+  history: what differs then is ours, waiting for them to merge. And it
+  now stops, instead of warning, when Start9 changed their fork while a
+  pull request of ours is open there: theirs can't be told from ours then,
+  and a sync could record their commits without their content. `startos/`'s `UPDATING.md`, `TODO.md` and
   `AGENTS.md` now say that `develop` takes pull requests and that to-dos
   are issues (#29).
 - **The pre-push tests no longer touch the repository in a worktree.** Git

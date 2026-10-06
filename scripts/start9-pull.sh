@@ -18,8 +18,10 @@
 # request. Refused on main.
 # --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
 # or in the commit since our last sync that took them, edited since);
-# exit 0 when they are, when there is no fork yet, or while a pull request of
-# ours is open there (it can't tell theirs from ours then; it says so).
+# exit 0 when they are, when there is no fork yet, or when their branch is
+# already in the mirror's history (what differs is ours, waiting for them).
+# Start9 changes made while a pull request of ours is open there can't be
+# told from ours: exit 1, so no sync records them as taken without them.
 # --fork: prints "<owner/repo> <branch>" of their fork, nothing before it exists.
 #
 # START9_FORK    their fork (default: the mirror's fork owned by Start9-Community,
@@ -111,11 +113,11 @@ if [ "$MODE" = --check ]; then
       exit 0
     fi
   done
-  if [ -n "$OPEN" ]; then
-    echo "::warning::Our pull request on $FORK is still open ($OPEN), so Start9's own changes can't be told apart: check with scripts/start9-pull.sh."
-    exit 0
-  fi
   git -C "$TMP/mirror" diff --stat main start9 >&2
+  if [ -n "$OPEN" ]; then
+    echo "Start9 changed $FORK while our pull request there is still open ($OPEN), so their changes can't be told from ours. Ask them to merge (or close) it, then take their changes: scripts/start9-pull.sh --apply on a branch cut from develop." >&2
+    exit 1
+  fi
   echo "Start9 changed $FORK, and startos/ doesn't have it yet. On a branch cut from develop: scripts/start9-pull.sh --apply, review, run the checks, commit and open a pull request into develop; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
   exit 1
 fi

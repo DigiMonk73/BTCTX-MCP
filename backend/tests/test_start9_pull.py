@@ -146,11 +146,14 @@ def test_check_still_stops_when_we_changed_their_lines_without_taking_them(repos
     assert run(proj, "--check", **FORKED).returncode == 1
 
 
-def test_check_warns_but_passes_while_our_pull_request_is_open(repos):
+def test_check_stops_when_start9_changed_their_fork_while_our_pull_request_is_open(repos):
+    """Theirs can't be told from ours then. Passing would let the sync merge
+    their commits into the mirror without their content, and later checks
+    would take them as already in the mirror's history."""
     proj, fork = repos
     start9_changes(fork)
     r = run(proj, "--check", FAKE_PR="#3 BitcoinTX v1.2.3", **FORKED)
-    assert r.returncode == 0 and "still open" in r.stdout
+    assert r.returncode == 1 and "still open" in r.stderr
 
 
 def test_check_fails_when_the_forks_cant_be_listed(repos):
