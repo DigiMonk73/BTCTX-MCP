@@ -12,10 +12,11 @@
 # make lock         recompile the Python locks after editing a requirements.in
 # make check        lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 # make check-fast   the pre-push gate, without pushing
+# make sync-check   is everything on this computer also on GitHub? (--tidy: scripts/sync-check.sh)
 
 PY ?= python3
 
-.PHONY: hooks test test-fast smoke e2e preview docker-smoke lint audit-deps lock check check-fast frontend-dist
+.PHONY: sync-check hooks test test-fast smoke e2e preview docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -75,3 +76,6 @@ check: lint test smoke audit-deps
 
 check-fast:
 	.githooks/pre-push </dev/null
+
+sync-check:
+	scripts/sync-check.sh
