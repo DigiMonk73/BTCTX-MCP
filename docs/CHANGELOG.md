@@ -33,7 +33,8 @@ All notable changes to BitcoinTX are documented in this file.
   `scripts/sync-startos-mirror.sh` first fast-forwards the mirror's `main`
   to Start9's fork (or, if the two have diverged, records it as merged,
   keeping `startos/`), so each pull request to Start9 shows only our
-  changes, not theirs undone. `startos/`'s `UPDATING.md`, `TODO.md` and
+  changes, not theirs undone. It runs `start9-pull.sh --check` first, also
+  for a docs-only sync by hand, and stops if `startos/` lacks theirs. `startos/`'s `UPDATING.md`, `TODO.md` and
   `AGENTS.md` now say that `develop` takes pull requests and that to-dos
   are issues (#29).
 - **The pre-push tests no longer touch the repository in a worktree.** Git

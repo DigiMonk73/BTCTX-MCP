@@ -39,7 +39,7 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   ├── .btctx_secret_key    per-install session signing key (mode 600)
   ├── setup-code.txt       one-time first-run code while the account still has
   │                        the default login (mode 600; deleted once claimed;
-  │                        never on StartOS, whose login is set at install)
+  │                        never on StartOS, whose login is set before the first start)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or asked for with the AI key (mode 600;
                            only created when needed)

@@ -35,7 +35,9 @@ this server** with 1.2.2 (2026-09-29); it gets one quick look again below.
 - [ ] If StartOS refuses because the package is signed differently from
       the one you have (you sideloaded your own builds before), **don't
       uninstall** (that deletes your data): tell Claude.
-- [ ] Tasks after the update:
+- [ ] Installing fresh instead: two tasks, **Set Login Credentials**
+      (critical: run it, save the login) and **Price Source & Privacy**.
+- [ ] Tasks after an update:
   - No **Set Login Credentials** task: expected if StartOS keeps a
     password for you (Show Credentials used to show it). Your login stays
     as it was, even if you changed the password inside BitcoinTX since.

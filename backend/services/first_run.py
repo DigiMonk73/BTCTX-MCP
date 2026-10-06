@@ -15,8 +15,8 @@ database.seed_defaults) and the one-time setup code that claiming it needs.
   account has the default login, kept in <data folder>/setup-code.txt
   (owner-only, the same across restarts), printed to the log, and deleted
   once the account is claimed. Not in the Mac app, which listens on
-  127.0.0.1 only; StartOS sets a generated password at install, so its
-  account never has the default login.
+  127.0.0.1 only; StartOS sets a generated password before the first
+  start, so its account never has the default login.
 """
 
 from __future__ import annotations

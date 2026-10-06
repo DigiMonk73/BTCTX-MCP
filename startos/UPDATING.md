@@ -32,7 +32,7 @@ as a pull request from DigiMonk73/BTCTX-StartOS. By hand:
 
 ## Releasing a new version
 
-Branches (`AGENTS.md`, "Branches"): work reaches `develop` by pull request;
+Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull request;
 `main` holds released code only and moves by fast-forwarding to `develop`.
 
 1. In a pull request into `develop`, bump the version everywhere it is
@@ -76,17 +76,18 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
 - **Before each sync, take their changes:** on a branch cut from `develop`,
   run `scripts/start9-pull.sh` to see what they changed since they last took
   ours, then `scripts/start9-pull.sh --apply`, review, run the checks,
-  commit and open a pull request into `develop`. The mirror sync replaces the mirror's contents with `startos/`,
-  so anything not brought back here would be undone. The release workflow
-  runs `scripts/start9-pull.sh --check` first and stops before publishing
-  anything if their changes aren't in `startos/`.
+  commit and open a pull request into `develop`. The mirror sync replaces
+  the mirror's contents with `startos/`, so anything not brought back here
+  would be undone. The sync runs `scripts/start9-pull.sh --check` first and
+  stops if their changes aren't in `startos/`, and so does the release
+  workflow, before publishing anything.
 - **Contribute each release, only by a pull request:** from
   DigiMonk73/BTCTX-StartOS `main` to the fork's default branch. The sync
   first fast-forwards the mirror's `main` to the fork's branch, so the pull
-  request shows only our changes. After the mirror push, the release workflow opens an issue in BTCTX-MCP, "Send
-  vX.Y.Z to Start9: open the pull request", with a link that opens GitHub's
-  pull-request page ready to create; or `gh pr create -R <fork> --head
-  DigiMonk73:main`. Start9 reviews and merges it and publishes to the
+  request shows only our changes. After the mirror push, the release
+  workflow opens an issue in BTCTX-MCP, "Send vX.Y.Z to Start9: open the
+  pull request", with a link that opens GitHub's pull-request page ready to
+  create; or `gh pr create -R <fork> --head DigiMonk73:main`. Start9 reviews and merges it and publishes to the
   community registry. While a pull request of ours is still open there, the
   mirror push adds the new release to it, and no issue is opened.
 - The script finds the fork itself (Start9 may rename it, and it keeps the
