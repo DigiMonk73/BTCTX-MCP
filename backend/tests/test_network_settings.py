@@ -395,23 +395,32 @@ def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_en
     assert requests_seen == []
 
 
+# Not the app: the admin command that fetches a test install's IRS draft
+# forms (outbound.py's docstring, docs/IRS_FORM_GENERATION.md)
+OWN_REQUESTS_ALLOWED = {"services/reports/draft_forms.py"}
+
+
 def test_no_other_module_makes_its_own_http_client():
     """Every outside request goes through services/outbound.py, so the
-    settings above can't be bypassed."""
+    settings above can't be bypassed. Review of #52: urllib.request
+    (stdlib) wasn't caught."""
     offenders = []
     for path in BACKEND.rglob("*.py"):
         if "tests" in path.parts or path.name == "outbound.py":
             continue
+        where = str(path.relative_to(BACKEND))
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr in ("AsyncClient", "Client", "get", "post") \
+            if isinstance(node, ast.Attribute) and node.attr in ("AsyncClient", "Client", "get", "post", "request") \
                     and isinstance(node.value, ast.Name) and node.value.id in ("httpx", "requests", "urllib"):
-                offenders.append(f"{path.relative_to(BACKEND)}:{node.lineno} {node.value.id}.{node.attr}")
+                offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
-                if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") for n in names):
-                    offenders.append(f"{path.relative_to(BACKEND)}:{node.lineno} imports {names}")
-    assert offenders == []
+                if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") or n.startswith("urllib.request")
+                       or (getattr(node, "module", None) == "urllib" and n == "request") for n in names):
+                    offenders.append(f"{where}:{node.lineno} imports {names}")
+    assert [o for o in offenders if o.split(":")[0] not in OWN_REQUESTS_ALLOWED] == []
+    assert {o.split(":")[0] for o in offenders} == OWN_REQUESTS_ALLOWED  # the exception is still needed
 
 
 def test_the_startos_package_passes_the_names_the_app_reads():

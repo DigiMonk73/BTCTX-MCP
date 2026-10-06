@@ -4,6 +4,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A full test ledger on any server, and 2026's forms from the IRS
+  drafts, for testing only.** `scripts/seed_ledger.py` loads 76
+  transactions (2023 to 2026) into a running BitcoinTX over its API: the
+  test suite's 65-row ledger with every USD value a price lookup would fill
+  given, so it loads with the price source Off, plus 2026 rows that land in
+  Form 8949 boxes G, H, I, J, K and L. It refuses a ledger that has
+  transactions and the Mac app's address. On a test install,
+  `python -m backend.cli install-draft-forms` puts the IRS's draft 2026
+  Form 8949 and Schedule D in the data folder; Reports then offers 2026,
+  labelled "IRS draft forms, test only", and prints them with the IRS's
+  "DRAFT — DO NOT FILE" on every page. The drafts are never bundled, are
+  checked like a final form (year, marking, every field the app writes),
+  and are ignored once a version has that year's final forms. A normal
+  install is unchanged. The StartOS test lab's `vmtest seed` uses both, so
+  every report can be clicked through on the VM without the owner's real
+  ledger (#51).
+
 ### Fixed
 - **On a phone, the transaction panel can be closed.** Up to 460 px wide the
   Add or Edit Transaction panel covers the whole page, so there was nothing

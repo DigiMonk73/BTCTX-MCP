@@ -84,7 +84,10 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 | `python scripts/irs_new_year.py --watch` | For CI: exit 1 when final forms for the next year are on irs.gov |
 
 Never bundle a draft (`irs.gov/pub/irs-dft/...`). The IRS changes field layouts
-before a form is final.
+before a form is final. A test install can use the drafts from its data
+folder (`python -m backend.cli install-draft-forms`, see
+[IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md#draft-forms-on-a-test-install));
+once the year's final forms are bundled, it ignores them.
 
 ### Visual check (do not skip)
 

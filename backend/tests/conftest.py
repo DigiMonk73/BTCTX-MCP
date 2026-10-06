@@ -107,6 +107,18 @@ def _first_run_files(tmp_path_factory):
         yield
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _no_draft_forms(tmp_path_factory):
+    """IRS draft forms are looked for in an empty temp folder, never next to
+    the database DATABASE_FILE names (services/reports/draft_forms.py);
+    a test that installs some points DATA_DIR at its own."""
+    from backend.services.reports import draft_forms
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(draft_forms, "DATA_DIR", str(tmp_path_factory.mktemp("no-drafts")))
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _fresh_login_throttle():
     """Failed logins in one test never make another wait (login_throttle.py)."""

@@ -33,7 +33,6 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
-from collections import Counter
 from pathlib import Path
 
 logging.disable(logging.CRITICAL)
@@ -41,7 +40,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 TEMPLATES = ROOT / "backend" / "assets" / "irs_templates"
 FORMS = {"f8949.pdf": "8949", "f1040sd.pdf": "Schedule D"}
-DRAFT_URL = "https://www.irs.gov/pub/irs-dft/{stem}--dft.pdf"
 URLS = [
     "https://www.irs.gov/pub/irs-prior/{stem}--{year}.pdf",  # archive: unambiguous year
     "https://www.irs.gov/pub/irs-pdf/{stem}.pdf",            # current filing season
@@ -49,20 +47,13 @@ URLS = [
 
 from pypdf import PdfReader  # noqa: E402
 
+# Shared with the server's test-only draft forms; this module opens no database
+from backend.services.reports.draft_forms import DRAFT_URL, printed_year as form_year  # noqa: E402
+
 
 def say(ok: bool, msg: str) -> bool:
     print(f"  {'✓' if ok else '✗'} {msg}")
     return ok
-
-
-def form_year(path: Path) -> int | None:
-    """Tax year printed on the form, e.g. 'Form 8949 (2025)' / 'Schedule D (Form 1040) 2025'."""
-    text = " ".join((p.extract_text() or "") for p in PdfReader(str(path)).pages[:2])
-    m = re.search(r"Form\s*8949\s*\((20\d\d)\)", text) or re.search(r"Schedule D \(Form 1040\)\s*(20\d\d)", text)
-    if m:
-        return int(m.group(1))
-    years = Counter(re.findall(r"\b(20\d\d)\b", text))
-    return int(years.most_common(1)[0][0]) if years else None
 
 
 def is_draft(path: Path) -> bool:

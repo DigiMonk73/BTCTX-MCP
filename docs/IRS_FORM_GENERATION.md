@@ -34,6 +34,7 @@ backend/
 │   └── reports/
 │       ├── form_8949.py                  # rows, 1099-DA box rules, Schedule D totals, per-year field config
 │       ├── pdf_form_filler.py            # fill_pdf_form(): pypdf fill + flatten
+│       ├── draft_forms.py                # test installs only: the IRS's draft forms of the next year
 │       ├── complete_tax_report.py
 │       ├── transaction_history.py
 │       └── reporting_core.py
@@ -42,15 +43,48 @@ backend/
     ├── test_1099da_boxes.py              # box selection from real ledger data
     ├── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
     ├── test_golden_years.py              # three hand-worked tax years: exact 8949 rows, Schedule D lines
+    ├── test_draft_forms.py               # draft forms: off by default, checked, marked on every page
     └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
 .github/workflows/irs-forms-watch.yml     # weekly check for new final IRS forms (Nov–Mar)
 ```
 
 `get_supported_years()` in `reports.py` lists every year folder that holds
-both PDFs. The endpoint checks the requested year against that list and
-returns HTTP 400 for any other year. The Reports page takes the year as free
-text, so no frontend change is needed for a new year.
+both PDFs. The endpoint checks the requested year against that list (plus a
+test install's draft year, below) and returns HTTP 400 for any other year.
+The Reports page lists the years `GET /api/reports/years` gives, so no
+frontend change is needed for a new year.
+
+## Draft forms on a test install
+
+To test a year before the IRS publishes its final forms (the click-through
+of 2026 on the StartOS test VM, say), a test install can use the IRS's
+**draft** Form 8949 and Schedule D. Never bundled: they live only in that
+server's data folder, the directory of `DATABASE_FILE` (`/data` in Docker and
+on StartOS), as `irs-draft-forms/<year>/f8949.pdf` and `f1040sd.pdf`.
+
+```bash
+python -m backend.cli install-draft-forms                    # from irs.gov/pub/irs-dft/ (the only site it contacts)
+python -m backend.cli install-draft-forms --from-dir DIR     # f8949.pdf and f1040sd.pdf you downloaded
+python -m backend.cli install-draft-forms --remove           # take them out again
+```
+
+In Docker: `docker exec <container> python -m backend.cli install-draft-forms`.
+On the StartOS test VM, `tools/vmtest seed` in the lab does it. No restart
+is needed.
+
+With them there, `GET /api/reports/years` lists the year in `form_years`
+and `draft_years`, the Reports page shows it as "IRS draft forms, test
+only" with a warning, and `irs_reports` fills the drafts as it fills a final
+form, leaving out the IRS's cover page ("the draft you are looking for
+begins on the next page"). Every page printed says **DRAFT — DO NOT FILE**:
+the IRS prints it on each page of a draft, and `draft_forms.py` uses a
+draft only when it does. It also checks the year printed on both forms and
+that every field the app writes exists and the boxes are in the config's
+order (what `scripts/irs_new_year.py` checks for a final form); anything
+else is left out with a warning in the log, and `install-draft-forms`
+refuses it. A year with bundled forms ignores its drafts, so the yearly
+update replaces them; remove the folder then.
 
 ## Data flow
 
@@ -228,7 +262,8 @@ The endpoint then concatenates the flattened PDFs with pypdf.
 
 | Symptom | Cause |
 |---|---|
-| HTTP 400 `Tax year YYYY not supported. Available years: [...]` | No `backend/assets/irs_templates/YYYY/` folder with both PDFs. |
+| HTTP 400 `Tax year YYYY not supported. Available years: [...]` | No `backend/assets/irs_templates/YYYY/` folder with both PDFs (nor a test install's checked drafts for it). |
+| A test install's draft year isn't offered | The log says why (`IRS draft forms in ... left out: ...`): not the IRS's draft of that year, or a field the app writes is missing. |
 | HTTP 500 `IRS report generation failed: N field(s) not in .../f8949.pdf ...` | A field name in the config doesn't exist in that year's template (template swapped, or config wrong). See [IRS_ANNUAL_FORM_UPDATE.md, Step 4](IRS_ANNUAL_FORM_UPDATE.md#step-4--if-field-names-changed). |
 | HTTP 500 `... Box X is not in Part I of the YYYY Form 8949` | `_determine_box()` returned a letter that the year's `boxes_part1` / `boxes_part2` doesn't have. |
 | Tests fail with `templates are present but get_8949_field_config has not been verified for YYYY` | A new year folder was added without signing it off in `verified_years`. See the runbook. |
@@ -236,6 +271,7 @@ The endpoint then concatenates the flattened PDFs with pypdf.
 ## Tests
 
 ```bash
-python -m pytest -q backend/tests/test_irs_templates.py backend/tests/test_1099da_boxes.py backend/tests/test_2025_forms.py
+python -m pytest -q backend/tests/test_irs_templates.py backend/tests/test_1099da_boxes.py backend/tests/test_2025_forms.py \
+    backend/tests/test_draft_forms.py
 make test    # full suite
 ```

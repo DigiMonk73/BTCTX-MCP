@@ -155,6 +155,25 @@ data) — it creates transactions. `make docker-smoke` does this for an image
 built from the checkout (`scripts/docker_smoke.sh --keep` leaves the container
 running on 127.0.0.1:8778).
 
+## A full test ledger on any server
+
+```bash
+python scripts/seed_ledger.py --url https://host:port --user NAME --password-stdin [--ca root-ca.crt] < password-file
+```
+
+`scripts/seed_ledger.py` loads 76 transactions from 2023 to 2026 over the
+API: `backend/tests/transaction_seed_data.json` (every deposit and
+withdrawal kind) with every USD value a price lookup would fill already
+given, plus 2026 rows that land in Form 8949 boxes G, H, I, J, K and L. It
+loads with the price source Off and contacts nothing but the server. It
+refuses a ledger that has transactions, and the Mac app's address
+(`127.0.0.1:8765`) outright. `--setup-code` claims a fresh Docker install
+first. For the 2026 forms, add the IRS's drafts to the same server
+(`python -m backend.cli install-draft-forms`, see
+docs/IRS_FORM_GENERATION.md, "Draft forms on a test install"). On the
+StartOS test VM, the lab's `tools/vmtest seed` does both.
+`backend/tests/test_seed_ledger.py` runs it against the in-process app.
+
 ## Trying a branch in a browser
 
 ```bash
@@ -181,3 +200,6 @@ built by the migrations, not `create_all()`.
 `python scripts/irs_new_year.py YEAR --check` verifies an installed year's
 templates; `backend/tests/test_irs_templates.py` runs the same checks for
 every bundled year on each test run. See docs/IRS_ANNUAL_FORM_UPDATE.md.
+`backend/tests/test_draft_forms.py` covers a test install's draft forms with
+a stand-in draft made from the newest bundled form (no IRS draft is kept in
+the repository).

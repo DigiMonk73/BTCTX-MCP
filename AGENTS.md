@@ -180,7 +180,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
-| `backend/services/outbound.py` | the only HTTP client factory for outside services; Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
+| `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
@@ -189,6 +189,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
+| `backend/services/reports/draft_forms.py` | test installs only: next year's IRS draft forms from `<data dir>/irs-draft-forms/` (`cli install-draft-forms`); never bundled |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
@@ -201,6 +202,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
+| `scripts/seed_ledger.py` | full test ledger (2023–2026, every 8949 box) into an empty server over the API; refuses the Mac app |
 
 ## Security rules
 
