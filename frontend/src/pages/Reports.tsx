@@ -11,7 +11,7 @@ const REPORTS = [
   {
     key: "completeTax",
     label: "Complete Tax Report",
-    description: "Gains, income, fees and year-end balances in one PDF.",
+    description: "Gains, income, gifts and holdings, with a one-page summary. PDF.",
     endpoint: "/reports/complete_tax_report",
     pdfOnly: true,
     needsForms: false,
@@ -27,7 +27,7 @@ const REPORTS = [
   {
     key: "transactionHistory",
     label: "Transaction History",
-    description: "Every transaction in the year as a CSV spreadsheet.",
+    description: "Every transaction in the year, as a CSV spreadsheet or a PDF.",
     endpoint: "/reports/simple_transaction_history",
     pdfOnly: false,
     needsForms: false,
@@ -147,7 +147,14 @@ const Reports: React.FC = () => {
           </div>
           <div className="field">
             <label htmlFor="report-format">Format</label>
-            <input id="report-format" type="text" className="input report-format" readOnly value={format} />
+            {reportDef?.pdfOnly ? (
+              <input id="report-format" type="text" className="input report-format" readOnly value={format} />
+            ) : (
+              <select id="report-format" className="input" value={format} onChange={(e) => setFormat(e.target.value)}>
+                <option value="csv">CSV spreadsheet</option>
+                <option value="pdf">PDF</option>
+              </select>
+            )}
           </div>
         </div>
         {missingForms && (
@@ -178,7 +185,7 @@ const Reports: React.FC = () => {
                 checked={selectedReport === r.key}
                 onChange={() => {
                   setSelectedReport(r.key);
-                  // Transaction History is a CSV; the others are PDFs
+                  // Transaction History starts as a CSV (it can be a PDF); the others are PDFs
                   setFormat(r.key === "transactionHistory" ? "csv" : "pdf");
                 }}
               />

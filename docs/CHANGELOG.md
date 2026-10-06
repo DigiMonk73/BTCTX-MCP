@@ -56,7 +56,9 @@ All notable changes to BitcoinTX are documented in this file.
   the page (columns were cut off). It is now landscape, in the same look,
   with dates in the tax timezone, each type with its source or purpose
   ("Withdrawal (Spent)"), amounts and fees with their currency, and page
-  numbers. The CSV is unchanged.
+  numbers. Reports now offers it: with Transaction History selected,
+  Format is CSV spreadsheet (as before) or PDF; before, the PDF could only
+  be had through the API. The CSV is unchanged.
 
 ### Fixed
 - **The Complete Tax Report no longer has an "Expenses" section.** It
