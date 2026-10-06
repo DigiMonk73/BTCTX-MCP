@@ -63,6 +63,15 @@ All notable changes to BitcoinTX are documented in this file.
   release tests and the box test name the new action (#29).
 
 ### Development
+- **One command says whether everything is on GitHub.** `make sync-check`
+  (`scripts/sync-check.sh`) fetches, brings local `main` and `develop` down
+  when they're only behind, and lists anything that exists only on this
+  computer: work not committed in any working folder, branches with
+  commits GitHub doesn't have (a merged pull request counts as on GitHub),
+  stashes. It ends with IN SYNC or NOT IN SYNC. `--tidy` also deletes the
+  local branches already on GitHub. Every session runs it at its start and
+  end, and ends its last message to the owner with "Git: in sync" or what
+  is only here (owner's request).
 - **The mirror sync builds on Start9's fork.**
   `scripts/sync-startos-mirror.sh` first fast-forwards the mirror's `main`
   to Start9's fork (or, if the two have diverged, records it as merged,
