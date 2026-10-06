@@ -37,7 +37,6 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-logging.disable(logging.CRITICAL)
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 TEMPLATES = ROOT / "backend" / "assets" / "irs_templates"
@@ -282,6 +281,7 @@ def watch() -> int:
 
 
 def main() -> int:
+    logging.disable(logging.CRITICAL)  # pypdf's font warnings; here, not at import (tests load this module)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("year", type=int, nargs="?")
     ap.add_argument("--check", action="store_true", help="verify the installed templates only")
