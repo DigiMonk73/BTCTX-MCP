@@ -101,16 +101,21 @@ def test_pre_push_hook_unsets_the_repository_variables():
     assert "unset $(git rev-parse --local-env-vars)" in hook
 
 
-def test_suite_run_with_git_dir_leaves_that_repository_alone(tmp_path):
-    """The throwaway-repository tests, run with GIT_DIR naming another repository."""
-    sentinel = tmp_path / "sentinel"
-    subprocess.run(["git", "init", "-q", str(sentinel)], check=True, capture_output=True)
-    config = (sentinel / ".git" / "config").read_text()
+def test_suite_run_from_a_worktree_hook_leaves_the_repository_alone(tmp_path):
+    """The throwaway-repository tests, run with the GIT_DIR a hook gets in a worktree."""
+    main = tmp_path / "main"
+    for args in (["init", "-q", str(main)],
+                 ["-C", str(main), "commit", "-q", "--allow-empty", "-m", "c"],
+                 ["-C", str(main), "worktree", "add", "-q", str(tmp_path / "wt")]):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+                       check=True, capture_output=True)
+    config = (main / ".git" / "config").read_text()
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
          f"{__file__}::test_allowed", "backend/tests/test_start9_pull.py"],
-        cwd=root, env={**os.environ, "GIT_DIR": str(sentinel / ".git")}, capture_output=True, text=True,
+        cwd=root, env={**os.environ, "GIT_DIR": str(main / ".git" / "worktrees" / "wt")},
+        capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout[-2000:]
-    assert (sentinel / ".git" / "config").read_text() == config
+    assert (main / ".git" / "config").read_text() == config

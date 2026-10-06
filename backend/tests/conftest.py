@@ -27,7 +27,6 @@ from backend.models.transaction import (      # noqa: F401
 )
 
 
-
 def _drop_git_repository_variables() -> None:
     """Run from a git hook or `git rebase --exec`, the suite inherits the
     variables naming that repository (GIT_DIR in a worktree): the tests that
