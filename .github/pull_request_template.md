@@ -19,4 +19,4 @@ reaches Start9, or is a release: those wait for the owner's "merge"
 
 - [ ] `docs/CHANGELOG.md` updated, if a user or maintainer would notice
 - [ ] `AGENTS.md` updated, if a rule, invariant or the way we work changed
-- [ ] Both reviews posted (Claude reviewer, Grok), every finding fixed or answered
+- [ ] Review posted (fresh Claude reviewer), every finding fixed or answered

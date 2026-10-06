@@ -29,10 +29,10 @@ Branches).
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
   attention (a scheduled task on the owner's Mac).
-- **Grok** reviews and brainstorms; it never commits. Grok Build reviews
-  every pull request ("Reviews"); Grok Bot, the owner's web assistant,
-  reads this public repository from links the owner gives it ("Working
-  through GitHub").
+- **Grok** brainstorms with the owner and never commits: Grok Bot on the
+  web reads this public repository from links the owner gives it ("Working
+  through GitHub"), and the owner may ask Grok in Cursor to review a pull
+  request.
 
 Everything goes through GitHub under the owner's account, so each AI ends
 what it posts there with its name ("— Claude", "— Claude (reviewer)",
@@ -337,32 +337,30 @@ One home for each kind of information, so nothing is kept twice:
 
 ## Reviews
 
-Every pull request gets two reviews before it merges, by reviewers that
-didn't write it, without anyone having to ask:
+Before a pull request merges, a fresh Claude reviewer goes through it,
+without anyone having to ask: a separate agent with no memory of writing the
+change, working read-only, that checks the diff and verifies its claims
+(runs the tests, looks things up) instead of trusting them. How far it goes
+depends on the change:
 
-1. **A fresh Claude reviewer:** a separate agent with no memory of writing
-   the change, working read-only, that checks the diff and verifies its
-   claims (runs the tests, looks things up) instead of trusting them.
-2. **Grok:** `scripts/grok-review.sh <number>` hands Grok Build the pull
-   request (its description, the diff, the rules and the full text of each
-   changed file, large ones as the diff only), at its highest reasoning
-   effort, with no tool that touches anything: no files, shell, web or
-   connectors. The owner's Grok has the BitcoinTX connector to the real
-   ledger, so this stays that way; the script checks Grok's session record
-   afterwards and withholds a review that wasn't locked down.
+| Change | Review |
+|---|---|
+| Docs, process, tooling | One review; another round only for a blocker |
+| App code | A review, then a re-check of the fixes |
+| Tax figures or what the app computes, the database, the StartOS package or anything that reaches Start9, releases | A review and a re-check, plus the before-and-after comparison of what the app produces (`scripts/equivalence_check.py`) when figures could move; then the owner's "merge" |
 
-Claude posts each review on the pull request (Grok's ending "— Grok
-(scripts/grok-review.sh)"), then fixes every finding (a bug fix with a test
-that fails on the old code) or answers it there with the evidence. A
-reviewer whose finding was fixed checks the fix.
+Claude posts the review on the pull request, then fixes every finding (a bug
+fix with a test that fails on the old code) or answers it there with the
+evidence. Grok reviews only when the owner asks it to, in Cursor; its
+comments end "— Grok".
 
 ## Pull requests
 
 Every change, Claude's included, goes into `develop` by pull request, filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
 for the owner, how it was tested, the risk. Claude merges it (a squash, one
-commit per change) once the 10 required checks have passed and neither
-review has anything open; the owner allowed `gh pr merge` in this project's
+commit per change) once the 10 required checks have passed and the
+review has nothing open; the owner allowed `gh pr merge` in this project's
 local Claude settings for that. These wait for the owner's "merge" in chat
 instead: a change in tax figures or what the app computes, the database,
 the StartOS package or anything that reaches Start9, and releases. A change
