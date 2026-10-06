@@ -15,6 +15,7 @@ C branches off A. Each case feeds the script the line git gives pre-push.
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,24 @@ def test_refused(repo, lines, message):
     result = push(repo, *lines)
     assert result.returncode != 0
     assert message in result.stderr
+
+
+def test_pre_push_hook_unsets_the_repository_variables():
+    """Else the tests it runs inherit GIT_DIR and `git init` the repository being pushed."""
+    hook = SCRIPT.with_name("pre-push").read_text()
+    assert "unset $(git rev-parse --local-env-vars)" in hook
+
+
+def test_suite_run_with_git_dir_leaves_that_repository_alone(tmp_path):
+    """The throwaway-repository tests, run with GIT_DIR naming another repository."""
+    sentinel = tmp_path / "sentinel"
+    subprocess.run(["git", "init", "-q", str(sentinel)], check=True, capture_output=True)
+    config = (sentinel / ".git" / "config").read_text()
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+         f"{__file__}::test_allowed", "backend/tests/test_start9_pull.py"],
+        cwd=root, env={**os.environ, "GIT_DIR": str(sentinel / ".git")}, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout[-2000:]
+    assert (sentinel / ".git" / "config").read_text() == config
