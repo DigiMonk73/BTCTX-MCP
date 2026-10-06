@@ -27,8 +27,9 @@ Other options: `YYYY --check` (verify an installed year), `YYYY --from-dir DIR`
 (use PDFs you downloaded yourself).
 
 The **IRS forms watch** workflow (`.github/workflows/irs-forms-watch.yml`)
-runs `--watch` weekly November–March and fails (emailing the repo owner) when a
-new final year is out.
+runs `--due` weekly, all year, and opens an issue (label `claude`) when the
+IRS publishes a new year's drafts (ship them as the preview) or its final
+forms.
 
 Full runbook, including what to do when the IRS renames fields:
 [IRS_ANNUAL_FORM_UPDATE.md](IRS_ANNUAL_FORM_UPDATE.md).

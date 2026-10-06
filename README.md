@@ -199,9 +199,9 @@ release.
 
 `python scripts/irs_new_year.py 2026` downloads the year's final Form 8949
 and Schedule D, checks every field the app fills, and runs the form tests. A
-scheduled GitHub workflow flags when new forms are published. Before that,
-`python scripts/irs_new_year.py --draft --ship` ships the IRS's drafts as
-the year's preview. See
+weekly GitHub workflow opens an issue when the IRS publishes new drafts or
+final forms. Before the final forms, `python scripts/irs_new_year.py
+--draft --ship` ships the IRS's drafts as the year's preview. See
 [docs/IRS_ANNUAL_FORM_UPDATE.md](docs/IRS_ANNUAL_FORM_UPDATE.md).
 
 ## Development

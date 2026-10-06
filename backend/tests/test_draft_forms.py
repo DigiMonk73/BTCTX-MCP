@@ -281,3 +281,102 @@ def test_cli_refuses_a_final_form_or_a_bundled_year(data_dir, tmp_path, capsys):
     assert cli.main(["install-draft-forms", "--from-dir", str(unmarked)]) == 1
     assert "DRAFT — DO NOT FILE" in capsys.readouterr().err
     assert draft_forms.draft_years(BUNDLED) == []
+
+
+@pytest.fixture
+def watch(tmp_path, monkeypatch):
+    """irs_new_year.py's --due with irs.gov stubbed: `irs["draft"]` is the
+    folder the draft comes from, `irs["final"]` the final forms' (or None)."""
+    script = _irs_new_year()
+    irs = {"draft": tmp_path / "irs-draft", "final": None}
+    make_draft(irs["draft"])
+    monkeypatch.setattr(draft_forms, "SHIPPED_DIR", tmp_path / "shipped")
+
+    def copy_from(source):
+        def fetch(dest: Path) -> bool:
+            if source() is None:
+                return False
+            for name in draft_forms.FORMS:
+                shutil.copy(source() / name, dest / name)
+            return True
+        return fetch
+
+    def download(year, dest):
+        irs["asked"] = year
+        return copy_from(lambda: irs["final"])(dest)
+
+    monkeypatch.setattr(script, "fetch_draft", copy_from(lambda: irs["draft"]))
+    monkeypatch.setattr(script, "download", download)
+    monkeypatch.setattr(script, "UNREACHABLE", [])
+    return script, irs
+
+
+def test_the_watch_asks_once_to_ship_a_new_draft(watch):
+    script, irs = watch
+    assert [s["title"] for s in script.due()] == [f"IRS forms: ship the {YEAR} draft as the preview"]
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    assert script.due() == []  # shipped: nothing to do
+
+
+def test_the_watch_notices_a_revised_draft(watch):
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    with open(irs["draft"] / "f8949.pdf", "ab") as f:
+        f.write(b"\n% the IRS's revision\n")
+    assert [s["title"] for s in script.due()] == [f"IRS forms: ship the {YEAR} draft as the preview (the IRS revised it)"]
+
+
+def test_the_watch_asks_for_the_final_forms(watch, tmp_path):
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    irs["final"] = Path(get_template_path(max(BUNDLED), "f8949.pdf")).parent  # final forms, not drafts
+    steps = script.due()
+    assert irs["asked"] == max(BUNDLED) + 1
+    assert [s["title"] for s in steps] == [f"IRS forms: add the final {YEAR} Form 8949 and Schedule D"]
+    assert f"irs_new_year.py {YEAR}" in steps[0]["body"] and "owner's \"merge\"" in steps[0]["body"]
+
+
+def test_the_watch_asks_nothing_for_drafts_where_finals_belong(watch, tmp_path):
+    """Review of #56: the final URL serving the draft, or a draft for a year
+    with final forms, is no step."""
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    irs["final"] = irs["draft"]  # irs.gov's "final" link still serves the draft
+    assert script.due() == []
+    irs["final"] = None
+    make_draft(irs["draft"], year=max(BUNDLED), source_year=max(BUNDLED))
+    assert script.due() == []
+
+
+def test_final_forms_make_a_revised_draft_moot(watch):
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    with open(irs["draft"] / "f8949.pdf", "ab") as f:
+        f.write(b"\n% the IRS's revision\n")
+    irs["final"] = Path(get_template_path(max(BUNDLED), "f8949.pdf")).parent
+    assert [s["title"] for s in script.due()] == [f"IRS forms: add the final {YEAR} Form 8949 and Schedule D"]
+
+
+def test_the_watch_fails_when_irs_gov_doesnt_answer(tmp_path, monkeypatch):
+    """Review of #56: a lasting break would turn the only reminder off; a 404
+    is just "not published yet"."""
+    import json
+    import urllib.error
+
+    script = _irs_new_year()
+
+    def offline(url, timeout=None):
+        raise urllib.error.URLError("no route to host")
+
+    monkeypatch.setattr(script.urllib.request, "urlopen", offline)
+    monkeypatch.setattr(draft_forms, "SHIPPED_DIR", tmp_path / "shipped")
+    assert script.write_due(tmp_path / "due.json") == 1 and script.UNREACHABLE
+    assert json.loads((tmp_path / "due.json").read_text()) == []
+
+    for code, broken in ((404, False), (410, False), (403, True), (503, True)):
+        def answer(url, timeout=None, code=code):
+            raise urllib.error.HTTPError(url, code, "", {}, None)
+
+        monkeypatch.setattr(script.urllib.request, "urlopen", answer)
+        monkeypatch.setattr(script, "UNREACHABLE", [])
+        assert script.write_due(tmp_path / "due.json") == int(broken), code

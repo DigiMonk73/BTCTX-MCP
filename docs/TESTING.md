@@ -41,8 +41,8 @@ make hooks          # installs the pre-push gate
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
 - **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
-  start-cli is out; `irs-forms-watch.yml` (November to March) fails when the final IRS
-  forms for a new year are published.
+  start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
+  new draft forms (to ship as the preview) or the final forms for a new year.
 - **On every branch push** (or manually from the Actions tab): builds the macOS
   app, launches it, checks its API answers on `127.0.0.1:8765`, and attaches the
   zipped `.app` to the run.
