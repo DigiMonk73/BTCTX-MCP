@@ -15,6 +15,7 @@ C branches off A. Each case feeds the script the line git gives pre-push.
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -92,3 +93,29 @@ def test_refused(repo, lines, message):
     result = push(repo, *lines)
     assert result.returncode != 0
     assert message in result.stderr
+
+
+def test_pre_push_hook_unsets_the_repository_variables():
+    """Else the tests it runs inherit GIT_DIR and `git init` the repository being pushed."""
+    hook = SCRIPT.with_name("pre-push").read_text()
+    assert "unset $(git rev-parse --local-env-vars)" in hook
+
+
+def test_suite_run_from_a_worktree_hook_leaves_the_repository_alone(tmp_path):
+    """The throwaway-repository tests, run with the GIT_DIR a hook gets in a worktree."""
+    main = tmp_path / "main"
+    for args in (["init", "-q", str(main)],
+                 ["-C", str(main), "commit", "-q", "--allow-empty", "-m", "c"],
+                 ["-C", str(main), "worktree", "add", "-q", str(tmp_path / "wt")]):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+                       check=True, capture_output=True)
+    config = (main / ".git" / "config").read_text()
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+         f"{__file__}::test_allowed", "backend/tests/test_start9_pull.py"],
+        cwd=root, env={**os.environ, "GIT_DIR": str(main / ".git" / "worktrees" / "wt")},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout[-2000:]
+    assert (main / ".git" / "config").read_text() == config
