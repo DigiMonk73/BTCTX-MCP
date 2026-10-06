@@ -37,6 +37,7 @@ const REPORTS = [
 interface ReportYears {
   ledger_years: number[];
   form_years: number[] | null; // null: unknown, nothing is disabled
+  draft_years?: number[]; // test installs only: the IRS's draft forms
 }
 
 // If the year list can't be loaded, offer every year back to 2010.
@@ -69,6 +70,7 @@ const Reports: React.FC = () => {
   const hasForms = (year: number) =>
     !reportDef?.needsForms || years?.form_years == null || years.form_years.includes(year);
   const missingForms = taxYear !== "" && !hasForms(Number(taxYear));
+  const isDraft = (year: number) => !!reportDef?.needsForms && !!years?.draft_years?.includes(year);
 
   const handleExport = async () => {
     if (!taxYear) {
@@ -136,7 +138,7 @@ const Reports: React.FC = () => {
               {years?.ledger_years.map((y) => (
                 <option key={y} value={String(y)} disabled={!hasForms(y)}>
                   {y}
-                  {hasForms(y) ? "" : " (no IRS forms yet)"}
+                  {hasForms(y) ? (isDraft(y) ? " (IRS draft forms, test only)" : "") : " (no IRS forms yet)"}
                 </option>
               ))}
             </select>
@@ -150,6 +152,12 @@ const Reports: React.FC = () => {
           <p className="note note-warning" role="status">
             IRS forms for {taxYear} aren't in this version of BitcoinTX yet. The Complete Tax Report
             and Transaction History work for any year.
+          </p>
+        )}
+        {taxYear !== "" && isDraft(Number(taxYear)) && (
+          <p className="note note-warning" role="status">
+            Test only: this server has the IRS's DRAFT {taxYear} forms. Every page says DRAFT — DO NOT
+            FILE; the final forms come with a later version of BitcoinTX.
           </p>
         )}
 

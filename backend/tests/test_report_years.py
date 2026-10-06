@@ -1,7 +1,7 @@
 """
 GET /api/reports/years feeds the Reports page's Tax year drop-down: every
 year from the first transaction (in the tax timezone) to this year, newest
-first, plus the years with IRS form templates.
+first, plus the years with IRS form templates (and a test install's drafts).
 """
 
 from datetime import datetime, timezone
@@ -21,7 +21,7 @@ def test_empty_ledger_offers_this_year(auth_client):
     auth_client.delete("/api/transactions/delete_all")
     r = auth_client.get("/api/reports/years")
     assert r.status_code == 200
-    assert r.json() == {"ledger_years": [this_year()], "form_years": get_supported_years()}
+    assert r.json() == {"ledger_years": [this_year()], "form_years": get_supported_years(), "draft_years": []}
 
 
 def test_years_run_from_the_first_transaction_in_the_tax_timezone(auth_client):

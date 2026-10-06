@@ -101,6 +101,9 @@ configured.
    price history are rows in the database (`app_settings`,
    `btc_price_daily`), not files. The one exception is the price settings
    below, which the server may set instead.
+6. A test install may also hold the IRS's draft forms, in
+   `irs-draft-forms/` (docs/IRS_FORM_GENERATION.md, "Draft forms on a test
+   install"); a normal install never has that folder.
 
 ### Price settings set by the server
 

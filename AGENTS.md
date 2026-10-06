@@ -189,6 +189,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
+| `backend/services/reports/draft_forms.py` | test installs only: next year's IRS draft forms from `<data dir>/irs-draft-forms/` (`cli install-draft-forms`); never bundled |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
@@ -201,6 +202,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
+| `scripts/seed_ledger.py` | full test ledger (2023–2026, every 8949 box) into an empty server over the API; refuses the Mac app |
 
 ## Security rules
 

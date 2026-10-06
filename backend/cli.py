@@ -10,6 +10,7 @@ it works on an empty volume too.
     python -m backend.cli set-password [--username NAME] [--password-stdin] [--if-default]
     python -m backend.cli recalculate
     python -m backend.cli review [--fix-fee-prices]
+    python -m backend.cli install-draft-forms [--from-dir DIR | --remove]
 
 set-password reads the new password from stdin with --password-stdin, else
 from the BTCTX_NEW_PASSWORD environment variable; never from the command line,
@@ -19,6 +20,12 @@ account still on the shipped admin / password login, and otherwise prints
 default logins this way at update). The database is the one DATABASE_FILE
 points at (see backend/database.py).
 
+install-draft-forms is for TEST installs only: it puts the IRS's current
+DRAFT Form 8949 and Schedule D (from irs.gov, or f8949.pdf and f1040sd.pdf
+in DIR) in the data folder, and Reports then offers their year, marked
+DRAFT — DO NOT FILE (backend/services/reports/draft_forms.py). --remove
+takes them out again.
+
 Exit status: 0 on success, 1 on a failure (message on stderr), 2 on bad usage.
 """
 
@@ -27,6 +34,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 PASSWORD_ENV = "BTCTX_NEW_PASSWORD"
 
@@ -153,6 +161,19 @@ def cmd_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_install_draft_forms(args: argparse.Namespace) -> int:
+    from backend.routers.reports import get_supported_years
+    from backend.services.reports import draft_forms
+
+    if args.remove:
+        print("IRS draft forms removed." if draft_forms.remove() else "No IRS draft forms were installed.")
+        return 0
+    year, dest = draft_forms.install(get_supported_years(), args.from_dir)
+    print(f"IRS DRAFT forms for {year} installed in {dest}: Reports offers {year} now. "
+          "Test only: never file them.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m backend.cli", description="BitcoinTX maintenance commands")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -181,6 +202,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="set the transfer fees it flags to that day's price and recalculate (changes figures)",
     )
     rp.set_defaults(func=cmd_review)
+
+    dp = sub.add_parser(
+        "install-draft-forms", help="TEST installs only: the IRS's draft forms for the next tax year"
+    )
+    what = dp.add_mutually_exclusive_group()
+    what.add_argument("--from-dir", type=Path, help="f8949.pdf and f1040sd.pdf from this folder, not irs.gov")
+    what.add_argument("--remove", action="store_true", help="delete the installed drafts")
+    dp.set_defaults(func=cmd_install_draft_forms)
     return parser
 
 
