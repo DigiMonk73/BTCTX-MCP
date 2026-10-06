@@ -176,6 +176,8 @@ def refuse_mac_app(url: str) -> None:
         addresses = {info[4][0].split("%")[0] for info in socket.getaddrinfo(host, port)}
     except socket.gaierror:
         return  # nothing to connect to
+    except UnicodeError:  # a..b, a label over 63 characters
+        raise SeedError(f"{url} is not a valid address") from None
     if any(_this_computer(a) for a in addresses):
         raise SeedError(f"{url} is the Mac app's address: its ledger is real data. Never seed it.")
 

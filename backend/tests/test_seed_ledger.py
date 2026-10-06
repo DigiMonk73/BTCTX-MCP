@@ -111,5 +111,6 @@ def test_other_local_ports_are_allowed():
 
 def test_a_bad_address_is_a_message_not_a_traceback(monkeypatch, capsys):
     monkeypatch.setenv(seed_ledger.PASSWORD_ENV, PASSWORD)
-    assert seed_ledger.main(["--url", "http://host:abc", "--user", USER]) == 1
-    assert "not a valid address" in capsys.readouterr().err
+    for url in ("http://host:abc", "http://a..b:8765"):
+        assert seed_ledger.main(["--url", url, "--user", USER]) == 1
+        assert "not a valid address" in capsys.readouterr().err

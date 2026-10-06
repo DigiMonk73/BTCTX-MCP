@@ -91,6 +91,8 @@ def template_path(year: int, form_name: str) -> str:
 def _usable(year: int, path: Path) -> bool:
     try:
         stats = [(path / name).stat() for name in FORMS]
+    except FileNotFoundError:
+        return False  # still being copied in, or taken out
     except OSError as e:
         logger.warning("IRS draft forms in %s left out: %s", path, e)
         return False
