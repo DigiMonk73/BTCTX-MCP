@@ -1,16 +1,17 @@
 """
 What we name to build with is pinned exactly (docs/MAINTENANCE.md, "Updating a
 dependency"): GitHub Actions by commit, Docker base images by digest, Python
-requirements with ==. The AI connector, installed next to other software, takes
-ranges instead, each capped below the next major version. Dependabot proposes
-the updates, so each line must also stay in a form Dependabot reads. startos/ keeps Start9's template files as they
-are and is not checked here.
+requirements with ==. The AI connector, installed next to other software,
+takes ranges instead, each capped below the next major version. Dependabot
+proposes the updates, so each line must also stay in a form Dependabot reads.
+startos/ keeps Start9's template files as they are and is not checked here.
 """
 
 import re
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
@@ -66,7 +67,8 @@ def test_connector_ranges_are_capped():
     project = tomllib.loads((ROOT / "mcp_server/pyproject.toml").read_text())["project"]
     # tzdata is timezone data numbered by year (2026.4): it is meant to float.
     uncapped = [
-        dep for dep in project["dependencies"]
-        if not dep.startswith("tzdata") and "<" not in dep and "==" not in dep
+        dep for dep in map(Requirement, project["dependencies"])
+        if dep.name != "tzdata"
+        and not any(spec.operator in ("<", "<=", "==", "~=") for spec in dep.specifier)
     ]
     assert uncapped == [], f"cap each connector dependency below its next major version: {uncapped}"

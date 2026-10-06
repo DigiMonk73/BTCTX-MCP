@@ -73,9 +73,11 @@ it changes only by pull request:
   installed next to other software, so its dependencies take ranges, each
   capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,
   timezone data numbered by year, which is meant to float. Its build
-  backend (`setuptools>=77`) is a build tool (#37).
+  backend (`setuptools>=77`) isn't pinned yet (#37).
 
-Dependabot proposes the updates (below). Not yet locked: the packages those
+The CI runtimes (`python-version: "3.11"`, `node-version: 22`) and GitHub's
+runner images follow their release line. Dependabot proposes the updates
+(below). Not yet locked: the packages those
 pull in themselves (pydantic-core under pydantic, the pyobjc packages under
 pywebview…), which resolve at build time, and the `build`, `pip` and `wheel`
 tools the release and the Mac build install (#37).
