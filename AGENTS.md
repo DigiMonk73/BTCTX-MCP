@@ -50,8 +50,14 @@ what it posts there ("— Claude", "— Grok"), and Claude's commits carry its
 
 The pre-push hook refuses a push to `main` of anything not already on
 `develop`, and `release.yml` refuses a release commit that isn't on `main`.
-GitHub refuses deleting or force-pushing `main` (ruleset "Protect main",
-also on the mirror). If unsure, branch from `develop` and ask.
+GitHub enforces this with rulesets (Settings → Rules, changed only by the
+owner): `main` can't be deleted or force-pushed ("Protect main", also on the
+mirror); `develop` can't either, and takes changes only by pull request,
+squash-merged, once the jobs of `ci.yml` have passed ("Protect develop";
+all of them except the macOS build, which doesn't run on pull requests).
+Renaming or adding a CI job means updating that list too, or every pull
+request waits for a check that never comes. If unsure, branch from
+`develop` and ask.
 
 ## Before you change…
 
