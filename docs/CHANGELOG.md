@@ -17,7 +17,8 @@ All notable changes to BitcoinTX are documented in this file.
   drafts, for testing only.** `scripts/seed_ledger.py` loads 103
   transactions (2023 to 2026) into a running BitcoinTX over its API: every
   year has every kind of transaction, and every report has entries in each
-  part, every Form 8949 box of 2024 (A–F), 2025 and 2026 (G–L) included.
+  part, every Form 8949 box of 2024 (A–F), 2025 and 2026 (G–L) included, in
+  any tax timezone.
   Every USD value a price lookup would fill is given, so it loads with the
   price source Off. It refuses a ledger that has
   transactions and the Mac app's address. On a test install,
@@ -33,8 +34,11 @@ All notable changes to BitcoinTX are documented in this file.
 ### Fixed
 - **The Mac app no longer carries the test files.** It bundled all of
   `backend/`, its tests and test ledgers included (harmless, never used);
-  now it leaves out `backend/tests/` and any database file left in the
-  build's checkout. Docker and StartOS never had them.
+  now it leaves out `backend/tests/` and what a dev run leaves in the
+  build's checkout (a database, its backups, the session key, the setup
+  code). Docker and StartOS never had the tests; their build now also
+  ignores those dev files. Release builds start from a clean checkout and
+  were never affected.
 - **On a phone, the transaction panel can be closed.** Up to 460 px wide the
   Add or Edit Transaction panel covers the whole page, so there was nothing
   outside it to tap and no Escape key: Save was the only button, and the

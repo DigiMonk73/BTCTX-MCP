@@ -21,8 +21,9 @@ The ledger, 103 transactions: backend/tests/transaction_seed_data.json (65
 rows, 2023-2025), what the broker's form showed for three of its sales,
 rows it lacks, and 2026. Every year has every kind of transaction (each
 deposit source and withdrawal purpose, transfers both ways, cash moves,
-buys and sells) and every report has entries in each part, every Form 8949
-box of 2024 (A-F), 2025 and 2026 (G-L) included; backend/tests/
+buys and sells) and every report has entries in each part (not the complete
+report's Expenses, which no transaction fills: #58), every Form 8949 box of
+2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone; backend/tests/
 test_seed_ledger.py checks it. Every USD value a price lookup would fill is
 given (network fees, gift and donation values), so it loads with the price
 source Off and contacts nothing but the server. Settings are left as they
@@ -79,18 +80,19 @@ EXTRA_ROWS = [
     _tx("Withdrawal", "2023-11-25", WALLET, EXTERNAL, "0.002", purpose="Lost"),
     # Sold on the lot's first anniversary: still short-term (held "more than
     # one year" only from the next day). One the 1099-B showed without basis
-    # (Box B), one not on a 1099-B (Box C)
+    # (Box B), one not on a 1099-B (Box C). Minutes after the lot's 14:00 UTC,
+    # so the same day in every tax timezone (test_seed_ledger.py)
     {**_tx("Sell", "2024-02-15", EXCHANGE_BTC, EXCHANGE_USD, "0.01", "0.75", "USD",
-           gross_proceeds_usd="500.00", broker_reporting="proceeds"), "timestamp": "2024-02-15T15:00:00Z"},
+           gross_proceeds_usd="500.00", broker_reporting="proceeds"), "timestamp": "2024-02-15T14:10:00Z"},
     {**_tx("Sell", "2024-02-15", EXCHANGE_BTC, EXCHANGE_USD, "0.01", "0.75", "USD",
-           gross_proceeds_usd="500.00"), "timestamp": "2024-02-15T16:00:00Z"},
+           gross_proceeds_usd="500.00"), "timestamp": "2024-02-15T14:20:00Z"},
     _tx("Deposit", "2024-03-20", EXTERNAL, WALLET, "0.003", source="Interest", cost_basis_usd="195.00"),
     _tx("Transfer", "2024-05-01", BANK, EXCHANGE_USD, "10000", fee_currency="USD"),
     _tx("Withdrawal", "2024-06-01", BANK, EXTERNAL, "1500", fee_currency="USD"),
     _tx("Deposit", "2024-07-20", EXTERNAL, WALLET, "0.02", source="Gift", cost_basis_usd="900.00"),
-    # The exchange's 2023 BTC to cold storage, so 2025's exchange sales are of
-    # 2024 BTC, some held a year or less
-    _tx("Transfer", "2024-12-30", EXCHANGE_BTC, WALLET, "1.00981", "0.0001", fee_usd="9.40"),
+    # The exchange's 2023 BTC to cold storage, so most of 2025's exchange
+    # sales are of 2024 BTC, some held a year or less
+    _tx("Transfer", "2024-12-30", EXCHANGE_BTC, WALLET, "1.00981", "0.0001", fee_usd="10.00"),
     # BTC bought 2024-01-15, sold within the year: the 1099-DA showed basis
     # (Box G); a sale the broker didn't report, e.g. abroad (Box I)
     _tx("Sell", "2025-01-12", EXCHANGE_BTC, EXCHANGE_USD, "0.1", "14.25", "USD",
@@ -129,7 +131,7 @@ LEDGER_2026 = [
         purpose="Spent", gross_proceeds_usd="2840.00"),
     _tx("Deposit", "2026-06-15", EXTERNAL, WALLET, "0.01", source="Income", cost_basis_usd="1425.00"),
     _tx("Deposit", "2026-06-20", EXTERNAL, WALLET, "0.001", source="Interest", cost_basis_usd="142.00"),
-    # Self-custody spend of the wallet's oldest (2024) BTC: Box L (its fee too)
+    # Self-custody spend of the wallet's oldest (2023) BTC: Box L (its fee too)
     _tx("Withdrawal", "2026-07-01", WALLET, EXTERNAL, "0.05", "0.00003", fee_usd="4.35",
         purpose="Spent", gross_proceeds_usd="7250.00"),
     _tx("Deposit", "2026-07-15", EXTERNAL, WALLET, "0.002", source="Reward", cost_basis_usd="290.00"),
@@ -188,14 +190,16 @@ def fill_usd_values(rows: list[dict]) -> None:
 
 def _implied_price(row: dict) -> Decimal | None:
     """USD per BTC a row states: a buy's cost (less a USD fee), a sale's or
-    spend's gross proceeds, a BTC deposit's basis."""
+    spend's gross proceeds, a BTC income deposit's basis (its market value;
+    a gift's or own coins' basis is carried over, not a price)."""
     amount = Decimal(row.get("amount") or 0)
     usd_fee = Decimal(row.get("fee_amount") or 0) if row.get("fee_currency") == "USD" else Decimal(0)
     if row["type"] == "Buy" and row.get("cost_basis_usd"):
         return (Decimal(row["cost_basis_usd"]) - usd_fee) / amount
     if row["type"] in ("Sell", "Withdrawal") and row.get("gross_proceeds_usd"):
         return Decimal(row["gross_proceeds_usd"]) / amount
-    if row["type"] == "Deposit" and row.get("fee_currency") == "BTC" and Decimal(row.get("cost_basis_usd") or 0) > 0:
+    income = row.get("source") in ("Income", "Interest", "Reward")
+    if row["type"] == "Deposit" and income and Decimal(row.get("cost_basis_usd") or 0) > 0:
         return Decimal(row["cost_basis_usd"]) / amount
     return None
 
