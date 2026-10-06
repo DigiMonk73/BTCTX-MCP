@@ -309,7 +309,8 @@ One home for each kind of information, so nothing is kept twice:
 | What | Where |
 |---|---|
 | How we work | this file |
-| To-dos, work under way, questions | GitHub issues on this repo, one per task (look at the open ones at the start of a session) |
+| Where things stand | pinned issue #41, "Where we are": in flight, next for Claude, waiting on Start9 or the owner |
+| To-dos, work under way, questions | GitHub issues on this repo, one per task |
 | A change | one branch and one pull request into `develop` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
@@ -358,18 +359,29 @@ comments end "— Grok".
 
 Every change, Claude's included, goes into `develop` by pull request, filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
-for the owner, how it was tested, the risk. Claude merges it (a squash, one
-commit per change) once the 10 required checks have passed and the
-review has nothing open; the owner allowed `gh pr merge` in this project's
-local Claude settings for that. These wait for the owner's "merge" in chat
+for the owner, how it was tested, the risk. Once the review has nothing
+open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
+--match-head-commit <sha>`), and GitHub squashes it, one commit per change,
+when the 10 required checks pass (if they already have, GitHub refuses
+`--auto`; then `gh pr merge` merges it at once). The owner allowed
+`gh pr merge` in this project's local Claude settings for that. A branch
+that falls behind `develop` gets `develop` merged into it, never a rebase:
+a pushed branch is not rewritten, and the squash keeps `develop` clean
+anyway. These wait for the owner's "merge" in chat
 instead: a change in tax figures or what the app computes, the database,
 the StartOS package or anything that reaches Start9, and releases. A change
 in what the app does for the owner is agreed with them before it's written,
 not at merge time. Dependabot's pull requests go the same way, after Claude
 has read their changelogs.
 
+## Starting a session
+
+Read issue #41 (`gh issue view 41`), then the open pull requests and issues
+(`gh pr list`, `gh issue list`), and carry on from #41's "Next for Claude".
+Project status comes from there, not from an AI tool's memory.
+
 ## Ending a session
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
-and the issues worked on, and update this file if architecture, invariants
-or the way we work changed.
+and the issues worked on, rewrite #41's body for the next session (dated),
+and update this file if architecture, invariants or the way we work changed.
