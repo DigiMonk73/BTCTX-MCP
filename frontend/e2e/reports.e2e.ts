@@ -88,9 +88,14 @@ test("transaction history PDF, chosen in Format", async ({ authedPage: page }) =
   expect(text).toContain("Transaction History");
   expect(text).toMatch(/Page 1 of \d/);
   // The other reports are PDF only: no choice
-  await page.getByLabel("Complete Tax Report").check();
-  await expect(page.getByLabel("Format")).toHaveValue("pdf");
-  await expect(page.getByRole("combobox", { name: "Format" })).toHaveCount(0);
+  for (const other of ["Complete Tax Report", "IRS Reports (Form 8949, Schedule D, etc.)"]) {
+    await page.getByLabel(other).check();
+    await expect(page.getByLabel("Format")).toHaveValue("pdf");
+    await expect(page.getByRole("combobox", { name: "Format" })).toHaveCount(0);
+  }
+  // Back on the history, it starts as a CSV again
+  await page.getByLabel("Transaction History").check();
+  await expect(page.getByLabel("Format")).toHaveValue("csv");
 });
 
 test("transaction history CSV", async ({ authedPage: page }) => {

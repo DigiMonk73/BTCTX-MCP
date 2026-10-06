@@ -34,6 +34,8 @@ const REPORTS = [
   },
 ];
 
+type ReportFormat = "pdf" | "csv";
+
 interface ReportYears {
   ledger_years: number[];
   form_years: number[] | null; // null: unknown, nothing is disabled
@@ -50,7 +52,7 @@ function fallbackYears(): ReportYears {
 const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<string>("completeTax");
   const [taxYear, setTaxYear] = useState<string>("");
-  const [format, setFormat] = useState<string>("pdf");
+  const [format, setFormat] = useState<ReportFormat>("pdf");
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
@@ -84,7 +86,7 @@ const Reports: React.FC = () => {
       return;
     }
 
-    let finalFormat = format;
+    let finalFormat: ReportFormat = format;
     if (reportDef.pdfOnly && format === "csv") {
       finalFormat = "pdf";
     }
@@ -100,7 +102,7 @@ const Reports: React.FC = () => {
       });
 
       const safeLabel = reportDef.label.replace(/\s+/g, "");
-      const fileExt = finalFormat.toLowerCase() as "pdf" | "csv";
+      const fileExt = finalFormat;
       const fileName = `${safeLabel}_${taxYear}.${fileExt}`;
 
       const result = await downloadFile(blob, fileName, fileExt);
@@ -150,7 +152,12 @@ const Reports: React.FC = () => {
             {reportDef?.pdfOnly ? (
               <input id="report-format" type="text" className="input report-format" readOnly value={format} />
             ) : (
-              <select id="report-format" className="input" value={format} onChange={(e) => setFormat(e.target.value)}>
+              <select
+                id="report-format"
+                className="input"
+                value={format}
+                onChange={(e) => setFormat(e.target.value === "pdf" ? "pdf" : "csv")}
+              >
                 <option value="csv">CSV spreadsheet</option>
                 <option value="pdf">PDF</option>
               </select>
