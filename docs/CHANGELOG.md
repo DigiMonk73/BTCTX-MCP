@@ -33,11 +33,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 - **The Complete Tax Report no longer has an "Expenses" section.** It
-  listed withdrawals with the purpose "Expenses", which the app has never
-  let anyone choose (a withdrawal is Spent, Gift, Donation or Lost), so it
-  always said "No transactions". Spending is in the capital gains section,
-  as before, including any "Expenses" row an old ledger still has. No
-  figure changes (#58).
+  listed withdrawals with the purpose "Expenses", which the app's forms
+  never offered (a BTC withdrawal is Spent, Gift, Donation or Lost), so it
+  almost always said "No transactions"; the only rows that reached it, a
+  cash withdrawal sent by API or CSV with that purpose, it showed as BTC.
+  Spending is in the capital gains section, as before, and so is a BTC
+  "Expenses" row an old ledger still has. No figure changes (#58).
 - **The Mac app no longer carries the test files.** It bundled all of
   `backend/`, its tests and test ledgers included (harmless, never used);
   now it leaves out `backend/tests/` and what a dev run leaves in the

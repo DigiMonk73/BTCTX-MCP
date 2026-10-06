@@ -96,9 +96,9 @@ def test_building_the_report_does_not_touch_the_ledger(auth_client, test_engine)
 
 
 def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_engine):
-    """#58: the report's Expenses section is gone (no withdrawal purpose fills
-    it). A row from before purposes were checked, purpose "Expenses", is a
-    disposal like a Spent one: it stays in the capital gains section."""
+    """#58: the report's Expenses section is gone (the app's forms never
+    offered the purpose). A BTC withdrawal an old ledger has with purpose
+    "Expenses" (and its gross stored) stays in the capital gains section."""
     from sqlalchemy import text
 
     _setup(auth_client, test_engine)
