@@ -14,10 +14,15 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 
 1. **Alert.** The *IRS forms watch* workflow
    (`.github/workflows/irs-forms-watch.yml`) runs
-   `python scripts/irs_new_year.py --watch` every Monday, November through
-   March. It fails, and GitHub emails you, once irs.gov has final forms for the
-   year after the newest bundled one. You can also run it by hand from the
-   Actions tab (`workflow_dispatch`).
+   `python scripts/irs_new_year.py --due` every Monday, all year, and opens
+   an issue (label `claude`) for each yearly step irs.gov calls for, once
+   while it's open:
+   - "IRS forms: ship the YYYY draft as the preview" when the IRS publishes
+     the drafts of a year newer than the final forms, or revises them
+     (usually spring): see the table below;
+   - "IRS forms: add the final YYYY Form 8949 and Schedule D" once irs.gov
+     has the final forms (usually December or January): the steps here.
+   You can also run it by hand from the Actions tab (`workflow_dispatch`).
 
 2. **Download, verify, install:**
    ```bash
@@ -81,7 +86,8 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 | `python scripts/irs_new_year.py YYYY` | Download from irs.gov, verify, install, test |
 | `python scripts/irs_new_year.py YYYY --from-dir ~/Downloads` | Use `f8949.pdf` / `f1040sd.pdf` you downloaded yourself (same checks) |
 | `python scripts/irs_new_year.py YYYY --check` | Verify templates already in `backend/assets/irs_templates/YYYY/` and run the template tests |
-| `python scripts/irs_new_year.py --watch` | For CI: exit 1 when final forms for the next year are on irs.gov |
+| `python scripts/irs_new_year.py --watch` | Exit 1 when final forms for the next year are on irs.gov |
+| `python scripts/irs_new_year.py --due due.json` | For CI: the yearly steps irs.gov calls for, as JSON (the watch opens an issue for each) |
 
 A draft is never installed as a year's forms: the IRS can still change the
 layout. It ships only as that year's **preview**, in its own folder

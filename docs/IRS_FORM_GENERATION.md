@@ -47,7 +47,7 @@ backend/
     ├── test_draft_forms.py               # draft forms: off by default, checked, marked on every page
     └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
-.github/workflows/irs-forms-watch.yml     # weekly check for new final IRS forms (Nov–Mar)
+.github/workflows/irs-forms-watch.yml     # weekly: an issue when new IRS drafts or final forms are out
 ```
 
 `get_supported_years()` in `reports.py` lists every year folder that holds

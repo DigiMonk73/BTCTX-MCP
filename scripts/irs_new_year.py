@@ -6,6 +6,7 @@ Add (or check) a tax year's IRS Form 8949 + Schedule D templates.
     python scripts/irs_new_year.py 2026 --check    # verify an already-installed year
     python scripts/irs_new_year.py 2026 --from-dir ~/Downloads   # use PDFs you downloaded
     python scripts/irs_new_year.py --watch         # CI: is a new final form out yet?
+    python scripts/irs_new_year.py --due due.json  # CI: the yearly steps irs.gov calls for (an issue each)
     python scripts/irs_new_year.py --draft         # preview: check the IRS DRAFT forms now
     python scripts/irs_new_year.py --draft --ship  # ...and ship them as the app's preview of that year
 
@@ -28,6 +29,7 @@ Full procedure: docs/IRS_ANNUAL_FORM_UPDATE.md
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import re
 import shutil
@@ -222,21 +224,32 @@ def _report_field_changes(year: int, folder: Path, draft: bool) -> None:
                     print(f"      {tag} {n}")
 
 
+def newest_final() -> int:
+    return max(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit())
+
+
+def fetch_draft(folder: Path) -> bool:
+    """The IRS's current draft f8949.pdf and f1040sd.pdf into `folder`."""
+    for name in FORMS:
+        url = DRAFT_URL.format(stem=name[:-4])
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r, open(folder / name, "wb") as f:
+                f.write(r.read())
+        except Exception as e:
+            print(f"  ✗ couldn't download {url}: {e}")
+            return False
+    return True
+
+
 def draft_check(ship: bool = False) -> int:
     """Run every check against the IRS's current DRAFT forms; with `ship`,
     put them in backend/assets/irs_templates/drafts/<year>/ when they pass,
     the app's preview of that year (services/reports/draft_forms.py)."""
-    have = max(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit())
+    have = newest_final()
     with tempfile.TemporaryDirectory() as d:
         folder = Path(d)
-        for name in FORMS:
-            url = DRAFT_URL.format(stem=name[:-4])
-            try:
-                with urllib.request.urlopen(url, timeout=60) as r, open(folder / name, "wb") as f:
-                    f.write(r.read())
-            except Exception as e:
-                print(f"  ✗ couldn't download {url}: {e}")
-                return 1 if ship else 0
+        if not fetch_draft(folder):
+            return 1 if ship else 0
         year = form_year(folder / "f8949.pdf")
         sd_year = form_year(folder / "f1040sd.pdf")
         print(f"IRS drafts on irs.gov: Form 8949 for {year}, Schedule D for {sd_year} (latest bundled: {have})")
@@ -268,9 +281,51 @@ def ship_draft(year: int, folder: Path) -> int:
     return 0
 
 
+FINAL_DUE = """irs.gov has the final {year} Form 8949 and Schedule D, and this version doesn't.
+
+For Claude: `python scripts/irs_new_year.py {year}` (it checks every field the app fills, installs them and removes the {year} draft preview), then the rest of docs/IRS_ANNUAL_FORM_UPDATE.md. One pull request, then a release with a minor version bump. It changes the tax forms, so it waits for the owner's "merge".
+
+Opened by the weekly IRS forms watch (.github/workflows/irs-forms-watch.yml)."""
+
+DRAFT_DUE = """irs.gov has {what} the IRS's draft {year} Form 8949 and Schedule D.
+
+For Claude: `python scripts/irs_new_year.py --draft --ship` (it checks the draft against the app and ships it as the {year} preview, offered until January 1, {next}, marked DRAFT — DO NOT FILE). One pull request; it reaches users with the next release. It changes the tax forms, so it waits for the owner's "merge".
+
+Opened by the weekly IRS forms watch (.github/workflows/irs-forms-watch.yml)."""
+
+
+def due() -> list[dict]:
+    """The yearly steps irs.gov calls for, each {"title", "body"}: final
+    forms for the next year, or a draft newer than the shipped preview (a
+    first draft of a year, or the IRS's revision of it)."""
+    from backend.services.reports import draft_forms
+
+    have, steps = newest_final(), []
+    with tempfile.TemporaryDirectory() as d:
+        final, draft = Path(d) / "final", Path(d) / "draft"
+        final.mkdir()
+        draft.mkdir()
+        if download(have + 1, final) and all(not is_draft(final / n) for n in FORMS):
+            steps.append({"title": f"IRS forms: add the final {have + 1} Form 8949 and Schedule D",
+                          "body": FINAL_DUE.format(year=have + 1)})
+        year = form_year(draft / "f8949.pdf") if fetch_draft(draft) else None
+        shipped = draft_forms.SHIPPED_DIR / str(year)
+        if year and year > have and not all(_same(draft / n, shipped / n) for n in FORMS):
+            revised = shipped.exists()
+            steps.append({"title": f"IRS forms: ship the {year} draft as the preview"
+                                   + (" (the IRS revised it)" if revised else ""),
+                          "body": DRAFT_DUE.format(what="a new revision of" if revised else "published",
+                                                   year=year, next=year + 1)})
+    return steps
+
+
+def _same(a: Path, b: Path) -> bool:
+    return b.is_file() and a.read_bytes() == b.read_bytes()
+
+
 def watch() -> int:
     """For CI: exit 1 when irs.gov has a final form for a year we don't have."""
-    have = max(int(p.name) for p in TEMPLATES.iterdir() if p.name.isdigit())
+    have = newest_final()
     target = have + 1
     with tempfile.TemporaryDirectory() as d:
         if download(target, Path(d)) and all(not is_draft(Path(d) / n) for n in FORMS):
@@ -287,6 +342,7 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="verify the installed templates only")
     ap.add_argument("--from-dir", type=Path, help="use f8949.pdf / f1040sd.pdf from this folder")
     ap.add_argument("--watch", action="store_true", help="CI: fail if a new final year is available")
+    ap.add_argument("--due", type=Path, metavar="FILE", help="CI: write the yearly steps irs.gov calls for, as JSON")
     ap.add_argument("--draft", action="store_true", help="preview: check the IRS draft forms (installs nothing)")
     ap.add_argument("--ship", action="store_true", help="with --draft: ship them as the app's preview of that year")
     a = ap.parse_args()
@@ -294,6 +350,9 @@ def main() -> int:
         ap.error("--ship goes with --draft")
     if a.watch:
         return watch()
+    if a.due:
+        a.due.write_text(json.dumps(due(), indent=1, ensure_ascii=False))
+        return 0
     if a.draft:
         return draft_check(a.ship)
     if not a.year:

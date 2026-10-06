@@ -12,7 +12,7 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 ## Soon
 
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
-      `irs-forms-watch` workflow flags it): `python scripts/irs_new_year.py 2026`.
+      `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
 - [ ] **The AI connector follows the app's version** (after Start9's review):
       at start it reads BitcoinTX's version (`/api/health`) and, when it

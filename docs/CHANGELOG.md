@@ -54,6 +54,12 @@ All notable changes to BitcoinTX are documented in this file.
   release tests and the box test name the new action (#29).
 
 ### Development
+- **An issue for each yearly IRS forms step.** The weekly IRS forms watch
+  now runs all year and opens an issue (label `claude`) when the IRS
+  publishes the next year's draft forms or revises them (ship them as the
+  preview) and when it publishes the final forms (add them, in a release).
+  Before, it only ran November to March and only failed, with an email, for
+  the final forms (`scripts/irs_new_year.py --due`).
 - **The mirror sync builds on Start9's fork.**
   `scripts/sync-startos-mirror.sh` first fast-forwards the mirror's `main`
   to Start9's fork (or, if the two have diverged, records it as merged,

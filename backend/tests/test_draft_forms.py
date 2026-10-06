@@ -281,3 +281,50 @@ def test_cli_refuses_a_final_form_or_a_bundled_year(data_dir, tmp_path, capsys):
     assert cli.main(["install-draft-forms", "--from-dir", str(unmarked)]) == 1
     assert "DRAFT — DO NOT FILE" in capsys.readouterr().err
     assert draft_forms.draft_years(BUNDLED) == []
+
+
+@pytest.fixture
+def watch(tmp_path, monkeypatch):
+    """irs_new_year.py's --due with irs.gov stubbed: `irs["draft"]` is the
+    folder the draft comes from, `irs["final"]` the final forms' (or None)."""
+    script = _irs_new_year()
+    irs = {"draft": tmp_path / "irs-draft", "final": None}
+    make_draft(irs["draft"])
+    monkeypatch.setattr(draft_forms, "SHIPPED_DIR", tmp_path / "shipped")
+
+    def copy_from(source):
+        def fetch(dest: Path) -> bool:
+            if source() is None:
+                return False
+            for name in draft_forms.FORMS:
+                shutil.copy(source() / name, dest / name)
+            return True
+        return fetch
+
+    monkeypatch.setattr(script, "fetch_draft", copy_from(lambda: irs["draft"]))
+    monkeypatch.setattr(script, "download", lambda year, dest: copy_from(lambda: irs["final"])(dest))
+    return script, irs
+
+
+def test_the_watch_asks_once_to_ship_a_new_draft(watch):
+    script, irs = watch
+    assert [s["title"] for s in script.due()] == [f"IRS forms: ship the {YEAR} draft as the preview"]
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    assert script.due() == []  # shipped: nothing to do
+
+
+def test_the_watch_notices_a_revised_draft(watch):
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    with open(irs["draft"] / "f8949.pdf", "ab") as f:
+        f.write(b"\n% the IRS's revision\n")
+    assert [s["title"] for s in script.due()] == [f"IRS forms: ship the {YEAR} draft as the preview (the IRS revised it)"]
+
+
+def test_the_watch_asks_for_the_final_forms(watch, tmp_path):
+    script, irs = watch
+    shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
+    irs["final"] = Path(get_template_path(max(BUNDLED), "f8949.pdf")).parent  # final forms, not drafts
+    steps = script.due()
+    assert [s["title"] for s in steps] == [f"IRS forms: add the final {YEAR} Form 8949 and Schedule D"]
+    assert f"irs_new_year.py {YEAR}" in steps[0]["body"] and "owner's \"merge\"" in steps[0]["body"]

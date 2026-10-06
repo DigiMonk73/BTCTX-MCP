@@ -1,13 +1,15 @@
 name: IRS forms watch
 
-# Weekly during tax-form season: fails (GitHub emails the repo owner) once
-# irs.gov publishes FINAL Form 8949 + Schedule D for a year the app doesn't
-# bundle yet. Then run: python scripts/irs_new_year.py <year>
+# Weekly, all year: opens an issue (label claude, once while it's open) for
+# each yearly step irs.gov calls for (scripts/irs_new_year.py --due):
+# - the IRS's draft Form 8949 + Schedule D for a year newer than the final
+#   forms, or a revision of it: ship it as the preview (usually spring);
+# - the FINAL forms for the next year: add them (usually December–January).
 # It also previews the current IRS DRAFT forms against the app's field map
-# (log only), so layout changes show up months before the final release.
+# (log only). Steps: docs/IRS_ANNUAL_FORM_UPDATE.md.
 on:
   schedule:
-    - cron: "0 14 * 11,12,1,2,3 1"   # Mondays 14:00 UTC, Nov–Mar
+    - cron: "0 14 * * 1"   # Mondays 14:00 UTC
   workflow_dispatch:
   push:
     paths:
@@ -17,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   watch:
@@ -29,5 +32,18 @@ jobs:
       - run: pip install --require-hashes -r backend/requirements.txt
       - name: Preview the IRS draft forms (informational)
         run: python scripts/irs_new_year.py --draft
-      - name: Check irs.gov for new final forms
-        run: python scripts/irs_new_year.py --watch
+      - name: What irs.gov calls for
+        run: python scripts/irs_new_year.py --due due.json
+      - name: Open an issue for each step (unless one is open)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open_titles=$(gh issue list --state open --limit 500 --json title -q '.[].title')
+          jq -c '.[]' due.json | while read -r step; do
+            title=$(jq -r .title <<<"$step")
+            if grep -Fxq -- "$title" <<<"$open_titles"; then
+              echo "Already open: $title"
+            else
+              gh issue create --title "$title" --body "$(jq -r .body <<<"$step")" --label claude
+            fi
+          done
