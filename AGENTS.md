@@ -396,7 +396,9 @@ a change in tax figures or what the app computes, the database, the StartOS
 package or anything that reaches Start9, and releases. A change in what the
 app does for the owner is agreed with them before it's written, not at
 merge time. Dependabot's pull requests go the same way, after Claude has
-read their changelogs.
+read their changelogs; what else they need before merging, and what to do
+when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
+request merges" and the two sections after it.
 
 A branch that falls behind `develop` gets `develop` merged into it, never a
 rebase: a pushed branch is not rewritten, and the squash keeps `develop`
