@@ -6,7 +6,10 @@ name: IRS forms watch
 #   forms, or a revision of it: ship it as the preview (usually spring);
 # - the FINAL forms for the next year: add them (usually December–January).
 # It also previews the current IRS DRAFT forms against the app's field map
-# (log only). Steps: docs/IRS_ANNUAL_FORM_UPDATE.md.
+# (log only). It checks develop, where the steps land (main only moves at a
+# release); a push only runs the checks, never opens an issue. A run that
+# can't reach irs.gov fails, so a lasting break doesn't go unnoticed.
+# Steps: docs/IRS_ANNUAL_FORM_UPDATE.md.
 on:
   schedule:
     - cron: "0 14 * * 1"   # Mondays 14:00 UTC
@@ -21,11 +24,16 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: irs-forms-watch-${{ github.event_name == 'push' && github.ref || 'develop' }}
+
 jobs:
   watch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'develop' }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
@@ -35,6 +43,8 @@ jobs:
       - name: What irs.gov calls for
         run: python scripts/irs_new_year.py --due due.json
       - name: Open an issue for each step (unless one is open)
+        if: github.event_name != 'push'
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

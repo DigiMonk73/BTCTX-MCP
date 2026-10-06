@@ -5,7 +5,7 @@ Add (or check) a tax year's IRS Form 8949 + Schedule D templates.
     python scripts/irs_new_year.py 2026            # download from irs.gov, verify, install
     python scripts/irs_new_year.py 2026 --check    # verify an already-installed year
     python scripts/irs_new_year.py 2026 --from-dir ~/Downloads   # use PDFs you downloaded
-    python scripts/irs_new_year.py --watch         # CI: is a new final form out yet?
+    python scripts/irs_new_year.py --watch         # is a new final form out yet? (exit 1 if so)
     python scripts/irs_new_year.py --due due.json  # CI: the yearly steps irs.gov calls for (an issue each)
     python scripts/irs_new_year.py --draft         # preview: check the IRS DRAFT forms now
     python scripts/irs_new_year.py --draft --ship  # ...and ship them as the app's preview of that year
@@ -36,6 +36,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -73,7 +74,8 @@ def download(year: int, dest: Path) -> bool:
             try:
                 with urllib.request.urlopen(url, timeout=60) as r, open(dest / name, "wb") as f:
                     f.write(r.read())
-            except Exception:
+            except Exception as e:
+                note_unreachable(url, e)
                 continue
             if form_year(dest / name) == year:
                 print(f"  ✓ {name} from {url}")
@@ -237,8 +239,17 @@ def fetch_draft(folder: Path) -> bool:
                 f.write(r.read())
         except Exception as e:
             print(f"  ✗ couldn't download {url}: {e}")
+            note_unreachable(url, e)
             return False
     return True
+
+
+UNREACHABLE: list[str] = []  # irs.gov didn't answer (not a 404): --due fails
+
+
+def note_unreachable(url: str, error: Exception) -> None:
+    if not isinstance(error, urllib.error.HTTPError):
+        UNREACHABLE.append(f"{url}: {error}")
 
 
 def draft_check(ship: bool = False) -> int:
@@ -310,13 +321,23 @@ def due() -> list[dict]:
                           "body": FINAL_DUE.format(year=have + 1)})
         year = form_year(draft / "f8949.pdf") if fetch_draft(draft) else None
         shipped = draft_forms.SHIPPED_DIR / str(year)
-        if year and year > have and not all(_same(draft / n, shipped / n) for n in FORMS):
+        final_due = bool(steps)  # the final forms replace that year's draft anyway
+        if year and year > have and not (final_due and year == have + 1) \
+                and not all(_same(draft / n, shipped / n) for n in FORMS):
             revised = shipped.exists()
             steps.append({"title": f"IRS forms: ship the {year} draft as the preview"
                                    + (" (the IRS revised it)" if revised else ""),
                           "body": DRAFT_DUE.format(what="a new revision of" if revised else "published",
                                                    year=year, next=year + 1)})
     return steps
+
+
+def write_due(path: Path) -> int:
+    """--due: the steps to `path`; 1 when irs.gov didn't answer, so the run fails."""
+    path.write_text(json.dumps(due(), indent=1, ensure_ascii=False))
+    if UNREACHABLE:
+        print("✗ irs.gov didn't answer: " + "; ".join(UNREACHABLE))
+    return 1 if UNREACHABLE else 0
 
 
 def _same(a: Path, b: Path) -> bool:
@@ -341,7 +362,7 @@ def main() -> int:
     ap.add_argument("year", type=int, nargs="?")
     ap.add_argument("--check", action="store_true", help="verify the installed templates only")
     ap.add_argument("--from-dir", type=Path, help="use f8949.pdf / f1040sd.pdf from this folder")
-    ap.add_argument("--watch", action="store_true", help="CI: fail if a new final year is available")
+    ap.add_argument("--watch", action="store_true", help="fail if a new final year is available")
     ap.add_argument("--due", type=Path, metavar="FILE", help="CI: write the yearly steps irs.gov calls for, as JSON")
     ap.add_argument("--draft", action="store_true", help="preview: check the IRS draft forms (installs nothing)")
     ap.add_argument("--ship", action="store_true", help="with --draft: ship them as the app's preview of that year")
@@ -351,8 +372,7 @@ def main() -> int:
     if a.watch:
         return watch()
     if a.due:
-        a.due.write_text(json.dumps(due(), indent=1, ensure_ascii=False))
-        return 0
+        return write_due(a.due)
     if a.draft:
         return draft_check(a.ship)
     if not a.year:
