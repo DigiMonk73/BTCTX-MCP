@@ -9,7 +9,8 @@
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
 # make audit-deps   known-vulnerability scan of Python + npm dependencies
-# make check        everything CI runs (except the Docker and macOS builds)
+# make check        lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
+# make check-fast   the pre-push gate, without pushing
 
 PY ?= python3
 
