@@ -363,16 +363,18 @@ for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
 when the 10 required checks pass (if they already have, GitHub refuses
-`--auto`; then `gh pr merge` merges it at once). The owner allowed
-`gh pr merge` in this project's local Claude settings for that. A branch
-that falls behind `develop` gets `develop` merged into it, never a rebase:
-a pushed branch is not rewritten, and the squash keeps `develop` clean
-anyway. These wait for the owner's "merge" in chat
-instead: a change in tax figures or what the app computes, the database,
-the StartOS package or anything that reaches Start9, and releases. A change
-in what the app does for the owner is agreed with them before it's written,
-not at merge time. Dependabot's pull requests go the same way, after Claude
-has read their changelogs.
+`--auto`; the same command without `--auto` merges it at once). The owner
+allowed `gh pr merge` in this project's local Claude settings for that.
+These pull requests get auto-merge only after the owner's "merge" in chat:
+a change in tax figures or what the app computes, the database, the StartOS
+package or anything that reaches Start9, and releases. A change in what the
+app does for the owner is agreed with them before it's written, not at
+merge time. Dependabot's pull requests go the same way, after Claude has
+read their changelogs.
+
+A branch that falls behind `develop` gets `develop` merged into it, never a
+rebase: a pushed branch is not rewritten, and the squash keeps `develop`
+clean anyway.
 
 ## Starting a session
 
