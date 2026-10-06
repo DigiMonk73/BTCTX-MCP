@@ -63,6 +63,11 @@ All notable changes to BitcoinTX are documented in this file.
   release tests and the box test name the new action (#29).
 
 ### Development
+- **How changes flow, on one page.** `docs/HOW-CHANGES-FLOW.md` maps the
+  whole path in plain steps: an everyday change, a release, sending it to
+  Start9, taking Start9's own changes back, and keeping this computer and
+  GitHub the same. Written for the owner and every AI session; `AGENTS.md`
+  points to it.
 - **An issue for each yearly IRS forms step.** The weekly IRS forms watch
   now runs all year and opens an issue (label `claude`) when the IRS
   publishes the next year's draft forms or revises them (ship them as the
