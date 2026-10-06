@@ -4,6 +4,12 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- **The landing page is a release step.** `AGENTS.md` and
+  `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links
+  follow the latest release by themselves, its text and screenshots are
+  checked and updated by hand at each release.
+
 ## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
 
 ### Added

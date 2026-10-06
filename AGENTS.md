@@ -19,6 +19,7 @@ Branches).
 | MCP server | `mcp_server/` | package `btctx-mcp` (on PyPI from 1.2.0, published by `release.yml`); talks to the backend over HTTP with the AI key (bearer), never a password |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
+| Landing page | DigiMonk73/btctx-site | <https://digimonk73.github.io/btctx-site/>, one `index.html` on GitHub Pages; the manifest's `marketingUrl` and the connector's Homepage. Its download links follow the latest release by themselves; its text and screenshots don't (Releasing, step 5) |
 | StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## What's at stake
@@ -298,6 +299,11 @@ Full steps, the package version and the signing/mirror secrets:
    (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
    `scripts/start9-pull.sh --fork`). While a pull request of ours is still
    open there, it carries the new release too, and no issue is opened.
+5. Check the landing page (DigiMonk73/btctx-site, `index.html`). Its
+   download buttons, release-notes link and Docker `:latest` follow the
+   release by themselves; its words don't. Update what the release made
+   wrong (action names, StartOS steps, features, screenshots) in a commit
+   there, shown to the owner first: it's public.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the

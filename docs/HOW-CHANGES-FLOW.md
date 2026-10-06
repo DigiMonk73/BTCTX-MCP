@@ -84,6 +84,12 @@ workflow keeps up to date by itself. We don't touch it.)
    - creates the GitHub release with everything attached;
    - copies `startos/` to the mirror (if the `MIRROR_TOKEN` secret is set).
 5. Delete the `release/vX.Y.Z` branch afterwards.
+6. Check the **landing page** (<https://digimonk73.github.io/btctx-site/>,
+   repository DigiMonk73/btctx-site). Its download buttons, release-notes
+   link and Docker command follow the latest release by themselves; its
+   words and screenshots don't. Claude updates what the release made wrong
+   (for example an action's new name), and the owner sees it before it
+   goes live, since it's public.
 
 ## 3. Sending a release to Start9
 
