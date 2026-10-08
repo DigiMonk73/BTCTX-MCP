@@ -147,13 +147,6 @@ updates:
       - dependency-name: "@start9labs/start-sdk"
       - dependency-name: mempool-startos
       - dependency-name: tor-startos
-      # The SDK's lint tools (typescript-eslint) need TypeScript < 6.1;
-      # moves with the SDK
-      - dependency-name: typescript
-        versions: [">=6.1"]
-      # Node 22 in CI
-      - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
 
   # The Dockerfile's base images, pinned by digest: a new build of the same
   # tag (OS security fixes) comes as a PR. Python 3.11 and Node 22 change

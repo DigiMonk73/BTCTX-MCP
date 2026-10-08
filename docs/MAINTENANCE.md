@@ -149,9 +149,8 @@ merge into `develop`. Nothing reaches `main` before a release.
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
-  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"), and TypeScript
-  6.1 or newer there (the SDK's typescript-eslint needs < 6.1; it moves with
-  the SDK). Docker: Python minor and major versions and Node majors, so the
+  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"; the SDK brings
+  TypeScript and the other build tools). Docker: Python minor and major versions and Node majors, so the
   base images stay `3.11-slim` and `22-slim` and only their digests move.
 - The locked directories (`backend/`, `desktop/`, `.github/release-tools/`)
   are `uv` entries: Dependabot edits the pin in `requirements.in` and

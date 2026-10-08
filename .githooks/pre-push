@@ -46,12 +46,15 @@ else
   printf "\n– Frontend checks skipped (run 'npm ci' in frontend/ to enable)\n"
 fi
 
-if [ -d startos/node_modules ]; then
-  step "StartOS package: format + type check + lint + bundle"
-  (cd startos && npx prettier --check startos >/dev/null && npm run check --silent && npm run lint --silent \
-    && npm run build --silent >/dev/null && node --no-deprecation scripts/check-manifest.mjs) || fail "startos package"
-else
+if [ ! -d startos/node_modules ]; then
   printf "\n– StartOS package checks skipped (run 'npm ci' in startos/ to enable)\n"
+elif ! (cd startos && start-cli s9pk list-ingredients >/dev/null 2>&1); then
+  # The SDK's make rules list the package's files with start-cli, even to type-check
+  printf "\n– StartOS package checks skipped (needs start-cli on PATH: the SDK's make runs 'start-cli s9pk list-ingredients')\n"
+else
+  step "StartOS package: type check + lint + format check + bundle (the SDK's make)"
+  (cd startos && rm -rf javascript && make --no-print-directory javascript/index.js \
+    && node --no-deprecation scripts/check-manifest.mjs) || fail "startos package"
 fi
 
 printf "\n\033[32m✓ All pre-push checks passed\033[0m\n"

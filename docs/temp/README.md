@@ -10,9 +10,9 @@ When it's all done, move anything worth keeping somewhere lasting (the code
 and CHANGELOG, a doc), close the issue, tick its box in `docs/ROADMAP.md` if
 it was on the roadmap, and **delete the file**.
 
-What's next overall is in `docs/ROADMAP.md`. The StartOS package keeps its
-own `startos/TODO.md`, Start9's standard file, under Start9's rule: an item is
-removed when it's done, not ticked. Checklists stay here, never in `startos/`.
+What's next overall is in `docs/ROADMAP.md`. The StartOS package keeps no
+to-do file (Start9's template): its to-dos are issues labelled `start9`.
+Checklists stay here, never in `startos/`.
 
 `backend/tests/test_todo_lists.py` checks that every item is a checkbox and
 that no separate to-do file comes back.

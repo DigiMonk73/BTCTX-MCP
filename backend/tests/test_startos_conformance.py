@@ -17,9 +17,13 @@ PKG = Path(__file__).resolve().parents[2] / "startos"
 # project-structure.md: the root layout every package has.
 LAYOUT = [
     ".github/workflows/build.yml",
+    ".github/workflows/pr-retarget.yml",
     ".github/workflows/tagAndRelease.yml",
     ".github/workflows/release.yml",
+    ".github/workflows/syncNext.yml",
+    ".dockerignore",
     ".gitignore",
+    ".prettierrc",
     "AGENTS.md",
     "CLAUDE.md",
     "instructions.md",
@@ -28,7 +32,6 @@ LAYOUT = [
     "package.json",
     "package-lock.json",
     "README.md",
-    "TODO.md",
     "tsconfig.json",
     "UPDATING.md",
 ]
@@ -69,6 +72,11 @@ def h2(text):
 @pytest.mark.parametrize("name", LAYOUT)
 def test_the_standard_file_is_there(name):
     assert (PKG / name).is_file(), f"startos/{name} is part of Start9's package layout"
+
+
+def test_prettierrc_names_the_sdk_config():
+    # project-structure.md: "one line naming the SDK's shared Prettier config"
+    assert read(".prettierrc").strip() == '"@start9labs/start-sdk/prettier.config.json"'
 
 
 def test_assets_is_there_and_not_empty():
@@ -139,11 +147,11 @@ def test_instructions_documentation_links_parse():
         assert not re.search(r"/blob/[0-9a-f]{40}/", url), f"commit-pinned: {url}"
 
 
-def test_todo_md_is_start9s_worklist():
-    lines = read("TODO.md").splitlines()
-    assert lines[0].startswith("# TODO")
-    ticked = [line for line in lines if re.match(r"\s*[-*] \[[xX]\]", line)]
-    assert ticked == [], "Start9: remove an item from startos/TODO.md when it's done, don't tick it"
+def test_no_work_record_files():
+    # The package template: "no TODO.md, no NOTES.md, no PLAN.md"; pending
+    # work is a GitHub issue (labelled start9 in BTCTX-MCP).
+    stray = [n for n in ("TODO.md", "NOTES.md", "PLAN.md") if (PKG / n).exists()]
+    assert stray == [], f"Start9's template keeps no work records in the package: {stray}"
 
 
 def test_updating_md_has_start9s_two_sections():
