@@ -23,7 +23,9 @@ All notable changes to BitcoinTX are documented in this file.
   brings TypeScript, Prettier and the bundler, so `startos/package.json`
   lost its `check` and `build` scripts: CI, the pre-push hook and the docs
   run `make javascript/index.js` (type check, lint, format check, bundle)
-  and start-cli 2.3.0. `startos/TODO.md` is gone, as in Start9's template:
+  and start-cli 2.3.0, which packs only with Docker 28.1 or later: the CI
+  pack job and the release install a current Docker
+  (`docker/setup-docker-action`, as Start9's own builds do). `startos/TODO.md` is gone, as in Start9's template:
   the package's to-dos are issues labelled `start9`.
 - **The landing page is a release step.** `AGENTS.md` and
   `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links

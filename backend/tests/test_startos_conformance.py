@@ -21,6 +21,7 @@ LAYOUT = [
     ".github/workflows/tagAndRelease.yml",
     ".github/workflows/release.yml",
     ".github/workflows/syncNext.yml",
+    ".dockerignore",
     ".gitignore",
     ".prettierrc",
     "AGENTS.md",
@@ -71,6 +72,11 @@ def h2(text):
 @pytest.mark.parametrize("name", LAYOUT)
 def test_the_standard_file_is_there(name):
     assert (PKG / name).is_file(), f"startos/{name} is part of Start9's package layout"
+
+
+def test_prettierrc_names_the_sdk_config():
+    # project-structure.md: "one line naming the SDK's shared Prettier config"
+    assert read(".prettierrc").strip() == '"@start9labs/start-sdk/prettier.config.json"'
 
 
 def test_assets_is_there_and_not_empty():

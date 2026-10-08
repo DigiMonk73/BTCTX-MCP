@@ -147,7 +147,7 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 ## Building locally
 
-Needs Docker (with the containerd image store for multi-arch images),
+Needs Docker 28.1 or later (start-cli 2.3 packs with its `--platform`; with the containerd image store for multi-arch images),
 `squashfs-tools`, `jq`, Node 22 and
 [start-cli](https://docs.start9.com/packaging/environment-setup.html). start-cli
 packs only inside a *packaging workspace*: a directory above the package that

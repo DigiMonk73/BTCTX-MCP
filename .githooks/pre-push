@@ -50,7 +50,7 @@ if [ ! -d startos/node_modules ]; then
   printf "\n– StartOS package checks skipped (run 'npm ci' in startos/ to enable)\n"
 elif ! (cd startos && start-cli s9pk list-ingredients >/dev/null 2>&1); then
   # The SDK's make rules list the package's files with start-cli, even to type-check
-  printf "\n– StartOS package checks skipped (needs start-cli 2.x on PATH: startos/UPDATING.md, \"Building locally\")\n"
+  printf "\n– StartOS package checks skipped (needs start-cli on PATH: the SDK's make runs 'start-cli s9pk list-ingredients')\n"
 else
   step "StartOS package: type check + lint + format check + bundle (the SDK's make)"
   (cd startos && rm -rf javascript && make --no-print-directory javascript/index.js \
