@@ -25,7 +25,7 @@ python-multipart==0.0.32
 python-dotenv==1.2.4
 python-dateutil==2.9.0.post0
 itsdangerous==2.2.0
-tzdata==2026.4  # timezone rules for the tax timezone (bundled, OS-independent)
+tzdata==2026.5  # timezone rules for the tax timezone (bundled, OS-independent)
 
 # Encryption (for backups)
 cryptography==50.0.2
