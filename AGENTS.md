@@ -20,7 +20,7 @@ Branches).
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | data on `/data` (`DATABASE_FILE=/data/btctx.db`); image `ghcr.io/digimonk73/btctx-mcp` |
 | Landing page | DigiMonk73/btctx-site | <https://digimonk73.github.io/btctx-site/>, `index.html` with screenshots in `img/`, on GitHub Pages; the manifest's `marketingUrl` and the connector's Homepage. Its download links follow the latest release by themselves; its text and screenshots don't (Releasing, step 5) |
-| StartOS package | `startos/` | start-sdk 2.0.9, self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
+| StartOS package | `startos/` | start-sdk 3.0.3 (StartOS 0.4.0.2 or later), self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## What's at stake
 
@@ -99,7 +99,7 @@ new job isn't required until it's added there. If unsure, branch from
   `docs/IRS_ANNUAL_FORM_UPDATE.md` (`python scripts/irs_new_year.py YEAR`).
 - **StartOS package** (`startos/`): it always keeps Start9's packaging rules
   (<https://docs.start9.com/packaging>: layout, README headings,
-  `instructions.md`, `TODO.md`), since Start9 reviews it against them. Read
+  `instructions.md`, no `TODO.md`), since Start9 reviews it against them. Read
   `startos/AGENTS.md`; `backend/tests/test_startos_conformance.py` checks what
   a script can. When Start9's guide changes, update the package and the test.
 
@@ -352,7 +352,7 @@ One home for each kind of information, so nothing is kept twice:
 | A change | one branch and one pull request into `develop` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
-| The StartOS package's own to-dos | `startos/TODO.md`, Start9's file: an item is removed when it's done |
+| The StartOS package's own to-dos | GitHub issues labelled `start9` (Start9's template keeps no `TODO.md` in the package) |
 
 - **Labels say who has an issue:** `claude` (Claude is on it), `owner`
   (needs the owner: a decision, a test, a click), `ask-grok` (waiting for

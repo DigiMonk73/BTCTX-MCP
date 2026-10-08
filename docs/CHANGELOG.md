@@ -4,7 +4,27 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### StartOS package
+- **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
+  Start9 moved their fork to the new SDK
+  (Start9-Community/BTCTX-StartOS#3) and asked that our 1.2.5:0 be built on
+  it, keeping its version, since 1.2.4:1 never reached their main registry.
+  The package now needs StartOS 0.4.0.2 or later. Connect an AI Assistant
+  shows the root certificate and the Claude Desktop configuration with
+  their line breaks, and offers the certificate as a download; Price
+  Source & Privacy explains each choice on its own line. Mempool and Tor
+  are declared the SDK 3 way (`sdk.Dependency.optional`), still optional
+  and needed only by the price source that uses them. The package's file
+  models keep keys they don't model. The 1.2.5:0 release notes gained
+  those two sentences in every language. Closes #27.
+
 ### Development
+- **The StartOS package builds with the SDK's own tools.** start-sdk 3
+  brings TypeScript, Prettier and the bundler, so `startos/package.json`
+  lost its `check` and `build` scripts: CI, the pre-push hook and the docs
+  run `make javascript/index.js` (type check, lint, format check, bundle)
+  and start-cli 2.3.0. `startos/TODO.md` is gone, as in Start9's template:
+  the package's to-dos are issues labelled `start9`.
 - **The landing page is a release step.** `AGENTS.md` and
   `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links
   follow the latest release by themselves, its text and screenshots are

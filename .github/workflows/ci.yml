@@ -18,6 +18,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # start-cli for the StartOS jobs: the release that goes with the SDK in
+  # startos/package.json (startos/UPDATING.md, "Bumping the SDK")
+  START_CLI_VERSION: v2.3.0
+
 jobs:
   python:
     name: Python tests (py${{ matrix.python }})
@@ -219,23 +224,20 @@ jobs:
           node-version: 22.23.2
           cache: npm
           cache-dependency-path: startos/package-lock.json
+      - name: start-cli (the SDK's make rules list the package's files with it)
+        run: |
+          sudo curl -sSL -o /usr/local/bin/start-cli \
+            "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
+          sudo chmod +x /usr/local/bin/start-cli && start-cli --version
       - run: npm ci
-      - name: Format
-        run: npx prettier --check startos
-      - name: Type check
-        run: npm run check
-      - name: SDK lint
-        run: npm run lint
-      - name: Bundle
-        run: npm run build
+      - name: Type check, SDK lint, format check, bundle
+        run: make javascript/index.js
       - name: Manifest (id, version vs VERSION, image tag, upgrade paths)
         run: node --no-deprecation scripts/check-manifest.mjs
 
   startos-pack:
     name: StartOS package pack (x86_64, image from this commit)
     runs-on: ubuntu-latest
-    env:
-      START_CLI_VERSION: v2.1.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

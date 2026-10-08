@@ -1,11 +1,10 @@
 """
 The to-do discipline (AGENTS.md, "Working through GitHub"; docs/temp/README.md):
 to-dos are GitHub issues, so there is no to-do file to keep in step with them.
-What's next overall is in docs/ROADMAP.md, and the StartOS package's own
-items in startos/TODO.md (Start9's standard file, mirrored to the repository
-Start9 forks). Every item there is a checkbox: in the roadmap ticked when done
-and cleared at the release that ships it; in startos/TODO.md, Start9's rule,
-removed instead (test_startos_conformance.py).
+What's next overall is in docs/ROADMAP.md, where every item is a checkbox,
+ticked when done and cleared at the release that ships it. The StartOS
+package keeps no to-do file either (Start9's template;
+test_startos_conformance.py): its to-dos are issues labelled start9.
 """
 
 import re
@@ -14,7 +13,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-CHECKBOX_LISTS = [ROOT / "startos/TODO.md", ROOT / "docs/ROADMAP.md"]
+CHECKBOX_LISTS = [ROOT / "docs/ROADMAP.md"]
 
 
 @pytest.mark.parametrize("path", CHECKBOX_LISTS, ids=lambda p: str(p.relative_to(ROOT)))
