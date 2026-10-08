@@ -2,7 +2,7 @@
 #   pip install --require-hashes -r backend/requirements.txt
 #   pip install -r requirements-dev.txt ./mcp_server
 pytest==9.1.1
-hypothesis==6.168.3  # property tests (backend/tests/test_invariants_property.py)
+hypothesis==6.168.4  # property tests (backend/tests/test_invariants_property.py)
 ruff==0.16.10
 pip-audit==2.10.1
 # anyio, the pytest plugin of the MCP server's async tests, comes pinned from
