@@ -16,8 +16,6 @@ from backend.services.reports.pdf_layout import DISCLAIMER, FOOTER_NOTE
 from backend.tests.test_report_builders import REPORT
 
 ROOT = Path(__file__).parents[2]
-ONE_WALLET = ("BitcoinTX tracks one self-custody wallet and one exchange account. Since 2025, IRS rules require "
-              "cost basis to be figured wallet by wallet and account by account")
 
 
 def flat(text: str) -> str:
@@ -37,7 +35,10 @@ def ts_constant(name: str) -> str:
 
 def test_the_disclaimer_is_worded_the_same_everywhere():
     assert ts_constant("DISCLAIMER") == DISCLAIMER
-    assert ts_constant("ONE_WALLET_NOTICE").startswith(ONE_WALLET)
+    # The one-wallet notice is the README's Important box, word for word
+    readme = (ROOT / "README.md").read_text()
+    box = re.search(r"> \[!IMPORTANT\]\n((?:> .*\n)+)", readme).group(1)
+    assert ts_constant("ONE_WALLET_NOTICE") == flat(box.replace("> ", ""))
     for doc in ("README.md", "mcp_server/README.md"):
         assert DISCLAIMER in flat((ROOT / doc).read_text()), doc
 
@@ -55,4 +56,3 @@ def test_the_pdfs_carry_it(auth_client):
     for text in (history_text, report_text):
         assert FOOTER_NOTE in text
         assert not re.search(r"advisor|accountant", text)
-

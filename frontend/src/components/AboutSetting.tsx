@@ -32,8 +32,9 @@ function useAppVersion(): string | null | undefined {
 }
 
 /**
- * About BitcoinTX: the version a bug report asks for, and where to report a
- * problem. Links only: nothing is sent anywhere until the owner clicks one.
+ * About BitcoinTX: the one-wallet notice and the disclaimer, then the version
+ * a bug report asks for and where to report a problem. Links only: nothing is
+ * sent anywhere until the owner clicks one.
  */
 const AboutSetting: React.FC = () => {
   const version = useAppVersion();

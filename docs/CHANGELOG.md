@@ -17,12 +17,12 @@ All notable changes to BitcoinTX are documented in this file.
     basis to be figured wallet by wallet and account by account, so with
     several wallets or exchange accounts BitcoinTX's gains can differ from
     what the rules give. The StartOS instructions say the same.
-  - In the app: Settings → About BitcoinTX opens with that notice in an
-    amber "Important" box, followed by the disclaimer; the Reports page
-    carries the disclaimer under Export; and choosing the Bitcoin Wallet in
-    a transaction shows one short line, "One self-custody wallet: see
-    Settings → About." The IRS Reports choice now reads "for you and your
-    preparer to check before filing" instead of "ready to file".
+  - In the app (part of #97): Settings → About BitcoinTX opens with that
+    notice in an amber "Important" box, followed by the disclaimer; the
+    Reports page carries the disclaimer under Export; and choosing the
+    Bitcoin Wallet in a transaction shows one short line, "One self-custody
+    wallet: see Settings → About." The IRS Reports choice now reads "for you
+    and your preparer to check before filing" instead of "ready to file".
   - In the PDFs: the footer of both reports asks you to check them with "a
     tax professional" (it said "your tax advisor"), and the Transaction
     History ends with the disclaimer instead of "please consult your

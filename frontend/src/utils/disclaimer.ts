@@ -1,6 +1,5 @@
-// The words the app shows about what BitcoinTX is and isn't, worded the same
-// everywhere: the README, the landing page, the StartOS listing and the PDFs
-// (the owner's decision, 2026-10-10).
+// The words the app shows about what BitcoinTX is and isn't, worded as in the
+// README, the landing page and the PDFs (the owner's decision, 2026-10-10).
 
 /** The standard short disclaimer. */
 export const DISCLAIMER =
