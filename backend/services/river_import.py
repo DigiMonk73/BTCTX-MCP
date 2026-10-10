@@ -35,6 +35,7 @@ from backend.constants import (
 )
 from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
+from backend.services.calculation import btc_text
 from backend.services.csv_import import _parse_decimal
 
 logger = logging.getLogger(__name__)
@@ -529,6 +530,6 @@ def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     proposal.discrepancy = (
         f"Likely the same event as tx #{best.id} "
-        f"({best.type} {Decimal(best.amount or 0)} BTC) recorded with a "
+        f"({best.type} {btc_text(best.amount or 0)} BTC) recorded with a "
         f"different amount — review before importing"
     )

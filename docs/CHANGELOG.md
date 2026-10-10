@@ -36,6 +36,14 @@ All notable changes to BitcoinTX are documented in this file.
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
 
+### Fixed
+- **Form 8949 prints tiny BTC amounts in full.** An amount under 0.000001
+  BTC (100 satoshis), such as a small network fee, printed in column (a) as
+  "5E-8 BTC" instead of "0.00000005 BTC". Ledger Review and the River
+  import's "likely the same event" note showed such amounts the same way.
+  All now print eight decimals. The figures were
+  right; only the description was hard to read. Closes #74.
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK
