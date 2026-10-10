@@ -6,9 +6,9 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Added
 - **About BitcoinTX, at the bottom of Settings.** It shows the version a bug
-  report asks for, and where to report a problem: a public report, the open
-  issues already known, a private report for a security problem, and the
-  release notes. The links only open GitHub when clicked; BitcoinTX sends
+  report asks for, with the release notes, and where to report a problem: a
+  public report, the open bugs already known, and a private report for a
+  security problem. The links only open GitHub when clicked; BitcoinTX sends
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
 

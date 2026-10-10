@@ -111,3 +111,6 @@
   .settings-container.card { padding: var(--space-4); }
   .ai-copy-block { flex-direction: column; align-items: stretch; }
 }
+
+/* About BitcoinTX: its short paragraphs apart, not run together */
+.about-section .settings-option-subtitle + .settings-option-subtitle { margin-top: var(--space-2); }

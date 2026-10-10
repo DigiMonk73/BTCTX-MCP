@@ -1,5 +1,6 @@
 // Settings: timezone, recalculation, credentials, delete, backup and
-// restore, CSV export, and the Connect an AI Assistant prompt.
+// restore, CSV export, Ledger Review, Privacy & Network, the Connect an AI
+// Assistant prompt, and About BitcoinTX.
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
 } from "./fixtures";
@@ -450,7 +451,7 @@ test("About BitcoinTX shows the version and where to report a problem", async ({
   const github = "https://github.com/DigiMonk73/BTCTX-MCP";
   for (const [name, href] of [
     ["Report a problem", `${github}/issues/new/choose`],
-    ["open issues", `${github}/issues?q=is%3Aissue+is%3Aopen+label%3Abug`],
+    ["open bugs", `${github}/issues?q=is%3Aissue+is%3Aopen+label%3Abug`],
     ["Report it privately", `${github}/security/advisories/new`],
     ["release notes", `${github}/releases`],
   ]) {
