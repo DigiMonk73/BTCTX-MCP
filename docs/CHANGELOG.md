@@ -51,6 +51,16 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **A Mac app build can be tested without touching a real ledger.**
+  `desktop/run-test-build.sh` runs a build on its own data folder (log
+  included) and port 8766, the same on every launch. It uses only a folder
+  that is empty or its own, never the installed app's however it is
+  spelled; underneath, `BTCTX_DESKTOP_DATA_DIR` moves the app's data folder
+  (`desktop/desktop_paths.py`). The Mac docs and the agent
+  release tests' Track C no longer say to `open` a build, which would open
+  the installed app's ledger. A test run that finds itself already open
+  doesn't bring "BitcoinTX" forward by name, which could start the
+  installed app.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.

@@ -28,8 +28,13 @@ PyInstaller.
 Output: `desktop/dist/BitcoinTX.app` (plus `BitcoinTX.dmg` if `create-dmg`
 is installed).
 
+To try the build on a Mac where BitcoinTX is installed, never `open` it
+or run its binary by itself: that opens the real ledger. Use the script, for
+every launch: it runs the build on its own test folder and port 8766
+(details, and the MCP server: [MACOS_DESKTOP_APP.md, "Testing a build"](../docs/MACOS_DESKTOP_APP.md#testing-a-build)).
+
 ```bash
-open desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: another build
 ```
 
 ## Runtime
@@ -39,22 +44,23 @@ open desktop/dist/BitcoinTX.app
   (this session only) or Quit.
 - Data: `~/Library/Application Support/BitcoinTX/`: `btctx.db`, the
   per-install session key `.btctx_secret_key`, `mcp.json` (the AI
-  key) and `backups/`.
+  key) and `backups/`. `BTCTX_DESKTOP_DATA_DIR` puts them (and the log, in
+  `logs/`) in another folder, for testing (`run-test-build.sh`).
 - Log: `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
-- MCP server: needs no settings; it reads `mcp.json`. Turn on **Settings →
+- MCP server: needs no settings with the installed app; it reads `mcp.json`. Turn on **Settings →
   Connect an AI Assistant → Let AI assistants use BitcoinTX** first (off by
   default). Setup: the same section, or [mcp_server/README.md](../mcp_server/README.md).
 
 ## Troubleshooting
 
-- **Won't open (Gatekeeper):** right-click → Open; on macOS 15 or later open
-  it once, then **System Settings → Privacy & Security → Open Anyway**. Or
-  `xattr -cr /path/to/BitcoinTX.app`.
+- **Won't open (Gatekeeper), the installed app:** right-click → Open; on
+  macOS 15 or later open it once, then **System Settings → Privacy &
+  Security → Open Anyway**. Or `xattr -cr /path/to/BitcoinTX.app` (also for
+  a downloaded build, before `run-test-build.sh --app`).
 - **Backend fails to start / blank window:** read
-  `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or run
-  `desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX` in Terminal to see the
-  log live. After adding a backend module, check it's in `hiddenimports` in
-  `BitcoinTX.spec`.
+  `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or run the build in Terminal
+  with `desktop/run-test-build.sh` to see the log live. After adding a
+  backend module, check it's in `hiddenimports` in `BitcoinTX.spec`.
 
 ## Files
 
@@ -62,6 +68,8 @@ open desktop/dist/BitcoinTX.app
 |------|---------|
 | `entrypoint.py` | Launcher: sets data paths, starts Uvicorn, opens the pywebview window |
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
+| `desktop_paths.py` | The data and log folders (`BTCTX_DESKTOP_DATA_DIR` for a test run) |
+| `run-test-build.sh` | Runs a build on a test folder and port 8766, never the real ledger |
 | `BitcoinTX.spec` | PyInstaller configuration (hidden imports, bundle version) |
 | `build-mac.sh` | Build script |
 | `requirements.in` | Desktop-only packages (pyinstaller, pywebview, and setuptools to build proxy-tools), pinned |

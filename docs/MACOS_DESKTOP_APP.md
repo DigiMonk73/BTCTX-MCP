@@ -16,8 +16,10 @@ Quick start for building: [desktop/README.md](../desktop/README.md).
 BitcoinTX.app
    └─ desktop/entrypoint.py
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
+        │    (or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
-        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward, exits
+        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward
+        │    (a test run only says so), exits
         ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
         ├─ starts Uvicorn (backend.main:app) on that socket in a daemon thread
         ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
@@ -34,7 +36,8 @@ BitcoinTX.app
   Retry, Use Another Port (this session only; a banner says AI assistants
   can't connect) or Quit. It never switches ports silently.
 - **One copy:** a second launch finds the first on the port, brings it
-  forward and exits instead of starting a second backend.
+  forward (a test run only says "already open", see "Testing a build") and
+  exits instead of starting a second backend.
 - **Log file:** `~/Library/Logs/BitcoinTX/BitcoinTX.log` (rotating, 1 MB × 3),
   including every port decision and its errno.
 - **Localhost only:** the server binds to `127.0.0.1`, never to the network.
@@ -92,7 +95,45 @@ The script:
 6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
    (`brew install create-dmg`)
 
-Output: `desktop/dist/BitcoinTX.app`. Test with `open desktop/dist/BitcoinTX.app`.
+Output: `desktop/dist/BitcoinTX.app`.
+
+### Testing a build
+
+**On a Mac where BitcoinTX is installed, never `open` a build, and never
+run its binary by itself:** either opens the real ledger in
+`~/Library/Application Support/BitcoinTX/` (and its newer schema would lock
+the installed app out). Run it with the script instead, for every launch:
+
+```bash
+desktop/run-test-build.sh                    # desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
+desktop/run-test-build.sh --fresh            # start again from an empty folder
+desktop/run-test-build.sh --background       # detached (for an agent's shell)
+```
+
+It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`btctx-test-build` in the
+user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
+8766, the same on every launch from any shell, so a reopen or a second
+launch finds the same data. It uses only a folder that is empty or that it
+marked as its own (`.btctx-test-folder`), never the installed app's folder
+however it is spelled; `--fresh` is refused while a test run answers on
+8766. That folder holds everything the app would keep in Application
+Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
+(`logs/BitcoinTX.log`); the log line "Test data folder from
+BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The app also runs with
+`HOME=<folder>/home`: a build older than `BTCTX_DESKTOP_DATA_DIR` (every
+release up to 1.2.5, and the installed app) ignores the variable and keeps
+its data under `~/Library/Application Support`, which is then inside the
+test folder too.
+
+- **MCP server:** it looks for the installed app's `mcp.json` unless
+  `BTCTX_MCP_FILE=<folder>/mcp.json` (`desktop/run-test-build.sh --where`
+  prints the folder) is in **the MCP server's own environment**: the MCP
+  Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
+  not reach the server: the Inspector passes it only through `-e`.
+- **A second launch** on the same port says "BitcoinTX is already open" but
+  doesn't bring a window forward: AppleScript would find the installed app
+  by name.
 
 ### Manual build
 
@@ -109,13 +150,15 @@ pyinstaller --clean --noconfirm BitcoinTX.spec
 With the venv active and `frontend/dist` built, from the repo root:
 
 ```bash
-PYTHONPATH=. python desktop/entrypoint.py
+D="$(desktop/run-test-build.sh --where)" && \
+  BTCTX_DESKTOP_DATA_DIR="$D" BTCTX_DESKTOP_PORT=8766 PYTHONPATH=. python desktop/entrypoint.py
 ```
 
-(`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.)
-
-In this mode the backend serves `frontend/dist` from the repo and still uses
-the Application Support database.
+(`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.) The
+backend serves `frontend/dist` from the repo. Without `BTCTX_DESKTOP_DATA_DIR`
+it would use the Application Support database, the real ledger on a Mac
+with BitcoinTX installed: keep the `&&`, so a failed `--where` starts
+nothing.
 
 ## BitcoinTX.spec
 
@@ -174,10 +217,12 @@ xattr -cr /path/to/BitcoinTX.app
 ```
 
 **Crashes or blank window.** Read `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or
-run the binary from Terminal to see the same output:
+run the installed app from Terminal to see the same output:
 ```bash
-/path/to/BitcoinTX.app/Contents/MacOS/BitcoinTX
+/Applications/BitcoinTX.app/Contents/MacOS/BitcoinTX
 ```
+A build you made runs only through `desktop/run-test-build.sh`, whose output
+shows in Terminal the same way.
 If the backend doesn't answer within 30 seconds the app logs
 "Backend failed to start" and exits. A missing hidden import in
 `BitcoinTX.spec` is the usual cause after adding a module.
