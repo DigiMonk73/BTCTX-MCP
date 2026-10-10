@@ -5,6 +5,18 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **One disclaimer, and the one-wallet limit you can't miss.**
+  - The README gains a "Disclaimer" section: "BitcoinTX is software, not
+    tax, legal or financial advice. It works from the records you enter:
+    check its figures with a tax professional before you file." It also
+    carries the MIT License's "as is, without warranty". The landing page
+    uses the same words; the app, the StartOS listing and the AI connector
+    follow in this release.
+  - "One wallet, one exchange" opens with GitHub's "Important" box, as the
+    landing page does with an amber box. Since 2025, IRS rules require cost
+    basis to be figured wallet by wallet and account by account, so with
+    several wallets or exchange accounts BitcoinTX's gains can differ from
+    what the rules give. The StartOS instructions say the same.
 - **Who BitcoinTX is for, said plainly.** The README ("One wallet, one
   exchange") and the StartOS instructions ("Limitations") now say that
   BitcoinTX tracks one self-custody Wallet and one Exchange on purpose. Since
