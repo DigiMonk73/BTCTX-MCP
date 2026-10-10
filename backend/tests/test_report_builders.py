@@ -116,7 +116,7 @@ def test_complete_report_pages_contents_and_numbers():
     # Where each section starts: the page with its heading, a line "N. Title"
     starts = {n: next(i for i, text in enumerate(pages[1:], start=2)
                       if any(line.startswith(f"{n}. ") for line in text.split("\n")))
-              for n in range(1, 7)}
+              for n in range(1, 8)}  # the seven sections
     # The contents: each entry's page number comes out of the text just before its title
     listed = {int(n): int(page) for page, n in re.findall(r"(\d+) (\d)\. [A-Z]", " ".join(pages[0].split()))}
     assert listed == starts
@@ -135,7 +135,7 @@ def test_a_long_report_keeps_every_row_its_headers_and_page_numbers():
     assert sum(" ".join(text.split()).count(" Sale F Long ") for text in detail) == 150
     starts = {n: next(i for i, text in enumerate(pages[1:], start=2)
                       if any(line.startswith(f"{n}. ") for line in text.split("\n")))
-              for n in range(1, 7)}
+              for n in range(1, 8)}  # the seven sections
     listed = {int(n): int(page) for page, n in re.findall(r"(\d+) (\d)\. [A-Z]", " ".join(pages[0].split()))}
     assert listed == starts and starts[3] > starts[2] + 2
 
