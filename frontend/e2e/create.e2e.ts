@@ -24,6 +24,7 @@ test.describe("BTC deposits", () => {
       await setWhen(page);
       await page.getByLabel("Account").selectOption("Wallet");
       await expect(page.getByLabel("Currency")).toHaveValue("BTC");
+      await expect(page.getByText("One self-custody wallet: see Settings → About.")).toBeVisible();
       await page.getByLabel("Amount").fill("0.25");
       await page.getByLabel("Source").selectOption(source);
       await page.getByLabel("Cost Basis (USD)").fill("7000");
@@ -191,6 +192,7 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   await page.getByLabel("From Account").selectOption("Exchange");
   await page.getByLabel("From Currency").selectOption("BTC");
   await expect(page.getByLabel("To Account")).toHaveValue("Wallet");
+  await expect(page.getByText("One self-custody wallet: see Settings → About.")).toBeVisible();
   await page.getByLabel("Amount (From)").fill("0.5");
   await page.getByLabel("Amount (To)").fill("0.4999");
   await expect(page.getByLabel("Fee (BTC)")).toHaveValue("0.0001");

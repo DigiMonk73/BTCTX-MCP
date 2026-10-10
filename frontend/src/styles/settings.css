@@ -114,3 +114,4 @@
 
 /* About BitcoinTX: its short paragraphs apart, not run together */
 .about-section .settings-option-subtitle + .settings-option-subtitle { margin-top: var(--space-2); }
+.about-section .note { margin-bottom: var(--space-2); }

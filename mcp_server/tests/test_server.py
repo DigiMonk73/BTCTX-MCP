@@ -156,6 +156,16 @@ async def test_ledger_guide_says_a_second_wallet_is_pooled():
     assert "untracked exchanges" not in flat
 
 
+async def test_ledger_guide_says_its_figures_are_not_tax_advice():
+    """A tax question beyond the ledger gets the standard disclaimer's point
+    and a pointer to the user's tax preparer (the owner's decision, 2026-10-10)."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "a tax question beyond what the ledger shows" in flat
+    assert "BitcoinTX's figures aren't tax advice and suggest their tax preparer" in flat
+
+
 async def test_ledger_guide_maps_card_sats_back_to_rebate():
     """A rewards card's sats-back is a rebate, not income (#98): the guide
     once listed it under Reward, which BitcoinTX counts as income."""
@@ -167,6 +177,7 @@ async def test_ledger_guide_maps_card_sats_back_to_rebate():
     assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Never Reward." in flat
     assert "sats-back, bonuses" not in flat
     assert "Rebate" in DepositSource.__args__
+
 
 async def test_preview_then_add_then_list(mcp_client):
     preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})

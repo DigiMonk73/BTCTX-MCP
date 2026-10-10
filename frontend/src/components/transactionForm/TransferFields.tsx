@@ -1,5 +1,6 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { ONE_WALLET_HINT } from "../../utils/disclaimer";
 import FeeValueField from "./FeeValueField";
 
 /**
@@ -28,6 +29,7 @@ const TransferFields: React.FC = () => {
         {errors.fromAccount && (
           <span className="field-error">From Account is required</span>
         )}
+        {fromAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
       </div>
 
       <div className="field">
@@ -82,6 +84,7 @@ const TransferFields: React.FC = () => {
           {...register("toAccount")}
           readOnly
         />
+        {watch("toAccount") === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
       </div>
 
       <div className="field">
