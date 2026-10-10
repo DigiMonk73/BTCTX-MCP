@@ -286,6 +286,16 @@ The endpoint then concatenates the flattened PDFs with pypdf.
 
 ```bash
 python -m pytest -q backend/tests/test_irs_templates.py backend/tests/test_1099da_boxes.py backend/tests/test_2025_forms.py \
-    backend/tests/test_draft_forms.py
+    backend/tests/test_draft_forms.py backend/tests/test_printed_forms.py
 make test    # full suite
 ```
+
+The printed (flattened) forms are read back: `backend/tests/printed_forms.py`
+finds each value where it is drawn on the page. The layout comes from the
+template itself (rows by field name, columns by position, checkboxes top to
+bottom); only the boxes' printed letters and each box's Schedule D line are
+written in. `test_printed_forms.py` checks the PDFs of the test ledgers:
+every row once in its box, (d) - (e) = (h), one box and line 2 per page,
+Schedule D lines = their boxes' sheets, and the Complete Tax Report's box
+table. Every text field must be found where it is drawn, so a page that
+can't be read fails instead of reading as blank.

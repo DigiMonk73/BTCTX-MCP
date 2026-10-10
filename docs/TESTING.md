@@ -19,13 +19,13 @@ make hooks          # installs the pre-push gate
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
 | Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
-| Unit + integration | `make test-fast` | ~650 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, auth, the AI key, MCP tools | ~1 min |
-| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~3 min |
+| Unit + integration | `make test-fast` | ~1,000 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
+| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~5 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
 | Docker | `make docker-smoke` | Builds the image from this checkout and runs CI's container checks on it locally: first-run setup code, smoke test, data on `/data`, health, maintenance CLI | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
-| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~4 min |
+| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~6 min |
 | Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
 
 ## When they run
