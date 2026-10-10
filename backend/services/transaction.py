@@ -265,8 +265,9 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     An income or rebate deposit's value after an edit (#76). A typed one is
     kept. One that came from the day's price, or a blank or $0 one (the form
     sends 0 for a blank), is valued again at the day's price when the edit
-    changes what it depends on: the account, amount, day or source. A type
-    change makes the row's figure its own, typed.
+    changes what it depends on: the account, amount or day, or a source not
+    valued at receipt becoming one (_income_inputs_changed). A type change
+    makes the row's figure its own, typed.
     """
     if not any(k in tx_data for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)):
         return

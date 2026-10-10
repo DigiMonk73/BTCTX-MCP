@@ -36,6 +36,7 @@ def box(letter: str, line: str, gain: float) -> dict:
 def test_it_says_what_is_filled_and_what_is_left_blank():
     text = report_text(form_8949_boxes=[box("H", "2", -1000.0), box("L", "10", 7472.70)])
     assert "This year's boxes: H and L (what each holds: section 1)." in text
+    assert "Rebates (bitcoin back for spending" not in text  # only in a year with rebates (#98)
     assert "Schedule D: lines 2 and 10, each the total of its box's Form 8949 pages" in text
     assert "a page or more per box" in text
     for blank in ("lines 1a and 8a: every sale goes on Form 8949", "lines 6 and 14, the loss carryovers",

@@ -445,7 +445,7 @@ class _TaxReport:
         return [*self.subheading("Rebates (not income)"),
                 self.text("Bitcoin back for spending, such as a rewards card's sats-back, entered as a Rebate: "
                           "generally treated like a rebate on the purchase price, not income (by analogy with "
-                          "Rev. Rul. 76-96; the IRS has no ruling on bitcoin rewards). Its value when received "
+                          "Rev. Rul. 76-96; the IRS has no ruling on bitcoin back for spending). Its value when received "
                           "is the coins' cost basis.", self.styles.note),
                 Spacer(1, 6),
                 data_table(rows, [2.4, 2.3, 2.3], total=True)]

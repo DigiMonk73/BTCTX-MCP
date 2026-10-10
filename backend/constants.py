@@ -53,7 +53,7 @@ BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")
 INCOME_SOURCES = frozenset({"income", "interest", "reward"})
 # Bitcoin back for spending (a rewards card's sats-back, shopping cash-back):
 # generally treated like a rebate on the purchase price, not income (#98; by
-# analogy with Rev. Rul. 76-96: the IRS has no ruling on bitcoin rewards).
+# analogy with Rev. Rul. 76-96: the IRS has no ruling on bitcoin back for spending).
 # Its value at receipt is its cost basis; it is never income.
 REBATE_SOURCE = "rebate"
 # Deposit sources valued at receipt: left blank, the value (the cost basis)
