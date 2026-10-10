@@ -84,7 +84,11 @@ def template_pages(path: Path, form: str) -> list[TemplatePage]:
             if annot.get("/Subtype") != "/Widget":
                 continue
             x, y = (float(v) for v in annot["/Rect"][:2])
-            widgets.append(Widget(_full_name(annot), round(x, 2), round(y, 2), _field_type(annot) == "/Tx"))
+            kind = _field_type(annot)
+            # Only text fields and checkboxes are expected: anything else would
+            # escape the "every text field is found" rule unnoticed
+            assert kind in ("/Tx", "/Btn"), f"{path.name}: field {_full_name(annot)} is {kind}"
+            widgets.append(Widget(_full_name(annot), round(x, 2), round(y, 2), kind == "/Tx"))
         if widgets:
             pages.append(TemplatePage(form, _signature(page), tuple(widgets)))
     return pages
