@@ -53,9 +53,10 @@ desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: anothe
 
 ## Troubleshooting
 
-- **Won't open (Gatekeeper):** right-click → Open; on macOS 15 or later open
-  it once, then **System Settings → Privacy & Security → Open Anyway**. Or
-  `xattr -cr /path/to/BitcoinTX.app`.
+- **Won't open (Gatekeeper), the installed app:** right-click → Open; on
+  macOS 15 or later open it once, then **System Settings → Privacy &
+  Security → Open Anyway**. Or `xattr -cr /path/to/BitcoinTX.app` (also for
+  a downloaded build, before `run-test-build.sh --app`).
 - **Backend fails to start / blank window:** read
   `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or run the build in Terminal
   with `desktop/run-test-build.sh` to see the log live. After adding a

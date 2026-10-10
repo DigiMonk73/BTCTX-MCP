@@ -116,7 +116,8 @@ user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
 8766, the same on every launch from any shell, so a reopen or a second
 launch finds the same data. It uses only a folder that is empty or that it
 marked as its own (`.btctx-test-folder`), never the installed app's folder
-however it is spelled, and `--fresh` waits until no test run answers on 8766. That folder holds everything
+however it is spelled; `--fresh` is refused while a test run answers on
+8766. That folder holds everything
 the app would keep in Application Support (`btctx.db`, the session key,
 `mcp.json`, `backups/`) and its log (`logs/BitcoinTX.log`); the log line
 "Test data folder from BTCTX_DESKTOP_DATA_DIR" confirms it's in use.

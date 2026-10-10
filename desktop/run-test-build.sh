@@ -33,14 +33,17 @@ fail() { echo "run-test-build.sh: $*" >&2; exit 1; }
 
 # A path as it is on disk (symlinks resolved, the case stored on disk),
 # without creating it: the deepest existing folder resolved, the rest appended.
+# The path may hold no "." or ".." (checked first): after a folder that
+# doesn't exist yet, they would only be resolved once mkdir created it.
 physical() {
-  local path="$1" rest=""
+  local path="$1" rest="" top
   case "$path" in /*) ;; *) path="$PWD/$path" ;; esac
   while [ ! -d "$path" ]; do
     rest="/$(basename "$path")$rest"
     path="$(dirname "$path")"
   done
-  echo "$(cd "$path" && /bin/pwd -P)$rest"
+  top="$(cd "$path" && /bin/pwd -P)" || fail "can't open $path"
+  echo "$top$rest"
 }
 
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
@@ -70,18 +73,30 @@ while [ $# -gt 0 ]; do
     --fresh) fresh=1; shift ;;
     --background) background=1; shift ;;
     --where) where=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "run-test-build.sh: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
 
+# Refuses the installed app's folder, and a folder with other things in it:
+# --fresh deletes the app's files there.
+check_folder() {
+  in_real_folder "$1" && fail "refusing $1: it is the installed app's data folder"
+  if [ -d "$1" ] && [ ! -e "$1/$MARKER" ] && [ -n "$(ls -A "$1")" ]; then
+    fail "refusing $1: it isn't empty and isn't a test folder this script made" \
+      "(empty it, or set BTCTX_TEST_DATA_DIR to another folder)"
+  fi
+  return 0
+}
+
 [ -n "${HOME:-}" ] || fail "HOME is not set"
+case "/$DATA/" in */./*|*/../*) fail "refusing $DATA: give the folder without . or .." ;; esac
 DATA="$(physical "$DATA")"
-in_real_folder "$DATA" && fail "refusing $DATA: it is the installed app's data folder"
-if [ -d "$DATA" ] && [ ! -e "$DATA/$MARKER" ] && [ -n "$(ls -A "$DATA")" ]; then
-  fail "refusing $DATA: it isn't empty and isn't a test folder this script made"
-fi
+check_folder "$DATA"
 mkdir -p "$DATA"
+# Created, it resolves again: it must still be the same folder, and allowed
+[ "$(physical "$DATA")" = "$DATA" ] || fail "refusing $DATA: it resolves to $(physical "$DATA")"
+check_folder "$DATA"
 touch "$DATA/$MARKER"
 if [ "$where" = 1 ]; then
   echo "$DATA"

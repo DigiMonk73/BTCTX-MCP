@@ -113,20 +113,23 @@ def _case_insensitive(tmp_path) -> bool:
     return (tmp_path / "casecheck").exists()
 
 
-@pytest.mark.parametrize("spelling", ["exact", "subfolder", "relative", "case"])
+@pytest.mark.parametrize("spelling", ["exact", "subfolder", "relative", "case", "dotdot", "dot"])
 def test_the_installed_apps_folder_is_refused_however_spelled(tmp_path, monkeypatch, spelling):
     """--fresh on the real folder would delete the ledger: it is refused by
     name (any case: macOS file systems ignore it) and by identity."""
     if spelling == "case" and not _case_insensitive(tmp_path):
         pytest.skip("case-sensitive file system: another case is another folder")
     app, real = _fake_app(tmp_path), _real_folder(tmp_path)
-    data = {"exact": real, "subfolder": real / "sub", "relative": "Library/Application Support/BitcoinTX/.",
-            "case": tmp_path / "library" / "application support" / "bitcointx"}[spelling]
+    support = tmp_path / "Library" / "Application Support"
+    data = {"exact": real, "subfolder": real / "sub", "relative": "Library/Application Support/BitcoinTX",
+            "case": tmp_path / "library" / "application support" / "bitcointx",
+            # through a folder that doesn't exist yet: resolved only once mkdir made it
+            "dotdot": f"{support}/missing/../BitcoinTX", "dot": f"{support}/missing/./../BitcoinTX"}[spelling]
     monkeypatch.chdir(tmp_path)
     r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
-    assert r.returncode == 1 and "installed app's data folder" in r.stderr, r.stderr
+    assert r.returncode == 1 and "refusing" in r.stderr, r.stderr
     assert not (tmp_path / "ran").exists() and _untouched(real)
-    assert not (real / "sub").exists()
+    assert not (real / "sub").exists() and not (support / "missing").exists()
 
 
 def test_a_real_folder_that_is_a_symlink_is_refused(tmp_path):
@@ -154,6 +157,35 @@ def test_a_folder_the_script_didnt_make_is_refused(tmp_path):
     assert (tmp_path / "backups" / "photos.zip").exists()
 
 
+def test_a_folder_it_cant_open_is_refused(tmp_path):
+    """physical() can't resolve a path through a folder it can't open: it
+    stops, instead of using what is left of the path."""
+    app = _fake_app(tmp_path)
+    locked = tmp_path / "locked"
+    (locked / "inner").mkdir(parents=True)
+    locked.chmod(0o000)
+    try:
+        r = _run_script(tmp_path, "--app", str(app), data=locked / "inner" / "data")
+    finally:
+        locked.chmod(0o755)
+    assert r.returncode != 0 and not (tmp_path / "ran").exists(), r.stdout
+
+
+def test_background_returns_and_keeps_the_app_output(tmp_path):
+    import time
+
+    app = _fake_app(tmp_path)
+    data = tmp_path / "test-data"
+    r = _run_script(tmp_path, "--app", str(app), "--background", data=data)
+    assert r.returncode == 0 and "started, pid" in r.stdout, r.stderr
+    for _ in range(50):
+        if (tmp_path / "ran").exists():
+            break
+        time.sleep(0.1)
+    assert (tmp_path / "ran").read_text().split() == [str(data.resolve()), "8766"]
+    assert (data / "logs" / "run-test-build.out").exists()
+
+
 def test_fresh_empties_only_what_the_app_keeps(tmp_path):
     app = _fake_app(tmp_path)
     data = tmp_path / "test-data"
@@ -176,9 +208,10 @@ def test_no_doc_runs_a_build_s_binary_by_itself():
     ledger: the docs launch builds only through run-test-build.sh (the
     installed app may be run from /Applications)."""
     root = Path(__file__).resolve().parents[2]
+    skipped = {".claude", ".git", ".venv", "node_modules", "dist", "build"}  # other worktrees, packages
     offenders = [
         f"{doc.relative_to(root)}:{n}"
-        for doc in root.rglob("*.md") if "node_modules" not in doc.parts
+        for doc in root.rglob("*.md") if not skipped & set(doc.relative_to(root).parts)
         for n, line in enumerate(doc.read_text(errors="ignore").splitlines(), start=1)
         if "Contents/MacOS/BitcoinTX" in line and "/Applications/BitcoinTX.app" not in line
     ]
