@@ -149,6 +149,11 @@ async def test_ledger_guide_says_a_second_wallet_is_pooled():
     flat = " ".join(LEDGER_GUIDE.split())
     assert "second wallet or a second exchange" in flat
     assert "pools it" in flat and '"One wallet, one exchange"' in flat
+    assert "github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange" in flat
+    # The user's own second wallet as External would make a move between
+    # their own wallets a taxable withdrawal
+    assert "Exchange BTC / Exchange USD, never External" in flat
+    assert "untracked exchanges" not in flat
 
 
 async def test_preview_then_add_then_list(mcp_client):
