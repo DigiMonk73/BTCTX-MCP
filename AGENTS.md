@@ -275,7 +275,9 @@ Full steps, the package version and the signing/mirror secrets:
    and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
    fails until they agree). Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
-   when a new tax year's forms are added. Once it has merged, wait for CI on
+   when a new tax year's forms are added. The StartOS release notes
+   (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
+   years, what to do. Once it has merged, wait for CI on
    `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
    commit's CI artifacts; a blocker FAIL stops the release.
 2. Fast-forward `main` to GitHub's `develop` ("Branches") and push: `.github/workflows/image.yml`
@@ -349,6 +351,8 @@ One home for each kind of information, so nothing is kept twice:
 | How we work | this file |
 | Where things stand | pinned issue #41, "Where we are": in flight, next for Claude, waiting on Start9 or the owner |
 | To-dos, work under way, questions | GitHub issues on this repo, one per task |
+| Bugs (the known issues) | public GitHub issues labelled `bug` ("Bugs and security") |
+| Security problems | private GitHub security advisories until fixed (`SECURITY.md`) |
 | A change | one branch and one pull request into `develop` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
@@ -357,8 +361,11 @@ One home for each kind of information, so nothing is kept twice:
 - **Labels say who has an issue:** `claude` (Claude is on it), `owner`
   (needs the owner: a decision, a test, a click), `ask-grok` (waiting for
   Grok Bot's view), `start9` (the package, Start9's fork or registry); the
-  workflows label the issues they open. A pull request that finishes one
-  says `Closes #N`, and Claude closes the issue when it merges: GitHub
+  workflows label the issues they open. Labels for what an issue is:
+  `bug` (confirmed), `unconfirmed` (a report not yet reproduced),
+  `tax-figures` (a figure could be wrong), `security` (hardening, and a
+  fix's follow-up once released: never an unfixed vulnerability),
+  `enhancement`. A pull request that finishes one says `Closes #N`, and Claude closes the issue when it merges: GitHub
   closes issues by itself only for pull requests into the default branch,
   `main`.
 - **A long checklist** for work under way may live in `docs/temp/<topic>.md`
@@ -373,6 +380,57 @@ One home for each kind of information, so nothing is kept twice:
 - **This repository is public, and so is everything in it:** commits, pull
   requests, issues, the CHANGELOG. Never put the owner's ledger figures,
   personal data, keys, passwords or server addresses in any of them.
+
+## Bugs and security
+
+BitcoinTX is public, its StartOS package is in Start9's Community Beta,
+and its figures go on tax returns: users must be able to see every known
+bug. These are the public promises of `SECURITY.md`, `CONTRIBUTING.md`
+and the README's "Reporting problems"; keep them.
+
+- **Every bug in code on `develop` or in a release becomes a public issue
+  as soon as it's verified,** whoever finds it: Claude, Grok, the owner, a
+  user, Start9.
+  - Findings in the review of an open pull request are fixed in that pull
+    request instead.
+  - Verify it before filing: reproduce it, or quote the evidence. Say what
+    was verified and what wasn't. A report from Grok or a user is a claim
+    to check, not a finding.
+  - Label it `bug`, plus `tax-figures` when a figure could be wrong.
+  - The issue stands on its own: what happens, how to reproduce it, what
+    it affects, who found it.
+  - Never personal data or the owner's figures; use a test ledger.
+  - Fix it as fast as its risk allows. `tax-figures` bugs come first.
+- **User reports** arrive labelled `unconfirmed`.
+  - Reproduce them, or ask for steps (never for real data).
+  - Then relabel `bug`, or close with the reason.
+  - Answer within a week.
+- **A security problem is never public before its fix.**
+  - Outsiders report it privately (Security tab, "Report a vulnerability").
+    Claude files its own as a draft advisory ("New draft security
+    advisory"), also one found while reviewing: never a pull request
+    comment.
+  - Test the fix privately with `make check`. GitHub's temporary private
+    fork runs no CI and skips the branch rules.
+  - Then send it as an ordinary pull request into `develop`, with a
+    neutral title, so CI and the review run, and release it the same day.
+    Ask Start9 to merge and promote it at once.
+  - Publish the advisory (what, which versions, what to do) only once the
+    fixed version is available, on StartOS too.
+  - Aim to acknowledge a report within 7 days.
+  - An advisory titled "Conduct:" is a code-of-conduct report: answer it,
+    then close it, never publish it.
+- **A fix:**
+  - says `Closes #N`, with a test that fails without it;
+  - gets a CHANGELOG entry naming the issue.
+  - For a `tax-figures` bug, the entry tells users what was wrong, which
+    versions and which tax years or transactions it affected, and what to
+    do (for example, Ledger Review, then Recalculate Ledger). The release
+    repeats it in the StartOS release notes ("Releasing", step 1).
+- **The Monday report** lists:
+  - open `tax-figures` issues;
+  - outside reports with no answer;
+  - how many security advisories are waiting (never their details).
 
 ## Reviews
 

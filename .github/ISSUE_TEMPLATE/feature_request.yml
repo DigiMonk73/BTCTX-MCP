@@ -1,0 +1,35 @@
+name: Feature request
+description: An idea for BitcoinTX.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public: never post personal data (real ledger figures, addresses, keys, passwords).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How BitcoinTX could help. Mockups and examples welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now instead (optional)
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed personal data.
+          required: true
+        - label: I checked the open issues for the same idea.
+          required: true

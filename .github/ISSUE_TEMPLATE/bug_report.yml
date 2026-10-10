@@ -1,0 +1,86 @@
+name: Bug report
+description: Something in BitcoinTX doesn't work, or shows a wrong figure.
+labels: ["unconfirmed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. **Issues are public: never post personal data.** That means no real ledger figures, Bitcoin addresses or transaction ids, keys, passwords, server addresses, or screenshots of a real ledger. A small test ledger that shows the problem is best.
+
+        **A security problem?** Don't file it here: report it privately ([SECURITY.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/SECURITY.md)).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did and what BitcoinTX did. Copy any error message exactly.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: For a figure, what you expected it to be and why (with test numbers).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Ideally from an empty ledger, with test transactions.
+      placeholder: |
+        1. Add a Buy of 0.1 BTC on 2025-01-02 for $9,000
+        2. Add a Sell of ...
+        3. Open Reports > IRS Reports for 2025
+    validations:
+      required: true
+  - type: dropdown
+    id: tax-figure
+    attributes:
+      label: Could this make a tax figure wrong?
+      description: Proceeds, cost basis, gain or loss, income, or a line on Form 8949 or Schedule D.
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Where BitcoinTX runs
+      options:
+        - StartOS
+        - macOS app
+        - Docker
+        - From source
+        - AI connector (btctx-mcp)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BitcoinTX version
+      description: "Open your BitcoinTX address followed by /api/health (for example http://127.0.0.1:8765/api/health in the macOS app): it shows the version, without logging in. On StartOS, the Services list shows the package version too. AI connector: the version in your AI app's configuration (btctx-mcp==1.2.5)."
+      placeholder: "1.2.5 (StartOS package 1.2.5:0)"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Pasted as text. Remove personal data first.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (optional)
+      description: Drag images here. Only from a test ledger, never your real one.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed personal data (ledger figures, addresses, transaction ids, keys, passwords, server addresses).
+          required: true
+        - label: I checked the open issues for the same problem.
+          required: true

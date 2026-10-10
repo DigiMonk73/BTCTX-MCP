@@ -18,5 +18,7 @@ reaches Start9, or is a release: those wait for the owner's "merge"
 (AGENTS.md, "Pull requests"). "None: docs only" is a fine answer. -->
 
 - [ ] `docs/CHANGELOG.md` updated, if a user or maintainer would notice
+- [ ] Fixes a bug: says `Closes #N`, and has a test that fails without the fix
+- [ ] Fixes a `tax-figures` bug: the CHANGELOG says what was wrong, which versions and tax years, and what users should do (the release repeats it in the StartOS release notes)
 - [ ] `AGENTS.md` updated, if a rule, invariant or the way we work changed
 - [ ] Review posted (fresh Claude reviewer), every finding fixed or answered
