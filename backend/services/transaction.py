@@ -258,9 +258,9 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)}
     if not _is_income_into_btc(edited, db):
         # Moved to Bank or to another source, the mark stays (and is unused):
-        # moved back with a new amount, the value is priced again. Another
-        # type's figure is its own, typed.
-        if getattr(edited["type"], "value", edited["type"]) != "Deposit":
+        # moved back with a new amount, the value is priced again. A value
+        # typed meanwhile, or another type's figure, is the user's.
+        if getattr(edited["type"], "value", edited["type"]) != "Deposit" or _typed_basis(tx, tx_data):
             tx_data["cost_basis_from_price"] = False
         return
     if _typed_basis(tx, tx_data):

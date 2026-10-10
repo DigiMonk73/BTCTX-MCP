@@ -207,6 +207,15 @@ def test_a_deposit_that_stops_being_income_keeps_its_value(auth_client):
     assert basis(edit(auth_client, tx, amount="0.002")) == Decimal("50.00")
 
 
+def test_a_value_typed_while_not_income_stays_typed(auth_client):
+    """Interest (priced) -> My BTC with a new basis typed -> back to Interest:
+    the typed basis is kept, not priced again."""
+    tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="MyBTC", cost_basis_usd="4000")
+    assert tx["cost_basis_from_price"] is False
+    back = edit(auth_client, tx, source="Interest", amount="0.002")
+    assert basis(back) == Decimal("4000.00") and back["cost_basis_from_price"] is False
+
+
 def test_another_type_makes_the_figure_typed(auth_client):
     tx = deposit(auth_client, amount="0.001")
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={
