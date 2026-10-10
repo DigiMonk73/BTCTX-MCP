@@ -421,8 +421,9 @@ async def update_transaction(
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
     An Income/Interest/Reward/Rebate deposit's value that came from that day's price is priced
-    again when you change its amount, date, account or source (sending back the value it already
-    has doesn't make it typed); a value the user typed is kept.
+    again when you change its amount, date or account, or move it there from another source (a
+    switch among those four keeps it; sending back the value it already has doesn't make it
+    typed); a value the user typed is kept.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
     date; "none" clears it (the holding period then starts at the deposit)."""
     changes: dict[str, Any] = {}

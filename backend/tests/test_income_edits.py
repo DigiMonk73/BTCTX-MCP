@@ -186,7 +186,6 @@ def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
 
 
-
 @pytest.mark.parametrize("how", ["form", "partial"])
 def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine, how):
     """Re-check of #111: Interest -> My BTC, a new amount (a My BTC value is
@@ -201,6 +200,7 @@ def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, t
     back = step(mine, source="Interest")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
     assert income_reported(test_engine) == Decimal("100.00")
+
 
 def test_the_price_day_is_the_utc_day(auth_client):
     """23:30 in New York on April 1 is April 2 in UTC: the April 2 price."""
