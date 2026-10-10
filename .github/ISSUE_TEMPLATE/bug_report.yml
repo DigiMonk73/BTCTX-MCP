@@ -1,6 +1,6 @@
 name: Bug report
 description: Something in BitcoinTX doesn't work, or shows a wrong figure.
-labels: ["bug"]
+labels: ["unconfirmed"]
 body:
   - type: markdown
     attributes:
@@ -36,7 +36,7 @@ body:
   - type: dropdown
     id: tax-figure
     attributes:
-      label: Does this change a tax figure?
+      label: Could this make a tax figure wrong?
       description: Proceeds, cost basis, gain or loss, income, or a line on Form 8949 or Schedule D.
       options:
         - "Yes"
@@ -53,22 +53,28 @@ body:
         - macOS app
         - Docker
         - From source
+        - AI connector (btctx-mcp)
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: BitcoinTX version
-      description: "StartOS: on BitcoinTX's service page. macOS app: Finder > Applications > BitcoinTX > Get Info. Docker: the image tag."
+      description: "Open your BitcoinTX address followed by /api/health (for example http://127.0.0.1:8765/api/health in the macOS app): it shows the version, without logging in. On StartOS, the Services list shows the package version too. AI connector: the version in your AI app's configuration (btctx-mcp==1.2.5)."
       placeholder: "1.2.5 (StartOS package 1.2.5:0)"
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots (optional)
-      description: Remove personal data first.
+      label: Logs (optional)
+      description: Pasted as text. Remove personal data first.
       render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (optional)
+      description: Drag images here. Only from a test ledger, never your real one.
   - type: checkboxes
     id: checks
     attributes:

@@ -29,7 +29,9 @@ def test_security_problems_are_reported_privately():
 
 def test_bug_form_asks_about_tax_figures_and_keeps_personal_data_out():
     form = (TEMPLATES / "bug_report.yml").read_text()
-    assert "Does this change a tax figure?" in form
+    assert "Could this make a tax figure wrong?" in form
+    # a report is unconfirmed until reproduced (AGENTS.md, "Bugs and security")
+    assert 'labels: ["unconfirmed"]' in form
     assert "I removed personal data" in form
     # the checkbox can't be skipped
     after = form.split("I removed personal data", 1)[1]

@@ -8,7 +8,8 @@ and privacy come before everything else, here as in the code.
 [Open an issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose)
 with the **Bug report** form, one problem per issue. The
 [open bugs](https://github.com/DigiMonk73/BTCTX-MCP/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-are the known issues: check there first.
+are the known issues: check there first. A new report is labelled
+`unconfirmed` until it has been reproduced, then `bug`.
 
 - **Never post personal data.** That means no real ledger figures, Bitcoin
   addresses or transaction ids, keys, passwords, server addresses, or
@@ -29,16 +30,17 @@ Use the **Feature request** form: the problem first, then your idea.
 ## How changes are made
 
 - Every change goes into `develop` by pull request, from a short-lived
-  branch. `main` holds released code only.
+  branch: open yours against `develop`, not `main`. `main` holds released
+  code only.
 - CI runs the full test suite, the click-through tests, the Docker and
   StartOS builds and a dependency audit. A pull request merges only once
   they pass, and after a review.
 - A bug fix comes with a test that fails without the fix.
 - A change to tax figures, the database, the StartOS package or a release
-  also needs a before-and-after comparison of what the app produces, and
-  the maintainer's approval.
+  needs the maintainer's approval, and a before-and-after comparison of
+  what the app produces whenever figures could move.
 - When a fix changes tax figures, the release notes say what was wrong,
-  which versions it affected, and what users should do.
+  which versions and which tax years it affected, and what users should do.
 
 Before writing code, read:
 

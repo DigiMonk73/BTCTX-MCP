@@ -20,14 +20,17 @@ treated with respect.
 
 ## What the maintainers do
 
-The maintainers may edit or remove comments, close or lock discussions,
+The maintainers may edit or remove comments, close or lock conversations,
 and block anyone who doesn't follow this code, here and in every space
 the project runs.
 
 ## Reporting
 
-Use GitHub's **Report content** on the comment. If it must stay private,
-open a private report from the repository's **Security** tab
+To reach the maintainers privately, open a private report from the
+repository's **Security** tab
 ([Report a vulnerability](https://github.com/DigiMonk73/BTCTX-MCP/security/advisories/new))
-and start its title with "Conduct:". Only the maintainers see it, and
-reports are handled discreetly.
+and start its title with "Conduct:". Only you and the maintainers see it.
+It's answered, then closed, never published.
+
+GitHub's **Report content** on a comment goes to GitHub's staff, not to
+the maintainers. Use it for abuse GitHub itself should act on.

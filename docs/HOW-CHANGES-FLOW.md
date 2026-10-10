@@ -4,7 +4,7 @@ The whole path a change takes, from this computer to GitHub, to a release,
 to Start9's app store, and back. Written for the owner, who isn't a
 professional coder, and for every AI session, so both remember it the same
 way. The detailed rules are in `AGENTS.md` ("Branches", "Releasing",
-"Start9", "Pull requests"); this page is the map. Words in *italics* are in
+"Start9", "Bugs and security", "Pull requests"); this page is the map. Words in *italics* are in
 the glossary at the end.
 
 ## The picture
@@ -135,19 +135,26 @@ would undo their work. Both check it and stop if it was skipped.
 Anyone can find one: Claude, Grok, you, a user, Start9.
 
 1. **It's checked first.** Claude reproduces it, or confirms it from the
-   evidence, and says what was confirmed and what wasn't.
-2. **It becomes a public issue right away.** Labels: `bug`, plus
+   evidence, and says what was confirmed and what wasn't. A user's report
+   arrives labelled `unconfirmed` and gets an answer within a week.
+2. **Once confirmed, it's a public issue.** Labels: `bug`, plus
    `tax-figures` if a number could be wrong. Users see every known
    problem: the open `bug` issues are the known-issues list, linked from
-   the README. Never any personal data or real figures.
+   the README. Never any personal data or real figures. (A problem found
+   while reviewing a pull request is simply fixed in that pull request.)
 3. **It's fixed by a pull request** that closes the issue and adds a test
    that fails without the fix. `tax-figures` bugs come first. Their
-   release notes tell users what was wrong and what to do.
+   release notes tell users what was wrong, which tax years it touched,
+   and what to do.
 
-**Security problems are the exception: never public first.** They're
-reported privately (the repository's Security tab, `SECURITY.md`), fixed,
-released, and only then published as an advisory, so nobody can misuse
-them in the meantime.
+**Security problems are the exception: never public first.**
+1. They're reported privately (the repository's Security tab,
+   `SECURITY.md`).
+2. The fix is tested privately, then goes through an ordinary pull
+   request whose title doesn't give the problem away, and is released at
+   once. Start9 is asked to publish it at once too.
+3. Only when the fixed version is out is the advisory published, so
+   nobody can misuse the problem in the meantime.
 
 ## 6. Keeping this computer and GitHub the same
 
@@ -170,6 +177,8 @@ them in the meantime.
 4. Start9's changes come back through `develop` before our next release.
 5. Their copy changes only by their merge: we send pull requests.
 6. Nothing stays only on this computer at the end of a session.
+7. Every confirmed bug is public; a security problem stays private until
+   its fix is out.
 
 ## Glossary
 

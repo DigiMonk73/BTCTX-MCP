@@ -7,7 +7,7 @@ please report it privately, so it can be fixed before anyone can misuse it.
 
 Use GitHub's private reporting:
 **[Report a vulnerability](https://github.com/DigiMonk73/BTCTX-MCP/security/advisories/new)**
-(the repository's **Security** tab). Only the maintainers see it.
+(the repository's **Security** tab). Only you and the maintainers see it.
 
 Please don't open a public issue, pull request or discussion about a
 security problem.
@@ -21,16 +21,19 @@ Include what you can:
 - logs or screenshots, **with personal data removed**.
 
 Never send a real ledger, keys, passwords or server addresses. A small test
-ledger is enough to show almost any problem.
+ledger is enough to show almost any problem. Please test only on your own
+install, never on someone else's.
 
 ## What happens next
 
-1. We acknowledge your report within 7 days.
-2. We confirm the problem and fix it privately.
-3. We release a fixed version.
-4. We publish a GitHub security advisory: what the problem was, which
-   versions it affects and what users should do. You're credited, unless
-   you'd rather not be.
+1. We aim to acknowledge your report within 7 days.
+2. We confirm the problem and prepare a fix, without saying publicly what
+   it fixes.
+3. We release a fixed version. On StartOS, we ask Start9 to publish it at
+   once.
+4. Once the fixed version is available, we publish a GitHub security
+   advisory: what the problem was, which versions it affects and what
+   users should do. You're credited, unless you'd rather not be.
 
 ## Supported versions
 

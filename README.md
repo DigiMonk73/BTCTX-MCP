@@ -234,7 +234,8 @@ BitcoinTX doesn't give tax advice. Check its output before you file.
 - **A bug or a wrong figure:**
   [open an issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose).
   - The [open bugs](https://github.com/DigiMonk73/BTCTX-MCP/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
-    are the known issues.
+    are the known issues. A new report is labelled `unconfirmed` until
+    it's reproduced.
   - Those that can affect a tax figure are labelled
     [`tax-figures`](https://github.com/DigiMonk73/BTCTX-MCP/issues?q=is%3Aissue+is%3Aopen+label%3Atax-figures)
     and fixed first.
