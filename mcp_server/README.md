@@ -211,23 +211,26 @@ every connector reply says which version to use.
   `btctx-mcp==` in `args`, save, then quit Claude Desktop completely (⌘Q on a
   Mac; on Windows, from the system tray) and reopen it.
 - **Claude Code:** change the version in `~/.claude.json`
-  (`mcpServers.bitcointx.args`), then restart Claude Code (or reconnect with
+  (`mcpServers.bitcointx.args`; under `projects` → your folder if you used
+  the StartOS action's command), then restart Claude Code (or reconnect with
   `/mcp`). With the Mac app you can instead run `claude mcp remove bitcointx`
   and the command Settings gives (it holds no key); with Docker or StartOS
-  that would replace your key with the placeholder.
+  that would replace your key, and on StartOS the certificate path, with
+  placeholders.
 - **Cursor:** change it in `~/.cursor/mcp.json`, then restart Cursor.
 - **Grok Build:** change it in `~/.grok/config.toml` (see
   [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md#grok-build)),
   then check with `grok mcp doctor`.
 - **LM Studio:** Program tab → Install → Edit `mcp.json`, change
-  `btctx-mcp==` in `args` and save.
+  `btctx-mcp==` in `args`, save, then restart LM Studio.
 
 Don't paste the whole new configuration from Settings over the old one
-unless you put your AI key back in: the one Settings shows has a
-placeholder. Set up before 1.2.0? Your configuration has
-`--from "git+https://…@vX.Y.Z#subdirectory=mcp_server" btctx-mcp` instead:
-replace those arguments with `btctx-mcp==X.Y.Z`. Installed with pip instead
-of `uvx`? Run `pip install btctx-mcp==X.Y.Z`.
+unless you put your AI key (and on StartOS the certificate path) back in:
+the one Settings shows has placeholders. Set up before 1.2.0? Your
+configuration has `--from "git+https://…@vX.Y.Z#subdirectory=mcp_server"
+btctx-mcp` instead (or `@main`): replace those arguments with
+`btctx-mcp==X.Y.Z`. Installed with pip instead of `uvx`? Run
+`pip install btctx-mcp==X.Y.Z`.
 
 ## Using it
 
