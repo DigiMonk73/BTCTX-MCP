@@ -50,9 +50,13 @@ All notable changes to BitcoinTX are documented in this file.
     the AI connector's edit tool or the API (the form wasn't affected).
   - Affected: versions up to 1.2.5, any tax year, only income deposits
     edited that way.
+  - **income counted on a USD deposit**: a deposit moved from Wallet or
+    Exchange BTC to Bank or Exchange USD by the AI connector or the API
+    kept its value, which the report counted as income.
   - Now a value from the day's price is marked as such, and is priced again
-    when you change the deposit's account, amount, date, source or type. A
-    value you typed stays as you typed it. The update changes no figure: it
+    when you change the deposit's account, amount, date or source; a value
+    you typed stays as you typed it; and a deposit moved to a USD account
+    loses its value (a USD deposit has none). The update changes no figure: it
     marks an existing value only where it is exactly that day's price times
     the amount (migration 0006; a typed value that happens to equal it is
     marked too, and is then priced the same way), and the mark only decides

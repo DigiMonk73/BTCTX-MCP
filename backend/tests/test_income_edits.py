@@ -6,7 +6,7 @@ edit used to keep the old figure: $0 after moving the deposit from Bank to a
 BTC account, or the old value after changing its amount or day. The app
 couldn't tell a value from the price from a typed one; now a value from the
 price is marked (cost_basis_from_price) and valued again when the amount,
-day, account, source or type changes, while a typed one is kept.
+day, account or source changes, while a typed one is kept.
 
 The edits send what the transaction form sends: every field, the basis as
 the form shows it.
@@ -124,6 +124,25 @@ def test_a_round_trip_through_bank_keeps_the_mark(auth_client):
     partial(auth_client, tx, to_account_id=BANK, amount="100", fee_currency="USD")
     back = partial(auth_client, tx, to_account_id=WALLET, amount="0.002", fee_currency="BTC")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
+
+
+def test_a_partial_move_to_bank_drops_the_value(auth_client, test_engine):
+    """A USD deposit has no basis: the value a partial edit left on it was
+    counted as income on the report."""
+    tx = deposit(auth_client, amount="0.001")
+    moved = partial(auth_client, tx, to_account_id=BANK, amount="100", fee_currency="USD")
+    assert moved["cost_basis_usd"] is None
+    assert income_reported(test_engine) == Decimal("0")
+
+
+def test_the_river_import_passes_the_mark_through(auth_client):
+    row = {"date": "2026-04-01T12:00:00Z", "type": "Deposit", "amount": "0.001", "from_account": "External",
+           "to_account": "Wallet", "source": "Interest", "cost_basis_usd": "50.00", "cost_basis_typed": "no"}
+    r = auth_client.post("/api/import/river/execute", json={"rows": [row]})
+    assert r.status_code == 200, r.text
+    [tx] = auth_client.get("/api/transactions").json()
+    assert tx["cost_basis_from_price"] is True
+    assert basis(partial(auth_client, tx, amount="0.002")) == Decimal("100.00")
 
 
 def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
