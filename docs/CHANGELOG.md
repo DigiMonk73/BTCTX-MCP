@@ -15,7 +15,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **The AI connector says so too.** When you tell your AI assistant about a
   second wallet or a second exchange, its guide has it say once that
   BitcoinTX pools it with the first, and why that matters for taxes since
-  2025 (#92).
+  2025, and records it in Wallet or the Exchange accounts, never as a
+  withdrawal to External (#92).
 - **About BitcoinTX, at the bottom of Settings.** It shows the version a bug
   report asks for, with the release notes, and where to report a problem: a
   public report, the open bugs already known, and a private report for a

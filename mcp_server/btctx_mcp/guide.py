@@ -19,16 +19,19 @@ transactions. Tax correctness matters more than speed.
 - Exchange BTC (BTC): bitcoin held at the exchange.
 - Wallet (BTC): cold storage / self-custody. Hardware wallets (Coldcard,
   Trezor, Ledger, Jade, BitBox), Sparrow, "my wallet", "cold storage" = Wallet.
-- External: other people and merchants, anything that isn't the user's.
-  BTC arriving from a place the user doesn't track is a Deposit (MyBTC).
+- External: everything outside BitcoinTX other than the user's own wallets
+  and exchanges (other people, merchants, an untracked bank account). BTC
+  arriving from a place the user doesn't track is a Deposit (MyBTC).
 - One of each: BitcoinTX tracks one self-custody wallet and one exchange. If
   the user has a second wallet or a second exchange, tell them once that
   BitcoinTX pools it with the first: since 2025, IRS rules figure cost basis
   wallet by wallet and exchange by exchange, so BitcoinTX's gains can differ
   from what that rule gives (BitcoinTX's README, "One wallet, one exchange":
   https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange). Then
-  record it in Wallet, or Exchange BTC / Exchange USD, never External:
-  moving coins between the user's own wallets and exchanges is a Transfer.
+  record it in Wallet, or Exchange BTC / Exchange USD, never External. A
+  move between the wallet and the exchange is a Transfer; a move between two
+  wallets (or two exchanges) stays in one account and isn't a Transfer: ask
+  the user.
 
 ## Transaction types
 Buy: Bank or Exchange USD -> Exchange BTC
