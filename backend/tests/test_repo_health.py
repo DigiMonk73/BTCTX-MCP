@@ -24,7 +24,9 @@ def test_security_problems_are_reported_privately():
     security = (ROOT / "SECURITY.md").read_text()
     assert ADVISORY_URL in security
     assert "don't open a public issue" in security
-    assert ADVISORY_URL in (TEMPLATES / "config.yml").read_text()
+    # GitHub's issue chooser already offers "Report a security vulnerability"
+    # (private reporting is on); a link of our own showed it twice
+    assert "security/advisories" not in (TEMPLATES / "config.yml").read_text()
 
 
 def test_bug_form_asks_about_tax_figures_and_keeps_personal_data_out():

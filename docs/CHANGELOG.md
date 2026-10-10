@@ -27,6 +27,11 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **Start9's rules win for everything Start9 governs, now written down.**
+  That's the StartOS package, the mirror, which pages Start9's support
+  indexes, and everything sent to their fork. The app, its Docker image
+  and the Mac app keep our own rules. AGENTS.md "Start9" asks that the
+  guide be checked first and the page each decision follows be named.
 - **How bugs and security problems are handled, in public files.**
   - `SECURITY.md`: report security problems privately (GitHub's private
     vulnerability reporting, now on). The fix ships first, then a public
