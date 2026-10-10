@@ -30,7 +30,9 @@ You can change the username and password inside BitcoinTX (**Settings > Reset Us
 
 ### Web interface
 
-Record deposits, withdrawals, transfers, buys and sells. Every change recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction. BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
+Record deposits, withdrawals, transfers, buys and sells. Every change recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
+
+BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 
 ### Privacy and your own node
 
@@ -61,7 +63,7 @@ The configuration holds your AI key: anyone who can read it can do what the key 
 
 If BitcoinTX's address changes (StartOS can give it a new port after you restore it from a backup), run **Connect an AI Assistant** again and update `BTCTX_URL` in your AI app.
 
-After each BitcoinTX update, update the connector too: in your AI app's configuration, change the version after `btctx-mcp==` to the one **Connect an AI Assistant** shows, and restart the AI app. Your AI key stays the same. Until you do, the assistant's replies say which version to set.
+After each BitcoinTX update, update the connector too: in your AI app's configuration, change the version after `btctx-mcp==` to the version the **Connect an AI Assistant** action shows, and restart the AI app. Your AI key stays the same; don't paste the action's whole configuration over yours, since it has placeholders for the key and the certificate path. Until you do, the assistant's replies say which version to set. Where to change it in each AI app: [Updating](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#updating).
 
 ### Actions
 

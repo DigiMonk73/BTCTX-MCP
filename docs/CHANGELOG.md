@@ -142,7 +142,8 @@ All notable changes to BitcoinTX are documented in this file.
   one opens with the one-wallet limit (since 2025, IRS rules figure cost
   basis wallet by wallet and account by account) and ends with the
   disclaimer, in all five languages (Start9's `manifest.md`: short about 80
-  characters so the tile shows it whole, long under 2,000). The
+  characters, the one-wallet limit first so a clipped tile still shows it;
+  long under 2,000). The
   instructions (Start9's `writing-instructions.md`) carry the disclaimer
   next to Reports, where it can be acted on, and a line on updating the AI
   connector after each BitcoinTX update; the one-wallet Limitations line
