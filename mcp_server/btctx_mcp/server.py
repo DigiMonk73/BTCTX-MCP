@@ -414,7 +414,9 @@ async def update_transaction(
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
-    fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
+    fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
+    An Income/Interest/Reward deposit's value that came from that day's price is priced again
+    when you change its amount, date or account; a value the user typed is kept."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)

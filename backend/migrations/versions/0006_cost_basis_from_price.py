@@ -16,7 +16,7 @@ Revises: 0005
 Create Date: 2026-10-10
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from alembic import op
 import sqlalchemy as sa
@@ -55,9 +55,14 @@ def upgrade() -> None:
 
 
 def _is_day_value(amount, basis, price) -> bool:
-    """Whether the basis is the price x the amount, rounded as the app rounds it."""
-    value = (Decimal(str(price)) * Decimal(str(amount)).quantize(SATS)).quantize(CENT)
-    return value > 0 and Decimal(str(basis)).quantize(CENT) == value
+    """Whether the basis is the price x the amount, rounded as the app rounds
+    it. A value that isn't a number (an old row) counts as typed: one such
+    row mustn't stop the update, and so the app from starting."""
+    try:
+        value = (Decimal(str(price)) * Decimal(str(amount)).quantize(SATS)).quantize(CENT)
+        return value > 0 and Decimal(str(basis)).quantize(CENT) == value
+    except InvalidOperation:
+        return False
 
 
 def downgrade() -> None:
