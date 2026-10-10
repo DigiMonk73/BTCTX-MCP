@@ -43,6 +43,11 @@ All notable changes to BitcoinTX are documented in this file.
   import's "likely the same event" note showed such amounts the same way.
   All now print eight decimals. The figures were right; only the
   description was hard to read. Closes #74.
+- **Losses print in parentheses on Form 8949 and Schedule D.** The IRS
+  instructions ask for negative amounts in parentheses, "(9.74)"; the forms
+  printed "-9.74" in column (h), on line 2 and on Schedule D's lines, while
+  the Complete Tax Report already said they used parentheses. The figures
+  are the same. Closes #75.
 
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
