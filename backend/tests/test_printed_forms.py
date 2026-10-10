@@ -19,6 +19,7 @@ Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
 """
 
 import importlib.util
+import re
 from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
@@ -241,3 +242,23 @@ def test_a_year_without_rows_prints_only_a_blank_schedule_d(printed):
         pages = _pages(printed, ledger, year)
         assert [p.template.form for p in pages] == ["f1040sd", "f1040sd"], (ledger, year)
         assert not any(text for p in pages for text in p.values.values()), (ledger, year)
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_the_reports_bitcoin_only_lines_are_the_forms(printed, ledger, year):
+    """The "Using these forms" page's lines 7, 15 and 16 (#79) are Schedule
+    D's printed Bitcoin lines added up."""
+    lines = pf.schedule_d_lines([p for p in _pages(printed, ledger, year) if p.template.form == "f1040sd"])
+
+    def total(numbers):
+        return sum((pf.amount(lines[n]["h"]) for n in numbers if lines[n]["h"]), Decimal(0))
+
+    short, long_ = total(("1b", "2", "3")), total(("8b", "9", "10"))
+    text = " ".join(printed[ledger]["reports"][year].split())
+    shown = {}
+    for line, label in (("7", "Net short-term gain (loss)"), ("15", "Net long-term gain (loss)"),
+                        ("16", "Lines 7 and 15 combined")):
+        found = re.search(rf"{line} {re.escape(label)} (\(?\$[\d,]+\.\d\d\)?)", text)
+        assert found, (line, label)
+        shown[line] = pf.amount(found.group(1).replace("$", ""))
+    assert shown == {"7": short, "15": long_, "16": short + long_}

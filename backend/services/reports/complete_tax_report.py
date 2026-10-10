@@ -6,7 +6,9 @@ from reporting_core.generate_report_data().
 A cover (the year's key figures, how the report was made, contents with
 page numbers), a one-page summary that ties to Form 8949 and Schedule D,
 then the detail: every disposal, income, gifts/donations/lost coins, the
-holdings at year end, and notes. The look is pdf_layout.py's.
+holdings at year end, a page for whoever files the return (what BitcoinTX
+fills on the IRS forms and leaves blank), and notes. The look is
+pdf_layout.py's.
 """
 
 import datetime
@@ -37,6 +39,10 @@ logger = logging.getLogger(__name__)
 WIDTH = 7.0  # inches between the margins
 INCOME_TYPES = ("Income", "Reward", "Interest")
 FOOTER_NOTE = "Prepared with BitcoinTX from your own records. Check it with your tax advisor before filing."
+DISCLAIMER = ("BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: "
+              "check its figures with a tax professional before you file.")
+SHORT_TERM_LINES = ("1b", "2", "3")  # Schedule D Part I lines BitcoinTX fills
+LONG_TERM_LINES = ("8b", "9", "10")  # Part II
 
 # What each Form 8949 box holds (the checkbox wording, shortened)
 BOX_MEANING = {
@@ -111,6 +117,11 @@ def fmt_value(value) -> str:
     return "not priced" if value is None else fmt_usd(value)
 
 
+def _and_list(items: list[str]) -> str:
+    """"2", "2 and 10", "1b, 2 and 10"."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 def _cell_table(rows: list, widths: list, commands: list) -> Table:
     table = Table(rows, colWidths=[w * inch for w in widths])
     table.setStyle(TableStyle(commands))
@@ -144,6 +155,7 @@ class _TaxReport:
             *self.income_detail(),
             *self.gifts_detail(),
             *self.holdings_detail(),
+            *self.using_these_forms(),
             *self.notes(),
         ]
 
@@ -487,7 +499,109 @@ class _TaxReport:
             bold=True)])
         return data_table(rows, [1.2, 1.8, 1.4, 1.3, 1.3], total=True)
 
-    # 6. Notes
+    # 6. Using these forms
+    def using_these_forms(self) -> list:
+        """For whoever files the return (a preparer, often): what BitcoinTX
+        fills on Form 8949 and Schedule D, what it leaves blank on purpose
+        and why (the owner's decision, #79: never a carryover, nor the lines
+        that depend on the rest of the return), and the Bitcoin-only figures."""
+        # A page of its own, to hand to whoever files the return
+        story = [PageBreak(), *self.section(6, "Using these forms",
+                             "For whoever files the return: what BitcoinTX fills on Form 8949 and Schedule D "
+                             "(Reports: IRS Reports), what it leaves blank on purpose, and why.")]
+        unfinished = self.year_not_over()
+        if unfinished:
+            story.append(self.text(unfinished, self.styles.normal))
+        story += self.subheading("What BitcoinTX fills")
+        story += self.bullets(self.filled_notes())
+        story += self.subheading("What BitcoinTX leaves blank, and why")
+        story += self.bullets((
+            "Schedule D lines 6 and 14, the loss carryovers: they come from last year's return.",
+            "Lines 4, 5, 11, 12 and 13, other sources (installment sales, casualties, K-1s, capital gain "
+            "distributions and the like): BitcoinTX tracks only bitcoin.",
+            "Lines 7, 15, 16 and 21, and the rest of Part III: they combine the Bitcoin lines with everything "
+            "else on the return.",
+        ))
+        story += self.subheading("The Bitcoin-only figures")
+        story += self.bitcoin_only_figures()
+        story += self.subheading("Before filing")
+        story += self.bullets(self.filing_notes())
+        return story
+
+    def year_not_over(self) -> str | None:
+        """A note when the report was made before the tax year ended."""
+        try:
+            made = datetime.datetime.strptime(self.data.get("report_date", ""), "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+        made = made.replace(tzinfo=datetime.timezone.utc).astimezone(self.tz)
+        if not isinstance(self.year, int) or made.year > self.year:
+            return None
+        return (f"The year isn't over yet: this report was made on {made.strftime('%m/%d/%Y')}, so its figures "
+                f"cover January 1 to that day only. Make it again after December 31 to file.")
+
+    def filled_notes(self) -> list[str]:
+        boxes = self.data.get("form_8949_boxes", [])
+        if not boxes:
+            notes = [f"No disposals in {self.year}: there is no Form 8949, and Schedule D's Bitcoin lines are blank."]
+        else:
+            listed = "; ".join(f"{b['box']}, {BOX_MEANING.get(b['box'], '')}" for b in boxes)
+            lines = _and_list([b["line"] for b in boxes])
+            notes = [
+                f"Form 8949: every Bitcoin disposal of {self.year}, one page per box, each page's line 2 adding up "
+                f"its rows. This year's boxes: {listed}.",
+                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, each the total of its box's Form 8949 "
+                "pages. Column (g) is blank: BitcoinTX records no adjustments.",
+            ]
+        forms = self.data.get("irs_forms")
+        if forms == "draft":
+            notes.append(f"The {self.year} forms are the IRS's drafts, marked DRAFT — DO NOT FILE: file on the "
+                         "final forms, with the same figures.")
+        elif forms is None:
+            notes.append(f"BitcoinTX has no IRS forms for {self.year}: enter the box totals of the Summary on the "
+                         "forms by hand.")
+        return notes
+
+    def bitcoin_only_figures(self) -> list:
+        """Lines 7, 15 and 16 as they would be with no other capital asset and
+        no carryover, and line 21's rule for a net loss."""
+        boxes = self.data.get("form_8949_boxes", [])
+        short = round(sum(b["gain_loss"] for b in boxes if b["line"] in SHORT_TERM_LINES), 2)
+        long_ = round(sum(b["gain_loss"] for b in boxes if b["line"] in LONG_TERM_LINES), 2)
+        net = round(short + long_, 2)
+        rows = [self.header("Schedule D line", "If bitcoin is the only capital asset and there's no carryover",
+                            numbers_from=1),
+                [self.text("7  Net short-term gain (loss)"), self.number(fmt_gain(short))],
+                [self.text("15  Net long-term gain (loss)"), self.number(fmt_gain(long_))],
+                [self.text("16  Lines 7 and 15 combined", self.styles.cell_bold), self.number(fmt_gain(net), True)]]
+        if net < 0:
+            rule = (f"Line 16 is a loss: line 21 is the smaller of the loss ({fmt_usd(-net)}) and $3,000, or $1,500 "
+                    "if married filing separately; the rest carries over to next year.")
+        else:
+            rule = "Line 16 isn't a loss, so line 21 doesn't apply."
+        return [data_table(rows, [3.2, 3.8], total=True), self.text(rule, self.styles.note)]
+
+    def filing_notes(self) -> list[str]:
+        return [
+            "Write the name and social security number at the top of every Form 8949 page and on Schedule D: "
+            "BitcoinTX leaves them blank. A Part II page can print without its Part I, so \"not required if shown "
+            "on other side\" may not apply.",
+            "Print single-sided: otherwise Schedule D can start on the back of the last Form 8949 page.",
+            f"Losses are in parentheses, as the IRS asks. Dates are MM/DD/YYYY in the tax timezone ({self.tz_name}).",
+            "Cost basis is first in, first out within each account. BitcoinTX tracks one self-custody wallet and one "
+            "exchange account, each with its own lots. Since 2025 IRS rules require cost basis to be figured wallet "
+            "by wallet and account by account (Treas. Reg. §1.1012-1(j); Rev. Proc. 2024-28): bitcoin held in "
+            "several wallets or exchange accounts is pooled here and needs separate records.",
+            "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
+            "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
+            "a sale of such coins at a loss has to be adjusted by hand.",
+            DISCLAIMER,
+        ]
+
+    def bullets(self, notes) -> list:
+        return [Paragraph(pdf_text(note), self.styles.bullet, bulletText="•") for note in notes]
+
+    # 7. Notes
     def notes(self) -> list:
         notes = (
             "All amounts are in US dollars unless marked BTC. Losses are shown in parentheses, as on the IRS forms.",
@@ -503,7 +617,4 @@ class _TaxReport:
             "This report is prepared from your own records. It may be used for tax purposes after you, or "
             "your tax advisor, have checked it.",
         )
-        return [
-            *self.section(6, "Notes", "How the figures in this report are made."),
-            *[Paragraph(pdf_text(note), self.styles.bullet, bulletText="•") for note in notes],
-        ]
+        return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes)]

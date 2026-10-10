@@ -5,6 +5,20 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A "Using these forms" page in the Complete Tax Report** (#79), for
+  whoever files the return, often a tax preparer handed the PDF. It says
+  what BitcoinTX fills on Form 8949 (every Bitcoin disposal, a page per box,
+  and what each of this year's boxes means) and on Schedule D (lines 1b to 3
+  and 8b to 10), and what it leaves blank on purpose, and why: the loss
+  carryovers (lines 6 and 14), other sources (lines 4, 5, 11 to 13), and the
+  lines that combine everything (7, 15, 16, 21 and Part III). It gives the
+  Bitcoin-only figures for lines 7, 15 and 16 ("if bitcoin is the only
+  capital asset and there's no carryover"), with line 21's rule for a net
+  loss ($3,000, or $1,500 married filing separately). It also says to write
+  the name and SSN on every Form 8949 page and print single-sided, how to
+  read the figures, the one-wallet-one-exchange assumption, that the gift
+  rule of IRC §1015 isn't applied (#104), and that BitcoinTX is not tax
+  advice. A report made before December 31 says the year isn't over yet.
 - **One disclaimer, and the one-wallet limit you can't miss.**
   - The README gains a "Disclaimer" section: "BitcoinTX is software, not
     tax, legal or financial advice. It works from the records you enter:

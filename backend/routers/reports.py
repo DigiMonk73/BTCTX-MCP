@@ -69,6 +69,10 @@ def get_complete_tax_report(
 ):
     """The complete tax report PDF of one tax year."""
     report_dict = generate_report_data(db, year)
+    # Which IRS forms Reports prints for the year, for the "Using these forms" page
+    bundled = get_supported_years()
+    report_dict["irs_forms"] = "final" if year in bundled else (
+        "draft" if year in draft_forms.draft_years(bundled) else None)
     pdf_bytes = generate_comprehensive_tax_report(report_dict)
 
     return Response(
