@@ -11,6 +11,7 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
+from backend.constants import BTC_ACCOUNTS
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
@@ -175,7 +176,8 @@ def _deposits_by_source(transactions: list[Transaction]) -> tuple[dict[str, Deci
     btc = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     for tx in transactions:
         source = (tx.source or "").lower()
-        if tx.type.lower() != "deposit" or source not in usd:
+        # Into Wallet or Exchange BTC only: a USD deposit's amount is dollars
+        if tx.type.lower() != "deposit" or source not in usd or tx.to_account_id not in BTC_ACCOUNTS:
             continue
         if tx.cost_basis_usd is None or tx.amount is None:
             continue

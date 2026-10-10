@@ -25,11 +25,11 @@ from backend.constants import (
     ACCOUNT_NAME_TO_ID,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
-    ACCOUNT_WALLET,
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
+    BTC_ACCOUNTS,
     INCOME_SOURCES,
 )
 
@@ -61,7 +61,6 @@ CSV_COLUMNS = [
 # Withdrawal purposes that aren't a sale; only these carry an FMV
 GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
 
 

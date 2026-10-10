@@ -20,7 +20,7 @@ from decimal import Decimal
 
 import pytest
 from alembic import command
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from backend.migrate import alembic_config, upgrade_database
@@ -133,6 +133,34 @@ def test_a_partial_move_to_bank_drops_the_value(auth_client, test_engine):
     moved = partial(auth_client, tx, to_account_id=BANK, amount="100", fee_currency="USD")
     assert moved["cost_basis_usd"] is None
     assert income_reported(test_engine) == Decimal("0")
+
+
+def test_a_usd_deposit_is_never_bitcoin_income(auth_client, test_engine):
+    """Review of #103: a USD deposit with a value (left by an older version,
+    sent back by an edit, or created with one) was counted as income on the
+    report and the dashboard, its dollar amount shown as BTC. Only deposits
+    into Wallet or Exchange BTC are bitcoin income."""
+    tx = deposit(auth_client, to_account_id=BANK, amount="100", fee_currency="USD")
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET cost_basis_usd = '50.00' WHERE id = :id"), {"id": tx["id"]})
+    assert auth_client.post("/api/transactions/recalculate").status_code == 200  # Recalculate Ledger keeps it
+    assert income_reported(test_engine) == Decimal("0")
+    with sessionmaker(bind=test_engine)() as db:
+        assert generate_report_data(db, 2026)["income_transactions"] == []
+    dashboard = auth_client.get("/api/calculations/gains-and-losses").json()
+    assert dashboard["interest_earned"] == 0 and dashboard["interest_btc"] == 0 and dashboard["total_income"] == 0
+
+
+@pytest.mark.parametrize("changes", [
+    {"amount": "0.002"}, {"timestamp": "2026-04-02T12:00:00Z"}, {"to_account_id": EXCHANGE_BTC},
+])
+def test_a_partial_edit_keeps_a_my_btc_deposits_basis(auth_client, changes):
+    """Review of #103: only a USD deposit loses its basis on a partial edit;
+    a My BTC deposit's basis is the user's figure, and the ledger refuses one
+    without it."""
+    tx = deposit(auth_client, source="MyBTC", amount="0.001", cost_basis_usd="1000")
+    edited = partial(auth_client, tx, **changes)
+    assert basis(edited) == Decimal("1000.00") and edited["cost_basis_from_price"] is False
 
 
 def test_the_river_import_passes_the_mark_through(auth_client):
