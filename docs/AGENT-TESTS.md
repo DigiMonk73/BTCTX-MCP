@@ -730,6 +730,10 @@ Found while this document was written (v1.2.0). Report these as KNOWN.
 Delete a line when its fix is merged into `develop`, since release
 candidates are built from it.
 
+- **Loss format, 1.2.5 and earlier only (Track B's previous release)**:
+  Form 8949 and Schedule D print a loss as `-1000.00`; from 1.2.6
+  `(1000.00)`, as the IRS asks (#75). The same figure: UPG-2 counts it as
+  identical.
 - **PRC, 1.2.0 and earlier only (Track B's previous release)**: an install
   with entries but no price choice switches itself to Public price sites at
   its next restart, e.g. the update. Fixed on `develop` (`afd23ea`): a

@@ -454,7 +454,6 @@ def _row_values(row: Form8949Row) -> list[str]:
     ]
 
 
-
 def _form_amount(amount) -> str:
     """A dollar amount as the IRS forms take it, to the cent: a negative one
     in parentheses, "(9.74)" (Form 8949 instructions, columns (g) and (h):

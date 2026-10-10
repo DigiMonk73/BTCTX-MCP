@@ -27,6 +27,7 @@ from backend.routers.reports import get_supported_years, get_template_path
 from backend.services.reports.form_8949 import (
     Form8949Row,
     _determine_box,
+    _form_amount,
     get_8949_field_config,
     line2_field_names,
     map_8949_rows_to_field_data,
@@ -244,8 +245,4 @@ def test_flattened_sheet_stays_small(year):
 ])
 def test_form_amounts_put_a_loss_in_parentheses(amount, printed):
     """The IRS asks for negative amounts in parentheses (#75); a -0.00 prints no sign."""
-    from decimal import Decimal
-
-    from backend.services.reports.form_8949 import _form_amount
-
     assert _form_amount(Decimal(amount)) == printed

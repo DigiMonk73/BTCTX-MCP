@@ -16,7 +16,7 @@ is drawn on the page (printed_forms.py) and check:
 Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
 2025 and 2026, box L of 2025 over two pages), the golden ledger
 (test_golden_years.py: hand-checked figures, a loss in box H) and a tiny
-one with a 5-satoshi sale.
+one with a 5-satoshi sale and a long-term loss.
 
 And the formats the IRS forms need:
 - BTC amounts with all eight decimals, never "5E-8 BTC" (#74);
