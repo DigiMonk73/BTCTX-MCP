@@ -222,7 +222,7 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 
 | Col | Offset | Value |
 |---|---|---|
-| (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`btc_description()`; never exponent form) |
+| (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`calculation.btc_text()`; never exponent form) |
 | (b) | 1 | date acquired, MM/DD/YYYY (tax timezone) |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |
@@ -294,8 +294,9 @@ The printed (flattened) forms are read back: `backend/tests/printed_forms.py`
 finds each value where it is drawn on the page. The layout comes from the
 template itself (rows by field name, columns by position, checkboxes top to
 bottom); only the boxes' printed letters and each box's Schedule D line are
-written in. `test_printed_forms.py` checks the PDFs of the test ledgers:
-every row once in its box, (d) - (e) = (h), one box and line 2 per page,
-Schedule D lines = their boxes' sheets, and the Complete Tax Report's box
-table. Every text field must be found where it is drawn, so a page that
+written in. `test_printed_forms.py` checks the PDFs of the test ledgers (the full
+one, the golden one, and a tiny one with a 5-satoshi sale): every row once
+in its box, (d) - (e) = (h), one box and line 2 per page, Schedule D lines =
+their boxes' sheets, the Complete Tax Report's box table, and column (a)'s
+eight decimals. Every text field must be found where it is drawn, so a page that
 can't be read fails instead of reading as blank.

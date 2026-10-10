@@ -102,6 +102,26 @@ def test_review_amounts_have_eight_decimals(auth_client, test_engine):
         auth_client.delete("/api/transactions/delete_all")
 
 
+def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
+    """A 50-satoshi transfer fee valued off the day's price reads
+    "Fee 0.00000050 BTC", never exponent form (#74)."""
+    auth_client.delete("/api/transactions/delete_all")
+    post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
+    try:
+        assert post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=EXCH_BTC,
+                    amount="0.01", fee_amount="0", fee_currency="BTC", source="MyBTC",
+                    cost_basis_usd="400").status_code == 200
+        fee = post(type="Transfer", timestamp="2024-05-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
+                   amount="0.001", fee_amount="0.0000005", fee_currency="BTC").json()
+        with test_engine.begin() as con:  # valued at another price, as an older version could
+            con.execute(text("UPDATE transactions SET fee_usd = '1.00' WHERE id = :id"), {"id": fee["id"]})
+        review = auth_client.get("/api/review").json()
+        item = next(c for c in review["checks"] if c["key"] == "fee_value_off")["items"][0]
+        assert item["issue"].startswith("Fee 0.00000050 BTC stored as $1.00"), item["issue"]
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
 def test_review_needs_login():
     from fastapi.testclient import TestClient
 
