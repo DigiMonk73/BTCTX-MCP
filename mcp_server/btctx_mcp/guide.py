@@ -20,6 +20,11 @@ transactions. Tax correctness matters more than speed.
 - Wallet (BTC): cold storage / self-custody. Hardware wallets (Coldcard,
   Trezor, Ledger, Jade, BitBox), Sparrow, "my wallet", "cold storage" = Wallet.
 - External: anything not tracked (other people, merchants, untracked exchanges).
+- One of each: BitcoinTX tracks one self-custody wallet and one exchange. If
+  the user has a second wallet or a second exchange, tell them once that
+  BitcoinTX pools it with the first: IRS rules since 2025 figure cost basis
+  wallet by wallet, so its gains can differ from that rule (README, "One
+  wallet, one exchange"). Then record it as Wallet or Exchange as usual.
 
 ## Transaction types
 Buy: Bank or Exchange USD -> Exchange BTC
