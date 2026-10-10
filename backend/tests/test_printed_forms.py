@@ -14,11 +14,16 @@ is drawn on the page (printed_forms.py) and check:
 - the Complete Tax Report's box table shows the forms' figures.
 
 Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
-2025 and 2026, box L of 2025 over two pages) and the golden ledger
-(test_golden_years.py: hand-checked figures, a loss in box H).
+2025 and 2026, box L of 2025 over two pages), the golden ledger
+(test_golden_years.py: hand-checked figures, a loss in box H) and a tiny
+one with a 5-satoshi sale.
+
+And the formats the IRS forms need:
+- BTC amounts with all eight decimals, never "5E-8 BTC" (#74).
 """
 
 import importlib.util
+import re
 from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
@@ -50,12 +55,24 @@ USER, PASSWORD = "forms-user", "forms-password-123"
 # The day the forms are made: inside 2026, so the shipped 2026 drafts are offered
 FORMS_DAY = date(2026, 10, 10)
 
+BANK, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 3, 4, 99
+# A 5-satoshi sale: str() of a Decimal under 0.000001 is "5E-8" (#74)
+TINY_LEDGER = [
+    dict(type="Deposit", timestamp="2025-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+         amount="1000", fee_amount="0", fee_currency="USD", source="N/A"),
+    dict(type="Buy", timestamp="2025-01-10T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+         amount="0.001", cost_basis_usd="100", fee_amount="0", fee_currency="USD"),
+    dict(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
+         amount="0.00000005", gross_proceeds_usd="0.01", fee_amount="0", fee_currency="USD"),
+]
+
 LEDGERS = {
     "seed": (seed_ledger.ledger_rows, "UTC"),
     "golden": (lambda: [dict(r) for r in GOLDEN_LEDGER], "America/New_York"),
+    "tiny": (lambda: [dict(r) for r in TINY_LEDGER], "UTC"),
 }
 # Every (ledger, year) with Form 8949 rows (test_cases_cover_every_year_with_rows)
-CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025)]
+CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025), ("tiny", 2025)]
 
 
 @pytest.fixture(scope="module")
@@ -241,3 +258,17 @@ def test_a_year_without_rows_prints_only_a_blank_schedule_d(printed):
         pages = _pages(printed, ledger, year)
         assert [p.template.form for p in pages] == ["f1040sd", "f1040sd"], (ledger, year)
         assert not any(text for p in pages for text in p.values.values()), (ledger, year)
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_btc_amounts_have_eight_decimals(printed, ledger, year):
+    """Column (a) reads "0.00000005 BTC", never exponent form, which str()
+    gives a Decimal under 0.000001 BTC (#74)."""
+    for part in _parts(_pages(printed, ledger, year), year):
+        for row in part.rows:
+            assert re.fullmatch(r"\d+\.\d{8} BTC", row["a"]), row["a"]
+
+
+def test_the_tiny_sale_is_printed(printed):
+    rows = [row["a"] for part in _parts(_pages(printed, "tiny", 2025), 2025) for row in part.rows]
+    assert rows == ["0.00000005 BTC"]

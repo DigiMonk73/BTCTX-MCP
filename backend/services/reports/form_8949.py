@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
 from backend.constants import ACCOUNT_EXCHANGE_BTC
+from backend.services.calculation import btc_text
 from backend.services.tax_time import format_tax_date, get_tax_timezone, local_date, tax_year_bounds
 
 logger = logging.getLogger(__name__)
@@ -151,7 +152,7 @@ def build_form_8949_and_schedule_d(
         hp_str = (disp.holding_period or "SHORT").upper()
 
         row = Form8949Row(
-            description=f"{disp.disposed_btc} BTC",
+            description=f"{btc_text(disp.disposed_btc)} BTC",
             date_acquired=acquired_str,
             date_sold=sold_str,
             proceeds=proceeds_dec,
