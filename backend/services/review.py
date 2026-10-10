@@ -20,6 +20,11 @@ Checks:
   than 5% away from fee x that day's price: most likely valued at the live
   price when the day's lookup failed. apply_fee_prices() fixes the ones the
   owner picks (login only), then recalculates.
+- income_without_value (#77): an income deposit with a $0 or blank basis:
+  no income is reported for it, and its whole value becomes gain when it's
+  sold. The income rules forbid it (a blank is valued at the day's price);
+  older versions and some edits (#76) left such rows. Shown with that day's
+  value when the price is known.
 - income_value_off (F42): an income deposit whose basis is more than 5%
   away from amount x that day's price. Before v0.9.2 a lookup for a date
   more than about two years back could return another day's price. Only
@@ -75,6 +80,10 @@ CHECKS: dict[str, tuple] = {
         "Transfer fees valued far from that day's price (probably at the live price)",
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
+    ),
+    "income_without_value": (
+        "Income deposits with a $0 or blank value (no income reported)",
+        "Edit each one: clear its value to use that day's price, or type its value when you received it.",
     ),
     "income_value_off": (
         "Income deposits valued far from that day's price",
@@ -217,6 +226,7 @@ def build_review(db: Session) -> dict[str, Any]:
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["fee_value_off"] = _fee_value_items(db, tz)
     missing: list[int] = []
+    found["income_without_value"] = _income_without_value_items(db, rows, tz, missing)
     found["income_value_off"] = _income_value_items(db, rows, tz, missing)
 
     checks = [
@@ -288,13 +298,35 @@ def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
     return items
 
 
+def _is_income_deposit(t: Transaction) -> bool:
+    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in INCOME_SOURCES
+
+
+def _income_without_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
+    """Income deposits with a $0 or blank basis, with that day's value when
+    the price is known; the ids of those with no price go to `missing`."""
+    items = []
+    for t in rows:
+        if not (_is_income_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
+            continue
+        issue = ("Value blank" if t.cost_basis_usd is None else "Value $0.00") + ": no income is reported for it."
+        price = _day_price(db, t, missing)
+        if price is None:
+            change = "Its value when you received it becomes the income and its cost basis."
+        else:
+            expected = (price * Decimal(t.amount)).quantize(CENT)
+            change = (f"At that day's price (${_money(price)}), its value, the income and its basis "
+                      f"become ${_money(expected)}.")
+        items.append(_item(t, tz, issue, change))
+    return items
+
+
 def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
     """Income deposits whose basis is off the day's price; the ids of those
     with no price go to `missing`."""
     items = []
     for t in rows:
-        if not (t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS
-                and (t.source or "").lower() in INCOME_SOURCES and t.cost_basis_usd):
+        if not (_is_income_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)):
             continue
         price = _day_price(db, t, missing)
         if price is None:

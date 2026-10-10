@@ -36,6 +36,14 @@ All notable changes to BitcoinTX are documented in this file.
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
 
+### Fixed
+- **Ledger Review lists income deposits with a $0 or blank value** (#77).
+  Such a deposit reports no income, which the income rules forbid, yet it
+  slipped past both of Ledger Review's basis checks. A new item, "Income
+  deposits with a $0 or blank value (no income reported)", lists them with
+  their value at that day's price, so they can be fixed (clear the value to
+  use the day's price, or type the right one).
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK

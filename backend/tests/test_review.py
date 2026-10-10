@@ -19,7 +19,7 @@ def ledger(auth_client, test_engine):
         # id, type, from, to, source, purpose, basis, gross, gain
         (901, "Deposit", EXTERNAL, WALLET, "MyBTC", None, "0", None, None),
         (902, "Deposit", EXTERNAL, EXCH_BTC, "Gift", None, None, None, None),
-        (903, "Deposit", EXTERNAL, WALLET, "Income", None, None, None, None),   # income: priced, not listed
+        (903, "Deposit", EXTERNAL, WALLET, "Income", None, None, None, None),   # income left blank (#77)
         (904, "Deposit", EXTERNAL, WALLET, "MyBTC", None, "500", None, None),   # has a basis
         (905, "Deposit", EXTERNAL, BANK, "N/A", None, None, None, None),        # USD deposit
         (906, "Withdrawal", WALLET, EXTERNAL, None, "Spent", None, "0", "-100"),
@@ -55,7 +55,8 @@ def test_review_lists_each_kind_and_changes_nothing(auth_client, test_engine, le
     assert ids(review, "zero_proceeds_spend") == [906]
     assert ids(review, "lost_with_loss") == [908]
     assert ids(review, "deposit_without_basis") == [901, 902]
-    assert review["total"] == 4
+    assert ids(review, "income_without_value") == [903]
+    assert review["total"] == 5
     item = next(c for c in review["checks"] if c["key"] == "lost_with_loss")["items"][0]
     assert item["realized_gain_usd"] == "-300.00" and "$0.00" in item["change"]
     with test_engine.connect() as con:
@@ -83,6 +84,28 @@ def test_review_dates_are_in_the_tax_timezone(auth_client, test_engine, ledger):
     assert review["timezone"] == "America/New_York"
     spend = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")
     assert spend["items"][0]["date"] == "2023-12-31 22:00"
+
+
+def test_review_lists_income_deposits_with_a_zero_or_blank_value(auth_client, test_engine):
+    """#77: an income deposit at $0 or blank reports no income, which the
+    income rules forbid; it slipped past both basis checks."""
+    auth_client.delete("/api/transactions/delete_all")
+    rows = [(960, "0"), (961, None), (962, "500")]  # $0, blank, valued
+    with test_engine.begin() as con:
+        for tx_id, basis in rows:
+            con.execute(text(
+                "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+                " fee_currency, source, cost_basis_usd) VALUES (:id, 'Deposit', '2024-05-01T12:00:00Z', :e, :w, '0.01',"
+                " '0', 'BTC', 'Interest', :basis)"), {"id": tx_id, "e": EXTERNAL, "w": WALLET, "basis": basis})
+    try:
+        review = auth_client.get("/api/review").json()
+        check = next(c for c in review["checks"] if c["key"] == "income_without_value")
+        assert [i["id"] for i in check["items"]] == [960, 961]
+        zero, blank = check["items"]
+        assert zero["issue"].startswith("Value $0.00") and blank["issue"].startswith("Value blank")
+        assert "$500.00" in zero["change"]  # 0.01 BTC at the stubbed $50,000
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
 
 
 def test_review_needs_login():
