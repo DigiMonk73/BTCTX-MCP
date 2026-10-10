@@ -16,9 +16,12 @@ DATA_DIR_ENV = "BTCTX_DESKTOP_DATA_DIR"
 
 
 def data_dir_override() -> Path | None:
-    """The folder BTCTX_DESKTOP_DATA_DIR names, or None when it isn't set."""
+    """The folder BTCTX_DESKTOP_DATA_DIR names, made absolute, or None when it
+    isn't set. A relative path would split the data: the backend joins a
+    relative DATABASE_FILE to the project (inside the bundled app), while
+    mcp.json and the log would follow the current directory."""
     value = os.environ.get(DATA_DIR_ENV, "").strip()
-    return Path(value).expanduser() if value else None
+    return Path(value).expanduser().resolve() if value else None
 
 
 def data_dir() -> Path:

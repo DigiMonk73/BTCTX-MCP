@@ -103,16 +103,23 @@ BitcoinTX is installed:** it would open the real ledger in
 data folder instead, and on another port if the installed app is open:
 
 ```bash
-BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 \
-  desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
+export BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766
+export BTCTX_MCP_FILE="$BTCTX_DESKTOP_DATA_DIR/mcp.json"   # for the MCP server
+desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
 ```
+
+Make the folder once, as here, and run the last line again in the same
+shell to reopen the app on the same data (`mktemp` in the same line would
+give every launch a new, empty folder).
 
 `BTCTX_DESKTOP_DATA_DIR` holds everything the app would keep in Application
 Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
 (`logs/BitcoinTX.log`); the log line "Test data folder from
 BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The MCP server looks for the
-installed app's `mcp.json`; point it at the test run's with
-`BTCTX_MCP_FILE=<that folder>/mcp.json`.
+installed app's `mcp.json` unless `BTCTX_MCP_FILE` points to the test run's,
+as above. A second launch on the same port says "BitcoinTX is already open"
+but doesn't bring a window forward: AppleScript would find the installed
+app by name.
 
 ### Manual build
 

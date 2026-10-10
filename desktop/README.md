@@ -33,7 +33,8 @@ that opens the real ledger. Run it on a throwaway data folder (and another
 port, if the installed app is open):
 
 ```bash
-BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
+export BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766
+desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX   # run again in this shell to reopen on the same data
 ```
 
 ## Runtime
@@ -56,10 +57,9 @@ BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 desktop/dist/Bitco
   it once, then **System Settings → Privacy & Security → Open Anyway**. Or
   `xattr -cr /path/to/BitcoinTX.app`.
 - **Backend fails to start / blank window:** read
-  `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or run
-  `desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX` in Terminal to see the
-  log live. After adding a backend module, check it's in `hiddenimports` in
-  `BitcoinTX.spec`.
+  `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or run the build in Terminal, on
+  a throwaway data folder as above, to see the log live. After adding a
+  backend module, check it's in `hiddenimports` in `BitcoinTX.spec`.
 
 ## Files
 

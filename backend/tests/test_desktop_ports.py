@@ -163,3 +163,16 @@ def test_desktop_info_endpoint(auth_client, monkeypatch):
         "desktop": True, "url": "http://127.0.0.1:50123", "port": 50123,
         "preferred_port": 8765, "port_fallback": True,
     }
+
+
+@pytest.mark.parametrize("bring_forward, activates", [(True, True), (False, False)])
+def test_a_test_run_never_activates_bitcointx_by_name(monkeypatch, bring_forward, activates):
+    """AppleScript finds "BitcoinTX" by name: during a test run on a throwaway
+    data folder it could bring forward, or start, the installed app on its
+    real ledger, so a test run only says it's already open."""
+    scripts = []
+    monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
+    monkeypatch.setattr(desktop_ports, "_osascript", lambda script: scripts.append(script))
+    desktop_ports.tell_already_running(8766, bring_forward=bring_forward)
+    assert any("activate" in s for s in scripts) is activates
+    assert any("already open" in s for s in scripts)

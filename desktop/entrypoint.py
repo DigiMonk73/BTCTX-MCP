@@ -201,7 +201,7 @@ def main():
     preferred = preferred_port()
     if running_instance(preferred):
         logger.info(f"BitcoinTX already answers on port {preferred}; not starting a second copy")
-        tell_already_running(preferred)
+        tell_already_running(preferred, bring_forward=data_dir_override() is None)
         return
     sock, fallback = choose_socket(preferred)
     if sock is None:
