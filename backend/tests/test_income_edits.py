@@ -12,6 +12,7 @@ The edits send what the transaction form sends: every field, the basis as
 the form shows it.
 """
 
+import csv
 import io
 import sqlite3
 from datetime import date
@@ -137,9 +138,8 @@ def test_a_csv_export_and_reimport_keeps_the_mark(auth_client):
     deposit(auth_client, amount="0.002", cost_basis_usd="90", timestamp="2026-04-02T12:00:00Z")
     export = auth_client.get("/api/backup/csv")
     assert export.status_code == 200
-    rows = export.text.splitlines()
-    assert rows[0].endswith(",cost_basis_typed")
-    assert sorted(line.rsplit(",", 1)[1] for line in rows[1:]) == ["no", "yes"]
+    rows = list(csv.DictReader(io.StringIO(export.text)))
+    assert sorted(row["cost_basis_typed"] for row in rows) == ["no", "yes"]
 
     auth_client.delete("/api/transactions/delete_all")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
