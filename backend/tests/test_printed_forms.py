@@ -45,7 +45,7 @@ from backend.main import app
 from backend.routers.reports import get_template_path
 from backend.services import first_run, outbound
 from backend.services.reports import draft_forms
-from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+from backend.services.reports.form_8949 import build_form_8949_and_schedule_d, get_8949_field_config
 from backend.tests import printed_forms as pf
 from backend.tests.conftest import init_test_db
 from backend.tests.test_golden_years import LEDGER as GOLDEN_LEDGER
@@ -219,10 +219,9 @@ def test_each_page_has_one_box_and_totals_its_rows(printed, ledger, year):
 def test_schedule_d_lines_are_their_boxes_sheets(printed, ledger, year):
     pages = _pages(printed, ledger, year)
     sheets: dict[str, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
-    for part in _parts(pages, year):
-        if part.rows:
-            for col in "deh":
-                sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
+    for part in _parts(pages, year):  # every part has rows (test_each_page_has_one_box_and_totals_its_rows)
+        for col in "deh":
+            sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
     schedule_d = [p for p in pages if p.template.form == "f1040sd"]
     # Both pages, in order: Part III is the filer's to complete
     assert [p.template.signature for p in schedule_d] == [t.signature for t in _templates(year, "f1040sd")]
@@ -304,8 +303,6 @@ def test_losses_are_in_parentheses(printed, ledger, year):
 def test_one_page_per_part_used(printed, ledger, year):
     """As many Form 8949 pages as the year's boxes need, at the table's rows
     a page, and no more: the empty other Part of each sheet isn't printed (#78)."""
-    from backend.services.reports.form_8949 import get_8949_field_config
-
     per_page = get_8949_field_config(year)["rows_per_page"]
     computed = printed[ledger]["rows"][year]
     per_box = Counter(r["box"] for r in computed["short_term"] + computed["long_term"])

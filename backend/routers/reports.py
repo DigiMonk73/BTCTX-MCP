@@ -86,7 +86,8 @@ def get_irs_reports(
     """
     Form 8949 and Schedule D of one tax year in one PDF, from that year's
     templates: each sheet is filled and flattened with pypdf (XFA removed),
-    then all are merged. A draft year's sheets leave out the IRS's cover page.
+    then the Parts that have rows are merged, then Schedule D's pages. A
+    draft year's forms leave out the IRS's cover page.
     """
     _verify_templates_exist(year)
     path_form_8949 = get_template_path(year, "f8949.pdf")
@@ -123,15 +124,16 @@ def get_irs_reports(
             if long_chunk:
                 field_data.update(map_8949_rows_to_field_data(long_chunk, page=2, year=year))
             pdf_bytes = fill_pdf_form(path_form_8949, field_data)
-            # Only the Part that has rows: the instructions say to file Part I
-            # or II, and a short-term box's sheet printed an empty Part II (#78)
-            pages = [first_8949] * bool(short_chunk) + [first_8949 + 1] * bool(long_chunk)
+            # Only the Parts that have rows, so no sheet prints an empty Part:
+            # the instructions say to file Part I or II (#78)
+            pages = [page for page, rows in ((first_8949, short_chunk), (first_8949 + 1, long_chunk)) if rows]
             partial_pdfs.append((pdf_bytes, pages))
 
         schedule_d_fields = map_schedule_d_fields(report_data["schedule_d"], year=year)
         filled_sd_bytes = fill_pdf_form(path_schedule_d, schedule_d_fields)
-        # Both of Schedule D's pages: Part III is the filer's to complete
-        partial_pdfs.append((filled_sd_bytes, [first_schedule_d, first_schedule_d + 1]))
+        # Every page of Schedule D after a draft's cover: Part III is the filer's to complete
+        sd_pages = len(PdfReader(BytesIO(filled_sd_bytes)).pages)
+        partial_pdfs.append((filled_sd_bytes, list(range(first_schedule_d, sd_pages))))
 
         final_pdf = _merge_all_pdfs(partial_pdfs)  # sheets are already flattened
 

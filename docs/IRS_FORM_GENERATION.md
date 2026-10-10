@@ -212,10 +212,11 @@ box's Form 8949 sheets.
 The template has two pages. Page 1 is Part I (short-term), page 2 is Part II
 (long-term). Extra rows go on extra copies of the template, never on "page 3"
 fields (those don't exist). Only the pages with rows are printed: the
-instructions say to "complete and file either Part I or II", so a sheet with
-short-term rows only prints no empty Part II (and the other way round).
-Schedule D always prints both pages: Part III is the filer's to complete. `rows_per_page` comes from the year config:
-**14 for 2024, 11 for 2025**.
+instructions say to "complete and file either Part I or II" (and a separate
+one for each box), so a sheet with only short-term rows has no empty Part
+II printed, and the other way round. Schedule D always prints all its
+pages: Part III is the filer's to complete. `rows_per_page` comes from the
+year config: **14 for 2024, 11 for 2025**.
 
 Row field names:
 
