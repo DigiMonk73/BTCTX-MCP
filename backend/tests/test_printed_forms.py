@@ -28,6 +28,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfReader
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.database import get_db
@@ -53,33 +54,44 @@ LEDGERS = {
     "seed": (seed_ledger.ledger_rows, "UTC"),
     "golden": (lambda: [dict(r) for r in GOLDEN_LEDGER], "America/New_York"),
 }
+# Every (ledger, year) with Form 8949 rows (test_cases_cover_every_year_with_rows)
+CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025)]
 
 
 @pytest.fixture(scope="module")
 def printed(auth_client, tmp_path_factory):
     """Each ledger on its own database, and what it prints: ledger ->
     {"pages": {year: the IRS PDF's pages read back}, "reports": {year:
-    report text}, "rows": {year: build_form_8949_and_schedule_d()}}."""
-    from sqlalchemy import create_engine
-
+    report text}, "rows": {year: build_form_8949_and_schedule_d()}}.
+    auth_client has set the session's database override, which this swaps
+    for each ledger's and always puts back: the modules after this one run
+    on the session's database."""
     previous = app.dependency_overrides[get_db]
     out = {}
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(draft_forms, "SHIPPED_DIR", ROOT / "backend" / "assets" / "irs_templates" / "drafts")
-        mp.setattr(draft_forms, "today", lambda: FORMS_DAY)
-        mp.setattr(outbound, "_current", outbound.NetworkSettings(price_source="public"))
-        for name, (rows, timezone) in LEDGERS.items():
-            path = tmp_path_factory.mktemp(f"forms-{name}") / "btctx.db"
-            engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
-            init_test_db(engine)
-            Session = sessionmaker(bind=engine)
-            app.dependency_overrides[get_db] = _sessions_of(Session)
-            first_run.clear_code()
-            out[name] = _print_ledger(rows(), timezone, Session)
-            first_run.clear_code()
-            engine.dispose()
-    app.dependency_overrides[get_db] = previous
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(draft_forms, "SHIPPED_DIR", ROOT / "backend" / "assets" / "irs_templates" / "drafts")
+            mp.setattr(draft_forms, "today", lambda: FORMS_DAY)
+            mp.setattr(outbound, "_current", outbound.NetworkSettings(price_source="public"))
+            for name, (rows, timezone) in LEDGERS.items():
+                out[name] = _print_on_own_database(name, rows(), timezone, tmp_path_factory)
+    finally:
+        app.dependency_overrides[get_db] = previous
     return out
+
+
+def _print_on_own_database(name: str, rows: list[dict], timezone: str, tmp_path_factory) -> dict:
+    path = tmp_path_factory.mktemp(f"forms-{name}") / "btctx.db"
+    engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
+    init_test_db(engine)
+    Session = sessionmaker(bind=engine)
+    app.dependency_overrides[get_db] = _sessions_of(Session)
+    first_run.clear_code()
+    try:
+        return _print_ledger(rows, timezone, Session)
+    finally:
+        first_run.clear_code()
+        engine.dispose()
 
 
 def _sessions_of(Session):
@@ -115,13 +127,16 @@ def _print_ledger(rows: list[dict], timezone: str, Session) -> dict:
     return result
 
 
-CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025)]
-
-
 def _read_back(pdf: bytes, year: int) -> list[pf.PrintedPage]:
-    templates = (pf.template_pages(Path(get_template_path(year, "f8949.pdf")), "f8949")
-                 + pf.template_pages(Path(get_template_path(year, "f1040sd.pdf")), "f1040sd"))
+    templates = pf.template_pages(Path(get_template_path(year, "f8949.pdf")), "f8949") + _schedule_d_templates(year)
     return pf.read_printed(pdf, templates)
+
+
+def _schedule_d_templates(year: int) -> list[pf.TemplatePage]:
+    with pytest.MonkeyPatch.context() as mp:  # the 2026 drafts, as when the forms were made
+        mp.setattr(draft_forms, "SHIPPED_DIR", ROOT / "backend" / "assets" / "irs_templates" / "drafts")
+        mp.setattr(draft_forms, "today", lambda: FORMS_DAY)
+        return pf.template_pages(Path(get_template_path(year, "f1040sd.pdf")), "f1040sd")
 
 
 def _pages(printed, ledger: str, year: int) -> list[pf.PrintedPage]:
@@ -132,9 +147,10 @@ def _parts(pages: list[pf.PrintedPage], year: int) -> list[pf.Form8949Part]:
     return [pf.form_8949_part(p, year) for p in pages if p.template.form == "f8949"]
 
 
-def test_every_case_has_forms(printed):
-    for ledger, year in CASES:
-        assert year in printed[ledger]["pages"], (ledger, year)
+def test_cases_cover_every_year_with_rows(printed):
+    with_rows = {(ledger, year) for ledger, result in printed.items() for year, rows in result["rows"].items()
+                 if rows["short_term"] or rows["long_term"]}
+    assert set(CASES) == with_rows
 
 
 @pytest.mark.parametrize("ledger, year", CASES)
@@ -185,7 +201,8 @@ def test_schedule_d_lines_are_their_boxes_sheets(printed, ledger, year):
             for col in "deh":
                 sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
     schedule_d = [p for p in pages if p.template.form == "f1040sd"]
-    assert len(schedule_d) == 2  # both pages: Part III is the filer's to complete
+    # Both pages, in order: Part III is the filer's to complete
+    assert [p.template.signature for p in schedule_d] == [t.signature for t in _schedule_d_templates(year)]
     lines = pf.schedule_d_lines(schedule_d)
     for line, cells in lines.items():
         if line in sheets:

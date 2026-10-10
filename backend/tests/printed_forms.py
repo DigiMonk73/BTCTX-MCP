@@ -6,8 +6,10 @@ values handed to the filler.
 
 The layout comes from the year's template itself: a table row's fields by
 their name (RowN), its columns left to right by position, the checkboxes
-top to bottom. Nothing here uses form_8949.py's field maps, so a wrong map
-shows up as a wrong read-back.
+top to bottom. Only what the IRS prints is written in here: the boxes'
+letters in their printed order and each box's Schedule D line. Nothing
+uses form_8949.py's field maps, so a wrong map shows up as a wrong
+read-back.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ SCHEDULE_D_LINE = {
 ROW_COLUMNS = "abcdefgh"
 LINE2_COLUMNS = "defgh"
 SCHEDULE_D_COLUMNS = "degh"
+# Enough opening text to tell the template pages apart (all differ well before it)
 SIGNATURE_LENGTH = 200
 
 
@@ -40,6 +43,7 @@ class Widget:
     name: str  # the field's full name, e.g. topmostSubform[0].Page1[0].f1_01[0]
     x: float   # where its appearance is drawn: the lower-left of its /Rect
     y: float
+    text: bool  # a text field (/Tx); otherwise a checkbox
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,8 @@ class Form8949Part:
 
 
 def template_pages(path: Path, form: str) -> list[TemplatePage]:
-    """Every page of an IRS template with its fields' names and positions."""
+    """Every page of an IRS template that has fields, with their names and
+    positions (a draft's cover sheet has none, and is never printed)."""
     reader = PdfReader(str(path))
     pages = []
     for page in reader.pages:
@@ -79,8 +84,9 @@ def template_pages(path: Path, form: str) -> list[TemplatePage]:
             if annot.get("/Subtype") != "/Widget":
                 continue
             x, y = (float(v) for v in annot["/Rect"][:2])
-            widgets.append(Widget(_full_name(annot), round(x, 2), round(y, 2)))
-        pages.append(TemplatePage(form, _signature(page), tuple(widgets)))
+            widgets.append(Widget(_full_name(annot), round(x, 2), round(y, 2), _field_type(annot) == "/Tx"))
+        if widgets:
+            pages.append(TemplatePage(form, _signature(page), tuple(widgets)))
     return pages
 
 
@@ -93,7 +99,12 @@ def read_printed(pdf: bytes, templates: list[TemplatePage]) -> list[PrintedPage]
         signature = _signature(page)
         template = next((t for t in templates if t.signature and signature.startswith(t.signature)), None)
         assert template is not None, f"page {number} is no page of the IRS templates: {signature[:80]!r}"
-        printed.append(PrintedPage(template, _drawn_fields(page, reader, template)))
+        values = _drawn_fields(page, reader, template)
+        # A flattened page draws every text field once (an empty one too):
+        # one not found would read as blank and pass the checks for blanks.
+        missing = [w.name for w in template.widgets if w.text and w.name not in values]
+        assert not missing, f"page {number}: {len(missing)} text field(s) not found where drawn, e.g. {missing[:2]}"
+        printed.append(PrintedPage(template, values))
     return printed
 
 
@@ -128,8 +139,8 @@ def schedule_d_lines(pages: list[PrintedPage]) -> dict[str, dict[str, str]]:
                 by_line.setdefault(m.group(1), []).append(w)
         for line, cells in by_line.items():
             cells.sort(key=lambda w: w.x)
-            columns = SCHEDULE_D_COLUMNS if len(cells) == 4 else "deh"
-            lines[line] = {col: page.value(w) for col, w in zip(columns, cells)}
+            assert len(cells) == len(SCHEDULE_D_COLUMNS), f"Schedule D line {line} has {len(cells)} fields"
+            lines[line] = {col: page.value(w) for col, w in zip(SCHEDULE_D_COLUMNS, cells)}
     return lines
 
 
@@ -165,6 +176,17 @@ def report_boxes(report_text: str) -> dict[str, dict[str, str]]:
     return boxes
 
 
+def _field_type(annot) -> str | None:
+    """/FT, which a widget may inherit from its parent field."""
+    node = annot
+    while node is not None:
+        if "/FT" in node:
+            return str(node["/FT"])
+        node = node.get("/Parent")
+        node = node.get_object() if node is not None else None
+    return None
+
+
 def _full_name(annot) -> str:
     parts = []
     node = annot
@@ -191,7 +213,9 @@ def _drawn_fields(page, reader: PdfReader, template: TemplatePage) -> dict[str, 
         if operator == b"cm":
             translation = (round(float(operands[4]), 2), round(float(operands[5]), 2))
         elif operator == b"Do" and translation in at and operands[0] in xobjects:
-            values[at[translation]] = _xobject_text(xobjects[operands[0]].get_object(), reader)
+            name = at[translation]
+            assert name not in values, f"{name} drawn twice"
+            values[name] = _xobject_text(xobjects[operands[0]].get_object(), reader)
         elif operator == b"Q":
             translation = None
     return values
@@ -218,6 +242,8 @@ def _table_rows(widgets: tuple[Widget, ...]) -> list[list[Widget]]:
         m = re.search(r"\.Table_Line1\w*\[0\]\.Row(\d+)\[0\]\.", w.name)
         if m:
             rows.setdefault(int(m.group(1)), []).append(w)
+    for number, cells in rows.items():
+        assert len(cells) == len(ROW_COLUMNS), f"row {number} has {len(cells)} fields"
     return [sorted(cells, key=lambda w: w.x) for _, cells in sorted(rows.items())]
 
 
