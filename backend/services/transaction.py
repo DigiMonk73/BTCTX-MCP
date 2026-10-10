@@ -264,14 +264,18 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     An income deposit's value after an edit (#76). A typed one is kept. One
     that came from the day's price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the day's price when the edit changes
-    what it depends on: the account, amount, day, source or type. An edit
-    that makes the row something else marks its basis typed.
+    what it depends on: the account, amount, day, source or type. A type
+    change makes the row's figure its own, typed.
     """
     if not any(k in tx_data for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)):
         return
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)}
     if not _is_income_into_btc(edited, db):
-        tx_data["cost_basis_from_price"] = False
+        # Moved to Bank or to another source, the mark stays (and is unused):
+        # moved back with a new amount, the value is priced again. A value
+        # typed meanwhile, or another type's figure, is the user's.
+        if getattr(edited["type"], "value", edited["type"]) != "Deposit" or _typed_basis(tx, tx_data):
+            tx_data["cost_basis_from_price"] = False
         return
     if _typed_basis(tx, tx_data):
         tx_data["cost_basis_from_price"] = False
@@ -303,13 +307,8 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
     if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
-        return _utc_day(tx_data["timestamp"]) != _utc_day(tx.timestamp)
+        return price_history.utc_day(tx_data["timestamp"]) != price_history.utc_day(tx.timestamp)
     return False
-
-
-def _utc_day(ts: datetime):
-    """The UTC day, whose price values the deposit (a naive time is UTC)."""
-    return (ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)).astimezone(timezone.utc).date()
 
 
 def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:

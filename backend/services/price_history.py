@@ -69,7 +69,8 @@ def reset_state() -> None:
     _state.update(full_failed_at=-1e9, latest_day=None, latest_failed_at=-1e9, mempool_at=-1e9)
 
 
-def _utc_day(when: date | datetime) -> date:
+def utc_day(when: date | datetime) -> date:
+    """The day whose price values `when`: its UTC day (a naive time is UTC)."""
     if isinstance(when, datetime):
         when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
         return when.astimezone(timezone.utc).date()
@@ -273,7 +274,7 @@ def _run(coro):
 
 # Table
 def stored_price(db: Session, when: date | datetime) -> Decimal | None:
-    row = db.get(BtcPriceDaily, _utc_day(when))
+    row = db.get(BtcPriceDaily, utc_day(when))
     return Decimal(row.usd) if row else None
 
 
@@ -311,7 +312,7 @@ def _mark_history_complete(db: Session) -> None:
 
 def daily_price(db: Session, when: date | datetime) -> Decimal:
     """The BTC/USD price for the UTC day of `when`. 422 when there is none."""
-    day = _utc_day(when)
+    day = utc_day(when)
     price = stored_price(db, day)
     if price is not None:
         return price

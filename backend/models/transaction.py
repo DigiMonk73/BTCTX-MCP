@@ -153,7 +153,7 @@ class Transaction(Base):
         server_default=sa_false(),
         doc="True when the user typed fee_usd: it is kept when the fee or date changes.",
     )
-    # Last, where migration 0006 added it, so a fresh table matches a migrated one
+    # Last, as migration 0006 appends it: a model column elsewhere would no longer match the migrated table
     cost_basis_from_price = Column(
         Boolean,
         nullable=False,

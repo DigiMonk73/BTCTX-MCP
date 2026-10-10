@@ -420,6 +420,8 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
+    An Income/Interest/Reward deposit's value that came from that day's price is priced again
+    when you change its amount, date or account; a value the user typed is kept.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
     date; "none" clears it (the holding period then starts at the deposit)."""
     changes: dict[str, Any] = {}
