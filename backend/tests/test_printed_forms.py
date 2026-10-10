@@ -308,3 +308,34 @@ def test_one_page_per_part_used(printed, ledger, year):
     per_box = Counter(r["box"] for r in computed["short_term"] + computed["long_term"])
     expected = sum(-(-n // per_page) for n in per_box.values())
     assert len(_parts(_pages(printed, ledger, year), year)) == expected
+
+
+def test_the_report_says_which_forms_reports_prints(printed):
+    """The route tells the report which IRS forms it prints: none for 2023,
+    the drafts for 2026 (on FORMS_DAY), the final forms for 2024 and 2025."""
+    notes = {2023: "BitcoinTX has no IRS forms for 2023, so it fills none.",
+             2026: "The 2026 forms are the IRS's drafts, marked DRAFT"}
+    for year in (2023, 2024, 2025, 2026):
+        report = " ".join(printed["seed"]["reports"][year].split())
+        for noted, note in notes.items():
+            assert (note in report) == (noted == year), (year, note)
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_the_reports_bitcoin_only_lines_are_the_forms(printed, ledger, year):
+    """The "Using these forms" page's lines 7, 15 and 16 (#79) are Schedule
+    D's printed Bitcoin lines added up."""
+    lines = pf.schedule_d_lines([p for p in _pages(printed, ledger, year) if p.template.form == "f1040sd"])
+
+    def total(numbers):
+        return sum((pf.amount(lines[n]["h"]) for n in numbers if lines[n]["h"]), Decimal(0))
+
+    short, long_ = total(("1b", "2", "3")), total(("8b", "9", "10"))
+    text = " ".join(printed[ledger]["reports"][year].split())
+    shown = {}
+    for line, label in (("7", "Net short-term gain (loss)"), ("15", "Net long-term gain (loss)"),
+                        ("16", "Lines 7 and 15 combined")):
+        found = re.search(rf"{line} {re.escape(label)} (\(?\$[\d,]+\.\d\d\)?)", text)
+        assert found, (line, label)
+        shown[line] = pf.amount(found.group(1).replace("$", ""))
+    assert shown == {"7": short, "15": long_, "16": short + long_}

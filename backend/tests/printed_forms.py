@@ -166,7 +166,7 @@ def report_boxes(report_text: str) -> dict[str, dict[str, str]]:
     """The Complete Tax Report's "Form 8949 and Schedule D" table: box ->
     its Schedule D line, rows, proceeds, cost basis and gain (loss), as printed."""
     start = report_text.index("Form 8949 and Schedule D\n")
-    end = report_text.index("Each box is its own Form 8949 page", start)
+    end = report_text.index("Each box takes a page or more of Form 8949", start)
     lines = report_text[start:end].split("\n")
     boxes, box, figures = {}, None, []
     for line in lines[1:]:
