@@ -111,10 +111,12 @@ desktop/run-test-build.sh --fresh            # start again from an empty folder
 desktop/run-test-build.sh --background       # detached (for an agent's shell)
 ```
 
-It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`$TMPDIR/btctx-test-build`,
-or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to 8766, the same on
-every launch from any shell, so a reopen or a second launch finds the same
-data. It refuses the installed app's folder. That folder holds everything
+It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`btctx-test-build` in the
+user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
+8766, the same on every launch from any shell, so a reopen or a second
+launch finds the same data. It uses only a folder that is empty or that it
+marked as its own (`.btctx-test-folder`), never the installed app's folder
+however it is spelled, and `--fresh` waits until no test run answers on 8766. That folder holds everything
 the app would keep in Application Support (`btctx.db`, the session key,
 `mcp.json`, `backups/`) and its log (`logs/BitcoinTX.log`); the log line
 "Test data folder from BTCTX_DESKTOP_DATA_DIR" confirms it's in use.
@@ -143,15 +145,15 @@ pyinstaller --clean --noconfirm BitcoinTX.spec
 With the venv active and `frontend/dist` built, from the repo root:
 
 ```bash
-PYTHONPATH=. python desktop/entrypoint.py
+D="$(desktop/run-test-build.sh --where)" && \
+  BTCTX_DESKTOP_DATA_DIR="$D" BTCTX_DESKTOP_PORT=8766 PYTHONPATH=. python desktop/entrypoint.py
 ```
 
-(`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.)
-
-In this mode the backend serves `frontend/dist` from the repo and still uses
-the Application Support database, the real ledger: on a Mac with BitcoinTX
-installed, put `BTCTX_DESKTOP_DATA_DIR=<a test folder> BTCTX_DESKTOP_PORT=8766`
-in front of that command, every time.
+(`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.) The
+backend serves `frontend/dist` from the repo. Without `BTCTX_DESKTOP_DATA_DIR`
+it would use the Application Support database, the real ledger on a Mac
+with BitcoinTX installed: keep the `&&`, so a failed `--where` starts
+nothing.
 
 ## BitcoinTX.spec
 
@@ -210,10 +212,12 @@ xattr -cr /path/to/BitcoinTX.app
 ```
 
 **Crashes or blank window.** Read `~/Library/Logs/BitcoinTX/BitcoinTX.log`, or
-run the binary from Terminal to see the same output:
+run the installed app from Terminal to see the same output:
 ```bash
-/path/to/BitcoinTX.app/Contents/MacOS/BitcoinTX
+/Applications/BitcoinTX.app/Contents/MacOS/BitcoinTX
 ```
+A build you made runs only through `desktop/run-test-build.sh`, whose output
+shows in Terminal the same way.
 If the backend doesn't answer within 30 seconds the app logs
 "Backend failed to start" and exits. A missing hidden import in
 `BitcoinTX.spec` is the usual cause after adding a module.

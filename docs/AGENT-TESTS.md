@@ -685,8 +685,9 @@ REPO, UNPACKED and DATA stand for absolute paths (the checkout, the temp
 folder, the folder `--where` prints), written out in each command, since a
 tool's shell may not keep variables. The script uses the same test folder
 and port 8766 on every launch. Then read 8766 for 8765 and DATA for
-`~/Library/Application Support/BitcoinTX/` below, skip MAC-1's drag to
-Applications, and in MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
+`~/Library/Application Support/BitcoinTX/` below. The script's first launch
+replaces all of MAC-1 (no dmg, no drag, no `open`): expect the app window
+and no port banner. In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
 after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a second
 launch shows "BitcoinTX is already open" without bringing a window forward,
 and starts no second copy on 8766. If the installed app appears at any
@@ -711,7 +712,7 @@ point, leave it alone, touch nothing in it, and record that.
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
   nothing after `--` except the method options; on a Mac with BitcoinTX
-  installed, only `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
+  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
   `get_portfolio` matches the Dashboard. **Reset key**: the connector keeps
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no

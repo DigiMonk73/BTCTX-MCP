@@ -8,6 +8,8 @@ build must be able to run on a throwaway folder: BTCTX_DESKTOP_DATA_DIR.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_paths  # noqa: E402
 
@@ -93,20 +95,91 @@ def test_every_launch_gets_the_same_test_folder_and_port(tmp_path):
     assert _run_script(tmp_path, "--where").stdout.strip() == str(folder.resolve())
 
 
-def test_the_installed_apps_folder_is_refused(tmp_path):
+def _real_folder(home: Path) -> Path:
+    """The installed app's data folder under a fake HOME, holding a ledger."""
+    real = home / "Library" / "Application Support" / "BitcoinTX"
+    (real / "backups").mkdir(parents=True)
+    (real / "btctx.db").write_text("the real ledger")
+    return real
+
+
+def _untouched(real: Path) -> bool:
+    return (real / "btctx.db").read_text() == "the real ledger" and (real / "backups").is_dir() \
+        and not (real / ".btctx-test-folder").exists()
+
+
+def _case_insensitive(tmp_path) -> bool:
+    (tmp_path / "CaseCheck").write_text("")
+    return (tmp_path / "casecheck").exists()
+
+
+@pytest.mark.parametrize("spelling", ["exact", "subfolder", "relative", "case"])
+def test_the_installed_apps_folder_is_refused_however_spelled(tmp_path, monkeypatch, spelling):
+    """--fresh on the real folder would delete the ledger: it is refused by
+    name (any case: macOS file systems ignore it) and by identity."""
+    if spelling == "case" and not _case_insensitive(tmp_path):
+        pytest.skip("case-sensitive file system: another case is another folder")
+    app, real = _fake_app(tmp_path), _real_folder(tmp_path)
+    data = {"exact": real, "subfolder": real / "sub", "relative": "Library/Application Support/BitcoinTX/.",
+            "case": tmp_path / "library" / "application support" / "bitcointx"}[spelling]
+    monkeypatch.chdir(tmp_path)
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
+    assert r.returncode == 1 and "installed app's data folder" in r.stderr, r.stderr
+    assert not (tmp_path / "ran").exists() and _untouched(real)
+    assert not (real / "sub").exists()
+
+
+def test_a_real_folder_that_is_a_symlink_is_refused(tmp_path):
+    """The real folder moved elsewhere and linked back: its target is refused too."""
     app = _fake_app(tmp_path)
-    real = tmp_path / "Library" / "Application Support" / "BitcoinTX"
-    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=real)
-    assert r.returncode == 1 and "refusing" in r.stderr
-    assert not (tmp_path / "ran").exists()
+    moved = tmp_path / "elsewhere" / "BitcoinTX"
+    (moved / "backups").mkdir(parents=True)
+    (moved / "btctx.db").write_text("the real ledger")
+    support = tmp_path / "Library" / "Application Support"
+    support.mkdir(parents=True)
+    (support / "BitcoinTX").symlink_to(moved)
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=moved)
+    assert r.returncode == 1 and "installed app's data folder" in r.stderr, r.stderr
+    assert _untouched(moved)
+
+
+def test_a_folder_the_script_didnt_make_is_refused(tmp_path):
+    """BTCTX_TEST_DATA_DIR pointing at a folder with other things in it (here
+    the home folder): --fresh would delete its backups/ and logs/."""
+    app = _fake_app(tmp_path)
+    (tmp_path / "backups").mkdir()
+    (tmp_path / "backups" / "photos.zip").write_text("keep")
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=tmp_path)
+    assert r.returncode == 1 and "isn't a test folder" in r.stderr, r.stderr
+    assert (tmp_path / "backups" / "photos.zip").exists()
 
 
 def test_fresh_empties_only_what_the_app_keeps(tmp_path):
     app = _fake_app(tmp_path)
     data = tmp_path / "test-data"
     (data / "backups").mkdir(parents=True)
-    (data / "btctx.db").write_text("old ledger")
+    (data / ".btctx-test-folder").write_text("")
+    (data / "btctx.db").write_text("old test ledger")
     (data / "notes.txt").write_text("not the app's")
     r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
     assert r.returncode == 0, r.stderr
-    assert sorted(p.name for p in data.iterdir()) == ["notes.txt"]
+    assert sorted(p.name for p in data.iterdir()) == [".btctx-test-folder", "notes.txt"]
+
+
+def test_an_unknown_option_is_refused(tmp_path):
+    r = _run_script(tmp_path, "--frsh")
+    assert r.returncode == 2 and "unknown option" in r.stderr
+
+
+def test_no_doc_runs_a_build_s_binary_by_itself():
+    """Run on a Mac with BitcoinTX installed, a build's binary opens the real
+    ledger: the docs launch builds only through run-test-build.sh (the
+    installed app may be run from /Applications)."""
+    root = Path(__file__).resolve().parents[2]
+    offenders = [
+        f"{doc.relative_to(root)}:{n}"
+        for doc in root.rglob("*.md") if "node_modules" not in doc.parts
+        for n, line in enumerate(doc.read_text(errors="ignore").splitlines(), start=1)
+        if "Contents/MacOS/BitcoinTX" in line and "/Applications/BitcoinTX.app" not in line
+    ]
+    assert offenders == []
