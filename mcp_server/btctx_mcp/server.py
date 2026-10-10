@@ -421,7 +421,6 @@ async def update_transaction(
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
     An Income/Interest/Reward deposit's value that came from that day's price is priced again
-    An Income/Interest/Reward deposit's value that came from that day's price is priced again
     when you change its amount, date or account (sending back the value it already has doesn't
     make it typed); a value the user typed is kept.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like

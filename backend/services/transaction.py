@@ -719,7 +719,7 @@ def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
             BitcoinLot.remaining_btc > 0,
             Transaction.to_account_id == account_id
         )
-        .order_by(BitcoinLot.acquired_date.asc(), BitcoinLot.id.asc())  # the same date: the first entered
+        .order_by(BitcoinLot.acquired_date.asc(), BitcoinLot.id.asc())  # the same date: the first created
         .all()
     )
 

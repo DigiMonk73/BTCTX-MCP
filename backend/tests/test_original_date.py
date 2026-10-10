@@ -247,3 +247,11 @@ def test_a_sale_before_the_deposit_never_uses_its_coins(auth_client, test_engine
     rows = sorted(rows_2025(test_engine), key=lambda r: r["date_sold"])
     assert [(r["date_sold"], r["date_acquired"]) for r in rows] == [
         ("02/01/2025", "01/10/2025"), ("07/01/2025", "03/14/2023")]
+
+
+def test_a_misspelt_source_says_so_before_the_date(auth_client):
+    body = ("date,type,amount,from_account,to_account,cost_basis_usd,source,acquired_at\n"
+            "2025-04-01T09:00:00Z,Deposit,0.1,External,Exchange BTC,2000,Gfit,2023-03-14\n")
+    r = auth_client.post("/api/import/preview", files={"file": ("x.csv", io.BytesIO(body.encode()), "text/csv")})
+    [error] = r.json()["errors"]
+    assert error["column"] == "source"

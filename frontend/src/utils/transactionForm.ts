@@ -114,8 +114,6 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       currency: accountCurrency(accountId),
       amount: tx.amount,
       source: (tx.source ?? "N/A") as DepositSource,
-      // Stored at noon in the tax timezone: its UTC date is that day
-      acquiredDate: tx.acquired_at ? new Date(tx.acquired_at).toISOString().slice(0, 10) : undefined,
     };
   },
   Withdrawal: (tx) => {
@@ -157,10 +155,25 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   }),
 };
 
-/** A saved transaction as the form shows it for editing. */
-export function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
+/** A saved transaction as the form shows it for editing; a date originally
+ * acquired as its day in the tax timezone, the day the server reads back. */
+export function mapTransactionToFormData(tx: ITransaction, taxTimezone = "UTC"): TransactionFormData {
   const typeFormData = TYPE_FORM_DATA[tx.type];
-  return typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
+  const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
+  if (tx.acquired_at) form.acquiredDate = dayIn(tx.acquired_at, taxTimezone);
+  return form;
+}
+
+/** A moment's calendar day in a timezone, as YYYY-MM-DD. Not the browser's
+ * day, nor the UTC day: in New Zealand's summer, or for a time early in a
+ * Tokyo morning, those are the day before, and a save would move it there. */
+export function dayIn(iso: string, timezone: string): string {
+  const options = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
+  try {
+    return new Intl.DateTimeFormat("en-CA", { ...options, timeZone: timezone }).format(new Date(iso));
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" }).format(new Date(iso));
+  }
 }
 
 /** What the payload says depends on the transaction's type. */

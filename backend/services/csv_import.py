@@ -194,6 +194,7 @@ def _validate_row(
         warnings.extend(type_warnings)
         if errors:
             raise _Rejected(*errors)
+        _check_original_date(checked, tz)
     except _Rejected as rejected:
         return None, None, rejected.errors, warnings
     return _transaction_data(checked, warnings), _preview(checked), [], warnings
@@ -214,12 +215,19 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
-    if acquired_at is not None:
-        problem = original_date_problem(tx_type, options["source"], to_id in BTC_ACCOUNTS, acquired_at, timestamp, tz)
-        if problem:
-            raise _Rejected(_error(row_number, "acquired_at", problem))
     return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
                 acquired_at=acquired_at)
+
+
+def _check_original_date(row: _Row, tz) -> None:
+    """The save's own rule for a date originally acquired, after the type's
+    rules (so a misspelt source says so first), naming the row."""
+    if row.acquired_at is None:
+        return
+    problem = original_date_problem(row.tx_type, row.source, row.to_id in BTC_ACCOUNTS, row.acquired_at,
+                                    row.timestamp, tz)
+    if problem:
+        raise _Rejected(_error(row.number, "acquired_at", problem))
 
 
 def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
