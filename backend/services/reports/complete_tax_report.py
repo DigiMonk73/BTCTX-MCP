@@ -285,6 +285,9 @@ class _TaxReport:
                        "day's stored daily BTC price"),
             ("Generated", f"{self.data.get('report_date', '')} UTC"),
         )
+        unfinished = self.year_not_over()
+        if unfinished:
+            facts += (("Year not over", unfinished),)
         rows = [[self.text(label.upper(), self.styles.label), self.text(value, self.styles.normal)]
                 for label, value in facts]
         return _cell_table(rows, [1.5, WIDTH - 1.5], [
@@ -505,7 +508,7 @@ class _TaxReport:
         fills on Form 8949 and Schedule D, what it leaves blank on purpose
         and why (the owner's decision, #79: never a carryover, nor the lines
         that depend on the rest of the return), and the Bitcoin-only figures."""
-        # A page of its own, to hand to whoever files the return
+        # On a new page, to hand to whoever files the return
         story = [PageBreak(), *self.section(6, "Using these forms",
                              "For whoever files the return: what BitcoinTX fills on Form 8949 and Schedule D "
                              "(Reports: IRS Reports), what it leaves blank on purpose, and why.")]
@@ -516,11 +519,14 @@ class _TaxReport:
         story += self.bullets(self.filled_notes())
         story += self.subheading("What BitcoinTX leaves blank, and why")
         story += self.bullets((
+            "Schedule D lines 1a and 8a: BitcoinTX lists every sale on Form 8949, as Schedule D allows, so they "
+            "stay blank.",
             "Schedule D lines 6 and 14, the loss carryovers: they come from last year's return.",
             "Lines 4, 5, 11, 12 and 13, other sources (installment sales, casualties, K-1s, capital gain "
             "distributions and the like): BitcoinTX tracks only bitcoin.",
             "Lines 7, 15, 16 and 21, and the rest of Part III: they combine the Bitcoin lines with everything "
             "else on the return.",
+            "The qualified opportunity fund question at the top of Schedule D: answer it.",
         ))
         story += self.subheading("The Bitcoin-only figures")
         story += self.bitcoin_only_figures()
@@ -541,25 +547,40 @@ class _TaxReport:
                 f"cover January 1 to that day only. Make it again after December 31 to file.")
 
     def filled_notes(self) -> list[str]:
+        """What Reports: IRS Reports prints for the year. `irs_forms` is the
+        route's: "final", "draft", "none" (a year before BitcoinTX's forms) or
+        "newer" (after them); a report made without it says nothing of it."""
         boxes = self.data.get("form_8949_boxes", [])
+        forms = self.data.get("irs_forms", "final")
+        # The letters only: section 1's box table says what each holds
+        listed = f"{_and_list([b['box'] for b in boxes])} (what each holds: section 1)" if boxes else ""
+        lines = _and_list([b["line"] for b in boxes]) if boxes else ""
+        each = "each the total of its box's" if len(boxes) > 1 else "the total of its box's"
         if not boxes:
             notes = [f"No disposals in {self.year}: there is no Form 8949, and Schedule D's Bitcoin lines are blank."]
-        else:
-            listed = "; ".join(f"{b['box']}, {BOX_MEANING.get(b['box'], '')}" for b in boxes)
-            lines = _and_list([b["line"] for b in boxes])
+        elif forms in ("none", "newer"):
             notes = [
-                f"Form 8949: every Bitcoin disposal of {self.year}, one page per box, each page's line 2 adding up "
-                f"its rows. This year's boxes: {listed}.",
-                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, each the total of its box's Form 8949 "
-                "pages. Column (g) is blank: BitcoinTX records no adjustments.",
+                f"Fill Form 8949 from section 2's list, a page or more per box, or attach that list as a statement "
+                f"and enter each box's totals on Form 8949 with \"see attached statement\" (Form 8949 "
+                f"instructions, Exception 2). This year's boxes: {listed}.",
+                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 entries, as in the "
+                "Summary.",
             ]
-        forms = self.data.get("irs_forms")
+        else:
+            notes = [
+                f"Form 8949: every Bitcoin disposal of {self.year}, a page or more per box, each page's line 2 "
+                f"adding up its rows. This year's boxes: {listed}.",
+                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 pages. Column (g) "
+                "is blank: BitcoinTX records no adjustments.",
+            ]
         if forms == "draft":
             notes.append(f"The {self.year} forms are the IRS's drafts, marked DRAFT — DO NOT FILE: file on the "
                          "final forms, with the same figures.")
-        elif forms is None:
-            notes.append(f"BitcoinTX has no IRS forms for {self.year}: enter the box totals of the Summary on the "
-                         "forms by hand.")
+        elif forms == "none":
+            notes.insert(0, f"BitcoinTX has no IRS forms for {self.year}, so it fills none.")
+        elif forms == "newer":
+            notes.insert(0, f"BitcoinTX has no IRS forms for {self.year} yet, so it fills none: a newer "
+                            "BitcoinTX may have them.")
         return notes
 
     def bitcoin_only_figures(self) -> list:
@@ -576,25 +597,24 @@ class _TaxReport:
                 [self.text("16  Lines 7 and 15 combined", self.styles.cell_bold), self.number(fmt_gain(net), True)]]
         if net < 0:
             rule = (f"Line 16 is a loss: line 21 is the smaller of the loss ({fmt_usd(-net)}) and $3,000, or $1,500 "
-                    "if married filing separately; the rest carries over to next year.")
+                    "if married filing separately; a loss not deducted may carry over to next year (the Capital Loss "
+                    "Carryover Worksheet).")
         else:
             rule = "Line 16 isn't a loss, so line 21 doesn't apply."
         return [data_table(rows, [3.2, 3.8], total=True), self.text(rule, self.styles.note)]
 
     def filing_notes(self) -> list[str]:
         return [
-            "Write the name and social security number at the top of every Form 8949 page and on Schedule D: "
-            "BitcoinTX leaves them blank. A Part II page can print without its Part I, so \"not required if shown "
-            "on other side\" may not apply.",
+            "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
+            "leaves them blank, and a Part II page can print without its Part I.",
             "Print single-sided: otherwise Schedule D can start on the back of the last Form 8949 page.",
-            f"Losses are in parentheses, as the IRS asks. Dates are MM/DD/YYYY in the tax timezone ({self.tz_name}).",
-            "Cost basis is first in, first out within each account. BitcoinTX tracks one self-custody wallet and one "
-            "exchange account, each with its own lots. Since 2025 IRS rules require cost basis to be figured wallet "
-            "by wallet and account by account (Treas. Reg. §1.1012-1(j); Rev. Proc. 2024-28): bitcoin held in "
-            "several wallets or exchange accounts is pooled here and needs separate records.",
+            "BitcoinTX tracks one self-custody wallet and one exchange account, each with its own lots, first in, "
+            "first out. Since 2025 IRS rules require cost basis to be figured wallet by wallet and account by "
+            "account (Treas. Reg. §1.1012-1(j); Rev. Proc. 2024-28): several wallets or exchange accounts are "
+            "pooled here and need separate records.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
-            "a sale of such coins at a loss has to be adjusted by hand.",
+            "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
             DISCLAIMER,
         ]
 

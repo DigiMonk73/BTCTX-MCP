@@ -244,6 +244,17 @@ def test_a_year_without_rows_prints_only_a_blank_schedule_d(printed):
         assert not any(text for p in pages for text in p.values.values()), (ledger, year)
 
 
+
+def test_the_report_says_which_forms_reports_prints(printed):
+    """The route tells the report which IRS forms it prints: none for 2023,
+    the drafts for 2026 (on FORMS_DAY), the final forms for 2024 and 2025."""
+    notes = {2023: "BitcoinTX has no IRS forms for 2023, so it fills none.",
+             2026: "The 2026 forms are the IRS's drafts, marked DRAFT"}
+    for year in (2023, 2024, 2025, 2026):
+        report = " ".join(printed["seed"]["reports"][year].split())
+        for noted, note in notes.items():
+            assert (note in report) == (noted == year), (year, note)
+
 @pytest.mark.parametrize("ledger, year", CASES)
 def test_the_reports_bitcoin_only_lines_are_the_forms(printed, ledger, year):
     """The "Using these forms" page's lines 7, 15 and 16 (#79) are Schedule
