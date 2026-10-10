@@ -5,6 +5,13 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Who BitcoinTX is for, said plainly.** The README ("One wallet, one
+  exchange") and the StartOS instructions ("Limitations") now say:
+  - BitcoinTX tracks one self-custody Wallet and one Exchange, on purpose;
+  - since 2025 the IRS tracks cost basis wallet by wallet, so someone with
+    several wallets or exchanges is pooled and should keep those records
+    separately.
+  Several wallets and exchanges is an idea for 2.0 (#86, on the roadmap).
 - **About BitcoinTX, at the bottom of Settings.** It shows the version a bug
   report asks for, with the release notes, and where to report a problem: a
   public report, the open bugs already known, and a private report for a

@@ -72,4 +72,5 @@ If BitcoinTX's address changes (StartOS can give it a new port after you restore
 
 BitcoinTX is in English and produces US (IRS) tax forms. Beyond that:
 
+- **One wallet and one exchange.** BitcoinTX tracks one self-custody Wallet and one Exchange. Holding bitcoin in several wallets or exchanges? BitcoinTX pools them, while since 2025 the IRS tracks cost basis wallet by wallet. Keep those records separately, or ask your tax preparer.
 - **BitcoinTX cannot be downgraded.** Each update may upgrade the database, and older versions refuse a newer database. BitcoinTX keeps copies of the database from before its last few upgrades in its `backups` folder; to go back, restore a StartOS backup.

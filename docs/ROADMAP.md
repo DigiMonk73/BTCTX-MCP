@@ -31,4 +31,7 @@ and larger work coming next; specific to-dos and checks are GitHub issues
       since 2025; for exchange lots it must match the standing order you gave
       the broker). FIFO is the default today.
 - [ ] Multi-year reports
+- [ ] **BitcoinTX 2.0: several wallets and exchanges**, each its own account
+      with its own FIFO lots (the IRS's per-wallet basis rule since 2025).
+      Today one Wallet and one Exchange, on purpose (#86).
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
