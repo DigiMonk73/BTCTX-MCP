@@ -13,6 +13,7 @@ import {
   claudeDesktopConfig,
   grokCommand,
   needsCaBundle,
+  serverPackage,
 } from "../utils/aiSetup";
 
 /** Clipboard API where allowed (https, localhost); else the older copy command. */
@@ -257,6 +258,13 @@ const ConnectAiSetting: React.FC = () => {
             {access && !access.on && " Turn on AI access above first."}
           </p>
           <CopyBlock label="Setup prompt" text={buildAiPrompt(input)} rows={keyMode ? 12 : 18} />
+          {serverPackage(version) !== "btctx-mcp" && (
+            <p className="settings-option-subtitle">
+              Already set up? After you update BitcoinTX, change <code>btctx-mcp==</code> in your AI
+              app&apos;s settings to <code>{serverPackage(version)}</code>, then restart the AI app. No
+              new key needed.
+            </p>
+          )}
 
           <details className="ai-setup-manual">
             <summary>Set it up yourself</summary>

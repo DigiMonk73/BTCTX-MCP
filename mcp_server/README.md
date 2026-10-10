@@ -198,6 +198,32 @@ claude mcp add --scope user bitcointx \
 Then paste your key over the placeholder in `~/.claude.json`
 (`mcpServers.bitcointx.env`), so it never goes into your shell history.
 
+## Updating
+
+After you update BitcoinTX, update the connector to the same version. It's
+pinned in your AI app's settings (`uvx btctx-mcp==X.Y.Z`) on purpose: your AI
+app runs exactly the version you chose, nothing new arrives on its own, and
+PyPI sees you once per version. Updating means changing that one number and
+restarting the AI app: no new key, no reconnecting. Until you do, every
+connector reply says which version to use.
+
+- **Claude Desktop:** Settings → Developer → Edit Config, change
+  `btctx-mcp==` in `args`, save, then quit Claude Desktop (⌘Q) and reopen it.
+- **Claude Code:** change the version in `~/.claude.json`
+  (`mcpServers.bitcointx.args`), or run `claude mcp remove bitcointx` and the
+  command from Settings again; then restart Claude Code (or reconnect with
+  `/mcp`).
+- **Cursor:** change it in `~/.cursor/mcp.json`, then restart Cursor.
+- **Grok Build:** change it in `~/.grok/config.toml` (see
+  [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md#grok-build)),
+  then check with `grok mcp doctor`.
+- **LM Studio:** Program tab → Install → Edit `mcp.json`.
+
+Don't paste the whole new configuration from Settings over the old one
+unless you put your AI key back in: the one Settings shows has a
+placeholder. Installed with pip instead of `uvx`? Run
+`pip install btctx-mcp==X.Y.Z`.
+
 ## Using it
 
 > Here's my River email: "You bought 0.00231 BTC for $150.00 (fee $1.49) on Mar 3"

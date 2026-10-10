@@ -5,6 +5,16 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Updating the AI connector, as a clear step.** The connector is pinned
+  in your AI app's settings (`uvx btctx-mcp==X.Y.Z`) on purpose: nothing
+  new runs on its own, and PyPI sees you once per version. After updating
+  BitcoinTX, change that one number to the new version and restart the AI
+  app: no new key, no reconnecting. The README's Upgrading steps now say
+  so, the connector's README (the PyPI page) has an "Updating" section with
+  where to change it in Claude Desktop, Claude Code, Cursor, Grok Build and
+  LM Studio, and Settings → Connect an AI Assistant shows the version to
+  set. The README also names StartOS's **Set Login Credentials** action,
+  which replaced Reset Login Credentials in 1.2.4:1.
 - **One disclaimer, and the one-wallet limit you can't miss.**
   - The README gains a "Disclaimer" section: "BitcoinTX is software, not
     tax, legal or financial advice. It works from the records you enter:
