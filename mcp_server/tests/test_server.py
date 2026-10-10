@@ -156,6 +156,18 @@ async def test_ledger_guide_says_a_second_wallet_is_pooled():
     assert "untracked exchanges" not in flat
 
 
+async def test_ledger_guide_maps_card_sats_back_to_rebate():
+    """A rewards card's sats-back is a rebate, not income (#98): the guide
+    once listed it under Reward, which BitcoinTX counts as income."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+    from btctx_mcp.server import DepositSource
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "Reward = mining, staking, sign-up or referral bonuses." in flat
+    assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Never Reward." in flat
+    assert "sats-back, bonuses" not in flat
+    assert "Rebate" in DepositSource.__args__
+
 async def test_preview_then_add_then_list(mcp_client):
     preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
     assert preview["ok"] is True

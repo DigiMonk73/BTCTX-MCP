@@ -51,6 +51,13 @@ BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")
 # Deposit sources that are ordinary income: the BTC's market value at receipt
 # is both its cost basis and the income on the tax report (lowercase).
 INCOME_SOURCES = frozenset({"income", "interest", "reward"})
+# Bitcoin back for spending (a rewards card's sats-back, shopping cash-back):
+# generally a rebate on the purchase, not income (#98; IRS Announcement
+# 2002-18). Its value at receipt is its cost basis; it is never income.
+REBATE_SOURCE = "rebate"
+# Deposit sources valued at receipt: left blank, the value (the cost basis)
+# is that day's price x the amount (lowercase)
+VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE}
 # Deposit sources whose coins can have been acquired before the deposit (a
 # date originally acquired, #91): the user's own, or a gift with the giver's basis
 ORIGINAL_DATE_SOURCES = frozenset({"mybtc", "gift"})

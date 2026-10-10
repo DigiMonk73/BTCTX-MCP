@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from backend.constants import BTC_ACCOUNTS
+from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -113,6 +113,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals, year, get_tax_timezone(db))
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
     income_txs        = _build_income_transactions(txns)
+    rebates           = _build_rebates(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
     data_sources_list = _gather_data_sources(txns)
 
@@ -135,6 +136,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
         "form_8949_boxes": _build_form_8949_boxes(db, year),
 
         "income_transactions": income_txs,
+        "rebates": rebates,
         "gifts_donations_lost": gifts_lost,
         "data_sources": data_sources_list,
     }
@@ -437,6 +439,14 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
         }
         results.append(row)
     return results
+
+
+def _build_rebates(txns: list[Transaction]) -> list[dict[str, Any]]:
+    """Bitcoin received as a rebate on spending (source Rebate, #98): its
+    value at receipt is its cost basis, and it is never income."""
+    return [{"date": tx.timestamp.isoformat() if tx.timestamp else "", "amount": float(tx.amount or 0),
+             "value_usd": float(tx.cost_basis_usd or 0)}
+            for tx in txns if _is_btc_deposit(tx) and (tx.source or "").lower() == REBATE_SOURCE]
 
 
 def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]:

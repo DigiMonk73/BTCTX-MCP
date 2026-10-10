@@ -27,7 +27,7 @@ from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
 from backend.services.reports.safe_text import csv_text
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INCOME_SOURCES
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, VALUED_AT_RECEIPT
 
 logger = logging.getLogger(__name__)
 
@@ -264,11 +264,11 @@ def _export_row(txn: Transaction) -> dict[str, str]:
 
 
 def _basis_typed(txn: Transaction) -> str:
-    """An income deposit's basis: yes if typed, no if priced from the day
-    (so a re-import keeps re-pricing it on edits, #76); blank otherwise."""
-    income = (txn.type or "").lower() == "deposit" and (txn.source or "").lower() in INCOME_SOURCES \
+    """An income or rebate deposit's basis: yes if typed, no if priced from
+    the day (so a re-import keeps re-pricing it on edits, #76); blank otherwise."""
+    valued = (txn.type or "").lower() == "deposit" and (txn.source or "").lower() in VALUED_AT_RECEIPT \
         and txn.to_account_id in BTC_ACCOUNTS
-    if not income or txn.cost_basis_usd is None:
+    if not valued or txn.cost_basis_usd is None:
         return ""
     return "no" if txn.cost_basis_from_price else "yes"
 

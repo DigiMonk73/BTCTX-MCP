@@ -129,6 +129,7 @@ class _TaxReport:
         self.running_title = f"{self.year} Bitcoin Tax Report"
         self.disposals = [d for d in data.get("capital_gains_transactions", []) if d.get("asset") == "BTC"]
         self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
+        self.rebates = data.get("rebates", [])
         self.gifts = [g for g in data.get("gifts_donations_lost", []) if g.get("asset") == "BTC"]
         balances = data.get("end_of_year_balances", [])
         self.lots = [b for b in balances if b.get("asset", "").startswith("BTC")]
@@ -407,14 +408,32 @@ class _TaxReport:
         story = self.section(3, "Income", "Bitcoin received as income, rewards or interest, valued when it was "
                                           "received. That value is the income to report and the coins' cost basis.")
         if not self.income:
-            return story + [self.nothing("income")]
+            return story + [self.nothing("income")] + self.rebates_detail()
         rows = [self.header("Received", "Source", "BTC", "Value (USD)", numbers_from=2)]
         rows += [[self.text(self.date(t.get("date", ""))), self.text(t.get("type", "")),
                   *self.numbers(fmt_btc(t.get("amount", 0.0)), fmt_usd(t.get("value_usd", 0.0)))]
                  for t in self.income]
         rows.append([self.total_label(), "", *self.numbers(
             fmt_btc(sum(t.get("amount", 0.0) for t in self.income)), fmt_usd(self.income_total()), bold=True)])
-        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)]
+        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)] + self.rebates_detail()
+
+    def rebates_detail(self) -> list:
+        """Rebates (#98), listed so they can be checked: not income, but
+        their value at receipt is the coins' cost basis."""
+        if not self.rebates:
+            return []
+        rows = [self.header("Received", "BTC", "Value (USD)", numbers_from=1)]
+        rows += [[self.text(self.date(r.get("date", ""))),
+                  *self.numbers(fmt_btc(r.get("amount", 0.0)), fmt_usd(r.get("value_usd", 0.0)))]
+                 for r in self.rebates]
+        rows.append([self.total_label(), *self.numbers(fmt_btc(sum(r.get("amount", 0.0) for r in self.rebates)),
+                                                       fmt_usd(sum(r.get("value_usd", 0.0) for r in self.rebates)),
+                                                       bold=True)])
+        return [*self.subheading("Rebates (not income)"),
+                self.text("Bitcoin back for spending, such as a rewards card's sats-back, entered as a Rebate: "
+                          "generally a rebate on the purchase, not income (IRS Announcement 2002-18). Its value "
+                          "when received is the coins' cost basis.", self.styles.note),
+                data_table(rows, [2.4, 2.3, 2.3], total=True)]
 
     # 4. Gifts, donations and lost coins
     def gifts_detail(self) -> list:

@@ -204,7 +204,7 @@ declare global {
 
   type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
 
-  type DepositSource = "N/A" | "MyBTC" | "Gift" | "Income" | "Interest" | "Reward";
+  type DepositSource = "N/A" | "MyBTC" | "Gift" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
   // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
   type BrokerReporting = "none" | "proceeds" | "basis";

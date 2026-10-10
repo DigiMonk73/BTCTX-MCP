@@ -37,6 +37,25 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX is MIT-licensed, is gone.
 
 ### Fixed
+- **Bitcoin back for spending was counted as income** (tax figures, #98).
+  A rewards card's sats-back or shopping cash-back entered as a Reward
+  deposit (the AI connector's guide even suggested it) was counted as
+  income. Such bitcoin is generally a rebate on the purchase, not income
+  (IRS Announcement 2002-18); its value when received is its cost basis.
+  - Affected: every version up to 1.2.5, any tax year, only deposits of
+    that kind entered as Reward.
+  - Now there is a deposit source **Rebate**: valued like income (left
+    blank, it's that day's price times the amount, its cost basis), but
+    never counted as income on the report, the dashboard or the Transaction
+    History; the Complete Tax Report lists rebates in a table of their own.
+    Reward stays income (mining, staking, sign-up and referral bonuses),
+    and the transaction form says which is which. The CSV import and
+    export, the AI connector and Ledger Review's value checks take Rebate.
+    Nothing changes by itself after the update.
+  - What to do: open each card or shopping reward entered as Reward and
+    change its source to Rebate (its value stays the same; its income goes
+    away). Keep mining, staking and bonuses as Reward. Ask your tax
+    professional if unsure.
 - **Form 8949 prints tiny BTC amounts in full.** An amount under 0.000001
   BTC (100 satoshis), such as a small network fee, printed in column (a) as
   "5E-8 BTC" instead of "0.00000005 BTC". Ledger Review and the River

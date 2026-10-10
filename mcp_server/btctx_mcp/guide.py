@@ -59,9 +59,13 @@ Deposit: External -> any account
     say that all of it becomes gain when sold, and let them choose.
     Income   = paid in BTC for work/goods.
     Interest = exchange interest.
-    Reward   = mining, sats-back, bonuses.
+    Reward   = mining, staking, sign-up or referral bonuses.
     For these three, basis = market value at receipt, which is also the
-    reported income. If omitted it is filled from that day's price; if no
+    reported income.
+    Rebate   = bitcoin back for spending: a rewards card's sats-back,
+               shopping cash-back. Generally a rebate on the purchase, not
+               income; its value at receipt is its basis. Never Reward.
+    For all four, a basis left out is filled from that day's price; if no
     price is available the row is refused - then ask the user for the value.
   USD deposits to Bank / Exchange USD: amount is USD, no source needed.
 Withdrawal: any account -> External
