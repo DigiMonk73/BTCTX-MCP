@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 CENT = Decimal("0.01")
 SAT = Decimal("0.00000001")
 
-
-def btc_text(amount) -> str:
-    """A BTC amount for people to read: all eight decimals, as stored. str()
-    of a Decimal under 0.000001 is in exponent form ("5E-8")."""
-    return f"{Decimal(amount):.8f}"
-
 # The deposit sources the dashboard totals, in USD (their basis) and BTC.
 DEPOSIT_TOTALS = ("income", "interest", "reward", "gift")
+
+
+def btc_text(amount) -> str | None:
+    """A BTC amount for people to read: all eight decimals, as stored (None
+    stays None). str() of a Decimal under 0.000001 is in exponent form ("5E-8")."""
+    return None if amount is None else f"{Decimal(amount):.8f}"
 
 
 def get_account_balance(db: Session, account_id: int) -> Decimal:
