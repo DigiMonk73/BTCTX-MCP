@@ -20,6 +20,10 @@ Checks:
   than 5% away from fee x that day's price: most likely valued at the live
   price when the day's lookup failed. apply_fee_prices() fixes the ones the
   owner picks (login only), then recalculates.
+- original_date_missing (#91): a My BTC or Gift deposit into a BTC account
+  with no date originally acquired: its holding period starts at the
+  deposit. Coins held before then are long-term sooner; only the owner
+  knows when they were acquired, so nothing fills it.
 - income_without_value (#77): an income deposit with a $0 or blank basis:
   no income is reported for it, and its whole value becomes gain when it's
   sold. The income rules forbid it (a blank is valued at the day's price);
@@ -52,7 +56,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES
+from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, ORIGINAL_DATE_SOURCES
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.calculation import btc_text
@@ -82,6 +86,11 @@ CHECKS: dict[str, tuple] = {
         "Transfer fees valued far from that day's price (probably at the live price)",
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
+    ),
+    "original_date_missing": (
+        "My BTC and Gift deposits without a date originally acquired",
+        "If you held these coins before this deposit, edit it and enter when they were first acquired "
+        "(by the giver, for a gift): the holding period and Form 8949's date acquired use it.",
     ),
     "income_without_value": (
         "Income deposits with a $0 or blank value (no income reported)",
@@ -263,6 +272,12 @@ def _row_issues(t: Transaction, tz):
         yield "lost_with_loss", _item(
             t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
             "Gain becomes $0.00 after Recalculate Ledger.",
+        )
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() in ORIGINAL_DATE_SOURCES and t.acquired_at is None:
+        yield "original_date_missing", _item(
+            t, tz, "No date originally acquired: the holding period starts at this deposit.",
+            "With the date the coins were first acquired, a sale more than a year after it is long-term.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() not in INCOME_SOURCES and _is_zero_or_blank(t.cost_basis_usd):

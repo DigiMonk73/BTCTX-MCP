@@ -168,6 +168,9 @@ So derived values must be recomputable from the Transaction row alone.
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
+  It runs from the lot's acquisition date: a My BTC or Gift deposit's date
+  originally acquired (`acquired_at`) when given, else the deposit's date;
+  FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in

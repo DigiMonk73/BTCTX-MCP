@@ -55,8 +55,9 @@ def test_review_lists_each_kind_and_changes_nothing(auth_client, test_engine, le
     assert ids(review, "zero_proceeds_spend") == [906]
     assert ids(review, "lost_with_loss") == [908]
     assert ids(review, "deposit_without_basis") == [901, 902]
+    assert ids(review, "original_date_missing") == [901, 902, 904]  # My BTC and Gift, no original date
     assert ids(review, "income_without_value") == [903]
-    assert review["total"] == 5
+    assert review["total"] == 8
     item = next(c for c in review["checks"] if c["key"] == "lost_with_loss")["items"][0]
     assert item["realized_gain_usd"] == "-300.00" and "$0.00" in item["change"]
     with test_engine.connect() as con:

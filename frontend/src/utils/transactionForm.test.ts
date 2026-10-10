@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTransactionPayload,
+  dayIn,
   localDatetimeToIso,
   mapTransactionToFormData,
 } from "./transactionForm";
@@ -205,6 +206,40 @@ describe("blank means not given (F1)", () => {
       form({ type: "Transfer", fromAccount: "Wallet", fromCurrency: "BTC", toAccount: "Exchange", toCurrency: "BTC", amountFrom: 0.5 }),
     );
     expect(body.cost_basis_usd).toBeNull();
+  });
+});
+
+describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
+  it("round-trips the date as a date alone (the server reads it as noon in the tax timezone)", () => {
+    const body = buildTransactionPayload(mapTransactionToFormData(tx({
+      type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
+      fee_currency: "BTC", source: "MyBTC", acquired_at: "2021-03-14T16:00:00Z", // noon in New York
+    }), "America/New_York"));
+    expect(body.acquired_at).toBe("2021-03-14");
+  });
+
+  it("shows the date as its day in the tax timezone, so a save doesn't move it", () => {
+    const deposit = (acquired_at: string) => tx({
+      type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
+      fee_currency: "BTC", source: "MyBTC", acquired_at,
+    });
+    // Noon on Jan 15 in Auckland's summer (UTC+13) is Jan 14 in UTC
+    expect(mapTransactionToFormData(deposit("2023-01-14T23:00:00Z"), "Pacific/Auckland").acquiredDate).toBe("2023-01-15");
+    // Stored at a 05:00 Tokyo deposit (the day's coins): March 31 in UTC, April 1 in Tokyo
+    expect(mapTransactionToFormData(deposit("2025-03-31T20:00:00Z"), "Asia/Tokyo").acquiredDate).toBe("2025-04-01");
+    expect(mapTransactionToFormData(deposit("2023-03-14T17:00:00Z"), "America/Chicago").acquiredDate).toBe("2023-03-14");
+    expect(dayIn("2023-03-14T17:00:00Z", "Not/AZone")).toBe("2023-03-14");
+  });
+
+  it("is sent only for My BTC or Gift into a BTC account; otherwise null", () => {
+    const deposit = (fields: Partial<TransactionFormData>) => buildTransactionPayload({
+      type: "Deposit", timestamp: "2025-03-01T12:00", fee: 0, account: "Wallet", currency: "BTC", amount: 0.1,
+      costBasisUSD: 10, acquiredDate: "2021-03-14", ...fields,
+    } as TransactionFormData).acquired_at;
+    expect(deposit({ source: "Gift" })).toBe("2021-03-14");
+    expect(deposit({ source: "Income" })).toBeNull();
+    expect(deposit({ source: "MyBTC", account: "Bank", currency: "USD" })).toBeNull();
+    expect(deposit({ source: "MyBTC", acquiredDate: "" })).toBeNull();
   });
 });
 

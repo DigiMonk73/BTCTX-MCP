@@ -132,6 +132,7 @@ declare global {
     broker_reporting?: BrokerReporting | null;
     fee_usd?: string | number | null; // a BTC fee's stored USD value
     fee_usd_manual?: boolean;         // typed by the user
+    acquired_at?: string | null;      // a My BTC / Gift deposit's date originally acquired
   }
 
   /** A transaction with its amounts as numbers (parseTransaction). */
@@ -159,6 +160,7 @@ declare global {
     broker_reporting?: BrokerReporting | null;
     fee_usd?: number | null;
     fee_usd_manual?: boolean;
+    acquired_at?: string | null;
   }
 
   type SortMode = "TIMESTAMP_DESC" | "CREATION_DESC";
@@ -188,6 +190,8 @@ declare global {
     // A BTC fee's USD value: a number is kept as typed; null = go back to the
     // day's price; left out = keep what's stored (or price a new fee).
     fee_usd?: number | null;
+    // A My BTC / Gift deposit's date originally acquired (ISO 8601); null = the deposit's date
+    acquired_at?: string | null;
   }
 
   interface ApiErrorResponse {
@@ -244,6 +248,8 @@ declare global {
     feeUSD?: number;
     feeUSDManual?: boolean; // the stored value was typed (clearing it sends null)
     feeUSDStored?: number;  // the stored value, shown as a hint
+    // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date
+    acquiredDate?: string;
   }
 
   // A Settings section's share of the page's state: one action at a time

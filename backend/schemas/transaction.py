@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import Enum
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Literal
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 # backend.constants.BROKER_REPORTING_VALUES
@@ -60,6 +60,15 @@ def validate_usd_decimal(value: Decimal) -> Decimal:
     return value
 
 
+def _date_alone(value):
+    """A date with no time ("2021-03-14") stays a date: the service reads it
+    as noon in the tax timezone, as every date alone is read. Parsed as a
+    datetime it would be midnight UTC, the day before in a US tax timezone."""
+    if isinstance(value, str) and len(value.strip()) == 10:
+        return date.fromisoformat(value.strip())
+    return value
+
+
 class TransactionBase(BaseModel):
     """
     A transaction as entered: its type, accounts, amount, fee and USD
@@ -83,6 +92,15 @@ class TransactionBase(BaseModel):
 
     source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
     purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
+    acquired_at: datetime | date | None = Field(
+        default=None,
+        description=(
+            "My BTC or Gift deposit into a BTC account only: when the coins were "
+            "originally acquired (by the giver, for a gift). A date alone means noon "
+            "in the tax timezone. The holding period and Form 8949 column (b) use it. "
+            "Omit or null: the deposit's own date."
+        ),
+    )
     broker_reporting: BrokerReporting | None = Field(
         default=None,
         description=(
@@ -123,6 +141,10 @@ class TransactionBase(BaseModel):
         description="Realized gain/loss in USD for IRS Form 8949."
     )
     holding_period: str | None = None  # e.g., "SHORT", "LONG"
+
+    @field_validator("acquired_at", mode="before")
+    def date_alone_stays_a_date(cls, v):
+        return _date_alone(v)
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
@@ -187,6 +209,7 @@ class TransactionUpdate(BaseModel):
 
     source: str | None = None
     purpose: str | None = None
+    acquired_at: datetime | date | None = None  # My BTC / Gift deposits; null: the deposit's date
     broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
 
     cost_basis_usd: Decimal | None = None
@@ -196,6 +219,10 @@ class TransactionUpdate(BaseModel):
     fee_usd: Decimal | None = None  # send null to go back to the day's price
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+
+    @field_validator("acquired_at", mode="before")
+    def date_alone_stays_a_date(cls, v):
+        return _date_alone(v)
 
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:

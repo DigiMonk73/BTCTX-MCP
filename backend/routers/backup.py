@@ -259,6 +259,7 @@ def _export_row(txn: Transaction) -> dict[str, str]:
         "broker_reporting": csv_text(txn.broker_reporting),
         "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
         "cost_basis_typed": _basis_typed(txn),
+        "acquired_at": txn.acquired_at.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.acquired_at else "",
     }
 
 

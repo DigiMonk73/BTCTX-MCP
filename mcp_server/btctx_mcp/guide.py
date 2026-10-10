@@ -47,8 +47,13 @@ Sell: Exchange BTC -> Exchange USD
 Deposit: External -> any account
   BTC deposits need source:
     MyBTC    = user's own BTC arriving from somewhere untracked;
-               cost_basis_usd = what they originally paid (ask if unknown).
-    Gift     = received as a gift; cost_basis_usd = the giver's basis.
+               cost_basis_usd = what they originally paid (ask if unknown),
+               acquired_at = when they originally bought them (ask).
+    Gift     = received as a gift; cost_basis_usd = the giver's basis,
+               acquired_at = when the giver acquired them (ask).
+    acquired_at sets the holding period and Form 8949's date acquired:
+    coins held more than a year are long-term. Without it, BitcoinTX
+    counts from the deposit, so say so if the user doesn't know it.
     MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.

@@ -99,6 +99,28 @@ All notable changes to BitcoinTX are documented in this file.
     shows as income in BitcoinTX: it isn't bitcoin; report it from the
     bank's or exchange's own tax form (such as Form 1099-INT or 1099-MISC).
 
+- **Coins you already owned, or received as a gift, keep their holding
+  period** (tax figures, #91). A My BTC or Gift deposit into Wallet or
+  Exchange BTC has a new optional field, **Date originally acquired**: when
+  you first bought the coins, or, for a gift, when the giver did (IRC
+  §1223(2)). BitcoinTX counted the holding period from the deposit, so a
+  sale within a year of it was reported **short-term**, with the deposit's
+  date in Form 8949 column (b), even for coins held for years.
+  - Affected: every version up to 1.2.5, every tax year with such a sale.
+  - With the date, the holding period and column (b) use it, and
+    first-in-first-out treats those coins as acquired then (the oldest in
+    the account are sold first). A transfer keeps it. The form, the CSV
+    export and import (`acquired_at`), and the AI connector take it; its
+    guide asks for it. The update changes nothing until you fill one in
+    (migration 0007 adds an empty column).
+  - What to do: open Ledger Review (Settings). Its new check lists My BTC
+    and Gift deposits without an original date; enter the date for each one
+    you know, then download your forms again. A date can change the term
+    and basis of sales in years already filed (those coins are then sold
+    first): ask your tax professional whether to amend.
+  - Not covered: the gift rule for coins worth less on the day of the gift
+    than the giver paid (IRC §1015), which needs the day's value (#104).
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK
