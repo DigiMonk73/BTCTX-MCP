@@ -139,6 +139,23 @@ async def test_ai_setup_guide_names_the_startos_certificate_file():
     assert f"`{ca_file}`" in (repo / "mcp_server/AI_SETUP.md").read_text()
 
 
+async def test_ledger_guide_says_a_second_wallet_is_pooled():
+    """A user adding a second wallet or exchange through the AI hears that
+    BitcoinTX pools it (#92), pointing to the README section that explains it."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    readme = (Path(__file__).parents[2] / "README.md").read_text()
+    assert "## One wallet, one exchange" in readme
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "second wallet or a second exchange" in flat
+    assert "pools it" in flat and '"One wallet, one exchange"' in flat
+    assert "github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange" in flat
+    # The user's own second wallet as External would make a move between
+    # their own wallets a taxable withdrawal
+    assert "Exchange BTC / Exchange USD, never External" in flat
+    assert "untracked exchanges" not in flat
+
+
 async def test_preview_then_add_then_list(mcp_client):
     preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
     assert preview["ok"] is True

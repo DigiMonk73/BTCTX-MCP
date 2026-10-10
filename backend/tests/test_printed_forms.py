@@ -14,8 +14,9 @@ is drawn on the page (printed_forms.py) and check:
 - the Complete Tax Report's box table shows the forms' figures.
 
 Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
-2025 and 2026, multi-page boxes), the golden ledger (test_golden_years.py:
-hand-checked figures, a loss in box H) and a tiny one with a 5-satoshi sale.
+2025 and 2026, box L of 2025 over two pages), the golden ledger
+(test_golden_years.py: hand-checked figures, a loss in box H) and a tiny
+one with a 5-satoshi sale.
 
 And the formats the IRS forms need:
 - BTC amounts with all eight decimals, never "5E-8 BTC" (#74).
@@ -99,11 +100,11 @@ def printed(auth_client, tmp_path_factory):
 def _print_on_own_database(name: str, rows: list[dict], timezone: str, tmp_path_factory) -> dict:
     path = tmp_path_factory.mktemp(f"forms-{name}") / "btctx.db"
     engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
-    init_test_db(engine)
-    Session = sessionmaker(bind=engine)
-    app.dependency_overrides[get_db] = _sessions_of(Session)
     first_run.clear_code()
     try:
+        init_test_db(engine)
+        Session = sessionmaker(bind=engine)
+        app.dependency_overrides[get_db] = _sessions_of(Session)
         return _print_ledger(rows, timezone, Session)
     finally:
         first_run.clear_code()
@@ -144,15 +145,15 @@ def _print_ledger(rows: list[dict], timezone: str, Session) -> dict:
 
 
 def _read_back(pdf: bytes, year: int) -> list[pf.PrintedPage]:
-    templates = pf.template_pages(Path(get_template_path(year, "f8949.pdf")), "f8949") + _schedule_d_templates(year)
-    return pf.read_printed(pdf, templates)
+    return pf.read_printed(pdf, _templates(year, "f8949") + _templates(year, "f1040sd"))
 
 
-def _schedule_d_templates(year: int) -> list[pf.TemplatePage]:
-    with pytest.MonkeyPatch.context() as mp:  # the 2026 drafts, as when the forms were made
+def _templates(year: int, form: str) -> list[pf.TemplatePage]:
+    """The year's template pages, the 2026 drafts included as when the forms were made."""
+    with pytest.MonkeyPatch.context() as mp:
         mp.setattr(draft_forms, "SHIPPED_DIR", ROOT / "backend" / "assets" / "irs_templates" / "drafts")
         mp.setattr(draft_forms, "today", lambda: FORMS_DAY)
-        return pf.template_pages(Path(get_template_path(year, "f1040sd.pdf")), "f1040sd")
+        return pf.template_pages(Path(get_template_path(year, f"{form}.pdf")), form)
 
 
 def _pages(printed, ledger: str, year: int) -> list[pf.PrintedPage]:
@@ -218,7 +219,7 @@ def test_schedule_d_lines_are_their_boxes_sheets(printed, ledger, year):
                 sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
     schedule_d = [p for p in pages if p.template.form == "f1040sd"]
     # Both pages, in order: Part III is the filer's to complete
-    assert [p.template.signature for p in schedule_d] == [t.signature for t in _schedule_d_templates(year)]
+    assert [p.template.signature for p in schedule_d] == [t.signature for t in _templates(year, "f1040sd")]
     lines = pf.schedule_d_lines(schedule_d)
     for line, cells in lines.items():
         if line in sheets:
@@ -245,6 +246,18 @@ def test_the_report_shows_the_forms_figures(printed, ledger, year):
         assert int(shown["rows"]) == by_box[box]["rows"]
         for key in ("proceeds", "cost", "gain"):
             assert pf.amount(shown[key].replace("$", "")) == by_box[box][key], (box, key, shown)
+
+
+def test_a_year_without_rows_prints_only_a_blank_schedule_d(printed):
+    """A year with forms but no disposals (golden 2026): no Form 8949 page,
+    and nothing filled on Schedule D."""
+    empty = [(ledger, year) for ledger, result in printed.items() for year, pages in result["pages"].items()
+             if (ledger, year) not in CASES]
+    assert empty, "no year without rows to check"
+    for ledger, year in empty:
+        pages = _pages(printed, ledger, year)
+        assert [p.template.form for p in pages] == ["f1040sd", "f1040sd"], (ledger, year)
+        assert not any(text for p in pages for text in p.values.values()), (ledger, year)
 
 
 @pytest.mark.parametrize("ledger, year", CASES)
