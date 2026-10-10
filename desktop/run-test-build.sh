@@ -8,7 +8,9 @@
 #   desktop/run-test-build.sh [--app PATH] [--fresh] [--background]
 #   desktop/run-test-build.sh --where       # print the folder (mcp.json is in it)
 #
-#   --app PATH     the build to run (default: desktop/dist/BitcoinTX.app)
+#   --app PATH     the build to run (default: desktop/dist/BitcoinTX.app); one
+#                  older than this script also gets a test home (HOME=<folder>/home),
+#                  so it can't reach the real ledger either
 #   --fresh        empty the test folder first (refused while a test run is open)
 #   --background   start it detached and return; its output goes to <folder>/logs/
 #
@@ -27,7 +29,7 @@ PORT=8766
 MARKER=".btctx-test-folder"
 # What the app keeps in its data folder (desktop/desktop_paths.py), for --fresh
 APP_FILES=(btctx.db btctx.db-journal btctx.db-wal btctx.db-shm .btctx_secret_key mcp.json setup-code.txt
-           backups logs irs-draft-forms)
+           backups logs irs-draft-forms home)
 
 fail() { echo "run-test-build.sh: $*" >&2; exit 1; }
 
@@ -39,8 +41,9 @@ physical() {
   local path="$1" rest="" top
   case "$path" in /*) ;; *) path="$PWD/$path" ;; esac
   while [ ! -d "$path" ]; do
-    rest="/$(basename "$path")$rest"
-    path="$(dirname "$path")"
+    rest="/${path##*/}$rest"
+    path="${path%/*}"
+    [ -n "$path" ] || path=/
   done
   top="$(cd "$path" && /bin/pwd -P)" || fail "can't open $path"
   echo "$top$rest"
@@ -73,7 +76,7 @@ while [ $# -gt 0 ]; do
     --fresh) fresh=1; shift ;;
     --background) background=1; shift ;;
     --where) where=1; shift ;;
-    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "run-test-build.sh: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -82,7 +85,11 @@ done
 # --fresh deletes the app's files there.
 check_folder() {
   in_real_folder "$1" && fail "refusing $1: it is the installed app's data folder"
-  if [ -d "$1" ] && [ ! -e "$1/$MARKER" ] && [ -n "$(ls -A "$1")" ]; then
+  local entries=""
+  if [ -d "$1" ]; then
+    entries="$(ls -A "$1")" || fail "can't list $1"
+  fi
+  if [ -n "$entries" ] && [ ! -e "$1/$MARKER" ]; then
     fail "refusing $1: it isn't empty and isn't a test folder this script made" \
       "(empty it, or set BTCTX_TEST_DATA_DIR to another folder)"
   fi
@@ -90,6 +97,7 @@ check_folder() {
 }
 
 [ -n "${HOME:-}" ] || fail "HOME is not set"
+case "$DATA" in *[[:cntrl:]]*) fail "refusing a folder name with a control character (a newline...)" ;; esac
 case "/$DATA/" in */./*|*/../*) fail "refusing $DATA: give the folder without . or .." ;; esac
 DATA="$(physical "$DATA")"
 check_folder "$DATA"
@@ -112,7 +120,11 @@ if [ "$fresh" = 1 ]; then
   for name in "${APP_FILES[@]}"; do rm -rf "${DATA:?}/$name"; done
 fi
 
-export BTCTX_DESKTOP_DATA_DIR="$DATA" BTCTX_DESKTOP_PORT="$PORT"
+# A build older than BTCTX_DESKTOP_DATA_DIR (every release up to 1.2.5, the
+# installed app) ignores it and uses ~/Library/Application Support: under
+# this test home, that is inside the test folder too.
+mkdir -p "$DATA/home"
+export BTCTX_DESKTOP_DATA_DIR="$DATA" BTCTX_DESKTOP_PORT="$PORT" HOME="$DATA/home"
 echo "BitcoinTX test run: data $DATA, http://127.0.0.1:$PORT"
 if [ "$background" = 1 ]; then
   mkdir -p "$DATA/logs"

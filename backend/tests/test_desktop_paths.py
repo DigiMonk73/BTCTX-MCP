@@ -67,7 +67,7 @@ def _fake_app(tmp_path) -> Path:
     app = tmp_path / "Fake.app"
     binary = app / "Contents" / "MacOS" / "BitcoinTX"
     binary.parent.mkdir(parents=True)
-    binary.write_text('#!/bin/sh\necho "$BTCTX_DESKTOP_DATA_DIR $BTCTX_DESKTOP_PORT" > "$RAN"\n')
+    binary.write_text('#!/bin/sh\necho "$BTCTX_DESKTOP_DATA_DIR $BTCTX_DESKTOP_PORT" > "$RAN"\necho "$HOME" >> "$RAN"\n')
     binary.chmod(0o755)
     return app
 
@@ -91,7 +91,9 @@ def test_every_launch_gets_the_same_test_folder_and_port(tmp_path):
     for _ in range(2):
         r = _run_script(tmp_path, "--app", str(app))
         assert r.returncode == 0, r.stderr
-        assert (tmp_path / "ran").read_text().split() == [str(folder.resolve()), "8766"]
+        # An older build ignores the data folder; HOME keeps it in there too
+        assert (tmp_path / "ran").read_text().split() == [str(folder.resolve()), "8766",
+                                                          str(folder.resolve() / "home")]
     assert _run_script(tmp_path, "--where").stdout.strip() == str(folder.resolve())
 
 
@@ -113,7 +115,7 @@ def _case_insensitive(tmp_path) -> bool:
     return (tmp_path / "casecheck").exists()
 
 
-@pytest.mark.parametrize("spelling", ["exact", "subfolder", "relative", "case", "dotdot", "dot"])
+@pytest.mark.parametrize("spelling", ["exact", "subfolder", "relative", "case", "dotdot", "dot", "newline"])
 def test_the_installed_apps_folder_is_refused_however_spelled(tmp_path, monkeypatch, spelling):
     """--fresh on the real folder would delete the ledger: it is refused by
     name (any case: macOS file systems ignore it) and by identity."""
@@ -124,12 +126,14 @@ def test_the_installed_apps_folder_is_refused_however_spelled(tmp_path, monkeypa
     data = {"exact": real, "subfolder": real / "sub", "relative": "Library/Application Support/BitcoinTX",
             "case": tmp_path / "library" / "application support" / "bitcointx",
             # through a folder that doesn't exist yet: resolved only once mkdir made it
-            "dotdot": f"{support}/missing/../BitcoinTX", "dot": f"{support}/missing/./../BitcoinTX"}[spelling]
+            "dotdot": f"{support}/missing/../BitcoinTX", "dot": f"{support}/missing/./../BitcoinTX",
+            "newline": f"{support}/missing/..\n/BitcoinTX/newsub"}[spelling]
     monkeypatch.chdir(tmp_path)
     r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
     assert r.returncode == 1 and "refusing" in r.stderr, r.stderr
     assert not (tmp_path / "ran").exists() and _untouched(real)
-    assert not (real / "sub").exists() and not (support / "missing").exists()
+    assert not (real / "sub").exists() and not (real / "newsub").exists()
+    assert not (support / "missing").exists()
 
 
 def test_a_real_folder_that_is_a_symlink_is_refused(tmp_path):
@@ -168,7 +172,7 @@ def test_a_folder_it_cant_open_is_refused(tmp_path):
         r = _run_script(tmp_path, "--app", str(app), data=locked / "inner" / "data")
     finally:
         locked.chmod(0o755)
-    assert r.returncode != 0 and not (tmp_path / "ran").exists(), r.stdout
+    assert r.returncode == 1 and "can't open" in r.stderr and not (tmp_path / "ran").exists(), r.stderr
 
 
 def test_background_returns_and_keeps_the_app_output(tmp_path):
@@ -182,7 +186,7 @@ def test_background_returns_and_keeps_the_app_output(tmp_path):
         if (tmp_path / "ran").exists():
             break
         time.sleep(0.1)
-    assert (tmp_path / "ran").read_text().split() == [str(data.resolve()), "8766"]
+    assert (tmp_path / "ran").read_text().split()[:2] == [str(data.resolve()), "8766"]
     assert (data / "logs" / "run-test-build.out").exists()
 
 
@@ -195,7 +199,7 @@ def test_fresh_empties_only_what_the_app_keeps(tmp_path):
     (data / "notes.txt").write_text("not the app's")
     r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
     assert r.returncode == 0, r.stderr
-    assert sorted(p.name for p in data.iterdir()) == [".btctx-test-folder", "notes.txt"]
+    assert sorted(p.name for p in data.iterdir()) == [".btctx-test-folder", "home", "notes.txt"]
 
 
 def test_an_unknown_option_is_refused(tmp_path):

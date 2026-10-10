@@ -117,10 +117,14 @@ user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
 launch finds the same data. It uses only a folder that is empty or that it
 marked as its own (`.btctx-test-folder`), never the installed app's folder
 however it is spelled; `--fresh` is refused while a test run answers on
-8766. That folder holds everything
-the app would keep in Application Support (`btctx.db`, the session key,
-`mcp.json`, `backups/`) and its log (`logs/BitcoinTX.log`); the log line
-"Test data folder from BTCTX_DESKTOP_DATA_DIR" confirms it's in use.
+8766. That folder holds everything the app would keep in Application
+Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
+(`logs/BitcoinTX.log`); the log line "Test data folder from
+BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The app also runs with
+`HOME=<folder>/home`: a build older than `BTCTX_DESKTOP_DATA_DIR` (every
+release up to 1.2.5, and the installed app) ignores the variable and keeps
+its data under `~/Library/Application Support`, which is then inside the
+test folder too.
 
 - **MCP server:** it looks for the installed app's `mcp.json` unless
   `BTCTX_MCP_FILE=<folder>/mcp.json` (`desktop/run-test-build.sh --where`
