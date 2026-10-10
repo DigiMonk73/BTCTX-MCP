@@ -40,6 +40,10 @@ All notable changes to BitcoinTX are documented in this file.
   gains a "Disclaimer" section (with the MIT License's "as is, without
   warranty"), replacing a line at the end of "Development". The landing
   page uses the same words.
+- **"One wallet, one exchange" stands out.** The README section opens with
+  GitHub's "Important" box, as the landing page does with an amber box: one
+  self-custody wallet and one exchange account; since 2025, IRS rules figure
+  cost basis wallet by wallet, so with more than one, keep separate records.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.

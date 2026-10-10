@@ -53,6 +53,12 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 ## One wallet, one exchange
 
+> [!IMPORTANT]
+> BitcoinTX tracks one self-custody wallet and one exchange account. Since
+> 2025, IRS rules figure cost basis wallet by wallet, so if you hold bitcoin
+> in more than one of either, BitcoinTX's figures may not match: keep
+> separate records, or ask your tax preparer.
+
 BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
 **Exchange** (USD and BTC) and one **Bank**. The two bitcoin accounts, Wallet
 and Exchange, each keep their own FIFO lots. That fits someone who keeps their
