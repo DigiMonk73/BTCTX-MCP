@@ -11,6 +11,7 @@ from io import BytesIO
 import pytest
 from pypdf import PdfReader
 
+from backend.routers.reports import get_supported_years
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 
 
@@ -97,8 +98,11 @@ def test_it_says_when_the_forms_are_drafts_or_missing(forms, expected):
                "blank, code M in column (f) (Form 8949 instructions, Exception 2)" in text
 
 
+NEWER = max(get_supported_years()) + 5  # past the newest forms and any draft
+
+
 @pytest.mark.parametrize("year, note", [(2001, "BitcoinTX has no IRS forms for 2001, so it fills none."),
-                                        (2030, "BitcoinTX has no IRS forms for 2030 yet, so it fills none")])
+                                        (NEWER, f"BitcoinTX has no IRS forms for {NEWER} yet, so it fills none")])
 def test_the_route_says_when_a_year_has_no_forms(auth_client, year, note):
     """Before BitcoinTX's first forms, or after its newest ones (no draft)."""
     r = auth_client.get("/api/reports/complete_tax_report", params={"year": year})
