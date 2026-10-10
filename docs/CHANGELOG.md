@@ -5,6 +5,30 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **One disclaimer, and the one-wallet limit you can't miss.**
+  - The README gains a "Disclaimer" section: "BitcoinTX is software, not
+    tax, legal or financial advice. It works from the records you enter:
+    check its figures with a tax professional before you file." It also
+    carries the MIT License's "as is, without warranty". The landing page
+    uses the same words; the app, the StartOS listing and the AI connector
+    follow in this release.
+  - "One wallet, one exchange" opens with GitHub's "Important" box, as the
+    landing page does with an amber box. Since 2025, IRS rules require cost
+    basis to be figured wallet by wallet and account by account, so with
+    several wallets or exchange accounts BitcoinTX's gains can differ from
+    what the rules give. The StartOS instructions say the same.
+- **Who BitcoinTX is for, said plainly.** The README ("One wallet, one
+  exchange") and the StartOS instructions ("Limitations") now say that
+  BitcoinTX tracks one self-custody Wallet and one Exchange on purpose. Since
+  2025, IRS rules require cost basis to be figured wallet by wallet, so
+  anyone with several wallets or exchanges should keep separate records for
+  each, or ask their tax preparer. Several wallets and exchanges is an idea
+  for 2.0 (#86, on the roadmap).
+- **The AI connector says so too.** When you tell your AI assistant about a
+  second wallet or a second exchange, its guide has it say once that
+  BitcoinTX pools it with the first, and why that matters for taxes since
+  2025, and records it in Wallet or the Exchange accounts, never as a
+  withdrawal to External (#92).
 - **About BitcoinTX, at the bottom of Settings.** It shows the version a bug
   report asks for, with the release notes, and where to report a problem: a
   public report, the open bugs already known, and a private report for a
@@ -31,12 +55,19 @@ All notable changes to BitcoinTX are documented in this file.
   `desktop/run-test-build.sh` runs a build on its own data folder (log
   included) and port 8766, the same on every launch. It uses only a folder
   that is empty or its own, never the installed app's however it is
-  spelled; underneath, `BTCTX_DESKTOP_DATA_DIR` moves the
-  app's data folder (`desktop/desktop_paths.py`). The Mac docs and the agent
+  spelled; underneath, `BTCTX_DESKTOP_DATA_DIR` moves the app's data folder
+  (`desktop/desktop_paths.py`). The Mac docs and the agent
   release tests' Track C no longer say to `open` a build, which would open
   the installed app's ledger. A test run that finds itself already open
   doesn't bring "BitcoinTX" forward by name, which could start the
   installed app.
+- **Feature requests and the mirror's issues, in the process.**
+  - A feature request gets a thank-you and no promise. The owner decides:
+    the roadmap, "not planned" with a reason, or open.
+  - The mirror DigiMonk73/BTCTX-StartOS has its Issues off, with a
+    description pointing here. Its three unanswered issues from January
+    were moved here and answered: #85 and #87 closed as fixed, #86 open
+    as an idea.
 - **Start9's rules win for everything Start9 governs, now written down.**
   That's the StartOS package, the mirror, which pages Start9's support
   indexes, and everything sent to their fork. The app, its Docker image

@@ -430,6 +430,20 @@ and the README's "Reporting problems"; keep them.
   - Reproduce them, or ask for steps (never for real data).
   - Then relabel `bug`, or close with the reason.
   - Answer within a week.
+- **Feature requests** arrive labelled `enhancement`: an idea, never a
+  promise (owner's rule, 2026-10-10).
+  - Answer within a week: thank them, say it's recorded, promise nothing.
+  - The owner decides; until then it carries `owner`. Yes: it goes on
+    `docs/ROADMAP.md`, and the issue stays open until the pull request
+    that ships it says `Closes #N`. No: close it as "not planned", with a
+    kind one-line reason. Not sure: it stays open.
+- **Reports and ideas belong in this repository.**
+  - The mirror is a copy: its Issues are off, and its description points
+    here.
+  - Issues users open on Start9's fork are reports too, and the Monday
+    report lists them. GitHub can't move an issue between accounts, so,
+    with the owner's OK (it's sent to Start9): answer it there and, when
+    the work belongs here, open an issue here that links to it.
 - **A security problem is never public before its fix.**
   - Outsiders report it privately (Security tab, "Report a vulnerability").
     Claude files its own as a draft advisory ("New draft security
@@ -454,7 +468,8 @@ and the README's "Reporting problems"; keep them.
     repeats it in the StartOS release notes ("Releasing", step 1).
 - **The Monday report** lists:
   - open `tax-figures` issues;
-  - outside reports with no answer;
+  - outside reports with no answer, here, on Start9's fork or on the
+    mirror;
   - how many security advisories are waiting (never their details).
 
 ## Reviews
