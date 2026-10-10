@@ -15,6 +15,7 @@ async function exportReport(page: Page, report: string, year: string) {
 
 test("export needs a year", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Reports" }).click();
+  await expect(page.getByText("BitcoinTX is software, not tax, legal or financial advice.")).toBeVisible();
   await page.getByRole("button", { name: "Export" }).click();
   await expect(page.getByText("Please enter a valid year (e.g. 2024).")).toBeVisible();
 });

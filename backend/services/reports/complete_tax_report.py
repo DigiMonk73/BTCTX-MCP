@@ -27,8 +27,8 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from backend.services.reports.pdf_layout import (
-    ACCENT, ACCENT_SOFT, FONT, INK, RULE, ReportStyles, data_table, draw_footer_note, draw_running_header,
-    numbered_canvas,
+    ACCENT, ACCENT_SOFT, FONT, FOOTER_NOTE, INK, RULE, ReportStyles, data_table, draw_footer_note,
+    draw_running_header, numbered_canvas,
 )
 from backend.services.reports.safe_text import pdf_text
 
@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 
 WIDTH = 7.0  # inches between the margins
 INCOME_TYPES = ("Income", "Reward", "Interest")
-FOOTER_NOTE = "Prepared with BitcoinTX from your own records. Check it with your tax advisor before filing."
 
 # What each Form 8949 box holds (the checkbox wording, shortened)
 BOX_MEANING = {
@@ -501,7 +500,7 @@ class _TaxReport:
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
             "This report is prepared from your own records. It may be used for tax purposes after you, or "
-            "your tax advisor, have checked it.",
+            "a tax professional, have checked it.",
         )
         return [
             *self.section(6, "Notes", "How the figures in this report are made."),
