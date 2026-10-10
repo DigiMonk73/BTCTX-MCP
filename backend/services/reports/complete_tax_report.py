@@ -29,8 +29,8 @@ from reportlab.platypus import (
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from backend.services.reports.pdf_layout import (
-    ACCENT, ACCENT_SOFT, FONT, INK, RULE, ReportStyles, data_table, draw_footer_note, draw_running_header,
-    numbered_canvas,
+    ACCENT, ACCENT_SOFT, DISCLAIMER, FONT, FOOTER_NOTE, INK, RULE, ReportStyles, data_table, draw_footer_note,
+    draw_running_header, numbered_canvas,
 )
 from backend.services.reports.safe_text import pdf_text
 
@@ -38,9 +38,6 @@ logger = logging.getLogger(__name__)
 
 WIDTH = 7.0  # inches between the margins
 INCOME_TYPES = ("Income", "Reward", "Interest")
-FOOTER_NOTE = "Prepared with BitcoinTX from your own records. Check it with your tax advisor before filing."
-DISCLAIMER = ("BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: "
-              "check its figures with a tax professional before you file.")
 SHORT_TERM_LINES = ("1b", "2", "3")  # Schedule D Part I lines BitcoinTX fills
 LONG_TERM_LINES = ("8b", "9", "10")  # Part II
 
@@ -641,6 +638,6 @@ class _TaxReport:
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
             "This report is prepared from your own records. It may be used for tax purposes after you, or "
-            "your tax advisor, have checked it.",
+            "a tax professional, have checked it.",
         )
         return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes)]

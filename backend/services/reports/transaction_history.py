@@ -17,11 +17,11 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXTERNAL
+from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS
 from backend.models.account import Account
 from backend.models.transaction import Transaction
 from backend.services.reports.pdf_layout import (
-    ReportStyles, data_table, draw_footer_note, draw_running_header, numbered_canvas,
+    DISCLAIMER, FOOTER_NOTE, ReportStyles, data_table, draw_footer_note, draw_running_header, numbered_canvas,
 )
 from backend.services.reports.safe_text import csv_text, pdf_text
 from backend.services.tax_time import format_tax_date, get_tax_timezone, tax_year_bounds
@@ -38,10 +38,6 @@ NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "rea
 TYPES = ["Deposit", "Withdrawal", "Transfer", "Buy", "Sell"]
 INCOME_SOURCES = {"income": "Income", "reward": "Reward", "interest": "Interest"}
 
-DISCLAIMER = (
-    "All amounts, fees, and cost data are shown as recorded in BitcoinTX. "
-    "For official tax usage, please consult your accountant."
-)
 # The PDF's columns: heading, the row's cell, width in inches (9.5 in all)
 PDF_COLUMNS = (
     ("Date", "_date", 0.8), ("Type", "_kind", 1.35), ("From", "from_account", 0.95), ("To", "to_account", 0.95),
@@ -49,7 +45,7 @@ PDF_COLUMNS = (
     ("Proceeds", "proceeds_usd", 0.9), ("Gain (loss)", "realized_gain_usd", 0.9), ("Term", "holding_period", 0.55),
 )
 PDF_NUMBER_COLUMNS = range(4, 9)  # Amount to Gain (loss), right-aligned
-FOOTER_NOTE = "Prepared with BitcoinTX from your own records. Check it with your tax advisor before filing."
+DISCLAIMER_NOTE = f"All amounts, fees, and cost data are shown as recorded in BitcoinTX. {DISCLAIMER}"
 
 
 def generate_transaction_history_report(db: Session, year: int, format: str = "pdf") -> bytes:
@@ -137,6 +133,9 @@ def _format_decimal(value, currency: str = "USD") -> str:
 
 def _map_tx_type(tx: Transaction) -> str:
     if tx.type == "Deposit":
+        # A deposit into Bank or Exchange USD is dollars, never income
+        if tx.to_account_id not in BTC_ACCOUNTS:
+            return "Deposit"
         return INCOME_SOURCES.get((tx.source or "").lower(), "Deposit")
     if tx.type in ("Sell", "Withdrawal"):
         return "Sell/Withdrawal"
@@ -208,7 +207,7 @@ def _generate_pdf(rows: list[dict], year: int, tz_name: str) -> bytes:
         cells = [[Paragraph(pdf_text(row[key]), styles.number if i in PDF_NUMBER_COLUMNS else styles.cell)
                   for i, (_, key, _) in enumerate(PDF_COLUMNS)] for row in rows]
         story += [data_table([header] + cells, [width for _, _, width in PDF_COLUMNS]),
-                  Spacer(1, 0.2 * inch), Paragraph(DISCLAIMER, styles.note)]
+                  Spacer(1, 0.2 * inch), Paragraph(DISCLAIMER_NOTE, styles.note)]
     else:
         story.append(Paragraph(f"No transactions in {pdf_text(year)}.", styles.normal))
 

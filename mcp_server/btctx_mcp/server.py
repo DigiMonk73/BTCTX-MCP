@@ -80,6 +80,10 @@ class TransactionInput(BaseModel):
     fee_usd: Decimal | None = Field(
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x that "
                                   "day's price is stored).")
+    acquired_at: str | None = Field(
+        default=None, description="MyBTC/Gift deposits into Wallet or Exchange BTC: when the coins were originally "
+                                  "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
+                                  "Form 8949's date acquired use it; omitted, the deposit's date.")
 
 
 _client: BtctxClient | None = None
@@ -247,7 +251,7 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
                 "proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
-                "broker_reporting"):
+                "broker_reporting", "acquired_at"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
@@ -360,8 +364,8 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
 async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
-    carrying a loss, non-income BTC deposits with a $0 or blank cost basis, transfer fees or
-    income valued far from that day's price). Each item has its id, date, what looks odd and
+    carrying a loss, BTC deposits with a $0 or blank cost basis (income ones report no income),
+    transfer fees or income valued far from that day's price). Each item has its id, date, what looks odd and
     what would change. Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 
@@ -405,6 +409,7 @@ async def update_transaction(
     fmv_usd: Decimal | None = None,
     fee_usd: Decimal | None = None,
     broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
+    acquired_at: str | None = None,
 ) -> ToolResult:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
     recalculated, so gains on later sales may change. Confirm with the user first.
@@ -414,7 +419,12 @@ async def update_transaction(
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
-    fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept."""
+    fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
+    An Income/Interest/Reward deposit's value that came from that day's price is priced again
+    when you change its amount, date or account (sending back the value it already has doesn't
+    make it typed); a value the user typed is kept.
+    acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
+    date; "none" clears it (the holding period then starts at the deposit)."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)
@@ -435,6 +445,8 @@ async def update_transaction(
     changes.update((key, value) for key, value in fields if value is not None)
     if broker_reporting is not None:
         changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
+    if acquired_at is not None:
+        changes["acquired_at"] = None if acquired_at.strip().lower() == "none" else await _timestamp_from(acquired_at)
     if not changes:
         raise ToolError("No changes given.")
 

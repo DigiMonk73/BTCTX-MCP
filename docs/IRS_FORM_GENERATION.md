@@ -119,7 +119,7 @@ get_irs_reports()                                             reports.py
   │  fill_pdf_form(f8949.pdf, fields)           -> one flattened sheet each
   │  map_schedule_d_fields(...) + fill_pdf_form(f1040sd.pdf, ...)
   ▼
-_merge_all_pdfs(): 8949 sheets in order, then Schedule D  -> IRSReports_YYYY.pdf
+_merge_all_pdfs(): each sheet's used Parts in order, then all of Schedule D's pages -> IRSReports_YYYY.pdf
 ```
 
 Each LotDisposal is the part of a disposal that came from one lot, so a Sell
@@ -202,16 +202,21 @@ line printed for it.
 | 2 | B, H | 9 | E, K |
 | 3 | C, I | 10 | F, L |
 
-The app fills columns (d) proceeds, (e) cost and (h) gain/loss. Column (g) is
-blank. Only lines that have rows get filled. Each line is the sum of the
-line 2 totals of all that box's Form 8949 sheets.
+The app fills columns (d) proceeds, (e) cost and (h) gain/loss, a loss in
+parentheses as the instructions ask. Column (g) is blank. Only lines that
+have rows get filled. Each line is the sum of the line 2 totals of all that
+box's Form 8949 sheets.
 
 ## Form 8949 fields
 
 The template has two pages. Page 1 is Part I (short-term), page 2 is Part II
 (long-term). Extra rows go on extra copies of the template, never on "page 3"
-fields (those don't exist). `rows_per_page` comes from the year config:
-**14 for 2024, 11 for 2025**.
+fields (those don't exist). Only the pages with rows are printed: the
+instructions say to "complete and file either Part I or II" (and a separate
+one for each box), so a sheet with only short-term rows has no empty Part
+II printed, and the other way round. Schedule D always prints all its
+pages: Part III is the filer's to complete. `rows_per_page` comes from the
+year config: **14 for 2024, 11 for 2025**.
 
 Row field names:
 
@@ -222,19 +227,19 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 
 | Col | Offset | Value |
 |---|---|---|
-| (a) | 0 | `"<disposed_btc> BTC"` |
-| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone) |
+| (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`calculation.btc_text()`; never exponent form) |
+| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone): the lot's, which for a My BTC or Gift deposit is its date originally acquired when given |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |
 | (e) | 4 | cost basis, 2 decimals |
 | (f) | 5 | **blank.** The app records no adjustment codes. The box letter is a checkbox, never a column (f) code. |
 | (g) | 6 | blank |
-| (h) | 7 | gain or loss, 2 decimals |
+| (h) | 7 | gain or loss, 2 decimals; a loss in parentheses, `(9.74)` (`_form_amount()`) |
 
 **Line 2 "Totals"**, below the last row of each Part, gets the totals of the
 rows on that page (one sheet's chunk of one box): (d), (e) and (h) added up to
-the cent (losses subtracted), 2 decimals; (f) and (g) blank like the rows. A
-Part with no rows leaves line 2 blank. The fields sit directly under the page,
+the cent (losses subtracted), 2 decimals, a negative total in parentheses;
+(f) and (g) blank like the rows. A Part with no rows leaves line 2 blank. The fields sit directly under the page,
 not in the table: `topmostSubform[0].Page{p}[0].f{p}_{n}[0]`, with `n` per
 column in `line2_fields` (`line2_field_names()`).
 
@@ -294,8 +299,10 @@ The printed (flattened) forms are read back: `backend/tests/printed_forms.py`
 finds each value where it is drawn on the page. The layout comes from the
 template itself (rows by field name, columns by position, checkboxes top to
 bottom); only the boxes' printed letters and each box's Schedule D line are
-written in. `test_printed_forms.py` checks the PDFs of the test ledgers:
-every row once in its box, (d) - (e) = (h), one box and line 2 per page,
-Schedule D lines = their boxes' sheets, and the Complete Tax Report's box
-table. Every text field must be found where it is drawn, so a page that
-can't be read fails instead of reading as blank.
+written in. `test_printed_forms.py` checks the PDFs of the test ledgers (the full
+one, the golden one, and a tiny one with a 5-satoshi sale and a long-term
+loss): every row once in its box, (d) - (e) = (h), one box and line 2 per
+page, Schedule D lines = their boxes' sheets, the Complete Tax Report's box
+table, column (a)'s eight decimals, losses in parentheses, and no page
+without rows. Every text field must be found where it is drawn, so a page
+that can't be read fails instead of reading as blank.

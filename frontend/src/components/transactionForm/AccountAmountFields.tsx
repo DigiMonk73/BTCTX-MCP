@@ -1,5 +1,6 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { ONE_WALLET_HINT } from "../../utils/disclaimer";
 
 /**
  * A Deposit's or Withdrawal's account, its currency (chosen only for the
@@ -25,6 +26,7 @@ const AccountAmountFields: React.FC = () => {
         {errors.account && (
           <span className="field-error">Please select an account</span>
         )}
+        {account === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
       </div>
 
       <div className="field">

@@ -14,6 +14,9 @@ ACCOUNT_USD_FEES = 6
 # Virtual account for external transactions
 ACCOUNT_EXTERNAL = 99
 
+# The accounts that hold bitcoin; the others hold dollars
+BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
+
 # Mapping for CSV export (account ID -> display name)
 ACCOUNT_ID_TO_NAME = {
     ACCOUNT_BANK: "Bank",
@@ -48,3 +51,6 @@ BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")
 # Deposit sources that are ordinary income: the BTC's market value at receipt
 # is both its cost basis and the income on the tax report (lowercase).
 INCOME_SOURCES = frozenset({"income", "interest", "reward"})
+# Deposit sources whose coins can have been acquired before the deposit (a
+# date originally acquired, #91): the user's own, or a gift with the giver's basis
+ORIGINAL_DATE_SOURCES = frozenset({"mybtc", "gift"})

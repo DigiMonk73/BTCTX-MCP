@@ -153,6 +153,28 @@ class Transaction(Base):
         server_default=sa_false(),
         doc="True when the user typed fee_usd: it is kept when the fee or date changes.",
     )
+    # Last, as migration 0006 appends it: a model column elsewhere would no longer match the migrated table
+    cost_basis_from_price = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "True when an income deposit's cost_basis_usd came from that day's "
+            "price (left blank when entered): an edit of its amount, day or "
+            "account values it again. A typed value is kept."
+        ),
+    )
+    # After cost_basis_from_price, where migration 0007 added it
+    acquired_at = Column(
+        UTCDateTime,
+        nullable=True,
+        doc=(
+            "A My BTC or Gift deposit's date originally acquired: its lot's "
+            "acquisition date (holding period, Form 8949 column (b), FIFO). "
+            "NULL: the deposit's own date."
+        ),
+    )
 
     ledger_entries = relationship(
         "LedgerEntry",

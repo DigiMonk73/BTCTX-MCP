@@ -156,6 +156,16 @@ async def test_ledger_guide_says_a_second_wallet_is_pooled():
     assert "untracked exchanges" not in flat
 
 
+async def test_ledger_guide_says_its_figures_are_not_tax_advice():
+    """A tax question beyond the ledger gets the standard disclaimer's point
+    and a pointer to the user's tax preparer (the owner's decision, 2026-10-10)."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "a tax question beyond what the ledger shows" in flat
+    assert "BitcoinTX's figures aren't tax advice and suggest their tax preparer" in flat
+
+
 async def test_preview_then_add_then_list(mcp_client):
     preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
     assert preview["ok"] is True
@@ -404,3 +414,16 @@ async def test_wrong_key_is_a_clear_error(backend_db):
     finally:
         server.set_client(None)
         await btctx.aclose()
+
+
+async def test_update_transaction_sets_and_clears_the_date_originally_acquired(mcp_client, backend_db):
+    """#91: a My BTC deposit's date originally acquired, read like `date` (a
+    date alone is midday in the tax timezone); "none" clears it."""
+    tax_timezone(backend_db, "America/Chicago")
+    deposit = {"date": "2025-04-01", "type": "Deposit", "amount": "0.1", "from_account": "External",
+               "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "2000"}
+    tx_id = (await call(mcp_client, "add_transactions", {"transactions": [deposit]}))["created"][0]["id"]
+    updated = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "2022-01-05"})
+    assert updated["acquired_at"].startswith("2022-01-05T18:00:00")
+    cleared = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "none"})
+    assert "acquired_at" not in cleared

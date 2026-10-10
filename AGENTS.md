@@ -145,7 +145,13 @@ So derived values must be recomputable from the Transaction row alone.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the daily price on create/update
-  (`_value_income_deposit`); no price → 422, never $0.
+  (`_value_income_deposit`); no price → 422, never $0. A value from the price
+  is marked (`cost_basis_from_price`) and priced again when an edit changes
+  the account, amount, UTC day or source (a type change makes it typed); a
+  typed one is kept, and the form's echo of a priced value isn't a typed one
+  (`_revalue_income_deposit`). Income (report, dashboard) counts only
+  deposits into Wallet or Exchange BTC (`constants.BTC_ACCOUNTS`): a USD
+  deposit is dollars, whatever value it carries.
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every past-day valuation goes through
@@ -162,6 +168,9 @@ So derived values must be recomputable from the Transaction row alone.
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
+  It runs from the lot's acquisition date: a My BTC or Gift deposit's date
+  originally acquired (`acquired_at`) when given, else the deposit's date;
+  FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in

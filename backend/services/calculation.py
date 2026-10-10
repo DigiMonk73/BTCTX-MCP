@@ -11,6 +11,7 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
+from backend.constants import BTC_ACCOUNTS
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
@@ -22,6 +23,12 @@ SAT = Decimal("0.00000001")
 
 # The deposit sources the dashboard totals, in USD (their basis) and BTC.
 DEPOSIT_TOTALS = ("income", "interest", "reward", "gift")
+
+
+def btc_text(amount) -> str | None:
+    """A BTC amount for people to read: all eight decimals, as stored (None
+    stays None). str() of a Decimal under 0.000001 is in exponent form ("5E-8")."""
+    return None if amount is None else f"{Decimal(amount):.8f}"
 
 
 def get_account_balance(db: Session, account_id: int) -> Decimal:
@@ -175,7 +182,8 @@ def _deposits_by_source(transactions: list[Transaction]) -> tuple[dict[str, Deci
     btc = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     for tx in transactions:
         source = (tx.source or "").lower()
-        if tx.type.lower() != "deposit" or source not in usd:
+        # Into Wallet or Exchange BTC only: a USD deposit's amount is dollars
+        if tx.type.lower() != "deposit" or source not in usd or tx.to_account_id not in BTC_ACCOUNTS:
             continue
         if tx.cost_basis_usd is None or tx.amount is None:
             continue

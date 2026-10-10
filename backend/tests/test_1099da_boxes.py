@@ -153,8 +153,8 @@ def test_2025_pdf_has_separate_pages_per_box():
     r = CLIENT.get("/api/reports/irs_reports", params={"year": 2025})
     assert r.status_code == 200, r.text[:300]
     pages = PdfReader(io.BytesIO(r.content)).pages
-    # two 8949 sheets (H and I, 2 pages each) + Schedule D (2 pages)
-    assert len(pages) == 6
+    # two 8949 pages (Part I of box H, Part I of box I; no empty Part II, #78) + Schedule D (2 pages)
+    assert len(pages) == 4
 
 
 def test_covered_cutoff_uses_tax_timezone_date():

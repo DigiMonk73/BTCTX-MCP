@@ -35,6 +35,20 @@ All notable changes to BitcoinTX are documented in this file.
     basis to be figured wallet by wallet and account by account, so with
     several wallets or exchange accounts BitcoinTX's gains can differ from
     what the rules give. The StartOS instructions say the same.
+  - In the app (part of #97): Settings → About BitcoinTX opens with that
+    notice in an amber "Important" box, followed by the disclaimer; the
+    Reports page carries the disclaimer under Export; and choosing the
+    Bitcoin Wallet in a transaction shows one short line, "One self-custody
+    wallet: see Settings → About." The IRS Reports choice now reads "for you
+    and your preparer to check before filing" instead of "ready to file".
+  - In the PDFs: the footer of both reports asks you to check them with "a
+    tax professional" (it said "your tax advisor"), and the Transaction
+    History ends with the disclaimer instead of "please consult your
+    accountant".
+  - In the AI connector: its README (the PyPI page) gains a "Disclaimer"
+    section, and when you ask your AI a tax question beyond what the ledger
+    shows, its guide has it say that BitcoinTX's figures aren't tax advice
+    and suggest your tax preparer for filing decisions.
 - **Who BitcoinTX is for, said plainly.** The README ("One wallet, one
   exchange") and the StartOS instructions ("Limitations") now say that
   BitcoinTX tracks one self-custody Wallet and one Exchange on purpose. Since
@@ -53,6 +67,91 @@ All notable changes to BitcoinTX are documented in this file.
   security problem. The links only open GitHub when clicked; BitcoinTX sends
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
+
+### Fixed
+- **Form 8949 prints tiny BTC amounts in full.** An amount under 0.000001
+  BTC (100 satoshis), such as a small network fee, printed in column (a) as
+  "5E-8 BTC" instead of "0.00000005 BTC". Ledger Review and the River
+  import's "likely the same event" note showed such amounts the same way.
+  All now print eight decimals. The figures were right; only the
+  description was hard to read. Closes #74.
+- **Losses print in parentheses on Form 8949 and Schedule D.** The IRS
+  instructions ask for negative amounts in parentheses, "(9.74)"; the forms
+  printed "-9.74" in column (h), on line 2 and on Schedule D's lines, while
+  the Complete Tax Report already said they used parentheses. The figures
+  are the same. Closes #75.
+- **Ledger Review lists income deposits with a $0 or blank value** (#77).
+  Such a deposit reports no income, which the income rules forbid, yet it
+  slipped past both of Ledger Review's basis checks. A new item, "Income
+  deposits with a $0 or blank value (no income reported)", lists them with
+  their value at that day's price, so they can be fixed (clear its Cost Basis
+  (USD) to use the day's price, or type the right one).
+- **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
+  printed both of its pages, so a short-term sheet was followed by an empty
+  Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
+  sheet by an empty Part I. Only the Part a sheet uses is printed now, as
+  the instructions allow ("complete and file either Part I or II");
+  Schedule D keeps both pages. Closes #78.
+- **Editing an income deposit could leave the wrong income** (tax figures,
+  #76, #110). An Income, Interest or Reward deposit into Wallet or Exchange BTC is
+  valued at that day's price when its value is left blank (by you, a CSV,
+  the River import or the AI connector), and that value is both its cost
+  basis and the income on the tax report. An edit could keep the wrong
+  figure (the first two understate the income and overstate the later gain
+  by the same amount; the third overstates the income):
+  - **the old value**, after changing the deposit's amount or date (from
+    the form, the AI connector or the API);
+  - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
+    the AI connector's edit tool or the API (the form wasn't affected).
+  - **income counted on a USD deposit**: an Income, Interest or Reward
+    deposit into Bank or Exchange USD that carried a value (one moved there
+    from Wallet or Exchange BTC by the AI connector or the API, or created
+    with a value through the API, the AI connector or a CSV import) was
+    counted as income on the report and the dashboard (a Gift's in the
+    dashboard's gifts), its dollar amount shown as BTC.
+  - Affected: versions up to 1.2.5, any tax year, only income deposits
+    edited or entered that way.
+  - Now a value from the day's price is marked as such, and is priced again
+    when you change the deposit's account, amount, date or source; a value
+    you typed stays as you typed it; and income on the report and the
+    dashboard counts only deposits into Wallet or Exchange BTC, whatever
+    value a USD deposit carries (a partial edit that moves one to a USD
+    account also clears its value). Apart from that, the update changes no
+    figure: it marks an existing value only where it is exactly that day's
+    price times the amount (migration 0006; a typed value that happens to
+    equal it is marked too, and is then priced the same way), and the mark
+    only decides what the next edit does. The CSV export and import carry it
+    (`cost_basis_typed`), as the AI connector's import and the River import
+    do.
+  - What to do: after updating, run Ledger Review (Settings), and fix each
+    income deposit it lists with a $0 or blank value, or a value far from
+    that day's price: clear the value to use the day's price, or type the
+    right one. Dollar interest from a bank or an exchange recorded as an
+    Income, Interest or Reward deposit into Bank or Exchange USD no longer
+    shows as income in BitcoinTX: it isn't bitcoin; report it from the
+    bank's or exchange's own tax form (such as Form 1099-INT or 1099-MISC).
+
+- **Coins you already owned, or received as a gift, keep their holding
+  period** (tax figures, #91). A My BTC or Gift deposit into Wallet or
+  Exchange BTC has a new optional field, **Date originally acquired**: when
+  you first bought the coins, or, for a gift, when the giver did (IRC
+  §1223(2)). BitcoinTX counted the holding period from the deposit, so a
+  sale within a year of it was reported **short-term**, with the deposit's
+  date in Form 8949 column (b), even for coins held for years.
+  - Affected: every version up to 1.2.5, every tax year with such a sale.
+  - With the date, the holding period and column (b) use it, and
+    first-in-first-out treats those coins as acquired then (the oldest in
+    the account are sold first). A transfer keeps it. The form, the CSV
+    export and import (`acquired_at`), and the AI connector take it; its
+    guide asks for it. The update changes nothing until you fill one in
+    (migration 0007 adds an empty column).
+  - What to do: open Ledger Review (Settings). Its new check lists My BTC
+    and Gift deposits without an original date; enter the date for each one
+    you know, then download your forms again. A date can change the term
+    and basis of sales in years already filed (those coins are then sold
+    first): ask your tax professional whether to amend.
+  - Not covered: the gift rule for coins worth less on the day of the gift
+    than the giver paid (IRC §1015), which needs the day's value (#104).
 
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
