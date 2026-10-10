@@ -73,6 +73,11 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **The before-and-after check hides the report's time again.** Since 1.2.5
+  the Complete Tax Report prints when it was made on a "GENERATED" line,
+  which `scripts/equivalence_check.py` didn't mask, so every comparison
+  showed a difference there (found in the review of #96). Needed for the
+  1.2.6 tax-figure fixes.
 - **The printed forms are read back by the tests (#80, first part).** A QA
   pass of a 2026 draft found defects only the printed PDF showed. The new
   `test_printed_forms.py` reads each value of the flattened Form 8949 and
