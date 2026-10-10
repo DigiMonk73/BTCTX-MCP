@@ -18,7 +18,8 @@ BitcoinTX.app
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
         │    (or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
-        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward, exits
+        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward
+        │    (a test run only says so), exits
         ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
         ├─ starts Uvicorn (backend.main:app) on that socket in a daemon thread
         ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
@@ -35,7 +36,8 @@ BitcoinTX.app
   Retry, Use Another Port (this session only; a banner says AI assistants
   can't connect) or Quit. It never switches ports silently.
 - **One copy:** a second launch finds the first on the port, brings it
-  forward and exits instead of starting a second backend.
+  forward (a test run only says "already open", see "Testing a build") and
+  exits instead of starting a second backend.
 - **Log file:** `~/Library/Logs/BitcoinTX/BitcoinTX.log` (rotating, 1 MB × 3),
   including every port decision and its errno.
 - **Localhost only:** the server binds to `127.0.0.1`, never to the network.
@@ -97,29 +99,34 @@ Output: `desktop/dist/BitcoinTX.app`.
 
 ### Testing a build
 
-**Never test a build with `open desktop/dist/BitcoinTX.app` on a Mac where
-BitcoinTX is installed:** it would open the real ledger in
-`~/Library/Application Support/BitcoinTX/`. Run the binary on a throwaway
-data folder instead, and on another port if the installed app is open:
+**On a Mac where BitcoinTX is installed, never `open` a build, and never
+run its binary by itself:** either opens the real ledger in
+`~/Library/Application Support/BitcoinTX/` (and its newer schema would lock
+the installed app out). Run it with the script instead, for every launch:
 
 ```bash
-export BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766
-export BTCTX_MCP_FILE="$BTCTX_DESKTOP_DATA_DIR/mcp.json"   # for the MCP server
-desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
+desktop/run-test-build.sh                    # desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
+desktop/run-test-build.sh --fresh            # start again from an empty folder
+desktop/run-test-build.sh --background       # detached (for an agent's shell)
 ```
 
-Make the folder once, as here, and run the last line again in the same
-shell to reopen the app on the same data (`mktemp` in the same line would
-give every launch a new, empty folder).
+It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`$TMPDIR/btctx-test-build`,
+or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to 8766, the same on
+every launch from any shell, so a reopen or a second launch finds the same
+data. It refuses the installed app's folder. That folder holds everything
+the app would keep in Application Support (`btctx.db`, the session key,
+`mcp.json`, `backups/`) and its log (`logs/BitcoinTX.log`); the log line
+"Test data folder from BTCTX_DESKTOP_DATA_DIR" confirms it's in use.
 
-`BTCTX_DESKTOP_DATA_DIR` holds everything the app would keep in Application
-Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
-(`logs/BitcoinTX.log`); the log line "Test data folder from
-BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The MCP server looks for the
-installed app's `mcp.json` unless `BTCTX_MCP_FILE` points to the test run's,
-as above. A second launch on the same port says "BitcoinTX is already open"
-but doesn't bring a window forward: AppleScript would find the installed
-app by name.
+- **MCP server:** it looks for the installed app's `mcp.json` unless
+  `BTCTX_MCP_FILE=<folder>/mcp.json` (`desktop/run-test-build.sh --where`
+  prints the folder) is in **the MCP server's own environment**: the MCP
+  Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
+  not reach the server: the Inspector passes it only through `-e`.
+- **A second launch** on the same port says "BitcoinTX is already open" but
+  doesn't bring a window forward: AppleScript would find the installed app
+  by name.
 
 ### Manual build
 
@@ -142,8 +149,9 @@ PYTHONPATH=. python desktop/entrypoint.py
 (`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.)
 
 In this mode the backend serves `frontend/dist` from the repo and still uses
-the Application Support database, the real ledger: set
-`BTCTX_DESKTOP_DATA_DIR` (and `BTCTX_DESKTOP_PORT`) as above.
+the Application Support database, the real ledger: on a Mac with BitcoinTX
+installed, put `BTCTX_DESKTOP_DATA_DIR=<a test folder> BTCTX_DESKTOP_PORT=8766`
+in front of that command, every time.
 
 ## BitcoinTX.spec
 

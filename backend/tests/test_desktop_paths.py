@@ -55,3 +55,58 @@ def test_entrypoint_takes_its_folders_from_desktop_paths():
     assert "Application Support" not in source
     assert "app_support = data_dir()" in source
     assert "bring_forward=data_dir_override() is None" in source
+
+
+SCRIPT = Path(__file__).resolve().parents[2] / "desktop" / "run-test-build.sh"
+
+
+def _fake_app(tmp_path) -> Path:
+    """An "app" whose binary writes down the folder and port it was given."""
+    app = tmp_path / "Fake.app"
+    binary = app / "Contents" / "MacOS" / "BitcoinTX"
+    binary.parent.mkdir(parents=True)
+    binary.write_text('#!/bin/sh\necho "$BTCTX_DESKTOP_DATA_DIR $BTCTX_DESKTOP_PORT" > "$RAN"\n')
+    binary.chmod(0o755)
+    return app
+
+
+def _run_script(tmp_path, *args, data=None):
+    import os
+    import subprocess
+
+    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path / "tmp"), "RAN": str(tmp_path / "ran")}
+    env.pop("BTCTX_TEST_DATA_DIR", None)
+    if data is not None:
+        env["BTCTX_TEST_DATA_DIR"] = str(data)
+    return subprocess.run(["bash", str(SCRIPT), *args], env=env, capture_output=True, text=True)
+
+
+def test_every_launch_gets_the_same_test_folder_and_port(tmp_path):
+    """Run twice from fresh shells (nothing exported): both launches get the
+    one test folder, never Application Support, and port 8766."""
+    app = _fake_app(tmp_path)
+    folder = (tmp_path / "tmp" / "btctx-test-build")
+    for _ in range(2):
+        r = _run_script(tmp_path, "--app", str(app))
+        assert r.returncode == 0, r.stderr
+        assert (tmp_path / "ran").read_text().split() == [str(folder.resolve()), "8766"]
+    assert _run_script(tmp_path, "--where").stdout.strip() == str(folder.resolve())
+
+
+def test_the_installed_apps_folder_is_refused(tmp_path):
+    app = _fake_app(tmp_path)
+    real = tmp_path / "Library" / "Application Support" / "BitcoinTX"
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=real)
+    assert r.returncode == 1 and "refusing" in r.stderr
+    assert not (tmp_path / "ran").exists()
+
+
+def test_fresh_empties_only_what_the_app_keeps(tmp_path):
+    app = _fake_app(tmp_path)
+    data = tmp_path / "test-data"
+    (data / "backups").mkdir(parents=True)
+    (data / "btctx.db").write_text("old ledger")
+    (data / "notes.txt").write_text("not the app's")
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
+    assert r.returncode == 0, r.stderr
+    assert sorted(p.name for p in data.iterdir()) == ["notes.txt"]

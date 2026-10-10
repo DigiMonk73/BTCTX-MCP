@@ -669,22 +669,25 @@ Start from the `clean` snapshot.
 ## Track C: the Mac app (only on a Mac)
 
 **On a Mac where BitcoinTX is already installed, its data folder is a real
-ledger: never install or `open` the build there.** On such a Mac, unpack the
-artifact in a temp folder (`ditto -x -k BitcoinTX-macOS.zip .`, then
-`xattr -cr BitcoinTX.app` if it's quarantined) and run the binary on a
-throwaway data folder and another port (`docs/MACOS_DESKTOP_APP.md`,
-"Testing a build"), all in one shell:
+ledger: never install, `open` or run the build's binary by itself there.**
+On such a Mac, unpack the artifact in a temp folder (`ditto -x -k
+BitcoinTX-macOS.zip .`, then `xattr -cr BitcoinTX.app` if it's quarantined)
+and start every launch, the first, each reopen and MAC-5's second one, with
+the repository's script (`docs/MACOS_DESKTOP_APP.md`, "Testing a build"):
 
 ```bash
-export BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766
-export BTCTX_MCP_FILE="$BTCTX_DESKTOP_DATA_DIR/mcp.json"
-BitcoinTX.app/Contents/MacOS/BitcoinTX
+REPO/desktop/run-test-build.sh --app UNPACKED/BitcoinTX.app --fresh --background   # the first launch
+REPO/desktop/run-test-build.sh --app UNPACKED/BitcoinTX.app --background           # every later one
+REPO/desktop/run-test-build.sh --where                                             # prints DATA
 ```
 
-"Open" and "reopen" below then mean running the last line again in that
-shell. Read 8766 for 8765 and `$BTCTX_DESKTOP_DATA_DIR` for
-`~/Library/Application Support/BitcoinTX/`, skip MAC-1's drag to
-Applications, and run MAC-4's connector from that shell. In MAC-5, a second
+REPO, UNPACKED and DATA stand for absolute paths (the checkout, the temp
+folder, the folder `--where` prints), written out in each command, since a
+tool's shell may not keep variables. The script uses the same test folder
+and port 8766 on every launch. Then read 8766 for 8765 and DATA for
+`~/Library/Application Support/BitcoinTX/` below, skip MAC-1's drag to
+Applications, and in MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
+after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a second
 launch shows "BitcoinTX is already open" without bringing a window forward,
 and starts no second copy on 8766. If the installed app appears at any
 point, leave it alone, touch nothing in it, and record that.
@@ -707,7 +710,8 @@ point, leave it alone, touch nothing in it, and record that.
   instead of Create; the Setup prompt says no key or address is needed; and
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
-  nothing after `--` except the method options). Expect: 11 tools, and
+  nothing after `--` except the method options; on a Mac with BitcoinTX
+  installed, only `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
   `get_portfolio` matches the Dashboard. **Reset key**: the connector keeps
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
