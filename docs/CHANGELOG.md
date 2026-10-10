@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A "Using these forms" page in the Complete Tax Report** (#79), for
+  whoever files the return, often a tax preparer handed the PDF. It says
+  what BitcoinTX fills on Form 8949 (every Bitcoin disposal, a page or more
+  per box) and on Schedule D (lines 1b to 3 and 8b to 10), and what it
+  leaves blank on purpose, and why: lines 1a and 8a (every sale is on Form
+  8949), the loss carryovers (lines 6 and 14), other sources (lines 4, 5,
+  11 to 13), the lines that combine everything (7, 15, 16, 21 and Part III)
+  and the opportunity fund question. For a year BitcoinTX has no forms for,
+  it says how to fill them from the report (Form 8949 instructions,
+  Exception 2); for a year of drafts, to file on the final forms. It gives the
+  Bitcoin-only figures for lines 7, 15 and 16 ("if bitcoin is the only
+  capital asset and there's no carryover"), with line 21's rule for a net
+  loss ($3,000, or $1,500 married filing separately). It also says to write
+  the name and SSN on every Form 8949 page and print single-sided, the
+  one-wallet-one-exchange assumption, that the gift
+  rule of IRC §1015 isn't applied (#104), and that BitcoinTX is not tax
+  advice. A report made before December 31 says, on its cover and on this
+  page, that the year isn't over yet.
 - **Updating the AI connector, as a clear step** (part of #97). The
   connector is pinned in your AI app's settings (`uvx btctx-mcp==X.Y.Z`) on
   purpose: nothing new runs on its own, and PyPI sees you once per version.
