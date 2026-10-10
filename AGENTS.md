@@ -102,6 +102,7 @@ new job isn't required until it's added there. If unsure, branch from
   `instructions.md`, no `TODO.md`), since Start9 reviews it against them. Read
   `startos/AGENTS.md`; `backend/tests/test_startos_conformance.py` checks what
   a script can. When Start9's guide changes, update the package and the test.
+  What else Start9's rules cover: "Start9".
 
 ## Data model
 
@@ -333,20 +334,29 @@ if the mirror's own workflow can't release,
 The whole flow, in plain steps for the owner and every session:
 `docs/HOW-CHANGES-FLOW.md` (keep it in step with this file).
 
-- **Start9's rules win wherever Start9 or StartOS users are involved**
-  (owner's rule, 2026-10-10). That covers:
-  - the package (`startos/`) and the mirror;
-  - what Start9's systems read: `instructions.md` and the pages its
-    documentation links point to, the package README;
-  - everything we send them: pull requests, comments and promotion
-    requests on their fork.
+- **Start9's rules win for everything Start9 governs** (owner's rule,
+  2026-10-10). That is:
+  - the StartOS package: `startos/`, including `instructions.md` and
+    `startos/README.md`, which Start9's support agent reads; and the
+    mirror;
+  - which pages the `## Documentation` links in `instructions.md` name
+    (Start9's support indexer crawls them: `writing-instructions.md`,
+    "Choosing documentation URLs"). The pages themselves, the root README
+    and `mcp_server/README.md`, stay the app's own, but what they say
+    about StartOS must agree with the package;
+  - everything we send to Start9's fork: pull requests, comments,
+    promotion requests.
 
-  Before deciding anything there, read the page of Start9's packaging
-  guide that covers it, and say which page the decision follows. The
-  guide is on this computer in `../start-technologies/projects/start-sdk/docs/src/`
-  (its `live-docs` branch, the published guide), or at
-  <https://docs.start9.com/packaging>. Where our own habits differ, Start9's
-  rule wins there.
+  The app itself, its Docker image and the Mac app follow our own rules.
+  - Before deciding anything Start9 governs, read the guide's page. Name
+    it in the pull request or comment; if no page covers the question,
+    say so.
+  - The guide is in `start-technologies/projects/start-sdk/docs/src/`
+    beside the main checkout (`~/code/start-technologies`, on `live-docs`:
+    the published guide), or at <https://docs.start9.com/packaging>.
+  - Where our habits differ, Start9's rule wins there. It doesn't replace
+    the owner's call on what is sent, promoted or merged: where the guide
+    would change one of the owner's decisions, ask the owner.
 - Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
   built and published; how a change reaches it is under "Releasing".
 - Each merge there publishes to Community Beta

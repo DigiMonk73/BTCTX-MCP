@@ -1,5 +1,3 @@
 blank_issues_enabled: false
-contact_links:
-  - name: Report a security problem
-    url: https://github.com/DigiMonk73/BTCTX-MCP/security/advisories/new
-    about: Privately, so it can be fixed before it's public (SECURITY.md). Never in an issue.
+# No security contact link: with private vulnerability reporting on,
+# GitHub adds its own "Report a security vulnerability" entry (SECURITY.md).
