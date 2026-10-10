@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **About BitcoinTX, at the bottom of Settings.** It shows the version a bug
+  report asks for, with the release notes, and where to report a problem: a
+  public report, the open bugs already known, and a private report for a
+  security problem. The links only open GitHub when clicked; BitcoinTX sends
+  nothing. The unused footer, which said "All rights reserved" although
+  BitcoinTX is MIT-licensed, is gone.
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK
