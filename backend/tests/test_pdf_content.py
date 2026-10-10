@@ -486,6 +486,7 @@ class TestForm8949Line2Totals:
     def test_each_sheet_totals_its_own_rows(self, clean_db, monkeypatch, year):
         import re
         import backend.routers.reports as reports
+        from backend.tests.printed_forms import amount as value
         from backend.services.reports.form_8949 import get_schedule_d_field_config
 
         def ok(result):
@@ -540,9 +541,6 @@ class TestForm8949Line2Totals:
 
         def printed(amount):  # a loss in parentheses, as the IRS asks (#75)
             return f"({-amount:.2f})" if amount < 0 else f"{amount:.2f}"
-
-        def value(text):
-            return -Decimal(text[1:-1]) if text.startswith("(") else Decimal(text)
 
         def expected(amounts, basis_each):
             d, e = sum(amounts, Decimal("0")), basis_each * len(amounts)

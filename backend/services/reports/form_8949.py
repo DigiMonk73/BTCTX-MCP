@@ -446,18 +446,20 @@ def _row_values(row: Form8949Row) -> list[str]:
         row.description,
         row.date_acquired,
         row.date_sold,
-        form_amount(row.proceeds),
-        form_amount(row.cost),
+        _form_amount(row.proceeds),
+        _form_amount(row.cost),
         "",
         "",
-        form_amount(row.gain_loss),
+        _form_amount(row.gain_loss),
     ]
 
 
-def form_amount(amount) -> str:
+
+def _form_amount(amount) -> str:
     """A dollar amount as the IRS forms take it, to the cent: a negative one
     in parentheses, "(9.74)" (Form 8949 instructions, columns (g) and (h):
-    "Enter negative amounts in parentheses"; Schedule D the same)."""
+    "Enter negative amounts in parentheses"; Schedule D the same). abs()
+    keeps a -0.00 from printing a sign."""
     value = Form8949Row._round(amount)
     return f"({-value})" if value < 0 else str(abs(value))
 
@@ -476,7 +478,7 @@ def _line2_totals(rows: list[Form8949Row], page: int, year: int) -> dict[str, st
 
 
 def _printed_total(amounts) -> str:
-    return form_amount(sum((Form8949Row._round(a) for a in amounts), Decimal("0")))
+    return _form_amount(sum((Form8949Row._round(a) for a in amounts), Decimal("0")))
 
 
 def map_schedule_d_fields(schedule_d: dict, year: int = 2024) -> dict[str, str]:
@@ -492,8 +494,8 @@ def map_schedule_d_fields(schedule_d: dict, year: int = 2024) -> dict[str, str]:
     fields: dict[str, str] = {}
     for line, t in lines.items():
         proceeds, cost, adjustment, gain = config[line]
-        fields[proceeds] = form_amount(t["proceeds"])
-        fields[cost] = form_amount(t["cost"])
+        fields[proceeds] = _form_amount(t["proceeds"])
+        fields[cost] = _form_amount(t["cost"])
         fields[adjustment] = ""
-        fields[gain] = form_amount(t["gain_loss"])
+        fields[gain] = _form_amount(t["gain_loss"])
     return fields

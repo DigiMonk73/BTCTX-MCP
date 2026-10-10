@@ -236,3 +236,16 @@ def test_flattened_sheet_stays_small(year):
     template = get_template_path(year, "f8949.pdf")
     size = len(fill_pdf_form(template, field_data))
     assert size < 3 * os.path.getsize(template), f"{size // 1024} KB"
+
+
+@pytest.mark.parametrize("amount, printed", [
+    ("9.74", "9.74"), ("-9.74", "(9.74)"), ("0", "0.00"), ("-0.00", "0.00"), ("-0.004", "0.00"),
+    ("-0.005", "(0.01)"), ("-9.745", "(9.75)"), ("-1E+7", "(10000000.00)"),
+])
+def test_form_amounts_put_a_loss_in_parentheses(amount, printed):
+    """The IRS asks for negative amounts in parentheses (#75); a -0.00 prints no sign."""
+    from decimal import Decimal
+
+    from backend.services.reports.form_8949 import _form_amount
+
+    assert _form_amount(Decimal(amount)) == printed
