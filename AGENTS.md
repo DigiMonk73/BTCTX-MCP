@@ -333,6 +333,20 @@ if the mirror's own workflow can't release,
 The whole flow, in plain steps for the owner and every session:
 `docs/HOW-CHANGES-FLOW.md` (keep it in step with this file).
 
+- **Start9's rules win wherever Start9 or StartOS users are involved**
+  (owner's rule, 2026-10-10). That covers:
+  - the package (`startos/`) and the mirror;
+  - what Start9's systems read: `instructions.md` and the pages its
+    documentation links point to, the package README;
+  - everything we send them: pull requests, comments and promotion
+    requests on their fork.
+
+  Before deciding anything there, read the page of Start9's packaging
+  guide that covers it, and say which page the decision follows. The
+  guide is on this computer in `../start-technologies/projects/start-sdk/docs/src/`
+  (its `live-docs` branch, the published guide), or at
+  <https://docs.start9.com/packaging>. Where our own habits differ, Start9's
+  rule wins there.
 - Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
   built and published; how a change reaches it is under "Releasing".
 - Each merge there publishes to Community Beta

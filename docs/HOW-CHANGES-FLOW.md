@@ -179,6 +179,9 @@ Anyone can find one: Claude, Grok, you, a user, Start9.
 6. Nothing stays only on this computer at the end of a session.
 7. Every confirmed bug is public; a security problem stays private until
    its fix is out.
+8. Anything that reaches Start9 or StartOS users follows Start9's
+   packaging guide: Claude checks the guide first and says which page it
+   followed.
 
 ## Glossary
 
