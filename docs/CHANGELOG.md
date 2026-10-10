@@ -27,6 +27,13 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **Feature requests and the mirror's issues, in the process.**
+  - A feature request gets a thank-you and no promise. The owner decides:
+    the roadmap, "not planned" with a reason, or open.
+  - The mirror DigiMonk73/BTCTX-StartOS has its Issues off, with a
+    description pointing here. Its three unanswered issues from January
+    were moved here and answered: #85 and #87 closed as fixed, #86 open
+    as an idea.
 - **Start9's rules win for everything Start9 governs, now written down.**
   That's the StartOS package, the mirror, which pages Start9's support
   indexes, and everything sent to their fork. The app, its Docker image
