@@ -48,6 +48,12 @@ All notable changes to BitcoinTX are documented in this file.
   printed "-9.74" in column (h), on line 2 and on Schedule D's lines, while
   the Complete Tax Report already said they used parentheses. The figures
   are the same. Closes #75.
+- **Ledger Review lists income deposits with a $0 or blank value** (#77).
+  Such a deposit reports no income, which the income rules forbid, yet it
+  slipped past both of Ledger Review's basis checks. A new item, "Income
+  deposits with a $0 or blank value (no income reported)", lists them with
+  their value at that day's price, so they can be fixed (clear its Cost Basis
+  (USD) to use the day's price, or type the right one).
 - **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
   printed both of its pages, so a short-term sheet was followed by an empty
   Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
