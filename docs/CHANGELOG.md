@@ -136,6 +136,17 @@ All notable changes to BitcoinTX are documented in this file.
     than the giver paid (IRC §1015), which needs the day's value (#104).
 
 ### StartOS package
+- **The store listing says who BitcoinTX is for, and the instructions say
+  it isn't tax advice.** The short description is now "Bitcoin tax tracker
+  for one wallet and one exchange, optional AI-assisted entry", and the long
+  one opens with the one-wallet limit (since 2025, IRS rules figure cost
+  basis wallet by wallet and account by account) and ends with the
+  disclaimer, in all five languages (Start9's `manifest.md`: short about 80
+  characters so the tile shows it whole, long under 2,000). The
+  instructions (Start9's `writing-instructions.md`) carry the disclaimer
+  next to Reports, where it can be acted on, and a line on updating the AI
+  connector after each BitcoinTX update; the one-wallet Limitations line
+  stays as it was.
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK
   (Start9-Community/BTCTX-StartOS#3) and asked that our 1.2.5:0 be built on
