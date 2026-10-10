@@ -26,7 +26,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_ID_TO_NAME, ACCOUNT_WALLET, INCOME_SOURCES
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INCOME_SOURCES
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -64,8 +64,6 @@ STATUS_NOT_SIMULATED = "not_simulated"
 
 # Rows with these statuses are written by execute
 WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
-
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 
 @dataclass
@@ -223,6 +221,8 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
             )
             continue
         p.tx_data[target] = (price * p.tx_data["amount"]).quantize(Decimal("0.01"))
+        if target == "cost_basis_usd":  # from the price, not typed: an edit re-prices it (#76)
+            p.tx_data["cost_basis_from_price"] = True
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]

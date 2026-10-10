@@ -242,6 +242,7 @@ class TransactionRead(TransactionBase):
     """
     id: int
     fee_usd_manual: bool = False  # fee_usd was typed by the user
+    cost_basis_from_price: bool = False  # an income deposit's value came from that day's price
     created_at: datetime
     updated_at: datetime
 

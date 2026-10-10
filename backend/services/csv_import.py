@@ -25,11 +25,11 @@ from backend.constants import (
     ACCOUNT_NAME_TO_ID,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
-    ACCOUNT_WALLET,
     ACCOUNT_BANK,
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
+    BTC_ACCOUNTS,
     INCOME_SOURCES,
 )
 
@@ -42,23 +42,24 @@ REQUIRED_COLUMNS = {
 
 # Every column, in order. The template, the import and the CSV export
 # (routers/backup.py) all use this list, so an export always imports back to
-# the same ledger. The last four came later and are optional (older files
+# the same ledger. The last five came later and are optional (older files
 # import as before): a BTC fee's USD value (blank: fee x that day's price), a
 # gift's, donation's or lost BTC's fair market value, the Broker form
-# override (none / proceeds / basis; blank: automatic), and whether that fee
+# override (none / proceeds / basis; blank: automatic), whether that fee
 # value was typed (yes, or blank) or priced from the day (no: kept, but
-# priced again if the date or fee is edited).
+# priced again if the date or fee is edited), and the same for an income
+# deposit's cost basis (no: priced again if its amount, day or account is
+# edited).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
-    "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed",
+    "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed",
 ]
 
 # Withdrawal purposes that aren't a sale; only these carry an FMV
 GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
 
 
@@ -170,6 +171,7 @@ class _Row:
     notes: str | None
     broker_reporting: str | None
     fee_usd_typed: str
+    cost_basis_typed: str
 
 
 def _validate_row(
@@ -278,8 +280,8 @@ def _optional_amounts(row: dict[str, str], row_number: int) -> dict[str, Decimal
 
 
 def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, str | None]:
-    """The text columns; fee_usd_typed, broker_reporting and fee_currency
-    must be one of their values."""
+    """The text columns; fee_usd_typed, cost_basis_typed, broker_reporting
+    and fee_currency must be one of their values."""
     options = {
         "fee_currency": row.get("fee_currency", "").strip().upper() or None,
         "source": row.get("source", "").strip() or None,
@@ -287,11 +289,13 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
         "notes": row.get("notes", "").strip() or None,
         "broker_reporting": row.get("broker_reporting", "").strip().lower() or None,
         "fee_usd_typed": (row.get("fee_usd_typed") or "").strip().lower(),
+        "cost_basis_typed": (row.get("cost_basis_typed") or "").strip().lower(),
     }
-    if options["fee_usd_typed"] not in ("", "yes", "no"):
-        raise _Rejected(_error(
-            row_number, "fee_usd_typed", f"Invalid fee_usd_typed '{options['fee_usd_typed']}'. Must be yes, no or blank.",
-        ))
+    for column in ("fee_usd_typed", "cost_basis_typed"):
+        if options[column] not in ("", "yes", "no"):
+            raise _Rejected(_error(
+                row_number, column, f"Invalid {column} '{options[column]}'. Must be yes, no or blank.",
+            ))
     broker_reporting = options["broker_reporting"]
     if broker_reporting and broker_reporting not in BROKER_REPORTING_VALUES:
         raise _Rejected(_error(
@@ -336,6 +340,8 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     if row.cost_basis_usd is not None:
         fields["cost_basis_usd"] = row.cost_basis_usd
+        if row.cost_basis_typed == "no":  # an income value priced from the day (kept only on income)
+            fields["cost_basis_from_price"] = True
     if row.proceeds_usd is not None:
         fields["proceeds_usd"] = row.proceeds_usd
         if row.tx_type == "Sell":

@@ -32,6 +32,7 @@ COLUMNS = [
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value that day (shown in the tax report)"],
     ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
     ["fee_usd_typed", "No", "With fee_usd: yes (or blank) if you typed that value, no if it was that day's price (the export writes it)"],
+    ["cost_basis_typed", "No", "Income/Interest/Reward deposit with cost_basis_usd: yes (or blank) if you typed it, no if it was that day's value (the export writes it)"],
 ]
 
 TYPES = [

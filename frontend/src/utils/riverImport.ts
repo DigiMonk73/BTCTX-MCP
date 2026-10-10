@@ -75,5 +75,12 @@ export function importRow(r: EditableRow) {
     fee_currency: r.feeAmount ? (r.type === "Buy" || r.type === "Sell" ? "USD" : "BTC") : null,
     source: r.type === "Deposit" ? r.source : null,
     purpose: r.type === "Withdrawal" ? r.purpose : null,
+    // The preview's value from that day's price, left as it was: not typed,
+    // so an edit of the deposit prices it again (#76)
+    cost_basis_typed: basisFromPrice(r) ? "no" : null,
   };
+}
+
+function basisFromPrice(r: EditableRow): boolean {
+  return Boolean(r.proposal.basis_autofilled) && r.costBasisUsd === String(r.proposal.cost_basis_usd);
 }

@@ -16,6 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from backend.constants import BTC_ACCOUNTS
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -210,6 +211,13 @@ def _build_capital_gains_summary(disposals: list[LotDisposal]) -> dict[str, Any]
     }
 
 
+def _is_btc_deposit(tx: Transaction) -> bool:
+    """A deposit into Wallet or Exchange BTC. One into Bank or Exchange USD
+    is dollars, never bitcoin income, whatever value an older version or an
+    import left on it."""
+    return tx.type == "Deposit" and tx.to_account_id in BTC_ACCOUNTS
+
+
 def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
     """
     Summarizes BTC deposits where source is "Income", "Reward", or "Interest."
@@ -222,9 +230,7 @@ def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
     total_interest = Decimal("0.0")
 
     for tx in txns:
-        if tx.type != "Deposit":
-            continue
-        if not tx.source:
+        if not _is_btc_deposit(tx) or not tx.source:
             continue
         deposit_usd = tx.cost_basis_usd or Decimal("0.0")
         source_lower = tx.source.lower()
@@ -404,9 +410,7 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
 
     results = []
     for tx in txns:
-        if tx.type != "Deposit":
-            continue
-        if not tx.source:
+        if not _is_btc_deposit(tx) or not tx.source:
             continue
         source_lower = tx.source.lower()
         if source_lower not in ("income", "reward", "interest"):

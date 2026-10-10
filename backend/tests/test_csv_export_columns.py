@@ -29,6 +29,7 @@ EXPORTED = {
     "fmv_usd": "fmv_usd",
     "broker_reporting": "broker_reporting",
     "fee_usd_manual": "fee_usd_typed",
+    "cost_basis_from_price": "cost_basis_typed",
 }
 
 NOT_EXPORTED = {

@@ -254,6 +254,7 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
         "source": row.source or "",
         "purpose": row.purpose or "",
         "notes": "",
+        "cost_basis_typed": row.cost_basis_typed or "",
     }
 
 

@@ -52,13 +52,12 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_WALLET, INCOME_SOURCES
+from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.calculation import btc_text
 from backend.services.tax_time import as_utc, get_tax_timezone
 
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 # key -> (title, what the owner can do)
 CHECKS: dict[str, tuple] = {
