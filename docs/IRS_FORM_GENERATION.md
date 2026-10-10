@@ -270,6 +270,14 @@ Schedule D field names are in `get_schedule_d_field_config(year)`. The only
    can't be edited. `flatten=False` keeps the fillable form, and the tests use
    it to read values back.
 
+The printed (flattened) forms are read back too: `backend/tests/printed_forms.py`
+finds each value where it is drawn on the page, using only the template's
+own layout (rows by field name, columns by position, checkboxes top to
+bottom), and `test_printed_forms.py` checks the PDFs of the test ledgers:
+every row once in its box, (d) - (e) = (h), one box and line 2 per page,
+Schedule D lines = their boxes' sheets, and the Complete Tax Report's box
+table.
+
 The endpoint then concatenates the flattened PDFs with pypdf.
 
 ## Errors
@@ -286,6 +294,6 @@ The endpoint then concatenates the flattened PDFs with pypdf.
 
 ```bash
 python -m pytest -q backend/tests/test_irs_templates.py backend/tests/test_1099da_boxes.py backend/tests/test_2025_forms.py \
-    backend/tests/test_draft_forms.py
+    backend/tests/test_draft_forms.py backend/tests/test_printed_forms.py
 make test    # full suite
 ```

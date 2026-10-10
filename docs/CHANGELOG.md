@@ -27,6 +27,13 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **The printed forms are read back by the tests (#80, first part).** A QA
+  pass of a 2026 draft found defects only the printed PDF showed. The new
+  `test_printed_forms.py` reads each value of the flattened Form 8949 and
+  Schedule D where it is drawn, for the full test ledger and the golden one,
+  and checks every row is printed once in its box with its figures, each
+  row and page adds up, Schedule D's lines are their boxes' sheets, and the
+  Complete Tax Report's box table shows the same figures.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.
