@@ -63,7 +63,7 @@ The configuration holds your AI key: anyone who can read it can do what the key 
 
 If BitcoinTX's address changes (StartOS can give it a new port after you restore it from a backup), run **Connect an AI Assistant** again and update `BTCTX_URL` in your AI app.
 
-After each BitcoinTX update, update the connector too: in your AI app's configuration, change the version after `btctx-mcp==` to the version the **Connect an AI Assistant** action shows, and restart the AI app. Your AI key stays the same; don't paste the action's whole configuration over yours, since it has placeholders for the key and the certificate path. Until you do, the assistant's replies say which version to set. Where to change it in each AI app: [Updating](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#updating).
+After each BitcoinTX update, update the connector too: in your AI app's configuration, change the version after `btctx-mcp==` to the version the **Connect an AI Assistant** action shows, and restart the AI app. Your AI key stays the same; don't paste the action's whole configuration over yours, since it has placeholders for the key and the certificate path. Until you update it, the assistant's replies say which version to set. Where to change it in each AI app: [Updating](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#updating).
 
 ### Actions
 
