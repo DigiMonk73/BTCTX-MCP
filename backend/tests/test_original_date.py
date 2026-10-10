@@ -180,3 +180,70 @@ def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):
     after = con.execute("SELECT * FROM transactions").fetchall()
     con.close()
     assert [row[:-1] for row in after] == before and after[0][-1] is None
+
+
+def test_coins_acquired_the_morning_of_the_deposit_are_allowed(auth_client):
+    """Days compare in the tax timezone: a date alone (noon) on the day of a
+    10:00 deposit is fine, and is stored no later than the deposit itself."""
+    tx = deposit(auth_client, timestamp="2025-04-01T10:00:00Z", acquired_at="2025-04-01")
+    assert tx["acquired_at"] == "2025-04-01T10:00:00Z"
+
+
+def test_a_date_alone_is_noon_in_the_tax_timezone(auth_client, test_engine):
+    """Column (b) shows the date given, in a New York tax timezone too: read as
+    midnight UTC it would be the day before there."""
+    before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    try:
+        tx = deposit(auth_client, acquired_at="2023-03-14")
+        assert tx["acquired_at"] == "2023-03-14T16:00:00Z"
+        sell(auth_client)
+        assert rows_2025(test_engine)[0]["date_acquired"] == "03/14/2023"
+    finally:
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+
+
+@pytest.mark.parametrize("cells, message", [
+    ("Deposit,0.1,External,Exchange BTC,5000,Income,2023-03-14", "only for a My BTC or Gift deposit"),
+    ("Deposit,0.1,External,Exchange BTC,2000,MyBTC,2025-04-02", "can't be after the deposit's date"),
+    ("Buy,0.1,Bank,Exchange BTC,2000,,2023-03-14", "only for a My BTC or Gift deposit"),
+])
+def test_the_csv_preview_names_a_row_whose_date_cant_apply(auth_client, cells, message):
+    body = ("date,type,amount,from_account,to_account,cost_basis_usd,source,acquired_at\n"
+            f"2025-04-01T09:00:00Z,{cells}\n")
+    r = auth_client.post("/api/import/preview", files={"file": ("x.csv", io.BytesIO(body.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    [error] = r.json()["errors"]
+    assert (error["row_number"], error["column"]) == (2, "acquired_at") and message in error["message"]
+
+
+@pytest.mark.parametrize("changes", [
+    {"type": "Buy", "from_account_id": BANK, "to_account_id": EXCH_BTC},
+    {"to_account_id": BANK, "amount": "100", "fee_currency": "USD", "cost_basis_usd": None},
+])
+def test_an_edit_to_another_type_or_account_drops_the_date(auth_client, changes):
+    tx = deposit(auth_client, acquired_at=TWO_YEARS_BEFORE)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json=changes)
+    assert r.status_code == 200, r.text
+    assert r.json()["acquired_at"] is None
+
+
+def test_an_edit_that_moves_the_deposit_before_its_date_is_refused(auth_client):
+    tx = deposit(auth_client, acquired_at="2025-03-01T12:00:00Z")
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"timestamp": "2025-02-01T12:00:00Z"})
+    assert r.status_code == 422 and "can't be after the deposit's date" in r.text
+
+
+def test_a_sale_before_the_deposit_never_uses_its_coins(auth_client, test_engine):
+    """The lot exists only from the deposit on: a February sale uses the
+    January Buy, though the April deposit's coins were acquired earlier."""
+    post(auth_client, type="Deposit", timestamp="2025-01-02T12:00:00Z", from_account_id=EXTERNAL,
+         to_account_id=EXCH_USD, amount="50000", fee_amount="0", fee_currency="USD", source="N/A")
+    post(auth_client, type="Buy", timestamp="2025-01-10T12:00:00Z", from_account_id=EXCH_USD,
+         to_account_id=EXCH_BTC, amount="0.1", cost_basis_usd="9500", fee_amount="0", fee_currency="USD")
+    sell(auth_client, when="2025-02-01T12:00:00Z", amount="0.05")
+    deposit(auth_client, acquired_at=TWO_YEARS_BEFORE)
+    sell(auth_client, when="2025-07-01T12:00:00Z", amount="0.1")
+    rows = sorted(rows_2025(test_engine), key=lambda r: r["date_sold"])
+    assert [(r["date_sold"], r["date_acquired"]) for r in rows] == [
+        ("02/01/2025", "01/10/2025"), ("07/01/2025", "03/14/2023")]

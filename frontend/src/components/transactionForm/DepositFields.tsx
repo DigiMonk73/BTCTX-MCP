@@ -7,16 +7,16 @@ const INCOME_SOURCES = ["Income", "Interest", "Reward"];
 
 /** A deposit; a BTC one also has its source and cost basis. */
 const DepositFields: React.FC = () => {
-  const { register, watch, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
+  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
   const account = watch("account");
   const currency = watch("currency");
   const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
   const showSource = account === "Wallet" || (account === "Exchange" && currency === "BTC");
   // Income: basis = market value at receipt (the server fills a blank one)
-  const isIncome = INCOME_SOURCES.includes(watch("source") ?? "");
-  watch("type");
+  const source = watch("source");
+  const isIncome = INCOME_SOURCES.includes(source ?? "");
   // Coins already owned, or a gift: their holding period runs from when they were first acquired
-  const showOriginalDate = takesOriginalDate(getValues());
+  const showOriginalDate = takesOriginalDate({ type: "Deposit", account, currency, source });
 
   return (
     <>

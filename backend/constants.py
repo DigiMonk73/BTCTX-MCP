@@ -48,3 +48,6 @@ BROKER_REPORTING_TYPES = ("Sell", "Withdrawal")
 # Deposit sources that are ordinary income: the BTC's market value at receipt
 # is both its cost basis and the income on the tax report (lowercase).
 INCOME_SOURCES = frozenset({"income", "interest", "reward"})
+# Deposit sources whose coins can have been acquired before the deposit (a
+# date originally acquired, #91): the user's own, or a gift with the giver's basis
+ORIGINAL_DATE_SOURCES = frozenset({"mybtc", "gift"})

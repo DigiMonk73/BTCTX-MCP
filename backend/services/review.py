@@ -49,7 +49,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_WALLET, INCOME_SOURCES
+from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_WALLET, INCOME_SOURCES, ORIGINAL_DATE_SOURCES
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.tax_time import as_utc, get_tax_timezone
@@ -259,7 +259,7 @@ def _row_issues(t: Transaction, tz):
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() in ("mybtc", "gift") and t.acquired_at is None:
+            and (t.source or "").lower() in ORIGINAL_DATE_SOURCES and t.acquired_at is None:
         yield "original_date_missing", _item(
             t, tz, "No date originally acquired: the holding period starts at this deposit.",
             "With the date the coins were first acquired, a sale more than a year after it is long-term.",

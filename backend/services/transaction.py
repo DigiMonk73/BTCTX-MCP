@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.services import price_history
-from backend.services.tax_time import get_tax_timezone
+from backend.services.tax_time import as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
     ACCOUNT_WALLET,
     ACCOUNT_BANK,
@@ -28,6 +28,7 @@ from backend.constants import (
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
     INCOME_SOURCES,
+    ORIGINAL_DATE_SOURCES,
 )
 
 logger = logging.getLogger(__name__)
@@ -713,7 +714,7 @@ def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
             BitcoinLot.remaining_btc > 0,
             Transaction.to_account_id == account_id
         )
-        .order_by(BitcoinLot.acquired_date.asc())
+        .order_by(BitcoinLot.acquired_date.asc(), BitcoinLot.id.asc())  # the same date: the first entered
         .all()
     )
 
@@ -1237,7 +1238,7 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
         _check_sell_proceeds(data, fee)
     _set_canonical_spellings(data)
     _check_type_requirements(data, tx_type, check_source, from_acct, to_acct)
-    _check_original_date(data, tx_type, to_acct)
+    _check_original_date(data, tx_type, to_acct, db)
 
 
 def _checked_type(data: dict) -> str:
@@ -1352,31 +1353,45 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
         _bad(DEPOSIT_BASIS_REQUIRED)
 
 
-# Deposit sources whose coins can have been acquired before the deposit: the
-# user's own (My BTC), or a gift received with the giver's basis
-ORIGINAL_DATE_SOURCES = ("mybtc", "gift")
-
-
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:
     return tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
         and (source or "").lower() in ORIGINAL_DATE_SOURCES
 
 
-def _check_original_date(data: dict, tx_type: str, to_acct: Account | None) -> None:
-    """A date originally acquired only on a My BTC or Gift deposit into a BTC
-    account, after Bitcoin began and not after the deposit; whole seconds."""
+def original_date_problem(tx_type: str | None, source: str | None, into_btc: bool, acquired: datetime,
+                          deposit: datetime, tz) -> str | None:
+    """
+    Why a date originally acquired can't go on this row, or None. Only on a
+    My BTC or Gift deposit into a BTC account, after Bitcoin began, and no
+    later than the deposit's day: compared as days in the tax timezone, so
+    coins first acquired the morning of a deposit made at noon are allowed.
+    """
+    if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
+        return "A date originally acquired is only for a My BTC or Gift deposit into Wallet or Exchange BTC."
+    if as_utc(acquired) < GENESIS:
+        return "The date originally acquired is before Bitcoin existed (3 January 2009)."
+    if local_date(acquired, tz) > local_date(deposit, tz):
+        return "The date originally acquired can't be after the deposit's date."
+    return None
+
+
+def _check_original_date(data: dict, tx_type: str, to_acct: Account | None, db: Session) -> None:
+    """
+    The date originally acquired, checked and stored in whole seconds. A
+    date alone means noon in the tax timezone, as everywhere. Never stored
+    after the deposit itself, so its lot can't sort after its own arrival.
+    """
     acquired = data.get("acquired_at")
     if acquired is None:
         return
-    if not _takes_original_date(tx_type, data.get("source"), to_acct):
-        _bad("A date originally acquired is only for a My BTC or Gift deposit into Wallet or Exchange BTC.")
-    acquired_utc = acquired if acquired.tzinfo else acquired.replace(tzinfo=timezone.utc)
-    deposit = data["timestamp"] if data["timestamp"].tzinfo else data["timestamp"].replace(tzinfo=timezone.utc)
-    if acquired_utc < GENESIS:
-        _bad("The date originally acquired is before Bitcoin existed (3 January 2009).")
-    if acquired_utc > deposit:
-        _bad("The date originally acquired can't be after the deposit's date.")
-    data["acquired_at"] = acquired.replace(microsecond=0)
+    tz = get_tax_timezone(db)
+    if not isinstance(acquired, datetime):
+        acquired = local_noon_utc(acquired, tz)
+    into_btc = to_acct is not None and to_acct.currency == "BTC"
+    problem = original_date_problem(tx_type, data.get("source"), into_btc, acquired, data["timestamp"], tz)
+    if problem:
+        _bad(problem)
+    data["acquired_at"] = min(as_utc(acquired), as_utc(data["timestamp"])).replace(microsecond=0)
 
 
 def _fill_fee_currency(data: dict, db: Session) -> bool:

@@ -80,7 +80,9 @@ All notable changes to BitcoinTX are documented in this file.
     (migration 0007 adds an empty column).
   - What to do: open Ledger Review (Settings). Its new check lists My BTC
     and Gift deposits without an original date; enter the date for each one
-    you know, then download your forms again.
+    you know, then download your forms again. A date can change the term
+    and basis of sales in years already filed (those coins are then sold
+    first): ask your tax professional whether to amend.
   - Not covered: the gift rule for coins worth less on the day of the gift
     than the giver paid (IRC §1015), which needs the day's value (#104).
 

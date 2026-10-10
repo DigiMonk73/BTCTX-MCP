@@ -298,6 +298,13 @@ Start from the `clean` snapshot.
   deleted successfully!". Wallet (BTC) 0.37970000. Re-enter #9, which
   makes it a backdated entry. Expect: every golden figure is back, Wallet
   0.39970000.
+- **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
+  on `2025-04-01`, cost basis `500`. Expect a **Date originally acquired**
+  field (it isn't there for Income or for a Bank deposit); enter
+  `2023-03-14` and save. Edit it: the field shows 03/14/2023 (the same day
+  in any tax timezone). Ledger Review doesn't list it under "My BTC and
+  Gift deposits without a date originally acquired". Delete it. Expect:
+  every golden figure as before.
 - **GLD-7** Open **Add transaction**, type an Amount, then click outside the
   panel. Expect: "Discard changes?". **Go back** keeps the panel; **Discard
   changes** closes it with nothing saved.

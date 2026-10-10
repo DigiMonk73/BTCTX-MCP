@@ -114,7 +114,8 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       currency: accountCurrency(accountId),
       amount: tx.amount,
       source: (tx.source ?? "N/A") as DepositSource,
-      acquiredDate: tx.acquired_at ? toDatetimeLocal(new Date(tx.acquired_at)).slice(0, 10) : undefined,
+      // Stored at noon in the tax timezone: its UTC date is that day
+      acquiredDate: tx.acquired_at ? new Date(tx.acquired_at).toISOString().slice(0, 10) : undefined,
     };
   },
   Withdrawal: (tx) => {
@@ -225,17 +226,18 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
 /** Deposit sources whose coins may have been acquired before the deposit. */
 const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift"];
 
-/** Whether the form shows "Date originally acquired": a My BTC or Gift
- * deposit into Wallet or Exchange BTC. */
-export function takesOriginalDate(data: TransactionFormData): boolean {
+/** Whether a deposit takes "Date originally acquired": My BTC or Gift into
+ * Wallet or Exchange BTC. */
+export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
   const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
   return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
 }
 
-/** The date originally acquired, at noon local time (safely inside that
- * day); null = none, so an edit to another source clears it. */
+/** The date originally acquired, as a date alone (the server reads it as
+ * noon in the tax timezone); null = none, so an edit to another source
+ * clears it. */
 function acquiredAt(data: TransactionFormData): string | null {
-  return takesOriginalDate(data) && data.acquiredDate ? localDatetimeToIso(`${data.acquiredDate}T12:00`) : null;
+  return takesOriginalDate(data) && data.acquiredDate ? data.acquiredDate : null;
 }
 
 /**

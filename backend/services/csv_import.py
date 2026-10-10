@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.services.transaction import (
-    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record,
+    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record, original_date_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -214,13 +214,16 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
+    if acquired_at is not None:
+        problem = original_date_problem(tx_type, options["source"], to_id in BTC_ACCOUNTS, acquired_at, timestamp, tz)
+        if problem:
+            raise _Rejected(_error(row_number, "acquired_at", problem))
     return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
                 acquired_at=acquired_at)
 
 
 def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
-    """A My BTC or Gift deposit's date originally acquired, read like `date`;
-    whether the row may carry one is checked when it's saved."""
+    """A My BTC or Gift deposit's date originally acquired, read like `date`."""
     text = (row.get("acquired_at") or "").strip()
     if not text:
         return None
