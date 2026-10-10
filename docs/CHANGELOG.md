@@ -51,6 +51,10 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **The before-and-after check hides the report's time again.** Since 1.2.5
+  the Complete Tax Report prints when it was made on a "GENERATED" line,
+  which `scripts/equivalence_check.py` didn't mask, so every comparison
+  showed a difference there. Needed for the 1.2.6 tax-figure fixes.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.
