@@ -187,6 +187,7 @@ hidden_imports = [
 
     # Desktop entrypoint helpers (desktop/)
     "desktop_ports",
+    "desktop_paths",
 
     # WebView
     "webview",
