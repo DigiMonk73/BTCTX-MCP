@@ -668,6 +668,19 @@ Start from the `clean` snapshot.
 
 ## Track C: the Mac app (only on a Mac)
 
+**On a Mac where BitcoinTX is already installed, its data folder is a real
+ledger: never install or `open` the build there.** Unpack the artifact
+anywhere and run the binary on a throwaway data folder and another port
+(`docs/MACOS_DESKTOP_APP.md`, "Testing a build"):
+
+```bash
+BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 BitcoinTX.app/Contents/MacOS/BitcoinTX
+```
+
+Then read 8766 for 8765 and that folder for `~/Library/Application
+Support/BitcoinTX/` below, skip MAC-1's drag to Applications, and run MAC-4's
+connector with `BTCTX_MCP_FILE` set to that folder's `mcp.json`.
+
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
   open it: Control-click > Open, or on macOS 15+ System Settings > Privacy
   & Security > **Open Anyway**. Expect: the app window with BitcoinTX, and

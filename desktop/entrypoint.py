@@ -16,6 +16,7 @@ import logging.handlers
 import base64
 from pathlib import Path
 
+from desktop_paths import DATA_DIR_ENV, data_dir, data_dir_override, log_dir
 from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -24,16 +25,17 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 def setup_logging() -> None:
     """
     Log to stderr and, on macOS, to ~/Library/Logs/BitcoinTX/BitcoinTX.log
-    (rotating): a Finder-launched app has no terminal, so without the file
-    nothing it logs (such as why it couldn't use its port) is kept.
+    (rotating; desktop_paths.log_dir): a Finder-launched app has no terminal,
+    so without the file nothing it logs (such as why it couldn't use its
+    port) is kept.
     """
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if sys.platform == "darwin":
-        log_dir = Path.home() / "Library" / "Logs" / "BitcoinTX"
+        folder = log_dir()
         try:
-            log_dir.mkdir(parents=True, exist_ok=True)
+            folder.mkdir(parents=True, exist_ok=True)
             handlers.append(logging.handlers.RotatingFileHandler(
-                log_dir / "BitcoinTX.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+                folder / "BitcoinTX.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
             ))
         except OSError as exc:
             print(f"BitcoinTX: no log file ({exc})", file=sys.stderr)
@@ -42,16 +44,6 @@ def setup_logging() -> None:
 
 setup_logging()
 logger = logging.getLogger("BitcoinTX")
-
-
-def get_application_support_dir() -> Path:
-    """
-    Returns the macOS Application Support directory for BitcoinTX.
-    Creates it if it doesn't exist.
-    """
-    app_support = Path.home() / "Library" / "Application Support" / "BitcoinTX"
-    app_support.mkdir(parents=True, exist_ok=True)
-    return app_support
 
 
 def get_resource_path(relative_path: str) -> Path:
@@ -187,7 +179,9 @@ def main():
     import webview
 
     # Set up data directory
-    app_support = get_application_support_dir()
+    app_support = data_dir()
+    if data_dir_override() is not None:
+        logger.info(f"Test data folder from {DATA_DIR_ENV}: {app_support}")
     db_path = app_support / "btctx.db"
 
     # Set environment variables before importing backend

@@ -16,6 +16,7 @@ Quick start for building: [desktop/README.md](../desktop/README.md).
 BitcoinTX.app
    └─ desktop/entrypoint.py
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
+        │    (or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
         ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward, exits
         ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
@@ -92,7 +93,26 @@ The script:
 6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
    (`brew install create-dmg`)
 
-Output: `desktop/dist/BitcoinTX.app`. Test with `open desktop/dist/BitcoinTX.app`.
+Output: `desktop/dist/BitcoinTX.app`.
+
+### Testing a build
+
+**Never test a build with `open desktop/dist/BitcoinTX.app` on a Mac where
+BitcoinTX is installed:** it would open the real ledger in
+`~/Library/Application Support/BitcoinTX/`. Run the binary on a throwaway
+data folder instead, and on another port if the installed app is open:
+
+```bash
+BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 \
+  desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
+```
+
+`BTCTX_DESKTOP_DATA_DIR` holds everything the app would keep in Application
+Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
+(`logs/BitcoinTX.log`); the log line "Test data folder from
+BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The MCP server looks for the
+installed app's `mcp.json`; point it at the test run's with
+`BTCTX_MCP_FILE=<that folder>/mcp.json`.
 
 ### Manual build
 
@@ -115,7 +135,8 @@ PYTHONPATH=. python desktop/entrypoint.py
 (`PYTHONPATH=.` is needed so Uvicorn can import `backend.main`.)
 
 In this mode the backend serves `frontend/dist` from the repo and still uses
-the Application Support database.
+the Application Support database, the real ledger: set
+`BTCTX_DESKTOP_DATA_DIR` (and `BTCTX_DESKTOP_PORT`) as above.
 
 ## BitcoinTX.spec
 

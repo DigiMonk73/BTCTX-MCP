@@ -27,6 +27,12 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **A Mac app build can be tested without touching a real ledger.**
+  `BTCTX_DESKTOP_DATA_DIR` runs the app on another data folder, its log
+  included (`desktop/desktop_paths.py`). The Mac docs and the agent release
+  tests' Track C no longer say to `open` a build, which would open the
+  installed app's ledger; they give the command for a throwaway folder and
+  another port.
 - **Start9's rules win for everything Start9 governs, now written down.**
   That's the StartOS package, the mirror, which pages Start9's support
   indexes, and everything sent to their fork. The app, its Docker image

@@ -28,8 +28,12 @@ PyInstaller.
 Output: `desktop/dist/BitcoinTX.app` (plus `BitcoinTX.dmg` if `create-dmg`
 is installed).
 
+To try the build, never `open` it on a Mac where BitcoinTX is installed:
+that opens the real ledger. Run it on a throwaway data folder (and another
+port, if the installed app is open):
+
 ```bash
-open desktop/dist/BitcoinTX.app
+BTCTX_DESKTOP_DATA_DIR="$(mktemp -d)" BTCTX_DESKTOP_PORT=8766 desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
 ```
 
 ## Runtime
@@ -39,7 +43,8 @@ open desktop/dist/BitcoinTX.app
   (this session only) or Quit.
 - Data: `~/Library/Application Support/BitcoinTX/`: `btctx.db`, the
   per-install session key `.btctx_secret_key`, `mcp.json` (the AI
-  key) and `backups/`.
+  key) and `backups/`. `BTCTX_DESKTOP_DATA_DIR` puts them (and the log, in
+  `logs/`) in another folder, for testing.
 - Log: `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
 - MCP server: needs no settings; it reads `mcp.json`. Turn on **Settings →
   Connect an AI Assistant → Let AI assistants use BitcoinTX** first (off by
@@ -62,6 +67,7 @@ open desktop/dist/BitcoinTX.app
 |------|---------|
 | `entrypoint.py` | Launcher: sets data paths, starts Uvicorn, opens the pywebview window |
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
+| `desktop_paths.py` | The data and log folders (`BTCTX_DESKTOP_DATA_DIR` for a test run) |
 | `BitcoinTX.spec` | PyInstaller configuration (hidden imports, bundle version) |
 | `build-mac.sh` | Build script |
 | `requirements.in` | Desktop-only packages (pyinstaller, pywebview, and setuptools to build proxy-tools), pinned |
