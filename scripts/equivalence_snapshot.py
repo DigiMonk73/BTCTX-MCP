@@ -57,8 +57,9 @@ VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 VOLATILE_MCP_KEYS = {"file", "created"}
 VOLATILE_SETTINGS = ("key_sha256",)
 
-# The complete tax report prints the moment it was made.
-REPORT_MOMENT = re.compile(r"^Date: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", re.M)
+# The complete tax report prints the moment it was made: "Date: <time>"
+# up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.
+REPORT_MOMENT = re.compile(r"^(Date: )?\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}( UTC)?$", re.M)
 
 
 def take(out: Path, work: Path, bench: bool) -> None:
@@ -292,7 +293,7 @@ def _year_reports(instance: Instance, year: int) -> dict:
     complete = answer(client.get("/api/reports/complete_tax_report", params={"year": year}))
     if isinstance(complete["body"], dict):
         del complete["body"]["sha256"]  # it holds the moment the report was made
-        complete["body"]["pages"] = [REPORT_MOMENT.sub("Date: <now>", p) for p in complete["body"]["pages"]]
+        complete["body"]["pages"] = [REPORT_MOMENT.sub(r"\1<now>\2", p) for p in complete["body"]["pages"]]
     reports["complete"] = complete
     reports["complete_data_and_pdf"] = _complete_report(instance, year)
     for fmt in ("pdf", "csv"):
