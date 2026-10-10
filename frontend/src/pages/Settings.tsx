@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import AboutSetting from "../components/AboutSetting";
 import AccountSettings from "../components/AccountSettings";
 import BackupRestore from "../components/BackupRestore";
 import ConnectAiSetting from "../components/ConnectAiSetting";
@@ -11,7 +12,7 @@ import "../styles/settings.css";
 /**
  * The Settings page. The Account, Data Management and Backup & Restore
  * sections share one action at a time (their buttons wait while one runs)
- * and the message line at the bottom.
+ * and the message line below them. About BitcoinTX comes last.
  */
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -30,6 +31,7 @@ const Settings: React.FC = () => {
         <RiverImport />
         <BackupRestore {...section} />
         {message && <p className="note settings-message" role="status">{message}</p>}
+        <AboutSetting />
       </div>
     </div>
   );
