@@ -494,7 +494,7 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed`
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
   export downloaded." appears.
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both

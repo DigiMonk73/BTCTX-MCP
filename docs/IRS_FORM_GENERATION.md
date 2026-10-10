@@ -223,7 +223,7 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 | Col | Offset | Value |
 |---|---|---|
 | (a) | 0 | `"<disposed_btc> BTC"` |
-| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone) |
+| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone): the lot's, which for a My BTC or Gift deposit is its date originally acquired when given |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |
 | (e) | 4 | cost basis, 2 decimals |

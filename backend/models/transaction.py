@@ -165,6 +165,16 @@ class Transaction(Base):
             "account values it again. A typed value is kept."
         ),
     )
+    # After cost_basis_from_price, where migration 0007 added it
+    acquired_at = Column(
+        UTCDateTime,
+        nullable=True,
+        doc=(
+            "A My BTC or Gift deposit's date originally acquired: its lot's "
+            "acquisition date (holding period, Form 8949 column (b), FIFO). "
+            "NULL: the deposit's own date."
+        ),
+    )
 
     ledger_entries = relationship(
         "LedgerEntry",

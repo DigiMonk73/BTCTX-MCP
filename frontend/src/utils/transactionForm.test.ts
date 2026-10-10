@@ -208,6 +208,27 @@ describe("blank means not given (F1)", () => {
   });
 });
 
+describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
+  it("round-trips the date, sent at noon local time", () => {
+    const body = roundTrip({
+      type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
+      fee_currency: "BTC", source: "MyBTC", acquired_at: new Date(2021, 2, 14, 12).toISOString(),
+    });
+    expect(body.acquired_at).toBe(new Date(2021, 2, 14, 12).toISOString());
+  });
+
+  it("is sent only for My BTC or Gift into a BTC account; otherwise null", () => {
+    const deposit = (fields: Partial<TransactionFormData>) => buildTransactionPayload({
+      type: "Deposit", timestamp: "2025-03-01T12:00", fee: 0, account: "Wallet", currency: "BTC", amount: 0.1,
+      costBasisUSD: 10, acquiredDate: "2021-03-14", ...fields,
+    } as TransactionFormData).acquired_at;
+    expect(deposit({ source: "Gift" })).toBe(new Date(2021, 2, 14, 12).toISOString());
+    expect(deposit({ source: "Income" })).toBeNull();
+    expect(deposit({ source: "MyBTC", account: "Bank", currency: "USD" })).toBeNull();
+    expect(deposit({ source: "MyBTC", acquiredDate: "" })).toBeNull();
+  });
+});
+
 describe("a BTC fee's USD value (F14)", () => {
   const transfer = {
     type: "Transfer" as TransactionType,

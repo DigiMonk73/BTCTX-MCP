@@ -20,6 +20,10 @@ Checks:
   than 5% away from fee x that day's price: most likely valued at the live
   price when the day's lookup failed. apply_fee_prices() fixes the ones the
   owner picks (login only), then recalculates.
+- original_date_missing (#91): a My BTC or Gift deposit into a BTC account
+  with no date originally acquired: its holding period starts at the
+  deposit. Coins held before then are long-term sooner; only the owner
+  knows when they were acquired, so nothing fills it.
 - income_value_off (F42): an income deposit whose basis is more than 5%
   away from amount x that day's price. Before v0.9.2 a lookup for a date
   more than about two years back could return another day's price. Only
@@ -75,6 +79,11 @@ CHECKS: dict[str, tuple] = {
         "Transfer fees valued far from that day's price (probably at the live price)",
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
+    ),
+    "original_date_missing": (
+        "My BTC and Gift deposits without a date originally acquired",
+        "If you held these coins before this deposit, edit it and enter when they were first acquired "
+        "(by the giver, for a gift): the holding period and Form 8949's date acquired use it.",
     ),
     "income_value_off": (
         "Income deposits valued far from that day's price",
@@ -248,6 +257,12 @@ def _row_issues(t: Transaction, tz):
         yield "lost_with_loss", _item(
             t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
             "Gain becomes $0.00 after Recalculate Ledger.",
+        )
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() in ("mybtc", "gift") and t.acquired_at is None:
+        yield "original_date_missing", _item(
+            t, tz, "No date originally acquired: the holding period starts at this deposit.",
+            "With the date the coins were first acquired, a sale more than a year after it is long-term.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() not in INCOME_SOURCES and _is_zero_or_blank(t.cost_basis_usd):

@@ -83,6 +83,14 @@ class TransactionBase(BaseModel):
 
     source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
     purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
+    acquired_at: datetime | None = Field(
+        default=None,
+        description=(
+            "My BTC or Gift deposit into a BTC account only: when the coins were "
+            "originally acquired (by the giver, for a gift). The holding period and "
+            "Form 8949 column (b) use it. Omit or null: the deposit's own date."
+        ),
+    )
     broker_reporting: BrokerReporting | None = Field(
         default=None,
         description=(
@@ -124,7 +132,7 @@ class TransactionBase(BaseModel):
     )
     holding_period: str | None = None  # e.g., "SHORT", "LONG"
 
-    @field_validator("timestamp")
+    @field_validator("timestamp", "acquired_at")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
         Ensures timestamps are UTC for consistent audit trails.
@@ -187,6 +195,7 @@ class TransactionUpdate(BaseModel):
 
     source: str | None = None
     purpose: str | None = None
+    acquired_at: datetime | None = None  # My BTC / Gift deposits; send null for the deposit's date
     broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
 
     cost_basis_usd: Decimal | None = None
@@ -197,7 +206,7 @@ class TransactionUpdate(BaseModel):
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
 
-    @field_validator("timestamp")
+    @field_validator("timestamp", "acquired_at")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
         Ensures updated timestamps remain UTC-consistent.

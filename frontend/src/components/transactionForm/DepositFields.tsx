@@ -1,18 +1,22 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
+import { takesOriginalDate } from "../../utils/transactionForm";
 
 const INCOME_SOURCES = ["Income", "Interest", "Reward"];
 
 /** A deposit; a BTC one also has its source and cost basis. */
 const DepositFields: React.FC = () => {
-  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  const { register, watch, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
   const account = watch("account");
   const currency = watch("currency");
   const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
   const showSource = account === "Wallet" || (account === "Exchange" && currency === "BTC");
   // Income: basis = market value at receipt (the server fills a blank one)
   const isIncome = INCOME_SOURCES.includes(watch("source") ?? "");
+  watch("type");
+  // Coins already owned, or a gift: their holding period runs from when they were first acquired
+  const showOriginalDate = takesOriginalDate(getValues());
 
   return (
     <>
@@ -33,6 +37,17 @@ const DepositFields: React.FC = () => {
             <option value="Interest">Interest</option>
             <option value="Reward">Reward</option>
           </select>
+        </div>
+      )}
+
+      {showOriginalDate && (
+        <div className="field">
+          <label htmlFor="tx-acquired-date">Date originally acquired</label>
+          <input id="tx-acquired-date" type="date" className="input" {...register("acquiredDate")} />
+          <small className="field-hint">
+            Optional: when you first got these coins (for a gift, when the giver did). The holding period
+            and Form 8949&apos;s date acquired count from it; blank uses this deposit&apos;s date.
+          </small>
         </div>
       )}
 

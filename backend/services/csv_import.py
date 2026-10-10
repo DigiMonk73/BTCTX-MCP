@@ -47,14 +47,15 @@ REQUIRED_COLUMNS = {
 # gift's, donation's or lost BTC's fair market value, the Broker form
 # override (none / proceeds / basis; blank: automatic), whether that fee
 # value was typed (yes, or blank) or priced from the day (no: kept, but
-# priced again if the date or fee is edited), and the same for an income
+# priced again if the date or fee is edited), the same for an income
 # deposit's cost basis (no: priced again if its amount, day or account is
-# edited).
+# edited), and a My BTC or Gift deposit's date originally acquired (blank:
+# the deposit's date).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
-    "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed",
+    "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed", "acquired_at",
 ]
 
 # Withdrawal purposes that aren't a sale; only these carry an FMV
@@ -173,6 +174,7 @@ class _Row:
     broker_reporting: str | None
     fee_usd_typed: str
     cost_basis_typed: str
+    acquired_at: datetime | None = None
 
 
 def _validate_row(
@@ -211,7 +213,23 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
         raise _Rejected(*account_errors)
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
-    return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options)
+    acquired_at = _optional_acquired_at(row, row_number, tz)
+    return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
+                acquired_at=acquired_at)
+
+
+def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
+    """A My BTC or Gift deposit's date originally acquired, read like `date`;
+    whether the row may carry one is checked when it's saved."""
+    text = (row.get("acquired_at") or "").strip()
+    if not text:
+        return None
+    acquired = _parse_date(text, tz)
+    if acquired is None:
+        raise _Rejected(_error(
+            row_number, "acquired_at", f"Invalid acquired_at '{text}'. Use a date such as 2021-03-14.",
+        ))
+    return acquired
 
 
 def _required_date(row: dict[str, str], row_number: int, tz) -> datetime:
@@ -334,6 +352,8 @@ def _transaction_data(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any
     tx_data.update(_fmv_fields(row, warnings))
     if row.broker_reporting:
         tx_data["broker_reporting"] = row.broker_reporting
+    if row.acquired_at:
+        tx_data["acquired_at"] = row.acquired_at
     return tx_data
 
 

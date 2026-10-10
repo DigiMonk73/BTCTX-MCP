@@ -118,6 +118,8 @@ def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
     for key in ("fee_currency", "source", "purpose"):
         if tx_data.get(key):
             view[key] = tx_data[key]
+    if tx_data.get("acquired_at"):
+        view["acquired_at"] = tx_data["acquired_at"].astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return view
 
 
@@ -138,6 +140,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             "source": row.source or "",
             "purpose": row.purpose or "",
             "notes": "",
+            "acquired_at": _normalize_date(row.acquired_at, tz) if row.acquired_at else "",
         }
         tx_data, _preview, errors, warnings = _validate_row(str_row, i)
         error_msgs = [e.message for e in errors]

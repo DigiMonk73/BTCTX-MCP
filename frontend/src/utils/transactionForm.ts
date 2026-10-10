@@ -114,6 +114,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       currency: accountCurrency(accountId),
       amount: tx.amount,
       source: (tx.source ?? "N/A") as DepositSource,
+      acquiredDate: tx.acquired_at ? toDatetimeLocal(new Date(tx.acquired_at)).slice(0, 10) : undefined,
     };
   },
   Withdrawal: (tx) => {
@@ -221,6 +222,22 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
   return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
 }
 
+/** Deposit sources whose coins may have been acquired before the deposit. */
+const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift"];
+
+/** Whether the form shows "Date originally acquired": a My BTC or Gift
+ * deposit into Wallet or Exchange BTC. */
+export function takesOriginalDate(data: TransactionFormData): boolean {
+  const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
+  return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
+}
+
+/** The date originally acquired, at noon local time (safely inside that
+ * day); null = none, so an edit to another source clears it. */
+function acquiredAt(data: TransactionFormData): string | null {
+  return takesOriginalDate(data) && data.acquiredDate ? localDatetimeToIso(`${data.acquiredDate}T12:00`) : null;
+}
+
 /**
  * A BTC fee's USD value (transfers and BTC withdrawals): typed -> kept;
  * cleared after being typed -> null (back to the day's price); otherwise
@@ -258,6 +275,7 @@ export function buildTransactionPayload(
     source: values.source,
     purpose: values.purpose,
     broker_reporting: brokerReporting(data),
+    acquired_at: acquiredAt(data),
     ...(fee_usd !== undefined ? { fee_usd } : {}),
   };
 }

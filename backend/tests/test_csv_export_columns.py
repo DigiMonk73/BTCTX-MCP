@@ -30,6 +30,7 @@ EXPORTED = {
     "broker_reporting": "broker_reporting",
     "fee_usd_manual": "fee_usd_typed",
     "cost_basis_from_price": "cost_basis_typed",
+    "acquired_at": "acquired_at",
 }
 
 NOT_EXPORTED = {
