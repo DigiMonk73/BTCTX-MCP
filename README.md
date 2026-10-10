@@ -51,6 +51,23 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
 
+## One wallet, one exchange
+
+BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
+**Exchange** (USD and BTC) and one **Bank**. The two bitcoin accounts, Wallet
+and Exchange, each keep their own FIFO lots. That fits someone who keeps their
+bitcoin in one wallet and buys and sells through one exchange.
+
+If you hold bitcoin in **several** wallets or exchanges, they all go into
+those two accounts. Since January 1, 2025, IRS rules require cost basis to be
+figured wallet by wallet, and exchange by exchange (Treas. Reg. §1.1012-1(j);
+Rev. Proc. 2024-28 for coins held on that date). So BitcoinTX may figure a
+sale from one wallet with the cost and purchase date of coins that were in
+another, and its gains can differ from what the rule gives. Keep separate
+records for each wallet, or ask your tax preparer. Several wallets and
+exchanges, each with its own lots, is an idea for BitcoinTX 2.0
+([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
+
 ## Install
 
 Every [release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) has
