@@ -38,7 +38,9 @@ Checks:
   Any add, edit or delete recalculates everything too.
 
 The price checks read the local price history (and fill it from the
-network if a day is missing); a day with no price is skipped and counted.
+network if a day is missing). A day with no price is counted in
+no_price_for: F42 passes over its row, income_without_value lists it
+without the day's value. Any other failure of the lookup is an error.
 """
 
 from __future__ import annotations
@@ -83,7 +85,8 @@ CHECKS: dict[str, tuple] = {
     ),
     "income_without_value": (
         "Income deposits with a $0 or blank value (no income reported)",
-        "Edit each one: clear its value to use that day's price, or type its value when you received it.",
+        "Edit each one: clear its Cost Basis (USD) to use that day's price, or type its value when you "
+        "received it.",
     ),
     "income_value_off": (
         "Income deposits valued far from that day's price",
@@ -115,9 +118,11 @@ def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
 
 
 def _day_price(db: Session, t: Transaction, missing: list[int]):
+    """The day's price, or None (and the id in `missing`) when there is none.
+    Any other failure is raised: a shorter list would look like nothing to fix."""
     try:
         return price_history.daily_price(db, t.timestamp)
-    except Exception:
+    except HTTPException:
         missing.append(t.id)
         return None
 
@@ -309,14 +314,15 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
     for t in rows:
         if not (_is_income_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
             continue
-        issue = ("Value blank" if t.cost_basis_usd is None else "Value $0.00") + ": no income is reported for it."
+        issue = ("Basis blank" if t.cost_basis_usd is None else "Basis $0.00") + ": no income is reported for it"
         price = _day_price(db, t, missing)
         if price is None:
+            issue += " (no price stored for that day)."
             change = "Its value when you received it becomes the income and its cost basis."
         else:
             expected = (price * Decimal(t.amount)).quantize(CENT)
-            change = (f"At that day's price (${_money(price)}), its value, the income and its basis "
-                      f"become ${_money(expected)}.")
+            issue += f"; at that day's price (${_money(price)}) it is ${_money(expected)}."
+            change = f"Basis (and the income reported) $0.00 -> ${_money(expected)} if you clear it."
         items.append(_item(t, tz, issue, change))
     return items
 

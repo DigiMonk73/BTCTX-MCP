@@ -102,8 +102,29 @@ def test_review_lists_income_deposits_with_a_zero_or_blank_value(auth_client, te
         check = next(c for c in review["checks"] if c["key"] == "income_without_value")
         assert [i["id"] for i in check["items"]] == [960, 961]
         zero, blank = check["items"]
-        assert zero["issue"].startswith("Value $0.00") and blank["issue"].startswith("Value blank")
-        assert "$500.00" in zero["change"]  # 0.01 BTC at the stubbed $50,000
+        assert zero["issue"].startswith("Basis $0.00") and blank["issue"].startswith("Basis blank")
+        assert "it is $500.00" in zero["issue"] and "$500.00 if you clear it" in zero["change"]  # 0.01 at $50,000
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
+def test_review_lists_zero_income_even_without_a_price(auth_client, test_engine, monkeypatch):
+    """With no price for the day (prices off, a fresh install), the $0 income
+    deposit is still listed, without its value, and counted in no_price_for."""
+    from backend.tests.conftest import stub_daily_prices
+
+    auth_client.delete("/api/transactions/delete_all")
+    stub_daily_prices(monkeypatch, lambda day: None)
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, source, cost_basis_usd) VALUES (970, 'Deposit', '2024-05-01T12:00:00Z', :e, :w, '0.01',"
+            " '0', 'BTC', 'Reward', '0')"), {"e": EXTERNAL, "w": WALLET})
+    try:
+        review = auth_client.get("/api/review").json()
+        [item] = next(c for c in review["checks"] if c["key"] == "income_without_value")["items"]
+        assert item["id"] == 970 and "(no price stored for that day)" in item["issue"]
+        assert review["no_price_for"] == [970]
     finally:
         auth_client.delete("/api/transactions/delete_all")
 
