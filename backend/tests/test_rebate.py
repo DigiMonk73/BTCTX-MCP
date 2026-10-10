@@ -84,6 +84,8 @@ def test_the_report_lists_rebates_on_their_own(auth_client, test_engine):
     assert "No income in 2026." in text
     assert "Rebates (not income)" in text and "Rev. Rul. 76-96" in text
     assert "04/01/2026 0.00100000 $50.00 Total 0.00100000 $50.00" in text
+    # "Using these forms" tells the preparer (#79)
+    assert "Rebates (bitcoin back for spending, listed in section 3) aren't counted as income" in text
 
 
 def test_a_later_sale_uses_the_rebates_value_as_its_basis(auth_client):

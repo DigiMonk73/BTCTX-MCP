@@ -628,6 +628,9 @@ class _TaxReport:
         return [data_table(rows, [3.2, 3.8], total=True), self.text(rule, self.styles.note)]
 
     def filing_notes(self) -> list[str]:
+        # Only in a year with rebates (#98), so the page stays one page otherwise
+        rebates = ["Rebates (bitcoin back for spending, listed in section 3) aren't counted as income; their "
+                   "value when received is their cost basis."] if self.rebates else []
         return [
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
@@ -639,6 +642,7 @@ class _TaxReport:
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
+            *rebates,
             DISCLAIMER,
         ]
 
