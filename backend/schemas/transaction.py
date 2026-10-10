@@ -90,7 +90,7 @@ class TransactionBase(BaseModel):
     )
     fee_currency: str | None = None
 
-    source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward or N/A
+    source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward, Rebate or N/A
     purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
     acquired_at: datetime | date | None = Field(
         default=None,
@@ -269,7 +269,7 @@ class TransactionRead(TransactionBase):
     """
     id: int
     fee_usd_manual: bool = False  # fee_usd was typed by the user
-    cost_basis_from_price: bool = False  # an income deposit's value came from that day's price
+    cost_basis_from_price: bool = False  # an income or rebate deposit's value came from that day's price
     created_at: datetime
     updated_at: datetime
 

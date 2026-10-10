@@ -430,8 +430,10 @@ class _TaxReport:
                                                        bold=True)])
         return [*self.subheading("Rebates (not income)"),
                 self.text("Bitcoin back for spending, such as a rewards card's sats-back, entered as a Rebate: "
-                          "generally a rebate on the purchase, not income (IRS Announcement 2002-18). Its value "
-                          "when received is the coins' cost basis.", self.styles.note),
+                          "generally treated like a rebate on the purchase price, not income (by analogy with "
+                          "Rev. Rul. 76-96; the IRS has no ruling on bitcoin rewards). Its value when received "
+                          "is the coins' cost basis.", self.styles.note),
+                Spacer(1, 6),
                 data_table(rows, [2.4, 2.3, 2.3], total=True)]
 
     # 4. Gifts, donations and lost coins

@@ -388,8 +388,8 @@ Start from the `clean` snapshot.
     with Cost Basis = 0.001 × that day's price, where the Sats Converter's
     **Date** mode shows the price for 2025-07-01. Delete it.
   - The Complete Tax Report now values the holdings (RPT-6).
-  - Ledger Review > **Check again**. Expect exactly one item: "Income
-    deposits valued far from that day's price: 1", which is #9. Its
+  - Ledger Review > **Check again**. Expect exactly one item: "Income and
+    rebate deposits valued far from that day's price: 1", which is #9. Its
     $1,000.00 is made up, so this is correct. Any other item is a FAIL.
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.

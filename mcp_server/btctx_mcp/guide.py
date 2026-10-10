@@ -112,6 +112,7 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
 - A send to an address: ask whether it is the user's own wallet (Transfer) or
   someone else (Withdrawal + purpose) - never guess this.
 - Paid in BTC -> Deposit/Income. Exchange interest -> Deposit/Interest.
+- Card or shopping sats-back -> Deposit/Rebate (not Reward).
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only

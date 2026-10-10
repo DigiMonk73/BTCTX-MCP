@@ -1,7 +1,7 @@
 """
 The Rebate deposit source (#98): bitcoin back for spending, such as a
-rewards card's sats-back. It is generally a rebate on the purchase, not
-income (IRS Announcement 2002-18), so it is valued like income (left blank,
+rewards card's sats-back. It is generally treated like a rebate on the
+purchase price, not income (by analogy with Rev. Rul. 76-96), so it is valued like income (left blank,
 that day's price x the amount is its cost basis) but never counted as
 income: not on the report, the dashboard or the Transaction History. The
 report lists rebates on their own. Reward stays income (mining, staking,
@@ -82,7 +82,7 @@ def test_the_report_lists_rebates_on_their_own(auth_client, test_engine):
     pdf = generate_comprehensive_tax_report(report(test_engine))
     text = " ".join(" ".join(p.extract_text().split()) for p in PdfReader(io.BytesIO(pdf)).pages)
     assert "No income in 2026." in text
-    assert "Rebates (not income)" in text and "IRS Announcement 2002-18" in text
+    assert "Rebates (not income)" in text and "Rev. Rul. 76-96" in text
     assert "04/01/2026 0.00100000 $50.00 Total 0.00100000 $50.00" in text
 
 
@@ -148,3 +148,58 @@ def test_ledger_review_checks_a_rebates_value_not_its_income(auth_client, test_e
     assert "its whole value becomes gain when it's sold" in item["issue"] and "income" not in item["issue"]
     assert item["change"] == "Basis $0.00 -> $50.00 if you clear it."
     assert by_key["deposit_without_basis"]["items"] == []
+
+
+def test_reward_to_rebate_needs_no_price(auth_client, test_engine, monkeypatch):
+    """Review of #111: a switch between two sources valued at receipt can't
+    change the value, so it isn't priced again; the fix users are told to
+    make works with no price stored or reachable (a CSV re-import into an
+    install whose price source is Off)."""
+    from sqlalchemy import text
+
+    tx = deposit(auth_client, source="Reward")
+    with test_engine.begin() as con:
+        con.execute(text("DELETE FROM btc_price_daily"))
+    stub_daily_prices(monkeypatch, lambda day: None)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"source": "Rebate"})
+    assert r.status_code == 200, r.text
+    assert basis(r.json()) == Decimal("50.00") and r.json()["cost_basis_from_price"] is True
+    full = {k: r.json()[k] for k in ("type", "timestamp", "from_account_id", "to_account_id", "amount",
+                                     "fee_amount", "fee_currency", "cost_basis_usd")} | {"source": "Reward"}
+    back = auth_client.put(f"/api/transactions/{tx['id']}", json=full)  # the form's PUT
+    assert back.status_code == 200, back.text
+    assert basis(back.json()) == Decimal("50.00")
+
+
+def test_the_rebates_table_dates_are_in_the_tax_timezone(auth_client, test_engine):
+    """03:00 UTC on January 1 is still December 31 in Chicago: the rebate is
+    in that tax year, and its date prints so."""
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"}).status_code == 200
+    try:
+        deposit(auth_client, timestamp="2026-01-01T03:00:00Z")
+        data = report(test_engine, 2025)
+        assert [r["value_usd"] for r in data["rebates"]] == [40.0]
+        pdf = generate_comprehensive_tax_report(data)
+        text = " ".join(" ".join(p.extract_text().split()) for p in PdfReader(io.BytesIO(pdf)).pages)
+        assert "12/31/2025 0.00100000 $40.00" in text
+        assert report(test_engine, 2026)["rebates"] == []
+    finally:
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+
+
+def test_a_rebate_moved_to_bank_is_not_listed(auth_client, test_engine):
+    tx = deposit(auth_client)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={
+        "to_account_id": 1, "amount": "100", "fee_currency": "USD"})
+    assert r.status_code == 200, r.text
+    assert r.json()["source"] == "Rebate" and report(test_engine)["rebates"] == []
+
+
+def test_the_ai_connectors_preview_values_a_rebate(auth_client):
+    row = {"date": "2026-04-01T12:00:00Z", "type": "Deposit", "amount": "0.001", "from_account": "External",
+           "to_account": "Wallet", "source": "Rebate"}
+    r = auth_client.post("/api/import/entries/preview", json={"rows": [row]})
+    assert r.status_code == 200, r.text
+    [res] = r.json()["results"]
+    assert res["autofilled_fields"] == ["cost_basis_usd"]
+    assert Decimal(res["normalized"]["cost_basis_usd"]) == Decimal("50.00")

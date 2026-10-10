@@ -13,8 +13,8 @@ Checks:
   looks the same; only the owner can tell.
 - lost_with_loss (F2): a Lost withdrawal whose stored gain isn't $0. Lost
   now counts like a gift ($0 gain); Recalculate Ledger removes the old loss.
-- deposit_without_basis (F15): a BTC deposit that isn't income (source
-  MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
+- deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
+  (source MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
 - fee_value_off (F14): a transfer's BTC fee whose stored USD value is more
   than 5% away from fee x that day's price: most likely valued at the live
@@ -79,7 +79,7 @@ CHECKS: dict[str, tuple] = {
         "Recalculate Ledger sets their gain to $0 (Lost now counts like a gift).",
     ),
     "deposit_without_basis": (
-        "BTC deposits (not income) with a $0 or blank cost basis",
+        "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
         "If you know what the BTC cost, edit the deposit's cost basis.",
     ),
     "fee_value_off": (

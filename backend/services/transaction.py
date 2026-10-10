@@ -306,10 +306,16 @@ def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
 
 def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     """Whether the edit changes an input of the day's value: the account,
-    amount, UTC day (the price's day), source or type."""
-    for key in ("type", "source", "to_account_id"):
+    amount, UTC day (the price's day) or type, or a source that wasn't
+    valued at receipt. Between two sources that are (Reward to Rebate, the
+    fix #98 asks of users) the value can't change, so it isn't priced again
+    and needs no price."""
+    for key in ("type", "to_account_id"):
         if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
             return True
+    if "source" in tx_data and tx_data["source"] != tx.source \
+            and (tx.source or "").lower() not in VALUED_AT_RECEIPT:
+        return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
     if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:

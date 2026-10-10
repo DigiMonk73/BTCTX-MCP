@@ -147,7 +147,8 @@ So derived values must be recomputable from the Transaction row alone.
   or 0 basis is filled from the daily price on create/update
   (`_value_at_receipt`); no price → 422, never $0. A value from the price
   is marked (`cost_basis_from_price`) and priced again when an edit changes
-  the account, amount, UTC day or source (a type change makes it typed); a
+  the account, amount, UTC day or type, or moves it from a source not valued
+  at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
   (`_revalue_income_deposit`). Income (report, dashboard) counts only
   deposits into Wallet or Exchange BTC (`constants.BTC_ACCOUNTS`): a USD

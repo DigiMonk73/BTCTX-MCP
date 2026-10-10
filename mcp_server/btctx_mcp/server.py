@@ -365,7 +365,7 @@ async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
     carrying a loss, BTC deposits with a $0 or blank cost basis (income ones report no income),
-    transfer fees or income valued far from that day's price). Each item has its id, date, what looks odd and
+    transfer fees, income or rebates valued far from that day's price). Each item has its id, date, what looks odd and
     what would change. Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 

@@ -54,8 +54,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Bitcoin back for spending was counted as income** (tax figures, #98).
   A rewards card's sats-back or shopping cash-back entered as a Reward
   deposit (the AI connector's guide even suggested it) was counted as
-  income. Such bitcoin is generally a rebate on the purchase, not income
-  (IRS Announcement 2002-18); its value when received is its cost basis.
+  income. Such bitcoin is generally treated like a rebate on the purchase
+  price, not income (by analogy with Rev. Rul. 76-96; the IRS has no ruling
+  on bitcoin rewards); its value when received is its cost basis.
   - Affected: every version up to 1.2.5, any tax year, only deposits of
     that kind entered as Reward.
   - Now there is a deposit source **Rebate**: valued like income (left
