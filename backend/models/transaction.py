@@ -153,6 +153,18 @@ class Transaction(Base):
         server_default=sa_false(),
         doc="True when the user typed fee_usd: it is kept when the fee or date changes.",
     )
+    # Last, where migration 0006 added it, so a fresh table matches a migrated one
+    cost_basis_from_price = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "True when an income deposit's cost_basis_usd came from that day's "
+            "price (left blank when entered): an edit of its amount, day or "
+            "account values it again. A typed value is kept."
+        ),
+    )
 
     ledger_entries = relationship(
         "LedgerEntry",

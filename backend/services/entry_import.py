@@ -223,6 +223,8 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
             )
             continue
         p.tx_data[target] = (price * p.tx_data["amount"]).quantize(Decimal("0.01"))
+        if target == "cost_basis_usd":  # from the price, not typed: an edit re-prices it (#76)
+            p.tx_data["cost_basis_from_price"] = True
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]

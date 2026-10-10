@@ -83,12 +83,21 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
-    _value_income_deposit(tx_data, db)
+    _mark_income_value(tx_data, priced=_value_income_deposit(tx_data, db), db=db)
     _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
     if tx_data.get("fee_usd_from_price") and tx_data.get("fee_usd") is not None:
         # A CSV re-import of a value once priced from the day (not typed):
         # kept as it was, and still re-priced if the date or fee changes.
         tx_data["fee_usd_manual"] = False
+
+
+def _mark_income_value(tx_data: dict, priced: bool, db: Session) -> None:
+    """cost_basis_from_price: the value was just priced from the day, or an
+    import says it once was (a CSV re-import, the AI's autofill), on an
+    income deposit into a BTC account. Anything else is typed."""
+    tx_data["cost_basis_from_price"] = priced or (
+        bool(tx_data.get("cost_basis_from_price")) and _is_income_into_btc(tx_data, db)
+    )
 
 
 def _insert(tx_data: dict, db: Session) -> Transaction:
@@ -110,6 +119,7 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
         fmv_usd=tx_data.get("fmv_usd"),
         fee_usd=tx_data.get("fee_usd"),
         fee_usd_manual=tx_data.get("fee_usd_manual", False),
+        cost_basis_from_price=tx_data.get("cost_basis_from_price", False),
         created_at=now_utc,
         updated_at=now_utc
     )
@@ -230,17 +240,62 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     _revalue_income_deposit(tx, tx_data, db)
 
 
+# What an income deposit's value depends on: the day's price x the amount,
+# and whether it is an income deposit into a BTC account at all.
+_INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp")
+
+
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
-    """An edit that leaves an income deposit without a basis (the form sends
-    0 for a blank one) values it, as on create."""
-    if not any(k in tx_data for k in ("cost_basis_usd", "source", "type")):
+    """
+    An income deposit's value after an edit (#76). A typed one is kept. One
+    that came from the day's price, or a blank or $0 one (the form sends 0
+    for a blank), is valued again at the day's price when the edit changes
+    what it depends on: the account, amount, day, source or type. An edit
+    that makes the row something else marks its basis typed.
+    """
+    if not any(k in tx_data for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)):
         return
-    edited = {
-        k: tx_data.get(k, getattr(tx, k))
-        for k in ("type", "source", "to_account_id", "amount", "timestamp", "cost_basis_usd")
-    }
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)}
+    if not _is_income_into_btc(edited, db):
+        tx_data["cost_basis_from_price"] = False
+        return
+    if _typed_basis(tx, tx_data):
+        tx_data["cost_basis_from_price"] = False
+        return
+    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data):
+        edited["cost_basis_usd"] = None
     if _value_income_deposit(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
+        tx_data["cost_basis_from_price"] = True
+
+
+def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit types a value: a positive cost_basis_usd that isn't
+    the stored price-derived one sent back (the form sends the value it
+    shows)."""
+    if "cost_basis_usd" not in tx_data or Decimal(tx_data["cost_basis_usd"] or 0) <= 0:
+        return False
+    sent = Decimal(tx_data["cost_basis_usd"]).quantize(Decimal("0.01"))
+    return not (tx.cost_basis_from_price and tx.cost_basis_usd is not None
+                and sent == Decimal(tx.cost_basis_usd).quantize(Decimal("0.01")))
+
+
+def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit changes an input of the day's value: the account,
+    amount, UTC day (the price's day), source or type."""
+    for key in ("type", "source", "to_account_id"):
+        if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
+            return True
+    if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
+        return True
+    if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
+        return _utc_day(tx_data["timestamp"]) != _utc_day(tx.timestamp)
+    return False
+
+
+def _utc_day(ts: datetime):
+    """The UTC day, whose price values the deposit (a naive time is UTC)."""
+    return (ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)).astimezone(timezone.utc).date()
 
 
 def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -272,7 +327,7 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
         tx.broker_reporting = tx_data["broker_reporting"]
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
-    for key in ("cost_basis_usd", "proceeds_usd", "fmv_usd"):
+    for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd"):
         if key in tx_data:
             setattr(tx, key, tx_data[key])
     if "gross_proceeds_usd" in tx_data:
@@ -848,6 +903,14 @@ def get_historical_btc_price(timestamp: datetime, db: Session) -> Decimal:
     return price_history.daily_price(db, timestamp)
 
 
+def _is_income_into_btc(tx_data: dict, db: Session) -> bool:
+    """A deposit with source Income, Interest or Reward into a BTC account."""
+    if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in INCOME_SOURCES:
+        return False
+    to_acct = db.get(Account, tx_data.get("to_account_id")) if tx_data.get("to_account_id") else None
+    return to_acct is not None and to_acct.currency == "BTC"
+
+
 def _value_income_deposit(tx_data: dict, db: Session) -> bool:
     """
     An income deposit (source Income, Interest or Reward into a BTC account)
@@ -856,15 +919,10 @@ def _value_income_deposit(tx_data: dict, db: Session) -> bool:
     value it at the day's BTC price instead of saving $0; refuse to save when
     no price is available. Returns True when it filled cost_basis_usd.
     """
-    if tx_data.get("type") != "Deposit":
+    if not _is_income_into_btc(tx_data, db) or Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
         return False
-    if (tx_data.get("source") or "").lower() not in INCOME_SOURCES:
-        return False
-    if Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
-        return False
-    to_acct = db.get(Account, tx_data.get("to_account_id")) if tx_data.get("to_account_id") else None
     amount = Decimal(tx_data.get("amount") or 0)
-    if not to_acct or to_acct.currency != "BTC" or amount <= 0:
+    if amount <= 0:
         return False
 
     timestamp = tx_data.get("timestamp") or datetime.now(timezone.utc)

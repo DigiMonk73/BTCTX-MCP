@@ -36,6 +36,28 @@ All notable changes to BitcoinTX are documented in this file.
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
 
+### Fixed
+- **Editing an income deposit could leave the wrong income** (tax figures,
+  #76). An Income, Interest or Reward deposit into Wallet or Exchange BTC is
+  valued at that day's price when you leave its value blank, and that value
+  is both its cost basis and the income on the tax report. An edit kept the
+  old figure: **$0** after moving the deposit from Bank to Wallet or Exchange
+  BTC, or the **old value** after changing its amount or date. Income was
+  understated, and the later gain overstated by the same amount.
+  - Affected: versions 0.9.1 to 1.2.5, any tax year, only income deposits
+    edited that way.
+  - Now a value from the day's price is marked as such, and is priced again
+    when you change the deposit's account, amount, date, source or type. A
+    value you typed stays as you typed it. The update changes no figure: it
+    marks an existing value only where it is exactly that day's price times
+    the amount (migration 0006), and the mark only decides what the next
+    edit does. The CSV export and import carry it (`cost_basis_typed`), as
+    the AI connector's import and the River import do.
+  - What to do: after updating, run Ledger Review (Settings), and fix each
+    income deposit it lists with a $0 or blank value, or a value far from
+    that day's price: clear the value to use the day's price, or type the
+    right one.
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK

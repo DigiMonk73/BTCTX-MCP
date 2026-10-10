@@ -61,6 +61,9 @@ class RiverExecuteRow(BaseModel):
     fee_currency: str | None = None
     source: str | None = None
     purpose: str | None = None
+    # "no": cost_basis_usd is the preview's value from that day's price, kept
+    # as it was (an edit of the deposit then prices it again, #76)
+    cost_basis_typed: str | None = None
 
 
 class RiverExecuteRequest(BaseModel):
