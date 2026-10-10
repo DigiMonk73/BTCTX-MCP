@@ -21,7 +21,9 @@ one with a 5-satoshi sale and a long-term loss.
 And the formats the IRS forms need:
 - BTC amounts with all eight decimals, never "5E-8 BTC" (#74);
 - negative amounts in parentheses, "(9.74)", never "-9.74" (#75; the Form
-  8949 instructions for columns (g) and (h), and Schedule D).
+  8949 instructions for columns (g) and (h), and Schedule D);
+- no Form 8949 page without rows: a sheet prints only the Part it uses (#78;
+  "complete and file either Part I or II").
 """
 
 import importlib.util
@@ -43,7 +45,7 @@ from backend.main import app
 from backend.routers.reports import get_template_path
 from backend.services import first_run, outbound
 from backend.services.reports import draft_forms
-from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+from backend.services.reports.form_8949 import build_form_8949_and_schedule_d, get_8949_field_config
 from backend.tests import printed_forms as pf
 from backend.tests.conftest import init_test_db
 from backend.tests.test_golden_years import LEDGER as GOLDEN_LEDGER
@@ -204,9 +206,7 @@ def test_each_row_adds_up(printed, ledger, year):
 @pytest.mark.parametrize("ledger, year", CASES)
 def test_each_page_has_one_box_and_totals_its_rows(printed, ledger, year):
     for part in _parts(_pages(printed, ledger, year), year):
-        if not part.rows:
-            assert part.boxes == "" and not any(part.line2.values()), part
-            continue
+        assert part.rows, "a Form 8949 page without rows (#78)"
         assert len(part.boxes) == 1, part.boxes
         assert part.boxes in (pf.BOXES_FROM_2025 if year >= 2025 else pf.BOXES_UNTIL_2024)[part.part]
         assert not part.empty_rows_between
@@ -219,10 +219,9 @@ def test_each_page_has_one_box_and_totals_its_rows(printed, ledger, year):
 def test_schedule_d_lines_are_their_boxes_sheets(printed, ledger, year):
     pages = _pages(printed, ledger, year)
     sheets: dict[str, dict[str, Decimal]] = defaultdict(lambda: defaultdict(Decimal))
-    for part in _parts(pages, year):
-        if part.rows:
-            for col in "deh":
-                sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
+    for part in _parts(pages, year):  # every part has rows (test_each_page_has_one_box_and_totals_its_rows)
+        for col in "deh":
+            sheets[pf.SCHEDULE_D_LINE[part.boxes]][col] += pf.amount(part.line2[col])
     schedule_d = [p for p in pages if p.template.form == "f1040sd"]
     # Both pages, in order: Part III is the filer's to complete
     assert [p.template.signature for p in schedule_d] == [t.signature for t in _templates(year, "f1040sd")]
@@ -298,3 +297,14 @@ def test_losses_are_in_parentheses(printed, ledger, year):
     assert [a for a in amounts if not AMOUNT.fullmatch(a)] == []
     boxes_with_losses = {part.boxes for part in _parts(pages, year) for row in part.rows if row["h"].startswith("(")}
     assert LOSSES.get((ledger, year), set()) <= boxes_with_losses
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_one_page_per_part_used(printed, ledger, year):
+    """As many Form 8949 pages as the year's boxes need, at the table's rows
+    a page, and no more: the empty other Part of each sheet isn't printed (#78)."""
+    per_page = get_8949_field_config(year)["rows_per_page"]
+    computed = printed[ledger]["rows"][year]
+    per_box = Counter(r["box"] for r in computed["short_term"] + computed["long_term"])
+    expected = sum(-(-n // per_page) for n in per_box.values())
+    assert len(_parts(_pages(printed, ledger, year), year)) == expected

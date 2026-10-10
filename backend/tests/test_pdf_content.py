@@ -573,9 +573,10 @@ class TestForm8949Line2Totals:
             for field, col in ((d_field, 0), (e_field, 1), (h_field, 4)):
                 assert value(schedule_d[field]) == sum(value(line_2(s, p)[col]) for s, p in parts), line
 
-        # The flattened PDF prints them: sheet 1 Part I, sheet 1 Part II, sheet 2 Part I.
+        # The flattened PDF prints them: sheet 1 Part I, sheet 1 Part II, sheet 2 Part I
+        # (not sheet 2's empty Part II, #78), then Schedule D's two pages.
         pages = extract_pdf_text_by_page(pdf)
-        assert len(pages) == 6
+        assert len(pages) == 5
         for text, (sheet, page) in zip(pages[:3], ((sheets[0], 1), (sheets[0], 2), (sheets[1], 1))):
             d, e, _, _, h = line_2(sheet, page)
             for total in (d, e, h):

@@ -113,11 +113,11 @@ def test_forms_print_from_the_drafts_marked_on_every_page(auth_client, data_dir,
     assert r.status_code == 200, r.text
     pages = PdfReader(io.BytesIO(r.content)).pages
     texts = [p.extract_text() or "" for p in pages]
-    assert len(pages) == 4  # one 8949 sheet and Schedule D, without the drafts' cover pages
+    assert len(pages) == 3  # one 8949 Part I and Schedule D, without the drafts' cover pages
     assert all(draft_forms.DRAFT_MARK in t for t in texts)
     assert not any(draft_forms.COVER_NOTE in t for t in texts)
     assert "4400.00" in texts[0] and "3600.00" in texts[0]  # the sale, Box G (covered)
-    assert "800.00" in texts[2]  # Schedule D line 1b
+    assert "800.00" in texts[1]  # Schedule D line 1b
 
 
 def test_a_bundled_year_ignores_its_drafts(auth_client, data_dir):
@@ -244,9 +244,9 @@ def test_the_shipped_draft_prints_marked_on_every_page(auth_client, monkeypatch,
         auth_client.delete("/api/transactions/delete_all")
     assert r.status_code == 200, r.text
     texts = [p.extract_text() or "" for p in PdfReader(io.BytesIO(r.content)).pages]
-    assert len(texts) == 4 and all(draft_forms.DRAFT_MARK in t for t in texts)
+    assert len(texts) == 3 and all(draft_forms.DRAFT_MARK in t for t in texts)
     assert not any(draft_forms.COVER_NOTE in t for t in texts)
-    assert "4400.00" in texts[0] and "800.00" in texts[2]
+    assert "4400.00" in texts[0] and "800.00" in texts[1]
 
 
 def test_the_drafts_are_checked_like_a_final_form(tmp_path):

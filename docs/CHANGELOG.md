@@ -54,6 +54,12 @@ All notable changes to BitcoinTX are documented in this file.
   deposits with a $0 or blank value (no income reported)", lists them with
   their value at that day's price, so they can be fixed (clear its Cost Basis
   (USD) to use the day's price, or type the right one).
+- **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
+  printed both of its pages, so a short-term sheet was followed by an empty
+  Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
+  sheet by an empty Part I. Only the Part a sheet uses is printed now, as
+  the instructions allow ("complete and file either Part I or II");
+  Schedule D keeps both pages. Closes #78.
 
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
