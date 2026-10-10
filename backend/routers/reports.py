@@ -86,7 +86,8 @@ def get_irs_reports(
     """
     Form 8949 and Schedule D of one tax year in one PDF, from that year's
     templates: each sheet is filled and flattened with pypdf (XFA removed),
-    then all are merged. A draft year's sheets leave out the IRS's cover page.
+    then the Parts that have rows are merged, then Schedule D's pages. A
+    draft year's forms leave out the IRS's cover page.
     """
     _verify_templates_exist(year)
     path_form_8949 = get_template_path(year, "f8949.pdf")
@@ -102,7 +103,7 @@ def get_irs_reports(
 
         logger.debug(f"Generating IRS reports for {year}: {len(short_rows)} short-term, {len(long_rows)} long-term disposals")
 
-        partial_pdfs: list[tuple[bytes, int]] = []  # (sheet, its first page to keep)
+        partial_pdfs: list[tuple[bytes, list[int]]] = []  # (filled PDF, its pages to keep)
 
         # Each template copy is one physical sheet:
         # Page1 holds Part I (short-term) and Page2 holds Part II (long-term).
@@ -123,11 +124,16 @@ def get_irs_reports(
             if long_chunk:
                 field_data.update(map_8949_rows_to_field_data(long_chunk, page=2, year=year))
             pdf_bytes = fill_pdf_form(path_form_8949, field_data)
-            partial_pdfs.append((pdf_bytes, first_8949))
+            # Only the Parts that have rows, so no sheet prints an empty Part:
+            # the instructions say to file Part I or II (#78)
+            pages = [page for page, rows in ((first_8949, short_chunk), (first_8949 + 1, long_chunk)) if rows]
+            partial_pdfs.append((pdf_bytes, pages))
 
         schedule_d_fields = map_schedule_d_fields(report_data["schedule_d"], year=year)
         filled_sd_bytes = fill_pdf_form(path_schedule_d, schedule_d_fields)
-        partial_pdfs.append((filled_sd_bytes, first_schedule_d))
+        # Every page of Schedule D after a draft's cover: Part III is the filer's to complete
+        sd_pages = len(PdfReader(BytesIO(filled_sd_bytes)).pages)
+        partial_pdfs.append((filled_sd_bytes, list(range(first_schedule_d, sd_pages))))
 
         final_pdf = _merge_all_pdfs(partial_pdfs)  # sheets are already flattened
 
@@ -167,13 +173,13 @@ def get_simple_transaction_history(
     )
 
 
-def _merge_all_pdfs(pdf_list: list[tuple[bytes, int]]) -> bytes:
-    """The PDFs' pages, in order, as one PDF; each from its given first page."""
+def _merge_all_pdfs(pdf_list: list[tuple[bytes, list[int]]]) -> bytes:
+    """The given pages of each PDF, in order, as one PDF."""
     writer = PdfWriter()
-    for pdf_data, first_page in pdf_list:
+    for pdf_data, pages in pdf_list:
         reader = PdfReader(BytesIO(pdf_data))
-        for page in reader.pages[first_page:]:
-            writer.add_page(page)
+        for index in pages:
+            writer.add_page(reader.pages[index])
 
     merged_stream = BytesIO()
     writer.write(merged_stream)

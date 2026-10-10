@@ -27,7 +27,7 @@ from backend.migrate import alembic_config, upgrade_database
 from backend.services.reports.reporting_core import generate_report_data
 from backend.tests.conftest import stub_daily_prices
 
-BANK, WALLET, EXCHANGE_BTC, EXTERNAL = 1, 2, 4, 99
+BANK, WALLET, EXCHANGE_USD, EXCHANGE_BTC, EXTERNAL = 1, 2, 3, 4, 99
 APRIL_1, APRIL_2 = date(2026, 4, 1), date(2026, 4, 2)
 PRICES = {APRIL_1: 50000, APRIL_2: 60000}
 
@@ -135,12 +135,15 @@ def test_a_partial_move_to_bank_drops_the_value(auth_client, test_engine):
     assert income_reported(test_engine) == Decimal("0")
 
 
-def test_a_usd_deposit_is_never_bitcoin_income(auth_client, test_engine):
-    """Review of #103: a USD deposit with a value (left by an older version,
-    sent back by an edit, or created with one) was counted as income on the
-    report and the dashboard, its dollar amount shown as BTC. Only deposits
-    into Wallet or Exchange BTC are bitcoin income."""
-    tx = deposit(auth_client, to_account_id=BANK, amount="100", fee_currency="USD")
+@pytest.mark.parametrize("account", [BANK, EXCHANGE_USD])
+@pytest.mark.parametrize("source, earned, btc", [("Interest", "interest_earned", "interest_btc"),
+                                                 ("Gift", "gifts_received", "gifts_btc")])
+def test_a_usd_deposit_is_never_bitcoin_income(auth_client, test_engine, account, source, earned, btc):
+    """Review of #103, #110: a USD deposit with a value (left by an older
+    version, sent back by an edit, or created with one) was counted as income
+    on the report and the dashboard, its dollar amount shown as BTC; a Gift's
+    on the dashboard's gifts. Only deposits into Wallet or Exchange BTC count."""
+    tx = deposit(auth_client, to_account_id=account, amount="100", fee_currency="USD", source=source)
     with test_engine.begin() as con:
         con.execute(text("UPDATE transactions SET cost_basis_usd = '50.00' WHERE id = :id"), {"id": tx["id"]})
     assert auth_client.post("/api/transactions/recalculate").status_code == 200  # Recalculate Ledger keeps it
@@ -148,7 +151,10 @@ def test_a_usd_deposit_is_never_bitcoin_income(auth_client, test_engine):
     with sessionmaker(bind=test_engine)() as db:
         assert generate_report_data(db, 2026)["income_transactions"] == []
     dashboard = auth_client.get("/api/calculations/gains-and-losses").json()
-    assert dashboard["interest_earned"] == 0 and dashboard["interest_btc"] == 0 and dashboard["total_income"] == 0
+    assert dashboard[earned] == 0 and dashboard[btc] == 0 and dashboard["total_income"] == 0
+    # The Transaction History labels it a plain deposit, not income
+    history = auth_client.get("/api/reports/simple_transaction_history", params={"year": 2026, "format": "csv"})
+    assert ",Deposit," in history.text and f",{source}," not in history.text
 
 
 @pytest.mark.parametrize("changes", [

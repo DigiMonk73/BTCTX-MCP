@@ -147,12 +147,18 @@ def ask_port_busy(port: int) -> str:
     return QUIT
 
 
-def tell_already_running(port: int) -> None:
-    """Bring the running BitcoinTX forward and say so."""
+def tell_already_running(port: int, bring_forward: bool = True) -> None:
+    """
+    Say BitcoinTX is already open and bring it forward. A test run
+    (bring_forward=False) only says so: AppleScript finds the app by name,
+    so it could bring forward, or start, the installed app on its real
+    ledger instead of the test copy.
+    """
     if sys.platform != "darwin":
         logger.error("BitcoinTX is already running on port %d", port)
         return
-    _osascript('tell application "BitcoinTX" to activate')
+    if bring_forward:
+        _osascript('tell application "BitcoinTX" to activate')
     _osascript(
         'display dialog "BitcoinTX is already open." with title "BitcoinTX" '
         'buttons {"OK"} default button "OK"'

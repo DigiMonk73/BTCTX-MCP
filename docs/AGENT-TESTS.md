@@ -149,8 +149,8 @@ it's long-term. #14's fee is its own disposal.
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest and Rewards $0.00 · Total Income $1,000.00 · Gifts (received) $0.00 · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
-| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · -1000.00`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
-| Schedule D 2025 | line 2: 4000.00 / 5000.00 / -1000.00 · line 10: 10005.00 / 2532.30 / 7472.70 |
+| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
+| Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10005.00 / 2532.30 / 7472.70 |
 | Complete Tax Report 2023 (no IRS forms for 2023 in the app) | 1. Summary › Capital gains and losses: Short-term 4 disposals, Proceeds $13,400.00, Cost basis $11,834.60, Net gain $1,565.40; Long-term 0, all $0.00 (the cover's Net capital gain is the same $1,565.40). 2. Capital gains and losses lists, as Proceeds / Cost basis / Gain: 06/01/2023 0.0002 BTC ($10.00 / $4.60 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($400.00 / $230.00 / $170.00). 5. Holdings at year end, lot by lot: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, "Average cost: $23,404.12 per BTC"; each Market value = quantity × the Dec 31 price the report states |
 | Complete Tax Report 2024 | 1. Summary › Bitcoin holdings, January 1, 2024: 0.98980000 BTC, Avg cost per BTC $23,404.12 (the same BTC as the 2023 report's year end). Summary › Income: Income $1,000.00, Total $1,000.00. 3. Income: 05/01/2024 Income 0.02000000 BTC $1,000.00. 4. Gifts, donations and lost coins: 06/01/2024 Gift 0.10000000 BTC, Fair market value "not given". 5. Holdings at year end, lot by lot: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
 | Transaction History CSV | 2023: 6 rows (the Dec 31 spend is in it, stamped `2024-01-01T04:30:00+00:00`) · 2024: 4 rows · 2025: 4 rows |
@@ -675,6 +675,31 @@ Start from the `clean` snapshot.
 
 ## Track C: the Mac app (only on a Mac)
 
+**On a Mac where BitcoinTX is already installed, its data folder is a real
+ledger: never install, `open` or run the build's binary by itself there.**
+On such a Mac, unpack the artifact in a temp folder (`ditto -x -k
+BitcoinTX-macOS.zip .`, then `xattr -cr BitcoinTX.app` if it's quarantined)
+and start every launch, the first, each reopen and MAC-5's second one, with
+the repository's script (`docs/MACOS_DESKTOP_APP.md`, "Testing a build"):
+
+```bash
+REPO/desktop/run-test-build.sh --app UNPACKED/BitcoinTX.app --fresh --background   # the first launch
+REPO/desktop/run-test-build.sh --app UNPACKED/BitcoinTX.app --background           # every later one
+REPO/desktop/run-test-build.sh --where                                             # prints DATA
+```
+
+REPO, UNPACKED and DATA stand for absolute paths (the checkout, the temp
+folder, the folder `--where` prints), written out in each command, since a
+tool's shell may not keep variables. The script uses the same test folder
+and port 8766 on every launch. Then read 8766 for 8765 and DATA for
+`~/Library/Application Support/BitcoinTX/` below. The script's first launch
+replaces all of MAC-1 (no dmg, no drag, no `open`): expect the app window
+and no port banner. In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
+after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a second
+launch shows "BitcoinTX is already open" without bringing a window forward,
+and starts no second copy on 8766. If the installed app appears at any
+point, leave it alone, touch nothing in it, and record that.
+
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
   open it: Control-click > Open, or on macOS 15+ System Settings > Privacy
   & Security > **Open Anyway**. Expect: the app window with BitcoinTX, and
@@ -693,7 +718,8 @@ Start from the `clean` snapshot.
   instead of Create; the Setup prompt says no key or address is needed; and
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
-  nothing after `--` except the method options). Expect: 11 tools, and
+  nothing after `--` except the method options; on a Mac with BitcoinTX
+  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
   `get_portfolio` matches the Dashboard. **Reset key**: the connector keeps
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
@@ -737,6 +763,10 @@ Found while this document was written (v1.2.0). Report these as KNOWN.
 Delete a line when its fix is merged into `develop`, since release
 candidates are built from it.
 
+- **Loss format, 1.2.5 and earlier only (Track B's previous release)**:
+  Form 8949 and Schedule D print a loss as `-1000.00`; from 1.2.6
+  `(1000.00)`, as the IRS asks (#75). The same figure: UPG-2 counts it as
+  identical.
 - **PRC, 1.2.0 and earlier only (Track B's previous release)**: an install
   with entries but no price choice switches itself to Public price sites at
   its next restart, e.g. the update. Fixed on `develop` (`afd23ea`): a

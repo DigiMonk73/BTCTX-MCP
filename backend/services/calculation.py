@@ -25,6 +25,12 @@ SAT = Decimal("0.00000001")
 DEPOSIT_TOTALS = ("income", "interest", "reward", "gift")
 
 
+def btc_text(amount) -> str | None:
+    """A BTC amount for people to read: all eight decimals, as stored (None
+    stays None). str() of a Decimal under 0.000001 is in exponent form ("5E-8")."""
+    return None if amount is None else f"{Decimal(amount):.8f}"
+
+
 def get_account_balance(db: Session, account_id: int) -> Decimal:
     """
     Return the numeric balance for a given account_id by summing
