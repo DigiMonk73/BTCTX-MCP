@@ -202,9 +202,10 @@ line printed for it.
 | 2 | B, H | 9 | E, K |
 | 3 | C, I | 10 | F, L |
 
-The app fills columns (d) proceeds, (e) cost and (h) gain/loss. Column (g) is
-blank. Only lines that have rows get filled. Each line is the sum of the
-line 2 totals of all that box's Form 8949 sheets.
+The app fills columns (d) proceeds, (e) cost and (h) gain/loss, a loss in
+parentheses as the instructions ask. Column (g) is blank. Only lines that
+have rows get filled. Each line is the sum of the line 2 totals of all that
+box's Form 8949 sheets.
 
 ## Form 8949 fields
 
@@ -222,19 +223,19 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 
 | Col | Offset | Value |
 |---|---|---|
-| (a) | 0 | `"<disposed_btc> BTC"` |
+| (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`calculation.btc_text()`; never exponent form) |
 | (b) | 1 | date acquired, MM/DD/YYYY (tax timezone) |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |
 | (e) | 4 | cost basis, 2 decimals |
 | (f) | 5 | **blank.** The app records no adjustment codes. The box letter is a checkbox, never a column (f) code. |
 | (g) | 6 | blank |
-| (h) | 7 | gain or loss, 2 decimals |
+| (h) | 7 | gain or loss, 2 decimals; a loss in parentheses, `(9.74)` (`_form_amount()`) |
 
 **Line 2 "Totals"**, below the last row of each Part, gets the totals of the
 rows on that page (one sheet's chunk of one box): (d), (e) and (h) added up to
-the cent (losses subtracted), 2 decimals; (f) and (g) blank like the rows. A
-Part with no rows leaves line 2 blank. The fields sit directly under the page,
+the cent (losses subtracted), 2 decimals, a negative total in parentheses;
+(f) and (g) blank like the rows. A Part with no rows leaves line 2 blank. The fields sit directly under the page,
 not in the table: `topmostSubform[0].Page{p}[0].f{p}_{n}[0]`, with `n` per
 column in `line2_fields` (`line2_field_names()`).
 
@@ -294,8 +295,10 @@ The printed (flattened) forms are read back: `backend/tests/printed_forms.py`
 finds each value where it is drawn on the page. The layout comes from the
 template itself (rows by field name, columns by position, checkboxes top to
 bottom); only the boxes' printed letters and each box's Schedule D line are
-written in. `test_printed_forms.py` checks the PDFs of the test ledgers:
-every row once in its box, (d) - (e) = (h), one box and line 2 per page,
-Schedule D lines = their boxes' sheets, and the Complete Tax Report's box
-table. Every text field must be found where it is drawn, so a page that
-can't be read fails instead of reading as blank.
+written in. `test_printed_forms.py` checks the PDFs of the test ledgers (the full
+one, the golden one, and a tiny one with a 5-satoshi sale and a long-term
+loss): every row once in its box, (d) - (e) = (h), one box and line 2 per
+page, Schedule D lines = their boxes' sheets, the Complete Tax Report's box
+table, column (a)'s eight decimals, and losses in parentheses. Every text
+field must be found where it is drawn, so a page that can't be read fails
+instead of reading as blank.

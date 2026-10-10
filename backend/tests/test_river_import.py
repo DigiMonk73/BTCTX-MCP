@@ -324,6 +324,23 @@ class TestPreview:
         assert p["status"] == STATUS_DISCREPANCY
         assert "different amount" in p["discrepancy"]
 
+    def test_a_tiny_amount_in_the_discrepancy_has_eight_decimals(self):
+        """str() of a Decimal under 0.000001 is "5.2E-7" (#74)."""
+        delete_all_transactions()
+        create_tx({
+            "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+            "source": "MyBTC",
+        })
+        create_tx({
+            "type": "Transfer", "timestamp": ts(2, 15, 8), "from_account_id": 4, "to_account_id": 2,
+            "amount": "0.00000052", "fee_amount": "0.00000001", "fee_currency": "BTC",
+        })
+        data = preview(["2026-02-15 10:00:00,0.00000050,BTC,,,0.00000001,BTC,"])
+        p = data["proposals"][0]
+        assert p["status"] == STATUS_DISCREPANCY
+        assert "(Transfer 0.00000052 BTC)" in p["discrepancy"]
+
 
 # ---------------------------------------------------------------------------
 # Execute endpoint (atomic import, idempotency)

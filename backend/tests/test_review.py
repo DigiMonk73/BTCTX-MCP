@@ -19,7 +19,7 @@ def ledger(auth_client, test_engine):
         # id, type, from, to, source, purpose, basis, gross, gain
         (901, "Deposit", EXTERNAL, WALLET, "MyBTC", None, "0", None, None),
         (902, "Deposit", EXTERNAL, EXCH_BTC, "Gift", None, None, None, None),
-        (903, "Deposit", EXTERNAL, WALLET, "Income", None, None, None, None),   # income: priced, not listed
+        (903, "Deposit", EXTERNAL, WALLET, "Income", None, None, None, None),   # income left blank (#77)
         (904, "Deposit", EXTERNAL, WALLET, "MyBTC", None, "500", None, None),   # has a basis
         (905, "Deposit", EXTERNAL, BANK, "N/A", None, None, None, None),        # USD deposit
         (906, "Withdrawal", WALLET, EXTERNAL, None, "Spent", None, "0", "-100"),
@@ -55,7 +55,8 @@ def test_review_lists_each_kind_and_changes_nothing(auth_client, test_engine, le
     assert ids(review, "zero_proceeds_spend") == [906]
     assert ids(review, "lost_with_loss") == [908]
     assert ids(review, "deposit_without_basis") == [901, 902]
-    assert review["total"] == 4
+    assert ids(review, "income_without_value") == [903]
+    assert review["total"] == 5
     item = next(c for c in review["checks"] if c["key"] == "lost_with_loss")["items"][0]
     assert item["realized_gain_usd"] == "-300.00" and "$0.00" in item["change"]
     with test_engine.connect() as con:
@@ -83,6 +84,86 @@ def test_review_dates_are_in_the_tax_timezone(auth_client, test_engine, ledger):
     assert review["timezone"] == "America/New_York"
     spend = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")
     assert spend["items"][0]["date"] == "2023-12-31 22:00"
+
+
+def test_review_amounts_have_eight_decimals(auth_client, test_engine):
+    """A 5-satoshi amount reads 0.00000005, not 5E-8 (#74)."""
+    auth_client.delete("/api/transactions/delete_all")
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, purpose, gross_proceeds_usd, realized_gain_usd)"
+            " VALUES (950, 'Withdrawal', '2024-01-01 03:00:00', :w, :e, '0.00000005', '0', 'BTC', 'Spent', '0',"
+            " '0')"), {"w": WALLET, "e": EXTERNAL})
+    try:
+        review = auth_client.get("/api/review").json()
+        item = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")["items"][0]
+        assert item["amount"] == "0.00000005"
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
+def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
+    """A 50-satoshi transfer fee valued off the day's price reads
+    "Fee 0.00000050 BTC", never exponent form (#74)."""
+    auth_client.delete("/api/transactions/delete_all")
+    post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
+    try:
+        assert post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=EXCH_BTC,
+                    amount="0.01", fee_amount="0", fee_currency="BTC", source="MyBTC",
+                    cost_basis_usd="400").status_code == 200
+        fee = post(type="Transfer", timestamp="2024-05-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
+                   amount="0.001", fee_amount="0.0000005", fee_currency="BTC").json()
+        with test_engine.begin() as con:  # valued at another price, as an older version could
+            con.execute(text("UPDATE transactions SET fee_usd = '1.00' WHERE id = :id"), {"id": fee["id"]})
+        review = auth_client.get("/api/review").json()
+        item = next(c for c in review["checks"] if c["key"] == "fee_value_off")["items"][0]
+        assert item["issue"].startswith("Fee 0.00000050 BTC stored as $1.00"), item["issue"]
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
+def test_review_lists_income_deposits_with_a_zero_or_blank_value(auth_client, test_engine):
+    """#77: an income deposit at $0 or blank reports no income, which the
+    income rules forbid; it slipped past both basis checks."""
+    auth_client.delete("/api/transactions/delete_all")
+    rows = [(960, "0"), (961, None), (962, "500")]  # $0, blank, valued
+    with test_engine.begin() as con:
+        for tx_id, basis in rows:
+            con.execute(text(
+                "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+                " fee_currency, source, cost_basis_usd) VALUES (:id, 'Deposit', '2024-05-01T12:00:00Z', :e, :w, '0.01',"
+                " '0', 'BTC', 'Interest', :basis)"), {"id": tx_id, "e": EXTERNAL, "w": WALLET, "basis": basis})
+    try:
+        review = auth_client.get("/api/review").json()
+        check = next(c for c in review["checks"] if c["key"] == "income_without_value")
+        assert [i["id"] for i in check["items"]] == [960, 961]
+        zero, blank = check["items"]
+        assert zero["issue"].startswith("Basis $0.00") and blank["issue"].startswith("Basis blank")
+        assert "it is $500.00" in zero["issue"] and "$500.00 if you clear it" in zero["change"]  # 0.01 at $50,000
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
+def test_review_lists_zero_income_even_without_a_price(auth_client, test_engine, monkeypatch):
+    """With no price for the day (prices off, a fresh install), the $0 income
+    deposit is still listed, without its value, and counted in no_price_for."""
+    from backend.tests.conftest import stub_daily_prices
+
+    auth_client.delete("/api/transactions/delete_all")
+    stub_daily_prices(monkeypatch, lambda day: None)
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, source, cost_basis_usd) VALUES (970, 'Deposit', '2024-05-01T12:00:00Z', :e, :w, '0.01',"
+            " '0', 'BTC', 'Reward', '0')"), {"e": EXTERNAL, "w": WALLET})
+    try:
+        review = auth_client.get("/api/review").json()
+        [item] = next(c for c in review["checks"] if c["key"] == "income_without_value")["items"]
+        assert item["id"] == 970 and "(no price stored for that day)" in item["issue"]
+        assert review["no_price_for"] == [970]
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
 
 
 def test_review_needs_login():

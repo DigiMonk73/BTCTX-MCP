@@ -27,3 +27,26 @@ def test_any_other_lookup_failure_is_an_error(auth_client, priced, monkeypatch):
     monkeypatch.setattr(price_history, "daily_price", broken)
     with pytest.raises(RuntimeError, match="database is locked"):
         auth_client.get("/api/review")
+
+
+def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engine, monkeypatch):
+    """The income checks too: a broken lookup isn't "no price" (no transfers
+    here, so the fee check doesn't raise first)."""
+    from sqlalchemy import text
+
+    auth_client.delete("/api/transactions/delete_all")
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, source, cost_basis_usd) VALUES (980, 'Deposit', '2024-05-01T12:00:00Z', 99, 2, '0.01',"
+            " '0', 'BTC', 'Income', '123')"))
+
+    def broken(db, when):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(price_history, "daily_price", broken)
+    try:
+        with pytest.raises(RuntimeError, match="database is locked"):
+            auth_client.get("/api/review")
+    finally:
+        auth_client.delete("/api/transactions/delete_all")

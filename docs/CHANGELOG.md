@@ -50,6 +50,25 @@ All notable changes to BitcoinTX are documented in this file.
   nothing. The unused footer, which said "All rights reserved" although
   BitcoinTX is MIT-licensed, is gone.
 
+### Fixed
+- **Form 8949 prints tiny BTC amounts in full.** An amount under 0.000001
+  BTC (100 satoshis), such as a small network fee, printed in column (a) as
+  "5E-8 BTC" instead of "0.00000005 BTC". Ledger Review and the River
+  import's "likely the same event" note showed such amounts the same way.
+  All now print eight decimals. The figures were right; only the
+  description was hard to read. Closes #74.
+- **Losses print in parentheses on Form 8949 and Schedule D.** The IRS
+  instructions ask for negative amounts in parentheses, "(9.74)"; the forms
+  printed "-9.74" in column (h), on line 2 and on Schedule D's lines, while
+  the Complete Tax Report already said they used parentheses. The figures
+  are the same. Closes #75.
+- **Ledger Review lists income deposits with a $0 or blank value** (#77).
+  Such a deposit reports no income, which the income rules forbid, yet it
+  slipped past both of Ledger Review's basis checks. A new item, "Income
+  deposits with a $0 or blank value (no income reported)", lists them with
+  their value at that day's price, so they can be fixed (clear its Cost Basis
+  (USD) to use the day's price, or type the right one).
+
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
   Start9 moved their fork to the new SDK
