@@ -65,8 +65,8 @@ All notable changes to BitcoinTX are documented in this file.
   valued at that day's price when its value is left blank (by you, a CSV,
   the River import or the AI connector), and that value is both its cost
   basis and the income on the tax report. An edit could keep the wrong
-  figure, understating the income and overstating the later gain by the
-  same amount:
+  figure (the first two understate the income and overstate the later gain
+  by the same amount; the third overstates the income):
   - **the old value**, after changing the deposit's amount or date (from
     the form, the AI connector or the API);
   - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
@@ -75,8 +75,8 @@ All notable changes to BitcoinTX are documented in this file.
     deposit into Bank or Exchange USD that carried a value (one moved there
     from Wallet or Exchange BTC by the AI connector or the API, or created
     with a value through the API, the AI connector or a CSV import) was
-    counted as income on the report and the dashboard, its dollar amount
-    shown as BTC.
+    counted as income on the report and the dashboard (a Gift's in the
+    dashboard's gifts), its dollar amount shown as BTC.
   - Affected: versions up to 1.2.5, any tax year, only income deposits
     edited or entered that way.
   - Now a value from the day's price is marked as such, and is priced again
@@ -97,7 +97,7 @@ All notable changes to BitcoinTX are documented in this file.
     right one. Dollar interest from a bank or an exchange recorded as an
     Income, Interest or Reward deposit into Bank or Exchange USD no longer
     shows as income in BitcoinTX: it isn't bitcoin; report it from the
-    bank's or exchange's own tax form (Form 1099-INT).
+    bank's or exchange's own tax form (such as Form 1099-INT or 1099-MISC).
 
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
