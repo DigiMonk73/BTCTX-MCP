@@ -19,6 +19,19 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **How bugs and security problems are handled, in public files.**
+  - `SECURITY.md`: report security problems privately (GitHub's private
+    vulnerability reporting, now on). The fix ships first, then a public
+    advisory.
+  - `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`.
+  - Bug report and feature request forms. The bug form asks whether a
+    tax figure is affected, and has a no-personal-data check.
+  - The README gains "Reporting problems", with the open bugs as the
+    known-issues list.
+  - The `tax-figures` and `security` labels. AGENTS.md and
+    `docs/HOW-CHANGES-FLOW.md` write the process down: every bug found,
+    by anyone, is a public issue; a `tax-figures` fix tells users in the
+    release notes what was wrong and what to do.
 - **The StartOS package builds with the SDK's own tools.** start-sdk 3
   brings TypeScript, Prettier and the bundler, so `startos/package.json`
   lost its `check` and `build` scripts: CI, the pre-push hook and the docs

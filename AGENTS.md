@@ -349,6 +349,8 @@ One home for each kind of information, so nothing is kept twice:
 | How we work | this file |
 | Where things stand | pinned issue #41, "Where we are": in flight, next for Claude, waiting on Start9 or the owner |
 | To-dos, work under way, questions | GitHub issues on this repo, one per task |
+| Bugs (the known issues) | public GitHub issues labelled `bug` ("Bugs and security") |
+| Security problems | private GitHub security advisories until fixed (`SECURITY.md`) |
 | A change | one branch and one pull request into `develop` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
@@ -357,7 +359,8 @@ One home for each kind of information, so nothing is kept twice:
 - **Labels say who has an issue:** `claude` (Claude is on it), `owner`
   (needs the owner: a decision, a test, a click), `ask-grok` (waiting for
   Grok Bot's view), `start9` (the package, Start9's fork or registry); the
-  workflows label the issues they open. A pull request that finishes one
+  workflows label the issues they open. What an issue is: `bug`,
+  `tax-figures` (a figure could be wrong), `security`, `enhancement`. A pull request that finishes one
   says `Closes #N`, and Claude closes the issue when it merges: GitHub
   closes issues by itself only for pull requests into the default branch,
   `main`.
@@ -373,6 +376,39 @@ One home for each kind of information, so nothing is kept twice:
 - **This repository is public, and so is everything in it:** commits, pull
   requests, issues, the CHANGELOG. Never put the owner's ledger figures,
   personal data, keys, passwords or server addresses in any of them.
+
+## Bugs and security
+
+BitcoinTX is in public beta and its figures go on tax returns: users must
+be able to see every known bug. These are the public promises of
+`SECURITY.md`, `CONTRIBUTING.md` and the README's "Reporting problems";
+keep them.
+
+- **Every bug found, by anyone, becomes a public issue at once:** Claude,
+  Grok, the owner, a user, Start9.
+  - Verify it before filing: reproduce it, or quote the evidence. Then say
+    what was verified and what wasn't. A report from Grok or a user is a
+    claim to check, not a finding.
+  - Label it `bug`, plus `tax-figures` when a figure could be wrong.
+  - The issue stands on its own: what happens, how to reproduce it, what
+    it affects, who found it.
+  - Never personal data or the owner's figures; use a test ledger.
+  - Fix it as fast as its risk allows. `tax-figures` bugs come first.
+- **A security problem is never public before its fix.** It's reported or
+  filed as a private advisory (Security tab: "Report a vulnerability").
+  - It's fixed in the advisory's private fork, and released.
+  - Then the advisory is published: what, which versions, what to do.
+  - Acknowledge a report within 7 days.
+- **A fix:**
+  - says `Closes #N`, with a test that fails without it;
+  - gets a CHANGELOG entry naming the issue;
+  - for a `tax-figures` bug, the CHANGELOG and the StartOS release notes
+    tell users what was wrong, which versions, and what to do (for
+    example, Ledger Review, then Recalculate Ledger).
+- **User reports:** label them, reproduce or ask for steps (never for real
+  data), and answer within a week.
+- **The Monday report** lists open `tax-figures` and `security` issues and
+  any security advisory.
 
 ## Reviews
 

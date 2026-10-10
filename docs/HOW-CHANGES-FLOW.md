@@ -130,7 +130,26 @@ brought back in #48), template updates about monthly, *SDK* updates.
 **This must happen before our next release or mirror sync**, or our copy
 would undo their work. Both check it and stop if it was skipped.
 
-## 5. Keeping this computer and GitHub the same
+## 5. When a bug is found
+
+Anyone can find one: Claude, Grok, you, a user, Start9.
+
+1. **It's checked first.** Claude reproduces it, or confirms it from the
+   evidence, and says what was confirmed and what wasn't.
+2. **It becomes a public issue right away.** Labels: `bug`, plus
+   `tax-figures` if a number could be wrong. Users see every known
+   problem: the open `bug` issues are the known-issues list, linked from
+   the README. Never any personal data or real figures.
+3. **It's fixed by a pull request** that closes the issue and adds a test
+   that fails without the fix. `tax-figures` bugs come first. Their
+   release notes tell users what was wrong and what to do.
+
+**Security problems are the exception: never public first.** They're
+reported privately (the repository's Security tab, `SECURITY.md`), fixed,
+released, and only then published as an advisory, so nobody can misuse
+them in the meantime.
+
+## 6. Keeping this computer and GitHub the same
 
 - `make sync-check` answers "is everything on this computer also on
   GitHub?". It ends with **IN SYNC** or **NOT IN SYNC** and a list.

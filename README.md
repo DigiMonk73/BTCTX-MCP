@@ -229,6 +229,23 @@ conventions: [AGENTS.md](AGENTS.md).
 
 BitcoinTX doesn't give tax advice. Check its output before you file.
 
+## Reporting problems
+
+- **A bug or a wrong figure:**
+  [open an issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose).
+  - The [open bugs](https://github.com/DigiMonk73/BTCTX-MCP/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+    are the known issues.
+  - Those that can affect a tax figure are labelled
+    [`tax-figures`](https://github.com/DigiMonk73/BTCTX-MCP/issues?q=is%3Aissue+is%3Aopen+label%3Atax-figures)
+    and fixed first.
+- **A security problem:** report it privately, as [SECURITY.md](SECURITY.md)
+  explains. Never in an issue.
+- **Never post personal data:** issues are public.
+
+Every bug we find ourselves is filed publicly too. Its fix comes with a test,
+and when a fix changes figures, the release notes say what was wrong and what
+to do. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
