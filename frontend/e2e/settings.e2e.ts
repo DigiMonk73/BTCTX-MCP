@@ -185,7 +185,7 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
 
   // How to update an AI app set up for an older version
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
-  await expect(ai.getByText("Already set up? After you update BitcoinTX")).toContainText(`btctx-mcp==${version}`);
+  await expect(ai.getByText("Set up with an older version?")).toContainText(`btctx-mcp==${version}`);
 
   await page.getByText("Set it up yourself").click();
   await expect(page.getByLabel("Claude Desktop config")).toHaveValue(/btctx/i);

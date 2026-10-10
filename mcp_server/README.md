@@ -204,25 +204,30 @@ After you update BitcoinTX, update the connector to the same version. It's
 pinned in your AI app's settings (`uvx btctx-mcp==X.Y.Z`) on purpose: your AI
 app runs exactly the version you chose, nothing new arrives on its own, and
 PyPI sees you once per version. Updating means changing that one number and
-restarting the AI app: no new key, no reconnecting. Until you do, every
-connector reply says which version to use.
+restarting the AI app: no new key, nothing to set up again. Until you do,
+every connector reply says which version to use.
 
 - **Claude Desktop:** Settings → Developer → Edit Config, change
-  `btctx-mcp==` in `args`, save, then quit Claude Desktop (⌘Q) and reopen it.
+  `btctx-mcp==` in `args`, save, then quit Claude Desktop completely (⌘Q on a
+  Mac; on Windows, from the system tray) and reopen it.
 - **Claude Code:** change the version in `~/.claude.json`
-  (`mcpServers.bitcointx.args`), or run `claude mcp remove bitcointx` and the
-  command from Settings again; then restart Claude Code (or reconnect with
-  `/mcp`).
+  (`mcpServers.bitcointx.args`), then restart Claude Code (or reconnect with
+  `/mcp`). With the Mac app you can instead run `claude mcp remove bitcointx`
+  and the command Settings gives (it holds no key); with Docker or StartOS
+  that would replace your key with the placeholder.
 - **Cursor:** change it in `~/.cursor/mcp.json`, then restart Cursor.
 - **Grok Build:** change it in `~/.grok/config.toml` (see
   [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md#grok-build)),
   then check with `grok mcp doctor`.
-- **LM Studio:** Program tab → Install → Edit `mcp.json`.
+- **LM Studio:** Program tab → Install → Edit `mcp.json`, change
+  `btctx-mcp==` in `args` and save.
 
 Don't paste the whole new configuration from Settings over the old one
 unless you put your AI key back in: the one Settings shows has a
-placeholder. Installed with pip instead of `uvx`? Run
-`pip install btctx-mcp==X.Y.Z`.
+placeholder. Set up before 1.2.0? Your configuration has
+`--from "git+https://…@vX.Y.Z#subdirectory=mcp_server" btctx-mcp` instead:
+replace those arguments with `btctx-mcp==X.Y.Z`. Installed with pip instead
+of `uvx`? Run `pip install btctx-mcp==X.Y.Z`.
 
 ## Using it
 

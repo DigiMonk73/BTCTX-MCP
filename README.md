@@ -211,8 +211,8 @@ to do.
 5. Check your **Tax Timezone** in Settings.
 6. If you use the AI connector: in your AI app's settings, change
    `btctx-mcp==<old version>` to `btctx-mcp==<new version>`, then restart
-   the AI app. No new key, no reconnecting. If you forget, every connector
-   reply tells you. Where to change it in each app:
+   the AI app. No new key, nothing to set up again. If you forget, every
+   connector reply tells you. Where to change it in each app:
    [Updating](mcp_server/README.md#updating).
 
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding

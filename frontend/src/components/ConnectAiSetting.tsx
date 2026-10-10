@@ -260,9 +260,9 @@ const ConnectAiSetting: React.FC = () => {
           <CopyBlock label="Setup prompt" text={buildAiPrompt(input)} rows={keyMode ? 12 : 18} />
           {serverPackage(version) !== "btctx-mcp" && (
             <p className="settings-option-subtitle">
-              Already set up? After you update BitcoinTX, change <code>btctx-mcp==</code> in your AI
-              app&apos;s settings to <code>{serverPackage(version)}</code>, then restart the AI app. No
-              new key needed.
+              Set up with an older version? Change <code>btctx-mcp==</code> in your AI app&apos;s
+              settings to <code>{serverPackage(version)}</code>, then restart the AI app. No new key
+              needed.
             </p>
           )}
 
