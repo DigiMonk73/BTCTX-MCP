@@ -285,9 +285,10 @@ class _TaxReport:
                        "day's stored daily BTC price"),
             ("Generated", f"{self.data.get('report_date', '')} UTC"),
         )
-        unfinished = self.year_not_over()
-        if unfinished:
-            facts += (("Year not over", unfinished),)
+        made = self.made_before_year_end()
+        if made:
+            # One line, so the contents stay on the cover with a long timezone
+            facts += (("Year not over", f"Made {made}: figures to that day only"),)
         rows = [[self.text(label.upper(), self.styles.label), self.text(value, self.styles.normal)]
                 for label, value in facts]
         return _cell_table(rows, [1.5, WIDTH - 1.5], [
@@ -349,9 +350,9 @@ class _TaxReport:
                                        fmt_gain(b["gain_loss"]))])
         return [
             data_table(rows, [0.4, 2.35, 0.65, 0.45, 1.05, 1.05, 1.05]),
-            self.text("Each box is its own Form 8949 page, and its totals go on the Schedule D line shown. For "
-                      "the years BitcoinTX has the IRS forms of, they are the totals of the forms it fills "
-                      "(Reports: IRS Reports).", self.styles.note),
+            self.text("Each box takes a page or more of Form 8949, and its totals go on the Schedule D line "
+                      "shown. For the years BitcoinTX has the IRS forms of, they are the totals of the forms it "
+                      "fills (Reports: IRS Reports).", self.styles.note),
         ]
 
     def income_summary_table(self) -> Table:
@@ -519,8 +520,7 @@ class _TaxReport:
         story += self.bullets(self.filled_notes())
         story += self.subheading("What BitcoinTX leaves blank, and why")
         story += self.bullets((
-            "Schedule D lines 1a and 8a: BitcoinTX lists every sale on Form 8949, as Schedule D allows, so they "
-            "stay blank.",
+            "Schedule D lines 1a and 8a: every sale goes on Form 8949, as Schedule D allows, so they stay blank.",
             "Schedule D lines 6 and 14, the loss carryovers: they come from last year's return.",
             "Lines 4, 5, 11, 12 and 13, other sources (installment sales, casualties, K-1s, capital gain "
             "distributions and the like): BitcoinTX tracks only bitcoin.",
@@ -534,8 +534,9 @@ class _TaxReport:
         story += self.bullets(self.filing_notes())
         return story
 
-    def year_not_over(self) -> str | None:
-        """A note when the report was made before the tax year ended."""
+    def made_before_year_end(self) -> str | None:
+        """The day (MM/DD/YYYY, tax timezone) the report was made, when that
+        was before the tax year ended."""
         try:
             made = datetime.datetime.strptime(self.data.get("report_date", ""), "%Y-%m-%d %H:%M:%S")
         except ValueError:
@@ -543,8 +544,13 @@ class _TaxReport:
         made = made.replace(tzinfo=datetime.timezone.utc).astimezone(self.tz)
         if not isinstance(self.year, int) or made.year > self.year:
             return None
-        return (f"The year isn't over yet: this report was made on {made.strftime('%m/%d/%Y')}, so its figures "
-                f"cover January 1 to that day only. Make it again after December 31 to file.")
+        return made.strftime("%m/%d/%Y")
+
+    def year_not_over(self) -> str | None:
+        """A note when the report was made before the tax year ended."""
+        made = self.made_before_year_end()
+        return made and (f"The year isn't over yet: this report was made on {made}, so its figures cover "
+                         "January 1 to that day only. Make it again after December 31 to file.")
 
     def filled_notes(self) -> list[str]:
         """What Reports: IRS Reports prints for the year. `irs_forms` is the
@@ -561,8 +567,8 @@ class _TaxReport:
         elif forms in ("none", "newer"):
             notes = [
                 f"Fill Form 8949 from section 2's list, a page or more per box, or attach that list as a statement "
-                f"and enter each box's totals on Form 8949 with \"see attached statement\" (Form 8949 "
-                f"instructions, Exception 2). This year's boxes: {listed}.",
+                f"and enter each box's totals on Form 8949: \"see attached statement\" in column (a), (b) and (c) "
+                f"blank, code M in column (f) (Form 8949 instructions, Exception 2). This year's boxes: {listed}.",
                 f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 entries, as in the "
                 "Summary.",
             ]

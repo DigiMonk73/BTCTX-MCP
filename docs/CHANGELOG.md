@@ -18,8 +18,8 @@ All notable changes to BitcoinTX are documented in this file.
   Bitcoin-only figures for lines 7, 15 and 16 ("if bitcoin is the only
   capital asset and there's no carryover"), with line 21's rule for a net
   loss ($3,000, or $1,500 married filing separately). It also says to write
-  the name and SSN on every Form 8949 page and print single-sided, how to
-  read the figures, the one-wallet-one-exchange assumption, that the gift
+  the name and SSN on every Form 8949 page and print single-sided, the
+  one-wallet-one-exchange assumption, that the gift
   rule of IRC §1015 isn't applied (#104), and that BitcoinTX is not tax
   advice. A report made before December 31 says, on its cover and on this
   page, that the year isn't over yet.

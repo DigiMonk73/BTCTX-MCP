@@ -37,7 +37,7 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     assert "This year's boxes: H and L (what each holds: section 1)." in text
     assert "Schedule D: lines 2 and 10, each the total of its box's Form 8949 pages" in text
     assert "a page or more per box" in text
-    for blank in ("lines 1a and 8a: BitcoinTX lists every sale on Form 8949", "lines 6 and 14, the loss carryovers",
+    for blank in ("lines 1a and 8a: every sale goes on Form 8949", "lines 6 and 14, the loss carryovers",
                   "Lines 4, 5, 11, 12 and 13", "Lines 7, 15, 16 and 21, and the rest of Part III",
                   "The qualified opportunity fund question at the top of Schedule D: answer it."):
         assert blank in text
@@ -69,9 +69,17 @@ def test_a_report_made_before_the_year_ends_says_so():
     in New York."""
     note = "The year isn't over yet: this report was made on 12/31/2025"
     assert note in report_text(report_date="2025-12-31 23:00:00")
-    assert f"YEAR NOT OVER {note}" in cover_text(report_date="2025-12-31 23:00:00")  # on the cover too
+    assert "YEAR NOT OVER Made 12/31/2025: figures to that day only" in cover_text(report_date="2025-12-31 23:00:00")
     assert note in report_text(report_date="2026-01-01 04:30:00")
     assert "The year isn't over yet" not in report_text(report_date="2026-01-01 05:30:00")
+
+
+@pytest.mark.parametrize("zone", ["America/Indiana/Indianapolis", "America/Los_Angeles", "UTC"])
+def test_the_cover_keeps_the_contents_with_the_year_not_over(zone):
+    """Re-check of #108: a two-line cover row pushed the contents' last entry
+    onto a second page when a long timezone name wrapped its own row."""
+    text = cover_text(tax_timezone=zone, report_date="2025-10-10 15:00:00")
+    assert "YEAR NOT OVER" in text and "7. Notes" in text
 
 
 @pytest.mark.parametrize("forms, expected", [
@@ -85,8 +93,17 @@ def test_it_says_when_the_forms_are_drafts_or_missing(forms, expected):
     if forms != "draft":
         # Nothing filled: the Form 8949 instructions' attached statement, never totals alone
         assert "Form 8949: every Bitcoin disposal" not in text and "Fill Form 8949 from section 2's list" in text
-        assert 'enter each box\'s totals on Form 8949 with "see attached statement" (Form 8949 instructions, ' \
-               "Exception 2)" in text
+        assert 'enter each box\'s totals on Form 8949: "see attached statement" in column (a), (b) and (c) ' \
+               "blank, code M in column (f) (Form 8949 instructions, Exception 2)" in text
+
+
+@pytest.mark.parametrize("year, note", [(2001, "BitcoinTX has no IRS forms for 2001, so it fills none."),
+                                        (2030, "BitcoinTX has no IRS forms for 2030 yet, so it fills none")])
+def test_the_route_says_when_a_year_has_no_forms(auth_client, year, note):
+    """Before BitcoinTX's first forms, or after its newest ones (no draft)."""
+    r = auth_client.get("/api/reports/complete_tax_report", params={"year": year})
+    assert r.status_code == 200
+    assert note in " ".join("\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(r.content)).pages).split())
 
 
 def test_a_report_made_without_the_forms_choice_says_nothing_of_it():
