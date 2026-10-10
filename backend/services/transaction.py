@@ -265,8 +265,8 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     An income deposit's value after an edit (#76). A typed one is kept. One
     that came from the day's price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the day's price when the edit changes
-    what it depends on: the account, amount, day, source or type. A type
-    change makes the row's figure its own, typed.
+    what it depends on: the account, amount, day or source. A type change
+    makes the row's figure its own, typed.
     """
     if not any(k in tx_data for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)):
         return
@@ -275,8 +275,13 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
         # Moved to Bank or to another source, the mark stays (and is unused):
         # moved back with a new amount, the value is priced again. A value
         # typed meanwhile, or another type's figure, is the user's.
-        if getattr(edited["type"], "value", edited["type"]) != "Deposit" or _typed_basis(tx, tx_data):
+        is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
+        if not is_deposit or _typed_basis(tx, tx_data):
             tx_data["cost_basis_from_price"] = False
+        if is_deposit and "cost_basis_usd" not in tx_data and not _into_btc(edited, db):
+            # A USD deposit has no basis: one left from a BTC account by a
+            # partial edit was counted as income on the report
+            tx_data["cost_basis_usd"] = None
         return
     if _typed_basis(tx, tx_data):
         tx_data["cost_basis_from_price"] = False
@@ -923,6 +928,10 @@ def _is_income_into_btc(tx_data: dict, db: Session) -> bool:
     """A deposit with source Income, Interest or Reward into a BTC account."""
     if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in INCOME_SOURCES:
         return False
+    return _into_btc(tx_data, db)
+
+
+def _into_btc(tx_data: dict, db: Session) -> bool:
     to_acct = db.get(Account, tx_data.get("to_account_id")) if tx_data.get("to_account_id") else None
     return to_acct is not None and to_acct.currency == "BTC"
 
