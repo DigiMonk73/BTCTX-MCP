@@ -486,6 +486,7 @@ class TestForm8949Line2Totals:
     def test_each_sheet_totals_its_own_rows(self, clean_db, monkeypatch, year):
         import re
         import backend.routers.reports as reports
+        from backend.tests.printed_forms import amount as value
         from backend.services.reports.form_8949 import get_schedule_d_field_config
 
         def ok(result):
@@ -538,9 +539,12 @@ class TestForm8949Line2Totals:
         def line_2(sheet, page):
             return [sheet.get(f"topmostSubform[0].Page{page}[0].f{page}_{n}[0]") for n in LINE_2_FIELDS[year]]
 
+        def printed(amount):  # a loss in parentheses, as the IRS asks (#75)
+            return f"({-amount:.2f})" if amount < 0 else f"{amount:.2f}"
+
         def expected(amounts, basis_each):
             d, e = sum(amounts, Decimal("0")), basis_each * len(amounts)
-            return [f"{d:.2f}", f"{e:.2f}", "", "", f"{d - e:.2f}"]
+            return [printed(d), printed(e), "", "", printed(d - e)]
 
         # Worked by hand: each sheet's own rows, (f) and (g) blank like the rows.
         assert line_2(sheets[0], 1) == expected(proceeds[:per_sheet], Decimal("200"))
@@ -551,15 +555,15 @@ class TestForm8949Line2Totals:
         # And to the cent the sum of the row fields printed on that page.
         def column_sum(sheet, page, offset):  # offset: (d) 3, (e) 4, (h) 7
             total = Decimal("0")
-            for name, value in sheet.items():
+            for name, text in sheet.items():
                 m = re.search(rf"Page{page}\[0\]\.Table[^.]*\.Row\d+\[0\]\.f{page}_(\d+)\[0\]$", name)
                 if m and (int(m.group(1)) - 3) % 8 == offset:
-                    total += Decimal(value)
+                    total += value(text)
             return total
 
         for sheet, page in ((sheets[0], 1), (sheets[1], 1), (sheets[0], 2)):
             d, e, _, _, h = line_2(sheet, page)
-            assert [Decimal(d), Decimal(e), Decimal(h)] == [column_sum(sheet, page, o) for o in (3, 4, 7)]
+            assert [value(d), value(e), value(h)] == [column_sum(sheet, page, o) for o in (3, 4, 7)]
 
         # Schedule D: each box's line is the sum of that box's sheets.
         config = get_schedule_d_field_config(year)
@@ -567,15 +571,15 @@ class TestForm8949Line2Totals:
         for line, parts in ((short_line, [(sheets[0], 1), (sheets[1], 1)]), (long_line, [(sheets[0], 2)])):
             d_field, e_field, _, h_field = config[line]
             for field, col in ((d_field, 0), (e_field, 1), (h_field, 4)):
-                assert Decimal(schedule_d[field]) == sum(Decimal(line_2(s, p)[col]) for s, p in parts), line
+                assert value(schedule_d[field]) == sum(value(line_2(s, p)[col]) for s, p in parts), line
 
         # The flattened PDF prints them: sheet 1 Part I, sheet 1 Part II, sheet 2 Part I.
         pages = extract_pdf_text_by_page(pdf)
         assert len(pages) == 6
         for text, (sheet, page) in zip(pages[:3], ((sheets[0], 1), (sheets[0], 2), (sheets[1], 1))):
             d, e, _, _, h = line_2(sheet, page)
-            for value in (d, e, h):
-                assert value in text, f"line 2 total {value} not printed"
+            for total in (d, e, h):
+                assert total in text, f"line 2 total {total} not printed"
 
 
 # =============================================================================

@@ -16,10 +16,12 @@ is drawn on the page (printed_forms.py) and check:
 Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
 2025 and 2026, box L of 2025 over two pages), the golden ledger
 (test_golden_years.py: hand-checked figures, a loss in box H) and a tiny
-one with a 5-satoshi sale.
+one with a 5-satoshi sale and a long-term loss.
 
 And the formats the IRS forms need:
-- BTC amounts with all eight decimals, never "5E-8 BTC" (#74).
+- BTC amounts with all eight decimals, never "5E-8 BTC" (#74);
+- negative amounts in parentheses, "(9.74)", never "-9.74" (#75; the Form
+  8949 instructions for columns (g) and (h), and Schedule D).
 """
 
 import importlib.util
@@ -64,6 +66,9 @@ TINY_LEDGER = [
          amount="0.001", cost_basis_usd="100", fee_amount="0", fee_currency="USD"),
     dict(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
          amount="0.00000005", gross_proceeds_usd="0.01", fee_amount="0", fee_currency="USD"),
+    # A long-term loss: 0.0001 BTC of the $100,000/BTC lot ($10.00) sold for $5.00 (#75)
+    dict(type="Sell", timestamp="2026-03-02T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
+         amount="0.0001", gross_proceeds_usd="5", fee_amount="0", fee_currency="USD"),
 ]
 
 LEDGERS = {
@@ -72,7 +77,8 @@ LEDGERS = {
     "tiny": (lambda: [dict(r) for r in TINY_LEDGER], "UTC"),
 }
 # Every (ledger, year) with Form 8949 rows (test_cases_cover_every_year_with_rows)
-CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025), ("tiny", 2025)]
+CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025), ("tiny", 2025),
+         ("tiny", 2026)]
 
 
 @pytest.fixture(scope="module")
@@ -272,3 +278,23 @@ def test_btc_amounts_have_eight_decimals(printed, ledger, year):
 def test_the_tiny_sale_is_printed(printed):
     rows = [row["a"] for part in _parts(_pages(printed, "tiny", 2025), 2025) for row in part.rows]
     assert rows == ["0.00000005 BTC"]
+
+
+AMOUNT = re.compile(r"\(\d+\.\d{2}\)|\d+\.\d{2}")
+# The printed losses each case must show, so the format check isn't vacuous
+LOSSES = {("seed", 2026): {"G"}, ("golden", 2025): {"H"}, ("tiny", 2026): {"K"}}
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_losses_are_in_parentheses(printed, ledger, year):
+    """Every amount the forms print is "1234.56" or, negative, "(9.74)",
+    as the IRS instructions ask; never "-9.74" (#75)."""
+    pages = _pages(printed, ledger, year)
+    amounts = [cell for part in _parts(pages, year) for cells in part.rows + [part.line2]
+               for col, cell in cells.items() if col in "deh" and cell]
+    amounts += [cell for cells in pf.schedule_d_lines([p for p in pages if p.template.form == "f1040sd"]).values()
+                for col, cell in cells.items() if col in "deh" and cell]
+    assert amounts
+    assert [a for a in amounts if not AMOUNT.fullmatch(a)] == []
+    boxes_with_losses = {part.boxes for part in _parts(pages, year) for row in part.rows if row["h"].startswith("(")}
+    assert LOSSES.get((ledger, year), set()) <= boxes_with_losses
