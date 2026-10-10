@@ -233,6 +233,12 @@ you to approve each tool call unless you tell it not to.
   large import, have the AI run `backup_ledger` or take a backup yourself
   (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
 
+## Disclaimer
+
+BitcoinTX is software, not tax, legal or financial advice. It works from the
+records you enter: check its figures with a tax professional before you
+file. The same goes for what your AI assistant says about them.
+
 ## Development
 
 ```bash

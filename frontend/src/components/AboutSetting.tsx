@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import api from "../api";
 import { REPO_URL } from "../utils/aiSetup";
+import { DISCLAIMER, ONE_WALLET_NOTICE } from "../utils/disclaimer";
 
 /** The project's pages this section links to (SECURITY.md, README "Reporting problems"). */
 const ABOUT_LINKS = {
@@ -40,6 +41,10 @@ const AboutSetting: React.FC = () => {
   return (
     <div className="settings-section about-section" role="region" aria-label="About BitcoinTX">
       <h3 className="section-title">About BitcoinTX</h3>
+      <p className="note note-warning" role="note">
+        <strong>Important: one wallet, one exchange.</strong> {ONE_WALLET_NOTICE}
+      </p>
+      <p className="settings-option-subtitle">{DISCLAIMER}</p>
       <p className="settings-option-subtitle">
         Version {version === undefined ? "…" : (version ?? "unknown")} ·{" "}
         <Outside href={ABOUT_LINKS.releases}>release notes</Outside>

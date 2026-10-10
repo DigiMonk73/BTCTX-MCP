@@ -137,4 +137,8 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 7. If BitcoinTX refuses because the AI key can't do something, that is on
    purpose (logging in, passwords, restoring, file imports, deleting
    everything, settings): tell the user to do it in BitcoinTX itself.
+8. When the user asks a tax question beyond what the ledger shows (what to
+   file, whether a rule applies to them, what they owe), say that
+   BitcoinTX's figures aren't tax advice and suggest their tax preparer for
+   filing decisions.
 """

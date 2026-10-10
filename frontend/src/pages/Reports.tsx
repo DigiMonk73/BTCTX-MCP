@@ -3,6 +3,7 @@ import api, { downloadPdfWithAxios } from "../api";
 import { useToast } from "../contexts/useToast";
 import { downloadFile, isDesktopApp } from "../utils/desktopDownload";
 import { reportErrorMessage } from "../utils/reportError";
+import { DISCLAIMER } from "../utils/disclaimer";
 import "../styles/reports.css";
 
 const API_BASE = "/api";
@@ -19,7 +20,7 @@ const REPORTS = [
   {
     key: "irsReports",
     label: "IRS Reports (Form 8949, Schedule D, etc.)",
-    description: "The filled IRS forms, ready to file or hand to your preparer.",
+    description: "The filled IRS forms, for you and your preparer to check before filing.",
     endpoint: "/reports/irs_reports",
     pdfOnly: true,
     needsForms: true,
@@ -215,6 +216,7 @@ const Reports: React.FC = () => {
             Export
           </button>
         </div>
+        <p className="field-hint">{DISCLAIMER}</p>
       </div>
     </div>
   );

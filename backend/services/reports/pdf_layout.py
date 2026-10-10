@@ -24,6 +24,11 @@ ACCENT_SOFT = colors.HexColor("#FEF4E8")
 
 FONT, BOLD = "Helvetica", "Helvetica-Bold"
 
+# Worded the same everywhere: the app, the README, the StartOS listing
+DISCLAIMER = ("BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: "
+              "check its figures with a tax professional before you file.")
+FOOTER_NOTE = "Prepared with BitcoinTX from your own records. Check it with a tax professional before filing."
+
 
 class ReportStyles:
     """A report's paragraph styles; each document gets its own set."""
