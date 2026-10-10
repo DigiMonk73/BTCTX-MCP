@@ -26,7 +26,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXCHANGE_BTC, ACCOUNT_ID_TO_NAME, ACCOUNT_WALLET, INCOME_SOURCES
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INCOME_SOURCES
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -64,8 +64,6 @@ STATUS_NOT_SIMULATED = "not_simulated"
 
 # Rows with these statuses are written by execute
 WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
-
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
 
 @dataclass

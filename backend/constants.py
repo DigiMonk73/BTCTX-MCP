@@ -14,6 +14,9 @@ ACCOUNT_USD_FEES = 6
 # Virtual account for external transactions
 ACCOUNT_EXTERNAL = 99
 
+# The accounts that hold bitcoin; the others hold dollars
+BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
+
 # Mapping for CSV export (account ID -> display name)
 ACCOUNT_ID_TO_NAME = {
     ACCOUNT_BANK: "Bank",

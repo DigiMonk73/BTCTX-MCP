@@ -48,25 +48,33 @@ All notable changes to BitcoinTX are documented in this file.
     the form, the AI connector or the API);
   - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
     the AI connector's edit tool or the API (the form wasn't affected).
+  - **income counted on a USD deposit**: an Income, Interest or Reward
+    deposit into Bank or Exchange USD that carried a value (one moved there
+    from Wallet or Exchange BTC by the AI connector or the API, or created
+    with a value through the API, the AI connector or a CSV import) was
+    counted as income on the report and the dashboard, its dollar amount
+    shown as BTC.
   - Affected: versions up to 1.2.5, any tax year, only income deposits
-    edited that way.
-  - **income counted on a USD deposit**: a deposit moved from Wallet or
-    Exchange BTC to Bank or Exchange USD by the AI connector or the API
-    kept its value, which the report counted as income.
+    edited or entered that way.
   - Now a value from the day's price is marked as such, and is priced again
     when you change the deposit's account, amount, date or source; a value
-    you typed stays as you typed it; and a deposit moved to a USD account
-    loses its value (a USD deposit has none). The update changes no figure: it
-    marks an existing value only where it is exactly that day's price times
-    the amount (migration 0006; a typed value that happens to equal it is
-    marked too, and is then priced the same way), and the mark only decides
-    what the next edit does. The CSV export and import carry it
+    you typed stays as you typed it; and income on the report and the
+    dashboard counts only deposits into Wallet or Exchange BTC, whatever
+    value a USD deposit carries (a partial edit that moves one to a USD
+    account also clears its value). Apart from that, the update changes no
+    figure: it marks an existing value only where it is exactly that day's
+    price times the amount (migration 0006; a typed value that happens to
+    equal it is marked too, and is then priced the same way), and the mark
+    only decides what the next edit does. The CSV export and import carry it
     (`cost_basis_typed`), as the AI connector's import and the River import
     do.
   - What to do: after updating, run Ledger Review (Settings), and fix each
     income deposit it lists with a $0 or blank value, or a value far from
     that day's price: clear the value to use the day's price, or type the
-    right one.
+    right one. Dollar interest from a bank or an exchange recorded as an
+    Income, Interest or Reward deposit into Bank or Exchange USD no longer
+    shows as income in BitcoinTX: it isn't bitcoin; report it from the
+    bank's or exchange's own tax form (Form 1099-INT).
 
 ### StartOS package
 - **Start9's move to start-sdk 3.0.3, taken back (still package 1.2.5:0).**
