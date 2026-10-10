@@ -130,7 +130,7 @@ brought back in #48), template updates about monthly, *SDK* updates.
 **This must happen before our next release or mirror sync**, or our copy
 would undo their work. Both check it and stop if it was skipped.
 
-## 5. When a bug is found
+## 5. When a bug is found, or an idea arrives
 
 Anyone can find one: Claude, Grok, you, a user, Start9.
 
@@ -153,6 +153,9 @@ Anyone can find one: Claude, Grok, you, a user, Start9.
 - not sure: it stays open.
 
 Reports and ideas belong in this repository: the mirror's Issues are off.
+Users sometimes open issues on Start9's copy. The Monday report lists
+them; with your OK, Claude answers there and, if needed, opens an issue
+here that links to it.
 
 **Security problems are the exception: never public first.**
 1. They're reported privately (the repository's Security tab,
