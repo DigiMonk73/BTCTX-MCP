@@ -62,6 +62,11 @@ VOLATILE_SETTINGS = ("key_sha256",)
 REPORT_MOMENT = re.compile(r"^(Date: )?\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}( UTC)?$", re.M)
 
 
+def masked_report_pages(pages: list[str]) -> list[str]:
+    """The report's page texts with the moment it was made replaced by <now>."""
+    return [REPORT_MOMENT.sub(r"\1<now>\2", page) for page in pages]
+
+
 def take(out: Path, work: Path, bench: bool) -> None:
     """Write the snapshot of this checkout to `out`, one JSON file per ledger."""
     out.mkdir(parents=True, exist_ok=True)
@@ -293,7 +298,7 @@ def _year_reports(instance: Instance, year: int) -> dict:
     complete = answer(client.get("/api/reports/complete_tax_report", params={"year": year}))
     if isinstance(complete["body"], dict):
         del complete["body"]["sha256"]  # it holds the moment the report was made
-        complete["body"]["pages"] = [REPORT_MOMENT.sub(r"\1<now>\2", p) for p in complete["body"]["pages"]]
+        complete["body"]["pages"] = masked_report_pages(complete["body"]["pages"])
     reports["complete"] = complete
     reports["complete_data_and_pdf"] = _complete_report(instance, year)
     for fmt in ("pdf", "csv"):

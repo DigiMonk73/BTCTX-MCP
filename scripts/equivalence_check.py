@@ -24,6 +24,7 @@ import difflib
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -65,12 +66,14 @@ def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
     commit = _git("rev-parse", f"{ref}^{{commit}}").strip()
     out = STORE / f"{commit[:12]}-{_snapshot_code_digest()}-{date.today().isoformat()}"
     if fresh or not (out / "done").exists() or (bench and not (out / "bench.json").exists()):
-        worktree = Path(tempfile.mkdtemp(prefix="btctx-baseline-")) / "checkout"
+        parent = Path(tempfile.mkdtemp(prefix="btctx-baseline-"))
+        worktree = parent / "checkout"
         _git("worktree", "add", "--detach", str(worktree), commit)
         try:
             _take(worktree, out, bench)
         finally:
             _git("worktree", "remove", "--force", str(worktree))
+            shutil.rmtree(parent, ignore_errors=True)
     return out
 
 
@@ -109,7 +112,10 @@ def _snapshot(root: Path, out: Path, bench: bool) -> int:
 
     import equivalence_snapshot
 
-    equivalence_snapshot.take(out, work, bench)
+    try:
+        equivalence_snapshot.take(out, work, bench)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)  # the throwaway database and files
     return 0
 
 

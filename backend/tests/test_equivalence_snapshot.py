@@ -27,10 +27,13 @@ def test_the_report_moment_is_masked(auth_client):
     assert r.status_code == 200, r.text
     pages = [p.extract_text() or "" for p in PdfReader(BytesIO(r.content)).pages]
     assert any(MOMENT.search(p) for p in pages)
-    masked = [snapshot.REPORT_MOMENT.sub(r"\1<now>\2", p) for p in pages]
+    masked = snapshot.masked_report_pages(pages)
     assert not any(MOMENT.search(p) for p in masked)
     assert any("<now> UTC" in p for p in masked)
+    # Only the moment: a line it also hid would hide a real difference
+    assert sum(snapshot.REPORT_MOMENT.subn("", p)[1] for p in pages) == 1
 
 
 def test_the_old_date_line_is_masked_too():
-    assert snapshot.REPORT_MOMENT.sub(r"\1<now>\2", "Date: 2025-01-02 03:04:05") == "Date: <now>"
+    """Releases up to 1.2.4 print "Date: <time>": the baseline's snapshot."""
+    assert snapshot.masked_report_pages(["Date: 2025-01-02 03:04:05"]) == ["Date: <now>"]

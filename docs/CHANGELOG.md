@@ -54,7 +54,15 @@ All notable changes to BitcoinTX are documented in this file.
 - **The before-and-after check hides the report's time again.** Since 1.2.5
   the Complete Tax Report prints when it was made on a "GENERATED" line,
   which `scripts/equivalence_check.py` didn't mask, so every comparison
-  showed a difference there. Needed for the 1.2.6 tax-figure fixes.
+  showed a difference there (found in the review of #96). Needed for the
+  1.2.6 tax-figure fixes.
+- **The printed forms are read back by the tests (#80, first part).** A QA
+  pass of a 2026 draft found defects only the printed PDF showed. The new
+  `test_printed_forms.py` reads each value of the flattened Form 8949 and
+  Schedule D where it is drawn, for the full test ledger and the golden one,
+  and checks every row is printed once in its box with its figures, each
+  row and page adds up, Schedule D's lines are their boxes' sheets, and the
+  Complete Tax Report's box table shows the same figures.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.

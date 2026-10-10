@@ -250,7 +250,7 @@ So derived values must be recomputable from the Transaction row alone.
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~650 hermetic tests (backend + MCP), ~1 min
+make test-fast   # ~1,000 hermetic tests (backend + MCP), ~3 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
