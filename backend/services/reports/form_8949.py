@@ -151,7 +151,7 @@ def build_form_8949_and_schedule_d(
         hp_str = (disp.holding_period or "SHORT").upper()
 
         row = Form8949Row(
-            description=f"{disp.disposed_btc} BTC",
+            description=btc_description(disp.disposed_btc),
             date_acquired=acquired_str,
             date_sold=sold_str,
             proceeds=proceeds_dec,
@@ -174,6 +174,12 @@ def build_form_8949_and_schedule_d(
         "long_term":  [r.to_dict() for r in rows_long],
         "schedule_d": schedule_d
     }
+
+
+def btc_description(amount) -> str:
+    """Column (a): the BTC amount with all eight decimals. str() of a Decimal
+    under 0.000001 is in exponent form ("5E-8")."""
+    return f"{Decimal(amount):.8f} BTC"
 
 
 def disposal_box(disp: LotDisposal, year: int, tz=timezone.utc) -> str:

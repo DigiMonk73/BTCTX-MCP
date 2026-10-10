@@ -91,6 +91,11 @@ def _money(value) -> str | None:
     return None if value is None else str(Decimal(value).quantize(Decimal("0.01")))
 
 
+def _btc(value) -> str:
+    """All eight decimals: str() of a Decimal under 0.000001 is "5E-8"."""
+    return f"{Decimal(value or 0):.8f}"
+
+
 def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
     return {
         "id": t.id,
@@ -98,7 +103,7 @@ def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": str(t.amount),
+        "amount": _btc(t.amount),
         "realized_gain_usd": _money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
@@ -280,7 +285,7 @@ def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
     for change in fee_price_changes(db):
         t = db.get(Transaction, change["id"])
         items.append(_item(
-            t, tz, f"Fee {t.fee_amount} BTC stored as ${_money(change['old'])}; at that day's price "
+            t, tz, f"Fee {_btc(t.fee_amount)} BTC stored as ${_money(change['old'])}; at that day's price "
                    f"(${_money(change['price'])}) it is ${_money(change['new'])}.",
             f"Fee value ${_money(change['old'])} -> ${_money(change['new'])}; the fee's gain changes by "
             f"${_money(change['new'] - change['old'])}.",

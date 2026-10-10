@@ -85,6 +85,23 @@ def test_review_dates_are_in_the_tax_timezone(auth_client, test_engine, ledger):
     assert spend["items"][0]["date"] == "2023-12-31 22:00"
 
 
+def test_review_amounts_have_eight_decimals(auth_client, test_engine):
+    """A 5-satoshi amount reads 0.00000005, not 5E-8 (#74)."""
+    auth_client.delete("/api/transactions/delete_all")
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, purpose, gross_proceeds_usd, realized_gain_usd)"
+            " VALUES (950, 'Withdrawal', '2024-01-01 03:00:00', :w, :e, '0.00000005', '0', 'BTC', 'Spent', '0',"
+            " '0')"), {"w": WALLET, "e": EXTERNAL})
+    try:
+        review = auth_client.get("/api/review").json()
+        item = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")["items"][0]
+        assert item["amount"] == "0.00000005"
+    finally:
+        auth_client.delete("/api/transactions/delete_all")
+
+
 def test_review_needs_login():
     from fastapi.testclient import TestClient
 

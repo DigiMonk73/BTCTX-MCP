@@ -222,7 +222,7 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 
 | Col | Offset | Value |
 |---|---|---|
-| (a) | 0 | `"<disposed_btc> BTC"` |
+| (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`btc_description()`; never exponent form) |
 | (b) | 1 | date acquired, MM/DD/YYYY (tax timezone) |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |

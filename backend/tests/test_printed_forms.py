@@ -14,11 +14,15 @@ is drawn on the page (printed_forms.py) and check:
 - the Complete Tax Report's box table shows the forms' figures.
 
 Ledgers: the full test ledger (scripts/seed_ledger.py: every box of 2024,
-2025 and 2026, multi-page boxes) and the golden ledger
-(test_golden_years.py: hand-checked figures, a loss in box H).
+2025 and 2026, multi-page boxes), the golden ledger (test_golden_years.py:
+hand-checked figures, a loss in box H) and a tiny one with a 5-satoshi sale.
+
+And the formats the IRS forms need:
+- BTC amounts with all eight decimals, never "5E-8 BTC" (#74).
 """
 
 import importlib.util
+import re
 from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
@@ -49,9 +53,21 @@ USER, PASSWORD = "forms-user", "forms-password-123"
 # The day the forms are made: inside 2026, so the shipped 2026 drafts are offered
 FORMS_DAY = date(2026, 10, 10)
 
+BANK, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 3, 4, 99
+# Amounts under 0.000001 BTC (100 sats) printed as "5E-8 BTC" (#74)
+TINY_LEDGER = [
+    dict(type="Deposit", timestamp="2025-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+         amount="1000", fee_amount="0", fee_currency="USD", source="N/A"),
+    dict(type="Buy", timestamp="2025-01-10T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+         amount="0.001", cost_basis_usd="100", fee_amount="0", fee_currency="USD"),
+    dict(type="Sell", timestamp="2025-02-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
+         amount="0.00000005", gross_proceeds_usd="0.01", fee_amount="0", fee_currency="USD"),
+]
+
 LEDGERS = {
     "seed": (seed_ledger.ledger_rows, "UTC"),
     "golden": (lambda: [dict(r) for r in GOLDEN_LEDGER], "America/New_York"),
+    "tiny": (lambda: [dict(r) for r in TINY_LEDGER], "UTC"),
 }
 
 
@@ -115,7 +131,7 @@ def _print_ledger(rows: list[dict], timezone: str, Session) -> dict:
     return result
 
 
-CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025)]
+CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025), ("tiny", 2025)]
 
 
 def _read_back(pdf: bytes, year: int) -> list[pf.PrintedPage]:
@@ -212,3 +228,17 @@ def test_the_report_shows_the_forms_figures(printed, ledger, year):
         assert int(shown["rows"]) == by_box[box]["rows"]
         for key in ("proceeds", "cost", "gain"):
             assert pf.amount(shown[key].replace("$", "")) == by_box[box][key], (box, key, shown)
+
+
+@pytest.mark.parametrize("ledger, year", CASES)
+def test_btc_amounts_have_eight_decimals(printed, ledger, year):
+    """Column (a) reads "0.00000005 BTC": str() of a Decimal under 0.000001
+    BTC printed "5E-8 BTC" (#74)."""
+    for part in _parts(_pages(printed, ledger, year), year):
+        for row in part.rows:
+            assert re.fullmatch(r"\d+\.\d{8} BTC", row["a"]), row["a"]
+
+
+def test_the_tiny_sale_is_printed(printed):
+    rows = [row["a"] for part in _parts(_pages(printed, "tiny", 2025), 2025) for row in part.rows]
+    assert rows == ["0.00000005 BTC"]
