@@ -198,6 +198,40 @@ claude mcp add --scope user bitcointx \
 Then paste your key over the placeholder in `~/.claude.json`
 (`mcpServers.bitcointx.env`), so it never goes into your shell history.
 
+## Updating
+
+After you update BitcoinTX, update the connector to the same version. It's
+pinned in your AI app's settings (`uvx btctx-mcp==X.Y.Z`) on purpose: your AI
+app runs exactly the version you chose, nothing new arrives on its own, and
+PyPI sees you once per version. Updating means changing that one number and
+restarting the AI app: no new key, nothing to set up again. Until you do,
+every connector reply says which version to use.
+
+- **Claude Desktop:** Settings → Developer → Edit Config, change
+  `btctx-mcp==` in `args`, save, then quit Claude Desktop completely (⌘Q on a
+  Mac; on Windows, from the system tray) and reopen it.
+- **Claude Code:** change the version in `~/.claude.json`
+  (`mcpServers.bitcointx.args`; under `projects` → your folder if you used
+  the StartOS action's command), then restart Claude Code (or reconnect with
+  `/mcp`). With the Mac app you can instead run `claude mcp remove bitcointx`
+  and the command Settings gives (it holds no key); with Docker or StartOS
+  that would replace your key, and on StartOS the certificate path, with
+  placeholders.
+- **Cursor:** change it in `~/.cursor/mcp.json`, then restart Cursor.
+- **Grok Build:** change it in `~/.grok/config.toml` (see
+  [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md#grok-build)),
+  then check with `grok mcp doctor`.
+- **LM Studio:** Program tab → Install → Edit `mcp.json`, change
+  `btctx-mcp==` in `args`, save, then restart LM Studio.
+
+Don't paste the whole new configuration from Settings over the old one
+unless you put your AI key (and on StartOS the certificate path) back in:
+the one Settings shows has placeholders. Set up before 1.2.0? Your
+configuration has `--from "git+https://…@vX.Y.Z#subdirectory=mcp_server"
+btctx-mcp` instead (or `@main`): replace those arguments with
+`btctx-mcp==X.Y.Z`. Installed with pip instead of `uvx`? Run
+`pip install btctx-mcp==X.Y.Z`.
+
 ## Using it
 
 > Here's my River email: "You bought 0.00231 BTC for $150.00 (fee $1.49) on Mar 3"
