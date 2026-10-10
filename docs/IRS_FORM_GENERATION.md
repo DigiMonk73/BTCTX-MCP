@@ -229,11 +229,11 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 | (e) | 4 | cost basis, 2 decimals |
 | (f) | 5 | **blank.** The app records no adjustment codes. The box letter is a checkbox, never a column (f) code. |
 | (g) | 6 | blank |
-| (h) | 7 | gain or loss, 2 decimals |
+| (h) | 7 | gain or loss, 2 decimals; a loss in parentheses, `(9.74)` (`form_amount()`; the instructions: "Enter negative amounts in parentheses") |
 
 **Line 2 "Totals"**, below the last row of each Part, gets the totals of the
 rows on that page (one sheet's chunk of one box): (d), (e) and (h) added up to
-the cent (losses subtracted), 2 decimals; (f) and (g) blank like the rows. A
+the cent (losses subtracted), 2 decimals, a negative total in parentheses; (f) and (g) blank like the rows. A
 Part with no rows leaves line 2 blank. The fields sit directly under the page,
 not in the table: `topmostSubform[0].Page{p}[0].f{p}_{n}[0]`, with `n` per
 column in `line2_fields` (`line2_field_names()`).
