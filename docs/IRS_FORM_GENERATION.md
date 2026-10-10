@@ -119,7 +119,7 @@ get_irs_reports()                                             reports.py
   │  fill_pdf_form(f8949.pdf, fields)           -> one flattened sheet each
   │  map_schedule_d_fields(...) + fill_pdf_form(f1040sd.pdf, ...)
   ▼
-_merge_all_pdfs(): each sheet's used Parts in order, then Schedule D's two pages -> IRSReports_YYYY.pdf
+_merge_all_pdfs(): each sheet's used Parts in order, then all of Schedule D's pages -> IRSReports_YYYY.pdf
 ```
 
 Each LotDisposal is the part of a disposal that came from one lot, so a Sell
