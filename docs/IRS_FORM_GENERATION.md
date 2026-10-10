@@ -119,7 +119,7 @@ get_irs_reports()                                             reports.py
   │  fill_pdf_form(f8949.pdf, fields)           -> one flattened sheet each
   │  map_schedule_d_fields(...) + fill_pdf_form(f1040sd.pdf, ...)
   ▼
-_merge_all_pdfs(): 8949 sheets in order, then Schedule D  -> IRSReports_YYYY.pdf
+_merge_all_pdfs(): each sheet's used Parts in order, then Schedule D's two pages -> IRSReports_YYYY.pdf
 ```
 
 Each LotDisposal is the part of a disposal that came from one lot, so a Sell
@@ -211,7 +211,10 @@ line 2 totals of all that box's Form 8949 sheets.
 
 The template has two pages. Page 1 is Part I (short-term), page 2 is Part II
 (long-term). Extra rows go on extra copies of the template, never on "page 3"
-fields (those don't exist). `rows_per_page` comes from the year config:
+fields (those don't exist). Only the pages with rows are printed: the
+instructions say to "complete and file either Part I or II", so a sheet with
+short-term rows only prints no empty Part II (and the other way round).
+Schedule D always prints both pages: Part III is the filer's to complete. `rows_per_page` comes from the year config:
 **14 for 2024, 11 for 2025**.
 
 Row field names:
@@ -299,5 +302,6 @@ written in. `test_printed_forms.py` checks the PDFs of the test ledgers (the ful
 one, the golden one, and a tiny one with a 5-satoshi sale and a long-term
 loss): every row once in its box, (d) - (e) = (h), one box and line 2 per
 page, Schedule D lines = their boxes' sheets, the Complete Tax Report's box
-table, column (a)'s eight decimals, and losses in parentheses. Every text field must be found where it is drawn, so a page that
+table, column (a)'s eight decimals, losses in parentheses, and no page
+without rows. Every text field must be found where it is drawn, so a page that
 can't be read fails instead of reading as blank.
