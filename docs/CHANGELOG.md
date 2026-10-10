@@ -34,6 +34,12 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **One disclaimer, worded the same everywhere.** "BitcoinTX is software,
+  not tax, legal or financial advice. It works from the records you enter:
+  check its figures with a tax professional before you file." The README
+  gains a "Disclaimer" section (with the MIT License's "as is, without
+  warranty"), replacing a line at the end of "Development". The landing
+  page uses the same words.
 - **Feature requests and the mirror's issues, in the process.**
   - A feature request gets a thank-you and no promise. The owner decides:
     the roadmap, "not planned" with a reason, or open.

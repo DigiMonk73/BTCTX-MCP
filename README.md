@@ -244,7 +244,12 @@ conventions: [AGENTS.md](AGENTS.md).
 | Block height | Your mempool server, or Blockchain.info, Blockstream, mempool.space |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 
-BitcoinTX doesn't give tax advice. Check its output before you file.
+## Disclaimer
+
+BitcoinTX is software, not tax, legal or financial advice. It works from the
+records you enter: check its figures with a tax professional before you
+file. It's provided as is, without warranty ([MIT License](LICENSE)). You're
+responsible for your records and your tax return.
 
 ## Reporting problems
 
