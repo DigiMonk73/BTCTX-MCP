@@ -37,8 +37,31 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX is MIT-licensed, is gone.
 
 ### Fixed
+- **Form 8949 prints tiny BTC amounts in full.** An amount under 0.000001
+  BTC (100 satoshis), such as a small network fee, printed in column (a) as
+  "5E-8 BTC" instead of "0.00000005 BTC". Ledger Review and the River
+  import's "likely the same event" note showed such amounts the same way.
+  All now print eight decimals. The figures were right; only the
+  description was hard to read. Closes #74.
+- **Losses print in parentheses on Form 8949 and Schedule D.** The IRS
+  instructions ask for negative amounts in parentheses, "(9.74)"; the forms
+  printed "-9.74" in column (h), on line 2 and on Schedule D's lines, while
+  the Complete Tax Report already said they used parentheses. The figures
+  are the same. Closes #75.
+- **Ledger Review lists income deposits with a $0 or blank value** (#77).
+  Such a deposit reports no income, which the income rules forbid, yet it
+  slipped past both of Ledger Review's basis checks. A new item, "Income
+  deposits with a $0 or blank value (no income reported)", lists them with
+  their value at that day's price, so they can be fixed (clear its Cost Basis
+  (USD) to use the day's price, or type the right one).
+- **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
+  printed both of its pages, so a short-term sheet was followed by an empty
+  Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
+  sheet by an empty Part I. Only the Part a sheet uses is printed now, as
+  the instructions allow ("complete and file either Part I or II");
+  Schedule D keeps both pages. Closes #78.
 - **Editing an income deposit could leave the wrong income** (tax figures,
-  #76). An Income, Interest or Reward deposit into Wallet or Exchange BTC is
+  #76, #110). An Income, Interest or Reward deposit into Wallet or Exchange BTC is
   valued at that day's price when its value is left blank (by you, a CSV,
   the River import or the AI connector), and that value is both its cost
   basis and the income on the tax report. An edit could keep the wrong
@@ -91,6 +114,16 @@ All notable changes to BitcoinTX are documented in this file.
   those two sentences in every language. Closes #27.
 
 ### Development
+- **A Mac app build can be tested without touching a real ledger.**
+  `desktop/run-test-build.sh` runs a build on its own data folder (log
+  included) and port 8766, the same on every launch. It uses only a folder
+  that is empty or its own, never the installed app's however it is
+  spelled; underneath, `BTCTX_DESKTOP_DATA_DIR` moves the app's data folder
+  (`desktop/desktop_paths.py`). The Mac docs and the agent release tests'
+  Track C no longer say to `open` a build, which would open the installed
+  app's ledger. A test run that finds itself already open
+  doesn't bring "BitcoinTX" forward by name, which could start the
+  installed app.
 - **The before-and-after check hides the report's time again.** Since 1.2.5
   the Complete Tax Report prints when it was made on a "GENERATED" line,
   which `scripts/equivalence_check.py` didn't mask, so every comparison

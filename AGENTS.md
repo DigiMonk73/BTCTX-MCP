@@ -30,7 +30,8 @@ Branches).
   "merge" ("Reviews").
 - The owner's real ledger is the installed Mac app's data. Never test on it,
   run a script against it or point the AI connector at it; use temp
-  databases, `make preview` or the StartOS test VM.
+  databases, `make preview` or the StartOS test VM, and run a Mac build
+  only with `desktop/run-test-build.sh` (its own data folder and port).
 - Other people install BitcoinTX from Start9's community registry: a
   release that breaks an update or loses data hurts users who trust it.
 - Start9's reviewers and users care about privacy: no price is asked of

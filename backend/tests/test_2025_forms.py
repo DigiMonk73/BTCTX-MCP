@@ -135,7 +135,7 @@ class Test2025FormGeneration:
         pdf = get_irs_report(2025)
         assert pdf is not None, "2025 IRS report should generate"
         pages = extract_pages(pdf)
-        # One 8949 sheet (2 pages) + Schedule D (2 pages)
+        # One 8949 sheet, both Parts used (2 pages) + Schedule D (2 pages)
         assert len(pages) == 4, f"Expected 4 pages, got {len(pages)}"
         full_text = "\n".join(pages)
         assert "2025" in full_text
@@ -155,14 +155,14 @@ class Test2025FormGeneration:
             assert amount in full_text, f"Row {i + 1} ({amount} BTC) missing from filled form"
 
     def test_overflow_creates_second_sheet(self):
-        """13 short rows => 2 sheets (4 pages of 8949) + Schedule D (2 pages)."""
+        """13 short rows => 2 sheets, each printing only its Part I (#78), + Schedule D (2 pages)."""
         delete_all_transactions()
         seed_short_term_2025(ROWS_PER_PAGE_2025 + 2)
 
         pdf = get_irs_report(2025)
         assert pdf is not None
         pages = extract_pages(pdf)
-        assert len(pages) == 6, f"Expected 6 pages (2 sheets + Sched D), got {len(pages)}"
+        assert len(pages) == 4, f"Expected 4 pages (2 Part I pages + Sched D), got {len(pages)}"
 
     def test_long_term_lands_in_part_ii(self):
         """Short rows must fill Part I (page 1); long rows Part II (page 2)."""
@@ -258,8 +258,8 @@ class Test2025FormGeneration:
         pdf = get_irs_report(2024)
         assert pdf is not None
         pages = extract_pages(pdf)
-        # 14 rows fit one 2024 sheet: 2 pages of 8949 + 2 pages Schedule D
-        assert len(pages) == 4, f"Expected 4 pages, got {len(pages)}"
+        # 14 rows fit one 2024 sheet: its Part I (no empty Part II, #78) + 2 pages Schedule D
+        assert len(pages) == 3, f"Expected 3 pages, got {len(pages)}"
         full_text = "\n".join(pages)
         for i in range(14):
             assert f"0.{201 + i}" in full_text, f"2024 row {i + 1} missing"
