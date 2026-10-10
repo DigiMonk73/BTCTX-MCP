@@ -429,6 +429,17 @@ and the README's "Reporting problems"; keep them.
   - Reproduce them, or ask for steps (never for real data).
   - Then relabel `bug`, or close with the reason.
   - Answer within a week.
+- **Feature requests** arrive labelled `enhancement`: an idea, never a
+  promise (owner's rule, 2026-10-10).
+  - Answer within a week: thank them, say it's recorded, promise nothing.
+  - The owner decides. Yes: it goes on `docs/ROADMAP.md`, and the issue
+    says so. No: close it as "not planned", with a kind one-line reason.
+    Not sure: it stays open.
+- **Reports go to this repository only.**
+  - The mirror is a copy: its Issues are off, and its description points
+    here.
+  - Issues users open on Start9's fork are reports too: answer them there,
+    or move them here with the owner's OK. The Monday report lists them.
 - **A security problem is never public before its fix.**
   - Outsiders report it privately (Security tab, "Report a vulnerability").
     Claude files its own as a draft advisory ("New draft security

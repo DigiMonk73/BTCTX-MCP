@@ -147,6 +147,13 @@ Anyone can find one: Claude, Grok, you, a user, Start9.
    release notes tell users what was wrong, which tax years it touched,
    and what to do.
 
+**Feature ideas** get a thank-you and no promise. You decide:
+- yes: it goes on the roadmap;
+- no: it's closed as "not planned", with a kind reason;
+- not sure: it stays open.
+
+Reports and ideas belong in this repository: the mirror's Issues are off.
+
 **Security problems are the exception: never public first.**
 1. They're reported privately (the repository's Security tab,
    `SECURITY.md`).
