@@ -67,6 +67,7 @@ def test_entrypoint_takes_its_folders_from_desktop_paths():
     assert "Application Support" not in source
     assert "app_support = data_dir()" in source
     assert "bring_forward=data_dir_override() is None" in source
+    assert "title=app_name()" in source  # "BitcoinTX Test" on a test run (#142)
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / "desktop" / "run-test-build.sh"

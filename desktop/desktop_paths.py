@@ -29,8 +29,9 @@ def data_dir_override() -> Path | None:
 def app_name() -> str:
     """What the app calls itself in its window and its messages: "BitcoinTX
     Test" on a test run (a throwaway data folder, as desktop/run-test-build.sh
-    sets), so nothing it shows can be mistaken for the installed app's. The
-    menu bar and the Dock still say BitcoinTX: they come from the bundle."""
+    sets), so its window and messages can't be taken for the installed
+    app's. The menu bar and the Dock still say BitcoinTX: they come from
+    the bundle."""
     return TEST_APP_NAME if data_dir_override() is not None else APP_NAME
 
 

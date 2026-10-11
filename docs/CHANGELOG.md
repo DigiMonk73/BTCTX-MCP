@@ -10,12 +10,13 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Development
-- **A Mac test build calls itself "BitcoinTX Test"** in its window title and
-  its messages ("BitcoinTX Test is already open", a busy port), whenever
-  it runs on a throwaway data folder (`desktop/run-test-build.sh`). During
-  the 1.2.7 release tests the owner saw the test copy's "already open"
-  message, took it for their own app's, and quit the real one: now nothing
-  the test copy shows looks like the installed app's.
+- **A Mac test build calls itself "BitcoinTX Test"** (#142) in its window
+  title and its messages ("BitcoinTX Test is already open", a busy port),
+  whenever it runs on a throwaway data folder (`desktop/run-test-build.sh`).
+  During the 1.2.7 release tests the owner saw the test copy's "already
+  open" message, took it for their own app's, and quit the real one: now
+  its window and messages can't be taken for the installed app's (the menu
+  bar and the Dock still say BitcoinTX: they come from the bundle).
 - **One reference test ledger, and its figures can't move unnoticed**
   (#139, closes #122). The full test ledger was rebuilt from code in
   `scripts/seed_ledger.py` each time, and had no Rebate source and no date
