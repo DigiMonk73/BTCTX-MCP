@@ -27,6 +27,9 @@ test.describe("BTC deposits", () => {
       await expect(page.getByText("One self-custody wallet: see Settings → About.")).toBeVisible();
       await page.getByLabel("Amount").fill("0.25");
       await page.getByLabel("Source").selectOption(source);
+      // A gift's basis is the giver's (#115), not what the BTC cost you
+      await expect(page.getByText(source === "Gift" ? "The giver's cost basis: what they paid" : "What this BTC cost you"))
+        .toBeVisible();
       await page.getByLabel("Cost Basis (USD)").fill("7000");
       await saveForm(page);
 
