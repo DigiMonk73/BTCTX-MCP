@@ -5,11 +5,22 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# The first Python with the dev tools (ruff, pytest): this checkout's .venv,
+# the main checkout's (when pushing from a worktree, which has none), then
+# desktop/.venv and python3. A Mac build's desktop/.venv has no ruff, so
+# taking the first that merely exists failed the push.
 PY="${BTCTX_PYTHON:-}"
 if [ -z "$PY" ]; then
-  for c in desktop/.venv/bin/python .venv/bin/python python3; do
-    if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then PY="$c"; break; fi
+  main_venv="$(git worktree list --porcelain | sed -n '1s/^worktree //p')/.venv/bin/python"
+  for c in .venv/bin/python "$main_venv" desktop/.venv/bin/python python3; do
+    if { [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; } && "$c" -c "import ruff, pytest" 2>/dev/null; then
+      PY="$c"; break
+    fi
   done
+  if [ -z "$PY" ]; then
+    printf "\n\033[31m✗ pre-push failed: no Python with ruff and pytest\033[0m\n  (install the dev tools, docs/TESTING.md; or set BTCTX_PYTHON; or bypass with: git push --no-verify)\n"
+    exit 1
+  fi
 fi
 
 step() { printf "\n\033[1m▶ %s\033[0m\n" "$1"; }

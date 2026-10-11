@@ -4,6 +4,15 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+
+- **The pre-push gate finds a Python with the dev tools.** It took the
+  first interpreter that existed, `desktop/.venv` first, so after a Mac
+  build (whose venv has no ruff), or in a worktree with no `.venv`, the
+  push failed at ruff until `BTCTX_PYTHON` was set. It now takes the first
+  with ruff and pytest: this checkout's `.venv`, the main checkout's, then
+  `desktop/.venv` and `python3`, and says so plainly if there is none.
+
 ## [v1.2.6] - 2026-10-10 - Accurate income and holding periods, rebates, cleaner IRS forms, one wallet stated plainly
 
 ### Added
