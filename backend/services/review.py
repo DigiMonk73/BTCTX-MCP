@@ -80,7 +80,7 @@ CHECKS: dict[str, tuple] = {
     ),
     "deposit_without_basis": (
         "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
-        "If you know what the BTC cost, edit the deposit's cost basis.",
+        "If you know what the BTC cost (for a gift, the giver's cost basis), edit the deposit's cost basis.",
     ),
     "fee_value_off": (
         "Transfer fees valued far from that day's price (probably at the live price)",

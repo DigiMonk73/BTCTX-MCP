@@ -11,6 +11,20 @@ const SOURCE_HINTS: Record<string, string> = {
   Rebate: "Bitcoin back for spending, such as a rewards card's sats-back: not income; its value is its cost basis.",
 };
 
+/** What the Cost Basis field asks for: a gift's basis is the giver's (#115). */
+function basisHint(source: string | undefined, valued: boolean): string {
+  if (source === "Rebate") {
+    return "Its USD value when you received it (its cost basis, not income). Leave blank to use that day's BTC price.";
+  }
+  if (valued) {
+    return "Its USD value when you received it (also your income). Leave blank to use that day's BTC price.";
+  }
+  if (source === "Gift") {
+    return "The giver's cost basis: what they paid for these coins (type 0 if unknown).";
+  }
+  return "What this BTC cost you (type 0 if unknown). If you paid a miner fee in BTC externally, add its USD value.";
+}
+
 /** A deposit; a BTC one also has its source and cost basis. */
 const DepositFields: React.FC = () => {
   const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
@@ -80,13 +94,7 @@ const DepositFields: React.FC = () => {
           {errors.costBasisUSD && (
             <span className="field-error">{errors.costBasisUSD.message}</span>
           )}
-          <small className="field-hint">
-            {source === "Rebate"
-              ? "Its USD value when you received it (its cost basis, not income). Leave blank to use that day's BTC price."
-              : isValued
-              ? "Its USD value when you received it (also your income). Leave blank to use that day's BTC price."
-              : "What this BTC cost you (type 0 if unknown). If you paid a miner fee in BTC externally, add its USD value."}
-          </small>
+          <small className="field-hint">{basisHint(source, isValued)}</small>
         </div>
       )}
     </>
