@@ -114,9 +114,9 @@ request to Start9's copy (or rides in one of ours still open there).
 
 ## 4. When Start9 changes their copy
 
-Start9 sometimes changes the package themselves: a review (like
-[their review of 2026-10-05](https://github.com/Start9-Community/BTCTX-StartOS/pull/1),
-brought back in #48), template updates about monthly, *SDK* updates.
+Start9 sometimes changes the package themselves: a review (like their
+review of 2026-10-05, brought back in #48), template updates about monthly,
+*SDK* updates.
 
 1. Claude runs `scripts/start9-pull.sh --apply` on a short branch. It
    copies their changes into `startos/` here, and writes down which of
