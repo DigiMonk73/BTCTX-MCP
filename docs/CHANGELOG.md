@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.6] - 2026-10-10 - Accurate income and holding periods, rebates, cleaner IRS forms, one wallet stated plainly
+
 ### Added
 - **A "Using these forms" page in the Complete Tax Report** (#79), for
   whoever files the return, often a tax preparer handed the PDF. It says
