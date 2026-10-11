@@ -14,7 +14,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Changed
 - **Ledger Review: the missing "date originally acquired" is a reminder,
-  not a problem** (#128). After the 1.2.6 upgrade it listed every older My
+  not an error** (#128). After the 1.2.6 upgrade it listed every older My
   BTC and Gift deposit, each with the same two sentences, under
   "Transactions to check", so it read like a long list of errors and could
   bury the checks that do point at a wrong figure. These rows aren't

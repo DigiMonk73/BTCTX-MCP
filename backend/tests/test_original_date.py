@@ -163,7 +163,7 @@ def test_ledger_review_lists_my_btc_and_gift_deposits_without_a_date(auth_client
 
 
 def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
-    """#128: nothing is wrong with a blank date, and after the 1.2.6 upgrade
+    """#128: a blank date isn't an error, and after the 1.2.6 upgrade
     every older My BTC and Gift deposit has one: a reminder with one
     explanation for the group, after the checks and not in the total."""
     undated = deposit(auth_client)
