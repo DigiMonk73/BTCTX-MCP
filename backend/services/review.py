@@ -22,9 +22,10 @@ Checks:
   owner picks (login only), then recalculates.
 - original_date_missing (#91, a reminder since #128): a My BTC or Gift
   deposit into a BTC account with no date originally acquired: its holding
-  period starts at the deposit. Nothing is wrong with it (blank is the
-  cautious choice), and only the owner knows when the coins were acquired,
-  so nothing fills it. After the 1.2.6 upgrade every older such deposit is
+  period starts at the deposit. It isn't an error (no sale counts as
+  long-term too early, though a date can also change which coins FIFO
+  sells first), and only the owner knows when the coins were acquired, so
+  nothing fills it. After the 1.2.6 upgrade every older such deposit is
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
 - income_without_value (#77): an income or rebate deposit (#98) with a $0
@@ -106,25 +107,31 @@ CHECKS: dict[str, tuple] = {
     ),
 }
 
-# Reminders: nothing is wrong with these rows, so they come after the checks,
+# Reminders: these rows aren't errors, so they come after the checks,
 # aren't counted in `total`, and carry one explanation for the whole group
 # instead of the same sentences on every row.
 REMINDERS: dict[str, tuple[str, ...]] = {
     "original_date_missing": (
-        "If these are really interest, rewards or rebates, change their Source instead (Interest, Reward "
-        "or Rebate): then no date is needed. Before 1.2.6 there was no Rebate source, so card sats-back "
-        "may have been saved as My BTC to keep it out of income.",
-        "Otherwise nothing is wrong with them. These deposits have two dates: the deposit date, when the "
+        "If these are really income, interest, rewards or rebates, change their Source instead: then no "
+        "date is needed. Income, Interest and Reward (mining, staking, bonuses) are income; Rebate (card or "
+        "shopping sats-back) isn't. Then check the Cost Basis is their value on the day received (clear it "
+        "to use that day's price): for income, that value is also the income reported. Before 1.2.6 there "
+        "was no Rebate source, so card sats-back may have been saved as My BTC to keep it out of income.",
+        "Otherwise these aren't errors. These deposits have two dates: the deposit date, when the "
         "coins reached you, and the date originally acquired, when they were first owned. The second sets "
         "the holding period, which coins are sold first, and Form 8949's date acquired.",
         "Which date: for My BTC (your own coins, moved in from somewhere BitcoinTX doesn't track), the day "
         "you bought or earned them there; for a Gift, the day the giver got them, along with the giver's "
-        "cost basis, so a gift sold the day it arrives is long-term if the giver held it more than a year. "
+        "cost basis, so a gift sold the day it arrives is long-term if the giver held it more than a year "
+        "(BitcoinTX doesn't apply the rule for a gift worth less that day than the giver paid, IRC §1015: "
+        "such coins sold at a loss need adjusting by hand). "
         "Never the day an exchange got the coins it sold you. Buys, income, interest, rewards and rebates "
         "use their own date, so they have no such field.",
-        "Left blank, the deposit date is used: the cautious choice, since no sale counts as long-term too "
-        "early. Coins kept more than a year after the deposit are long-term either way. Enter a date only "
-        "if you can back it up (a receipt, a statement, a message from the giver).",
+        "Left blank, the deposit date is used, so no sale counts as long-term too early: for the holding "
+        "period, the cautious choice. But the date also decides which coins are sold first, so adding one "
+        "can change a year's gain, up or down. Coins kept more than a year after the deposit are long-term "
+        "either way. Enter a date only if you can back it up (a receipt, a statement, a message from the "
+        "giver).",
     ),
 }
 

@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.migrate import alembic_config, upgrade_database
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+from backend.services.review import REMINDERS, format_text
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
 TWO_YEARS_BEFORE = "2023-03-14T12:00:00Z"
@@ -171,9 +172,18 @@ def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
     assert reminder["key"] == "original_date_missing" and reminder["kind"] == "reminder"
     assert reminder["title"].startswith("Reminder:")
     assert [i["id"] for i in reminder["items"]] == [undated["id"]]
-    assert reminder["explanation"][0].startswith("If these are really interest, rewards or rebates")
+    assert reminder["explanation"][0].startswith("If these are really income, interest, rewards or rebates")
     assert {c["kind"] for c in checks} == {"check"} and all(not c["explanation"] for c in checks)
     assert review["total"] == 0 and review["reminders"] == 1
+
+
+def test_cli_review_prints_the_reminder_explanation_once_after_its_rows(auth_client):
+    undated = deposit(auth_client)
+    deposit(auth_client, "Gift")
+    text = format_text(auth_client.get("/api/review").json())
+    first = REMINDERS["original_date_missing"][0]
+    assert text.count(first) == 1
+    assert text.index(f"#{undated['id']} ") < text.index(first)
 
 
 def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):

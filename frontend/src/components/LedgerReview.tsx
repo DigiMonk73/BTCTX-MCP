@@ -44,7 +44,7 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
 );
 
 /**
- * A reminder (#128): nothing is wrong with its rows, so one explanation for
+ * A reminder (#128): its rows aren't errors, so one explanation for
  * the group and the list folded until asked for. Nothing is saved: the
  * group shrinks as the owner edits the deposits.
  */
@@ -61,7 +61,7 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
         </p>
       ))}
       <p className="settings-option-subtitle">{check.action}</p>
-      <button onClick={() => setOpen(!open)} aria-expanded={open} className="btn btn-secondary">
+      <button onClick={() => setOpen(!open)} className="btn btn-secondary">
         {open ? "Hide the list" : `Show the ${check.count} deposit${check.count === 1 ? "" : "s"}`}
       </button>
       {open && <ReviewItems check={check} />}
