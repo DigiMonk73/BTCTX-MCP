@@ -108,7 +108,8 @@ its year and marked DRAFT — DO NOT FILE on every page (the owner's decision,
 
 ### Visual check (do not skip)
 
-The tests check field names and values, not how the page looks. Look at one
+The tests check field names and values and read the printed forms back
+(`test_printed_forms.py`), but not how the page looks. Look at one
 filled sheet yourself. The quickest way fills the templates directly and needs
 no server or data. Run it from the repo root:
 
@@ -140,6 +141,7 @@ disposals: an exchange Sell, a long-term Sell, and a self-custody spend.
 Check:
 - [ ] Every row sits inside its table cell, not shifted by a column or row. The last row on each page is filled.
 - [ ] Dates are MM/DD/YYYY and amounts have two decimals.
+- [ ] In the report from the app: column (a) shows eight decimals; a loss is in parentheses; no empty Part I or II page is printed.
 - [ ] Short-term rows are in Part I (page 1) and long-term rows in Part II (page 2).
 - [ ] Each Part has exactly one box checked, next to the right letter.
 - [ ] Column (f) "Code(s)" and column (g) are empty.

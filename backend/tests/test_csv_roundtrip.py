@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.routers.backup import _csv_number
 from backend.services import outbound
-from backend.services.csv_import import CSV_COLUMNS
+from backend.services.csv_import import CSV_COLUMNS, TEMPLATE_ROWS
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.tests.conftest import stub_daily_prices
 from backend.tests.test_golden_years import LEDGER as GOLDEN, _normalize
@@ -196,6 +196,23 @@ def test_a_row_the_ledger_refuses_says_why_and_saves_nothing(auth_client, monkey
     assert r.json()["detail"].startswith("Import failed: No BTC price is stored for 2024-01-03.")
     assert r.json()["detail"].endswith("No transactions were saved.")
     assert auth_client.get("/api/transactions").json() == []
+
+
+def test_the_template_imports_as_it_is_with_prices_off(auth_client, monkeypatch):
+    """Docs check before 1.2.6: the template says it imports as it is, but
+    four rows with a BTC fee left fee_usd blank, so before a price source was
+    chosen, or with prices off, the import stopped at "No BTC price is
+    stored" and saved nothing."""
+    auth_client.delete("/api/transactions/delete_all")
+    stub_daily_prices(monkeypatch, lambda day: None)
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    template = auth_client.get("/api/import/template").text
+    preview = auth_client.post("/api/import/preview", files=csv_file(template))
+    assert preview.status_code == 200, preview.text
+    r = auth_client.post("/api/import/execute", files=csv_file(template))
+    assert r.status_code == 200, r.text
+    assert len(auth_client.get("/api/transactions").json()) == len(TEMPLATE_ROWS)
+    auth_client.delete("/api/transactions/delete_all")
 
 
 def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, test_engine, monkeypatch):

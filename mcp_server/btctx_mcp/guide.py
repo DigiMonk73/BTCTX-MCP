@@ -51,6 +51,9 @@ Deposit: External -> any account
                acquired_at = when they originally bought them (ask).
     Gift     = received as a gift; cost_basis_usd = the giver's basis,
                acquired_at = when the giver acquired them (ask).
+               If the coins were worth less on the day of the gift than
+               the giver paid, tell the user BitcoinTX doesn't apply that
+               gift rule (IRC §1015) and suggest their tax preparer.
     acquired_at sets the holding period and Form 8949's date acquired:
     coins held more than a year are long-term. Without it, BitcoinTX
     counts from the deposit, so say so if the user doesn't know it.
@@ -111,7 +114,10 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   Wallet -> Exchange BTC, then a Sell.
 - A send to an address: ask whether it is the user's own wallet (Transfer) or
   someone else (Withdrawal + purpose) - never guess this.
-- Paid in BTC -> Deposit/Income. Exchange interest -> Deposit/Interest.
+- Paid in BTC -> Deposit/Income. Exchange interest paid in BTC ->
+  Deposit/Interest into Exchange BTC. Interest paid in dollars -> a USD
+  deposit to Exchange USD, which BitcoinTX doesn't count as income: the user
+  reports it from the bank's or exchange's own tax form.
 - Card or shopping sats-back -> Deposit/Rebate (not Reward).
 
 ## Broker forms (Form 1099-DA / 1099-B)

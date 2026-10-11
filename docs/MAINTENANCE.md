@@ -101,8 +101,9 @@ the hashes of what it fetches for an isolated build.
    `pip install --require-hashes -r backend/requirements.txt`.
 3. Run `make check`.
 4. If the package affects PDFs (pypdf, reportlab), open a generated Form 8949,
-   Schedule D and Complete Tax Report and look at them. `make test` covers
-   field-level content, not layout.
+   Schedule D and Complete Tax Report and look at them. `make test` also
+   reads the printed forms back (`test_printed_forms.py`), but not how the
+   page looks.
 5. If it's a new package used by the backend, add it to `hiddenimports` in
    `desktop/BitcoinTX.spec`.
 6. Commit one package (or one coupled group) per commit, e.g.
@@ -288,7 +289,7 @@ replace the live database.
 2. Generate the migration against a scratch database at the current head:
    ```bash
    DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
-   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0005 -m "add foo to transactions"
+   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0008 -m "add foo to transactions"
    ```
    Use the next number as `--rev-id` (sequential ids keep the history readable).
 3. Read the generated file. Autogenerate misses renames (it emits drop + add,

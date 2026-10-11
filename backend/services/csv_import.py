@@ -655,8 +655,9 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
 
 # The template's sample rows, in date order: at least one of each type, both
 # ways to buy (Exchange USD, and Bank for an auto-buy), every deposit source
-# and withdrawal purpose. Their balances add up, so the file imports as it
-# is. The columns a row doesn't give are left blank.
+# and withdrawal purpose. Their balances add up and every BTC fee has its
+# fee_usd, so the file imports as it is, even before a price source is
+# chosen or with prices off. The columns a row doesn't give are left blank.
 TEMPLATE_ROWS = [
     # USD in, and to the exchange
     ["2024-01-01T10:00:00Z", "Deposit", "20000.00", "External", "Bank",
@@ -672,18 +673,20 @@ TEMPLATE_ROWS = [
     ["2024-01-10T10:00:00Z", "Deposit", "1.0", "External", "Wallet",
      "20000.00", "", "", "", "MyBTC", "", "Transfer from my own cold storage"],
     ["2024-01-15T10:00:00Z", "Deposit", "0.1", "External", "Wallet",
-     "0", "", "", "", "Gift", "", "BTC received as birthday gift (no cost basis)"],
+     "0", "", "", "", "Gift", "", "BTC received as a birthday gift; cost_basis_usd is the giver's basis (0 if unknown)"],
     ["2024-01-20T10:00:00Z", "Deposit", "0.05", "External", "Wallet",
      "2500.00", "", "", "", "Income", "", "Payment received for freelance work"],
     ["2024-01-25T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
      "1000.00", "", "", "", "Interest", "", "Interest earned from lending"],
+    ["2024-01-28T10:00:00Z", "Deposit", "0.001", "External", "Wallet",
+     "50.00", "", "", "", "Rebate", "", "Rewards card sats-back (not income; its value is its cost basis)"],
     ["2024-01-30T10:00:00Z", "Deposit", "0.01", "External", "Wallet",
      "500.00", "", "", "", "Reward", "", "Mining or staking reward"],
     ["2024-01-31T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
      "1000.00", "", "", "", "", "", "BTC deposit with no specific source"],
     # To the exchange, a sale, and the proceeds back to the bank
     ["2024-02-01T10:00:00Z", "Transfer", "0.5", "Wallet", "Exchange BTC",
-     "", "", "0.0001", "BTC", "", "", "Move BTC to exchange for trading"],
+     "", "", "0.0001", "BTC", "", "", "Move BTC to exchange for trading", "4.30"],
     ["2024-02-10T10:00:00Z", "Sell", "0.3", "Exchange BTC", "Exchange USD",
      "", "18000.00", "10.00", "USD", "", "", "Sell 0.3 BTC for $18,000 with $10 fee"],
     ["2024-02-15T10:00:00Z", "Transfer", "15000.00", "Exchange USD", "Bank",
@@ -695,12 +698,12 @@ TEMPLATE_ROWS = [
     ["2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
      "", "", "", "", "", "", "USD withdrawal for expenses"],
     ["2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
-     "", "9000.00", "0.0001", "BTC", "", "Spent", "Spent BTC on purchase (taxable event)"],
+     "", "9000.00", "0.0001", "BTC", "", "Spent", "Spent BTC on purchase (taxable event)", "6.85"],
     ["2024-03-15T10:00:00Z", "Withdrawal", "0.1", "Wallet", "External",
      "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value that day",
-     "", "6800.00"],
+     "6.80", "6800.00"],
     ["2024-03-20T10:00:00Z", "Withdrawal", "0.05", "Wallet", "External",
-     "", "", "0.0001", "BTC", "", "Donation", "Donated BTC to charity (non-taxable)"],
+     "", "", "0.0001", "BTC", "", "Donation", "Donated BTC to charity (non-taxable)", "6.70"],
     ["2024-03-25T10:00:00Z", "Withdrawal", "0.03", "Wallet", "External",
      "", "", "", "", "", "Lost", "Lost access to BTC (no gain or loss; not on Form 8949)"],
 ]

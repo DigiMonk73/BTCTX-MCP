@@ -58,7 +58,7 @@ SOURCES = [
     ["Value", "Description"],
     ["N/A", "Not applicable or unspecified"],
     ["MyBTC", "BTC you already owned (transferring in)"],
-    ["Gift", "Received as a gift"],
+    ["Gift", "Received as a gift (cost_basis_usd: the giver's basis, 0 if unknown)"],
     ["Income", "Payment for goods/services"],
     ["Interest", "Earned as interest"],
     ["Reward", "Mining, staking, or a sign-up or referral bonus (income)"],

@@ -40,6 +40,11 @@ Never use their BitcoinTX password: the server refuses to run while
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
+**Already set up?** If their AI app already has a `bitcointx` server, don't
+add it again: change only the version in its arguments to
+`btctx-mcp==X.Y.Z`, keep its key and certificate path, and restart the app
+([Updating](README.md#updating)).
+
 ## 1. Check the prerequisites
 
 1. **uv**: `uvx --version`. If it's missing, offer to install it: on a Mac

@@ -30,7 +30,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
 | `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
 | `list_transactions` | Search by date range, type and account |
-| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in) and `fee_usd` |
+| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price (from the price source chosen in Settings → Privacy & Network), tax timezone |
 | `get_btc_price` | Historical daily or current BTC price |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
@@ -171,7 +171,8 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
 {
   "mcpServers": {
     "bitcointx": {
-      "command": "btctx-mcp",
+      "command": "uvx",
+      "args": ["btctx-mcp==X.Y.Z"],
       "env": {
         "BTCTX_URL": "http://localhost:8080",
         "BTCTX_AI_KEY": "YOUR_BITCOINTX_AI_KEY"
@@ -181,18 +182,19 @@ Settings → Developer → Edit Config (`claude_desktop_config.json`):
 }
 ```
 
-If Claude Desktop can't find `btctx-mcp`, use the full path from `which btctx-mcp`.
+Installed with pip instead? Use `"command": "btctx-mcp"` with no `args`.
+If Claude Desktop can't find `uvx`, use the full path from `which uvx`.
 
 **macOS desktop app:** leave out `env` entirely:
-`{"mcpServers": {"bitcointx": {"command": "btctx-mcp"}}}`. The server finds the
-running app and its key by itself.
+`{"mcpServers": {"bitcointx": {"command": "uvx", "args": ["btctx-mcp==X.Y.Z"]}}}`.
+The server finds the running app and its key by itself.
 
 ### Claude Code
 
 ```bash
 claude mcp add --scope user bitcointx \
   -e BTCTX_URL=http://localhost:8080 -e BTCTX_AI_KEY=YOUR_BITCOINTX_AI_KEY \
-  -- btctx-mcp
+  -- uvx 'btctx-mcp==X.Y.Z'
 ```
 
 Then paste your key over the placeholder in `~/.claude.json`

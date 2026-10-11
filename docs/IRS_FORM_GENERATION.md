@@ -45,6 +45,9 @@ backend/
     ├── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
     ├── test_golden_years.py              # three hand-worked tax years: exact 8949 rows, Schedule D lines
     ├── test_draft_forms.py               # draft forms: off by default, checked, marked on every page
+    ├── printed_forms.py                  # reads a flattened 8949 / Schedule D back, field by field where it's drawn
+    ├── test_printed_forms.py             # the printed forms: every row once in its box, totals, Schedule D lines
+    ├── test_using_these_forms.py         # the Complete Tax Report's "Using these forms" page
     └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
 .github/workflows/irs-forms-watch.yml     # weekly: an issue when new IRS drafts or final forms are out

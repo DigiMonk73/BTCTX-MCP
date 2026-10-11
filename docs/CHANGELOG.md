@@ -124,9 +124,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Ledger Review lists income deposits with a $0 or blank value** (#77).
   Such a deposit reports no income, which the income rules forbid, yet it
   slipped past both of Ledger Review's basis checks. A new item, "Income
-  deposits with a $0 or blank value (no income reported)", lists them with
-  their value at that day's price, so they can be fixed (clear its Cost Basis
-  (USD) to use the day's price, or type the right one).
+  and rebate deposits with a $0 or blank value" (rebates since #98), lists
+  them with their value at that day's price, so they can be fixed (clear
+  its Cost Basis (USD) to use the day's price, or type the right one).
 - **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
   printed both of its pages, so a short-term sheet was followed by an empty
   Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
@@ -138,8 +138,9 @@ All notable changes to BitcoinTX are documented in this file.
   valued at that day's price when its value is left blank (by you, a CSV,
   the River import or the AI connector), and that value is both its cost
   basis and the income on the tax report. An edit could keep the wrong
-  figure (the first two understate the income and overstate the later gain
-  by the same amount; the third overstates the income):
+  figure (an old value can be too high or too low, and $0 understates the
+  income; either way the later gain is off by the same amount in the other
+  direction. The third overstates the income):
   - **the old value**, after changing the deposit's amount or date (from
     the form, the AI connector or the API);
   - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
@@ -194,6 +195,12 @@ All notable changes to BitcoinTX are documented in this file.
     first): ask your tax professional whether to amend.
   - Not covered: the gift rule for coins worth less on the day of the gift
     than the giver paid (IRC §1015), which needs the day's value (#104).
+- **The CSV template imports as it is on a new install.** Four of its
+  sample rows had a BTC fee without its dollar value (`fee_usd`), so before
+  a price source was chosen, or with prices off, the import stopped at "No
+  BTC price is stored" and saved nothing. Each fee now has its value. The
+  template also gains a Rebate row, and its Gift row, like the CSV guide,
+  says a gift's cost basis is the giver's.
 
 ### StartOS package
 - **Connect an AI Assistant's Claude Code command works in every folder**
@@ -297,7 +304,7 @@ All notable changes to BitcoinTX are documented in this file.
   pack job and the release install a current Docker
   (`docker/setup-docker-action`, as Start9's own builds do).
   `startos/TODO.md` is gone, as in Start9's template: the package's to-dos
-  are issues labelled `start9`.
+  are issues labelled `start9`. Closes #28.
 - **The landing page is a release step.** `AGENTS.md` and
   `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links
   follow the latest release by themselves, its text and screenshots are
@@ -315,6 +322,14 @@ All notable changes to BitcoinTX are documented in this file.
     copies in `daily-backups/` beside it.
   - A dead link to Start9's review in `docs/HOW-CHANGES-FLOW.md`, and the
     finished 1.2.4 box-test checklist in `docs/temp/`, removed.
+- **The final docs check before 1.2.6.**
+  - The README's StartOS install now names Start9's Community Beta
+    registry, with sideloading as the other way (#84).
+  - The CSV template's fix and new rows (under Fixed).
+  - The Complete Tax Report's Notes now say "check it with a tax
+    professional before you file", like the rest of the report.
+  - The AI connector's tool descriptions and guide match 1.2.6.
+  - For maintainers: wording fixes in AGENTS.md and `docs/`.
 
 ## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
 

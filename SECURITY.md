@@ -37,9 +37,9 @@ install, never on someone else's.
 
 ## Supported versions
 
-Only the latest release gets security fixes. On StartOS, that's the latest
-BitcoinTX package in Start9's community registry. Updating is the fix for
-every older version.
+Only the latest release gets security fixes. On StartOS, that's the newest
+BitcoinTX package Start9 publishes (each release goes to Start9's Community
+Beta registry first). Updating is the fix for every older version.
 
 ## Scope
 

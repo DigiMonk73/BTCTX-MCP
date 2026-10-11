@@ -662,7 +662,6 @@ class _TaxReport:
             f"All dates are shown as MM/DD/YYYY (the IRS format) in the tax timezone ({self.tz_name}).",
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
-            "This report is prepared from your own records. It may be used for tax purposes after you, or "
-            "a tax professional, have checked it.",
+            "This report is prepared from your own records: check it with a tax professional before you file.",
         )
         return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes)]

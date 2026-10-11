@@ -52,7 +52,7 @@ def test_the_pdfs_carry_it(auth_client):
     history_text = pdf_text(history.content)
     assert f"All amounts, fees, and cost data are shown as recorded in BitcoinTX. {DISCLAIMER}" in history_text
     report_text = pdf_text(generate_comprehensive_tax_report(REPORT))
-    assert "may be used for tax purposes after you, or a tax professional, have checked it" in report_text
+    assert "prepared from your own records: check it with a tax professional before you file." in report_text
     for text in (history_text, report_text):
         assert FOOTER_NOTE in text
         assert not re.search(r"advisor|accountant", text)

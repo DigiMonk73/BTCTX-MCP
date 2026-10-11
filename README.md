@@ -107,8 +107,28 @@ yourself: `docker build -t btctx .`
 
 ### StartOS
 
-Download `btctx.s9pk` from the latest release and upload it in StartOS under
-**Sideload**. See [startos/README.md](startos/README.md).
+BitcoinTX needs StartOS 0.4.0.2 or later. Start9 builds the package from
+[Start9-Community/BTCTX-StartOS](https://github.com/Start9-Community/BTCTX-StartOS)
+and publishes each release to its **Community Beta** registry:
+
+1. In StartOS, open **Marketplace**, click **Switch** under the registry's
+   name and add `https://community-beta-registry.start9.com`
+   ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
+2. Choose **BitcoinTX** and click **Install**. New versions then show in the
+   **Updates** tab ([Updating](https://docs.start9.com/start-os/updating.html)).
+3. Follow BitcoinTX's **Instructions** in StartOS
+   ([startos/instructions.md](startos/instructions.md)): run **Set Login
+   Credentials** (it shows your login once) and **Price Source & Privacy**,
+   then open the Web UI. "First login" below is for the Mac app, Docker and
+   source installs.
+
+Services on Start9's community registries aren't maintained or supported by
+Start9: report BitcoinTX problems here ([Reporting problems](#reporting-problems)).
+
+Or sideload it: download `btctx.s9pk` from the
+[latest release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) and
+upload it under **Sideload**. To update a sideloaded copy, sideload the next
+release's file the same way. Package details: [startos/README.md](startos/README.md).
 
 ### From source
 
@@ -133,8 +153,9 @@ the data folder (`/data`), and it's deleted once you've set up the account.
 Until then, the default login doesn't work without it either (an older
 install still on admin/password: the login page asks for the code; then
 change the password in Settings, your data stays). The Mac app
-needs no code (it only listens on your Mac), and StartOS sets a random
-password at install.
+needs no code (it only listens on your Mac). On StartOS this screen never
+appears: run the **Set Login Credentials** action, which creates the login
+(`admin` and a random password) and shows it once.
 
 After that, BitcoinTX asks where to get Bitcoin prices (your own mempool
 server, public price sites, or off); nothing is contacted before you choose.
@@ -205,8 +226,11 @@ to do.
 1. Download an encrypted backup (Settings → Backup & Restore).
 2. Start the new version. It upgrades the database automatically and keeps a
    copy of the old one in a `backups` folder next to it.
-3. Open **Settings → Ledger Review**. It lists every figure a recalculation
-   would change, old → new, without changing anything.
+3. Open **Settings → Ledger Review**. Without changing anything, it lists
+   every figure a recalculation would change (old → new) and saved entries
+   worth a second look, such as income and rebate deposits with a $0 or
+   blank value, or My BTC and Gift deposits without a date originally
+   acquired. The release notes say which to fix.
 4. Click **Settings → Recalculate Ledger** when you agree.
 5. Check your **Tax Timezone** in Settings.
 6. If you use the AI connector: in your AI app's settings, change

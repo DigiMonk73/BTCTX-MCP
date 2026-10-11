@@ -19,7 +19,7 @@ make hooks          # installs the pre-push gate
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
 | Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
-| Unit + integration | `make test-fast` | ~1,000 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
+| Unit + integration | `make test-fast` | ~1,150 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~5 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
@@ -164,8 +164,9 @@ python scripts/seed_ledger.py --url https://host:port --user NAME --password-std
 
 `scripts/seed_ledger.py` loads 103 transactions from 2023 to 2026 over the
 API: `backend/tests/transaction_seed_data.json` and the rows it lacks, so
-that every year has every kind of transaction and every report has entries
-in each part (every Form 8949 box of 2024, 2025 and 2026), in any tax
+that every year has every kind of transaction (except the Rebate source
+and a date originally acquired, both new in 1.2.6) and every report has
+entries in each part (every Form 8949 box of 2024, 2025 and 2026), in any tax
 timezone, with every USD
 value a price lookup would fill already given. It is the ledger for the
 StartOS test VM, and for a box: export it there as CSV (Settings) and

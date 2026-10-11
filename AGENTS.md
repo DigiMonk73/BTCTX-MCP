@@ -76,8 +76,9 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
-squash-merged, once the 10 jobs of `ci.yml` other than the macOS build
-(which doesn't run on pull requests) have passed ("Protect develop").
+squash-merged, once the 10 required checks of `ci.yml` (every job except
+the macOS build, which doesn't run on pull requests, and the macOS
+dependency audit) have passed ("Protect develop").
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from
@@ -209,6 +210,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
 | `backend/services/reports/draft_forms.py` | next year's IRS draft forms: the shipped preview (`assets/irs_templates/drafts/`, until January 1 after its year) and a test install's (`<data dir>/irs-draft-forms/`, `cli install-draft-forms`) |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
+| `backend/services/reports/complete_tax_report.py`, `pdf_layout.py`, `frontend/src/utils/disclaimer.ts` | Complete Tax Report PDF (section 6 "Using these forms", the rebates table); the one disclaimer and one-wallet wording (`test_disclaimer.py` keeps them the same) |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
@@ -259,14 +261,14 @@ So derived values must be recomputable from the Transaction row alone.
   `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
-  switch settings, backup download/restore, CSV export, imports, delete-all,
-  Ledger Review fixes, settings changes or debug.
+  switch settings, backup download/restore, CSV export, file imports (CSV,
+  River), delete-all, Ledger Review fixes, settings changes or debug.
 
 ## Testing (see `docs/TESTING.md`)
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~1,000 hermetic tests (backend + MCP), ~3 min
+make test-fast   # ~1,150 hermetic tests (backend + MCP), ~3 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min

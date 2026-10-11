@@ -36,7 +36,7 @@ export const current = VersionInfo.of({
 
 - Using an AI assistant with BitcoinTX? In your AI app's configuration, change the version after btctx-mcp== to 1.2.6 (Connect an AI Assistant shows it) and restart the AI app. Your AI key stays the same. Otherwise the assistant keeps its old guide and enters card sats-back as Reward.
 
-Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials and Reset Login Credentials; your login stays. Only if StartOS keeps no password for you, stop BitcoinTX and run Set Login Credentials before starting it again; it replaces any username and password you set inside BitcoinTX.
+Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials and Reset Login Credentials; your login stays. Only if StartOS keeps no password for you, run Set Login Credentials when StartOS asks for it; it replaces any username and password you set inside BitcoinTX.
 
 [Everything in 1.2.6](${CHANGELOG})`,
     es_ES: `BitcoinTX 1.2.6 corrige lo que encontraron las pruebas de los formularios de 2026 y dice claramente para quién es BitcoinTX.
@@ -68,7 +68,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 
 - ¿Usas un asistente de IA con BitcoinTX? En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.6 (Conectar un asistente de IA lo muestra) y reinicia la aplicación. Tu clave de IA no cambia. Si no, el asistente conserva su guía anterior y registra el cashback en sats como Reward.
 
-¿Vienes de la 1.2.4:0 o anterior? Establecer credenciales de acceso sustituye a Mostrar credenciales y Restablecer credenciales de acceso; tu acceso se conserva. Solo si StartOS no guarda ninguna contraseña tuya, detén BitcoinTX y ejecuta Establecer credenciales de acceso antes de volver a iniciarlo; sustituye cualquier usuario y contraseña que hayas establecido dentro de BitcoinTX.
+¿Vienes de la 1.2.4:0 o anterior? Establecer credenciales de acceso sustituye a Mostrar credenciales y Restablecer credenciales de acceso; tu acceso se conserva. Solo si StartOS no guarda ninguna contraseña tuya, ejecuta Establecer credenciales de acceso cuando StartOS te lo pida; sustituye cualquier usuario y contraseña que hayas establecido dentro de BitcoinTX.
 
 [Todo lo de la 1.2.6](${CHANGELOG})`,
     de_DE: `BitcoinTX 1.2.6 behebt, was die Tests der Formulare für 2026 gefunden haben, und sagt klar, für wen BitcoinTX gedacht ist.
@@ -100,7 +100,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 
 - Nutzt du einen KI-Assistenten mit BitcoinTX? Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 1.2.6 (KI-Assistenten verbinden zeigt es an) und starte die App neu. Dein KI-Schlüssel bleibt gleich. Sonst behält der Assistent seinen alten Leitfaden und erfasst Sats-Cashback als Reward.
 
-Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten anzeigen und Zugangsdaten zurücksetzen; deine Zugangsdaten bleiben. Nur wenn StartOS kein Passwort für dich gespeichert hat, stoppe BitcoinTX und führe Zugangsdaten festlegen vor dem nächsten Start aus; die Aktion ersetzt Benutzernamen und Passwort, die du in BitcoinTX selbst gesetzt hast.
+Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten anzeigen und Zugangsdaten zurücksetzen; deine Zugangsdaten bleiben. Nur wenn StartOS kein Passwort für dich gespeichert hat, führe Zugangsdaten festlegen aus, sobald StartOS dich dazu auffordert; die Aktion ersetzt Benutzernamen und Passwort, die du in BitcoinTX selbst gesetzt hast.
 
 [Alles in 1.2.6](${CHANGELOG})`,
     pl_PL: `BitcoinTX 1.2.6 poprawia to, co wykryły testy formularzy na 2026 rok, i jasno mówi, dla kogo jest BitcoinTX.
@@ -132,7 +132,7 @@ Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten a
 
 - Używasz asystenta AI z BitcoinTX? W konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 1.2.6 (pokazuje to Połącz asystenta AI) i uruchom aplikację ponownie. Twój klucz AI się nie zmienia. W przeciwnym razie asystent zachowa stary przewodnik i będzie wpisywał cashback w satoshi jako Reward.
 
-Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pokaż dane logowania i Zresetuj dane logowania; Twoje dane logowania zostają. Tylko jeśli StartOS nie przechowuje dla Ciebie hasła, zatrzymaj BitcoinTX i uruchom Ustaw dane logowania przed ponownym uruchomieniem; akcja zastępuje każdą nazwę użytkownika i hasło ustawione w samym BitcoinTX.
+Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pokaż dane logowania i Zresetuj dane logowania; Twoje dane logowania zostają. Tylko jeśli StartOS nie przechowuje dla Ciebie hasła, uruchom Ustaw dane logowania, gdy StartOS o to poprosi; akcja zastępuje każdą nazwę użytkownika i hasło ustawione w samym BitcoinTX.
 
 [Wszystko w 1.2.6](${CHANGELOG})`,
     fr_FR: `BitcoinTX 1.2.6 corrige ce que les tests des formulaires de 2026 ont révélé, et dit clairement à qui BitcoinTX s’adresse.
@@ -164,7 +164,7 @@ Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pok
 
 - Vous utilisez un assistant IA avec BitcoinTX ? Dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 1.2.6 (Connecter un assistant IA l’affiche) et redémarrez l’application. Votre clé IA reste la même. Sinon, l’assistant garde son ancien guide et saisit le cashback en sats comme Reward.
 
-Vous venez de la 1.2.4:0 ou d’une version antérieure ? Définir les identifiants remplace Afficher les identifiants et Réinitialiser les identifiants ; vos identifiants sont conservés. Seulement si StartOS ne garde aucun mot de passe pour vous, arrêtez BitcoinTX et lancez Définir les identifiants avant de le redémarrer ; cette action remplace tout nom d’utilisateur et mot de passe définis dans BitcoinTX lui-même.
+Vous venez de la 1.2.4:0 ou d’une version antérieure ? Définir les identifiants remplace Afficher les identifiants et Réinitialiser les identifiants ; vos identifiants sont conservés. Seulement si StartOS ne garde aucun mot de passe pour vous, lancez Définir les identifiants quand StartOS vous le demande ; cette action remplace tout nom d’utilisateur et mot de passe définis dans BitcoinTX lui-même.
 
 [Tout ce que contient la 1.2.6](${CHANGELOG})`,
   },
