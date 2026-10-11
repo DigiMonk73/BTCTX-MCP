@@ -52,5 +52,6 @@
 .buttons .calc-clear { grid-column: span 4; height: 36px; color: var(--color-text-secondary); }
 
 @media (max-width: 1024px) {
-  .buttons button { height: 34px; }
+  .buttons button,
+  .buttons .calc-clear { height: 34px; }
 }

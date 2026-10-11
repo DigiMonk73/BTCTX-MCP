@@ -11,7 +11,7 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
-from backend.constants import BTC_ACCOUNTS
+from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
@@ -22,7 +22,7 @@ CENT = Decimal("0.01")
 SAT = Decimal("0.00000001")
 
 # The deposit sources the dashboard totals, in USD (their basis) and BTC.
-DEPOSIT_TOTALS = ("income", "interest", "reward", "gift", "rebate")
+DEPOSIT_TOTALS = ("income", "interest", "reward", "gift", REBATE_SOURCE)
 
 
 def btc_text(amount) -> str | None:
@@ -114,7 +114,7 @@ def get_gains_and_losses(db: Session) -> dict:
         "interest_earned": _usd(deposit_usd["interest"]),
         "rewards_earned": _usd(deposit_usd["reward"]),
         "gifts_received": _usd(deposit_usd["gift"]),
-        "rebates_received": _usd(deposit_usd["rebate"]),
+        "rebates_received": _usd(deposit_usd[REBATE_SOURCE]),
         "total_income": _usd(deposit_usd["income"] + deposit_usd["interest"] + deposit_usd["reward"]),
         # Spent withdrawals aren't losses: their gain or loss is in the disposals.
         "total_losses": _usd(Decimal("0.0")),
@@ -129,7 +129,7 @@ def get_gains_and_losses(db: Session) -> dict:
         "interest_btc": _btc(deposit_btc["interest"]),
         "rewards_btc": _btc(deposit_btc["reward"]),
         "gifts_btc": _btc(deposit_btc["gift"]),
-        "rebates_btc": _btc(deposit_btc["rebate"]),
+        "rebates_btc": _btc(deposit_btc[REBATE_SOURCE]),
         "fees": {"USD": _usd(fees_usd), "BTC": _btc(fees_btc)},
         "year_to_date_capital_gains": _usd(_year_to_date_gain(db)),
     }

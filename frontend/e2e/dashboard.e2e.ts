@@ -43,6 +43,18 @@ test("balances, basis, gains and income after a known ledger", async ({ authedPa
   expect(await figure(page, "Fees (BTC)")).toBe(0.0001);
 });
 
+test("a rebate has its own line, never income (#129)", async ({ authedPage: page }) => {
+  const rebate = {
+    type: "Deposit", timestamp: "2026-04-01T12:00:00Z", from_account_id: 99, to_account_id: 2,
+    amount: "0.001", fee_amount: "0", fee_currency: "BTC", source: "Rebate", cost_basis_usd: "50",
+  };
+  const r = await page.request.post("/api/transactions", { data: rebate });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await page.reload();
+  expect(await figure(page, "Rebates (received)")).toBe(50);
+  expect(await figure(page, "Total Income")).toBe(0);
+});
+
 test("current price and block height", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Current Bitcoin Price" })).toBeVisible();
   await expect(page.getByText(/\$60,?000\.00/).first()).toBeVisible();

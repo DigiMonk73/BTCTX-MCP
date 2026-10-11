@@ -79,6 +79,7 @@ def test_the_dashboard_shows_rebates_apart_from_income(auth_client):
     assert dashboard["rebates_received"] == 50.0 and dashboard["rebates_btc"] == 0.001
     assert dashboard["total_income"] == 0 and dashboard["gifts_received"] == 0
 
+
 def test_reward_stays_income(auth_client, test_engine):
     deposit(auth_client, source="Reward")
     assert report(test_engine)["income_summary"]["Reward"] == 50.0
