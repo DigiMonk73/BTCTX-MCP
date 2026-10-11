@@ -269,3 +269,17 @@ def test_startos_action_reads_and_shows_no_login():
     for name in ("storeJson", "adminPassword", "ADMIN_USERNAME", "BTCTX_PASSWORD:", "BTCTX_USERNAME:"):
         assert name not in action, name
     assert "BTCTX_AI_KEY: KEY_PLACEHOLDER" in action
+
+
+def test_every_claude_code_command_adds_the_server_for_all_folders():
+    """#116: the StartOS action's Claude Code command had no --scope user, so
+    Claude Code saved the server for one folder only (its default scope is
+    local). Settings and AI_SETUP.md give --scope user; the action does too."""
+    action = (REPO / "startos" / "startos" / "actions" / "connectAi.ts").read_text()
+    settings = (REPO / "frontend" / "src" / "utils" / "aiSetup.ts").read_text()
+    guide = (REPO / "mcp_server" / "AI_SETUP.md").read_text()
+    assert "'claude mcp add --scope user bitcointx'" in action
+    assert "claude mcp add --scope user ${SERVER_NAME}" in settings
+    assert "claude mcp add --scope user bitcointx" in guide
+    for source in (action, settings, guide):
+        assert "claude mcp add bitcointx" not in source

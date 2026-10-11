@@ -4,6 +4,15 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### StartOS package
+- **Connect an AI Assistant's Claude Code command works in every folder**
+  (#116). It lacked `--scope user`, so Claude Code (whose default scope is
+  the current folder) saved BitcoinTX's connector for the folder it was run
+  in only; Settings → Connect an AI Assistant and the setup guide already
+  gave `--scope user`. Set up with the old command? Run the new one, or
+  move the entry in `~/.claude.json` from your folder's `projects` entry to
+  the top-level `mcpServers`.
+
 ### Added
 - **A "Using these forms" page in the Complete Tax Report** (#79), for
   whoever files the return, often a tax preparer handed the PDF. It says
