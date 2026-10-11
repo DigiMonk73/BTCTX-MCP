@@ -3,11 +3,16 @@ import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 const CHANGELOG =
   'https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/CHANGELOG.md'
 
-/** 1.2.6:0: the 2026 report fixes (income values after edits, the date originally acquired, the Rebate source, the IRS forms' format, the preparer's page), one wallet stated plainly, the disclaimer; nothing for the package to migrate. */
+/** 1.2.7:0: a Rebates line on the dashboard; Ledger Review's missing original dates as a folded reminder (#128). Its notes keep 1.2.6's, which StartOS users coming from 1.2.5:0 never saw: the 2026 report fixes (income values after edits, the date originally acquired, the Rebate source, the IRS forms' format, the preparer's page), one wallet stated plainly, the disclaimer; nothing for the package to migrate. */
 export const current = VersionInfo.of({
-  version: '1.2.6:0',
+  version: '1.2.7:0',
   releaseNotes: {
-    en_US: `BitcoinTX 1.2.6 fixes what testing the 2026 forms turned up, and says plainly who BitcoinTX is for.
+    en_US: `BitcoinTX 1.2.7 adds a Rebates line to the Dashboard and makes a Ledger Review list clearer. It also includes 1.2.6, which fixes what testing the 2026 forms turned up and says plainly who BitcoinTX is for.
+
+**New in 1.2.7**
+
+- The Dashboard's Income & Fees card shows Rebates (received), in dollars and bitcoin, under Gifts (received). Like gifts, rebates aren't counted as income.
+- Ledger Review shows My BTC and Gift deposits without a date originally acquired as a reminder, not an error: one folded line after the checks, with a short explanation of the two dates. If some are really card sats-back saved as My BTC, change them from My BTC to Rebate.
 
 **Fixes that change tax figures**
 
@@ -34,12 +39,17 @@ export const current = VersionInfo.of({
 
 **Update your AI connector too**
 
-- Using an AI assistant with BitcoinTX? In your AI app's configuration, change the version after btctx-mcp== to 1.2.6 (Connect an AI Assistant shows it) and restart the AI app. Your AI key stays the same. Otherwise the assistant keeps its old guide and enters card sats-back as Reward.
+- Using an AI assistant with BitcoinTX? In your AI app's configuration, change the version after btctx-mcp== to 1.2.7 (Connect an AI Assistant shows it) and restart the AI app. Your AI key stays the same. Otherwise the assistant keeps its old guide and enters card sats-back as Reward.
 
 Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials and Reset Login Credentials; your login stays. Only if StartOS keeps no password for you, run Set Login Credentials when StartOS asks for it; it replaces any username and password you set inside BitcoinTX.
 
-[Everything in 1.2.6](${CHANGELOG})`,
-    es_ES: `BitcoinTX 1.2.6 corrige lo que encontraron las pruebas de los formularios de 2026 y dice claramente para quién es BitcoinTX.
+[Everything in 1.2.7 and 1.2.6](${CHANGELOG})`,
+    es_ES: `BitcoinTX 1.2.7 añade una línea Rebates al Dashboard y aclara una lista de Ledger Review. También incluye la 1.2.6, que corrige lo que encontraron las pruebas de los formularios de 2026 y dice claramente para quién es BitcoinTX.
+
+**Novedades de la 1.2.7**
+
+- La tarjeta Income & Fees del Dashboard muestra Rebates (received), en dólares y en bitcoin, bajo Gifts (received). Como los regalos, no cuentan como ingresos.
+- Ledger Review muestra los depósitos My BTC y Gift sin la fecha en que se adquirieron por primera vez como un recordatorio, no como un error: una sola línea plegada después de las comprobaciones, con una breve explicación de las dos fechas. Si alguno es en realidad cashback en sats guardado como My BTC, cámbialo de My BTC a Rebate.
 
 **Correcciones que cambian cifras fiscales**
 
@@ -66,12 +76,17 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 
 **Actualiza también tu conector de IA**
 
-- ¿Usas un asistente de IA con BitcoinTX? En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.6 (Conectar un asistente de IA lo muestra) y reinicia la aplicación. Tu clave de IA no cambia. Si no, el asistente conserva su guía anterior y registra el cashback en sats como Reward.
+- ¿Usas un asistente de IA con BitcoinTX? En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.7 (Conectar un asistente de IA lo muestra) y reinicia la aplicación. Tu clave de IA no cambia. Si no, el asistente conserva su guía anterior y registra el cashback en sats como Reward.
 
 ¿Vienes de la 1.2.4:0 o anterior? Establecer credenciales de acceso sustituye a Mostrar credenciales y Restablecer credenciales de acceso; tu acceso se conserva. Solo si StartOS no guarda ninguna contraseña tuya, ejecuta Establecer credenciales de acceso cuando StartOS te lo pida; sustituye cualquier usuario y contraseña que hayas establecido dentro de BitcoinTX.
 
-[Todo lo de la 1.2.6](${CHANGELOG})`,
-    de_DE: `BitcoinTX 1.2.6 behebt, was die Tests der Formulare für 2026 gefunden haben, und sagt klar, für wen BitcoinTX gedacht ist.
+[Todo lo de la 1.2.7 y la 1.2.6](${CHANGELOG})`,
+    de_DE: `BitcoinTX 1.2.7 ergänzt das Dashboard um eine Zeile Rebates und macht eine Liste in Ledger Review klarer. Es enthält auch 1.2.6, das behebt, was die Tests der Formulare für 2026 gefunden haben, und klar sagt, für wen BitcoinTX gedacht ist.
+
+**Neu in 1.2.7**
+
+- Die Karte Income & Fees im Dashboard zeigt Rebates (received) in Dollar und Bitcoin, unter Gifts (received). Wie Geschenke zählen sie nicht als Einkommen.
+- Ledger Review zeigt My-BTC- und Gift-Einzahlungen ohne das Datum des ersten Erwerbs als Erinnerung statt als Fehler: eine eingeklappte Zeile nach den Prüfungen, mit einer kurzen Erklärung der beiden Daten. Ist darunter Sats-Cashback, das als My BTC gespeichert wurde, ändere es von My BTC auf Rebate.
 
 **Korrekturen, die Steuerzahlen ändern**
 
@@ -98,12 +113,17 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 
 **Aktualisiere auch deinen KI-Connector**
 
-- Nutzt du einen KI-Assistenten mit BitcoinTX? Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 1.2.6 (KI-Assistenten verbinden zeigt es an) und starte die App neu. Dein KI-Schlüssel bleibt gleich. Sonst behält der Assistent seinen alten Leitfaden und erfasst Sats-Cashback als Reward.
+- Nutzt du einen KI-Assistenten mit BitcoinTX? Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 1.2.7 (KI-Assistenten verbinden zeigt es an) und starte die App neu. Dein KI-Schlüssel bleibt gleich. Sonst behält der Assistent seinen alten Leitfaden und erfasst Sats-Cashback als Reward.
 
 Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten anzeigen und Zugangsdaten zurücksetzen; deine Zugangsdaten bleiben. Nur wenn StartOS kein Passwort für dich gespeichert hat, führe Zugangsdaten festlegen aus, sobald StartOS dich dazu auffordert; die Aktion ersetzt Benutzernamen und Passwort, die du in BitcoinTX selbst gesetzt hast.
 
-[Alles in 1.2.6](${CHANGELOG})`,
-    pl_PL: `BitcoinTX 1.2.6 poprawia to, co wykryły testy formularzy na 2026 rok, i jasno mówi, dla kogo jest BitcoinTX.
+[Alles in 1.2.7 und 1.2.6](${CHANGELOG})`,
+    pl_PL: `BitcoinTX 1.2.7 dodaje wiersz Rebates na ekranie Dashboard i porządkuje jedną listę w Ledger Review. Zawiera też wersję 1.2.6, która poprawia to, co wykryły testy formularzy na 2026 rok, i jasno mówi, dla kogo jest BitcoinTX.
+
+**Nowości w 1.2.7**
+
+- Karta Income & Fees na ekranie Dashboard pokazuje Rebates (received), w dolarach i w bitcoinie, pod Gifts (received). Podobnie jak prezenty, nie są liczone jako dochód.
+- Ledger Review pokazuje wpłaty My BTC i Gift bez daty pierwotnego nabycia jako przypomnienie, a nie błąd: jeden zwinięty wiersz po kontrolach, z krótkim wyjaśnieniem obu dat. Jeśli część z nich to w rzeczywistości cashback w satoshi zapisany jako My BTC, zmień je z My BTC na Rebate.
 
 **Poprawki, które zmieniają wartości podatkowe**
 
@@ -130,12 +150,17 @@ Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten a
 
 **Zaktualizuj też łącznik AI**
 
-- Używasz asystenta AI z BitcoinTX? W konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 1.2.6 (pokazuje to Połącz asystenta AI) i uruchom aplikację ponownie. Twój klucz AI się nie zmienia. W przeciwnym razie asystent zachowa stary przewodnik i będzie wpisywał cashback w satoshi jako Reward.
+- Używasz asystenta AI z BitcoinTX? W konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 1.2.7 (pokazuje to Połącz asystenta AI) i uruchom aplikację ponownie. Twój klucz AI się nie zmienia. W przeciwnym razie asystent zachowa stary przewodnik i będzie wpisywał cashback w satoshi jako Reward.
 
 Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pokaż dane logowania i Zresetuj dane logowania; Twoje dane logowania zostają. Tylko jeśli StartOS nie przechowuje dla Ciebie hasła, uruchom Ustaw dane logowania, gdy StartOS o to poprosi; akcja zastępuje każdą nazwę użytkownika i hasło ustawione w samym BitcoinTX.
 
-[Wszystko w 1.2.6](${CHANGELOG})`,
-    fr_FR: `BitcoinTX 1.2.6 corrige ce que les tests des formulaires de 2026 ont révélé, et dit clairement à qui BitcoinTX s’adresse.
+[Wszystko w 1.2.7 i 1.2.6](${CHANGELOG})`,
+    fr_FR: `BitcoinTX 1.2.7 ajoute une ligne Rebates au Dashboard et clarifie une liste de Ledger Review. Elle inclut aussi la 1.2.6, qui corrige ce que les tests des formulaires de 2026 ont révélé et dit clairement à qui BitcoinTX s’adresse.
+
+**Nouveautés de la 1.2.7**
+
+- La carte Income & Fees du Dashboard affiche Rebates (received), en dollars et en bitcoin, sous Gifts (received). Comme les dons, ils ne sont pas comptés comme un revenu.
+- Ledger Review présente les dépôts My BTC et Gift sans date d’acquisition d’origine comme un rappel, pas comme une erreur : une seule ligne repliée après les vérifications, avec une courte explication des deux dates. S’il s’agit en fait de cashback en sats enregistré comme My BTC, passez-les de My BTC à Rebate.
 
 **Corrections qui changent des montants fiscaux**
 
@@ -162,11 +187,11 @@ Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pok
 
 **Mettez aussi à jour votre connecteur IA**
 
-- Vous utilisez un assistant IA avec BitcoinTX ? Dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 1.2.6 (Connecter un assistant IA l’affiche) et redémarrez l’application. Votre clé IA reste la même. Sinon, l’assistant garde son ancien guide et saisit le cashback en sats comme Reward.
+- Vous utilisez un assistant IA avec BitcoinTX ? Dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 1.2.7 (Connecter un assistant IA l’affiche) et redémarrez l’application. Votre clé IA reste la même. Sinon, l’assistant garde son ancien guide et saisit le cashback en sats comme Reward.
 
 Vous venez de la 1.2.4:0 ou d’une version antérieure ? Définir les identifiants remplace Afficher les identifiants et Réinitialiser les identifiants ; vos identifiants sont conservés. Seulement si StartOS ne garde aucun mot de passe pour vous, lancez Définir les identifiants quand StartOS vous le demande ; cette action remplace tout nom d’utilisateur et mot de passe définis dans BitcoinTX lui-même.
 
-[Tout ce que contient la 1.2.6](${CHANGELOG})`,
+[Tout ce que contiennent la 1.2.7 et la 1.2.6](${CHANGELOG})`,
   },
   migrations: {
     up: async () => {},
