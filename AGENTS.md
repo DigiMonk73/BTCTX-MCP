@@ -296,7 +296,20 @@ Full steps, the package version and the signing/mirror secrets:
    (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
    years, what to do. Once it has merged, wait for CI on
    `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
-   commit's CI artifacts; a blocker FAIL stops the release.
+   commit's CI artifacts; a blocker FAIL stops the release. Meanwhile a
+   fresh Claude, one that didn't write the release, reads every doc
+   against what it ships (owner's rule, 2026-10-10): the READMEs,
+   `startos/instructions.md`, the store descriptions
+   (`startos/startos/manifest/i18n.ts`), the actions' text
+   (`startos/startos/i18n/dictionaries/`), `mcp_server/AI_SETUP.md` and
+   the AI guide (`guide.py`), `docs/`, `SECURITY.md`, the app's on-screen
+   text (Settings, the form hints, `frontend/src/utils/aiSetup.ts`), and
+   the CHANGELOG's new section against the pull requests merged since the
+   last release, with the StartOS release notes (`current.ts`) against
+   it. Anything stale is fixed by pull request before step 2: nothing is
+   released, or sent to Start9, with stale docs. Such a fix changes
+   wording only, so the agent tests aren't run again; a change to what
+   the app or the connector does isn't a docs fix.
 2. Fast-forward `main` to GitHub's `develop` ("Branches") and push: `.github/workflows/image.yml`
    publishes `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (never overwritten) and
    `:main`.

@@ -72,19 +72,25 @@ workflow keeps up to date by itself. We don't touch it.)
 2. When it has merged and the tests pass on `develop`, an AI agent runs the
    release tests (`docs/AGENT-TESTS.md`) on a StartOS test machine. A
    blocker failure stops the release.
-3. `main` catches up with `develop`. That publishes the Docker image
+3. At the same time, a fresh Claude (not the one that wrote the release)
+   reads all the docs against what the release ships: the READMEs, the
+   StartOS instructions and store descriptions, the AI connector's guide,
+   `docs/`, the app's help text, and the CHANGELOG. Anything out of date
+   is fixed by pull request before step 4, so nothing goes out, or to
+   Start9, with stale docs (the owner's rule).
+4. `main` catches up with `develop`. That publishes the Docker image
    (`ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`).
-4. A `release/vX.Y.Z` branch starts the release on GitHub. It:
+5. A `release/vX.Y.Z` branch starts the release on GitHub. It:
    - checks first that Start9's own changes are back in `startos/`
      (section 4), and stops if not;
    - builds the Mac app and the StartOS package (and the Docker image, if
-     step 3 hasn't yet);
+     step 4 hasn't yet);
    - publishes the AI connector to PyPI (not for a package-only fix, a
      version like `v1.2.4-1`);
    - creates the GitHub release with everything attached;
    - copies `startos/` to the mirror (if the `MIRROR_TOKEN` secret is set).
-5. Delete the `release/vX.Y.Z` branch afterwards.
-6. Check the **landing page** (<https://digimonk73.github.io/btctx-site/>,
+6. Delete the `release/vX.Y.Z` branch afterwards.
+7. Check the **landing page** (<https://digimonk73.github.io/btctx-site/>,
    repository DigiMonk73/btctx-site). Its download buttons, release-notes
    link and Docker command follow the latest release by themselves; its
    words and screenshots don't. Claude updates what the release made wrong

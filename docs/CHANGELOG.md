@@ -265,6 +265,13 @@ All notable changes to BitcoinTX are documented in this file.
   indexes, and everything sent to their fork. The app, its Docker image
   and the Mac app keep our own rules. AGENTS.md "Start9" asks that the
   guide be checked first and the page each decision follows be named.
+- **A final docs check before each release.** Merging doesn't update the
+  docs by itself, so before `main` moves to a release a fresh Claude reads
+  every doc against what the release ships: the READMEs, the StartOS
+  instructions, store descriptions, actions and release notes, the AI
+  connector's guide, `docs/`, the app's on-screen text and the CHANGELOG.
+  Anything stale is fixed first (AGENTS.md "Releasing", step 1;
+  `docs/HOW-CHANGES-FLOW.md` section 2).
 - **How bugs and security problems are handled, in public files.**
   - `SECURITY.md`: report security problems privately (GitHub's private
     vulnerability reporting, now on). The fix ships first, then a public
