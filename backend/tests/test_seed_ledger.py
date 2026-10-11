@@ -8,38 +8,58 @@ empty and the Mac app's address.
 """
 
 import importlib.util
+import json
+import os
 from collections import defaultdict
 from decimal import Decimal
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.models.transaction import Transaction
+from backend.schemas.transaction import BrokerReporting
 from backend.services import first_run, outbound
+from backend.services.transaction import DEPOSIT_SOURCES, TX_TYPES, WITHDRAWAL_PURPOSES
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.services.reports.reporting_core import generate_report_data
 
-_spec = importlib.util.spec_from_file_location(
-    "seed_ledger", Path(__file__).resolve().parents[2] / "scripts" / "seed_ledger.py")
-seed_ledger = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(seed_ledger)
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+seed_ledger = _script("seed_ledger")
+reference_figures = _script("reference_figures")
 
 USER, PASSWORD = "seed-user", "seed-password-123"
 
-# The box of every 2026 disposal, by date sold (the comments in LEDGER_2026)
+# The box of every 2026 disposal, by date sold (the "why" notes of testdata/reference_ledger.json)
 BOXES_2026 = {
     "01/15/2026": {"K"}, "02/02/2026": {"J"}, "02/09/2026": {"H"}, "03/16/2026": {"I"},
     "05/04/2026": {"G"}, "06/01/2026": {"I"}, "07/01/2026": {"L"}, "08/03/2026": {"G"},
     "09/01/2026": {"L"}, "09/05/2026": {"L"}, "09/10/2026": {"L"},
 }
 YEARS = [2023, 2024, 2025, 2026]
-# Each year: every deposit source, withdrawal purpose and transfer the app has
+# Each year: every deposit source and withdrawal purpose the app has (its own
+# lists, so a new one fails here until the reference ledger has it), cash
+# withdrawals, transfers both ways, buys and sells
 KINDS = {
-    *(f"Deposit {s}" for s in ("MyBTC", "Gift", "Income", "Interest", "Reward", "N/A")),
-    *(f"Withdrawal {p}" for p in ("Spent", "Gift", "Donation", "Lost", "cash")),
+    *(f"Deposit {s}" for s in DEPOSIT_SOURCES),
+    *(f"Withdrawal {p}" for p in (*WITHDRAWAL_PURPOSES, "cash")),
     "Transfer to the exchange", "Transfer from the exchange", "Transfer cash", "Buy", "Sell",
+}
+# Every account route the app offers (type, from, to): Bank 1, Wallet 2,
+# Exchange USD 3, Exchange BTC 4, External 99
+ROUTES = {
+    ("Buy", 1, 4), ("Buy", 3, 4), ("Sell", 4, 3),
+    *(("Deposit", 99, a) for a in (1, 2, 3, 4)), *(("Withdrawal", a, 99) for a in (1, 2, 3, 4)),
+    ("Transfer", 1, 3), ("Transfer", 3, 1), ("Transfer", 2, 4), ("Transfer", 4, 2),
 }
 
 
@@ -91,8 +111,9 @@ def test_every_year_has_every_kind_of_transaction(seeded):
 @pytest.mark.parametrize("year, boxes", [(2023, "C"), (2024, "ABCDEF"), (2025, "GHIJKL"), (2026, "GHIJKL")])
 def test_every_report_has_entries_in_every_part(seeded, year, boxes):
     """Form 8949: every box the year's form has (2023 has no forms here,
-    only box C rows for the reports); Schedule D: every line; the complete
-    tax report: gains, income, and gifts, donations and losses."""
+    only box C rows for the reports), short- and long-term; Schedule D:
+    every line; the complete tax report: gains, income from each source,
+    rebates, and a gift, a donation and a loss."""
     _, Session, _ = seeded
     with Session() as db:
         forms = build_form_8949_and_schedule_d(year, db)
@@ -100,8 +121,24 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
     assert {r["box"] for r in forms["short_term"] + forms["long_term"]} == set(boxes)
     if year >= 2024:
         assert set(forms["schedule_d"]["lines"]) == {"1b", "2", "3", "8b", "9", "10"}
-    for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost"):
+        assert forms["short_term"] and forms["long_term"], year
+    for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates"):
         assert report[part], (year, part)
+    assert {"Income", "Interest", "Reward"} <= {k for k, v in report["income_summary"].items() if v}
+    assert {g["type"] for g in report["gifts_donations_lost"]} == {"Gift", "Donation", "Lost"}
+
+
+def test_the_ledger_has_everything_the_app_offers():
+    """Every transaction type and account route, every broker-reporting
+    choice, fees in USD and BTC, and a date originally acquired on a My BTC
+    and a Gift deposit: so a full-ledger check exercises all of them."""
+    rows = seed_ledger.ledger_rows()
+    assert {r["type"] for r in rows} == set(TX_TYPES)
+    assert ROUTES <= {(r["type"], r["from_account_id"], r["to_account_id"]) for r in rows}
+    assert set(get_args(BrokerReporting)) <= {r.get("broker_reporting") for r in rows}
+    paid = {(r["type"], r["fee_currency"]) for r in rows if Decimal(r["fee_amount"]) > 0}
+    assert {("Buy", "USD"), ("Sell", "USD"), ("Transfer", "BTC"), ("Withdrawal", "BTC")} <= paid
+    assert {"MyBTC", "Gift"} <= {r["source"] for r in rows if r.get("acquired_at")}
 
 
 def test_every_value_a_price_would_fill_is_given():
@@ -121,6 +158,34 @@ def test_2026_rows_land_in_their_boxes(seeded):
         boxes[row["date_sold"]].add(row["box"])
     assert dict(boxes) == BOXES_2026
     assert set(forms["schedule_d"]["lines"]) == {"1b", "2", "3", "8b", "9", "10"}
+
+
+def test_dates_originally_acquired_lead_fifo(seeded):
+    """The 2019 My BTC and the 2020 gift are the wallet's oldest coins by
+    their date originally acquired, so they go first: long-term, and Form
+    8949 column (b) shows that date (#91)."""
+    _, Session, _ = seeded
+    with Session() as db:
+        forms = build_form_8949_and_schedule_d(2026, db)
+    rows = forms["short_term"] + forms["long_term"]
+    acquired = {(r["date_sold"], r["date_acquired"], r["box"]) for r in rows}
+    assert ("07/01/2026", "03/01/2019", "L") in acquired
+    assert ("09/01/2026", "01/15/2020", "L") in acquired
+
+
+def test_the_reference_figures_have_not_moved(seeded):
+    """#139: every figure the reference ledger gives (each year's forms and
+    report, the dashboard) against testdata/reference_figures.json. A change
+    meant to move figures runs `make reference-figures` and shows the
+    difference in its pull request; tax figures wait for the owner's merge."""
+    _, Session, _ = seeded
+    with Session() as db:
+        now = reference_figures.figures(db)
+    if os.environ.get("BTCTX_UPDATE_REFERENCE_FIGURES"):
+        reference_figures.FIGURES.write_text(reference_figures.dumps(now))
+    saved = json.loads(reference_figures.FIGURES.read_text())
+    moved = list(reference_figures.differences(saved, now))
+    assert not moved, "figures moved (make reference-figures if meant):\n" + "\n".join(moved[:20])
 
 
 @pytest.mark.parametrize("tz", ["Asia/Tokyo", "Australia/Adelaide", "Pacific/Honolulu", "America/New_York"])

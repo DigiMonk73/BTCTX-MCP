@@ -1,0 +1,127 @@
+{
+ "about": "A small made-up portfolio for the landing page's screenshots only (frontend/e2e/shots/site.ts): buys, sales with their gains, income, interest and a rebate, as a typical user's ledger looks. Not for testing: the tests use reference_ledger.json, which covers every case.",
+ "transactions": [
+  {
+   "type": "Deposit",
+   "timestamp": "2023-01-05T16:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 1,
+   "amount": "60000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "source": "N/A"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2023-01-06T16:00:00Z",
+   "from_account_id": 1,
+   "to_account_id": 3,
+   "amount": "48000",
+   "fee_amount": "0",
+   "fee_currency": "USD"
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2023-01-12T16:00:00Z",
+   "from_account_id": 3,
+   "to_account_id": 4,
+   "amount": "1.05",
+   "fee_amount": "15",
+   "fee_currency": "USD",
+   "cost_basis_usd": "17850"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2023-02-01T16:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 2,
+   "amount": "0.8",
+   "fee_amount": "0.00005",
+   "fee_currency": "BTC"
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2024-03-12T15:00:00Z",
+   "from_account_id": 3,
+   "to_account_id": 4,
+   "amount": "0.2",
+   "fee_amount": "5",
+   "fee_currency": "USD",
+   "cost_basis_usd": "14000"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2024-05-10T17:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 2,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "1000"
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2024-08-05T15:00:00Z",
+   "from_account_id": 3,
+   "to_account_id": 4,
+   "amount": "0.15",
+   "fee_amount": "5",
+   "fee_currency": "USD",
+   "cost_basis_usd": "8700"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2024-12-10T20:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 3,
+   "amount": "0.2",
+   "fee_amount": "20",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "20000"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-02-14T19:00:00Z",
+   "from_account_id": 2,
+   "to_account_id": 99,
+   "amount": "0.01",
+   "fee_amount": "0.00002",
+   "fee_currency": "BTC",
+   "purpose": "Spent",
+   "gross_proceeds_usd": "950"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-03-01T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 4,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "cost_basis_usd": "50"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2025-06-20T20:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 3,
+   "amount": "0.1",
+   "fee_amount": "10",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "10500"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-07-15T16:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 2,
+   "amount": "0.0002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "cost_basis_usd": "24"
+  }
+ ]
+}

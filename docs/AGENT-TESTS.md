@@ -32,8 +32,8 @@ feeling.
    them as KNOWN, not as new findings. If one passes, say so: it was fixed.
 6. Work in the order given. Later sections assume the state earlier ones
    left.
-7. Budget: about 3 hours for Track A, 45 minutes for Track B, and 45
-   minutes for Track C.
+7. Budget: about 3 hours for Track A, 45 minutes for Track B, 45
+   minutes for Track C, and 15 minutes for REF.
 
 ## What CI already proves (don't redo)
 
@@ -750,6 +750,49 @@ point, leave it alone, touch nothing in it, and record that.
   no second copy.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
 
+## REF: the reference ledger and the landing page's pictures (every run)
+
+From the release commit's checkout (REPO), on this computer: no VM or Mac
+build needed, and no real data anywhere. LAB is `~/code/btctx-vm-lab`
+written out; X.Y.Z is this release, P.Q.R the previous one. The commands
+are in docs/TESTING.md, "The reference test ledger" and "The landing
+page's pictures".
+
+- **REF-1** The landing page's pictures:
+  `make site-shots SITE_SHOTS_DIR=LAB/runs/site-shots-X.Y.Z`. Expect four
+  PNGs: `dashboard.png`, `transactions.png` and `reports.png` at 2940 ×
+  1734, and `settings.png` at about 1730 × 1570. Settings shows
+  `btctx-mcp==X.Y.Z` and `~/Library/Application Support/BitcoinTX/mcp.json`.
+  The Dashboard's Income & Fees card has every line the app's card has.
+  Compare each with DigiMonk73/btctx-site's `img/` (`cmp`) and list which
+  changed. A changed picture is not a FAIL: the release's landing-page
+  step (AGENTS.md, "Releasing", step 5) publishes them, shown to the owner
+  first.
+- **REF-2** This release's reference database. Make an empty database with
+  the smoke test's login (`scripts/smoke_test.py`, SMOKE_USER and
+  SMOKE_PASSWORD): `DATABASE_FILE=LAB/ledgers/reference-vX.Y.Z.db python -m
+  backend.cli set-password --username SMOKE_USER --password-stdin`. Serve it
+  with no price source saved in it (`BTCTX_SMOKE_PRICE_SOURCE=unset python
+  scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
+  the background) and load the reference ledger with
+  `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
+  --password-stdin`. Expect "111 transactions loaded" (or the count in
+  `testdata/reference_ledger.json`). Stop the server. On a copy:
+  `python scripts/reference_figures.py --db <copy> --compare
+  testdata/reference_figures.json`. Expect "No figure moved.". Save its
+  figures beside it: `python scripts/reference_figures.py --db <copy> >
+  LAB/ledgers/reference-vX.Y.Z.json`.
+- **REF-3** The previous release's database, upgraded. Copy
+  `LAB/ledgers/reference-vP.Q.R.db`, then `DATABASE_FILE=<copy> python -m
+  backend.cli migrate` and `python scripts/reference_figures.py --db <copy>
+  --compare LAB/ledgers/reference-vP.Q.R.json`. Expect "No figure moved."
+  (an update leaves stored figures alone; a figure this release adds, which
+  the older file lacks, isn't counted). Then `DATABASE_FILE=<copy> python
+  -m backend.cli recalculate` and compare again. Expect no difference,
+  unless this release's CHANGELOG says a recalculation changes figures:
+  then exactly those, and nothing else. BLOCKED when there is no previous
+  database (the first is v1.2.7's).
+
 ---
 
 ## Report
@@ -759,7 +802,7 @@ One file per run, `agent-test-report-X.Y.Z.md`:
 ```markdown
 # BitcoinTX X.Y.Z agent test report
 Commit: <SHA> · Date: <date> · Agent: <name/model> · StartOS: <version> · VM arch: x86_64
-Tracks run: A, B, C (say which were skipped and why)
+Tracks run: A, B, C, REF (say which were skipped and why)
 
 ## Summary
 PASS n · FAIL n · KNOWN n · BLOCKED n

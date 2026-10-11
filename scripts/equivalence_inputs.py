@@ -2,7 +2,8 @@
 The inputs scripts/equivalence_check.py feeds BitcoinTX: extra entries for
 the MCP tools and the entry import, and bad inputs (one per validation
 rule, as far as a rule shows from outside) so every error message is in the
-snapshot. The ledgers themselves come from the tests (golden, seed, random).
+snapshot. The ledgers themselves come from the tests (golden, random) and
+testdata/reference_ledger.json (through scripts/seed_ledger.py).
 """
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
@@ -35,6 +36,13 @@ API_PAYLOADS = {
                      to_account_id=WALLET, amount="0.01", fee_amount="0.0001", fee_currency="BTC"),
     "transfer_usd": dict(type="Transfer", timestamp="2025-07-10T15:00:00Z", from_account_id=BANK,
                          to_account_id=EXCH_USD, amount="100", fee_amount="0", fee_currency="USD"),
+    # #122: a rebate (valued at receipt, not income) and own coins with a date originally acquired
+    "deposit_rebate": dict(type="Deposit", timestamp="2025-07-11T15:00:00Z", from_account_id=EXTERNAL,
+                           to_account_id=WALLET, amount="0.0005", cost_basis_usd="60", fee_amount="0",
+                           fee_currency="BTC", source="Rebate"),
+    "deposit_mybtc_dated": dict(type="Deposit", timestamp="2025-07-12T15:00:00Z", from_account_id=EXTERNAL,
+                                to_account_id=WALLET, amount="0.001", cost_basis_usd="50", fee_amount="0",
+                                fee_currency="BTC", source="MyBTC", acquired_at="2020-01-01T12:00:00Z"),
 }
 
 ACCOUNT_IDS = (BANK, WALLET, EXCH_USD, EXCH_BTC, 5, 6, EXTERNAL, 7)
@@ -52,17 +60,18 @@ API_CHANGES = (
     + [("cost_basis_usd", v) for v in ("-1", "0", "abc", "100", None)]
     + [("proceeds_usd", v) for v in ("-1", "100")]
     + [("gross_proceeds_usd", v) for v in ("-1", "100")]
-    + [("source", v) for v in ("Income", "Gift", "MyBTC", "Interest", "Reward", "N/A", "Stolen", None)]
+    + [("source", v) for v in ("Income", "Gift", "MyBTC", "Interest", "Reward", "Rebate", "N/A", "Stolen", None)]
     + [("purpose", v) for v in ("Spent", "Gift", "Donation", "Lost", "Stolen", None)]
     + [("broker_reporting", v) for v in ("none", "proceeds", "basis", "automatic", "weird")]
     + [("fmv_usd", v) for v in ("-1", "50")]
     + [("fee_usd", v) for v in ("-1", "5")]
+    + [("acquired_at", v) for v in ("2020-01-01T12:00:00Z", "2099-01-01T00:00:00Z", "abc", None)]
 )
 
 CSV_COLUMNS = (
     "date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
     "fee_amount", "fee_currency", "source", "purpose", "notes", "fee_usd", "fmv_usd",
-    "broker_reporting", "fee_usd_typed",
+    "broker_reporting", "fee_usd_typed", "acquired_at",
 )
 
 # CSV rows that import on an empty ledger, in order.
@@ -73,6 +82,12 @@ CSV_BASE_ROWS = {
             "to_account": "Exchange BTC", "cost_basis_usd": "4000", "fee_amount": "10", "fee_currency": "USD"},
     "deposit_income": {"date": "2024-01-03T10:00:00Z", "type": "Deposit", "amount": "0.01",
                        "from_account": "External", "to_account": "Wallet", "source": "Income"},
+    "deposit_rebate": {"date": "2024-01-03T11:00:00Z", "type": "Deposit", "amount": "0.001",
+                       "from_account": "External", "to_account": "Wallet", "source": "Rebate",
+                       "cost_basis_usd": "40"},
+    "deposit_mybtc_dated": {"date": "2024-01-03T12:00:00Z", "type": "Deposit", "amount": "0.02",
+                            "from_account": "External", "to_account": "Wallet", "source": "MyBTC",
+                            "cost_basis_usd": "300", "acquired_at": "2019-05-01"},
     "transfer": {"date": "2024-01-04T10:00:00Z", "type": "Transfer", "amount": "0.05",
                  "from_account": "Exchange BTC", "to_account": "Wallet", "fee_amount": "0.0001",
                  "fee_currency": "BTC", "fee_usd": "4.20", "fee_usd_typed": "yes"},
@@ -101,13 +116,14 @@ CSV_CHANGES = {
     "proceeds_usd": _NUMBERS,
     "fee_amount": _NUMBERS,
     "fee_currency": ("", "usd", "BTC", "EUR"),
-    "source": ("", "income", "Gift", "MyBTC", "Interest", "Reward", "N/A", "Stolen"),
+    "source": ("", "income", "Gift", "MyBTC", "Interest", "Reward", "Rebate", "rebate", "N/A", "Stolen"),
     "purpose": ("", "spent", "Gift", "Donation", "Lost", "Stolen"),
     "notes": ("", "=1+1", "a note"),
     "fee_usd": _NUMBERS,
     "fmv_usd": _NUMBERS,
     "broker_reporting": ("", "none", "Proceeds", "basis", "automatic", "weird"),
     "fee_usd_typed": ("", "yes", "no", "maybe"),
+    "acquired_at": ("", "abc", "2019-05-01", "2099-01-01T00:00:00Z"),
 }
 
 # Whole files with a bad shape.
