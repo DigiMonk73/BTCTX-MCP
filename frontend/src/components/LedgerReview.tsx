@@ -100,7 +100,7 @@ const LedgerReview: React.FC = () => {
   const fixFees = async (check: ReviewCheck) => {
     const ok = window.confirm(
       `Set ${check.count} transfer fee value(s) to that day's BTC price and recalculate the ledger?\n\n` +
-        "This changes the fees' gains on your tax reports. Back up first (Settings → Backup).",
+        "This changes the fees' gains on your tax reports. Back up first (Settings → Backup & Restore).",
     );
     if (!ok) return;
     setLoading(true);

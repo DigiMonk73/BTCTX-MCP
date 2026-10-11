@@ -247,11 +247,11 @@ From `backend/requirements.in`:
 | `itsdangerous` | 2.2.0 | Low | Session cookie signing |
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
-| `tzdata` | 2026.4 | Low | Timezone rules for the tax timezone; update yearly |
+| `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone; update yearly |
 | `pypdf` | 6.19.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.4.10 | High | Complete Tax Report and transaction history PDFs. Stay on 4.4.x (see below) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.3 | Low | Test only: property tests |
+| `hypothesis` | 6.168.4 | Low | Test only: property tests |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
 ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.

@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.7] - 2026-10-11 - Rebates on the dashboard, a clearer Ledger Review reminder
+
 ### Added
 - **Rebates on the dashboard** (#129). The Income & Fees card showed
   income, interest, rewards and gifts, but rebates (card sats-back,
@@ -32,9 +34,19 @@ All notable changes to BitcoinTX are documented in this file.
   folded behind **Show**. `cli review` and the AI connector's
   `review_ledger` carry the same explanation (`kind: "reminder"`, a
   separate `reminders` count).
+- **Timezone rules: tzdata 2026.5** (upstream 2026e, #67). Manitoba moves to
+  permanent UTC−5 on 2026-10-31; this matters only with the tax timezone
+  America/Winnipeg, for dates after that. No figure moved in the
+  before-and-after comparison.
+
+### StartOS package
+- **Package 1.2.7:0.** Release notes in five languages. They keep 1.2.6's,
+  which StartOS users updating from 1.2.5:0 haven't seen, marked "From 1.2.6".
 
 ### Development
 
+- Dependencies: `lucide-react` 1.52.0 (#66; the icons BitcoinTX uses draw
+  the same) and `hypothesis` 6.168.4 (#73, tests only).
 - **The pre-push gate finds a Python with the dev tools.** It took the
   first interpreter that existed, `desktop/.venv` first, so after a Mac
   build (whose venv has no ruff), or in a worktree with no `.venv`, the
