@@ -45,7 +45,7 @@ from btctx_mcp.client import BtctxClient
 
 import equivalence_inputs as inputs
 
-SEED_LEDGER = Path("backend/tests/transaction_seed_data.json")
+REFERENCE_LEDGER = Path("testdata/reference_ledger.json")
 RANDOM_LEDGERS = 40
 RANDOM_ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
 BENCH_TRANSACTIONS = 2000
@@ -136,7 +136,8 @@ def _shut_out_the_world(work: Path) -> None:
 def _ledgers():
     """(name, tax timezone, API payloads) for each ledger in the snapshot."""
     yield "golden", "America/New_York", GOLDEN_LEDGER
-    yield "seed", "UTC", json.loads(SEED_LEDGER.read_text())
+    reference = json.loads(REFERENCE_LEDGER.read_text())["transactions"]
+    yield "reference", "UTC", [{k: v for k, v in tx.items() if k != "why"} for tx in reference]
     for seed in range(RANDOM_LEDGERS):
         txs, _ = draw_ledger(SeededDraws(seed), max_ops=25)
         yield f"random_{seed:02d}", RANDOM_ZONES[seed % len(RANDOM_ZONES)], txs

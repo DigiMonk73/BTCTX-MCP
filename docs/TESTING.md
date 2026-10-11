@@ -86,7 +86,8 @@ python scripts/equivalence_check.py --against v1.3.0
 
 It checks out the release in a temporary git worktree and snapshots both
 it and this checkout on the same inputs:
-- **Ledgers:** the golden ledger, the 65-transaction seed ledger, and 40
+- **Ledgers:** the golden ledger, the reference test ledger
+  (`testdata/reference_ledger.json`), and 40
   random ledgers from the property test's generator (fixed seeds, in UTC,
   Chicago and Tokyo time).
 - **Bad inputs:** each invalid API payload, CSV row and file in
@@ -156,32 +157,77 @@ data) — it creates transactions. `make docker-smoke` does this for an image
 built from the checkout (`scripts/docker_smoke.sh --keep` leaves the container
 running on 127.0.0.1:8778).
 
-## A full test ledger on any server
+## The reference test ledger
+
+One made-up ledger is the test data for everything that needs a full one:
+`testdata/reference_ledger.json` (108 transactions, 2023 to 2026). Every
+year has every kind of transaction (each deposit source, Rebate included,
+each withdrawal purpose, transfers both ways, cash moves, buys and sells),
+every report has entries in each part (every Form 8949 box of 2024, 2025
+and 2026, in any tax timezone), and My BTC and Gift deposits carry a date
+originally acquired. Every USD value a price lookup would fill is given, so
+it loads with the price source Off. Each row's `why` says what it is for.
+Neither it nor any test data ships in a build (Docker copies only
+`backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
+
+**Load it into a server** (an empty one; never your real data):
 
 ```bash
 python scripts/seed_ledger.py --url https://host:port --user NAME --password-stdin [--ca root-ca.crt] < password-file
 ```
 
-`scripts/seed_ledger.py` loads 103 transactions from 2023 to 2026 over the
-API: `backend/tests/transaction_seed_data.json` and the rows it lacks, so
-that every year has every kind of transaction (except the Rebate source
-and a date originally acquired, both new in 1.2.6) and every report has
-entries in each part (every Form 8949 box of 2024, 2025 and 2026), in any tax
-timezone, with every USD
-value a price lookup would fill already given. It is the ledger for the
-StartOS test VM, and for a box: export it there as CSV (Settings) and
-import that into an empty ledger. Neither it nor the test data ships in
-any build (the Mac app leaves out `backend/tests/`; Docker never had it). It
-loads with the price source Off and contacts nothing but the server. It
-refuses a ledger that has transactions, and the Mac app's address
-(`127.0.0.1:8765`) outright. `--setup-code` claims a fresh Docker install
-first. The app ships the 2026 drafts as a preview until 2027-01-01; to keep
-them on a test server after that, or on an older version, install them
-there (`python -m backend.cli install-draft-forms`, see
-docs/IRS_FORM_GENERATION.md, "Draft forms: the preview, and test
-installs"). On the
-StartOS test VM, the lab's `tools/vmtest seed` does both.
-`backend/tests/test_seed_ledger.py` runs it against the in-process app.
+It refuses a ledger that has transactions, and the Mac app's address
+(`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine.
+`--setup-code` claims a fresh Docker install first. On the StartOS test VM,
+the lab's `tools/vmtest seed` loads it and installs the next year's draft
+forms (the app ships the 2026 drafts as a preview until 2027-01-01; see
+docs/IRS_FORM_GENERATION.md, "Draft forms: the preview, and test installs").
+For a box: export it there as CSV (Settings) and import that.
+
+**Its figures can't move unnoticed.** `testdata/reference_figures.json`
+holds every figure the app computes from it: each year's Form 8949 rows and
+Schedule D lines, the complete tax report's data (holdings at both ends of
+the year, gains, income, rebates, gifts, each box) and the dashboard's
+totals (`scripts/reference_figures.py`). `backend/tests/test_seed_ledger.py`
+loads the ledger into the in-process app and compares, so CI fails on any
+change in a figure and names where. After a change meant to move figures:
+
+```bash
+make reference-figures      # rewrites testdata/reference_figures.json
+```
+
+and the pull request shows the difference; a change in tax figures waits
+for the owner's "merge".
+
+**Each release's database is kept** in the test lab
+(`~/code/btctx-vm-lab/ledgers/reference-vX.Y.Z.db`, with its figures in
+`reference-vX.Y.Z.json`), made in the release tests (docs/AGENT-TESTS.md,
+REF-2). The next release opens a copy of it and compares (REF-3):
+
+```bash
+DATABASE_FILE=<copy> python -m backend.cli migrate
+python scripts/reference_figures.py --db <copy> --compare reference-vX.Y.Z.json
+```
+
+The stored figures must be identical after the upgrade. Then
+`python -m backend.cli recalculate` on the copy, and compare again: what
+moves must be what the CHANGELOG says a recalculation changes.
+
+## The landing page's pictures
+
+```bash
+make site-shots              # into site-shots/ (or SITE_SHOTS_DIR=...)
+```
+
+`frontend/e2e/shots/site.ts` takes the four pictures of DigiMonk73/btctx-site
+(`img/dashboard.png`, `transactions.png`, `reports.png`, `settings.png`) from
+this checkout's app, at the site's size (1470 x 867 at 2x, dark), with the
+e2e server's fixed prices ($60,000), so they change only when the app does.
+Their ledger is `testdata/showcase_ledger.json`, a small typical portfolio
+(the reference ledger's latest entries, built to cover every case, would
+show no sales); the Settings picture is in Mac app mode, with the key
+file's path shown as `~/Library/...`. The release tests take them (REF-1);
+the release's landing-page step publishes them, shown to the owner first.
 
 ## Trying a branch in a browser
 

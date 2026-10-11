@@ -6,6 +6,8 @@
 # make smoke        the real server on a temp DB, driven end to end
 # make e2e          Playwright click-through tests of every UI flow (Chromium)
 # make preview      this checkout in a browser at 127.0.0.1:8777 (throwaway data)
+# make site-shots   the landing page's four pictures, into site-shots/ (release tests)
+# make reference-figures  accept new figures for the reference test ledger (testdata/)
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
 # make audit-deps   known-vulnerability scan of Python + npm dependencies
@@ -16,7 +18,7 @@
 
 PY ?= python3
 
-.PHONY: sync-check hooks test test-fast smoke e2e preview docker-smoke lint audit-deps lock check check-fast frontend-dist
+.PHONY: sync-check hooks test test-fast smoke e2e preview site-shots reference-figures docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -43,6 +45,18 @@ e2e:
 # scripts/smoke_test.py (SMOKE_USER). Ctrl-C stops it.
 preview:
 	$(PY) scripts/preview.py
+
+# The landing page's pictures (DigiMonk73/btctx-site, img/) from this
+# checkout's app and testdata/showcase_ledger.json: frontend/e2e/shots/site.ts.
+# Taken in the release tests (docs/AGENT-TESTS.md, REF-1).
+SITE_SHOTS_DIR ?= $(CURDIR)/site-shots
+site-shots:
+	cd frontend && SITE_SHOTS_DIR="$(SITE_SHOTS_DIR)" npx playwright test -c e2e/shots/site.config.ts
+
+# After a change meant to move figures: rewrite testdata/reference_figures.json
+# from the reference test ledger; the pull request shows the difference.
+reference-figures: frontend-dist
+	BTCTX_UPDATE_REFERENCE_FIGURES=1 $(PY) -m pytest -q backend/tests/test_seed_ledger.py -k reference_figures
 
 docker-smoke:
 	scripts/docker_smoke.sh

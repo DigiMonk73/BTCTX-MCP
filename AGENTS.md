@@ -224,7 +224,9 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
-| `scripts/seed_ledger.py` | full test ledger (2023–2026, every 8949 box) into an empty server over the API; refuses the Mac app |
+| `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
+| `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
+| `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
 
@@ -274,6 +276,8 @@ make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
+make site-shots  # the landing page's pictures from this checkout (release tests, REF-1)
+make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
@@ -337,8 +341,9 @@ Full steps, the package version and the signing/mirror secrets:
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
-   wrong (action names, StartOS steps, features, screenshots) in a commit
-   there, shown to the owner first: it's public.
+   wrong (action names, StartOS steps, features) in a commit there, with
+   the four pictures the release tests took (`make site-shots`, AGENT-TESTS
+   REF-1; copy those that changed), shown to the owner first: it's public.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the
