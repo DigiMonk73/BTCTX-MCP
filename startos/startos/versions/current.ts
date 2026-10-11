@@ -25,7 +25,7 @@ export const current = VersionInfo.of({
 **Smaller fixes**
 
 - For a Gift deposit, the transaction form now asks for the giver's cost basis.
-- Connect an AI Assistant's Claude Code command sets up the connector for every folder, not only the one you ran it in; set up with the old command? Run the new one.
+- Connect an AI Assistant's Claude Code command sets up the connector for every folder, not only the one you ran it in; set up with the old one? The changelog below says how to move it.
 
 **One wallet, one exchange**
 
@@ -57,7 +57,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 **Correcciones menores**
 
 - En un depósito Gift, el formulario de transacción pide ahora el coste base de quien hizo el regalo.
-- El comando de Claude Code de Conectar un asistente de IA configura el conector para todas las carpetas, no solo para aquella en la que lo ejecutaste; ¿lo configuraste con el comando anterior? Ejecuta el nuevo.
+- El comando de Claude Code de Conectar un asistente de IA configura el conector para todas las carpetas, no solo para aquella en la que lo ejecutaste; ¿lo configuraste con el anterior? El registro de cambios de abajo explica cómo moverlo.
 
 **Un monedero, un exchange**
 
@@ -89,7 +89,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 **Kleinere Korrekturen**
 
 - Bei einer Gift-Einzahlung fragt das Transaktionsformular jetzt nach den Anschaffungskosten des Schenkenden.
-- Der Claude-Code-Befehl von KI-Assistenten verbinden richtet den Connector für alle Ordner ein, nicht nur für den, in dem du ihn ausgeführt hast; mit dem alten Befehl eingerichtet? Führe den neuen aus.
+- Der Claude-Code-Befehl von KI-Assistenten verbinden richtet den Connector für alle Ordner ein, nicht nur für den, in dem du ihn ausgeführt hast; mit dem alten eingerichtet? Das Änderungsprotokoll unten erklärt, wie du ihn verschiebst.
 
 **Eine Wallet, eine Börse**
 
@@ -121,7 +121,7 @@ Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten a
 **Mniejsze poprawki**
 
 - Przy wpłacie Gift formularz transakcji pyta teraz o koszt nabycia darczyńcy.
-- Polecenie Claude Code z Połącz asystenta AI konfiguruje łącznik dla wszystkich folderów, a nie tylko tego, w którym je uruchomiono; konfigurowałeś starym poleceniem? Uruchom nowe.
+- Polecenie Claude Code z Połącz asystenta AI konfiguruje łącznik dla wszystkich folderów, a nie tylko tego, w którym je uruchomiono; konfigurowałeś starym? Dziennik zmian poniżej wyjaśnia, jak go przenieść.
 
 **Jeden portfel, jedna giełda**
 
@@ -153,7 +153,7 @@ Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pok
 **Corrections mineures**
 
 - Pour un dépôt Gift, le formulaire de transaction demande désormais le coût d’acquisition du donateur.
-- La commande Claude Code de Connecter un assistant IA configure le connecteur pour tous les dossiers, pas seulement celui où vous l’avez lancée ; configuré avec l’ancienne commande ? Lancez la nouvelle.
+- La commande Claude Code de Connecter un assistant IA configure le connecteur pour tous les dossiers, pas seulement celui où vous l’avez lancée ; configuré avec l’ancienne ? Le journal des modifications ci-dessous explique comment le déplacer.
 
 **Un portefeuille, une plateforme**
 
