@@ -1,8 +1,10 @@
 # BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
-A self-hosted Bitcoin portfolio tracker and tax report generator, with an
-**MCP server** so an AI assistant can enter transactions for you. What changed
-in each release: [docs/CHANGELOG.md](docs/CHANGELOG.md).
+A minimalist, self-hosted Bitcoin portfolio tracker and tax report generator
+for **one self-custody wallet and one exchange account** (see [One wallet, one
+exchange](#one-wallet-one-exchange)), with an **MCP server** so an AI
+assistant can enter transactions for you. What changed in each release:
+[docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 It tracks BTC and USD balances with **double-entry accounting**, computes
 FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
