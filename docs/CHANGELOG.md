@@ -4,13 +4,6 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-- **A Gift deposit's basis hint asks for the giver's basis** (#115). The
-  transaction form told every BTC deposit that isn't income "What this BTC
-  cost you"; for a gift, the cost basis is what the giver paid (IRC §1015),
-  as the AI guide and the Complete Tax Report say. It now reads "The
-  giver's cost basis: what they paid for these coins (type 0 if unknown)."
-
 ### Added
 - **A "Using these forms" page in the Complete Tax Report** (#79), for
   whoever files the return, often a tax preparer handed the PDF. It says
@@ -86,6 +79,14 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX is MIT-licensed, is gone.
 
 ### Fixed
+- **A Gift deposit's basis hint asks for the giver's basis** (#115). The
+  transaction form told every BTC deposit that isn't income "What this BTC
+  cost you"; for a gift, the cost basis is the giver's (IRC §1015), as the
+  AI guide and the Complete Tax Report say. It now reads "The giver's cost
+  basis: what they paid for these coins (type 0 if unknown)", and Ledger
+  Review's advice for a deposit without a basis says the same. What to do:
+  Ledger Review lists Gift deposits saved with a $0 or blank basis; enter
+  the giver's basis where you know it.
 - **Bitcoin back for spending was counted as income** (tax figures, #98).
   A rewards card's sats-back or shopping cash-back entered as a Reward
   deposit (the AI connector's guide even suggested it) was counted as

@@ -280,3 +280,11 @@ def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_c
             assert con.execute(text("SELECT * FROM lot_disposals ORDER BY id")).all() == disposals
     finally:
         auth_client.delete("/api/transactions/delete_all")
+
+
+def test_a_deposit_without_basis_asks_for_a_gifts_basis(auth_client):
+    """#115: a Gift's basis is the giver's; Ledger Review's advice once said
+    only "what the BTC cost", like the form's old hint."""
+    review = auth_client.get("/api/review").json()
+    check = next(c for c in review["checks"] if c["key"] == "deposit_without_basis")
+    assert "(for a gift, the giver's cost basis)" in check["action"]
