@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+- **The README's screenshots are 1.2.7's** (#141), the same as the landing
+  page's: the Dashboard's Rebates line, a rebate in Transactions, and the
+  setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
+
 ## [v1.2.7] - 2026-10-11 - Rebates on the dashboard, a clearer Ledger Review reminder
 
 ### Added
