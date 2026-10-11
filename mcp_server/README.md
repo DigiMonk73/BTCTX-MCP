@@ -213,10 +213,10 @@ every connector reply says which version to use.
 - **Claude Code:** change the version in `~/.claude.json`
   (`mcpServers.bitcointx.args`; under `projects` → your folder if you used
   the StartOS action's command before 1.2.6), then restart Claude Code (or
-  reconnect with `/mcp`). With the Mac app you can instead run `claude mcp remove bitcointx`
-  and the command Settings gives (it holds no key); with Docker or StartOS
-  that would replace your key, and on StartOS the certificate path, with
-  placeholders.
+  reconnect with `/mcp`). With the Mac app you can instead run
+  `claude mcp remove bitcointx` and the command Settings gives (it holds no
+  key); with Docker or StartOS that would replace your key, and on StartOS
+  the certificate path, with placeholders.
 - **Cursor:** change it in `~/.cursor/mcp.json`, then restart Cursor.
 - **Grok Build:** change it in `~/.grok/config.toml` (see
   [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md#grok-build)),
