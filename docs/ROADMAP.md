@@ -8,29 +8,31 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
-Registry, then maintenance only until 2.0. The plan and its checklist are
-#143; the candidate is the release that carries the work below: 1.2.8 at
-the least, 1.3.0 as the price screens and the hourly prices change what users
-see and how values are made.
+Registry, then maintenance only. The plan and its checklist are #143; the
+candidate is the release that carries #134's fix and the work below: 1.2.8
+at the least, 1.3.0 as the price screens and the hourly prices change what
+users see and how values are made.
 
-- [ ] **The stable-release checklist** (#143): every blocking item, then 14
-      days on Community Beta, then the promotion request (the owner's OK).
+- [ ] **The stable-release checklist** (#143; ticked at promotion): every
+      blocking item, then 14 days on Community Beta, then the promotion
+      request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
 - [ ] **Hourly BTC prices, with the hourly history built into the app**
       (#144): each valued transaction priced at its hour from a documented
-      worldwide index, one file per year with a checksum, refreshed by a
-      script with every maintenance release (no promise of updates in
-      between). Saved values change only when the owner applies them.
+      worldwide index, one file per year with a checksum; a release script
+      adds the newest hours each time a release is made (a convenience, never
+      a promise of updates). Saved values change only when the owner applies
+      them.
 - [ ] **Price sources: one clear, simple choice everywhere** (#145): the
       built-in history always on, one question about newer hours (own
       Mempool, public sites, or nobody), a status line, and each value's
       source shown; a careful plan with mockups, approved before building.
-- [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
-      backup password).
 
 ## Soon
 
+- [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
+      backup password).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
@@ -55,10 +57,10 @@ see and how values are made.
 
 ## BitcoinTX 2.0 (being considered)
 
-- [ ] **Multiple wallets, exchange accounts and bank accounts**, each tracked
-      as its own account with its own cost-basis lots, as the IRS's
-      wallet-by-wallet basis rules require from 2025 (Treas. Reg.
-      §1.1012-1(j); Rev. Proc. 2024-28), with transfers between them and
+- [ ] **Multiple wallets and exchange accounts**, each tracked as its own
+      account with its own cost-basis lots, as the IRS's wallet-by-wallet
+      basis rules require from 2025 (Treas. Reg. §1.1012-1(j); Rev. Proc.
+      2024-28), and several bank accounts, with transfers between them and
       reports by account. BitcoinTX 1.x is deliberately limited to one
-      self-custody wallet and one exchange account (#86). No timeline: 1.x
-      stays in maintenance until then.
+      self-custody wallet and one exchange account (#86). No timeline or
+      promise; meanwhile 1.x stays in maintenance.
