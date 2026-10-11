@@ -9,8 +9,9 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
 Registry, then maintenance only until 2.0. The plan and its checklist are
-#143; the candidate is the release that carries the fixes below (1.2.8 or
-1.3.0).
+#143; the candidate is the release that carries the work below: 1.2.8 at
+the least, 1.3.0 as the price screens and the hourly prices change what users
+see and how values are made.
 
 - [ ] **The stable-release checklist** (#143): every blocking item, then 14
       days on Community Beta, then the promotion request (the owner's OK).
@@ -50,7 +51,14 @@ Registry, then maintenance only until 2.0. The plan and its checklist are
       since 2025; for exchange lots it must match the standing order you gave
       the broker). FIFO is the default today.
 - [ ] Multi-year reports
-- [ ] **BitcoinTX 2.0: several wallets and exchanges**, each its own account
-      with its own FIFO lots (the IRS's per-wallet basis rule since 2025).
-      Today one Wallet and one Exchange, on purpose (#86).
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
+
+## BitcoinTX 2.0 (being considered)
+
+- [ ] **Multiple wallets, exchange accounts and bank accounts**, each tracked
+      as its own account with its own cost-basis lots, as the IRS's
+      wallet-by-wallet basis rules require from 2025 (Treas. Reg.
+      §1.1012-1(j); Rev. Proc. 2024-28), with transfers between them and
+      reports by account. BitcoinTX 1.x is deliberately limited to one
+      self-custody wallet and one exchange account (#86). No timeline: 1.x
+      stays in maintenance until then.
