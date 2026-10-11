@@ -122,9 +122,9 @@ Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
 (`logs/BitcoinTX.log`); the log line "Test data folder from
 BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The app also runs with
 `HOME=<folder>/home`: a build older than `BTCTX_DESKTOP_DATA_DIR` (every
-release up to 1.2.5, and the installed app) ignores the variable and keeps
-its data under `~/Library/Application Support`, which is then inside the
-test folder too.
+release up to 1.2.5) ignores the variable and keeps its data under
+`~/Library/Application Support`, which is then inside the test folder
+too.
 
 - **MCP server:** it looks for the installed app's `mcp.json` unless
   `BTCTX_MCP_FILE=<folder>/mcp.json` (`desktop/run-test-build.sh --where`

@@ -124,9 +124,10 @@ All notable changes to BitcoinTX are documented in this file.
 - **Ledger Review lists income deposits with a $0 or blank value** (#77).
   Such a deposit reports no income, which the income rules forbid, yet it
   slipped past both of Ledger Review's basis checks. A new item, "Income
-  deposits with a $0 or blank value (no income reported)", lists them with
-  their value at that day's price, so they can be fixed (clear its Cost Basis
-  (USD) to use the day's price, or type the right one).
+  and rebate deposits with a $0 or blank value", lists them, and Rebate
+  deposits too (#98), with their value at that day's price, so they can be
+  fixed (clear its Cost Basis (USD) to use the day's price, or type the
+  right one).
 - **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
   printed both of its pages, so a short-term sheet was followed by an empty
   Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
@@ -138,8 +139,9 @@ All notable changes to BitcoinTX are documented in this file.
   valued at that day's price when its value is left blank (by you, a CSV,
   the River import or the AI connector), and that value is both its cost
   basis and the income on the tax report. An edit could keep the wrong
-  figure (the first two understate the income and overstate the later gain
-  by the same amount; the third overstates the income):
+  figure (the old value can be too high or too low and $0 understates the
+  income, and either way the later gain is off by the same amount the other
+  way; the third overstates the income):
   - **the old value**, after changing the deposit's amount or date (from
     the form, the AI connector or the API);
   - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
@@ -229,7 +231,7 @@ All notable changes to BitcoinTX are documented in this file.
   are declared the SDK 3 way (`sdk.Dependency.optional`), still optional
   and needed only by the price source that uses them. The package's file
   models keep keys they don't model. The 1.2.5:0 release notes gained
-  those two sentences in every language. Closes #27.
+  those two sentences in every language. Closes #27 and #28.
 
 ### Development
 - **A Mac app build can be tested without touching a real ledger.**
@@ -315,6 +317,15 @@ All notable changes to BitcoinTX are documented in this file.
     copies in `daily-backups/` beside it.
   - A dead link to Start9's review in `docs/HOW-CHANGES-FLOW.md`, and the
     finished 1.2.4 box-test checklist in `docs/temp/`, removed.
+- **The final docs check before 1.2.6.**
+  - The README's StartOS install now names Start9's Community Beta
+    registry, with sideloading as the other way (#84).
+  - The CSV template has a Rebate row; its Gift row and the CSV guide say
+    a gift's cost basis is the giver's.
+  - The Complete Tax Report's Notes now say "check it with a tax
+    professional before you file", like the rest of the report.
+  - The AI connector's tool descriptions and guide match 1.2.6.
+  - For maintainers: wording fixes in AGENTS.md and `docs/`.
 
 ## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
 

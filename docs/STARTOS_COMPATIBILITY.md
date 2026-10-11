@@ -102,8 +102,8 @@ configured.
    `btc_price_daily`), not files. The one exception is the price settings
    below, which the server may set instead.
 6. A test install may also hold the IRS's draft forms, in
-   `irs-draft-forms/` (docs/IRS_FORM_GENERATION.md, "Draft forms on a test
-   install"); a normal install never has that folder.
+   `irs-draft-forms/` (docs/IRS_FORM_GENERATION.md, "Draft forms: the
+   preview, and test installs"); a normal install never has that folder.
 
 ### Price settings set by the server
 
@@ -155,7 +155,8 @@ Change these only together with the package (`startos/`):
 - **Price settings:** the `BTCTX_*` variables above.
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
-  newest 5 automatic copies are kept in `/data/backups/`.
+  newest 5 pre-upgrade/pre-restore copies and 3 AI-requested copies are kept
+  in `/data/backups/`.
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 

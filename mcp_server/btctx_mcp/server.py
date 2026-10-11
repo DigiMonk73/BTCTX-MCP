@@ -363,10 +363,12 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
 @with_version_notice
 async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
-    Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
-    carrying a loss, BTC deposits with a $0 or blank cost basis (income ones report no income),
-    transfer fees, income or rebates valued far from that day's price). Each item has its id, date, what looks odd and
-    what would change. Changes nothing; show it to the user and let them decide what to edit."""
+    Ledger would change; Spent withdrawals saved with $0 proceeds; Lost withdrawals still
+    carrying a loss; BTC deposits, not income or a rebate, with a $0 or blank cost basis;
+    transfer fees valued far from that day's price; My BTC and Gift deposits without a date
+    originally acquired; income or rebate deposits with a $0 or blank value, or valued far
+    from that day's price). Each item has its id, date, what looks odd and what would change.
+    Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 
 
@@ -502,8 +504,8 @@ async def delete_transaction(transaction_id: int) -> ToolResult:
 @with_version_notice
 async def recalculate_ledger() -> ToolResult:
     """Rebuild all cost-basis lots, disposals and gains from the recorded transactions.
-    Needed once after upgrading BitcoinTX so calculation fixes apply to existing data;
-    otherwise only when the user asks. Transactions themselves are not changed."""
+    Run it only when the user asks (after an upgrade, review_ledger shows first what it
+    would change). Transactions themselves are not changed."""
     return await _call("POST", "/api/transactions/recalculate")
 
 

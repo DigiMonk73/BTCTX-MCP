@@ -39,7 +39,7 @@ feeling.
 
 | Layer | Where | Covers |
 |---|---|---|
-| ~1,000 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
+| ~1,150 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
 | Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
@@ -788,7 +788,3 @@ candidates are built from it.
   Form 8949 and Schedule D print a loss as `-1000.00`; from 1.2.6
   `(1000.00)`, as the IRS asks (#75). The same figure: UPG-2 counts it as
   identical.
-- **PRC, 1.2.0 and earlier only (Track B's previous release)**: an install
-  with entries but no price choice switches itself to Public price sites at
-  its next restart, e.g. the update. Fixed on `develop` (`afd23ea`): a
-  release candidate must not do it.
