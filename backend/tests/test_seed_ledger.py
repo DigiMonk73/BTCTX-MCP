@@ -13,14 +13,13 @@ import os
 from collections import defaultdict
 from decimal import Decimal
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.models.transaction import Transaction
-from typing import get_args
-
 from backend.schemas.transaction import BrokerReporting
 from backend.services import first_run, outbound
 from backend.services.transaction import DEPOSIT_SOURCES, TX_TYPES, WITHDRAWAL_PURPOSES

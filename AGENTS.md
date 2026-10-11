@@ -226,7 +226,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
 | `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
-| `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the landing page's four pictures (`make site-shots`), from a small typical portfolio |
+| `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
 
@@ -287,8 +287,11 @@ prices). **Test data:** a check that needs a full ledger uses the reference
 test ledger (`testdata/reference_ledger.json`, loaded by
 `scripts/seed_ledger.py`), never a new one built for the occasion. When the
 app gains a kind of transaction or a report part, add a row there (its
-`why` says what for) and run `make reference-figures`; the coverage tests
-in `test_seed_ledger.py` fail until it's there.
+`why` says what for) and run `make reference-figures`. The coverage tests
+in `test_seed_ledger.py` fail by themselves for a new transaction type,
+deposit source, withdrawal purpose or broker-reporting choice (they take
+the app's own lists); a new account route or report part goes into their
+`ROUTES` or report-part checks too.
 
 A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app
@@ -352,7 +355,8 @@ Full steps, the package version and the signing/mirror secrets:
    to the owner first: it's public. The pictures too, every release: run
    `make site-shots` (AGENT-TESTS REF-1 already took them), put the changed
    ones in `docs/images/` by pull request (the README's) and in btctx-site's
-   `img/`, so the two always match.
+   `img/`, then fast-forward `main` to `develop` (docs only, see Branches),
+   since GitHub shows the README from `main`: so the two always match.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the

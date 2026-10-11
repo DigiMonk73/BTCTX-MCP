@@ -232,8 +232,10 @@ Their ledger is `testdata/showcase_ledger.json`, a small typical portfolio
 show no sales); the Settings picture is in Mac app mode, with the key
 file's path shown as `~/Library/...`. The release tests take them (REF-1);
 at the release's landing-page step, `make site-shots` in a branch, then the
-changed pictures go into `docs/images/` by pull request and into btctx-site's
-`img/` (shown to the owner first): the two always match.
+changed pictures go into `docs/images/` by pull request (then `main` is
+fast-forwarded to `develop`, docs only, since GitHub shows the README from
+`main`) and into btctx-site's `img/` (shown to the owner first): the two
+always match.
 
 ## Trying a branch in a browser
 

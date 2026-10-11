@@ -30,12 +30,14 @@ All notable changes to BitcoinTX are documented in this file.
   then shows. The release tests keep each release's database of it in the
   test lab and check the next release against it (AGENT-TESTS REF-2/3;
   `scripts/reference_figures.py --db … --compare`).
-- **The landing page's pictures, from one command, in the release tests**
-  (#139). `make site-shots` (`frontend/e2e/shots/site.ts`) takes btctx-site's
-  four pictures from the checkout's app at the site's size, with fixed test
-  prices and a small saved portfolio (`testdata/showcase_ledger.json`); the
-  agent release tests run it (REF-1), and the release's landing-page step
-  publishes what changed, shown to the owner first.
+- **The README's and landing page's pictures, from one command, in the
+  release tests** (#139). `make site-shots` (`frontend/e2e/shots/site.ts`)
+  takes the four pictures from the checkout's app at the site's size, with
+  fixed test prices and a small saved portfolio
+  (`testdata/showcase_ledger.json`), into `docs/images/`, so git shows which
+  changed; the agent release tests run it (REF-1), and the release's
+  landing-page step puts the changed ones in the README and on btctx-site
+  together (the landing page shown to the owner first).
 
 ## [v1.2.7] - 2026-10-11 - Rebates on the dashboard, a clearer Ledger Review reminder
 
