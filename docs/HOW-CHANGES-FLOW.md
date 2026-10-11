@@ -95,9 +95,10 @@ workflow keeps up to date by itself. We don't touch it.)
    repository DigiMonk73/btctx-site). Its download buttons, release-notes
    link and Docker command follow the latest release by themselves; its
    words and screenshots don't. Claude updates what the release made wrong
-   (for example an action's new name), with the screenshots the release
-   tests took (`make site-shots`, AGENT-TESTS REF-1), and the owner sees it
-   before it goes live, since it's public.
+   (for example an action's new name), and the screenshots, every release:
+   `make site-shots` retakes them, and the changed ones go into the
+   README's `docs/images/` and the landing page together. The owner sees the
+   landing page before it goes live, since it's public.
 
 ## 3. Sending a release to Start9
 

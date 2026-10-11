@@ -108,8 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     if not args.compare:
         sys.stdout.write(dumps(now))
         return 0
+    saved = json.loads(Path(args.compare).read_text())
+    if not {"years", "dashboard"} <= set(saved):
+        print(f"{args.compare} is not a figures file (no years or dashboard)", file=sys.stderr)
+        return 1
     # Figures this version adds aren't in an older release's file: not a move
-    moved = list(differences(json.loads(Path(args.compare).read_text()), now, allow_new=True))
+    moved = list(differences(saved, now, allow_new=True))
     print("\n".join(moved[:50]) if moved else "No figure moved.")
     return 1 if moved else 0
 

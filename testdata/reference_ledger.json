@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, buys and sells), every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, and My BTC and Gift deposits with a date originally acquired. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, and My BTC and Gift deposits with a date originally acquired. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
  "transactions": [
   {
    "type": "Deposit",
@@ -1177,6 +1177,27 @@
    "why": "Back to the exchange after its last sale: its fee is another Box L."
   },
   {
+   "type": "Buy",
+   "timestamp": "2026-09-12T12:00:00Z",
+   "from_account_id": 1,
+   "to_account_id": 4,
+   "amount": "0.01",
+   "fee_amount": "2",
+   "fee_currency": "USD",
+   "cost_basis_usd": "1480.00",
+   "why": "An auto-buy straight from the bank (Bank to Exchange BTC), after the year's last sale."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-09-14T12:00:00Z",
+   "from_account_id": 3,
+   "to_account_id": 1,
+   "amount": "5000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "why": "Cash back from the exchange to the bank."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-09-15T12:00:00Z",
    "from_account_id": 1,
@@ -1184,6 +1205,16 @@
    "amount": "3000",
    "fee_amount": "0",
    "fee_currency": "USD"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-09-16T12:00:00Z",
+   "from_account_id": 3,
+   "to_account_id": 99,
+   "amount": "1000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "why": "Dollars withdrawn straight from the exchange."
   }
  ]
 }

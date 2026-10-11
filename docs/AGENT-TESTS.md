@@ -776,7 +776,7 @@ page's pictures".
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "108 transactions loaded" (or the count in
+  --password-stdin`. Expect "111 transactions loaded" (or the count in
   `testdata/reference_ledger.json`). Stop the server. On a copy:
   `python scripts/reference_figures.py --db <copy> --compare
   testdata/reference_figures.json`. Expect "No figure moved.". Save its

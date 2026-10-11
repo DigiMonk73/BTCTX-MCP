@@ -111,6 +111,3 @@ frontend/playwright-report/
 
 # --- Before/after snapshots (scripts/equivalence_check.py) ---
 .equivalence/
-
-# --- Landing-page screenshots (make site-shots) ---
-site-shots/

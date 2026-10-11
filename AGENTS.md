@@ -276,14 +276,21 @@ make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
-make site-shots  # the landing page's pictures from this checkout (release tests, REF-1)
+make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
 
 Tests never touch a real database or the network (temp SQLite, stubbed BTC
-prices). A bug fix gets a test that fails on the old code. Lint is ruff with
+prices). **Test data:** a check that needs a full ledger uses the reference
+test ledger (`testdata/reference_ledger.json`, loaded by
+`scripts/seed_ledger.py`), never a new one built for the occasion. When the
+app gains a kind of transaction or a report part, add a row there (its
+`why` says what for) and run `make reference-figures`; the coverage tests
+in `test_seed_ledger.py` fail until it's there.
+
+A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app
 code), and ESLint with zero warnings and a size limit per function and
 file; `docs/CODE_STYLE.md` has the rest.
@@ -341,9 +348,11 @@ Full steps, the package version and the signing/mirror secrets:
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
-   wrong (action names, StartOS steps, features) in a commit there, with
-   the four pictures the release tests took (`make site-shots`, AGENT-TESTS
-   REF-1; copy those that changed), shown to the owner first: it's public.
+   wrong (action names, StartOS steps, features) in a commit there, shown
+   to the owner first: it's public. The pictures too, every release: run
+   `make site-shots` (AGENT-TESTS REF-1 already took them), put the changed
+   ones in `docs/images/` by pull request (the README's) and in btctx-site's
+   `img/`, so the two always match.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the

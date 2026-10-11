@@ -160,9 +160,11 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (108 transactions, 2023 to 2026). Every
+`testdata/reference_ledger.json` (111 transactions, 2023 to 2026). Every
 year has every kind of transaction (each deposit source, Rebate included,
-each withdrawal purpose, transfers both ways, cash moves, buys and sells),
+each withdrawal purpose, transfers both ways, cash moves, buys and sells;
+the test takes the lists from the app, so a new kind fails it until the
+ledger has one), it uses every account route the app offers,
 every report has entries in each part (every Form 8949 box of 2024, 2025
 and 2026, in any tax timezone), and My BTC and Gift deposits carry a date
 originally acquired. Every USD value a price lookup would fill is given, so
@@ -209,25 +211,29 @@ DATABASE_FILE=<copy> python -m backend.cli migrate
 python scripts/reference_figures.py --db <copy> --compare reference-vX.Y.Z.json
 ```
 
-The stored figures must be identical after the upgrade. Then
+The stored figures must be identical after the upgrade (a figure the new
+version adds, which the older file lacks, isn't counted). Then
 `python -m backend.cli recalculate` on the copy, and compare again: what
 moves must be what the CHANGELOG says a recalculation changes.
 
 ## The landing page's pictures
 
 ```bash
-make site-shots              # into site-shots/ (or SITE_SHOTS_DIR=...)
+make site-shots              # into docs/images/ (or SITE_SHOTS_DIR=...)
 ```
 
-`frontend/e2e/shots/site.ts` takes the four pictures of DigiMonk73/btctx-site
-(`img/dashboard.png`, `transactions.png`, `reports.png`, `settings.png`) from
+`frontend/e2e/shots/site.ts` takes the four pictures the README
+(`docs/images/`) and DigiMonk73/btctx-site (`img/`) show (`dashboard.png`,
+`transactions.png`, `reports.png`, `settings.png`), into `docs/images/`, from
 this checkout's app, at the site's size (1470 x 867 at 2x, dark), with the
 e2e server's fixed prices ($60,000), so they change only when the app does.
 Their ledger is `testdata/showcase_ledger.json`, a small typical portfolio
 (the reference ledger's latest entries, built to cover every case, would
 show no sales); the Settings picture is in Mac app mode, with the key
 file's path shown as `~/Library/...`. The release tests take them (REF-1);
-the release's landing-page step publishes them, shown to the owner first.
+at the release's landing-page step, `make site-shots` in a branch, then the
+changed pictures go into `docs/images/` by pull request and into btctx-site's
+`img/` (shown to the owner first): the two always match.
 
 ## Trying a branch in a browser
 

@@ -1,5 +1,6 @@
-// The landing page's screenshots (DigiMonk73/btctx-site, img/), retaken at
-// each release (AGENTS.md, "Releasing", step 5): `make site-shots`. Not part
+// The README's and the landing page's screenshots (docs/images/ and
+// DigiMonk73/btctx-site's img/), retaken at each release (AGENTS.md,
+// "Releasing", step 5): `make site-shots`. Not part
 // of the test suite. One small saved ledger, so the Dashboard and the
 // Transactions list agree, at the site's size (1470 x 867, 2x) and theme.
 import { readFileSync } from "node:fs";
@@ -7,7 +8,7 @@ import path from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect, createTx, REPO, type TxPayload } from "../fixtures";
 
-const OUT = process.env.SITE_SHOTS_DIR ?? path.resolve("site-shots");
+const OUT = process.env.SITE_SHOTS_DIR ?? path.join(REPO, "docs", "images");
 
 // testdata/showcase_ledger.json: a typical portfolio, not the reference test ledger,
 // whose latest entries (built to cover every tax case) would show no sales.

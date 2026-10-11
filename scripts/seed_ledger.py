@@ -17,7 +17,7 @@ setup-code.txt in its data folder) as --user with that password (12+
 characters), as scripts/smoke_test.py does. --ca trusts a root certificate,
 e.g. your StartOS server's.
 
-The ledger is testdata/reference_ledger.json (108 transactions, 2023-2026),
+The ledger is testdata/reference_ledger.json (111 transactions, 2023-2026),
 BitcoinTX's one reference test ledger: every year has every kind of
 transaction (each deposit source and withdrawal purpose, transfers both
 ways, cash moves, buys and sells), every report has entries in each part,

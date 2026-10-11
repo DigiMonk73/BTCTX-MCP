@@ -6,7 +6,7 @@
 # make smoke        the real server on a temp DB, driven end to end
 # make e2e          Playwright click-through tests of every UI flow (Chromium)
 # make preview      this checkout in a browser at 127.0.0.1:8777 (throwaway data)
-# make site-shots   the landing page's four pictures, into site-shots/ (release tests)
+# make site-shots   the README's and landing page's four pictures, into docs/images/
 # make reference-figures  accept new figures for the reference test ledger (testdata/)
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
@@ -46,10 +46,12 @@ e2e:
 preview:
 	$(PY) scripts/preview.py
 
-# The landing page's pictures (DigiMonk73/btctx-site, img/) from this
-# checkout's app and testdata/showcase_ledger.json: frontend/e2e/shots/site.ts.
-# Taken in the release tests (docs/AGENT-TESTS.md, REF-1).
-SITE_SHOTS_DIR ?= $(CURDIR)/site-shots
+# The four pictures of the README (docs/images/) and the landing page
+# (DigiMonk73/btctx-site, img/) from this checkout's app and
+# testdata/showcase_ledger.json: frontend/e2e/shots/site.ts. Into docs/images/,
+# so `git status` shows which changed; the release tests take them elsewhere
+# (docs/AGENT-TESTS.md, REF-1).
+SITE_SHOTS_DIR ?= $(CURDIR)/docs/images
 site-shots:
 	cd frontend && SITE_SHOTS_DIR="$(SITE_SHOTS_DIR)" npx playwright test -c e2e/shots/site.config.ts
 

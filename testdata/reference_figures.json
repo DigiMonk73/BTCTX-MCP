@@ -1,10 +1,10 @@
 {
  "dashboard": {
-  "average_cost_basis": "54725.05",
+  "average_cost_basis": "55026.32",
   "balances": [
    {
     "account_id": 1,
-    "balance": "28000.00000000",
+    "balance": "31518.00000000",
     "currency": "USD",
     "name": "Bank"
    },
@@ -16,13 +16,13 @@
    },
    {
     "account_id": 3,
-    "balance": "308300.89000000",
+    "balance": "302300.89000000",
     "currency": "USD",
     "name": "Exchange USD"
    },
    {
     "account_id": 4,
-    "balance": "0.09996000",
+    "balance": "0.10996000",
     "currency": "BTC",
     "name": "Exchange BTC"
    },
@@ -34,7 +34,7 @@
    },
    {
     "account_id": 6,
-    "balance": "696.91000000",
+    "balance": "698.91000000",
     "currency": "USD",
     "name": "USD Fees"
    }
@@ -42,7 +42,7 @@
   "gains_and_losses": {
    "fees": {
     "BTC": 0.00098,
-    "USD": 696.91
+    "USD": 698.91
    },
    "gifts_btc": 0.138,
    "gifts_received": 4525.0,
@@ -4135,10 +4135,19 @@
       "value": null
      },
      {
+      "account": "Exchange BTC",
+      "acquired": "2026-09-12T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 1482.0,
+      "description": "No BTC price for 2026-12-31: not priced",
+      "quantity": 0.01,
+      "value": null
+     },
+     {
       "asset": "Total",
-      "cost": 169246.51,
+      "cost": 170728.51,
       "description": "",
-      "quantity": 3.09267,
+      "quantity": 3.10267,
       "value": null
      }
     ],

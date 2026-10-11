@@ -9,8 +9,10 @@ All notable changes to BitcoinTX are documented in this file.
   (#139, closes #122). The full test ledger was rebuilt from code in
   `scripts/seed_ledger.py` each time, and had no Rebate source and no date
   originally acquired. It is now one data file,
-  `testdata/reference_ledger.json` (108 transactions, 2023 to 2026): every
-  kind of transaction each year, every Form 8949 box, a rebate each year
+  `testdata/reference_ledger.json` (111 transactions, 2023 to 2026): every
+  kind of transaction each year (from the app's own lists, so a new kind
+  fails the test until the ledger has one), every account route, every
+  broker-reporting choice, every Form 8949 box, a rebate each year
   (the 2025 "Purchase rebate in BTC" entered as Reward is a Rebate now, as
   #98 tells users), and My BTC and Gift deposits with a date originally
   acquired that FIFO sells first. `seed_ledger.py`, the printed-forms
