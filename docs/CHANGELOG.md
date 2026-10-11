@@ -81,6 +81,14 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX is MIT-licensed, is gone.
 
 ### Fixed
+- **A Gift deposit's basis hint asks for the giver's basis** (#115). The
+  transaction form told every BTC deposit that isn't income "What this BTC
+  cost you"; for a gift, the cost basis is the giver's (IRC §1015), as the
+  AI guide and the Complete Tax Report say. It now reads "The giver's cost
+  basis: what they paid for these coins (type 0 if unknown)", and Ledger
+  Review's advice for a deposit without a basis says the same. What to do:
+  Ledger Review lists Gift deposits saved with a $0 or blank basis; enter
+  the giver's basis where you know it.
 - **Bitcoin back for spending was counted as income** (tax figures, #98).
   A rewards card's sats-back or shopping cash-back entered as a Reward
   deposit (the AI connector's guide even suggested it) was counted as
@@ -189,6 +197,16 @@ All notable changes to BitcoinTX are documented in this file.
     than the giver paid (IRC §1015), which needs the day's value (#104).
 
 ### StartOS package
+- **Connect an AI Assistant's Claude Code command works in every folder**
+  (#116). It lacked `--scope user`, so Claude Code (whose default scope is
+  the current folder) saved BitcoinTX's connector for the folder it was run
+  in only; Settings → Connect an AI Assistant and the setup guide already
+  gave `--scope user`. Set up with the old command? Move the `bitcointx`
+  entry in `~/.claude.json` from your folder's `projects` entry to the
+  top-level `mcpServers` (it keeps your key and certificate path). To use
+  the new command instead, first remove the old entry with
+  `claude mcp remove bitcointx -s local` in that folder, then put your key
+  and certificate path into the new one.
 - **The store listing says who BitcoinTX is for, and the instructions say
   it isn't tax advice.** The short description is now "Bitcoin tax tracker
   for one wallet and one exchange, optional AI-assisted entry", and the long
