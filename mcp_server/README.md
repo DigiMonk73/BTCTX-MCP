@@ -7,6 +7,10 @@ describe it ("moved 0.05 BTC from River to my Coldcard yesterday, fee was 2k
 sats"). The assistant turns it into transactions, shows you a dry-run preview
 with dedup and the resulting gain/loss, and saves them once you confirm.
 
+BitcoinTX itself is a minimalist tracker for one self-custody wallet and one
+exchange account: see [One wallet, one
+exchange](https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange).
+
 The server runs **on your computer** and talks to your BitcoinTX instance
 over its normal API with an **AI key**, never your password. The Mac app
 keeps the key in a private file the server reads; with Docker or StartOS you
