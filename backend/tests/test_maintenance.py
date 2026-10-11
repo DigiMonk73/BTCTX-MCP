@@ -335,7 +335,7 @@ def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, c
     out = capsys.readouterr().out
     assert "Spent withdrawals saved with $0 proceeds: 1\n  #1 " in out
     assert "Lost withdrawals still carrying a loss: 1\n  #4 " in out
-    assert "BTC deposits (not income) with a $0 or blank cost basis: 0" in out
+    assert "BTC deposits (not income or a rebate) with a $0 or blank cost basis: 0" in out
     assert q(db, "SELECT COUNT(*), SUM(id) FROM transactions") == before  # read-only
 
 # ---------------------------------------------------------------------------

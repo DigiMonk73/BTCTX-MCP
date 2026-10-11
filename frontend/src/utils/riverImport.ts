@@ -15,7 +15,7 @@ export interface EditableRow {
 }
 
 export const WITHDRAWAL_PURPOSES = ["Spent", "Gift", "Donation", "Lost"];
-export const DEPOSIT_SOURCES = ["MyBTC", "Gift", "Income", "Interest", "Reward"];
+export const DEPOSIT_SOURCES = ["MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate"];
 
 export const STATUS_LABEL: Record<RiverProposal["status"], string> = {
   new: "New",

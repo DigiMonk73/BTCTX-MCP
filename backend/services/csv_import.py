@@ -31,6 +31,7 @@ from backend.constants import (
     ACCOUNT_EXTERNAL,
     BTC_ACCOUNTS,
     INCOME_SOURCES,
+    VALUED_AT_RECEIPT,
 )
 
 # Matched case-insensitively.
@@ -570,11 +571,12 @@ def _deposit_rules(row: _Row):
     into_btc = row.to_id in BTC_ACCOUNTS
     if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
         yield _error(row.number, "source", DEPOSIT_SOURCE_UNKNOWN)
-    elif not row.cost_basis_usd and source and source.lower() in INCOME_SOURCES and into_btc:
+    elif not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
+        also = "which is also the income" if source.lower() in INCOME_SOURCES else "a rebate, not income"
         yield _warning(
             row.number, "cost_basis_usd",
             f"No cost_basis_usd for this {source} deposit. It will be valued at "
-            "that day's BTC price (its market value at receipt, which is also the income).",
+            f"that day's BTC price (its market value at receipt, {also}).",
         )
     elif row.cost_basis_usd is None and into_btc:
         # A blank basis would make the whole value gain when it's sold.

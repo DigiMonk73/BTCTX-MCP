@@ -6,7 +6,8 @@ edit used to keep the old figure: $0 after moving the deposit from Bank to a
 BTC account, or the old value after changing its amount or day. The app
 couldn't tell a value from the price from a typed one; now a value from the
 price is marked (cost_basis_from_price) and valued again when the amount,
-day, account or source changes, while a typed one is kept.
+day or account changes, or the source comes from one not valued at receipt
+(MyBTC, Gift...), while a typed one is kept.
 
 The edits send what the transaction form sends: every field, the basis as
 the form shows it.
@@ -183,6 +184,22 @@ def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="Gift")
     back = edit(auth_client, tx, source="Interest", amount="0.002")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
+
+
+@pytest.mark.parametrize("how", ["form", "partial"])
+def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine, how):
+    """Re-check of #111: Interest -> My BTC, a new amount (a My BTC value is
+    the user's, so it stays), then back to Interest on the same day: priced
+    again at the new amount, or the income would read the old $50."""
+    tx = deposit(auth_client, amount="0.001")
+    assert basis(tx) == Decimal("50.00")
+    step = (lambda t, **c: edit(auth_client, t, **c)) if how == "form" else (lambda t, **c: partial(auth_client, t, **c))
+    mine = step(tx, source="MyBTC")
+    mine = step(mine, amount="0.002")
+    assert basis(mine) == Decimal("50.00")
+    back = step(mine, source="Interest")
+    assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
+    assert income_reported(test_engine) == Decimal("100.00")
 
 
 def test_the_price_day_is_the_utc_day(auth_client):

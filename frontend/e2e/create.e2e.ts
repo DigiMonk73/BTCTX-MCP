@@ -58,7 +58,7 @@ test.describe("BTC deposits", () => {
     expect(Number(tx.cost_basis_usd)).toBe(0);
   });
 
-  for (const source of ["Income", "Interest", "Reward"]) {
+  for (const source of ["Income", "Interest", "Reward", "Rebate"]) {
     test(`deposit ${source} with a blank basis gets the day's value`, async ({ authedPage: page }) => {
       await openAddForm(page, "Deposit");
       await setWhen(page);
@@ -75,6 +75,16 @@ test.describe("BTC deposits", () => {
       expect(Number(tx.cost_basis_usd)).toBe(0.01 * HISTORICAL_PRICE);
     });
   }
+
+  test("Reward and Rebate say which is income (#98)", async ({ authedPage: page }) => {
+    await openAddForm(page, "Deposit");
+    await page.getByLabel("Account").selectOption("Wallet");
+    await page.getByLabel("Source").selectOption("Reward");
+    await expect(page.getByText("Mining, staking, or a sign-up or referral bonus: income.")).toBeVisible();
+    await page.getByLabel("Source").selectOption("Rebate");
+    await expect(page.getByText("a rewards card's sats-back: not income")).toBeVisible();
+    await expect(page.getByText("its cost basis, not income")).toBeVisible();
+  });
 });
 
 test("USD deposit to the bank", async ({ authedPage: page }) => {

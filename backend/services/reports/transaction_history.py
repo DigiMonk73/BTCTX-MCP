@@ -2,8 +2,8 @@
 The transaction history of one tax year, as CSV or PDF: every Deposit,
 Withdrawal, Transfer, Buy and Sell in time order, with its accounts,
 amounts, fee, USD values and gain as stored (BTC to 8 decimal places, USD
-to 2). In the CSV an income deposit shows as its source (Income, Reward,
-Interest), a Sell or Withdrawal as "Sell/Withdrawal". The PDF is a
+to 2). In the CSV an income or rebate deposit shows as its source (Income,
+Reward, Interest, Rebate), a Sell or Withdrawal as "Sell/Withdrawal". The PDF is a
 landscape table in the complete tax report's look (pdf_layout.py): dates
 in the tax timezone, each type with its source or purpose.
 """
@@ -36,7 +36,8 @@ COLUMNS = (
 NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "realized_gain_usd"}
 
 TYPES = ["Deposit", "Withdrawal", "Transfer", "Buy", "Sell"]
-INCOME_SOURCES = {"income": "Income", "reward": "Reward", "interest": "Interest"}
+# The deposits labelled by their source (a rebate is shown so, never as income)
+SOURCE_LABELS = {"income": "Income", "reward": "Reward", "interest": "Interest", "rebate": "Rebate"}
 
 # The PDF's columns: heading, the row's cell, width in inches (9.5 in all)
 PDF_COLUMNS = (
@@ -136,7 +137,7 @@ def _map_tx_type(tx: Transaction) -> str:
         # A deposit into Bank or Exchange USD is dollars, never income
         if tx.to_account_id not in BTC_ACCOUNTS:
             return "Deposit"
-        return INCOME_SOURCES.get((tx.source or "").lower(), "Deposit")
+        return SOURCE_LABELS.get((tx.source or "").lower(), "Deposit")
     if tx.type in ("Sell", "Withdrawal"):
         return "Sell/Withdrawal"
     return tx.type

@@ -26,7 +26,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INCOME_SOURCES
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, VALUED_AT_RECEIPT
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -181,7 +181,7 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
     tx_type = tx_data["type"]
     if tx_type == "Deposit" and tx_data["to_account_id"] in BTC_ACCOUNTS:
         source = (tx_data.get("source") or "").lower()
-        if source in INCOME_SOURCES and tx_data.get("cost_basis_usd") is None:
+        if source in VALUED_AT_RECEIPT and tx_data.get("cost_basis_usd") is None:
             return "cost_basis_usd"
     elif tx_type == "Withdrawal" and tx_data["from_account_id"] in BTC_ACCOUNTS:
         purpose = (tx_data.get("purpose") or "").lower()
@@ -195,7 +195,7 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
 async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     """
     Fill FMV-derived USD values the tax math needs but the caller omitted:
-      - Income/Interest/Reward deposits: cost basis = FMV at receipt
+      - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt
       - Spent withdrawals: proceeds = FMV of what was bought
       - Gift/Donation withdrawals: fmv_usd for the tax report
     Uses the daily historical price; on lookup failure the field stays

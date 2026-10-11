@@ -44,7 +44,7 @@ ToolResult = Dict[str, Any]  # noqa: UP006
 
 AccountName = Literal["Bank", "Wallet", "Exchange USD", "Exchange BTC", "External"]
 TxTypeName = Literal["Buy", "Sell", "Deposit", "Withdrawal", "Transfer"]
-DepositSource = Literal["MyBTC", "Gift", "Income", "Interest", "Reward"]
+DepositSource = Literal["MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate"]
 WithdrawalPurpose = Literal["Spent", "Gift", "Donation", "Lost"]
 
 # Fixed account ids seeded by the app (backend/constants.py)
@@ -68,7 +68,7 @@ class TransactionInput(BaseModel):
     from_account: AccountName
     to_account: AccountName
     cost_basis_usd: Decimal | None = Field(
-        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward).")
+        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate).")
     proceeds_usd: Decimal | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
     fee_amount: Decimal | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
@@ -365,7 +365,7 @@ async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change, Spent withdrawals saved with $0 proceeds, Lost withdrawals still
     carrying a loss, BTC deposits with a $0 or blank cost basis (income ones report no income),
-    transfer fees or income valued far from that day's price). Each item has its id, date, what looks odd and
+    transfer fees, income or rebates valued far from that day's price). Each item has its id, date, what looks odd and
     what would change. Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 
@@ -420,9 +420,10 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
-    An Income/Interest/Reward deposit's value that came from that day's price is priced again
-    when you change its amount, date or account (sending back the value it already has doesn't
-    make it typed); a value the user typed is kept.
+    An Income/Interest/Reward/Rebate deposit's value that came from that day's price is priced
+    again when you change its amount, date or account, or move it there from another source (a
+    switch among those four keeps it; sending back the value it already has doesn't make it
+    typed); a value the user typed is kept.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
     date; "none" clears it (the holding period then starts at the deposit)."""
     changes: dict[str, Any] = {}

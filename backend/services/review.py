@@ -13,8 +13,8 @@ Checks:
   looks the same; only the owner can tell.
 - lost_with_loss (F2): a Lost withdrawal whose stored gain isn't $0. Lost
   now counts like a gift ($0 gain); Recalculate Ledger removes the old loss.
-- deposit_without_basis (F15): a BTC deposit that isn't income (source
-  MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
+- deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
+  (source MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
 - fee_value_off (F14): a transfer's BTC fee whose stored USD value is more
   than 5% away from fee x that day's price: most likely valued at the live
@@ -24,13 +24,13 @@ Checks:
   with no date originally acquired: its holding period starts at the
   deposit. Coins held before then are long-term sooner; only the owner
   knows when they were acquired, so nothing fills it.
-- income_without_value (#77): an income deposit with a $0 or blank basis:
-  no income is reported for it, and its whole value becomes gain when it's
-  sold. The income rules forbid it (a blank is valued at the day's price);
-  older versions and some edits (#76) left such rows. Shown with that day's
-  value when the price is known.
-- income_value_off (F42): an income deposit whose basis is more than 5%
-  away from amount x that day's price. Before v0.9.2 a lookup for a date
+- income_without_value (#77): an income or rebate deposit (#98) with a $0
+  or blank basis: for income, no income is reported for it; either way its
+  whole value becomes gain when it's sold. The rules forbid it (a blank is
+  valued at the day's price); older versions and some edits (#76) left such
+  rows. Shown with that day's value when the price is known.
+- income_value_off (F42): an income or rebate deposit whose basis is more
+  than 5% away from amount x that day's price. Before v0.9.2 a lookup for a date
   more than about two years back could return another day's price. Only
   the owner knows whether a typed value is right, so nothing fixes these.
 
@@ -56,7 +56,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, ORIGINAL_DATE_SOURCES
+from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.calculation import btc_text
@@ -79,7 +79,7 @@ CHECKS: dict[str, tuple] = {
         "Recalculate Ledger sets their gain to $0 (Lost now counts like a gift).",
     ),
     "deposit_without_basis": (
-        "BTC deposits (not income) with a $0 or blank cost basis",
+        "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
         "If you know what the BTC cost, edit the deposit's cost basis.",
     ),
     "fee_value_off": (
@@ -93,12 +93,12 @@ CHECKS: dict[str, tuple] = {
         "(by the giver, for a gift): the holding period and Form 8949's date acquired use it.",
     ),
     "income_without_value": (
-        "Income deposits with a $0 or blank value (no income reported)",
+        "Income and rebate deposits with a $0 or blank value",
         "Edit each one: clear its Cost Basis (USD) to use that day's price, or type its value when you "
         "received it.",
     ),
     "income_value_off": (
-        "Income deposits valued far from that day's price",
+        "Income and rebate deposits valued far from that day's price",
         "If the value didn't come from your records, edit the deposit's cost basis "
         "(or clear it to use the day's price).",
     ),
@@ -280,7 +280,7 @@ def _row_issues(t: Transaction, tz):
             "With the date the coins were first acquired, a sale more than a year after it is long-term.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() not in INCOME_SOURCES and _is_zero_or_blank(t.cost_basis_usd):
+            and (t.source or "").lower() not in VALUED_AT_RECEIPT and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(
             t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
             "A basis you enter lowers the gain when this BTC is sold by the same amount.",
@@ -318,36 +318,46 @@ def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
     return items
 
 
-def _is_income_deposit(t: Transaction) -> bool:
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in INCOME_SOURCES
+def _is_valued_deposit(t: Transaction) -> bool:
+    """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
+    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in VALUED_AT_RECEIPT
+
+
+def _is_income(t: Transaction) -> bool:
+    return (t.source or "").lower() in INCOME_SOURCES
 
 
 def _income_without_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
-    """Income deposits with a $0 or blank basis, with that day's value when
-    the price is known; the ids of those with no price go to `missing`."""
+    """Income and rebate deposits with a $0 or blank basis, with that day's
+    value when the price is known; the ids of those with no price go to
+    `missing`."""
     items = []
     for t in rows:
-        if not (_is_income_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
+        if not (_is_valued_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
             continue
-        issue = ("Basis blank" if t.cost_basis_usd is None else "Basis $0.00") + ": no income is reported for it"
+        income = _is_income(t)
+        issue = ("Basis blank" if t.cost_basis_usd is None else "Basis $0.00") + (
+            ": no income is reported for it" if income else ": its whole value becomes gain when it's sold")
+        becomes = "the income and its cost basis" if income else "its cost basis"
+        figure = "Basis (and the income reported)" if income else "Basis"
         price = _day_price(db, t, missing)
         if price is None:
             issue += " (no price stored for that day)."
-            change = "Its value when you received it becomes the income and its cost basis."
+            change = f"Its value when you received it becomes {becomes}."
         else:
             expected = (price * Decimal(t.amount)).quantize(CENT)
             issue += f"; at that day's price (${_money(price)}) it is ${_money(expected)}."
-            change = f"Basis (and the income reported) $0.00 -> ${_money(expected)} if you clear it."
+            change = f"{figure} $0.00 -> ${_money(expected)} if you clear it."
         items.append(_item(t, tz, issue, change))
     return items
 
 
 def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
-    """Income deposits whose basis is off the day's price; the ids of those
-    with no price go to `missing`."""
+    """Income and rebate deposits whose basis is off the day's price; the
+    ids of those with no price go to `missing`."""
     items = []
     for t in rows:
-        if not (_is_income_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)):
+        if not (_is_valued_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)):
             continue
         price = _day_price(db, t, missing)
         if price is None:
@@ -357,8 +367,8 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
             items.append(_item(
                 t, tz, f"Basis ${_money(t.cost_basis_usd)}; at that day's price (${_money(price)}) "
                        f"it is ${_money(expected)}.",
-                f"Basis (and the income reported) ${_money(t.cost_basis_usd)} -> ${_money(expected)} "
-                "if you change it.",
+                f"{'Basis (and the income reported)' if _is_income(t) else 'Basis'} "
+                f"${_money(t.cost_basis_usd)} -> ${_money(expected)} if you change it.",
             ))
     return items
 

@@ -3,7 +3,13 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
 
-const INCOME_SOURCES = ["Income", "Interest", "Reward"];
+// Valued at receipt: the server fills a blank basis from that day's price
+const VALUED_SOURCES = ["Income", "Interest", "Reward", "Rebate"];
+// What tells Reward (income) and Rebate (not income, #98) apart
+const SOURCE_HINTS: Record<string, string> = {
+  Reward: "Mining, staking, or a sign-up or referral bonus: income.",
+  Rebate: "Bitcoin back for spending, such as a rewards card's sats-back: not income; its value is its cost basis.",
+};
 
 /** A deposit; a BTC one also has its source and cost basis. */
 const DepositFields: React.FC = () => {
@@ -12,9 +18,9 @@ const DepositFields: React.FC = () => {
   const currency = watch("currency");
   const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
   const showSource = account === "Wallet" || (account === "Exchange" && currency === "BTC");
-  // Income: basis = market value at receipt (the server fills a blank one)
+  // Income and rebates: basis = market value at receipt (the server fills a blank one)
   const source = watch("source");
-  const isIncome = INCOME_SOURCES.includes(source ?? "");
+  const isValued = VALUED_SOURCES.includes(source ?? "");
   // Coins already owned, or a gift: their holding period runs from when they were first acquired
   const showOriginalDate = takesOriginalDate({ type: "Deposit", account, currency, source });
 
@@ -36,7 +42,9 @@ const DepositFields: React.FC = () => {
             <option value="Income">Income</option>
             <option value="Interest">Interest</option>
             <option value="Reward">Reward</option>
+            <option value="Rebate">Rebate</option>
           </select>
+          {source && SOURCE_HINTS[source] && <small className="field-hint">{SOURCE_HINTS[source]}</small>}
         </div>
       )}
 
@@ -59,13 +67,13 @@ const DepositFields: React.FC = () => {
             type="number"
             step="0.01"
             className="input"
-            aria-required={!isIncome}
+            aria-required={!isValued}
             {...register("costBasisUSD", {
               valueAsNumber: true,
-              // Not income: the basis must be stated (0 allowed); a blank one
-              // would make the whole value gain when the BTC is sold.
+              // Not income or a rebate: the basis must be stated (0 allowed); a
+              // blank one would make the whole value gain when the BTC is sold.
               validate: (v) =>
-                isIncome || (v !== undefined && !Number.isNaN(v)) ||
+                isValued || (v !== undefined && !Number.isNaN(v)) ||
                 "Enter this deposit's cost basis (type 0 if unknown).",
             })}
           />
@@ -73,7 +81,9 @@ const DepositFields: React.FC = () => {
             <span className="field-error">{errors.costBasisUSD.message}</span>
           )}
           <small className="field-hint">
-            {isIncome
+            {source === "Rebate"
+              ? "Its USD value when you received it (its cost basis, not income). Leave blank to use that day's BTC price."
+              : isValued
               ? "Its USD value when you received it (also your income). Leave blank to use that day's BTC price."
               : "What this BTC cost you (type 0 if unknown). If you paid a miner fee in BTC externally, add its USD value."}
           </small>

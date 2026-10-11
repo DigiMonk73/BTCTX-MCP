@@ -160,7 +160,7 @@ class Transaction(Base):
         default=False,
         server_default=sa_false(),
         doc=(
-            "True when an income deposit's cost_basis_usd came from that day's "
+            "True when an income or rebate deposit's cost_basis_usd came from that day's "
             "price (left blank when entered): an edit of its amount, day or "
             "account values it again. A typed value is kept."
         ),

@@ -137,6 +137,7 @@ class _TaxReport:
         self.running_title = f"{self.year} Bitcoin Tax Report"
         self.disposals = [d for d in data.get("capital_gains_transactions", []) if d.get("asset") == "BTC"]
         self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
+        self.rebates = data.get("rebates", [])
         self.gifts = [g for g in data.get("gifts_donations_lost", []) if g.get("asset") == "BTC"]
         balances = data.get("end_of_year_balances", [])
         self.lots = [b for b in balances if b.get("asset", "").startswith("BTC")]
@@ -420,14 +421,34 @@ class _TaxReport:
         story = self.section(3, "Income", "Bitcoin received as income, rewards or interest, valued when it was "
                                           "received. That value is the income to report and the coins' cost basis.")
         if not self.income:
-            return story + [self.nothing("income")]
+            return story + [self.nothing("income")] + self.rebates_detail()
         rows = [self.header("Received", "Source", "BTC", "Value (USD)", numbers_from=2)]
         rows += [[self.text(self.date(t.get("date", ""))), self.text(t.get("type", "")),
                   *self.numbers(fmt_btc(t.get("amount", 0.0)), fmt_usd(t.get("value_usd", 0.0)))]
                  for t in self.income]
         rows.append([self.total_label(), "", *self.numbers(
             fmt_btc(sum(t.get("amount", 0.0) for t in self.income)), fmt_usd(self.income_total()), bold=True)])
-        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)]
+        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)] + self.rebates_detail()
+
+    def rebates_detail(self) -> list:
+        """Rebates (#98), listed so they can be checked: not income, but
+        their value at receipt is the coins' cost basis."""
+        if not self.rebates:
+            return []
+        rows = [self.header("Received", "BTC", "Value (USD)", numbers_from=1)]
+        rows += [[self.text(self.date(r.get("date", ""))),
+                  *self.numbers(fmt_btc(r.get("amount", 0.0)), fmt_usd(r.get("value_usd", 0.0)))]
+                 for r in self.rebates]
+        rows.append([self.total_label(), *self.numbers(fmt_btc(sum(r.get("amount", 0.0) for r in self.rebates)),
+                                                       fmt_usd(sum(r.get("value_usd", 0.0) for r in self.rebates)),
+                                                       bold=True)])
+        return [*self.subheading("Rebates (not income)"),
+                self.text("Bitcoin back for spending, such as a rewards card's sats-back, entered as a Rebate: "
+                          "generally treated like a rebate on the purchase price, not income (by analogy with "
+                          "Rev. Rul. 76-96; the IRS has no ruling on bitcoin back for spending). Its value when received "
+                          "is the coins' cost basis.", self.styles.note),
+                Spacer(1, 6),
+                data_table(rows, [2.4, 2.3, 2.3], total=True)]
 
     # 4. Gifts, donations and lost coins
     def gifts_detail(self) -> list:
@@ -607,6 +628,9 @@ class _TaxReport:
         return [data_table(rows, [3.2, 3.8], total=True), self.text(rule, self.styles.note)]
 
     def filing_notes(self) -> list[str]:
+        # Only in a year with rebates (#98), so the page stays one page otherwise
+        rebates = ["Rebates (bitcoin back for spending, listed in section 3) aren't counted as income; their "
+                   "value when received is their cost basis."] if self.rebates else []
         return [
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
@@ -618,6 +642,7 @@ class _TaxReport:
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
+            *rebates,
             DISCLAIMER,
         ]
 
