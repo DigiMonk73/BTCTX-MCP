@@ -4,8 +4,27 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Next release
+## Next release: the stable candidate
 
+The goal (owner, 2026-10-11): a stable release several months before the
+2026 filing season, promoted from Start9's Community Beta to the Community
+Registry, then maintenance only until 2.0. The plan and its checklist are
+#143; the candidate is the release that carries the fixes below (1.2.8 or
+1.3.0).
+
+- [ ] **The stable-release checklist** (#143): every blocking item, then 14
+      days on Community Beta, then the promotion request (the owner's OK).
+      It includes a full security review, a privacy audit of every request
+      the app can make, and a check against current IRS guidance.
+- [ ] **Hourly BTC prices, with the hourly history built into the app**
+      (#144): each valued transaction priced at its hour from a documented
+      worldwide index, one file per year with a checksum, refreshed by a
+      script with every maintenance release (no promise of updates in
+      between). Saved values change only when the owner applies them.
+- [ ] **Price sources: one clear, simple choice everywhere** (#145): the
+      built-in history always on, one question about newer hours (own
+      Mempool, public sites, or nobody), a status line, and each value's
+      source shown; a careful plan with mockups, approved before building.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
       backup password).
 
