@@ -32,8 +32,8 @@ feeling.
    them as KNOWN, not as new findings. If one passes, say so: it was fixed.
 6. Work in the order given. Later sections assume the state earlier ones
    left.
-7. Budget: about 3 hours for Track A, 45 minutes for Track B, and 45
-   minutes for Track C.
+7. Budget: about 3 hours for Track A, 45 minutes for Track B, 45
+   minutes for Track C, and 15 minutes for REF.
 
 ## What CI already proves (don't redo)
 
@@ -772,8 +772,9 @@ page's pictures".
   the smoke test's login (`scripts/smoke_test.py`, SMOKE_USER and
   SMOKE_PASSWORD): `DATABASE_FILE=LAB/ledgers/reference-vX.Y.Z.db python -m
   backend.cli set-password --username SMOKE_USER --password-stdin`. Serve it
-  (`python scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`,
-  in the background) and load the reference ledger with
+  with no price source saved in it (`BTCTX_SMOKE_PRICE_SOURCE=unset python
+  scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
+  the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
   --password-stdin`. Expect "108 transactions loaded" (or the count in
   `testdata/reference_ledger.json`). Stop the server. On a copy:
@@ -785,7 +786,8 @@ page's pictures".
   `LAB/ledgers/reference-vP.Q.R.db`, then `DATABASE_FILE=<copy> python -m
   backend.cli migrate` and `python scripts/reference_figures.py --db <copy>
   --compare LAB/ledgers/reference-vP.Q.R.json`. Expect "No figure moved."
-  (an update leaves stored figures alone). Then `DATABASE_FILE=<copy> python
+  (an update leaves stored figures alone; a figure this release adds, which
+  the older file lacks, isn't counted). Then `DATABASE_FILE=<copy> python
   -m backend.cli recalculate` and compare again. Expect no difference,
   unless this release's CHANGELOG says a recalculation changes figures:
   then exactly those, and nothing else. BLOCKED when there is no previous
@@ -800,7 +802,7 @@ One file per run, `agent-test-report-X.Y.Z.md`:
 ```markdown
 # BitcoinTX X.Y.Z agent test report
 Commit: <SHA> · Date: <date> · Agent: <name/model> · StartOS: <version> · VM arch: x86_64
-Tracks run: A, B, C (say which were skipped and why)
+Tracks run: A, B, C, REF (say which were skipped and why)
 
 ## Summary
 PASS n · FAIL n · KNOWN n · BLOCKED n

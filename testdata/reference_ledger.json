@@ -947,7 +947,7 @@
    "fee_amount": "45.60",
    "fee_currency": "USD",
    "gross_proceeds_usd": "30400.00",
-   "why": "2024 BTC, long-term, not covered: Box K."
+   "why": "Exchange BTC starts 2026 with 0.8848 BTC: 0.0348 (2024-10-01) and 0.35 (2024-12-01), then 0.15 (2025-02-15), 0.05, 0.12, 0.10 and 0.08 from later in 2025; FIFO sells the oldest first. This sale: 2024 BTC, long-term, not covered: Box K."
   },
   {
    "type": "Sell",
@@ -1127,7 +1127,7 @@
    "fee_amount": "0",
    "fee_currency": "BTC",
    "source": "Rebate",
-   "cost_basis_usd": "11.00",
+   "cost_basis_usd": "14.80",
    "why": "Card sats-back: a Rebate, valued at receipt (its cost basis), not income."
   },
   {

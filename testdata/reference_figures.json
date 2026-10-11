@@ -1,6 +1,6 @@
 {
  "dashboard": {
-  "average_cost_basis": "54723.82",
+  "average_cost_basis": "54725.05",
   "balances": [
    {
     "account_id": 1,
@@ -54,7 +54,7 @@
    "long_term_losses": 0.0,
    "long_term_net": 103207.58,
    "rebates_btc": 0.04045,
-   "rebates_received": 5632.5,
+   "rebates_received": 5636.3,
    "rewards_btc": 0.232,
    "rewards_earned": 13080.0,
    "sells_proceeds": 267606.09,
@@ -4129,14 +4129,14 @@
       "account": "Wallet",
       "acquired": "2026-08-25T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
-      "cost": 11.0,
+      "cost": 14.8,
       "description": "No BTC price for 2026-12-31: not priced",
       "quantity": 0.0001,
       "value": null
      },
      {
       "asset": "Total",
-      "cost": 169242.71,
+      "cost": 169246.51,
       "description": "",
       "quantity": 3.09267,
       "value": null
@@ -4255,7 +4255,7 @@
      {
       "amount": 0.0001,
       "date": "2026-08-25T12:00:00+00:00",
-      "value_usd": 11.0
+      "value_usd": 14.8
      }
     ],
     "start_of_year_balances": [

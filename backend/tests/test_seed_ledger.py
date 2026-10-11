@@ -36,7 +36,7 @@ reference_figures = _script("reference_figures")
 
 USER, PASSWORD = "seed-user", "seed-password-123"
 
-# The box of every 2026 disposal, by date sold (the comments in LEDGER_2026)
+# The box of every 2026 disposal, by date sold (the "why" notes of testdata/reference_ledger.json)
 BOXES_2026 = {
     "01/15/2026": {"K"}, "02/02/2026": {"J"}, "02/09/2026": {"H"}, "03/16/2026": {"I"},
     "05/04/2026": {"G"}, "06/01/2026": {"I"}, "07/01/2026": {"L"}, "08/03/2026": {"G"},

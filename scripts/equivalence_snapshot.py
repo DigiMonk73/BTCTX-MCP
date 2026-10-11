@@ -45,7 +45,8 @@ from btctx_mcp.client import BtctxClient
 
 import equivalence_inputs as inputs
 
-REFERENCE_LEDGER = Path("testdata/reference_ledger.json")
+# This checkout's, for both sides: a release's worktree may have no testdata/
+REFERENCE_LEDGER = Path(__file__).resolve().parents[1] / "testdata" / "reference_ledger.json"
 RANDOM_LEDGERS = 40
 RANDOM_ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
 BENCH_TRANSACTIONS = 2000

@@ -37,3 +37,12 @@ def test_the_report_moment_is_masked(auth_client):
 def test_the_old_date_line_is_masked_too():
     """Releases up to 1.2.4 print "Date: <time>": the baseline's snapshot."""
     assert snapshot.masked_report_pages(["Date: 2025-01-02 03:04:05"]) == ["Date: <now>"]
+
+
+def test_the_reference_ledger_loads_from_any_folder(tmp_path, monkeypatch):
+    """Review of #140: a release's snapshot runs in its own worktree, which
+    may have no testdata/; both sides read this checkout's ledger."""
+    monkeypatch.chdir(tmp_path)
+    ledgers = {name: txs for name, _, txs in snapshot._ledgers()}
+    assert len(ledgers["reference"]) >= 108
+    assert not any("why" in tx for tx in ledgers["reference"])

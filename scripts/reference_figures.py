@@ -73,14 +73,19 @@ def dumps(data: dict) -> str:
     return json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
 
 
-def differences(saved, now, path: str = "figures"):
-    """Where two figure trees differ, as 'path: saved -> now'."""
+def differences(saved, now, path: str = "figures", allow_new: bool = False):
+    """Where two figure trees differ, as 'path: saved -> now'. With
+    allow_new, a figure the saved tree doesn't have at all (one a newer
+    version adds, e.g. the dashboard's rebates in 1.2.7) isn't a
+    difference: an older release's figures are compared with this code's."""
     if isinstance(saved, dict) and isinstance(now, dict):
         for key in sorted(set(saved) | set(now)):
-            yield from differences(saved.get(key), now.get(key), f"{path}.{key}")
+            if allow_new and key not in saved:
+                continue
+            yield from differences(saved.get(key), now.get(key), f"{path}.{key}", allow_new)
     elif isinstance(saved, list) and isinstance(now, list) and len(saved) == len(now):
         for i, (a, b) in enumerate(zip(saved, now)):
-            yield from differences(a, b, f"{path}[{i}]")
+            yield from differences(a, b, f"{path}[{i}]", allow_new)
     elif saved != now:
         yield f"{path}: {json.dumps(saved)[:120]} -> {json.dumps(now)[:120]}"
 
@@ -91,6 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--compare", metavar="FIGURES_JSON",
                         help="compare with saved figures instead of printing them (exit 1 on a difference)")
     args = parser.parse_args(argv)
+    if not Path(args.db).is_file():
+        print(f"No database at {args.db}", file=sys.stderr)
+        return 1
     os.environ["DATABASE_FILE"] = str(Path(args.db).resolve())
     sys.path.insert(0, str(ROOT))
     from backend.database import SessionLocal
@@ -100,7 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.compare:
         sys.stdout.write(dumps(now))
         return 0
-    moved = list(differences(json.loads(Path(args.compare).read_text()), now))
+    # Figures this version adds aren't in an older release's file: not a move
+    moved = list(differences(json.loads(Path(args.compare).read_text()), now, allow_new=True))
     print("\n".join(moved[:50]) if moved else "No figure moved.")
     return 1 if moved else 0
 
