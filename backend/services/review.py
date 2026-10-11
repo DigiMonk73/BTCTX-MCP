@@ -20,10 +20,13 @@ Checks:
   than 5% away from fee x that day's price: most likely valued at the live
   price when the day's lookup failed. apply_fee_prices() fixes the ones the
   owner picks (login only), then recalculates.
-- original_date_missing (#91): a My BTC or Gift deposit into a BTC account
-  with no date originally acquired: its holding period starts at the
-  deposit. Coins held before then are long-term sooner; only the owner
-  knows when they were acquired, so nothing fills it.
+- original_date_missing (#91, a reminder since #128): a My BTC or Gift
+  deposit into a BTC account with no date originally acquired: its holding
+  period starts at the deposit. Nothing is wrong with it (blank is the
+  cautious choice), and only the owner knows when the coins were acquired,
+  so nothing fills it. After the 1.2.6 upgrade every older such deposit is
+  listed, so it is a reminder: one explanation for the group, listed after
+  the checks and left out of `total`.
 - income_without_value (#77): an income or rebate deposit (#98) with a $0
   or blank basis: for income, no income is reported for it; either way its
   whole value becomes gain when it's sold. The rules forbid it (a blank is
@@ -87,11 +90,6 @@ CHECKS: dict[str, tuple] = {
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
     ),
-    "original_date_missing": (
-        "My BTC and Gift deposits without a date originally acquired",
-        "If you held these coins before this deposit, edit it and enter when they were first acquired "
-        "(by the giver, for a gift): the holding period and Form 8949's date acquired use it.",
-    ),
     "income_without_value": (
         "Income and rebate deposits with a $0 or blank value",
         "Edit each one: clear its Cost Basis (USD) to use that day's price, or type its value when you "
@@ -101,6 +99,32 @@ CHECKS: dict[str, tuple] = {
         "Income and rebate deposits valued far from that day's price",
         "If the value didn't come from your records, edit the deposit's cost basis "
         "(or clear it to use the day's price).",
+    ),
+    "original_date_missing": (
+        "Reminder: My BTC and Gift deposits counted from their deposit date",
+        "To change one, edit the deposit: its Source, or its Date originally acquired.",
+    ),
+}
+
+# Reminders: nothing is wrong with these rows, so they come after the checks,
+# aren't counted in `total`, and carry one explanation for the whole group
+# instead of the same sentences on every row.
+REMINDERS: dict[str, tuple[str, ...]] = {
+    "original_date_missing": (
+        "If these are really interest, rewards or rebates, change their Source instead (Interest, Reward "
+        "or Rebate): then no date is needed. Before 1.2.6 there was no Rebate source, so card sats-back "
+        "may have been saved as My BTC to keep it out of income.",
+        "Otherwise nothing is wrong with them. These deposits have two dates: the deposit date, when the "
+        "coins reached you, and the date originally acquired, when they were first owned. The second sets "
+        "the holding period, which coins are sold first, and Form 8949's date acquired.",
+        "Which date: for My BTC (your own coins, moved in from somewhere BitcoinTX doesn't track), the day "
+        "you bought or earned them there; for a Gift, the day the giver got them, along with the giver's "
+        "cost basis, so a gift sold the day it arrives is long-term if the giver held it more than a year. "
+        "Never the day an exchange got the coins it sold you. Buys, income, interest, rewards and rebates "
+        "use their own date, so they have no such field.",
+        "Left blank, the deposit date is used: the cautious choice, since no sale counts as long-term too "
+        "early. Coins kept more than a year after the deposit are long-term either way. Enter a date only "
+        "if you can back it up (a receipt, a statement, a message from the giver).",
     ),
 }
 
@@ -244,13 +268,15 @@ def build_review(db: Session) -> dict[str, Any]:
     found["income_value_off"] = _income_value_items(db, rows, tz, missing)
 
     checks = [
-        {"key": key, "title": title, "action": action, "count": len(found[key]), "items": found[key]}
+        {"key": key, "kind": "reminder" if key in REMINDERS else "check", "title": title, "action": action,
+         "explanation": list(REMINDERS.get(key, ())), "count": len(found[key]), "items": found[key]}
         for key, (title, action) in CHECKS.items()
     ]
     return {
         "read_only": True,
         "timezone": tz.key,
-        "total": sum(c["count"] for c in checks),
+        "total": sum(c["count"] for c in checks if c["kind"] == "check"),
+        "reminders": sum(c["count"] for c in checks if c["kind"] == "reminder"),
         "checks": checks,
         "no_price_for": missing,
         "recalc_error": recalc_error,
@@ -275,10 +301,7 @@ def _row_issues(t: Transaction, tz):
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() in ORIGINAL_DATE_SOURCES and t.acquired_at is None:
-        yield "original_date_missing", _item(
-            t, tz, "No date originally acquired: the holding period starts at this deposit.",
-            "With the date the coins were first acquired, a sale more than a year after it is long-term.",
-        )
+        yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() not in VALUED_AT_RECEIPT and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(
@@ -383,5 +406,6 @@ def format_text(review: dict[str, Any]) -> str:
             lines.append(f"  #{item['id']}  {item['date']}  {item['type']} ({detail})  {item['amount']} BTC  "
                          f"{item['issue']}")
         if check["items"]:
+            lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
             lines.append(f"  -> {check['action']}")
     return "\n".join(lines) + "\n"

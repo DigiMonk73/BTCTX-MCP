@@ -12,6 +12,24 @@ All notable changes to BitcoinTX are documented in this file.
   not added to income or gains. The sidebar calculator's keys are a little
   taller (42 to 49 px), so it still ends level with the cards.
 
+### Changed
+- **Ledger Review: the missing "date originally acquired" is a reminder,
+  not a problem** (#128). After the 1.2.6 upgrade it listed every older My
+  BTC and Gift deposit, each with the same two sentences, under
+  "Transactions to check", so it read like a long list of errors and could
+  bury the checks that do point at a wrong figure. Nothing is wrong with
+  these rows: a blank date counts from the deposit, the cautious choice.
+  It now comes after the checks as "Reminder: My BTC and Gift deposits
+  counted from their deposit date", isn't counted in the review's total,
+  and explains once, in plain words: change the Source if they are really
+  interest, rewards or rebates (no date needed; before 1.2.6 there was no
+  Rebate source, so card sats-back may have been saved as My BTC); the two
+  dates and which one each kind of coins uses; blank is the cautious
+  choice; enter only a date you can back up. In Settings the list is
+  folded behind **Show**. `cli review` and the AI connector's
+  `review_ledger` carry the same explanation (`kind: "reminder"`, a
+  separate `reminders` count).
+
 ### Development
 
 - **The pre-push gate finds a Python with the dev tools.** It took the

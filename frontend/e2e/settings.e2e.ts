@@ -319,6 +319,27 @@ test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: 
   expect(await listTx(page.request)).toEqual(before);
 });
 
+test("ledger review: a My BTC deposit without its original date is a folded reminder (#128)", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  const mine = await createTx(page.request, {
+    type: "Deposit", timestamp: "2024-06-01T15:00:00Z", from_account_id: 99, to_account_id: 2,
+    amount: "0.01", cost_basis_usd: "500", fee_amount: "0", fee_currency: "BTC", source: "MyBTC",
+  });
+  await openSettings(page);
+  const review = page.getByRole("region", { name: "Ledger review" });
+  const title = "Reminder: My BTC and Gift deposits counted from their deposit date";
+  await expect(review.getByText("Nothing looks wrong.")).toBeVisible();
+  await expect(review.getByText(`${title}: 1`)).toBeVisible();
+  await expect(review.getByText(/change their Source instead/)).toBeVisible();
+  const list = review.getByRole("list", { name: title });
+  await expect(list).toHaveCount(0);
+  await review.getByRole("button", { name: "Show the 1 deposit" }).click();
+  await expect(list).toContainText(`#${mine.id} · `);
+  await expect(list).toContainText("Deposit (MyBTC) · 0.01000000 BTC");
+  await review.getByRole("button", { name: "Hide the list" }).click();
+  await expect(list).toHaveCount(0);
+});
+
 test("ledger review fixes a live-priced transfer fee after asking", async ({ app, authedPage: page }) => {
   await seedKnownLedger(page.request); // its transfer fee: 0.0001 x $50,000 = $5.00
   const transfer = (await listTx(page.request)).find((t) => t.type === "Transfer")!;

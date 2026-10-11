@@ -161,6 +161,21 @@ def test_ledger_review_lists_my_btc_and_gift_deposits_without_a_date(auth_client
     assert [i["id"] for i in check["items"]] == [undated["id"]]
 
 
+def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
+    """#128: nothing is wrong with a blank date, and after the 1.2.6 upgrade
+    every older My BTC and Gift deposit has one: a reminder with one
+    explanation for the group, after the checks and not in the total."""
+    undated = deposit(auth_client)
+    review = auth_client.get("/api/review").json()
+    *checks, reminder = review["checks"]
+    assert reminder["key"] == "original_date_missing" and reminder["kind"] == "reminder"
+    assert reminder["title"].startswith("Reminder:")
+    assert [i["id"] for i in reminder["items"]] == [undated["id"]]
+    assert reminder["explanation"][0].startswith("If these are really interest, rewards or rebates")
+    assert {c["kind"] for c in checks} == {"check"} and all(not c["explanation"] for c in checks)
+    assert review["total"] == 0 and review["reminders"] == 1
+
+
 def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):
     db = tmp_path / "btctx.db"
     engine = create_engine(f"sqlite:///{db}")
