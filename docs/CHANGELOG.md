@@ -9,6 +9,36 @@ All notable changes to BitcoinTX are documented in this file.
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
+### Development
+- **One reference test ledger, and its figures can't move unnoticed**
+  (#139, closes #122). The full test ledger was rebuilt from code in
+  `scripts/seed_ledger.py` each time, and had no Rebate source and no date
+  originally acquired. It is now one data file,
+  `testdata/reference_ledger.json` (111 transactions, 2023 to 2026): every
+  kind of transaction each year (from the app's own lists, so a new kind
+  fails the test until the ledger has one), every account route, every
+  broker-reporting choice, every Form 8949 box, a rebate each year
+  (the 2025 "Purchase rebate in BTC" entered as Reward is a Rebate now, as
+  #98 tells users), and My BTC and Gift deposits with a date originally
+  acquired that FIFO sells first. `seed_ledger.py`, the printed-forms
+  tests and the before-and-after check (`scripts/equivalence_check.py`,
+  whose inputs also try Rebate and `acquired_at` now) load it.
+  `testdata/reference_figures.json` holds every figure it gives (each
+  year's Form 8949 rows and Schedule D, the complete tax report's data, the
+  dashboard), and `test_seed_ledger.py` fails, naming where, if one moves;
+  `make reference-figures` accepts a meant change, which the pull request
+  then shows. The release tests keep each release's database of it in the
+  test lab and check the next release against it (AGENT-TESTS REF-2/3;
+  `scripts/reference_figures.py --db … --compare`).
+- **The README's and landing page's pictures, from one command, in the
+  release tests** (#139). `make site-shots` (`frontend/e2e/shots/site.ts`)
+  takes the four pictures from the checkout's app at the site's size, with
+  fixed test prices and a small saved portfolio
+  (`testdata/showcase_ledger.json`), into `docs/images/`, so git shows which
+  changed; the agent release tests run it (REF-1), and the release's
+  landing-page step puts the changed ones in the README and on btctx-site
+  together (the landing page shown to the owner first).
+
 ## [v1.2.7] - 2026-10-11 - Rebates on the dashboard, a clearer Ledger Review reminder
 
 ### Added

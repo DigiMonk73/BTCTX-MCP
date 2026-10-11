@@ -830,7 +830,7 @@
     "amount": "0.04000000",
     "fee_amount": "0E-8",
     "fee_currency": "BTC",
-    "source": "Reward",
+    "source": "Rebate",
     "purpose": null,
     "cost_basis_usd": "5600.00",
     "notes": "Purchase rebate in BTC"

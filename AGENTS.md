@@ -224,7 +224,9 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
-| `scripts/seed_ledger.py` | full test ledger (2023–2026, every 8949 box) into an empty server over the API; refuses the Mac app |
+| `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
+| `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
+| `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
 
@@ -274,12 +276,24 @@ make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
+make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
+make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
 
 Tests never touch a real database or the network (temp SQLite, stubbed BTC
-prices). A bug fix gets a test that fails on the old code. Lint is ruff with
+prices). **Test data:** a check that needs a full ledger uses the reference
+test ledger (`testdata/reference_ledger.json`, loaded by
+`scripts/seed_ledger.py`), never a new one built for the occasion. When the
+app gains a kind of transaction or a report part, add a row there (its
+`why` says what for) and run `make reference-figures`. The coverage tests
+in `test_seed_ledger.py` fail by themselves for a new transaction type,
+deposit source, withdrawal purpose or broker-reporting choice (they take
+the app's own lists); a new account route or report part goes into their
+`ROUTES` or report-part checks too.
+
+A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app
 code), and ESLint with zero warnings and a size limit per function and
 file; `docs/CODE_STYLE.md` has the rest.
@@ -337,8 +351,12 @@ Full steps, the package version and the signing/mirror secrets:
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
-   wrong (action names, StartOS steps, features, screenshots) in a commit
-   there, shown to the owner first: it's public.
+   wrong (action names, StartOS steps, features) in a commit there, shown
+   to the owner first: it's public. The pictures too, every release: run
+   `make site-shots` (AGENT-TESTS REF-1 already took them), put the changed
+   ones in `docs/images/` by pull request (the README's) and in btctx-site's
+   `img/`, then fast-forward `main` to `develop` (docs only, see Branches),
+   since GitHub shows the README from `main`: so the two always match.
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the
