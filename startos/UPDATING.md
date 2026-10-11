@@ -49,7 +49,8 @@ Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull r
    (`docs/AGENT-TESTS.md`) on that commit's CI artifacts; a blocker FAIL
    stops the release. Meanwhile, the docs check (BTCTX-MCP's `AGENTS.md`,
    "Releasing", step 1): anything stale is fixed by pull request first.
-   Then fast-forward `main` to it
+   Then, once CI is green on `develop`'s head (with those fixes),
+   fast-forward `main` to it
    (`git fetch origin && git checkout main && git merge --ff-only origin/develop && git push`).
    `.github/workflows/image.yml` publishes the image
    `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`.

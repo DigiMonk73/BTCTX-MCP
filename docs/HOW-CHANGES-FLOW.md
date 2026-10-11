@@ -76,8 +76,8 @@ workflow keeps up to date by itself. We don't touch it.)
    reads all the docs against what the release ships: the READMEs, the
    StartOS instructions and store descriptions, the AI connector's guide,
    `docs/`, the app's help text, and the CHANGELOG. Anything out of date
-   is fixed by pull request first, so nothing goes out, or to Start9,
-   with stale docs (the owner's rule).
+   is fixed by pull request before step 4, so nothing goes out, or to
+   Start9, with stale docs (the owner's rule).
 4. `main` catches up with `develop`. That publishes the Docker image
    (`ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`).
 5. A `release/vX.Y.Z` branch starts the release on GitHub. It:
