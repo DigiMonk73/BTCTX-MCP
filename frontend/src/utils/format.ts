@@ -96,6 +96,7 @@ export function parseGainsAndLosses(raw: GainsAndLossesRaw): GainsAndLosses {
     interest_earned: parseDecimal(raw.interest_earned),
     rewards_earned: parseDecimal(raw.rewards_earned),
     gifts_received: parseDecimal(raw.gifts_received),
+    rebates_received: parseDecimal(raw.rebates_received),
     total_income: parseDecimal(raw.total_income),
     fees: {
       USD: parseDecimal(raw.fees?.USD),
@@ -115,6 +116,7 @@ export function parseGainsAndLosses(raw: GainsAndLossesRaw): GainsAndLosses {
     interest_btc: parseDecimal(raw.interest_btc),
     rewards_btc: parseDecimal(raw.rewards_btc),
     gifts_btc: parseDecimal(raw.gifts_btc),
+    rebates_btc: parseDecimal(raw.rebates_btc),
 
     year_to_date_capital_gains: parseDecimal(raw.year_to_date_capital_gains),
   };

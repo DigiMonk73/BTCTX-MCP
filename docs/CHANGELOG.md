@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Rebates on the dashboard** (#129). The Income & Fees card showed
+  income, interest, rewards and gifts, but rebates (card sats-back,
+  shopping cash-back, new in 1.2.6) nowhere. They now have their own line,
+  Rebates (received), in USD and BTC, under Gifts (received): like gifts,
+  not added to income or gains. The sidebar calculator's keys are a little
+  taller (42 to 49 px), so it still ends level with the cards.
+
 ### Development
 
 - **The pre-push gate finds a Python with the dev tools.** It took the

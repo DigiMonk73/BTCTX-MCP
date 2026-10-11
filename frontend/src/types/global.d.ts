@@ -46,6 +46,7 @@ declare global {
     interest_earned?: string | number;
     rewards_earned?: string | number;
     gifts_received?: string | number;
+    rebates_received?: string | number;
     total_income?: string | number;
     fees?: {
       USD?: string | number;
@@ -61,11 +62,12 @@ declare global {
     long_term_net?: string | number;
     total_net_capital_gains?: string | number;
 
-    // The BTC received as income, interest, rewards and gifts
+    // The BTC received as income, interest, rewards, gifts and rebates
     income_btc?: string | number;
     interest_btc?: string | number;
     rewards_btc?: string | number;
     gifts_btc?: string | number;
+    rebates_btc?: string | number;
 
     year_to_date_capital_gains?: string | number;
   }
@@ -77,6 +79,7 @@ declare global {
     interest_earned: number;
     rewards_earned: number;
     gifts_received: number;
+    rebates_received: number;
     total_income: number;
     fees: {
       USD: number;
@@ -96,6 +99,7 @@ declare global {
     interest_btc: number;
     rewards_btc: number;
     gifts_btc: number;
+    rebates_btc: number;
 
     year_to_date_capital_gains: number;
   }

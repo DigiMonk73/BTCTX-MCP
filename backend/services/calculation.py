@@ -22,7 +22,7 @@ CENT = Decimal("0.01")
 SAT = Decimal("0.00000001")
 
 # The deposit sources the dashboard totals, in USD (their basis) and BTC.
-DEPOSIT_TOTALS = ("income", "interest", "reward", "gift")
+DEPOSIT_TOTALS = ("income", "interest", "reward", "gift", "rebate")
 
 
 def btc_text(amount) -> str | None:
@@ -96,9 +96,9 @@ def get_gains_and_losses(db: Session) -> dict:
     """
     The dashboard's gains and income: realized gains and losses by holding
     period (from the lot disposals only, so nothing counts twice), sale and
-    Spent proceeds, deposits by income source in USD and BTC, fees by
-    currency, and this tax year's net gain. USD to the cent, BTC to the
-    satoshi, as JSON numbers.
+    Spent proceeds, deposits by income source in USD and BTC (and the gifts
+    and rebates, which aren't income), fees by currency, and this tax year's
+    net gain. USD to the cent, BTC to the satoshi, as JSON numbers.
     """
     gains = _realized_gains(db.query(LotDisposal).all())
     transactions = db.query(Transaction).all()
@@ -114,6 +114,7 @@ def get_gains_and_losses(db: Session) -> dict:
         "interest_earned": _usd(deposit_usd["interest"]),
         "rewards_earned": _usd(deposit_usd["reward"]),
         "gifts_received": _usd(deposit_usd["gift"]),
+        "rebates_received": _usd(deposit_usd["rebate"]),
         "total_income": _usd(deposit_usd["income"] + deposit_usd["interest"] + deposit_usd["reward"]),
         # Spent withdrawals aren't losses: their gain or loss is in the disposals.
         "total_losses": _usd(Decimal("0.0")),
@@ -128,6 +129,7 @@ def get_gains_and_losses(db: Session) -> dict:
         "interest_btc": _btc(deposit_btc["interest"]),
         "rewards_btc": _btc(deposit_btc["reward"]),
         "gifts_btc": _btc(deposit_btc["gift"]),
+        "rebates_btc": _btc(deposit_btc["rebate"]),
         "fees": {"USD": _usd(fees_usd), "BTC": _btc(fees_btc)},
         "year_to_date_capital_gains": _usd(_year_to_date_gain(db)),
     }
