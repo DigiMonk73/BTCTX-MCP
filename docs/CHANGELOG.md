@@ -173,7 +173,6 @@ All notable changes to BitcoinTX are documented in this file.
     Income, Interest or Reward deposit into Bank or Exchange USD no longer
     shows as income in BitcoinTX: it isn't bitcoin; report it from the
     bank's or exchange's own tax form (such as Form 1099-INT or 1099-MISC).
-
 - **Coins you already owned, or received as a gift, keep their holding
   period** (tax figures, #91). A My BTC or Gift deposit into Wallet or
   Exchange BTC has a new optional field, **Date originally acquired**: when

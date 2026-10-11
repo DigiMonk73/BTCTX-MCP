@@ -25,7 +25,7 @@ export const current = VersionInfo.of({
 **Smaller fixes**
 
 - For a Gift deposit, the transaction form now asks for the giver's cost basis.
-- Connect an AI Assistant's Claude Code command sets up the connector for every folder, not only the one you ran it in; set up with the old one? The changelog below says how to move it.
+- Connect an AI Assistant's Claude Code command sets up the connector for every folder, not only the one you ran it in. If you set it up with the old command, the changelog linked below says how to move it.
 
 **One wallet, one exchange**
 
@@ -57,7 +57,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 **Correcciones menores**
 
 - En un depósito Gift, el formulario de transacción pide ahora el coste base de quien hizo el regalo.
-- El comando de Claude Code de Conectar un asistente de IA configura el conector para todas las carpetas, no solo para aquella en la que lo ejecutaste; ¿lo configuraste con el anterior? El registro de cambios de abajo explica cómo moverlo.
+- El comando de Claude Code de Conectar un asistente de IA configura el conector para todas las carpetas, no solo para aquella en la que lo ejecutaste. Si lo configuraste con el comando anterior, el registro de cambios enlazado abajo explica cómo moverlo.
 
 **Un monedero, un exchange**
 
@@ -76,7 +76,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 **Korrekturen, die Steuerzahlen ändern**
 
 - **Einkommenseinzahlungen nach einer Änderung.** Wurde bei einer Einzahlung Income, Interest oder Reward der Betrag oder das Datum geändert, konnte ihr alter Wert bleiben, und wurde sie mit einem KI-Assistenten oder über die API von Bank in die Wallet oder nach Exchange BTC verschoben, konnte sie bei 0 $ landen. Alle früheren Versionen, jedes Steuerjahr. Was zu tun ist: Öffne Settings > Ledger Review und prüfe jede dort aufgeführte Einkommenseinzahlung: Lösche den Wert, um den Kurs des Tages zu verwenden, oder gib den richtigen ein.
-- **Dollar-Einzahlungen sind kein Bitcoin-Einkommen.** Eine Dollar-Einzahlung (Bank, Exchange USD), als Income, Interest oder Reward markiert und mit einem Wert, wurde als Bitcoin-Einkommen gezählt; das ist vorbei. Alle früheren Versionen, jedes Steuerjahr. Was zu tun ist: Gib Dollar-Zinsen nach dem Steuerformular deiner Bank oder Börse an (etwa Form 1099-INT oder 1099-MISC).
+- **Dollar-Einzahlungen sind kein Bitcoin-Einkommen.** Eine Dollar-Einzahlung (Bank, Exchange USD), als Income, Interest oder Reward markiert und mit einem Wert, wurde als Bitcoin-Einkommen gezählt; das ist jetzt nicht mehr so. Alle früheren Versionen, jedes Steuerjahr. Was zu tun ist: Gib Dollar-Zinsen nach dem Steuerformular deiner Bank oder Börse an (etwa Form 1099-INT oder 1099-MISC).
 - **My-BTC- und Gift-Einzahlungen behalten ihre Haltedauer.** Sie können jetzt das Datum tragen, an dem die Coins zuerst erworben wurden (bei einem Geschenk vom Schenkenden), sodass Coins, die länger als ein Jahr gehalten wurden, als langfristig gelten; bisher begann die Haltedauer mit der Einzahlung. Alle früheren Versionen, jedes Steuerjahr mit einem solchen Verkauf. Was zu tun ist: Ledger Review listet My-BTC- und Gift-Einzahlungen ohne dieses Datum auf; trage es ein, wo du es kennst, und lade deine Formulare neu herunter. Ein Datum kann auch ändern, welche Coins zuerst verkauft werden, sodass sich bereits erklärte Jahre ändern können: Frag deinen Steuerberater, ob du eine Erklärung berichtigen solltest.
 - **Sats-Cashback einer Karte ist kein Einkommen.** Eine neue Einzahlungsquelle, Rebate, für Bitcoin, den du fürs Ausgeben zurückbekommst, etwa das Sats-Cashback einer Prämienkarte: bewertet wie Einkommen, sein Wert beim Erhalt sind seine Anschaffungskosten, aber er zählt nicht als Einkommen. Als Reward erfasst, wurde solcher Bitcoin als Einkommen gezählt, in jeder früheren Version und jedem Steuerjahr. Was zu tun ist: Stelle Karten- oder Einkaufsprämien von Reward auf Rebate um (der Wert bleibt); Mining, Staking und Boni bleiben Reward; frag im Zweifel deinen Steuerberater.
 
@@ -89,7 +89,7 @@ Coming from 1.2.4:0 or earlier? Set Login Credentials replaces Show Credentials 
 **Kleinere Korrekturen**
 
 - Bei einer Gift-Einzahlung fragt das Transaktionsformular jetzt nach den Anschaffungskosten des Schenkenden.
-- Der Claude-Code-Befehl von KI-Assistenten verbinden richtet den Connector für alle Ordner ein, nicht nur für den, in dem du ihn ausgeführt hast; mit dem alten eingerichtet? Das Änderungsprotokoll unten erklärt, wie du ihn verschiebst.
+- Der Claude-Code-Befehl von KI-Assistenten verbinden richtet den Connector für alle Ordner ein, nicht nur für den, in dem du ihn ausgeführt hast. Hast du ihn mit dem alten Befehl eingerichtet, erklärt das unten verlinkte Änderungsprotokoll, wie du ihn verschiebst.
 
 **Eine Wallet, eine Börse**
 
@@ -121,7 +121,7 @@ Du kommst von 1.2.4:0 oder älter? Zugangsdaten festlegen ersetzt Zugangsdaten a
 **Mniejsze poprawki**
 
 - Przy wpłacie Gift formularz transakcji pyta teraz o koszt nabycia darczyńcy.
-- Polecenie Claude Code z Połącz asystenta AI konfiguruje łącznik dla wszystkich folderów, a nie tylko tego, w którym je uruchomiono; konfigurowałeś starym? Dziennik zmian poniżej wyjaśnia, jak go przenieść.
+- Polecenie Claude Code z Połącz asystenta AI konfiguruje łącznik dla wszystkich folderów, a nie tylko tego, w którym je uruchomiono. Jeśli łącznik skonfigurowano starym poleceniem, dziennik zmian podlinkowany poniżej wyjaśnia, jak go przenieść.
 
 **Jeden portfel, jedna giełda**
 
@@ -153,7 +153,7 @@ Aktualizujesz z 1.2.4:0 lub starszej wersji? Ustaw dane logowania zastępuje Pok
 **Corrections mineures**
 
 - Pour un dépôt Gift, le formulaire de transaction demande désormais le coût d’acquisition du donateur.
-- La commande Claude Code de Connecter un assistant IA configure le connecteur pour tous les dossiers, pas seulement celui où vous l’avez lancée ; configuré avec l’ancienne ? Le journal des modifications ci-dessous explique comment le déplacer.
+- La commande Claude Code de Connecter un assistant IA configure le connecteur pour tous les dossiers, pas seulement celui où vous l’avez lancée. Si vous l’avez configuré avec l’ancienne commande, le journal des modifications en lien ci-dessous explique comment le déplacer.
 
 **Un portefeuille, une plateforme**
 
