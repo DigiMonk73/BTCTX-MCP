@@ -124,10 +124,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Ledger Review lists income deposits with a $0 or blank value** (#77).
   Such a deposit reports no income, which the income rules forbid, yet it
   slipped past both of Ledger Review's basis checks. A new item, "Income
-  and rebate deposits with a $0 or blank value", lists them, and Rebate
-  deposits too (#98), with their value at that day's price, so they can be
-  fixed (clear its Cost Basis (USD) to use the day's price, or type the
-  right one).
+  and rebate deposits with a $0 or blank value" (rebates since #98), lists
+  them with their value at that day's price, so they can be fixed (clear
+  its Cost Basis (USD) to use the day's price, or type the right one).
 - **No more blank pages in the IRS forms PDF.** Each Form 8949 sheet
   printed both of its pages, so a short-term sheet was followed by an empty
   Part II (28 blank pages in a 58-page 2026 draft), and a long-term-only
@@ -321,7 +320,10 @@ All notable changes to BitcoinTX are documented in this file.
   - The README's StartOS install now names Start9's Community Beta
     registry, with sideloading as the other way (#84).
   - The CSV template has a Rebate row; its Gift row and the CSV guide say
-    a gift's cost basis is the giver's.
+    a gift's cost basis is the giver's. It also imports as it is with
+    prices off, a new install's default: four of its rows had a BTC fee
+    without its dollar value, so the import stopped at "No BTC price is
+    stored".
   - The Complete Tax Report's Notes now say "check it with a tax
     professional before you file", like the rest of the report.
   - The AI connector's tool descriptions and guide match 1.2.6.
