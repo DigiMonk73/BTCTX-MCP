@@ -302,6 +302,19 @@ All notable changes to BitcoinTX are documented in this file.
   `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links
   follow the latest release by themselves, its text and screenshots are
   checked and updated by hand at each release.
+- **Stale docs found before 1.2.6** (Grok's review of the docs, each
+  claim checked first):
+  - `docs/AGENT-TESTS.md` expected a dashboard row "Interest and Rewards",
+    which the app doesn't have (it shows Interest and Rewards separately),
+    and had no checks for 1.2.6's additions. New: AUTH-4b (Settings >
+    About), GLD-6c (a Rebate deposit, which isn't income, and the
+    one-wallet hint), and the report's "Using these forms" section in
+    RPT-5.
+  - `scripts/backup-db.sh` had one old machine's paths built in. It now
+    takes the database as its argument (or `DATABASE_FILE`) and keeps its
+    copies in `daily-backups/` beside it.
+  - A dead link to Start9's review in `docs/HOW-CHANGES-FLOW.md`, and the
+    finished 1.2.4 box-test checklist in `docs/temp/`, removed.
 
 ## [v1.2.5] - 2026-10-06 - A preview of the 2026 forms, a professional Complete Tax Report, Start9's review of the StartOS package
 
