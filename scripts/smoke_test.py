@@ -129,11 +129,13 @@ def fake_internet(log_path: str) -> None:
     """
     Answer the app's requests to outside services from a fake internet, so
     its own choice of source, fallback and proxy runs (the e2e sidebar
-    matrix). Every price site and mempool server gives the stubs' prices,
-    except that a host under .invalid (RFC 2606: it never resolves) doesn't
-    answer: a mempool server that's down, or a proxy that's stopped. Each
-    request goes to `log_path` as a JSON line: its URL and the proxy it was
-    sent through.
+    matrix). Every price site and mempool server gives the live price and
+    block height of the stubs, and each past day its own price
+    (fake_past_price), except that a host under .invalid (RFC 2606: it never
+    resolves) doesn't answer: a mempool server that's down, or a proxy
+    that's stopped. A request the app's code never makes gets a 404, so it
+    can't produce a price. Each request goes to `log_path` as a JSON line:
+    its URL and the proxy it was sent through.
     """
     class FakeInternetClient(httpx.AsyncClient):
         def __init__(self, *, proxy: str | None = None, **kwargs):
@@ -151,42 +153,64 @@ def fake_internet(log_path: str) -> None:
     httpx.AsyncClient = FakeInternetClient
 
 
+def fake_past_price(midnight: int) -> int:
+    """
+    The fake internet's price for the UTC day starting at `midnight` (Unix
+    seconds): $50,000 plus the day's number mod 100, so a lookup of the day
+    before or after shows (frontend/e2e/fixtures.ts, fakePastPrice).
+    """
+    return PAST_PRICE + (midnight // 86400) % 100
+
+
 def _fake_answer(request: httpx.Request) -> httpx.Response:
     """What a price site or a mempool server would say (fake_internet)."""
     import backend.services.bitcoin as bitcoin
     import backend.services.price_history as price_history
 
-    url, path = str(request.url), request.url.path
-    if path.endswith("/api/v1/prices"):  # a mempool server's live price
+    url, path, params = str(request.url), request.url.path, request.url.params
+    if path.endswith("/api/v1/prices") and not params:  # a mempool server's live price
         return httpx.Response(200, json={"time": int(time.time()), "USD": CURRENT_PRICE})
-    if path.endswith(price_history.MEMPOOL_HISTORY_PATH):
+    if path.endswith(price_history.MEMPOOL_HISTORY_PATH) and dict(params) == {"currency": "USD"}:
         return httpx.Response(200, json={"prices": _mempool_rows(price_history.FIRST_PRICE_DAY)})
-    if path.endswith("/api/blocks/tip/height") or url == bitcoin.BLOCKCHAIN_INFO_HEIGHT_URL:
+    if (path.endswith("/api/blocks/tip/height") and not params) or url == bitcoin.BLOCKCHAIN_INFO_HEIGHT_URL:
         return httpx.Response(200, text=str(BLOCK_HEIGHT))
     if url == bitcoin.KRAKEN_TICKER_URL:
         return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": [str(CURRENT_PRICE), "1"]}}})
-    if url.startswith(price_history.BITSTAMP_OHLC_URL):
-        return httpx.Response(200, json={"data": {"ohlc": _bitstamp_rows(request.url.params)}})
+    if url.startswith(price_history.BITSTAMP_OHLC_URL) and _is_bitstamp_block(params):
+        return httpx.Response(200, json={"data": {"ohlc": _bitstamp_rows(params)}})
     return httpx.Response(404)
 
 
 def _mempool_rows(first: date) -> list[dict]:
     """A mempool server's hourly record: every day's 00:00 UTC, with the
-    23:00 and 01:00 rows around it."""
+    23:00 and 01:00 rows around it (the same price, as mempool's 2% check
+    wants)."""
     hour, day = 3600, 86400
     today = int(time.time()) // day * day
     midnights = range(calendar.timegm(first.timetuple()), today + 1, day)
-    return [{"time": t + offset, "USD": PAST_PRICE} for t in midnights for offset in (-hour, 0, hour)]
+    return [{"time": t + offset, "USD": fake_past_price(t)} for t in midnights for offset in (-hour, 0, hour)]
+
+
+def _is_bitstamp_block(params: httpx.QueryParams) -> bool:
+    """Whether it's one of the fixed blocks price_history asks Bitstamp for:
+    the latest days, or a block of days from a block start."""
+    import backend.services.price_history as price_history
+
+    day, size = price_history.DAY, price_history.BITSTAMP_BLOCK
+    if set(params) - {"step", "limit", "start"} or params.get("step") != str(day) or params.get("limit") != str(size):
+        return False
+    first = calendar.timegm(price_history.FIRST_PRICE_DAY.timetuple())
+    return "start" not in params or (int(params["start"]) - first) % (size * day) == 0
 
 
 def _bitstamp_rows(params: httpx.QueryParams) -> list[dict]:
     """Bitstamp's daily candles: `limit` days from `start`, or the latest ones."""
     day = 86400
     today = int(time.time()) // day * day
-    limit = int(params.get("limit", 1000))
+    limit = int(params["limit"])
     start = int(params["start"]) if "start" in params else today - (limit - 1) * day
     end = min(start + (limit - 1) * day, today)
-    return [{"timestamp": str(t), "open": str(PAST_PRICE)} for t in range(start, end + 1, day)]
+    return [{"timestamp": str(t), "open": str(fake_past_price(t))} for t in range(start, end + 1, day)]
 
 
 def free_port() -> int:

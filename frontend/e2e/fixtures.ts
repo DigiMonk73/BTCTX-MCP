@@ -81,6 +81,15 @@ export interface OutsideRequest {
   proxy: string | null;
 }
 
+/**
+ * A past day's price from the fake internet (fakeInternet): $50,000 plus the
+ * day's number mod 100, so the day before or after shows a different figure
+ * (smoke_test.py, fake_past_price). `day` is YYYY-MM-DD.
+ */
+export function fakePastPrice(day: string): number {
+  return HISTORICAL_PRICE + (Date.parse(`${day}T00:00:00Z`) / 86_400_000) % 100;
+}
+
 /** What the server sent to outside services so far (with fakeInternet), oldest first. */
 export function outsideRequests(app: App): OutsideRequest[] {
   const file = path.join(app.dir, OUTSIDE_LOG);

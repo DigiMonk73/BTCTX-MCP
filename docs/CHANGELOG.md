@@ -18,16 +18,18 @@ All notable changes to BitcoinTX are documented in this file.
   server (answering and down), with the public backup (the mempool server
   answering and down), and set by the server (StartOS); the Mac app's mode
   repeats the first-run question and off. Auto shows the live price or a
-  plain message, never $0.00; Date the day's price or a plain message;
-  Manual works from a typed price throughout; the calculator carries on
-  across mode switches and stays put. The prices come from a fake internet
+  plain message, never $0.00; Date that day's price (each past day has its
+  own, so a lookup of the wrong day shows) or a plain message; Manual works
+  from a typed price throughout; the calculator carries on across mode
+  switches and stays put. The prices come from a fake internet
   (`fake_internet` in `scripts/smoke_test.py`, the `fakeInternet` fixture
   option) instead of stubbed functions, so the app's own choice of source,
-  backup and proxy runs, and each test checks what the server sent out:
-  nothing before a choice or while off, only to the chosen source (every
-  public request through Tor when it's set), and nothing naming the day;
-  the browser asks nobody but BitcoinTX. Chromium (Chicago and Tokyo) and
-  WebKit.
+  backup and proxy runs (a request it never makes gets no price), and each
+  test checks what the server sent out: nothing before a choice or while
+  off, only to the chosen source (every public request through Tor when
+  it's set), and nothing naming the day, in any form from the day before to
+  the day after; the browser asks nobody but BitcoinTX, from its first
+  request. Chromium (Chicago and Tokyo) and WebKit.
 - **A Mac test build calls itself "BitcoinTX Test"** (#142) in its window
   title and its messages ("BitcoinTX Test is already open", a busy port),
   whenever it runs on a throwaway data folder (`desktop/run-test-build.sh`).

@@ -1,6 +1,8 @@
 // End-to-end click-through tests: the real backend (temp database, stubbed
-// BTC prices) serving the built frontend, driven through Chromium.
-// Run with `make e2e` or `npx playwright test` (build frontend/dist first).
+// BTC prices, or a fake internet for sidebar-matrix.e2e.ts: fakeInternet)
+// serving the built frontend, driven through Chromium and WebKit.
+// Run with `make e2e` or `npx playwright test` (build frontend/dist first);
+// the webkit project runs only with E2E_WEBKIT=1.
 import { defineConfig, devices } from "@playwright/test";
 
 const tzSpecs = /(create|edit|transactions-list|sidebar-matrix)\.e2e\.ts/;
