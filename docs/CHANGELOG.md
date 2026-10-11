@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+- **The README's screenshots are 1.2.7's** (#141), the same as the landing
+  page's: the Dashboard's Rebates line, a rebate in Transactions, and the
+  setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
+
 ### Development
 - **A Mac test build calls itself "BitcoinTX Test"** in its window title and
   its messages ("BitcoinTX Test is already open", a busy port), whenever
@@ -11,13 +16,6 @@ All notable changes to BitcoinTX are documented in this file.
   the 1.2.7 release tests the owner saw the test copy's "already open"
   message, took it for their own app's, and quit the real one: now nothing
   the test copy shows looks like the installed app's.
-
-### Documentation
-- **The README's screenshots are 1.2.7's** (#141), the same as the landing
-  page's: the Dashboard's Rebates line, a rebate in Transactions, and the
-  setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
-
-### Development
 - **One reference test ledger, and its figures can't move unnoticed**
   (#139, closes #122). The full test ledger was rebuilt from code in
   `scripts/seed_ledger.py` each time, and had no Rebate source and no date
