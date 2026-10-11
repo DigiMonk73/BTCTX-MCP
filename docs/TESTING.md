@@ -137,8 +137,22 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 - Figures are read as numbers (`figure()`, `parseFigure()` in
   `e2e/fixtures.ts`), so thousands separators or a Unicode minus don't break
   them.
-- The `tokyo` project reruns the create, edit and list specs in UTC+9; the
-  `webkit` project (the Mac app's engine) runs with `E2E_WEBKIT=1` in CI.
+- The `tokyo` project reruns the create, edit, list and sidebar-matrix specs
+  in UTC+9. The `webkit` project (the Mac app's engine) runs only with
+  `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
+  `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
+  `npx playwright install webkit`).
+- `test.use({ fakeInternet: true })` swaps the stubbed prices for a fake
+  internet (`fake_internet` in `scripts/smoke_test.py`): the app's own
+  choice of price source, fallback and proxy runs; each past day has its
+  own price (`fakePastPrice()`: $50,000 plus the day's number mod 100), so
+  a lookup of the wrong day shows; a host under `.invalid` never answers (a
+  mempool server that's down, Tor stopped); a request the app's code never
+  makes gets a 404; and `outsideRequests(app)` lists every request the
+  server sent out, with its proxy. `e2e/sidebar-matrix.e2e.ts` uses it to
+  run the sidebar's converter and calculator under every price-source
+  state, checking that nothing is asked before a choice or while off and
+  that no request names the day.
 - A `test.fail()` marks a known bug the test describes correctly (see
   `docs/HARDENING_FINDINGS.md`); remove it with the fix.
 - Cloud sessions have Chromium preinstalled (`PLAYWRIGHT_BROWSERS_PATH`); never
