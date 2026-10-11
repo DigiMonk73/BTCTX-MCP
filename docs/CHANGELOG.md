@@ -39,6 +39,10 @@ All notable changes to BitcoinTX are documented in this file.
   America/Winnipeg, for dates after that. No figure moved in the
   before-and-after comparison.
 
+### StartOS package
+- **Package 1.2.7:0.** Release notes in five languages. They keep 1.2.6's,
+  which StartOS users updating from 1.2.5:0 haven't seen, marked "From 1.2.6".
+
 ### Development
 
 - Dependencies: `lucide-react` 1.52.0 (#66; the icons BitcoinTX uses draw
