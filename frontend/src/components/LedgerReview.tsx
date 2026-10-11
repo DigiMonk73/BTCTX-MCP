@@ -14,18 +14,60 @@ interface ReviewItem {
 
 interface ReviewCheck {
   key: string;
+  kind: "check" | "reminder";
   title: string;
   action: string;
+  explanation: string[];
   count: number;
   items: ReviewItem[];
 }
 
 interface LedgerReviewResponse {
   timezone: string;
+  /** Items that may point at a wrong figure; reminders aren't counted. */
   total: number;
+  reminders: number;
   checks: ReviewCheck[];
   recalc_error?: string | null;
 }
+
+const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
+  <ul aria-label={check.title}>
+    {check.items.map((item) => (
+      <li key={item.id}>
+        #{item.id} · {item.date} · {item.type} (
+        {item.type === "Deposit" ? item.source : item.purpose}) · {item.amount} BTC —{" "}
+        {item.issue} {item.change}
+      </li>
+    ))}
+  </ul>
+);
+
+/**
+ * A reminder (#128): its rows aren't errors, so one explanation for
+ * the group and the list folded until asked for. Nothing is saved: the
+ * group shrinks as the owner edits the deposits.
+ */
+const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="ledger-review-check">
+      <strong>
+        {check.title}: {check.count}
+      </strong>
+      {check.explanation.map((paragraph) => (
+        <p key={paragraph} className="settings-option-subtitle">
+          {paragraph}
+        </p>
+      ))}
+      <p className="settings-option-subtitle">{check.action}</p>
+      <button onClick={() => setOpen(!open)} className="btn btn-secondary">
+        {open ? "Hide the list" : `Show the ${check.count} deposit${check.count === 1 ? "" : "s"}`}
+      </button>
+      {open && <ReviewItems check={check} />}
+    </div>
+  );
+};
 
 /**
  * Settings section: the read-only Ledger review (GET /api/review) — saved
@@ -72,7 +114,8 @@ const LedgerReview: React.FC = () => {
     await load();
   };
 
-  const found = review?.checks.filter((c) => c.count > 0) ?? [];
+  const found = review?.checks.filter((c) => c.count > 0 && c.kind === "check") ?? [];
+  const reminders = review?.checks.filter((c) => c.count > 0 && c.kind === "reminder") ?? [];
 
   return (
     <div className="settings-section" role="region" aria-label="Ledger review">
@@ -96,22 +139,16 @@ const LedgerReview: React.FC = () => {
         </p>
       )}
       {review && review.total === 0 && (
-        <p className="settings-option-subtitle">Nothing to review.</p>
+        <p className="settings-option-subtitle">
+          {review.reminders > 0 ? "Nothing looks wrong." : "Nothing to review."}
+        </p>
       )}
       {found.map((check) => (
         <div key={check.key} className="ledger-review-check">
           <strong>
             {check.title}: {check.count}
           </strong>
-          <ul aria-label={check.title}>
-            {check.items.map((item) => (
-              <li key={item.id}>
-                #{item.id} · {item.date} · {item.type} (
-                {item.type === "Deposit" ? item.source : item.purpose}) · {item.amount} BTC —{" "}
-                {item.issue} {item.change}
-              </li>
-            ))}
-          </ul>
+          <ReviewItems check={check} />
           <p className="settings-option-subtitle">{check.action}</p>
           {check.key === "fee_value_off" && (
             <button onClick={() => fixFees(check)} disabled={loading} className="btn btn-primary">
@@ -120,7 +157,10 @@ const LedgerReview: React.FC = () => {
           )}
         </div>
       ))}
-      {review && review.total > 0 && (
+      {reminders.map((check) => (
+        <ReminderGroup key={check.key} check={check} />
+      ))}
+      {review && review.total + review.reminders > 0 && (
         <p className="settings-option-subtitle">Dates in {review.timezone}.</p>
       )}
     </div>

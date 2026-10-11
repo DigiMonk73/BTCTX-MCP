@@ -229,8 +229,9 @@ to do.
 3. Open **Settings → Ledger Review**. Without changing anything, it lists
    every figure a recalculation would change (old → new) and saved entries
    worth a second look, such as income and rebate deposits with a $0 or
-   blank value, or My BTC and Gift deposits without a date originally
-   acquired. The release notes say which to fix.
+   blank value. After them comes a reminder, not an error: My BTC and Gift
+   deposits without a date originally acquired, counted from their deposit
+   date until you add one. The release notes say which to fix.
 4. Click **Settings → Recalculate Ledger** when you agree.
 5. Check your **Tax Timezone** in Settings.
 6. If you use the AI connector: in your AI app's settings, change

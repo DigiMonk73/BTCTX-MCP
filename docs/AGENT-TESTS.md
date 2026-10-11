@@ -310,8 +310,8 @@ Start from the `clean` snapshot.
   on `2025-04-01`, cost basis `500`. Expect a **Date originally acquired**
   field (it isn't there for Income or for a Bank deposit); enter
   `2023-03-14` and save. Edit it: the field shows 03/14/2023 (its day in
-  the tax timezone), and saving the edit unchanged keeps it. Ledger Review doesn't list it under "My BTC and
-  Gift deposits without a date originally acquired". Delete it. Expect:
+  the tax timezone), and saving the edit unchanged keeps it. Ledger Review's reminder "My BTC and Gift
+  deposits counted from their deposit date" doesn't list it. Delete it. Expect:
   every golden figure as before.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Bitcoin Wallet`: expect the
