@@ -146,7 +146,7 @@ it's long-term. #14's fee is its own disposal.
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
 | Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,072.70 · Long-Term Losses $0.00 · Net Long-Term +$11,072.70 · Total Net Capital Gains +$19,438.10 |
-| Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
+| Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
 | Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
@@ -316,7 +316,7 @@ Start from the `clean` snapshot.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Bitcoin Wallet`: expect the
   hint "One self-custody wallet: see Settings → About." under it. Switch to
-  Exchange BTC, Source **Rebate**, `0.0001` BTC on `2025-04-01`, cost basis
+  Account `Exchange`, Currency `BTC`, Source **Rebate**, `0.0001` BTC on `2025-04-01`, cost basis
   `6`, and save. Expect: Exchange (BTC) 0.15010000, and Income & Fees
   unchanged (Total Income $1,000.00): a rebate isn't income. Complete Tax
   Report 2025, section 3: the deposit is under "Rebates (not income)", not
@@ -357,9 +357,9 @@ Start from the `clean` snapshot.
   and End of Year) reads "not priced", with the note "No BTC price for
   YYYY-12-31: not priced" (and for 2024 "No BTC price is stored for
   2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
-  figure is as in the expected-figures table. Each report's last section
-  is 6, "Using these forms", for the preparer, with the one-wallet line
-  and the disclaimer. RPT-6 checks the values once
+  figure is as in the expected-figures table. Each report has section 6,
+  "Using these forms" (before 7, "Notes"), for the preparer, with the
+  one-wallet line and the disclaimer. RPT-6 checks the values once
   prices are on.
 
 ### TZ: tax timezone

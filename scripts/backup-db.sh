@@ -18,6 +18,11 @@ fi
 BACKUP_DIR="${BACKUP_DIR:-$(dirname "$DB_PATH")/daily-backups}"
 KEEP_DAYS=60
 
+# sqlite3's .backup takes the file name in single quotes
+case "$BACKUP_DIR" in
+    *"'"*) echo "$0: the backup folder's path can't contain a ' ($BACKUP_DIR)" >&2; exit 2 ;;
+esac
+
 DATE=$(date +%Y-%m-%d)
 BACKUP_FILE="$BACKUP_DIR/btctx_${DATE}.db"
 
