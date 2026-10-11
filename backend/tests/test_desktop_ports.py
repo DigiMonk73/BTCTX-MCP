@@ -176,3 +176,21 @@ def test_a_test_run_never_activates_bitcointx_by_name(monkeypatch, bring_forward
     desktop_ports.tell_already_running(8766, bring_forward=bring_forward)
     assert any("activate" in s for s in scripts) is activates
     assert any("already open" in s for s in scripts)
+
+
+@pytest.mark.parametrize("test_run, name", [(False, "BitcoinTX"), (True, "BitcoinTX Test")])
+def test_its_messages_name_the_copy_that_shows_them(monkeypatch, tmp_path, test_run, name):
+    """A test copy's "already open" and busy-port messages say BitcoinTX
+    Test, title and text, so they aren't mistaken for the installed app's."""
+    if test_run:
+        monkeypatch.setenv("BTCTX_DESKTOP_DATA_DIR", str(tmp_path))
+    else:
+        monkeypatch.delenv("BTCTX_DESKTOP_DATA_DIR", raising=False)
+    scripts = []
+    monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
+    monkeypatch.setattr(desktop_ports, "_osascript", lambda script: scripts.append(script) or "")
+    desktop_ports.tell_already_running(8766, bring_forward=False)
+    desktop_ports.ask_port_busy(8766)
+    already, busy = scripts
+    assert f'"{name} is already open." with title "{name}"' in already
+    assert busy.startswith(f'display dialog "{name} can\'t use port 8766') and f'with title "{name}"' in busy

@@ -131,9 +131,15 @@ too.
   prints the folder) is in **the MCP server's own environment**: the MCP
   Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
   not reach the server: the Inspector passes it only through `-e`.
-- **A second launch** on the same port says "BitcoinTX is already open" but
-  doesn't bring a window forward: AppleScript would find the installed app
-  by name.
+- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run:
+  the window title and its messages (a second launch, a busy port) say
+  so. The menu bar, the Dock and the page inside the window still say
+  BitcoinTX (the first two come from the bundle), and an older build run
+  with `--app` says BitcoinTX everywhere. Whatever a message says during a
+  test run, act only on the test copy, and leave the installed app alone.
+- **A second launch** on the same port says "BitcoinTX Test is already
+  open" but doesn't bring a window forward: AppleScript would find the
+  installed app by name.
 
 ### Manual build
 

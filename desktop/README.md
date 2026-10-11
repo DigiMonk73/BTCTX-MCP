@@ -68,7 +68,7 @@ desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: anothe
 |------|---------|
 | `entrypoint.py` | Launcher: sets data paths, starts Uvicorn, opens the pywebview window |
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
-| `desktop_paths.py` | The data and log folders (`BTCTX_DESKTOP_DATA_DIR` for a test run) |
+| `desktop_paths.py` | The data and log folders (`BTCTX_DESKTOP_DATA_DIR` for a test run), and the name the app shows ("BitcoinTX Test" on a test run) |
 | `run-test-build.sh` | Runs a build on a test folder and port 8766, never the real ledger |
 | `BitcoinTX.spec` | PyInstaller configuration (hidden imports, bundle version) |
 | `build-mac.sh` | Build script |
