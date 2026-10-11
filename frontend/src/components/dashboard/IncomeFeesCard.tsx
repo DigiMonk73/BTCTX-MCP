@@ -8,8 +8,8 @@ interface IncomeFeesCardProps {
   price: LivePrice;
 }
 
-/** Income by source (USD and BTC), gifts received, and the fees paid, with
- * the BTC fees valued at today's price. */
+/** Income by source (USD and BTC), the gifts and rebates received (not
+ * income), and the fees paid, with the BTC fees valued at today's price. */
 const IncomeFeesCard: React.FC<IncomeFeesCardProps> = ({ gains, price }) => (
   <div className="card income-fees-container">
     <h3 className="card-title">Income & Fees</h3>
@@ -34,6 +34,10 @@ const IncomeFeesCard: React.FC<IncomeFeesCardProps> = ({ gains, price }) => (
     <FigureRow label="Gifts (received)">
       {formatUsd(gains.gifts_received)} (
       <em>{formatBtc(gains.gifts_btc)}</em>)
+    </FigureRow>
+    <FigureRow label="Rebates (received)">
+      {formatUsd(gains.rebates_received)} (
+      <em>{formatBtc(gains.rebates_btc)}</em>)
     </FigureRow>
     <p className="gifts-note">
       <em>(not added to income or gains)</em>

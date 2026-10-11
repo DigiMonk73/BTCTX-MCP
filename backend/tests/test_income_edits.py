@@ -138,7 +138,8 @@ def test_a_partial_move_to_bank_drops_the_value(auth_client, test_engine):
 
 @pytest.mark.parametrize("account", [BANK, EXCHANGE_USD])
 @pytest.mark.parametrize("source, earned, btc", [("Interest", "interest_earned", "interest_btc"),
-                                                 ("Gift", "gifts_received", "gifts_btc")])
+                                                 ("Gift", "gifts_received", "gifts_btc"),
+                                                 ("Rebate", "rebates_received", "rebates_btc")])
 def test_a_usd_deposit_is_never_bitcoin_income(auth_client, test_engine, account, source, earned, btc):
     """Review of #103, #110: a USD deposit with a value (left by an older
     version, sent back by an edit, or created with one) was counted as income

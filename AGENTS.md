@@ -157,8 +157,9 @@ So derived values must be recomputable from the Transaction row alone.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued
   like income deposits (`constants.VALUED_AT_RECEIPT`: the same filling,
   marking and re-pricing), but never income: not in the report's or the
-  dashboard's income, listed apart in the report (`rebates`). Reward stays
-  income (mining, staking, bonuses).
+  dashboard's income, listed apart in the report (`rebates`) and on the
+  dashboard (`rebates_received`, #129). Reward stays income (mining,
+  staking, bonuses).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every past-day valuation goes through

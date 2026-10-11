@@ -71,6 +71,15 @@ def test_a_rebate_is_never_income(auth_client, test_engine):
     assert row["type"] == "Rebate"
 
 
+def test_the_dashboard_shows_rebates_apart_from_income(auth_client):
+    """#129: the dashboard's Income & Fees card showed rebates nowhere. They
+    have their own line, beside the gifts, never in Total Income."""
+    deposit(auth_client)
+    dashboard = auth_client.get("/api/calculations/gains-and-losses").json()
+    assert dashboard["rebates_received"] == 50.0 and dashboard["rebates_btc"] == 0.001
+    assert dashboard["total_income"] == 0 and dashboard["gifts_received"] == 0
+
+
 def test_reward_stays_income(auth_client, test_engine):
     deposit(auth_client, source="Reward")
     assert report(test_engine)["income_summary"]["Reward"] == 50.0
