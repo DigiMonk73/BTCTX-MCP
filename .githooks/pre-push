@@ -11,14 +11,14 @@ cd "$(git rev-parse --show-toplevel)"
 # taking the first that merely exists failed the push.
 PY="${BTCTX_PYTHON:-}"
 if [ -z "$PY" ]; then
-  main_venv="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
+  main_venv="$(git worktree list --porcelain | sed -n '1s/^worktree //p')/.venv/bin/python"
   for c in .venv/bin/python "$main_venv" desktop/.venv/bin/python python3; do
     if { [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; } && "$c" -c "import ruff, pytest" 2>/dev/null; then
       PY="$c"; break
     fi
   done
   if [ -z "$PY" ]; then
-    printf "\n\033[31m✗ pre-push failed: no Python with ruff and pytest\033[0m\n  (install the dev tools in .venv, or set BTCTX_PYTHON)\n"
+    printf "\n\033[31m✗ pre-push failed: no Python with ruff and pytest\033[0m\n  (install the dev tools, docs/TESTING.md; or set BTCTX_PYTHON; or bypass with: git push --no-verify)\n"
     exit 1
   fi
 fi
