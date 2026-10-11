@@ -1,6 +1,7 @@
 // Shared fixtures: every test gets its own backend on a fresh temp database
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
+// Those prices are stubbed, or with `fakeInternet` come from a fake internet.
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -69,6 +70,22 @@ async function startApp(
   }
   proc.kill();
   throw new Error(`server did not start:\n${log.join("")}`);
+}
+
+/** Where the server logs its requests to outside services (fakeInternet). */
+const OUTSIDE_LOG = "outside-requests.jsonl";
+
+export interface OutsideRequest {
+  url: string;
+  /** The proxy it was sent through, or null for a direct request. */
+  proxy: string | null;
+}
+
+/** What the server sent to outside services so far (with fakeInternet), oldest first. */
+export function outsideRequests(app: App): OutsideRequest[] {
+  const file = path.join(app.dir, OUTSIDE_LOG);
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
 }
 
 /**
@@ -144,6 +161,12 @@ type Fixtures = {
    * "startos": set by the server, as StartOS's Price Source & Privacy action does.
    */
   priceSource: "public" | "unset" | "startos";
+  /**
+   * true: the prices come from a fake internet instead of stubs
+   * (smoke_test.py, fake_internet), so the app's own choice of source,
+   * fallback and proxy runs; outsideRequests() lists what it sent out.
+   */
+  fakeInternet: boolean;
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -152,9 +175,11 @@ type Fixtures = {
 export const test = base.extend<Fixtures>({
   appMode: ["server", { option: true }],
   priceSource: ["public", { option: true }],
-  app: async ({ appMode, priceSource }, use, testInfo) => {
+  fakeInternet: [false, { option: true }],
+  app: async ({ appMode, priceSource, fakeInternet }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
+      ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
       ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
       ...(priceSource === "startos"
         ? { BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off" }
