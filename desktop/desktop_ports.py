@@ -25,6 +25,8 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 
+from desktop_paths import app_name
+
 logger = logging.getLogger("BitcoinTX")
 
 HOST = "127.0.0.1"
@@ -128,14 +130,15 @@ def ask_port_busy(port: int) -> str:
     if sys.platform != "darwin":
         logger.error("Port %d is taken; using another port for this session", port)
         return OTHER_PORT
+    name = app_name()
     msg = (
-        f"BitcoinTX can't use port {port}: another program is using it. "
-        "AI assistants connect to BitcoinTX on this port.\\n\\n"
+        f"{name} can't use port {port}: another program is using it. "
+        f"AI assistants connect to {name} on this port.\\n\\n"
         "Retry after closing that program, use another port for this session "
         "(AI assistants won't connect until you restart), or quit."
     )
     answer = _osascript(
-        f'display dialog "{msg}" with title "BitcoinTX" '
+        f'display dialog "{msg}" with title "{name}" '
         f'buttons {{"{QUIT}", "{OTHER_PORT}", "{RETRY}"}} '
         f'default button "{RETRY}" cancel button "{QUIT}" with icon caution'
     )
@@ -152,15 +155,18 @@ def tell_already_running(port: int, bring_forward: bool = True) -> None:
     Say BitcoinTX is already open and bring it forward. A test run
     (bring_forward=False) only says so: AppleScript finds the app by name,
     so it could bring forward, or start, the installed app on its real
-    ledger instead of the test copy.
+    ledger instead of the test copy. The message names the copy that
+    shows it ("BitcoinTX Test" on a test run), so it isn't taken for the
+    installed app's.
     """
     if sys.platform != "darwin":
         logger.error("BitcoinTX is already running on port %d", port)
         return
     if bring_forward:
         _osascript('tell application "BitcoinTX" to activate')
+    name = app_name()
     _osascript(
-        'display dialog "BitcoinTX is already open." with title "BitcoinTX" '
+        f'display dialog "{name} is already open." with title "{name}" '
         'buttons {"OK"} default button "OK"'
     )
 

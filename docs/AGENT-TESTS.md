@@ -717,9 +717,9 @@ tool's shell may not keep variables. The script uses the same test folder
 and port 8766 on every launch. Then read 8766 for 8765 and DATA for
 `~/Library/Application Support/BitcoinTX/` below. The script's first launch
 replaces all of MAC-1 (no dmg, no drag, no `open`): expect the app window
-and no port banner. In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
+and no port banner; the window's title is "BitcoinTX Test". In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
 after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a second
-launch shows "BitcoinTX is already open" without bringing a window forward,
+launch shows "BitcoinTX Test is already open" without bringing a window forward,
 and starts no second copy on 8766. If the installed app appears at any
 point, leave it alone, touch nothing in it, and record that.
 

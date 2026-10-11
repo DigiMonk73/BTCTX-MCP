@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- **A Mac test build calls itself "BitcoinTX Test"** in its window title and
+  its messages ("BitcoinTX Test is already open", a busy port), whenever
+  it runs on a throwaway data folder (`desktop/run-test-build.sh`). During
+  the 1.2.7 release tests the owner saw the test copy's "already open"
+  message, took it for their own app's, and quit the real one: now nothing
+  the test copy shows looks like the installed app's.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

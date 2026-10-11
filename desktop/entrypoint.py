@@ -16,7 +16,7 @@ import logging.handlers
 import base64
 from pathlib import Path
 
-from desktop_paths import DATA_DIR_ENV, data_dir, data_dir_override, log_dir
+from desktop_paths import DATA_DIR_ENV, app_name, data_dir, data_dir_override, log_dir
 from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -238,7 +238,7 @@ def main():
 
     # Create the webview window with the API
     window = webview.create_window(
-        title="BitcoinTX",
+        title=app_name(),
         url=f"http://127.0.0.1:{port}/",
         width=1280,
         height=800,
