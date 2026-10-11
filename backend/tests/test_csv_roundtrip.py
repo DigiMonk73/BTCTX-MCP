@@ -200,9 +200,9 @@ def test_a_row_the_ledger_refuses_says_why_and_saves_nothing(auth_client, monkey
 
 def test_the_template_imports_as_it_is_with_prices_off(auth_client, monkeypatch):
     """Docs check before 1.2.6: the template says it imports as it is, but
-    four rows with a BTC fee left fee_usd blank, so with prices off (a new
-    install's default until a price source is chosen) the import stopped at
-    "No BTC price is stored" and saved nothing."""
+    four rows with a BTC fee left fee_usd blank, so before a price source was
+    chosen, or with prices off, the import stopped at "No BTC price is
+    stored" and saved nothing."""
     auth_client.delete("/api/transactions/delete_all")
     stub_daily_prices(monkeypatch, lambda day: None)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))

@@ -138,9 +138,9 @@ All notable changes to BitcoinTX are documented in this file.
   valued at that day's price when its value is left blank (by you, a CSV,
   the River import or the AI connector), and that value is both its cost
   basis and the income on the tax report. An edit could keep the wrong
-  figure (the old value can be too high or too low and $0 understates the
-  income, and either way the later gain is off by the same amount the other
-  way; the third overstates the income):
+  figure (an old value can be too high or too low, and $0 understates the
+  income; either way the later gain is off by the same amount in the other
+  direction. The third overstates the income):
   - **the old value**, after changing the deposit's amount or date (from
     the form, the AI connector or the API);
   - **$0**, after moving a deposit from Bank to Wallet or Exchange BTC with
@@ -195,6 +195,12 @@ All notable changes to BitcoinTX are documented in this file.
     first): ask your tax professional whether to amend.
   - Not covered: the gift rule for coins worth less on the day of the gift
     than the giver paid (IRC §1015), which needs the day's value (#104).
+- **The CSV template imports as it is on a new install.** Four of its
+  sample rows had a BTC fee without its dollar value (`fee_usd`), so before
+  a price source was chosen, or with prices off, the import stopped at "No
+  BTC price is stored" and saved nothing. Each fee now has its value. The
+  template also gains a Rebate row, and its Gift row, like the CSV guide,
+  says a gift's cost basis is the giver's.
 
 ### StartOS package
 - **Connect an AI Assistant's Claude Code command works in every folder**
@@ -230,7 +236,7 @@ All notable changes to BitcoinTX are documented in this file.
   are declared the SDK 3 way (`sdk.Dependency.optional`), still optional
   and needed only by the price source that uses them. The package's file
   models keep keys they don't model. The 1.2.5:0 release notes gained
-  those two sentences in every language. Closes #27 and #28.
+  those two sentences in every language. Closes #27.
 
 ### Development
 - **A Mac app build can be tested without touching a real ledger.**
@@ -298,7 +304,7 @@ All notable changes to BitcoinTX are documented in this file.
   pack job and the release install a current Docker
   (`docker/setup-docker-action`, as Start9's own builds do).
   `startos/TODO.md` is gone, as in Start9's template: the package's to-dos
-  are issues labelled `start9`.
+  are issues labelled `start9`. Closes #28.
 - **The landing page is a release step.** `AGENTS.md` and
   `docs/HOW-CHANGES-FLOW.md` name DigiMonk73/btctx-site: its download links
   follow the latest release by themselves, its text and screenshots are
@@ -319,11 +325,7 @@ All notable changes to BitcoinTX are documented in this file.
 - **The final docs check before 1.2.6.**
   - The README's StartOS install now names Start9's Community Beta
     registry, with sideloading as the other way (#84).
-  - The CSV template has a Rebate row; its Gift row and the CSV guide say
-    a gift's cost basis is the giver's. It also imports as it is with
-    prices off, a new install's default: four of its rows had a BTC fee
-    without its dollar value, so the import stopped at "No BTC price is
-    stored".
+  - The CSV template's fix and new rows (under Fixed).
   - The Complete Tax Report's Notes now say "check it with a tax
     professional before you file", like the rest of the report.
   - The AI connector's tool descriptions and guide match 1.2.6.

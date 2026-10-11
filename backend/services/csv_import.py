@@ -656,8 +656,8 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
 # The template's sample rows, in date order: at least one of each type, both
 # ways to buy (Exchange USD, and Bank for an auto-buy), every deposit source
 # and withdrawal purpose. Their balances add up and every BTC fee has its
-# fee_usd, so the file imports as it is, even with prices off. The columns a
-# row doesn't give are left blank.
+# fee_usd, so the file imports as it is, even before a price source is
+# chosen or with prices off. The columns a row doesn't give are left blank.
 TEMPLATE_ROWS = [
     # USD in, and to the exchange
     ["2024-01-01T10:00:00Z", "Deposit", "20000.00", "External", "Bank",
