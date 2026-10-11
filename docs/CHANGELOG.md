@@ -187,6 +187,16 @@ All notable changes to BitcoinTX are documented in this file.
     than the giver paid (IRC §1015), which needs the day's value (#104).
 
 ### StartOS package
+- **Connect an AI Assistant's Claude Code command works in every folder**
+  (#116). It lacked `--scope user`, so Claude Code (whose default scope is
+  the current folder) saved BitcoinTX's connector for the folder it was run
+  in only; Settings → Connect an AI Assistant and the setup guide already
+  gave `--scope user`. Set up with the old command? Move the `bitcointx`
+  entry in `~/.claude.json` from your folder's `projects` entry to the
+  top-level `mcpServers` (it keeps your key and certificate path). To use
+  the new command instead, first remove the old entry with
+  `claude mcp remove bitcointx -s local` in that folder, then put your key
+  and certificate path into the new one.
 - **The store listing says who BitcoinTX is for, and the instructions say
   it isn't tax advice.** The short description is now "Bitcoin tax tracker
   for one wallet and one exchange, optional AI-assisted entry", and the long
