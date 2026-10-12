@@ -54,12 +54,14 @@ BITFINEX_BLOCK = 10000  # hours per request
 # mistake) moves the median gap less than the market does, so the gaps must
 # also scatter less as they are than shifted by an hour. The scatter is
 # taken around the median gap, so a steady premium at one exchange doesn't
-# count: every 30-day window since 2023 passes by 62% at least.
+# count: every two-week window since 2023 passes by 54% at least (every
+# 30-day one by 62%).
 CROSS_CHECK_FROM = pf.year_start(2023)  # Bitfinex traded at a premium before (5% in 2017)
 MAX_GAP = Decimal("0.02")  # any one hour
 MAX_MEDIAN = Decimal("0.005")
 MIN_COVER = 0.95  # of our hours the other exchange must have
-ALIGN_HOURS = 720  # hours compared before the shift test means something
+SHIFT_TEST_HOURS = 336  # hours compared before the shift test means something
+NEWEST_HOURS = 720  # release-check: the newest 30 days
 MAX_AGE_DAYS = 14
 # Hours where both exchanges were right and still more than MAX_GAP apart (a
 # real market event): label -> why. Added only in a pull request, with the
@@ -68,7 +70,7 @@ EXCUSED_HOURS: dict[str, str] = {}
 PAUSE = {"bitstamp": 0.2, "bitfinex": 2.5}  # seconds between requests (tests: 0)
 RETRY_WAITS = (2.0, 10.0)  # before the second and third try (tests: 0)
 TRANSIENT = {429, 500, 502, 503, 504}
-ONLINE_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)
+ONLINE_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError)  # no answer, or not the answer expected
 
 
 class PatientClient(httpx.AsyncClient):
@@ -112,9 +114,11 @@ async def kraken_hours(client) -> dict[int, Decimal]:
     resp = await client.get(KRAKEN_URL, params={"pair": "XBTUSD", "interval": 60})
     resp.raise_for_status()
     data = resp.json()
-    if data.get("error"):
-        raise ValueError(str(data["error"]))
-    pair = next(k for k in data["result"] if k != "last")
+    if not isinstance(data, dict) or data.get("error"):
+        raise ValueError(str(data.get("error") if isinstance(data, dict) else data)[:200])
+    pair = next((k for k in data["result"] if k != "last"), None)
+    if pair is None:
+        raise ValueError("Kraken's answer has no pair")
     return {int(row[0]): Decimal(str(row[1])) for row in data["result"][pair]}  # [time, open, …]
 
 
@@ -133,7 +137,7 @@ def compare(ours: dict[int, Decimal], theirs: dict[int, Decimal], name: str) -> 
     median = statistics.median(gap.values())
     if median > MAX_MEDIAN:
         problems.append(f"the median gap to {name} is {median:.3%}, over {MAX_MEDIAN:.1%}")
-    if len(common) >= ALIGN_HOURS and _off_by_an_hour(ours, theirs, common):
+    if len(common) >= SHIFT_TEST_HOURS and _off_by_an_hour(ours, theirs, common):
         problems.append(f"Bitstamp's hours agree better with {name}'s shifted by an hour: a time is off")
     print(f"  {name}: {len(common)} hours, median gap {median:.3%}, largest {max(gap.values()):.3%}")
     return problems
@@ -244,8 +248,11 @@ async def check_sources(client, path: Path, now: float, report: Path | None) -> 
     for line in lines:
         try:
             text, _ = await _year(client, line.year, line.last_hour)
-        except ONLINE_ERRORS as exc:
-            unanswered.append(f"{line.year}: {exc}")
+        except httpx.HTTPError as exc:
+            unanswered.append(_why(line.year, exc))
+            continue
+        except ONLINE_ERRORS as exc:  # an hour missing, or an answer of another shape
+            changed.append(_why(line.year, exc))
             continue
         if pf.fingerprint(text) != line.sha256:
             changed.append(f"{line.year}: Bitstamp's prices no longer give the manifest's fingerprint")
@@ -262,7 +269,8 @@ def _watch_report(changed: list[str], unanswered: list[str]) -> str:
     if changed:
         title = "Price history: Bitstamp's hourly prices no longer match the manifest"
         what = ("Installs whose download fails a year's check value that year at the day's price "
-                "instead. Find out what changed (Bitstamp's API, a corrected past price), then decide "
+                "instead. Find out what changed (Bitstamp's API, a missing hour, a corrected past "
+                "price), then decide "
                 "in a pull request: never change a closed year's line without the owner's OK "
                 "(backend/assets/btc_prices/README.md).")
     else:
@@ -283,14 +291,14 @@ async def release_check(client, path: Path, now: float, commit_time: float | Non
     if commit_time is not None and commit_time - last > MAX_AGE_DAYS * 86400:
         return fail([f"the history ends {pf.label(last)}, more than {MAX_AGE_DAYS} days before the release "
                      "commit: run `make prices` in a pull request into develop"])
-    newest = set(range(last - (ALIGN_HOURS - 1) * pf.HOUR, last + pf.HOUR, pf.HOUR))
+    newest = set(range(last - (NEWEST_HOURS - 1) * pf.HOUR, last + pf.HOUR, pf.HOUR))
     years = {pf.year_of(h) for h in newest}
     prices: dict[int, Decimal] = {}
     for line in (y for y in lines if y.year in years):
         try:
             text, got = await _year(client, line.year, line.last_hour)
         except ONLINE_ERRORS as exc:
-            return fail([f"{line.year}: {exc}"])
+            return fail([_why(line.year, exc)])
         if pf.fingerprint(text) != line.sha256:
             return fail([f"{line.year}: Bitstamp's prices no longer give the manifest's fingerprint"])
         prices.update(got)
@@ -298,6 +306,11 @@ async def release_check(client, path: Path, now: float, commit_time: float | Non
     if problems := await cross_check(client, {h: prices[h] for h in newest if h >= CROSS_CHECK_FROM}):
         return fail(problems)
     return 0
+
+
+def _why(year: int, exc: Exception) -> str:
+    """A year's problem, named once (an IncompleteYear's message already names it)."""
+    return str(exc) if isinstance(exc, pf.IncompleteYear) else f"{year}: {exc}"
 
 
 def fail(problems: list[str]) -> int:
