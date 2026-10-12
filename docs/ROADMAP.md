@@ -31,7 +31,7 @@ users see and how values are made.
 - [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
       #150; the owner agreed 2026-10-12):
   - [x] a spend's network fee comes off its proceeds (#157, done in #162);
-  - [ ] "Consolidate / move within the same wallet", which records only the
+  - [x] "Consolidate / move within the same wallet", which records only the
         network fee (#159);
   - [x] an Inherited deposit source: the value at death (usually) as cost,
         always long-term, "INHERITED" on Form 8949 (#154); rules and wording

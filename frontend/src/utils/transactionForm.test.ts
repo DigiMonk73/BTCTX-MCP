@@ -4,6 +4,7 @@ import {
   dayIn,
   localDatetimeToIso,
   mapTransactionToFormData,
+  transferDestinations,
 } from "./transactionForm";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
@@ -99,6 +100,17 @@ describe("Withdrawal", () => {
   });
 });
 
+describe("transferDestinations", () => {
+  it("offers the other account of the currency first, and a BTC account itself (#159)", () => {
+    expect(transferDestinations("Bank")).toEqual(["Exchange"]);
+    expect(transferDestinations("Exchange", "USD")).toEqual(["Bank"]);
+    expect(transferDestinations("Wallet")).toEqual(["Exchange", "Wallet"]);
+    expect(transferDestinations("Exchange", "BTC")).toEqual(["Wallet", "Exchange"]);
+    expect(transferDestinations("Exchange", undefined)).toEqual([]);
+    expect(transferDestinations(undefined)).toEqual([]);
+  });
+});
+
 describe("Transfer", () => {
   it("amount is what left the source; the form shows amount minus fee as received", () => {
     const transfer = {
@@ -119,6 +131,27 @@ describe("Transfer", () => {
       fee_amount: 0.0001,
       fee_currency: "BTC",
       broker_reporting: null,
+    });
+  });
+
+  it("a consolidation (#159) comes back as one: the same account, its fee, what arrived", () => {
+    const consolidation = {
+      type: "Transfer" as TransactionType,
+      from_account_id: 2,
+      to_account_id: 2,
+      amount: 0.8,
+      fee_amount: 0.0001,
+      fee_currency: "BTC",
+    };
+    const form = mapTransactionToFormData(tx(consolidation));
+    expect(form).toMatchObject({ fromAccount: "Wallet", toAccount: "Wallet", amountFrom: 0.8 });
+    expect(form.amountTo).toBeCloseTo(0.7999, 8);
+    expect(buildTransactionPayload(form)).toMatchObject({
+      from_account_id: 2,
+      to_account_id: 2,
+      amount: 0.8,
+      fee_amount: 0.0001,
+      fee_currency: "BTC",
     });
   });
 });

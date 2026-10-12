@@ -5,6 +5,25 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **A consolidation's network fee can be recorded** (tax figures, #159).
+  When you consolidate the coins (UTXOs) in your wallet, or move bitcoin
+  between two of your wallets that BitcoinTX counts as one, the network
+  fee is a disposal of the coins that paid it (IRS digital-asset FAQ, Q81
+  and Q97), but there was nowhere to record it: a transfer to the same
+  account was refused. Now the Transfer form's To Account offers **Wallet:
+  consolidate / move within the same wallet** (and, from the exchange,
+  **Exchange: move between exchanges BitcoinTX counts as one**). Enter what
+  left (fee included) and what arrived, as for any transfer. Only the fee
+  is recorded: a disposal of your oldest coins at the fee's value, on Form
+  8949 in box I or L (C or F before 2025), never broker-reported. Your
+  coins, their dates and cost basis stay as they are. The CSV import and
+  export, the AI connector and its guide take it too; the list shows it as
+  a Consolidation (Between exchanges for the exchange). No existing figure
+  changes: only entries you add create new fee rows. If you left a past
+  consolidation's fee out, you can add it now: it is checked against what
+  the wallet held on its date. After a move between two exchanges, a sale
+  at the one the coins moved to usually shows no basis on its 1099-DA: set
+  that sale's Broker form to Proceeds only, as the form's hint says.
 - **Inherited bitcoin can be recorded** (tax figures, #154). A deposit's
   Source now has **Inherited**, which follows the rules for property
   inherited from someone who died, different from a gift's:
@@ -107,7 +126,8 @@ All notable changes to BitcoinTX are documented in this file.
   on GitHub: an umbrella issue, an issue per session with its checklist,
   and a kickoff prompt on each. Each session works through its checklist
   and records its decisions on its issue. Small changes stay in one
-  session.
+  session. The main session keeps a handoff for itself on the umbrella
+  issue, current after every change, so a new one can take over.
 - **The reference ledger's figures, checked by a second calculation**
   (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
   Schedule D line, box total, gains summary, income and rebate figure, gift
