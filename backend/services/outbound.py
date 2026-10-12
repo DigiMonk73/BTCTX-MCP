@@ -26,6 +26,10 @@ installed): then nothing answers but the fallback. An invalid value turns
 price lookups off rather than guessing ("invalid"). BTCTX_HOST=startos only
 changes words: where a server-set choice is changed (host()).
 
+With a choice made in the app, the server may lend its Tor
+(BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Choose in BitcoinTX): it is
+the proxy then, locked on, and an invalid one asks nobody (server_tor).
+
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
 install-draft-forms` (services/reports/draft_forms.py) fetches the IRS's
@@ -61,6 +65,10 @@ SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
     "BTCTX_PRICE_SOURCE", "BTCTX_MEMPOOL_FALLBACK", "BTCTX_MEMPOOL_URL", "BTCTX_PROXY_URL")
+# Tor on the server, for a choice made in the app (StartOS: the action's
+# "Use Tor" with Choose in BitcoinTX, #145): used for every request that
+# goes through a proxy, and locked on in Settings
+ENV_TOR = "BTCTX_TOR_PROXY_URL"
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
 SETTINGS_PAGE = "Settings → Privacy & network"
 SET_IN_STARTOS = "StartOS's Price Source & Privacy action"
@@ -86,16 +94,25 @@ class NetworkSettings:
     # A stored choice with no record of when it was made (#145, 2.9): nothing
     # is asked until the owner confirms it
     waiting: bool = False
+    # proxy_url is the server's Tor (BTCTX_TOR_PROXY_URL), not the owner's
+    tor_from_server: bool = False
 
     @property
     def own_node(self) -> str | None:
         """The mempool server to ask, when it's the chosen source."""
-        return self.mempool_url if self.price_source == "mempool" and not self.waiting else None
+        return self.mempool_url if self.price_source == "mempool" and self.asking else None
 
     @property
     def public_allowed(self) -> bool:
-        return not self.waiting and (self.price_source == "public" or (
+        return self.asking and (self.price_source == "public" or (
             self.price_source == "mempool" and self.mempool_fallback))
+
+    @property
+    def asking(self) -> bool:
+        """Whether anything may be asked: not while a choice waits to be
+        confirmed, nor while the server's settings are invalid (its Tor
+        included: never around it)."""
+        return not self.waiting and not self.invalid
 
 
 _current = NetworkSettings()
@@ -267,14 +284,29 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
     _record.update(chosen_at=_get(db, CHOSEN_AT_KEY), chosen_via=_get(db, CHOSEN_VIA_KEY))
     chosen = source in SOURCES
+    tor = server_tor()
     _current = NetworkSettings(
         price_source=source if chosen else "unset",
         mempool_url=_get(db, MEMPOOL_KEY),
         mempool_fallback=_get(db, FALLBACK_KEY) == "on",
-        proxy_url=_get(db, PROXY_KEY),
+        proxy_url=tor or _get(db, PROXY_KEY),
         waiting=chosen and not _record["chosen_at"],
+        tor_from_server=bool(tor),
+        invalid=tor == "",
     )
     return _current
+
+
+def server_tor() -> str | None:
+    """The server's Tor for a choice made in the app (BTCTX_TOR_PROXY_URL),
+    None when it isn't set, or "" when it's invalid: then nothing is asked
+    (the server asked for Tor, so never around it), with an error in the
+    log and the status line saying the server's settings aren't valid."""
+    try:
+        return _clean_url(os.environ.get(ENV_TOR), PROXY_SCHEMES, ENV_TOR)
+    except HTTPException as exc:
+        logger.error("Price lookups are off: %s is invalid: %s", ENV_TOR, exc.detail)
+        return ""
 
 
 def _clean_url(value: str | None, schemes, what: str) -> str | None:
@@ -305,10 +337,11 @@ def save(
     if price_source not in SOURCES:
         raise HTTPException(status_code=422, detail=f"Price source must be one of: {', '.join(SOURCES)}.")
     mempool = _clean_url(mempool_url, ("http", "https"), "Your mempool server")
-    proxy = _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
+    # With the server's Tor, the owner's own proxy setting stays as it was
+    proxy = _get(db, PROXY_KEY) if _current.tor_from_server else _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
     if price_source == "mempool" and not mempool:
         raise HTTPException(status_code=422, detail="Enter your mempool server's address to use it.")
-    if price_source == "mempool" and _is_onion(mempool) and not proxy:
+    if price_source == "mempool" and _is_onion(mempool) and not (proxy or _current.tor_from_server):
         raise HTTPException(status_code=422, detail=(
             "An .onion mempool server is reached through the proxy: set it below "
             "(e.g. Tor, socks5h://127.0.0.1:9050)."))
@@ -328,7 +361,7 @@ def refuse_public() -> HTTPException:
     mempool server is missing or didn't answer (an error, not a choice)."""
     s = _current
     where = where_to_change()
-    if s.price_source == "mempool" and not s.waiting:
+    if s.price_source == "mempool" and s.asking:
         if not s.mempool_url:  # only a server's setting: StartOS while Mempool isn't installed
             return HTTPException(status_code=502, detail=(
                 "Mempool isn't available, and the backup (public price sites) is off. Install and start "
@@ -339,7 +372,8 @@ def refuse_public() -> HTTPException:
         detail = ("Confirm where BitcoinTX gets newer prices: open BitcoinTX's Dashboard or "
                   f"{SETTINGS_PAGE}. Nothing is asked until you do.")
     elif s.invalid:
-        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}; the log says which."
+        server = SET_IN_STARTOS if host() == "startos" else SET_BY_SERVER  # the server's, even with a choice made here
+        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {server}; the log says which."
     elif s.price_source == "off":
         detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
     else:

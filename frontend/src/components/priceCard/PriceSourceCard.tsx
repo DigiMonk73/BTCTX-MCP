@@ -1,7 +1,7 @@
 import React from "react";
 import { useToast } from "../../contexts/useToast";
 import { CONFIRM_WHY, FOOTER, cardView } from "../../utils/priceSource";
-import { statusLine, type PriceStatus, type StatusLine } from "../../utils/priceStatus";
+import { historyLine, statusLine, type PriceStatus, type StatusLine } from "../../utils/priceStatus";
 import EditableChoices from "./EditableChoices";
 import ReadOnlyChoices from "./ReadOnlyChoices";
 import { usePriceCard } from "./usePriceCard";
@@ -18,6 +18,30 @@ const LOADING: StatusLine = { tone: "idle", text: "Loading…" };
 function lineFor(status: PriceStatus | null, backup: boolean, tor: boolean, timezone: string): StatusLine {
   return status ? statusLine(status, { backup, tor, timezone }) : LOADING;
 }
+
+/** The hourly history's line, first on the card, with the download's progress (#145). */
+const History: React.FC<{ status: PriceStatus | null; tor: boolean; timezone: string }> = ({ status, tor, timezone }) => {
+  const line = status ? historyLine(status, { backup: false, tor, timezone }) : null;
+  if (!line) return null;
+  return (
+    <div className={`price-history ${line.tone}`}>
+      <p className="price-history-text">
+        {line.tone === "ok" && <span aria-hidden="true">✓ </span>}
+        {line.tone === "warning" && <span aria-hidden="true">▲ </span>}
+        {line.text}
+      </p>
+      {line.progress && (
+        <progress
+          className="price-progress"
+          value={line.progress.done}
+          max={line.progress.total}
+          aria-label="Hourly history downloaded"
+          aria-valuetext={`${line.progress.done} of ${line.progress.total} years`}
+        />
+      )}
+    </div>
+  );
+};
 
 /**
  * Where BitcoinTX gets Bitcoin prices (#145): one card, the same words in
@@ -47,16 +71,25 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
         {view.title}
       </Heading>
       {view.confirming && <p className="price-help">{CONFIRM_WHY}</p>}
+      {/* While confirming nothing is downloaded, and the window must fit (800 × 600) */}
+      {!view.confirming && <History status={status} tor={Boolean(saved.proxy_url)} timezone={timezone} />}
       {saved.managed ? (
         <ReadOnlyChoices settings={saved} />
       ) : (
-        <EditableChoices form={form} set={set} errors={errors} current={view.current} />
+        <EditableChoices
+          form={form}
+          set={set}
+          errors={errors}
+          current={view.current}
+          history={status?.history}
+          tor={{ fromServer: saved.tor_from_server === true, onStartOS: saved.host === "startos" }}
+        />
       )}
       <p className={`price-status ${line.tone}`} role="status">
         <span aria-hidden="true">{ICONS[line.tone]}</span> {line.text}
       </p>
       {view.when && <p className="price-help">{view.when}</p>}
-      <p className="price-footer">{FOOTER}</p>
+      {!view.confirming && <p className="price-footer">{FOOTER}</p>}
       {!saved.managed && (
         <div className="price-actions">
           <button

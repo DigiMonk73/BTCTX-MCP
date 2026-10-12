@@ -254,6 +254,17 @@ All notable changes to BitcoinTX are documented in this file.
   once the package passes the new `BTCTX_HOST=startos`;
   `GET /api/settings/network` adds `host` and `invalid`). Invalid server
   settings say so instead of "Price lookups are off".
+- **The price card says where the hourly history is** (#145): before a
+  choice, that it's downloaded once from Bitstamp when you choose public
+  price sites (or your Mempool with its backup), each year checked against
+  a fingerprint that comes with BitcoinTX; then its progress, year by year;
+  then "downloaded and checked", from when it works offline whatever you
+  choose. With *Nobody*, or your Mempool alone, the card says what that
+  means for older values. Your Mempool with its backup now downloads the
+  history when you save, instead of when a value first needs it. And a
+  server can lend its Tor to a choice made in the app (new
+  `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Choose in BitcoinTX*):
+  Settings shows "Through Tor: Tor on this server", locked on.
 - **One price card, the same everywhere** (#145): where BitcoinTX gets
   Bitcoin prices is now one card with three choices, *My own Mempool* (with
   *If it can't answer, ask public price sites*), *Public price sites*
