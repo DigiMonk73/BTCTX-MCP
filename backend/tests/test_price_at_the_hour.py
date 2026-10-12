@@ -370,15 +370,15 @@ def test_a_sales_proceeds_are_never_marked_as_priced(auth_client):
     assert sale["proceeds_from_price"] is False and sale["price_moment"] is None
 
 
-def test_ledger_reviews_fee_check_leaves_fees_priced_at_the_hour(auth_client, monkeypatch):
-    """Review of #173: it compared them with the day's price and offered to
-    set them to it."""
+def test_ledger_review_leaves_fees_priced_at_the_hour(auth_client, monkeypatch):
+    """Review of #173: the old fee check compared them with the day's price
+    and offered to set them to it; the check of day-priced values passes them."""
     buy(auth_client)
     stub_daily_prices(monkeypatch, lambda day: 10000)  # far from the hour's
     post(auth_client, type="Transfer", timestamp="2026-04-01T07:45:00Z", from_account_id=EXCHANGE_BTC,
          to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
     review = auth_client.get("/api/review").json()
-    assert next(c for c in review["checks"] if c["key"] == "fee_value_off")["count"] == 0
+    assert next(c for c in review["checks"] if c["key"] == "day_priced_values")["count"] == 0
 def test_the_price_route_gives_the_price_a_moment_is_valued_at(auth_client):
     r = auth_client.get("/api/bitcoin/price/history", params={"at": "2026-04-01T09:47:00-05:00"})
     assert r.status_code == 200, r.text

@@ -3,17 +3,20 @@ GET /api/review: the read-only Ledger review (backend/services/review.py).
 Login or the AI key; it changes no transaction (it may
 store BTC prices it had to download).
 
-POST /api/review/fee-prices: set the listed transfers' fee values to the
-day's price and recalculate. Login only: it changes tax figures.
+POST /api/review/hourly-prices: price the listed transactions' values
+priced at the day (or a whole tax year's) at their hour, after a backup
+copy, and recalculate (services/hourly_review.py). Login only: it changes
+tax figures.
 """
 
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services.review import apply_fee_prices, build_review
+from backend.services.hourly_review import apply_hourly_prices
+from backend.services.review import build_review
 from backend.session_auth import require_login
 
 router = APIRouter()
@@ -26,15 +29,22 @@ def get_review(db: Session = Depends(get_db)):
     return review
 
 
-class FeePriceFix(BaseModel):
-    ids: list[int] = Field(..., min_length=1, max_length=10000)
+class HourlyPrices(BaseModel):
+    """The transactions to price at their hour: these ids, or a whole tax year."""
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=100000)
+    year: int | None = Field(default=None, ge=2009, le=2100)
 
 
-@router.post("/fee-prices")
-def fix_fee_prices(payload: FeePriceFix, request: Request, db: Session = Depends(get_db)):
+@router.post("/hourly-prices")
+def apply_hourly(payload: HourlyPrices, request: Request, db: Session = Depends(get_db)):
     require_login(request, db)
-    changes = apply_fee_prices(db, payload.ids)
+    if (payload.ids is None) == (payload.year is None):
+        raise HTTPException(status_code=422, detail="Give the transactions' ids or a tax year, not both.")
+    result = apply_hourly_prices(db, ids=payload.ids, year=payload.year)
     return {
-        "changed": [{"id": c["id"], "old": str(c["old"]), "new": str(c["new"])} for c in changes],
-        "recalculated": bool(changes),
+        "changed": [{"id": c["id"], "moment": c["moment"],
+                     "values": {f: [str(old), str(new)] for f, (old, new) in c["values"].items()}}
+                    for c in result["changed"]],
+        "backup": result["backup"],
+        "recalculated": bool(result["changed"]),
     }

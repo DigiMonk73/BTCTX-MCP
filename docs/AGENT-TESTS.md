@@ -421,8 +421,10 @@ Start from the `clean` snapshot.
     the answer's `moment`. Delete it.
   - The Complete Tax Report now values the holdings (RPT-6).
   - Ledger Review > **Check again**. Expect exactly one item: "Income and
-    rebate deposits valued far from that day's price: 1", which is #9. Its
-    $1,000.00 is made up, so this is correct. Any other item is a FAIL.
+    rebate values you typed, far from that hour's price: 1", which is #9.
+    Its $1,000.00 is made up, so this is correct. Every golden value is
+    typed, so "Values priced at the day's price that the hour would
+    change" is absent. Any other item is a FAIL.
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the

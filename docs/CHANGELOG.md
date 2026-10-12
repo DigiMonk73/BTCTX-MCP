@@ -53,6 +53,19 @@ All notable changes to BitcoinTX are documented in this file.
   The update adds one column to the database's lots (rebuilt at every
   recalculation), after its usual backup copy.
 
+- **The hourly price lookup and its verified download** (#144, the second
+  of five pull requests; nothing is valued at the hour yet). With public
+  price sites chosen, BitcoinTX downloads Bitstamp's hourly prices from
+  2013 once, in the background, into `btc-prices/` next to the database
+  (about 3 MB): every year in the same fixed requests on every install,
+  newest first, through Tor when it's set, and keeps a year only if it
+  gives the fingerprint the release ships. With your own mempool server
+  and its fallback, it's downloaded only when a lookup needs an hour the
+  server doesn't have. Hours after the history come from the server's
+  hourly record (only the hours it recorded live) or from Bitstamp, and
+  are kept (a new table, `btc_price_hourly`; nothing else in the database
+  changes). No request names a transaction's hour.
+
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax
   figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
@@ -114,20 +127,6 @@ All notable changes to BitcoinTX are documented in this file.
     remove `BTCTX_PRICE_SOURCE`), check that **Settings → Privacy &
     Network** shows the choice you want.
 
-### Added
-- **The hourly price lookup and its verified download** (#144, the second
-  of five pull requests; nothing is valued at the hour yet). With public
-  price sites chosen, BitcoinTX downloads Bitstamp's hourly prices from
-  2013 once, in the background, into `btc-prices/` next to the database
-  (about 3 MB): every year in the same fixed requests on every install,
-  newest first, through Tor when it's set, and keeps a year only if it
-  gives the fingerprint the release ships. With your own mempool server
-  and its fallback, it's downloaded only when a lookup needs an hour the
-  server doesn't have. Hours after the history come from the server's
-  hourly record (only the hours it recorded live) or from Bitstamp, and
-  are kept (a new table, `btc_price_hourly`; nothing else in the database
-  changes). No request names a transaction's hour.
-
 ### Changed
 - **Values BitcoinTX fills in from the BTC price now use the price when the
   transaction's hour began** (#144, tax figures; the third of five pull
@@ -169,6 +168,24 @@ All notable changes to BitcoinTX are documented in this file.
   the AI connector's `get_btc_price` takes a transaction's time and gives
   the price BitcoinTX values it at; its guide says the same. Update the
   connector (`btctx-mcp`) with this release.
+- **Ledger Review offers the hour's price for values priced at the day**
+  (#144, tax figures; the fourth of five pull requests). Its new check,
+  "Values priced at the day's price that the hour would change", lists, by
+  tax year, each transaction whose values BitcoinTX filled in at the day's
+  price (income or rebate values, Spent proceeds, network fee values) and
+  what its hour's price would make them; changes under $1.00 aren't listed
+  one by one but are in each year's totals. Nothing changes until you tick
+  some and apply them, or apply a whole year (Settings, or `python -m
+  backend.cli review --apply-hourly-prices YEAR`): a backup copy of the
+  database first, then the values at the hour (the day's price where
+  there's no hourly price), marked so, and a recalculation. For a year
+  you've filed, leaving it as filed is recommended; whether to amend is a
+  question for a tax professional. Typed values and inheritances (valued
+  at the date of death's day) are never listed. It replaces "Transfer fees
+  valued far from that day's price" and its **Fix these** (`review
+  --fix-fee-prices`): such a fee is listed here, at its hour's price. The
+  check of income and rebate values now covers only the ones you typed,
+  compared with that hour's price.
 
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing

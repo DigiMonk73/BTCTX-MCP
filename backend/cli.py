@@ -9,7 +9,7 @@ it works on an empty volume too.
     python -m backend.cli migrate
     python -m backend.cli set-password [--username NAME] [--password-stdin] [--if-default]
     python -m backend.cli recalculate
-    python -m backend.cli review [--fix-fee-prices]
+    python -m backend.cli review [--apply-hourly-prices YEAR]
     python -m backend.cli install-draft-forms [--from-dir DIR | --remove]
 
 set-password reads the new password from stdin with --password-stdin, else
@@ -141,20 +141,26 @@ def cmd_recalculate(args: argparse.Namespace) -> int:
 def cmd_review(args: argparse.Namespace) -> int:
     """
     The Ledger review (backend/services/review.py). Read-only, except with
-    --fix-fee-prices: then every transfer fee it flags is set to that day's
-    price and the ledger is recalculated.
+    --apply-hourly-prices YEAR: then that tax year's values priced at the
+    day are priced at their hour, after a backup copy, and the ledger is
+    recalculated (services/hourly_review.py).
     """
     _init_db()
     from backend.database import SessionLocal
-    from backend.services.review import apply_fee_prices, build_review, fee_price_changes, format_text
+    from backend.services.hourly_review import apply_hourly_prices
+    from backend.services.review import build_review, format_text
 
     db = SessionLocal()
     try:
-        if args.fix_fee_prices:
-            changes = apply_fee_prices(db, [c["id"] for c in fee_price_changes(db)])
-            for c in changes:
-                print(f"  #{c['id']}  fee value ${c['old']} -> ${c['new']}")
-            print(f"Fixed {len(changes)} fee value(s)" + (" and recalculated." if changes else "."))
+        if args.apply_hourly_prices is not None:
+            result = apply_hourly_prices(db, year=args.apply_hourly_prices)
+            for c in result["changed"]:
+                moved = "; ".join(f"{f} ${old} -> ${new}" for f, (old, new) in c["values"].items())
+                print(f"  #{c['id']}  {moved}  (at the {c['moment']}'s price)")
+            if result["backup"]:
+                print(f"Backup copy first: backups/{result['backup']}")
+            print(f"Changed {len(result['changed'])} transaction(s)"
+                  + (" and recalculated." if result["changed"] else "."))
         else:
             print(format_text(build_review(db)), end="")
             db.commit()  # downloaded prices only
@@ -200,8 +206,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     rp = sub.add_parser("review", help="list transactions to check after upgrading (read-only)")
     rp.add_argument(
-        "--fix-fee-prices", action="store_true",
-        help="set the transfer fees it flags to that day's price and recalculate (changes figures)",
+        "--apply-hourly-prices", type=int, metavar="YEAR",
+        help="price that tax year's values priced at the day at their hour, after a backup copy, "
+             "and recalculate (changes figures)",
     )
     rp.set_defaults(func=cmd_review)
 

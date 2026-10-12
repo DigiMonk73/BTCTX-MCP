@@ -174,7 +174,9 @@ def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
     assert reminder["title"].startswith("Reminder:")
     assert [i["id"] for i in reminder["items"]] == [undated["id"]]
     assert reminder["explanation"][0].startswith("If these are really income, interest, rewards or rebates")
-    assert {c["kind"] for c in checks} == {"check"} and all(not c["explanation"] for c in checks)
+    assert {c["kind"] for c in checks} == {"check"}
+    # Only the hourly check (#144) explains itself, like a reminder
+    assert [c["key"] for c in checks if c["explanation"]] == ["day_priced_values"]
     assert review["total"] == 0 and review["reminders"] == 1
 
 
