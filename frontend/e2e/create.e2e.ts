@@ -51,7 +51,7 @@ test.describe("BTC deposits", () => {
     await page.getByLabel("Amount").fill("0.02");
     await page.getByLabel("Source").selectOption("Inherited");
     await expect(page.getByText("any sale of it is long-term however soon you sell")).toBeVisible();
-    await expect(page.getByText("If the estate gave you a value")).toBeVisible();
+    await expect(page.getByText("alternate valuation date")).toBeVisible();
     await page.getByRole("button", { name: "Save Transaction" }).click();
     await expect(page.getByText("Enter the date of death.")).toBeVisible();
     expect(await listTx(page.request)).toHaveLength(0);

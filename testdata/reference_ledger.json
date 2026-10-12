@@ -401,7 +401,8 @@
    "fee_currency": "BTC",
    "source": "Inherited",
    "cost_basis_usd": "188.10",
-   "acquired_at": "2024-06-30T12:00:00Z"
+   "acquired_at": "2024-06-30T12:00:00Z",
+   "why": "Inherited, the year's row the coverage test asks for: valued on its date of death, newer than the wallet's coins that are sold, so it stays in the year-end lots."
   },
   {
    "type": "Deposit",
@@ -668,7 +669,8 @@
    "fee_currency": "BTC",
    "source": "Inherited",
    "cost_basis_usd": "168.80",
-   "acquired_at": "2025-02-28T12:00:00Z"
+   "acquired_at": "2025-02-28T12:00:00Z",
+   "why": "Inherited, the year's row the coverage test asks for: valued on its date of death, newer than the wallet's coins that are sold, so it stays in the year-end lots."
   },
   {
    "type": "Withdrawal",

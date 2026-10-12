@@ -54,22 +54,25 @@ Deposit: External -> any account
                If the coins were worth less on the day of the gift than
                the giver paid, tell the user BitcoinTX doesn't apply that
                gift rule (IRC §1015) and suggest their tax preparer.
-    Inherited = inherited from someone who died. acquired_at = the date of
-               death (REQUIRED: ask). cost_basis_usd = their value on that
-               date (left out: that day's price); if the estate gave a
-               value (Form 8971, Schedule A), use it. Always long-term,
-               with INHERITED in Form 8949's column (b). Never record an
-               inheritance as a Gift: the rules differ. If the user owned
-               the coins jointly with the person who died, or gave them to
-               that person within a year before the death, suggest their
-               tax preparer: only part may be inherited, or the basis may
-               be the user's own (IRC §1014(e)).
     acquired_at sets the holding period and Form 8949's date acquired:
     coins held more than a year are long-term. Without it, BitcoinTX
     counts from the deposit, so say so if the user doesn't know it.
     MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.
+    Inherited = inherited from someone who died. acquired_at = the date of
+               death (REQUIRED: ask). cost_basis_usd = their value on that
+               date, or on the estate's alternate valuation date if it
+               chose one (left out: the date of death's price); if the
+               estate gave a value (Form 8971, Schedule A), use it. Always
+               long-term, with INHERITED in Form 8949's column (b). Never
+               record an inheritance as a Gift: the rules differ. When
+               changing a deposit's source to or from Inherited, send
+               acquired_at in the same update. Suggest the user's tax
+               preparer if they owned the coins jointly with the person who
+               died (only part may be inherited), or gave them to that
+               person within a year before the death (the basis may be the
+               user's own, IRC §1014(e)).
     Income   = paid in BTC for work/goods.
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.

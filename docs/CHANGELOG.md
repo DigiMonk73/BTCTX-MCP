@@ -11,8 +11,10 @@ All notable changes to BitcoinTX are documented in this file.
   - its cost basis is its value on the **date of death** (IRC §1014),
     which the deposit must have (the form's **Date of death**; `acquired_at`
     in a CSV or the AI connector). Leave the value blank to use that day's
-    BTC price, or type it: if the estate gave you a value (Form 8971,
-    Schedule A), use that one, as your basis can't be more;
+    BTC price, or type it: the value on the estate's alternate valuation
+    date if it chose one; and if the estate's Form 8971, Schedule A, gives
+    a value marked as having increased the estate tax, your basis can't be
+    more (IRC §1014(f));
   - every sale or spend of these coins is **long-term** however soon it
     comes (IRC §1223(9)), with **INHERITED** in Form 8949's column (b), as
     the form's instructions ask. The rule follows the coins when you move
@@ -25,9 +27,11 @@ All notable changes to BitcoinTX are documented in this file.
   figures: a sale within a year of the death came out short-term, or a
   Gift's basis was the person's own cost. **What to do:** if you recorded
   inherited bitcoin that way, edit the deposit: Source **Inherited**, the
-  date of death, and its value that day. A deposit saved before 1.1.0
-  (when the source was free text) as "inherited" now follows these rules
-  too. The update adds one column to the database's lots (rebuilt at every
+  date of death (the edit must give it), and its value that day. A
+  deposit saved before 1.1.0 (when the source was free text) as
+  "inherited" follows these rules too from the next recalculation; Ledger
+  Review lists any without a date of death, which an edit then asks for.
+  The update adds one column to the database's lots (rebuilt at every
   recalculation), after its usual backup copy.
 
 ### Fixed

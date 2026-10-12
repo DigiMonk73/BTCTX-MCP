@@ -28,6 +28,12 @@ Checks:
   nothing fills it. After the 1.2.6 upgrade every older such deposit is
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
+- inherited_without_date (#154): an Inherited deposit into a BTC account
+  with no date of death. New ones must have it; a deposit saved before
+  1.1.0, when the source was free text, may say "inherited" without one. Its
+  coins follow the inheritance rules (long-term, INHERITED in column (b))
+  from the next recalculation, but it is valued and sorted by the deposit's
+  date, and an edit asks for the date of death.
 - income_without_value (#77): an income or rebate deposit (#98) with a $0
   or blank basis: for income, no income is reported for it; either way its
   whole value becomes gain when it's sold. The rules forbid it (a blank is
@@ -90,6 +96,12 @@ CHECKS: dict[str, tuple] = {
         "Transfer fees valued far from that day's price (probably at the live price)",
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
+    ),
+    "inherited_without_date": (
+        "Inherited deposits without a date of death",
+        "Edit each one: enter the date of death, and check the Cost Basis is the value that day. Until then it "
+        "is dated by the deposit. Its coins are long-term, with INHERITED on Form 8949, from the next "
+        "recalculation (Recalculate Ledger in Settings, or any add, edit or delete).",
     ),
     "income_without_value": (
         "Income and rebate deposits with a $0 or blank value",
@@ -318,6 +330,9 @@ def _row_issues(t: Transaction, tz):
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() == INHERITED_SOURCE and t.acquired_at is None:
+        yield "inherited_without_date", _item(t, tz, "No date of death.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and (t.source or "").lower() not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(

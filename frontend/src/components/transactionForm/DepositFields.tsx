@@ -20,8 +20,9 @@ const SOURCE_HINTS: Record<string, string> = {
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115). */
 function basisHint(source: string | undefined, valued: boolean): string {
   if (source === "Inherited") {
-    return "Its USD value on the date of death. If the estate gave you a value (for example on Form 8971, " +
-      "Schedule A), use that one: your basis can't be more. Leave blank to use that day's BTC price.";
+    return "Its USD value on the date of death, or on the estate's alternate valuation date if it chose one. " +
+      "If the estate's Form 8971, Schedule A, gives a value marked as having increased the estate tax, your " +
+      "basis can't be more. Leave blank to use the date of death's BTC price.";
   }
   if (source === "Rebate") {
     return "Its USD value when you received it (its cost basis, not income). Leave blank to use that day's BTC price.";

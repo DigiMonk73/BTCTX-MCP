@@ -178,6 +178,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
+    _check_inherited_date_sent(tx, tx_data)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     _check_edit(tx, tx_data, type_changed, db)
     _revalue_btc_fee(tx, tx_data, db)
@@ -218,6 +219,24 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
                 continue  # a proceeds edit is the new gross (_apply_edit)
             tx_data[key] = None
     return type_changed
+
+
+def _check_inherited_date_sent(tx: Transaction, tx_data: dict) -> None:
+    """
+    A deposit's source changed to or from Inherited must say its date in the
+    same edit (#154): a date of death and a date originally acquired aren't
+    the same date, and the stored one would silently become the other (a
+    Gift entered with the person's purchase date, then made Inherited, was
+    priced and sorted by that purchase date).
+    """
+    if "source" not in tx_data or "acquired_at" in tx_data:
+        return
+    was, becomes = _is_inherited({"source": tx.source}), _is_inherited(tx_data)
+    if becomes and not was:
+        _bad("Changing a deposit's source to Inherited needs its date of death (acquired_at) in the same edit.")
+    if was and not becomes and (tx_data["source"] or "").lower() in ORIGINAL_DATE_SOURCES:
+        _bad("Changing an Inherited deposit to My BTC or Gift needs its date originally acquired (acquired_at, "
+             "or null for the deposit's date) in the same edit.")
 
 
 def _drop_original_date_if_not_allowed(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -822,8 +841,9 @@ class _FifoDisposal:
 def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     """
     Summarize partial-lot disposals (Sell/Withdrawal). Overwrite
-    tx.cost_basis_usd, tx.proceeds_usd, tx.realized_gain_usd, holding_period
-    based on the earliest acquisition date among those partial-lot disposals.
+    tx.cost_basis_usd, tx.proceeds_usd, tx.realized_gain_usd, and
+    holding_period: LONG when any part is (the earliest lot's, as before
+    inherited coins, #154, which are long-term whatever their date).
     The figures are for the amount sold or spent; a network fee's disposal
     is left out, as for a transfer (its value is tx.fee_usd, its gain is on
     Form 8949 and in the gain totals).
@@ -840,16 +860,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     total_basis = Decimal("0.0")
     total_gain = Decimal("0.0")
     total_proceeds = Decimal("0.0")
-    earliest_lot = None
 
     for disp in disposals:
         total_basis += (disp.disposal_basis_usd or Decimal("0"))
         total_gain += (disp.realized_gain_usd or Decimal("0"))
         total_proceeds += (disp.proceeds_usd_for_that_portion or Decimal("0"))
-
-        lot = disp.lot  # Eager loaded, no additional query
-        if lot and (earliest_lot is None or lot.acquired_date < earliest_lot.acquired_date):
-            earliest_lot = lot
 
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
@@ -862,10 +877,8 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # A spend whose fee took all it brought in has 0 (#157), not the gross
         tx.proceeds_usd = total_proceeds
 
-    if earliest_lot:
-        tx.holding_period = lot_holding_period(earliest_lot, tx.timestamp, get_tax_timezone(db))
-    else:
-        tx.holding_period = None
+    # Each part's own term, worked out when it was disposed of (lot_holding_period)
+    tx.holding_period = "LONG" if any(d.holding_period == "LONG" for d in disposals) else "SHORT"
 
     db.flush()
 
@@ -1427,17 +1440,19 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
                           deposit: datetime, tz) -> str | None:
     """
     Why a date originally acquired can't go on this row, or None. Only on a
-    My BTC, Gift or Inherited deposit into a BTC account, after Bitcoin began, and no
-    later than the deposit's day: compared as days in the tax timezone, so
-    coins first acquired the morning of a deposit made at noon are allowed.
+    My BTC, Gift or Inherited deposit (its date of death) into a BTC account,
+    after Bitcoin began, and no later than the deposit's day: compared as
+    days in the tax timezone, so coins first acquired the morning of a
+    deposit made at noon are allowed.
     """
     if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
         return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
                 "death, into Wallet or Exchange BTC.")
+    what = "The date of death" if _is_inherited({"source": source}) else "The date originally acquired"
     if as_utc(acquired) < GENESIS:
-        return "The date originally acquired is before Bitcoin existed (3 January 2009)."
+        return f"{what} is before Bitcoin existed (3 January 2009)."
     if local_date(acquired, tz) > local_date(deposit, tz):
-        return "The date originally acquired can't be after the deposit's date."
+        return f"{what} can't be after the deposit's date."
     return None
 
 

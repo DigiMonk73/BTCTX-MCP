@@ -10,6 +10,7 @@ transfers. It is never income.
 """
 
 import io
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -100,6 +101,25 @@ def test_an_edit_prices_it_again_only_when_the_date_of_death_moves():
     assert later["cost_basis_usd"] == "810.00"
     r = CLIENT.put(f"/api/transactions/{deposit['id']}", json={"acquired_at": None})
     assert r.status_code == 422 and r.json()["detail"] == INHERITED_NEEDS_DATE
+    r = CLIENT.put(f"/api/transactions/{deposit['id']}", json={"acquired_at": "2025-08-01"})
+    assert r.status_code == 422 and r.json()["detail"] == "The date of death can't be after the deposit's date."
+
+
+def test_a_source_changed_to_or_from_inherited_must_give_its_date():
+    """A Gift entered with the person's purchase date (#154's workaround),
+    then made Inherited, kept that date as the date of death (review of #170)."""
+    gift = tx(type="Deposit", timestamp="2025-06-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+              amount="0.01", source="Gift", cost_basis_usd="0", acquired_at="2015-01-01")
+    r = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "Inherited"})
+    assert r.status_code == 422 and "needs its date of death (acquired_at) in the same edit" in r.json()["detail"]
+    made = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "Inherited", "acquired_at": "2025-02-28"})
+    assert (made.json()["cost_basis_usd"], made.json()["cost_basis_from_price"]) == ("800.00", True)
+
+    r = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "MyBTC"})
+    assert r.status_code == 422 and "needs its date originally acquired" in r.json()["detail"]
+    # To income: no date to keep, so none is asked; it's valued on the deposit's day
+    income = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "Interest"}).json()
+    assert (income["acquired_at"], income["cost_basis_usd"]) == (None, "1000.00")
 
 
 def test_a_sale_the_next_month_is_long_term_and_inherited_on_form_8949():
@@ -146,6 +166,18 @@ def test_other_coins_keep_their_dates_and_first_in_first_out_uses_the_date_of_de
         ("01/05/2025", "0.00500000 BTC", "SHORT", "H"), ("INHERITED", "0.01000000 BTC", "LONG", "K")]
 
 
+def test_a_sale_partly_of_inherited_coins_is_long_term_on_its_own_line():
+    """Its own term is LONG when any part is, as when the earliest lot was
+    always the longest held (review of #170): here the earlier lot is short-term."""
+    tx(type="Deposit", timestamp="2025-01-05T12:00:00Z", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC,
+       amount="0.01", source="MyBTC", cost_basis_usd="700.00")
+    inherit(account=EXCHANGE_BTC, death="2025-02-01", day="2025-02-10", basis="960.00")
+    sale = sell("2025-03-01", "0.015", gross="1500.00")
+    assert sale["holding_period"] == "LONG"
+    assert {(r["date_acquired"], r["holding_period"]) for r in form_rows(2025)} == {
+        ("01/05/2025", "SHORT"), ("INHERITED", "LONG")}
+
+
 def test_it_is_never_income():
     inherit()
     summary = report(2025)["income_summary"]
@@ -164,10 +196,13 @@ def test_the_complete_report_says_inherited_and_explains_it():
     inherit(account=EXCHANGE_BTC, day="2025-03-10", basis="800.00")
     sell("2025-04-10", "0.01")
     pdf = CLIENT.get("/api/reports/complete_tax_report", params={"year": 2025}).content
-    words = " ".join("\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(pdf)).pages).split())
-    assert "INHERITED" in words
+    text = "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(pdf)).pages)
+    # Section 2's row: sold, acquired (INHERITED on one line, review of #170), kind, box, term
+    assert re.search(r"04/10/2025\s+INHERITED\s+Sale\s+K\s+Long", text), text
+    words = " ".join(text.split())
     assert "Inherited bitcoin (deposits with source Inherited) is long-term whenever it's sold" in words
-    assert "Form 8971, Schedule A" in words
+    assert "Form 8971, Schedule A, as having increased the estate tax" in words
+    assert "alternate valuation date" in words
 
 
 def test_a_year_without_inherited_sales_has_no_such_note():
@@ -236,7 +271,11 @@ def test_a_deposit_saved_before_1_1_0_as_inherited_follows_the_rules():
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
             " fee_currency, source, cost_basis_usd) VALUES (970, 'Deposit', '2025-03-10T12:00:00Z', :e, :x, '0.01',"
             " '0', 'BTC', 'inherited', '800.00')"), {"e": EXTERNAL, "x": EXCHANGE_BTC})
-    assert CLIENT.post("/api/transactions/recalculate").status_code == 200  # as at the first start after it
+    review = CLIENT.get("/api/review").json()
+    assert [i["id"] for i in next(c for c in review["checks"] if c["key"] == "inherited_without_date")["items"]] \
+        == [970]
+    # Recalculate Ledger, or the next add, edit or delete, applies the rules
+    assert CLIENT.post("/api/transactions/recalculate").status_code == 200
     sale = sell("2025-04-10", "0.01")
     assert sale["holding_period"] == "LONG"
     assert [(r["box"], r["date_acquired"]) for r in form_rows(2025)] == [("K", "INHERITED")]

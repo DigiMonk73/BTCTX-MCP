@@ -406,7 +406,8 @@ class _TaxReport:
         rows.append([self.total_label(), "", "", "", "", *self.numbers(
             fmt_btc(sum(d.get("amount", 0.0) for d in self.disposals)), fmt_usd(t["proceeds"]),
             fmt_usd(t["basis"]), fmt_gain(t["gain"]), bold=True)])
-        return story + [data_table(rows, [0.72, 0.72, 0.82, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
+        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee"
+        return story + [data_table(rows, [0.72, 0.75, 0.79, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
 
     def disposal_row(self, d: dict) -> list:
         return [
@@ -633,10 +634,11 @@ class _TaxReport:
         rebates = ["Rebates (bitcoin back for spending, listed in section 3) aren't counted as income; their "
                    "value when received is their cost basis."] if self.rebates else []
         # Only in a year with a disposal of inherited coins (#154)
-        inherited = ["Inherited bitcoin (deposits with source Inherited) is long-term whenever it's sold, with "
-                     "INHERITED in Form 8949's column (b). Its cost basis is its value on the date of death (IRC "
-                     "§1014, §1223(9)); if the estate filed an estate tax return, it can't be more than the value "
-                     "the estate reported to you (Form 8971, Schedule A)."] \
+        inherited = ["Inherited bitcoin (deposits with source Inherited) is long-term whenever it's sold (IRC "
+                     "§1223(9)), with INHERITED in Form 8949's column (b). Its cost basis is its value on the date "
+                     "of death, or on the estate's alternate valuation date if it chose one (IRC §1014(a)). If the "
+                     "estate reported a value to you on Form 8971, Schedule A, as having increased the estate tax, "
+                     "the basis can't be more than that value (IRC §1014(f))."] \
             if any(d.get("date_acquired") == INHERITED for d in self.disposals) else []
         return [
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "

@@ -52,7 +52,7 @@ REQUIRED_COLUMNS = {
 # priced again if the date or fee is edited), the same for an income
 # deposit's cost basis (no: priced again if its amount, day or account is
 # edited), and a My BTC or Gift deposit's date originally acquired (blank:
-# the deposit's date).
+# the deposit's date), or an Inherited deposit's date of death (required).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
@@ -232,7 +232,8 @@ def _check_original_date(row: _Row, tz) -> None:
 
 
 def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
-    """A My BTC or Gift deposit's date originally acquired, read like `date`."""
+    """A My BTC or Gift deposit's date originally acquired, or an Inherited
+    deposit's date of death, read like `date`."""
     text = (row.get("acquired_at") or "").strip()
     if not text:
         return None
