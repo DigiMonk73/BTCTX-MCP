@@ -427,6 +427,27 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     return _valuation_point(tx_data, tx) != _valuation_point({}, tx)
 
 
+def price_used(tx: Transaction, db: Session) -> dict | None:
+    """
+    The stored price a transaction's filled-in values came from (an income
+    or rebate value, Spent proceeds, a BTC fee's value), for the form and the
+    API (#145): its hour or day, source and USD per BTC. Read from this
+    install's table and files only, never asked for; a stored price never
+    changes, so it's the one that was used. None when nothing was priced.
+    """
+    priced = tx.cost_basis_from_price or tx.proceeds_from_price or (tx.fee_usd is not None and not tx.fee_usd_manual)
+    if not priced or tx.price_moment not in ("hour", "day") or tx.timestamp is None:
+        return None
+    when = tx.timestamp
+    if _is_inherited({"source": tx.source}) and tx.acquired_at is not None:
+        when = tx.acquired_at  # its date of death's day (_valuation_point)
+    found = hourly_prices.stored_price_at(db, when, tx.price_moment)
+    if found is None:
+        return None
+    return {"at": found.at.isoformat().replace("+00:00", "Z"), "moment": found.moment,
+            "source": found.source, "usd_per_btc": found.usd}
+
+
 def _valuation_point(edited: dict, tx: Transaction):
     """When a valued deposit is priced, after the edit `edited`: an
     inheritance on its date of death's UTC day (a date has no hour, and the

@@ -19,11 +19,14 @@ from backend.database import get_db
 router = APIRouter(tags=["transactions"])
 
 
-def _attach_utc_and_build_read_model(tx) -> TransactionRead:
+def _attach_utc_and_build_read_model(tx, db: Session | None = None) -> TransactionRead:
     """The transaction as TransactionRead, its UTC times written with 'Z'
-    rather than '+00:00'."""
+    rather than '+00:00', and the stored price its filled-in values came
+    from (price_used; read only, never asked for)."""
     pyd_model = TransactionRead.model_validate(tx)
     data = pyd_model.model_dump()
+    if db is not None:
+        data["price_used"] = tx_service.price_used(tx, db)
 
     for field in ["timestamp", "created_at", "updated_at"]:
         val = data.get(field)
@@ -40,7 +43,7 @@ def _attach_utc_and_build_read_model(tx) -> TransactionRead:
 def list_transactions(db: Session = Depends(get_db)):
     """Every transaction, newest first."""
     raw_txs = tx_service.get_all_transactions(db)
-    return [_attach_utc_and_build_read_model(tx) for tx in raw_txs]
+    return [_attach_utc_and_build_read_model(tx, db) for tx in raw_txs]
 
 
 @router.get("/{tx_id}", response_model=TransactionRead)
@@ -50,7 +53,7 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db)):
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
 
-    final_model = _attach_utc_and_build_read_model(tx)
+    final_model = _attach_utc_and_build_read_model(tx, db)
     return final_model
 
 
@@ -64,7 +67,7 @@ def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
     new_tx = tx_service.create_transaction_record(tx_data, db)
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
-    return _attach_utc_and_build_read_model(new_tx)
+    return _attach_utc_and_build_read_model(new_tx, db)
 
 
 @router.post("/recalculate")
@@ -94,7 +97,7 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, db: Session =
     updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
     if not updated_tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    return _attach_utc_and_build_read_model(updated_tx)
+    return _attach_utc_and_build_read_model(updated_tx, db)
 
 
 @router.delete("/delete_all", status_code=204)
