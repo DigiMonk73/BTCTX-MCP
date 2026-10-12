@@ -575,35 +575,40 @@ The owner's standard for big work (2026-10-12, first used for the stable
 release, #143): work that won't fit one session, has parts that can run
 at once, or needs the owner's decisions between steps (a release, a
 redesign, research then build). A single fix or a docs change stays in
-one session. Claude suggests this setup when a request is that big, and
-reminds the owner of it.
+one session. Claude suggests this setup when a request is that big.
 
 - **The main session** talks it through with the owner, then writes the
   plan down on GitHub, where every session and the owner can see it:
   - an umbrella issue with the goal, the decisions and the order;
-  - one issue per session, with its checklist (what "done" means, and
-    the "owner" points where it stops);
+  - an issue per session with its checklist (what "done" means, and the
+    "owner" points where it stops); a plan and its build may share one;
   - on each, a comment "Kickoff prompt for this session" that stands on
     its own: how to start, the rules that matter most, the job, and
     what it waits for;
   - on the umbrella, an index of the prompts: the order, and what each
     session waits for.
-- **Starting one:** a one-click card from the main session
-  (`spawn_task`), or the kickoff prompt pasted into a new session. The
-  owner numbers the titles ("6 · Build hourly prices (#144)").
+- **Starting one:** the desktop app's one-click card (`spawn_task`), or
+  the kickoff prompt pasted into a new session. Each title starts with
+  its number ("6 · Build hourly prices (#144)").
 - **Each session** first posts or refreshes its checklist on its issue,
-  ticks the boxes there as it goes, and writes its decisions there. After
-  a compaction it re-reads its issue and its open pull request before
-  anything else. It stops at the "owner" points, and ends as "Ending a
-  session" says. No plan mode by default: its plan stays inside the
-  session, while the issue's checklist is seen by all.
-- **The main session** carries the owner's decisions to the sessions:
-  on their issues, or by a message to one that's running. It starts the
-  next session when what it waits for is done, and keeps #41.
-- **Running sessions at once:** only on separate parts (two or three at
-  a time). When two touch the same files, the reference figures or a
-  migration, the one that merges second merges `develop` in, and checks
-  the migration numbering and the figures again.
+  ticks the boxes there as it goes, and writes its decisions there. It
+  carries on from its own issue, not from #41's "Next". After a
+  compaction it re-reads its issue and its open pull request before
+  anything else. It stops at the "owner" points. At its end it does what
+  "Ending a session" says, except that on #41 it adds only its own lines,
+  re-reading #41 just before it edits, since other sessions edit it too.
+  No plan mode by default: plan mode's plan stays in that session, while
+  the issue's checklist is seen by all.
+- **The main session** carries the owner's decisions to the sessions, on
+  their issues or by a message to one that's running. A "merge" is
+  quoted on its pull request, with the date, by the session the owner
+  said it to. The main session starts the next session when what it
+  waits for is done, and keeps #41's "Next", linking to the umbrella
+  issue instead of repeating its order.
+- **Running sessions at once:** only on separate parts. When two touch
+  the same files, the reference figures or a migration, the one that
+  merges second merges `develop` in, and checks the migration numbering
+  and the figures again.
 
 ## Starting a session
 

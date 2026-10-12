@@ -74,7 +74,7 @@ All notable changes to BitcoinTX are documented in this file.
 - **Big work runs as a main session and numbered sessions** (AGENTS.md,
   "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
   stable release (#143): one session plans with the owner. The plan goes
-  on GitHub: an umbrella issue, one issue per session with its checklist,
+  on GitHub: an umbrella issue, an issue per session with its checklist,
   and a kickoff prompt on each. Each session works through its checklist
   and records its decisions on its issue. Small changes stay in one
   session.
