@@ -64,9 +64,11 @@ Deposit: External -> any account
                death (REQUIRED: ask). cost_basis_usd = their value on that
                date, or on the estate's alternate valuation date if it
                chose one (left out: the date of death's price); if the
-               estate gave a value (Form 8971, Schedule A), use it. Always
-               long-term, with INHERITED in Form 8949's column (b). Never
-               record an inheritance as a Gift: the rules differ. When
+               estate's Form 8971, Schedule A, gives a value marked as
+               having increased the estate tax, the basis can't be more:
+               use it. Always long-term, with INHERITED in Form 8949's
+               column (b). Never record an inheritance as a Gift: the rules
+               differ. When
                changing a deposit's source to or from Inherited, send
                acquired_at in the same update. Suggest the user's tax
                preparer if they owned the coins jointly with the person who

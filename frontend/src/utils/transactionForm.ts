@@ -105,6 +105,15 @@ function commonFormData(tx: ITransaction): TransactionFormData {
   };
 }
 
+const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
+
+/** A saved deposit's source as the form lists it: a row saved before 1.1.0
+ * may say "inherited", which is Inherited (#154). */
+function depositSource(saved: string | null | undefined): DepositSource {
+  const wanted = (saved ?? "N/A").trim().toLowerCase();
+  return DEPOSIT_SOURCES.find((s) => s.toLowerCase() === wanted) ?? (saved as DepositSource);
+}
+
 /** Each type's own form fields, read back from a saved transaction. */
 const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
   Deposit: (tx) => {
@@ -113,7 +122,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: (tx.source ?? "N/A") as DepositSource,
+      source: depositSource(tx.source),
     };
   },
   Withdrawal: (tx) => {

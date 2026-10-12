@@ -117,6 +117,11 @@ def test_a_source_changed_to_or_from_inherited_must_give_its_date():
 
     r = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "MyBTC"})
     assert r.status_code == 422 and "needs its date originally acquired" in r.json()["detail"]
+    # Dollars take no date, so nothing is asked (re-check of #170)
+    usd = tx(type="Deposit", timestamp="2025-06-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+             amount="500.00", source="Gift")
+    assert CLIENT.put(f"/api/transactions/{usd['id']}", json={"source": "Inherited"}).status_code == 200
+    assert CLIENT.put(f"/api/transactions/{usd['id']}", json={"source": "MyBTC"}).status_code == 200
     # To income: no date to keep, so none is asked; it's valued on the deposit's day
     income = CLIENT.put(f"/api/transactions/{gift['id']}", json={"source": "Interest"}).json()
     assert (income["acquired_at"], income["cost_basis_usd"]) == (None, "1000.00")

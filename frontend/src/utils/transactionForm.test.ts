@@ -216,6 +216,9 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
       fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01T18:00:00Z", // noon in Chicago
     }), "America/Chicago");
     expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", account: "Exchange" });
+    // A row saved before 1.1.0 as free text "inherited" reads back as Inherited
+    expect(mapTransactionToFormData(tx({ type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.01,
+      fee_currency: "BTC", source: "inherited" })).source).toBe("Inherited");
     expect(buildTransactionPayload(form)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
   });
 

@@ -59,7 +59,7 @@ SOURCES = [
     ["N/A", "Not applicable or unspecified"],
     ["MyBTC", "BTC you already owned (transferring in)"],
     ["Gift", "Received as a gift (cost_basis_usd: the giver's basis, 0 if unknown)"],
-    ["Inherited", "Inherited from someone who died: acquired_at is the date of death (required), cost_basis_usd its value that day (or the value the estate reported, Form 8971); always long-term, INHERITED on Form 8949"],
+    ["Inherited", "Inherited from someone who died: acquired_at is the date of death (required), cost_basis_usd its value that day (or on the estate's alternate valuation date; a Form 8971 value that increased the estate tax caps it); always long-term, INHERITED on Form 8949"],
     ["Income", "Payment for goods/services"],
     ["Interest", "Earned as interest"],
     ["Reward", "Mining, staking, or a sign-up or referral bonus (income)"],

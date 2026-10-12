@@ -178,7 +178,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
-    _check_inherited_date_sent(tx, tx_data)
+    _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     _check_edit(tx, tx_data, type_changed, db)
     _revalue_btc_fee(tx, tx_data, db)
@@ -221,20 +221,25 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     return type_changed
 
 
-def _check_inherited_date_sent(tx: Transaction, tx_data: dict) -> None:
+def _check_inherited_date_sent(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
-    A deposit's source changed to or from Inherited must say its date in the
-    same edit (#154): a date of death and a date originally acquired aren't
-    the same date, and the stored one would silently become the other (a
-    Gift entered with the person's purchase date, then made Inherited, was
-    priced and sorted by that purchase date).
+    A BTC deposit's source changed to or from Inherited must say its date in
+    the same edit (#154): a date of death and a date originally acquired
+    aren't the same date, and the stored one would silently become the other
+    (a Gift entered with the person's purchase date, then made Inherited, was
+    priced and sorted by that purchase date). A row that takes no date after
+    the edit (a dollar deposit, an income source) has none to carry over.
     """
     if "source" not in tx_data or "acquired_at" in tx_data:
+        return
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "source", "to_account_id")}
+    to_acct = db.get(Account, edited["to_account_id"]) if edited["to_account_id"] else None
+    if not _takes_original_date(getattr(edited["type"], "value", edited["type"]), edited["source"], to_acct):
         return
     was, becomes = _is_inherited({"source": tx.source}), _is_inherited(tx_data)
     if becomes and not was:
         _bad("Changing a deposit's source to Inherited needs its date of death (acquired_at) in the same edit.")
-    if was and not becomes and (tx_data["source"] or "").lower() in ORIGINAL_DATE_SOURCES:
+    if was and not becomes and tx.acquired_at is not None:
         _bad("Changing an Inherited deposit to My BTC or Gift needs its date originally acquired (acquired_at, "
              "or null for the deposit's date) in the same edit.")
 
@@ -985,7 +990,7 @@ def _valued_at_receipt(tx_data: dict, db: Session) -> bool:
 
 
 def _is_inherited(tx_data: dict) -> bool:
-    return (tx_data.get("source") or "").lower() == INHERITED_SOURCE
+    return str(tx_data.get("source") or "").strip().lower() == INHERITED_SOURCE
 
 
 def _into_btc(tx_data: dict, db: Session) -> bool:
@@ -1433,7 +1438,7 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:
     return tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
-        and (source or "").lower() in ORIGINAL_DATE_SOURCES
+        and str(source or "").strip().lower() in ORIGINAL_DATE_SOURCES
 
 
 def original_date_problem(tx_type: str | None, source: str | None, into_btc: bool, acquired: datetime,
