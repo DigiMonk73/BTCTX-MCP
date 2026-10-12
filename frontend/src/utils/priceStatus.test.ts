@@ -6,7 +6,8 @@ const history: PriceStatus["history"] = {
   state: "not_allowed", failed_at: null, mismatched: [],
 };
 const base: PriceStatus = {
-  source: "mempool", managed: false, invalid: false, host: "mac", last_ok: null, last_problem: null, history,
+  source: "mempool", managed: false, invalid: false, waiting: false, host: "mac", last_ok: null, last_problem: null,
+  history,
 };
 const ctx: StatusContext = { backup: false, tor: false, timezone: "America/Chicago" };
 const T1 = "2026-10-12T19:02:00Z"; // 2:02 pm in Chicago
@@ -69,5 +70,15 @@ describe("the status line", () => {
   it("a price after the problem clears it", () => {
     const back = { ...base, last_ok: { at: T2, from: "mempool" }, last_problem: { at: T1, what: "mempool_no_answer" as const } };
     expect(statusLine(back, ctx).tone).toBe("ok");
+  });
+});
+
+describe("waiting for the owner to confirm (#145, 2.9)", () => {
+  it("says nothing is contacted until then, whatever the choice", () => {
+    for (const source of ["public", "mempool", "off"] as const) {
+      expect(statusLine({ ...base, source, waiting: true }, ctx)).toEqual({
+        tone: "idle", text: "Waiting for you to confirm: nothing is contacted until you do.",
+      });
+    }
   });
 });

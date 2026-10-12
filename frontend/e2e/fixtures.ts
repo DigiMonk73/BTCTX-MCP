@@ -167,9 +167,10 @@ type Fixtures = {
   appMode: "server" | "mac";
   /**
    * "unset": a fresh install that hasn't chosen a price source yet.
+   * "unconfirmed": public, stored by an older release with no record of the choice (asked once, #145).
    * "startos": set by the server, as StartOS's Price Source & Privacy action does.
    */
-  priceSource: "public" | "unset" | "startos";
+  priceSource: "public" | "unset" | "unconfirmed" | "startos";
   /**
    * true: the prices come from a fake internet instead of stubs
    * (smoke_test.py, fake_internet), so the app's own choice of source,
@@ -189,7 +190,7 @@ export const test = base.extend<Fixtures>({
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
       ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
-      ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
+      ...(priceSource === "unset" || priceSource === "unconfirmed" ? { BTCTX_SMOKE_PRICE_SOURCE: priceSource } : {}),
       ...(priceSource === "startos"
         ? {
             BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off",

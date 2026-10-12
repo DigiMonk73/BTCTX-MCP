@@ -52,7 +52,7 @@ async def _from_own_node(path: str, parse: Callable):
     settings = outbound.current()
     base = settings.own_node
     if not base:
-        if settings.price_source == "mempool":  # chosen, no address: StartOS before Mempool is installed
+        if settings.price_source == "mempool" and not settings.waiting:  # no address: StartOS, Mempool not installed
             price_status.failed(price_status.MEMPOOL_MISSING)
         return None
     try:

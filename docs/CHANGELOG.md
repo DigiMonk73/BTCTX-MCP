@@ -136,6 +136,19 @@ All notable changes to BitcoinTX are documented in this file.
     Network** shows the choice you want.
 
 ### Changed
+- **After this update, BitcoinTX asks once to confirm where it gets
+  prices** (#145, the owner's request; privacy), unless StartOS or the
+  server sets them. A price choice saved before this release has no record
+  of when or how it was made, so BitcoinTX can't tell your own *Public*
+  choice from one the #134 bug saved by itself. The Dashboard shows
+  "Please confirm where BitcoinTX gets prices", with your current choice
+  selected: press **Confirm**, or pick another. Until then nothing is asked
+  of anyone (not even your own Mempool); prices BitcoinTX already has still
+  work. From now on each choice records when it was made and where (the
+  first-run question or Settings), which Settings shows; the record is kept
+  through an in-app restore. A choice StartOS sets is never asked here; if
+  you switch StartOS's action to *Choose in BitcoinTX*, a choice in the app
+  without a record is asked then (closing #155's last gap).
 - **Public price sites: Coinbase and CoinGecko are no longer asked**
   (#161, the owner's decision). Coinbase's market data terms keep its data
   for personal or research use and say it "may not be used to build an

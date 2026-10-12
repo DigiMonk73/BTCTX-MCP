@@ -77,6 +77,7 @@ def status() -> dict:
         "source": s.price_source,
         "managed": s.managed,
         "invalid": s.invalid,
+        "waiting": s.waiting,
         "host": outbound.host(),
         "last_ok": _current(_state["ok"]),
         "last_problem": _current(_state["problem"]),

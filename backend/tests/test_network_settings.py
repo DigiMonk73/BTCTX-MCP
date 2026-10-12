@@ -222,9 +222,11 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
         "price_source": "mempool", "mempool_url": NODE + "/", "mempool_fallback": True,
         "proxy_url": " socks5h://127.0.0.1:9050 "})
     assert r.status_code == 200
-    assert r.json() == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
-                        "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
-                        "host": "server"}
+    saved = r.json()
+    assert saved.pop("chosen_at").endswith("Z")
+    assert saved == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
+                     "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
+                     "waiting": False, "host": "server", "confirmed": True, "chosen_via": "settings"}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -392,7 +394,8 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=BRIDGE + "/", BTCTX_MEMPOOL_FALLBACK="off")
     assert auth_client.get("/api/settings/network").json() == {
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
-        "managed": True, "invalid": False, "host": "server"}
+        "managed": True, "invalid": False, "waiting": False, "host": "server", "confirmed": True,
+        "chosen_at": None, "chosen_via": None}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     assert r.status_code == 409 and "on StartOS: the Price Source & Privacy action" in r.json()["detail"]
     # The stored settings are untouched, and back once the server stops setting them

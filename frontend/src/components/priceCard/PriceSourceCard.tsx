@@ -1,39 +1,42 @@
 import React from "react";
 import { useToast } from "../../contexts/useToast";
-import { FOOTER, PRICE_CHOICES, cannotSave, priceFormChanged } from "../../utils/priceSource";
-import { statusLine } from "../../utils/priceStatus";
-import ChoiceFields from "./ChoiceFields";
+import { CONFIRM_WHY, FOOTER, cardView } from "../../utils/priceSource";
+import { statusLine, type PriceStatus, type StatusLine } from "../../utils/priceStatus";
+import EditableChoices from "./EditableChoices";
 import ReadOnlyChoices from "./ReadOnlyChoices";
 import { usePriceCard } from "./usePriceCard";
 import "../../styles/priceCard.css";
 
 interface Props {
-  /** "first-run": the question on the Dashboard until a choice is saved. */
+  /** "first-run": the question on the Dashboard until a choice is saved (or confirmed). */
   variant: "first-run" | "settings";
 }
 
 const ICONS = { ok: "●", idle: "○", warning: "▲" } as const;
+const LOADING: StatusLine = { tone: "idle", text: "Loading…" };
+
+function lineFor(status: PriceStatus | null, backup: boolean, tor: boolean, timezone: string): StatusLine {
+  return status ? statusLine(status, { backup, tor, timezone }) : LOADING;
+}
 
 /**
  * Where BitcoinTX gets Bitcoin prices (#145): one card, the same words in
  * the first-run question and in Settings › Privacy & network, read-only
- * when the server sets it. Saving updates the page in place.
+ * when the server sets it, and asking once to confirm a choice made before
+ * it kept a record (2.9). Saving updates the page in place.
  */
 const PriceSourceCard: React.FC<Props> = ({ variant }) => {
   const toast = useToast();
   const { saved, form, set, status, timezone, errors, saving, save } = usePriceCard();
   if (!saved) return null;
 
-  const managed = saved.managed === true;
-  const line = status
-    ? statusLine(status, { backup: saved.mempool_fallback, tor: Boolean(saved.proxy_url), timezone })
-    : { tone: "idle" as const, text: "Loading…" };
-  const blocked = cannotSave(form);
   const firstRun = variant === "first-run";
+  const view = cardView(saved, form, firstRun, timezone);
+  const line = lineFor(status, saved.mempool_fallback, Boolean(saved.proxy_url), timezone);
   const Heading = firstRun ? "h2" : "h3";
 
   const onSave = async () => {
-    const result = await save();
+    const result = await save(firstRun ? "first-run" : "settings");
     if (result.ok) toast.success(firstRun ? "Saved: BitcoinTX now knows where to get prices." : "Price source saved.");
     else if (result.message) toast.error(result.message); // and under its field, if it's about one
   };
@@ -41,54 +44,33 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
   return (
     <section className={`price-card${firstRun ? " card first-run" : ""}`} aria-labelledby="price-card-title">
       <Heading id="price-card-title" className="price-card-title">
-        Bitcoin prices
+        {view.title}
       </Heading>
-      {managed ? (
+      {view.confirming && <p className="price-help">{CONFIRM_WHY}</p>}
+      {saved.managed ? (
         <ReadOnlyChoices settings={saved} />
       ) : (
-        <fieldset className="price-choices">
-          <legend className="price-legend">Where should BitcoinTX get Bitcoin prices?</legend>
-          {PRICE_CHOICES.map((c) => (
-            <React.Fragment key={c.value}>
-              <label className={form.source === c.value ? "price-choice chosen" : "price-choice"}>
-                <input
-                  type="radio"
-                  name="price-source"
-                  value={c.value}
-                  checked={form.source === c.value}
-                  onChange={() => set({ source: c.value })}
-                  aria-describedby={`price-help-${c.value}`}
-                />
-                <span className="price-choice-text">
-                  <span className="price-choice-label">{c.label}</span>
-                  <span id={`price-help-${c.value}`} className="price-help">
-                    {c.help}
-                  </span>
-                </span>
-              </label>
-              {form.source === c.value && <ChoiceFields form={form} set={set} errors={errors} />}
-            </React.Fragment>
-          ))}
-        </fieldset>
+        <EditableChoices form={form} set={set} errors={errors} current={view.current} />
       )}
       <p className={`price-status ${line.tone}`} role="status">
         <span aria-hidden="true">{ICONS[line.tone]}</span> {line.text}
       </p>
+      {view.when && <p className="price-help">{view.when}</p>}
       <p className="price-footer">{FOOTER}</p>
-      {!managed && (
+      {!saved.managed && (
         <div className="price-actions">
           <button
             type="button"
             className="btn btn-primary"
             onClick={onSave}
-            disabled={saving || blocked !== null || !priceFormChanged(saved, form)}
-            aria-describedby={blocked ? "price-blocked" : undefined}
+            disabled={saving || !view.canSave}
+            aria-describedby={view.blocked ? "price-blocked" : undefined}
           >
-            {saving ? "Saving…" : firstRun ? "Use this" : "Save"}
+            {saving ? "Saving…" : view.label}
           </button>
-          {blocked && form.source !== "" && (
+          {view.blocked && (
             <span id="price-blocked" className="price-help">
-              {blocked}
+              {view.blocked}
             </span>
           )}
         </div>

@@ -27,7 +27,7 @@ const Dashboard: React.FC = () => {
   const [pricesOff, setPricesOff] = useState(false);
   // The server's reason when there's no price (shown on hover)
   const [priceProblem, setPriceProblem] = useState<string | undefined>(undefined);
-  // No price source chosen yet: the first-run question sits at the top (#145)
+  // No price source chosen yet, or one to confirm (2.9): the question sits at the top (#145)
   const [unchosen, setUnchosen] = useState(false);
   // Bumped when the price choice is saved: prices are asked again, no reload (#149)
   const [priceRound, setPriceRound] = useState(0);
@@ -40,8 +40,10 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     api
-      .get<{ price_source: string; managed?: boolean }>("/settings/network")
-      .then((res) => setUnchosen(res.data.price_source === "unset" && !res.data.managed))
+      .get<{ price_source: string; managed?: boolean; confirmed?: boolean }>("/settings/network")
+      .then((res) =>
+        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false)),
+      )
       .catch(() => undefined);
   }, [priceRound]);
 
