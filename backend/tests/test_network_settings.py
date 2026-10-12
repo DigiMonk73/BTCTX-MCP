@@ -438,6 +438,10 @@ def test_an_onion_mempool_address_needs_the_proxy(auth_client):
     r = auth_client.put("/api/settings/network", json={
         **PUBLIC, "price_source": "mempool", "mempool_url": ONION, "proxy_url": "socks5h://127.0.0.1:9050"})
     assert r.status_code == 200, r.text
+    # Switching to Nobody or public sites keeps the .onion address for later, without Tor (#145)
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off", "mempool_url": ONION})
+    assert r.status_code == 200 and r.json()["mempool_url"] == ONION, r.text
+    assert outbound.current().own_node is None
 
 
 def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_env, requests_seen):

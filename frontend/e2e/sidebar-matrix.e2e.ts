@@ -181,11 +181,15 @@ async function answerTheFirstRunQuestion(page: Page, app: App, answer: (prompt: 
   await useEveryMode(page, "Prices off", "No price");
   expect(sentOut(app, browser)).toEqual([]);
 
-  const prompt = page.getByRole("region", { name: "Choose a price source" });
+  const prompt = page.getByRole("region", { name: "Bitcoin prices" });
   await answer(prompt);
-  // The page loads again with the prices.
-  await Promise.all([page.waitForEvent("load"), prompt.getByRole("button", { name: "Use this" }).click()]);
+  // Saved in place: the sidebar asks again, with no page load (#145, #149)
+  await prompt.getByRole("button", { name: "Use this" }).click();
   await expect(prompt).toHaveCount(0);
+  // The sidebar stays as it was (in Manual, the calculator showing 42): back to Auto, cleared
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByRole("button", { name: "Auto" }).click();
+  await press(sidebar, "C");
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
   return sentOut(app, browser);
 }
@@ -193,7 +197,7 @@ async function answerTheFirstRunQuestion(page: Page, app: App, answer: (prompt: 
 test("not chosen yet: nothing is asked and Manual works; picking public sites brings the prices", async ({
   page, app,
 }) => {
-  const sent = await answerTheFirstRunQuestion(page, app, (prompt) => prompt.getByLabel(/Public price sites/).check());
+  const sent = await answerTheFirstRunQuestion(page, app, (prompt) => prompt.getByLabel(/^Public price sites/).check());
   expect(proxies(sent)).toEqual([null]);
 });
 
@@ -277,8 +281,8 @@ test.describe("the Mac app", () => {
     page, app,
   }) => {
     const sent = await answerTheFirstRunQuestion(page, app, async (prompt) => {
-      await prompt.getByLabel(/My mempool server/).check();
-      await prompt.getByLabel("Your mempool server").fill(MEMPOOL);
+      await prompt.getByLabel(/^My own Mempool/).check();
+      await prompt.getByLabel("Your Mempool's address").fill(MEMPOOL);
     });
     expect(origins(sent)).toEqual([MEMPOOL]);
   });

@@ -288,7 +288,7 @@ def save(
     proxy = _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
     if price_source == "mempool" and not mempool:
         raise HTTPException(status_code=422, detail="Enter your mempool server's address to use it.")
-    if _is_onion(mempool) and not proxy:
+    if price_source == "mempool" and _is_onion(mempool) and not proxy:
         raise HTTPException(status_code=422, detail=(
             "An .onion mempool server is reached through the proxy: set it below "
             "(e.g. Tor, socks5h://127.0.0.1:9050)."))

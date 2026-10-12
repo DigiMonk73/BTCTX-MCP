@@ -168,8 +168,9 @@ type Fixtures = {
   /**
    * "unset": a fresh install that hasn't chosen a price source yet.
    * "startos": set by the server, as StartOS's Price Source & Privacy action does.
+   * "invalid": set by a server whose settings aren't valid (nothing is asked).
    */
-  priceSource: "public" | "unset" | "startos";
+  priceSource: "public" | "unset" | "startos" | "invalid";
   /**
    * true: the prices come from a fake internet instead of stubs
    * (smoke_test.py, fake_internet), so the app's own choice of source,
@@ -190,8 +191,12 @@ export const test = base.extend<Fixtures>({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
       ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
       ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
+      ...(priceSource === "invalid" ? { BTCTX_PRICE_SOURCE: "coingecko" } : {}),
       ...(priceSource === "startos"
-        ? { BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off" }
+        ? {
+            BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off",
+            BTCTX_HOST: "startos",
+          }
         : {}),
     }));
     await use(app);

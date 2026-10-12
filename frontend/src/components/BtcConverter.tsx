@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import api from "../api";
+import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
 type Mode = "manual" | "auto" | "date";
@@ -62,7 +63,12 @@ const BtcConverter: React.FC = () => {
     const intervalId = setInterval(() => {
       if (!document.hidden) fetchLivePrice();
     }, 120_000);
-    return () => clearInterval(intervalId);
+    // A price choice just saved: ask again now, no page reload (#145, #149)
+    window.addEventListener(PRICE_CHOICE_SAVED, fetchLivePrice);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener(PRICE_CHOICE_SAVED, fetchLivePrice);
+    };
   }, [mode]);
 
   // Date mode: that day's price

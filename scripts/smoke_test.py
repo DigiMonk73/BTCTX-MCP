@@ -103,7 +103,7 @@ def stub_prices() -> None:
     import backend.services.bitcoin as bitcoin
     import backend.services.hourly_prices as hourly_prices
     import backend.services.price_history as price_history
-    from backend.services import outbound
+    from backend.services import outbound, price_status
 
     def allowed() -> bool:
         return outbound.current().public_allowed or outbound.current().own_node is not None
@@ -115,6 +115,7 @@ def stub_prices() -> None:
         if not allowed():
             raise outbound.refuse_public()
         source = "mempool" if outbound.current().own_node else "kraken"
+        price_status.answered(source)  # as the real lookup records it for the status line
         return {"USD": float(CURRENT_PRICE), "source": source, "at": bitcoin.now_iso()}
 
     async def block_height():

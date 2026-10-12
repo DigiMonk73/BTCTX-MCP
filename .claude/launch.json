@@ -4,8 +4,22 @@
     {
       "name": "preview",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["scripts/preview.py", "8777"],
+      "runtimeArgs": [
+        "scripts/preview.py",
+        "8777"
+      ],
       "port": 8777
+    },
+    {
+      "name": "preview-unchosen",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "BTCTX_SMOKE_PRICE_SOURCE=unset",
+        ".venv/bin/python",
+        "scripts/preview.py",
+        "8778"
+      ],
+      "port": 8778
     }
   ]
 }

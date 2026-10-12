@@ -68,6 +68,14 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **An https Mempool whose certificate isn't trusted now says so** (#178).
+  A Mempool address with a private certificate (StartOS's home-network
+  address for Mempool, for example) can't be used, and BitcoinTX said
+  nothing: with *Fall back to public price sites* on, the public sites
+  answered silently while Settings still said your node did. The status
+  line now names the reason, and says when the public sites answered
+  instead. Use the Mempool's http:// or .onion address, or on StartOS
+  *My Mempool on this server*.
 - **A spend's network fee no longer counts twice in its gain** (tax
   figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
   a BTC network fee, the spend's proceeds were the full value received, and
@@ -236,6 +244,15 @@ All notable changes to BitcoinTX are documented in this file.
   once the package passes the new `BTCTX_HOST=startos`;
   `GET /api/settings/network` adds `host` and `invalid`). Invalid server
   settings say so instead of "Price lookups are off".
+- **One price card, the same everywhere** (#145): where BitcoinTX gets
+  Bitcoin prices is now one card with three choices, *My own Mempool* (with
+  *If it can't answer, ask public price sites*), *Public price sites*
+  (Bitstamp and Kraken, optionally *Through Tor*) and *Nobody*. It's the
+  first-run question, now on the Dashboard only, and Settings › Privacy &
+  network, read-only when StartOS or the server sets it. Choosing no
+  longer reloads the page. A status line says where newer prices come
+  from now and when the last one arrived, or why there's none (new
+  `GET /api/bitcoin/price/status`, login only, which asks nothing itself).
 
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing

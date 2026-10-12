@@ -447,3 +447,43 @@ def test_without_a_manifest_no_public_site_is_asked(sites, db, tmp_path, monkeyp
     monkeypatch.setattr(pf, "MANIFEST", tmp_path / "none.csv")
     assert hp.price_at(db, utc("2026-03-18T05:00Z")).moment == "day"
     assert sites.bitstamp_starts() == []
+
+
+# The status line's view of the download (#145): read from this install's
+# files and memory, never a request.
+def test_the_download_status_follows_the_download(sites, db):
+    use(price_source="off")
+    status = hp.download_status()
+    assert status == {"until": "2026-03-14T23:00Z", "first_year": 2025, "shipped": False, "years_total": 2,
+                      "years_done": 0, "state": "not_allowed", "failed_at": None, "mismatched": []}
+    use(price_source="public")
+    assert hp.download_status()["state"] == "waiting"
+    seen = []
+    sites.after_request = lambda fake: seen.append(hp.download_status())
+    hp.start_download()
+    finish_download()
+    assert seen[0]["state"] == "downloading" and seen[0]["years_done"] == 0
+    assert seen[-1]["years_done"] == 1  # 2026 checked and saved, 2025 on its way
+    done = hp.download_status()
+    assert done["state"] == "complete" and done["years_done"] == 2
+    use(price_source="off")
+    assert hp.download_status()["state"] == "complete"  # it stays here, whatever the choice
+    assert len(sites.requests) == len(year_blocks(2026, FILES_END) + year_blocks(2025, pf.year_end(2025)))
+
+
+def test_the_download_status_names_a_failure_and_a_year_that_didnt_match(sites, db):
+    sites.bitstamp_down = True
+    hp.start_download()
+    finish_download()
+    status = hp.download_status()
+    assert status["state"] == "failed" and status["failed_at"].endswith("Z")
+    hp._state["failed_at"] -= hp.RETRY_SECONDS  # ten minutes later: tried again
+    assert hp.download_status()["state"] == "waiting"
+    sites.bitstamp_down = False
+    sites.bitstamp[at("2025-08-08T08:00Z")] += D("0.01")
+    hp.start_download()
+    finish_download()
+    status = hp.download_status()
+    assert status["years_done"] == 1 and status["mismatched"] == [2025] and status["state"] == "waiting"
+    (hp.folder() / "2026.csv").write_text("hour_utc,usd\n", encoding="utf-8")  # damaged on disk
+    assert hp.download_status()["years_done"] == 0
