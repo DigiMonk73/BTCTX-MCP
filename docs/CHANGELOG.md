@@ -443,9 +443,9 @@ All notable changes to BitcoinTX are documented in this file.
   **Nobody** or **Decide in BitcoinTX instead**, with **Use Tor** and **If
   Mempool can't answer, ask public price sites**. A new install doesn't
   start until a choice is made (any of the four, Nobody included: Start9's
-  "critical" task, as for the login). After an update or a restore with no
-  choice ever made in the action, an "important" task asks once, without
-  stopping the service. **Use Tor** with *Decide in BitcoinTX instead* now
+  "critical" task, as for the login). After an update or a restore of an
+  install that was never asked and has no choice made in the action, an
+  "important" task asks once, without stopping the service. **Use Tor** with *Decide in BitcoinTX instead* now
   lends StartOS's Tor to the app's own choice. The package passes
   `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
   five languages; the README and instructions say the same.

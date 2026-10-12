@@ -78,9 +78,10 @@ One model, `store.json` on the `startos` volume. The package writes no app confi
 | `recalculateLedger` | `true` after an update from a version with the old gain calculations (transfer fees, sale proceeds, holding period), until Recalculate Ledger runs. |
 | `priceSource`       | Absent: never chosen (the action preselects nothing). `unset`: Decide in BitcoinTX, the app's own card decides. `off` (Nobody), `public` or `mempool`: set by Price Source & Privacy and passed as `BTCTX_PRICE_SOURCE`. |
 | `mempoolFallback`   | With `mempool`: ask public sites when Mempool can't answer (`BTCTX_MEMPOOL_FALLBACK`). |
-| `useTor`            | Public sites through Tor's SOCKS proxy (`BTCTX_PROXY_URL`), when public sites may be asked. |
+| `useTor`            | Public sites through Tor's SOCKS proxy (`BTCTX_PROXY_URL`), when public sites may be asked; with `unset` (Decide in BitcoinTX), StartOS's Tor lent to the app's own choice (`BTCTX_TOR_PROXY_URL`, shown in the app as Tor on this server, locked on). Either way Tor becomes a dependency. |
 | `checkDefaultLogin` | Set by the update that introduced generated passwords; the next init replaces a login still on `admin` / `password`, then clears it. |
-| `priceSourceTask`   | Set by the update that introduced Price Source & Privacy; cleared at the next init. No longer read: an update or restore without a choice raises the important task by itself (see [Tasks](#tasks)). |
+| `priceSourceTask`   | Set by the update that introduced Price Source & Privacy. No longer read or written. |
+| `priceSourceAsked`  | Set once the package has asked for a price choice (the critical task at install, or the important one after an update), so it asks only once (see [Tasks](#tasks)). |
 
 ## Dependencies
 
@@ -142,7 +143,7 @@ Three actions raise tasks.
 | ---------------------- | ----------- | -------------------------------------------------- | -------------------------------- |
 | Set Login Credentials  | `critical`  | While no password is stored (at install, and after an update from an install whose login was set in the app); after an update locked a default login | The action runs |
 | Price Source & Privacy | `critical`  | At install, after Set Login Credentials (init order) | The action runs: any choice, Nobody and Decide in BitcoinTX included |
-| Price Source & Privacy | `important` | After an update or a restore without a choice ever made here (never critical: a running service never stops) | The action runs, or dismissed |
+| Price Source & Privacy | `important` | Once, after an update or a restore of an install that was never asked and has no choice made here (never critical: a running service never stops) | The action runs, or dismissed |
 | Recalculate Ledger     | `important` | After updating (or restoring a backup) from a version with the old gain calculations | The action runs |
 
 The critical tasks block starting the service until the login exists and a price choice is made (Start9's `tasks.md`: critical is for essential setup such as selecting a backend). Both keep the replay key they always had, so nothing is retired. After an update or a restore the price task does not block: until a source is chosen, the app asks on its Dashboard and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, holding period) stay wrong until a recalculation.

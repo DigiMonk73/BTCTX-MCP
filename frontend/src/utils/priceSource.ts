@@ -25,7 +25,7 @@ export interface NetworkSettingsData {
   host?: Host;
   /** False while a stored choice waits to be confirmed (#145, 2.9): nothing is asked until then. */
   confirmed?: boolean;
-  /** proxy_url is the server's Tor (StartOS: the action's "Use Tor" with Choose in BitcoinTX), locked on. */
+  /** proxy_url is the server's Tor (StartOS: the action's "Use Tor" with Decide in BitcoinTX instead), locked on. */
   tor_from_server?: boolean;
   /** When and where the choice was made in the card (UTC; "first-run" or "settings"). */
   chosen_at?: string | null;

@@ -17,7 +17,7 @@ const inputSpec = InputSpec.of({
     return {
       name: i18n('Newer prices from'),
       description: i18n(
-        "BitcoinTX's hourly price history (2013 on) is downloaded once from Bitstamp, checked against fingerprints that come with this version, when your choice allows public price sites. Your ledger is never sent anywhere.\n- My Mempool on this server: the most private; asks your Mempool service, which must be installed and running. It has hourly prices only from when it began recording: for older values, turn on the public backup below, or type them.\n- Public price sites: Bitstamp and Kraken for prices; Blockchain.info, Blockstream or mempool.space for the block height. They see your IP address and when BitcoinTX is open, never your transaction dates.\n- Nobody: fully offline. Prices BitcoinTX already has still work; type newer values yourself.\n- Decide in BitcoinTX instead: the app's own Settings > Privacy & Network decide, for example for a Mempool on another machine.",
+        "BitcoinTX's hourly price history (2013 on) is downloaded once from Bitstamp, checked against fingerprints that come with this version, when your choice allows public price sites. Your ledger is never sent anywhere.\n- My Mempool on this server: the most private; asks your Mempool service, which must be installed and running. It has hourly prices only from when it began recording: for older values, turn on the option below that asks public price sites when Mempool can't answer, or type them.\n- Public price sites: Bitstamp and Kraken for prices; Blockchain.info, Blockstream or mempool.space for the block height. They see your IP address and when BitcoinTX is open, never your transaction dates.\n- Nobody: fully offline. Prices BitcoinTX already has still work; type newer values yourself.\n- Decide in BitcoinTX instead: the app's own Settings > Privacy & Network decide, for example for a Mempool on another machine.",
       ),
       default: stored ?? null,
       values: {
@@ -40,7 +40,7 @@ const inputSpec = InputSpec.of({
   tor: Value.toggle({
     name: i18n('Use Tor (the Tor service on this server)'),
     description: i18n(
-      'Needs the Tor service on this server. Public price sites then never see your IP address. Used with Public price sites, with the backup on, and with Decide in BitcoinTX, where BitcoinTX shows it as Tor on this server.',
+      'Needs the Tor service on this server. Public price sites then never see your IP address. Used with Public price sites, with My Mempool when it may ask public price sites, and with Decide in BitcoinTX instead, where BitcoinTX shows it as Tor on this server.',
     ),
     default: false,
   }),
@@ -78,7 +78,6 @@ export const priceSource = sdk.Action.withInput(
       priceSource: input.source,
       mempoolFallback: input.fallback,
       useTor: input.tor,
-      priceSourceTask: false,
     })
     await sdk.action.clearTask(effects, PRICE_SOURCE_TASK_ID)
 
@@ -87,7 +86,7 @@ export const priceSource = sdk.Action.withInput(
       (input.source === 'mempool' && input.fallback)
     const messages = {
       mempool: i18n(
-        'BitcoinTX restarts and asks your Mempool service. If Mempool is not installed yet, install and start it: until then BitcoinTX has no prices unless the fallback is on.',
+        "BitcoinTX restarts and asks your Mempool service. If Mempool is not installed yet, install and start it: until then BitcoinTX has no newer prices, unless it may ask public price sites when Mempool can't answer.",
       ),
       public: i18n('BitcoinTX restarts and asks the public price sites.'),
       off: i18n(

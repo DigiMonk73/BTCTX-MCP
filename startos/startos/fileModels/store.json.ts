@@ -20,9 +20,12 @@ const shape = z.looseObject({
     .catch(undefined),
   mempoolFallback: z.boolean().optional().catch(undefined),
   useTor: z.boolean().optional().catch(undefined),
-  // Set when updating from before 1.2.0, until the action runs: an optional
-  // task introduces it (init/priceSourceTask.ts).
+  // Set by the update to 1.2.0; no longer read or written.
   priceSourceTask: z.boolean().optional().catch(undefined),
+  // Set once the package has asked for a price choice (the critical task at
+  // install, or the important one after an update), so it asks only once
+  // (init/priceSourceTask.ts).
+  priceSourceAsked: z.boolean().optional().catch(undefined),
 })
 
 export type Store = z.infer<typeof shape>

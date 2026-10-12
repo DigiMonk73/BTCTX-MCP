@@ -318,7 +318,7 @@ def test_cli_uses_the_price_settings(tmp_path, monkeypatch):
 def test_a_command_never_makes_a_price_choice(tmp_path, monkeypatch, args, stdin):
     """#134: on StartOS these run without the server's price variables. They
     took prices stored under the server's source for a pre-1.1.0 install's
-    public choice and saved it, so a later switch to Choose in BitcoinTX asked
+    public choice and saved it, so a later switch to Decide in BitcoinTX instead asked
     public sites at once. A command uses a choice already made, or the
     server's: only the app's start upgrades a pre-1.1.0 install."""
     monkeypatch.delenv("BTCTX_PRICE_SOURCE", raising=False)
