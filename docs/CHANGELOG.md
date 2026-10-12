@@ -10,6 +10,18 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Development
+- **The reference ledger's figures, checked by a second calculation**
+  (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
+  Schedule D line, box total, gains summary, income and rebate figure, gift
+  and year-end lot of the reference test ledger from the rules (FIFO per
+  account, fees, transfers, dates originally acquired, the holding period,
+  the boxes), importing nothing of the app, and a test fails on any
+  difference from the app's saved figures. For 2023 to 2026 there is none,
+  to the cent; the printed 2024 and 2025 forms carry the same figures. Three
+  rounding conventions are shared with the app on purpose (the script says
+  which). With the usual half-up rounding instead of the app's half-down,
+  the exact half-cent ties #100 covers move a cent: 2024 one row, 2025
+  four, 2026 two (one by a cent of proceeds), and one year-end lot a year.
 - **The sidebar's converter and calculator, tested under every price
   source** (#147). A new click-through file, `e2e/sidebar-matrix.e2e.ts`,
   uses Auto, Date and Manual and the calculator in each state the app has:
