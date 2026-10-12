@@ -254,6 +254,16 @@ test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", 
   await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
 });
 
+test("a move between pooled exchanges is listed as Between exchanges (#159)", async ({ authedPage: page }) => {
+  await seedFunds(page.request);
+  await createTx(page.request, {
+    type: "Transfer", timestamp: "2024-02-01T12:00:00Z", from_account_id: 4, to_account_id: 4,
+    amount: "0.5", fee_amount: "0.0001", fee_currency: "BTC", fee_usd: "5.00",
+  });
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await expect(page.getByText("Between exchanges")).toBeVisible();
+});
+
 test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await openAddForm(page, "Transfer");

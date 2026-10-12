@@ -230,6 +230,21 @@ def test_a_past_consolidation_of_more_than_the_wallet_held_then_is_refused():
     assert len(CLIENT.get("/api/transactions").json()) == 2
 
 
+def test_a_past_entry_refused_says_a_later_one_may_be_short():
+    """Checked in date order, the entry that runs short may be a later one:
+    the message says so, so it doesn't read as being about the new entry."""
+    deposit("2023-03-01", "1.0", "20000.00")
+    tx(type="Transfer", timestamp="2025-06-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXCHANGE_BTC,
+       amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="10.00")
+    r = CLIENT.post("/api/transactions", json=dict(
+        type="Withdrawal", timestamp="2024-03-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+        amount="0.8", purpose="Gift", fmv_usd="40000.00"))
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"].startswith("Not saved: with it, the account would lack BTC on its date or later. "
+                                         "Not enough BTC to transfer"), r.text
+    assert len(CLIENT.get("/api/transactions").json()) == 2
+
+
 def test_edits_keep_it_to_the_fee():
     old = deposit("2023-03-01", "1.0", "20000.00")
     move = tx(type="Transfer", timestamp="2025-06-01T12:00:00Z", from_account_id=WALLET,

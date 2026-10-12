@@ -71,7 +71,7 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
         # against the account as it was on its date. Checked first against
         # today's lots, a past consolidation (#159) was refused once coins
         # had left the account later, though only its fee leaves it.
-        recalculate_all_transactions(db)
+        _recalculate_with(new_tx, db)
     else:
         _post_lots(new_tx, tx_data, db)
 
@@ -135,6 +135,21 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
     db.add(new_tx)
     db.flush()  # new_tx.id is now available
     return new_tx
+
+
+def _recalculate_with(new_tx: Transaction, db: Session) -> None:
+    """The whole ledger again, in date order, with a new past entry. Short of
+    BTC, the message names the entry that runs short, which may be a later
+    one: it says so (as a delete does)."""
+    try:
+        recalculate_all_transactions(db)
+    except HTTPException as e:
+        if e.status_code != 400:
+            raise
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not saved: with it, the account would lack BTC on its date or later. {e.detail}",
+        ) from e
 
 
 def _is_backdated(new_tx: Transaction, db: Session) -> bool:

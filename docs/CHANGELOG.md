@@ -18,11 +18,12 @@ All notable changes to BitcoinTX are documented in this file.
   8949 in box I or L (C or F before 2025), never broker-reported. Your
   coins, their dates and cost basis stay as they are. The CSV import and
   export, the AI connector and its guide take it too; the list shows it as
-  a Consolidation. No existing figure changes: only entries you add create
-  new fee rows. If you left a past consolidation's fee out, you can add it
-  now. After a move between two exchanges, a sale at the one the coins
-  moved to usually shows no basis on its 1099-DA: set that sale's Broker
-  form to Proceeds only, as the form's hint says.
+  a Consolidation (Between exchanges for the exchange). No existing figure
+  changes: only entries you add create new fee rows. If you left a past
+  consolidation's fee out, you can add it now: it is checked against what
+  the wallet held on its date. After a move between two exchanges, a sale
+  at the one the coins moved to usually shows no basis on its 1099-DA: set
+  that sale's Broker form to Proceeds only, as the form's hint says.
 
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax
