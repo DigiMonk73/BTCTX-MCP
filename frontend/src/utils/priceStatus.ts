@@ -31,6 +31,8 @@ export interface PriceStatus {
   host: Host;
   last_ok: { at: string; from: string } | null;
   last_problem: { at: string; what: Problem } | null;
+  /** Your Mempool's last problem, kept when the backup then fails too. */
+  last_mempool_problem?: { at: string; what: Problem } | null;
   history: HistoryStatus;
 }
 
@@ -52,8 +54,7 @@ export interface StatusContext {
 export function clock(iso: string, timezone: string): string {
   return new Date(iso)
     .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone })
-    .replace(" AM", " am")
-    .replace(" PM", " pm");
+    .replace(/\s(AM|PM)$/, (_, m: string) => " " + m.toLowerCase());
 }
 
 const PUBLIC_SITES = "public price sites";
@@ -76,6 +77,10 @@ function mempoolFix(what: Problem, managed: boolean): string {
     : 'Type newer values meanwhile, or tick "If it can\'t answer, ask public price sites".';
 }
 
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function newer(a: string | undefined, b: string | undefined): boolean {
   return (a ?? "") > (b ?? "");
 }
@@ -94,7 +99,9 @@ function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
     return { tone: "warning", text: `${mempoolReason(problem.what, problem.at, ctx)} ${mempoolFix(problem.what, st.managed)}` };
   }
   if (problem && newer(problem.at, ok?.at)) {
-    return { tone: "warning", text: `Neither your Mempool nor ${PUBLIC_SITES} answered at ${clock(problem.at, ctx.timezone)}.` };
+    const first = st.last_mempool_problem;
+    const reason = first ? mempoolReason(first.what, first.at, ctx) : "Your Mempool didn't answer.";
+    return { tone: "warning", text: `${reason} ${capital(PUBLIC_SITES)} didn't answer either, at ${clock(problem.at, ctx.timezone)}.` };
   }
   if (ok) return { tone: "ok", text: `Newer prices from your Mempool. Last price ${clock(ok.at, ctx.timezone)}.` };
   return { tone: "idle", text: "Newer prices will come from your Mempool." };

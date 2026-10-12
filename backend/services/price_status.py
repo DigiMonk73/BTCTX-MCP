@@ -24,12 +24,14 @@ MEMPOOL_MISSING = "mempool_missing"  # StartOS: chosen, not installed
 PUBLIC_NO_ANSWER = "public_no_answer"
 TOR_NO_ANSWER = "tor_no_answer"
 
-_state: dict = {"ok": None, "problem": None}
+# The last price, the last problem, and the last problem of your Mempool
+# (kept when the backup then fails too, so its reason isn't lost)
+_state: dict = {"ok": None, "problem": None, "mempool_problem": None}
 
 
 def reset() -> None:
     """Forget everything (tests)."""
-    _state.update(ok=None, problem=None)
+    _state.update(ok=None, problem=None, mempool_problem=None)
 
 
 def _now() -> str:
@@ -43,6 +45,8 @@ def answered(source: str) -> None:
 
 def failed(what: str) -> None:
     _state["problem"] = {"at": _now(), "what": what, "settings": outbound.current()}
+    if what.startswith("mempool"):
+        _state["mempool_problem"] = _state["problem"]
 
 
 def mempool_failed(exc: Exception) -> None:
@@ -80,5 +84,6 @@ def status() -> dict:
         "host": outbound.host(),
         "last_ok": _current(_state["ok"]),
         "last_problem": _current(_state["problem"]),
+        "last_mempool_problem": _current(_state["mempool_problem"]),
         "history": hourly_prices.download_status(),
     }

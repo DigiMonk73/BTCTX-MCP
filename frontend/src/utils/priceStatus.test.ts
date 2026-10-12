@@ -62,8 +62,14 @@ describe("the status line", () => {
     );
     const tor = { ...base, source: "public" as const, last_problem: { at: T1, what: "tor_no_answer" as const } };
     expect(statusLine(tor, { ...ctx, tor: true }).text).toBe("Public price sites didn't answer through Tor at 2:02 pm. Is Tor running?");
-    const both = { ...base, last_ok: { at: T1, from: "mempool" }, last_problem: { at: T2, what: "public_no_answer" as const } };
-    expect(statusLine(both, { ...ctx, backup: true }).text).toBe("Neither your Mempool nor public price sites answered at 2:04 pm.");
+    const both = {
+      ...base, last_ok: { at: T1, from: "mempool" }, last_problem: { at: T2, what: "public_no_answer" as const },
+      last_mempool_problem: { at: T2, what: "mempool_untrusted_certificate" as const },
+    };
+    // Review of #180: the Mempool's reason isn't lost when the backup fails too
+    expect(statusLine(both, { ...ctx, backup: true }).text).toMatch(
+      /^Your Mempool's certificate isn't trusted .* Public price sites didn't answer either, at 2:04 pm\.$/,
+    );
   });
 
   it("a price after the problem clears it", () => {

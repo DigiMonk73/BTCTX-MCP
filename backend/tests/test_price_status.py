@@ -69,7 +69,8 @@ def test_the_route_asks_nothing_and_starts_empty(auth_client, monkeypatch):
     use()  # not chosen yet
     status = auth_client.get("/api/bitcoin/price/status").json()
     assert status["source"] == "unset" and status["last_ok"] is None and status["last_problem"] is None
-    assert set(status) == {"source", "managed", "invalid", "host", "last_ok", "last_problem", "history"}
+    assert set(status) == {"source", "managed", "invalid", "host", "last_ok", "last_problem",
+                           "last_mempool_problem", "history"}
     assert status["history"]["shipped"] is False
     assert seen == []
 
@@ -212,3 +213,33 @@ def test_the_reason_is_found_through_wrapped_errors():
     except httpx.ConnectError as wrapped:
         assert price_status.untrusted_certificate(wrapped)
     assert not price_status.untrusted_certificate(httpx.ConnectError("All connection attempts failed"))
+
+
+def test_only_the_price_says_where_prices_come_from(auth_client, monkeypatch):
+    """Review of #180: a Mempool that gives the block height but no price
+    was reported as the price's source while the backup gave the price."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "umbrel.local" and request.url.path.endswith("/height"):
+            return httpx.Response(200, text="800000")
+        if request.url.host == "umbrel.local":
+            return httpx.Response(200, json={"time": 1})  # no price
+        if request.url.host == "api.kraken.com":
+            return httpx.Response(200, json=KRAKEN)
+        return httpx.Response(503)
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(handler))
+    use(price_source="mempool", mempool_url=NODE, mempool_fallback=True)
+    bitcoin._height_cache.update(settings=None)
+    assert live_price()["source"] == "kraken"
+    assert asyncio.run(bitcoin.get_block_height()) == {"height": 800000}  # after the price
+    status = auth_client.get("/api/bitcoin/price/status").json()
+    assert status["last_ok"]["from"] == "kraken" and status["last_problem"]["what"] == "mempool_no_answer"
+
+
+def test_the_mempools_reason_is_kept_when_the_backup_fails_too(auth_client, monkeypatch):
+    fake_sites(monkeypatch, mempool_up=False, public_up=False)
+    use(price_source="mempool", mempool_url=NODE, mempool_fallback=True)
+    assert live_price() == 502
+    status = auth_client.get("/api/bitcoin/price/status").json()
+    assert status["last_problem"]["what"] == "public_no_answer"
+    assert status["last_mempool_problem"]["what"] == "mempool_no_answer"

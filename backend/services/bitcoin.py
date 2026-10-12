@@ -47,12 +47,15 @@ def _one_at_a_time() -> asyncio.Lock:
     return _price_lock["lock"]
 
 
-async def _from_own_node(path: str, parse: Callable):
-    """Ask the owner's mempool server when it's the chosen source; None if it fails."""
+async def _from_own_node(path: str, parse: Callable, record: bool = False):
+    """Ask the owner's mempool server when it's the chosen source; None if it
+    fails. `record`: the live price's attempt, which the status line reports
+    (services/price_status.py); the block height's isn't, so a Mempool that
+    gives the height but no price is never reported as the price's source."""
     settings = outbound.current()
     base = settings.own_node
     if not base:
-        if settings.price_source == "mempool":  # chosen, no address: StartOS before Mempool is installed
+        if record and settings.price_source == "mempool":  # no address: StartOS, Mempool not installed
             price_status.failed(price_status.MEMPOOL_MISSING)
         return None
     try:
@@ -62,17 +65,19 @@ async def _from_own_node(path: str, parse: Callable):
             value = parse(resp)
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
-        price_status.mempool_failed(exc)
+        if record:
+            price_status.mempool_failed(exc)
         return None
     if value is None:
         logger.warning("Own mempool server %s%s answered without a price (yet)", base, path)
+    if record and value is None:
         price_status.failed(price_status.MEMPOOL_NO_ANSWER)
-    else:
+    elif record:
         price_status.answered("mempool")
     return value
 
 
-async def _first_public(urls_and_parsers, what: str) -> tuple:
+async def _first_public(urls_and_parsers, what: str, record: bool = False) -> tuple:
     """The first public site's answer and the site's name ("kraken"), or
     502 (naming the proxy when none could even be reached through it, e.g.
     Tor stopped)."""
@@ -85,13 +90,15 @@ async def _first_public(urls_and_parsers, what: str) -> tuple:
                 if resp.status_code == 200:
                     value = parse(resp)
                     if value is not None:
-                        price_status.answered(_site(url))
+                        if record:
+                            price_status.answered(_site(url))
                         return value, _site(url)
             except Exception as exc:
                 unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
     through_proxy = outbound.current().proxy_url and unreached == len(urls_and_parsers)
-    price_status.failed(price_status.TOR_NO_ANSWER if through_proxy else price_status.PUBLIC_NO_ANSWER)
+    if record:
+        price_status.failed(price_status.TOR_NO_ANSWER if through_proxy else price_status.PUBLIC_NO_ANSWER)
     if through_proxy:
         raise HTTPException(status_code=502, detail=(
             f"No public site answered for the {what}: none could be reached through the proxy for "
@@ -146,11 +153,12 @@ async def get_current_price() -> dict:
         cached = _price_cache
         if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
             return cached["value"]
-        price = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"]))
+        price = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"]), record=True)
         source = "mempool"
         if price is None:
             price, source = await _first_public(
-                [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price")
+                [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price",
+                record=True)
         price = {**price, "source": source, "at": now_iso()}
         _price_cache.update(settings=settings, at=time.monotonic(), value=price)
         return price

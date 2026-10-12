@@ -40,7 +40,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from backend.models.btc_price import BtcPriceDaily
-from backend.services import outbound, price_status
+from backend.services import outbound
 from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR
 
 logger = logging.getLogger(__name__)
@@ -229,7 +229,6 @@ async def own_node_rows() -> tuple[list[dict], bool]:
             rows = resp.json()["prices"]
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
-        price_status.mempool_failed(exc)
         return [], False
     _state["mempool_rows"] = rows
     return rows, True

@@ -83,6 +83,10 @@ describe("the form", () => {
     expect(cannotSave({ ...form, mempoolUrl: "  " })).toMatch(/address/);
     expect(cannotSave(form)).toBeNull();
     expect(cannotSave({ ...form, source: "off" })).toBeNull();
+    // Through Tor ticked with no address: never saved as "no proxy" (review of #180)
+    expect(cannotSave({ ...form, source: "public", tor: true, torUrl: "  " })).toBe("Enter Tor's address.");
+    expect(cannotSave({ ...form, backup: true, tor: true, torUrl: "" })).toBe("Enter Tor's address.");
+    expect(cannotSave({ ...form, tor: true, torUrl: "" })).toBeNull(); // not offered: Tor isn't used
   });
 });
 

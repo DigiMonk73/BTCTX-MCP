@@ -120,3 +120,20 @@ test.describe("a phone", () => {
     }
   });
 });
+
+test.describe("a server whose price settings aren't valid", () => {
+  test.use({ priceSource: "invalid" });
+
+  test("Settings says so, read-only, and nothing is asked", async ({ page, app }) => {
+    const browser = await logIn(page, app);
+    await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Settings" }).click();
+    const net = page.getByRole("region", { name: "Privacy & network" });
+    await expect(net.getByText(/Set by this server's settings \(BTCTX_PRICE_SOURCE\)/)).toBeVisible();
+    await expect(net.getByRole("status")).toHaveText(/This server's price settings aren't valid, so nothing is contacted\./);
+    await expect(net.getByRole("radio")).toHaveCount(0);
+    await expect(net.getByRole("button", { name: "Save" })).toHaveCount(0);
+    expect(outsideRequests(app)).toEqual([]);
+    expect(browser).toEqual([]);
+  });
+});

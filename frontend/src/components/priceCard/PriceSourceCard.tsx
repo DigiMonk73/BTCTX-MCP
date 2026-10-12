@@ -30,7 +30,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
     : { tone: "idle" as const, text: "Loading…" };
   const blocked = cannotSave(form);
   const firstRun = variant === "first-run";
-  const Heading = firstRun ? "h2" : "h3";
+  const Heading = firstRun ? "h2" : "h4"; // in Settings, under its section's h3
 
   const onSave = async () => {
     const result = await save();

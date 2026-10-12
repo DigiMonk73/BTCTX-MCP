@@ -42,13 +42,17 @@ const TorField: React.FC<Props> = ({ form, set, errors }) => {
             placeholder={TOR_PLACEHOLDER}
             value={form.torUrl}
             aria-invalid={errors.torUrl ? true : undefined}
-            aria-describedby="price-tor-url-help"
+            aria-describedby={errors.torUrl ? "price-tor-url-help price-tor-url-error" : "price-tor-url-help"}
             onChange={(e) => set({ torUrl: e.target.value })}
           />
           <p id="price-tor-url-help" className="price-help">
             Any proxy works.
           </p>
-          {errors.torUrl && <p className="field-error">{errors.torUrl}</p>}
+          {errors.torUrl && (
+            <p id="price-tor-url-error" className="field-error">
+              {errors.torUrl}
+            </p>
+          )}
         </>
       )}
     </div>
@@ -72,13 +76,19 @@ const ChoiceFields: React.FC<Props> = (props) => {
             placeholder={MEMPOOL_PLACEHOLDER}
             value={form.mempoolUrl}
             aria-invalid={errors.mempoolUrl ? true : undefined}
-            aria-describedby="price-mempool-url-help"
+            aria-describedby={
+              errors.mempoolUrl ? "price-mempool-url-help price-mempool-url-error" : "price-mempool-url-help"
+            }
             onChange={(e) => set({ mempoolUrl: e.target.value })}
           />
           <p id="price-mempool-url-help" className="price-help">
             On your network, or an .onion (then through Tor).
           </p>
-          {errors.mempoolUrl && <p className="field-error">{errors.mempoolUrl}</p>}
+          {errors.mempoolUrl && (
+            <p id="price-mempool-url-error" className="field-error">
+              {errors.mempoolUrl}
+            </p>
+          )}
         </div>
         <div className="price-field">
           <label className="price-tick">
