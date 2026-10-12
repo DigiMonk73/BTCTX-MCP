@@ -173,3 +173,22 @@ def test_each_value_from_a_price_names_where_the_price_came_from(auth_client, te
     assert rows[0]["priced_at"] == "When its hour began (2025-03-01 14:00 UTC), your Mempool"
     with test_engine.begin() as conn:
         conn.execute(text("DELETE FROM btc_price_hourly WHERE hour = :h"), {"h": hour})
+
+
+def test_the_report_reads_the_year_files_once(auth_client, test_engine, clean, monkeypatch):
+    """Review of #190: the year files' hours (Bitstamp) are read once for the whole report."""
+    from backend.services import price_files as pf
+
+    hour = hourly_prices.hour_of(datetime(2026, 4, 1, 12, tzinfo=timezone.utc))
+    line = pf.YearLine(2026, pf.year_start(2026), hour + 3600, 1, "x")
+    reads = []
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: reads.append(1) or [line])
+    monkeypatch.setattr(hourly_prices, "_year_prices", lambda y: {hour: Decimal("70000.00")})
+    monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, **k: (Decimal("70000.00"), "bitstamp"))
+    for minute in ("10", "20"):
+        post(auth_client, type="Deposit", timestamp=f"2026-04-01T12:{minute}:00Z", from_account_id=EXTERNAL,
+             to_account_id=EXCHANGE_BTC, amount="0.1", fee_amount="0", fee_currency="BTC", source="Reward")
+    reads.clear()
+    rows = report(test_engine, 2026)["priced_values"]
+    assert [r["priced_at"].endswith(", Bitstamp") for r in rows] == [True, True]
+    assert len(reads) == 1

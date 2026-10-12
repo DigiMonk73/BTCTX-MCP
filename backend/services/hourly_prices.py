@@ -106,7 +106,7 @@ def price_at(db: Session, when: datetime) -> Priced:
                   price_history.stored_source(db, day) or "")
 
 
-def stored_price_at(db: Session, when: date | datetime, moment: str) -> Priced | None:
+def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict | None = None) -> Priced | None:
     """
     The price this install already has for `when` at "hour" or "day", from
     its own table and files only: never a request. What a saved value was
@@ -122,8 +122,15 @@ def stored_price_at(db: Session, when: date | datetime, moment: str) -> Priced |
     row = db.get(BtcPriceHourly, hour)
     if row is not None:
         return Priced(Decimal(row.usd), "hour", _utc(hour), row.source)
-    line = next((y for y in pf.read_manifest(pf.MANIFEST) if y.first_hour <= hour <= y.last_hour), None)
-    prices = _year_prices(line) if line else None
+    # One request's cache (a list of many transactions): the manifest read and
+    # each year file parsed once, not once per row
+    years = {} if years is None else years
+    if "manifest" not in years:
+        years["manifest"] = pf.read_manifest(pf.MANIFEST)
+    line = next((y for y in years["manifest"] if y.first_hour <= hour <= y.last_hour), None)
+    if line is not None and line.year not in years:
+        years[line.year] = _year_prices(line)
+    prices = years.get(line.year) if line else None
     return Priced(prices[hour], "hour", _utc(hour), "bitstamp") if prices and hour in prices else None
 
 

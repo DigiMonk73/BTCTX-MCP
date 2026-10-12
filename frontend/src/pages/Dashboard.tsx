@@ -35,14 +35,21 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     api
-      .get<{ price_source: string; managed?: boolean; confirmed?: boolean }>("/settings/network")
-      .then((res) =>
-        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false)),
+      .get<{ price_source: string; managed?: boolean; confirmed?: boolean; proxy_url?: string | null }>(
+        "/settings/network",
       )
-      .catch(() => undefined);
+      .then((res) => {
+        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false));
+        setThroughTor(Boolean(res.data.proxy_url));
+      })
+      .catch(() => setThroughTor(false));
   }, [priceRound]);
 
-  const price = useLivePrice(priceRound);
+  const live = useLivePrice(priceRound);
+  // null until the settings answer: the source line waits for it, so it
+  // never shows without "through Tor" first
+  const [throughTor, setThroughTor] = useState<boolean | null>(null);
+  const price = { ...live, source: throughTor === null ? undefined : live.source, throughTor: Boolean(throughTor) };
   const [timezone, setTimezone] = useState("UTC");
 
   useEffect(() => {
