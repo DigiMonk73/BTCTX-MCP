@@ -26,10 +26,6 @@ def _set_client(auth_client):
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     stub_daily_prices(monkeypatch, lambda day: PRICE)
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price",
-        lambda timestamp, db: Decimal("100000"),
-    )
 
 
 @pytest.fixture(autouse=True)

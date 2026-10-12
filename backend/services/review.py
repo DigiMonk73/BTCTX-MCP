@@ -63,7 +63,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
@@ -194,8 +194,10 @@ def _off(stored, expected: Decimal) -> bool:
 
 def fee_price_changes(db: Session, ids=None) -> list[dict[str, Any]]:
     """Transfers whose stored (not typed) fee value is off the day's price: {id, old, new}."""
+    # A fee priced at the hour (#144) is already the market's value at its time
     q = db.query(Transaction).filter(Transaction.type == "Transfer", Transaction.fee_usd.isnot(None),
-                                     Transaction.fee_usd_manual.is_(False))
+                                     Transaction.fee_usd_manual.is_(False),
+                                     or_(Transaction.price_moment.is_(None), Transaction.price_moment != "hour"))
     if ids is not None:
         q = q.filter(Transaction.id.in_(list(ids)))
     changes = []
