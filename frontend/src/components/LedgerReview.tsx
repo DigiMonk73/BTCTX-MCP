@@ -6,6 +6,7 @@ import type { HourlyPick, LedgerReviewResponse, ReviewCheck } from "./ledgerRevi
 interface HourlyResult {
   changed: { id: number }[];
   backup: string | null;
+  recalculated: boolean;
 }
 
 const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
@@ -76,21 +77,26 @@ const LedgerReview: React.FC = () => {
   }, [load]);
 
   // Only the hourly check applies anything: it asks first (HourlyCheck)
-  const applyHourly = async (pick: HourlyPick, question: string) => {
-    if (!window.confirm(question)) return;
+  // Its outcome stays shown after the review reloads (load() clears `failed`)
+  const applyHourly = async (pick: HourlyPick, question: string): Promise<boolean> => {
+    if (!window.confirm(question)) return false;
     setLoading(true);
     setNotice(null);
+    let applied = false;
     try {
-      const res = await api.post<HourlyResult>("/review/hourly-prices", pick);
-      const n = res.data.changed.length;
-      setNotice(`Changed ${n} transaction${n === 1 ? "" : "s"} and recalculated the ledger` +
-        (res.data.backup ? `; the copy from before is backups/${res.data.backup} in BitcoinTX's data folder.` : "."));
+      const { data } = await api.post<HourlyResult>("/review/hourly-prices", pick);
+      const n = data.changed.length;
+      setNotice(!data.recalculated ? "Nothing changed: those values are already at that price." :
+        `Changed ${n} transaction${n === 1 ? "" : "s"} and recalculated the ledger` +
+        (data.backup ? `; the copy from before is backups/${data.backup} in BitcoinTX's data folder.` : "."));
+      applied = true;
     } catch {
-      setFailed(true);
+      setNotice("Nothing was applied: BitcoinTX refused or could not apply it. Your ledger is as it was.");
     } finally {
       setLoading(false);
     }
     await load();
+    return applied;
   };
 
   const found = review?.checks.filter((c) => c.count > 0 && c.kind === "check") ?? [];
@@ -111,7 +117,7 @@ const LedgerReview: React.FC = () => {
           {loading ? "Checking..." : "Check again"}
         </button>
       </div>
-      {failed && <p className="settings-option-subtitle">The review could not be loaded or applied.</p>}
+      {failed && <p className="settings-option-subtitle">The review could not be loaded.</p>}
       {notice && <p className="settings-option-subtitle">{notice}</p>}
       {review?.recalc_error && (
         <p className="settings-option-subtitle">

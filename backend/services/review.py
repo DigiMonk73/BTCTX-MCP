@@ -383,8 +383,11 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
 
 def _day_priced_item(t: Transaction, tz, change: dict[str, Any]) -> dict[str, Any]:
     when = datetime.fromtimestamp(change["at"], tz=timezone.utc).strftime("%H:00 UTC")
-    at = f"the price when its hour began ({when})" if change["moment"] == "hour" else "that day's price"
-    issue = f"Valued at the day's 00:00 UTC price; at {at}, ${_money(change['price'])}:"
+    at = f"the price when its hour began ({when})"
+    if change["moment"] == "hour":
+        issue = f"Valued at the day's 00:00 UTC price; at {at}, ${_money(change['price'])}:"
+    else:
+        issue = f"Not at that day's 00:00 UTC price, ${_money(change['price'])} (no hourly price here):"
     parts = []
     for field, (old, new) in change["values"].items():
         name = VALUE_NAMES.get(field) or ("Income and basis" if _is_income(t) else "Basis")
@@ -462,7 +465,23 @@ def format_text(review: dict[str, Any]) -> str:
             detail = item["source"] if item["type"] == "Deposit" else item["purpose"]
             lines.append(f"  #{item['id']}  {item['date']}  {item['type']} ({detail})  {item['amount']} BTC  "
                          f"{item['issue']}")
-        if check["items"]:
+        lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
+        if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
             lines.append(f"  -> {check['action']}")
     return "\n".join(lines) + "\n"
+
+
+def year_line(year: dict[str, Any]) -> str:
+    """The hourly check's line for one tax year: how many change, and its totals' change."""
+    unlisted = year["count"] - year["listed"]
+    moved = ", ".join(f"{name} {_signed(year[key])}" for key, name in (
+        ("income", "income"), ("basis", "basis"), ("proceeds", "proceeds before fees"), ("fees", "fee values"))
+        if Decimal(year[key]) != 0) or "no net change"
+    return (f"{year['year']}: {year['count']} transaction(s)"
+            + (f", {unlisted} by less than $1.00 each (not listed)" if unlisted else "") + f"; totals: {moved}")
+
+
+def _signed(amount: str) -> str:
+    """"+$1000.10" or "-$3.00"."""
+    return f"-${amount[1:]}" if amount.startswith("-") else f"+${amount}"

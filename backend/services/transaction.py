@@ -356,9 +356,9 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     _revalue_income_deposit(tx, tx_data, db)
 
 
-# What an income, rebate or inherited deposit's value depends on: the hour's
-# price x the amount (when received, or the date of death in acquired_at),
-# and whether it is one into a BTC account at all.
+# What an income, rebate or inherited deposit's value depends on: the price
+# x the amount (the hour's when received; an inheritance's, the day's of the
+# date of death in acquired_at), and whether it is one into a BTC account.
 _INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp", "acquired_at")
 
 
@@ -366,8 +366,9 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     """
     An income or rebate deposit's value after an edit (#76). A typed one is
     kept. One that came from a price, or a blank or $0 one (the form sends 0
-    for a blank), is valued again at the hour's price when the edit changes
-    what it depends on: the account, amount or hour, or a source not
+    for a blank), is valued again at the hour's price (an inheritance: its
+    date of death's day price) when the edit changes what it depends on:
+    the account, amount or hour (date of death), or a source not
     valued at receipt becoming one (_income_inputs_changed). A type change
     makes the row's figure its own, typed.
     """
@@ -410,11 +411,11 @@ def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
 
 def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     """Whether the edit changes an input of the priced value: the account,
-    amount, UTC hour (the price's hour: of the deposit, or of an
-    inheritance's date of death) or type, or a source that wasn't valued at
-    receipt. Between two sources that are (Reward to Rebate, the fix #98
-    asks of users) the value can't change, so it isn't priced again and
-    needs no price."""
+    amount, the price's moment (the deposit's UTC hour, or an
+    inheritance's UTC day of death: _valuation_point) or type, or a source
+    that wasn't valued at receipt. Between two sources that are (Reward to
+    Rebate, the fix #98 asks of users) the value can't change, so it isn't
+    priced again and needs no price."""
     for key in ("type", "to_account_id"):
         if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
             return True

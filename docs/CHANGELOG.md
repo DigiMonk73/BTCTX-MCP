@@ -177,13 +177,15 @@ All notable changes to BitcoinTX are documented in this file.
   one by one but are in each year's totals. Nothing changes until you tick
   some and apply them, or apply a whole year (Settings, or `python -m
   backend.cli review --apply-hourly-prices YEAR`): a backup copy of the
-  database first, then the values at the hour (the day's price where
+  database first (in `backups/`, its newest 5 kept apart from the update's
+  copies), then the values at the hour (the day's price where
   there's no hourly price), marked so, and a recalculation. For a year
   you've filed, leaving it as filed is recommended; whether to amend is a
   question for a tax professional. Typed values and inheritances (valued
   at the date of death's day) are never listed. It replaces "Transfer fees
   valued far from that day's price" and its **Fix these** (`review
-  --fix-fee-prices`): such a fee is listed here, at its hour's price. The
+  --fix-fee-prices`): such a fee is in this check, at its hour's price
+  (listed when it changes by $1.00 or more). The
   check of income and rebate values now covers only the ones you typed,
   compared with that hour's price.
 - **The Complete Tax Report states how values are priced, and values

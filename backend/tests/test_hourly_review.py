@@ -155,3 +155,39 @@ def test_the_cli_applies_a_year(auth_client, ledger, test_engine, monkeypatch, c
     backup = out.split("Backup copy first: backups/")[1].split("\n")[0]
     (Path(test_engine.url.database).parent / "backups" / backup).unlink()
     assert tx(auth_client, ledger["transfer"])["fee_usd"] == "8.00"
+
+
+def test_an_applys_copy_never_pushes_out_the_pre_upgrade_copies(auth_client, ledger, test_engine):
+    """Review of #175: the copies before an apply are their own kind; five
+    applies of one item each mustn't prune the upgrade's "before" copies."""
+    backups = Path(test_engine.url.database).parent / "backups"
+    backups.mkdir(exist_ok=True)
+    stem = Path(test_engine.url.database).stem
+    before = [backups / f"{stem}-before-schema-0010-20260101T00000{n}Z.db" for n in range(5)]
+    for path in before:
+        path.write_bytes(b"")
+    try:
+        r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger["income"]]})
+        assert "-review-hourly-prices-" in r.json()["backup"]
+        assert all(path.exists() for path in before)
+    finally:
+        for path in backups.glob(f"{stem}-*.db"):
+            path.unlink()
+
+
+def test_too_many_or_too_large_ids_are_refused_not_a_server_error(auth_client, ledger):
+    """Review of #175: one SQL IN (...) can't take 40,000 ids, nor SQLite an id of 2**70."""
+    assert auth_client.post("/api/review/hourly-prices", json={"ids": list(range(1, 10002))}).status_code == 422
+    assert auth_client.post("/api/review/hourly-prices", json={"ids": [2**70]}).status_code == 422
+
+
+def test_the_cli_text_shows_each_year_and_how_to_apply_it(auth_client, ledger):
+    """Review of #175: a year with only changes under $1.00 lists no item,
+    but the CLI is the only other way to apply it: its line and the action show."""
+    from backend.services.review import format_text
+
+    text = format_text(auth_client.get("/api/review").json())
+    assert ("  2025: 3 transaction(s), 1 by less than $1.00 each (not listed); totals: income +$1000.10, "
+            "basis +$1000.10, proceeds before fees +$500.00, fee values +$1.00") in text
+    assert "  2024: 1 transaction(s); totals: fee values +$2.00" in text
+    assert "--apply-hourly-prices YEAR" in text

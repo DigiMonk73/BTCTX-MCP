@@ -360,11 +360,17 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
   const apply = review.getByRole("button", { name: "Apply to the ticked ones" });
   await expect(apply).toBeDisabled();
   await item.getByRole("checkbox").check();
+  // A refused apply says so, and stays said after the review reloads
+  await page.route("**/api/review/hourly-prices", (route) => route.fulfill({ status: 500, body: "{}" }),
+    { times: 1 });
+  await apply.click();
+  await expect(review.getByText(/^Nothing was applied/)).toBeVisible();
+  expect(await listTx(page.request)).toContainEqual(expect.objectContaining({ id: transfer.id, fee_usd: "6.00" }));
   await apply.click();
   await expect(review.getByText(/^Changed 1 transaction and recalculated the ledger; the copy from before is backups\//))
     .toBeVisible();
   await expect(review.getByText("Nothing to review.")).toBeVisible();
-  expect(dialogs[0]).toContain("Change the 1 ticked transaction to the values shown");
+  expect(dialogs[1]).toContain("Change the 1 ticked transaction to the values shown");
   const fixed = (await listTx(page.request)).find((t) => t.id === transfer.id)!;
   expect(fixed.fee_usd).toBe("5.00");
 });
