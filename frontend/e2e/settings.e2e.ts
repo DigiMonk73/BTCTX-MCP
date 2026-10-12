@@ -364,7 +364,7 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
   await page.route("**/api/review/hourly-prices", (route) => route.fulfill({ status: 500, body: "{}" }),
     { times: 1 });
   await apply.click();
-  await expect(review.getByText(/^Nothing was applied/)).toBeVisible();
+  await expect(review.getByText(/^The apply failed, or its answer didn't arrive/)).toBeVisible();
   expect(await listTx(page.request)).toContainEqual(expect.objectContaining({ id: transfer.id, fee_usd: "6.00" }));
   await apply.click();
   await expect(review.getByText(/^Changed 1 transaction and recalculated the ledger; the copy from before is backups\//))

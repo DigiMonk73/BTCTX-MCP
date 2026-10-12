@@ -171,8 +171,9 @@ Change these only together with the package (`startos/`):
 - **Price settings:** the `BTCTX_*` variables above.
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
-  newest 5 pre-upgrade/pre-restore copies and 3 AI-requested copies are kept
-  in `/data/backups/`.
+  newest 5 pre-upgrade/pre-restore copies, 5 copies before Ledger Review's
+  hourly prices were applied and 3 AI-requested copies are kept in
+  `/data/backups/`.
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
