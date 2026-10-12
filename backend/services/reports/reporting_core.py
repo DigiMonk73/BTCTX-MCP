@@ -29,7 +29,7 @@ from backend.services.reports.form_8949 import (
 )
 
 from backend.services import hourly_prices, price_history
-from backend.services.transaction import recalculate_all_transactions
+from backend.services.transaction import price_used, recalculate_all_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     income_txs        = _build_income_transactions(txns)
     rebates           = _build_rebates(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
-    priced_values     = _build_priced_values(txns, get_tax_timezone(db))
+    priced_values     = _build_priced_values(txns, get_tax_timezone(db), db)
     data_sources_list = _gather_data_sources(txns)
 
     # 5) Construct final dictionary
@@ -497,7 +497,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
     return results
 
 
-def _build_priced_values(txns: list[Transaction], tz) -> list[dict[str, Any]]:
+def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None) -> list[dict[str, Any]]:
     """
     The year's values BitcoinTX filled in from the BTC price, and which
     price each used (#144): an income, rebate or inherited deposit's value,
@@ -507,9 +507,22 @@ def _build_priced_values(txns: list[Transaction], tz) -> list[dict[str, Any]]:
     """
     return [
         {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,
-         "usd": float(usd), "priced_at": priced_at}
+         "usd": float(usd), "priced_at": priced_at + _from_where(tx, db)}
         for tx in txns for name, usd, priced_at in _priced_values(tx, tz)
     ]
+
+
+# The stored price's source, as the report names it (#145)
+_SOURCE_NAMES = {"bitstamp": "Bitstamp", "kraken": "Kraken", "mempool": "your Mempool"}
+
+
+def _from_where(tx: Transaction, db: Session | None) -> str:
+    """", Bitstamp": where the stored price a transaction's values came from
+    was found (services/transaction.price_used, read only); nothing when
+    it isn't known."""
+    used = price_used(tx, db) if db is not None else None
+    source = (used or {}).get("source", "")
+    return f", {_SOURCE_NAMES.get(source, source)}" if source in _SOURCE_NAMES else ""
 
 
 def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:

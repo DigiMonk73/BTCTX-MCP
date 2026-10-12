@@ -305,6 +305,7 @@ async def get_portfolio() -> ToolResult:
         ],
         "average_cost_basis": avg,
         "btc_price_usd": price.get("USD") if isinstance(price, dict) else None,
+        "btc_price_source": price.get("source") if isinstance(price, dict) else None,
     }
 
 
@@ -365,6 +366,8 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
     result = {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
     if isinstance(data, dict) and data.get("moment"):
         result.update(moment=data["moment"], priced_at=data.get("at"))
+    if isinstance(data, dict) and data.get("source"):
+        result["source"] = data["source"]  # "bitstamp", "kraken", "mempool" (#145)
     return result
 
 
