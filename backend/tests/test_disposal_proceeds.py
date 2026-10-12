@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.transaction import Transaction
+from backend.tests.conftest import stub_prices_at
 
 CLIENT: TestClient = None
 ENGINE = None
@@ -30,9 +31,7 @@ def _set_client(auth_client, test_engine):
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     PRICE["value"] = Decimal("100000")
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price", lambda timestamp, db: PRICE["value"]
-    )
+    stub_prices_at(monkeypatch, lambda when: PRICE["value"])
 
 
 @pytest.fixture(autouse=True)

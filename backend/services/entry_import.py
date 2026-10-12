@@ -25,8 +25,9 @@ from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INHERITED_SOURCE, VALUED_AT_RECEIPT
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -35,7 +36,7 @@ from backend.schemas.entry_import import (
     EntryRow,
     SimulatedResult,
 )
-from backend.services import price_history
+from backend.services import hourly_prices, price_history
 from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
@@ -174,7 +175,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
 # FMV autofill
 def _autofill_target(tx_data: dict[str, Any]) -> str | None:
     """
-    Which USD field (if any) should be filled from the day's BTC price. Only
+    Which USD field (if any) should be filled from the hour's BTC price. Only
     BTC moves: a deposit into or withdrawal from Bank or Exchange USD is in
     USD, so its amount times the BTC price means nothing.
     """
@@ -199,39 +200,55 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         Inherited deposits: FMV on the date of death (acquired_at)
       - Spent withdrawals: proceeds = FMV of what was bought
       - Gift/Donation withdrawals: fmv_usd for the tax report
-    Uses the daily historical price; on lookup failure the field stays
-    empty and the row gets a warning.
+    Uses the price of the transaction's hour (else its day:
+    services/hourly_prices.py), an inheritance its date of death's day price
+    as the form does (#173); on lookup failure the field stays empty and
+    the row gets a warning.
     """
-    price_cache: dict[str, Decimal | None] = {}
+    price_cache: dict[tuple, hourly_prices.Priced | None] = {}
     for p in prepared:
         if p.tx_data is None:
             continue
         target = _autofill_target(p.tx_data)
         if target is None:
             continue
-        # An inheritance is valued on the date of death (#154), anything else on its own date
-        moment = (p.tx_data.get("acquired_at") if target == "cost_basis_usd" else None) or p.tx_data["timestamp"]
-        date_str = moment.strftime("%Y-%m-%d")
-        if date_str not in price_cache:
+        # An inheritance is valued on the date of death (#154), anything else at its own time
+        inherited = target == "cost_basis_usd" and str(p.tx_data.get("source") or "").lower() == INHERITED_SOURCE
+        when = (p.tx_data.get("acquired_at") if inherited else None) or p.tx_data["timestamp"]
+        key = ("day", price_history.utc_day(when)) if inherited else ("hour", hourly_prices.hour_of(when))
+        if key not in price_cache:
             try:
-                price_cache[date_str] = await price_history.daily_price_async(db, moment)
+                lookup = _date_of_death_price if inherited else hourly_prices.price_at
+                price_cache[key] = await run_in_threadpool(lookup, db, when)
             except Exception as exc:
-                # The day (a transaction's date) only in the DEBUG log
+                # The time (a transaction's) only in the DEBUG log
                 logger.warning("FMV lookup failed (%s)", type(exc).__name__)
-                logger.debug("FMV lookup failed for %s: %s", date_str, exc)
-                price_cache[date_str] = None
-        price = price_cache[date_str]
-        if price is None:
-            p.result.warnings.append(
-                f"Could not fetch the BTC price for {date_str}; {target} was left empty."
-            )
+                logger.debug("FMV lookup failed for %s: %s", when, exc)
+                price_cache[key] = None
+        priced = price_cache[key]
+        if priced is None:
+            moment = f"{when:%Y-%m-%d}" if inherited else f"{when:%Y-%m-%d %H:00} UTC"
+            p.result.warnings.append(f"Could not fetch the BTC price for {moment}; {target} was left empty.")
             continue
-        p.tx_data[target] = (price * p.tx_data["amount"]).quantize(Decimal("0.01"))
-        if target == "cost_basis_usd":  # from the price, not typed: an edit re-prices it (#76)
+        p.tx_data[target] = (priced.usd * p.tx_data["amount"]).quantize(Decimal("0.01"))
+        # From the price, not typed: an edit re-prices it (#76). A gift's
+        # value isn't on any form, and stays as filled.
+        if target == "cost_basis_usd":
             p.tx_data["cost_basis_from_price"] = True
+        elif target == "proceeds_usd":
+            p.tx_data["proceeds_from_price"] = True
+        if target != "fmv_usd":
+            p.tx_data["price_moment"] = priced.moment
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]
+
+
+def _date_of_death_price(db: Session, when: datetime) -> hourly_prices.Priced:
+    """A date of death has no hour: that UTC day's 00:00 price, marked "day" (#154), as the form's."""
+    day = price_history.utc_day(when)
+    return hourly_prices.Priced(price_history.daily_price(db, when), "day",
+                                datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
 
 
 # Dedup

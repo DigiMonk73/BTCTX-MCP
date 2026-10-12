@@ -57,9 +57,6 @@ def backend_db(monkeypatch):
 
     stub_daily_prices(monkeypatch, lambda day: 50000.0)
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price", lambda timestamp, db: Decimal("50000")
-    )
     yield engine
     app.dependency_overrides.clear()
     engine.dispose()

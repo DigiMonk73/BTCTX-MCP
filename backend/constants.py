@@ -62,8 +62,8 @@ REBATE_SOURCE = "rebate"
 # acquired_at, which it must have.
 INHERITED_SOURCE = "inherited"
 # Deposit sources valued when acquired: left blank, the value (the cost
-# basis) is that day's price x the amount: the day received, or for an
-# inheritance the date of death (lowercase)
+# basis) is that hour's price x the amount: when received, or for an
+# inheritance on the date of death (lowercase)
 VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE, INHERITED_SOURCE}
 # Deposit sources whose coins can have been acquired before the deposit (a
 # date originally acquired, #91): the user's own, a gift with the giver's

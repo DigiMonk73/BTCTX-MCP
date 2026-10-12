@@ -60,6 +60,7 @@ declare global {
     type_choices: string[];
     funding_choices: string[];
     basis_autofilled: boolean;
+    price_moment?: "hour" | "day" | null;
     status: "new" | "matched" | "discrepancy";
     matched_tx_id?: number;
     discrepancy?: string;

@@ -147,13 +147,18 @@ So derived values must be recomputable from the Transaction row alone.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
-  Unpriced "Spent" withdrawals get FMV proceeds.
+  Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
+  (`proceeds_from_price`) like an income value: an edit of the amount or
+  hour (or a blank sent) prices them again; a change of purpose or type,
+  or a typed value (never the form's echo), makes them typed. A spend's
+  proceeds and fee value share one price: one priced again while the other
+  keeps the day's price takes the day's too (`_keeps_a_day_price`).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
-  or 0 basis is filled from the daily price on create/update
+  or 0 basis is filled from the hour's price on create/update
   (`_value_at_receipt`); no price → 422, never $0. A value from the price
   is marked (`cost_basis_from_price`) and priced again when an edit changes
-  the account, amount, UTC day or type, or moves it from a source not valued
+  the account, amount, UTC hour or type, or moves it from a source not valued
   at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
   (`_revalue_income_deposit`). Income (report, dashboard) counts only
@@ -175,10 +180,17 @@ So derived values must be recomputable from the Transaction row alone.
   value can rightly differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
-- **Prices**: every past-day valuation goes through
-  `services/price_history.daily_price` (table `btc_price_daily`, the UTC day's
-  00:00 price). Nothing is asked until the owner picks a price source
-  (`services/outbound.py`: off / public / own mempool, optional fallback),
+- **Prices**: every valuation goes through `services/hourly_prices.price_at`
+  (#144): the opening price of the moment's UTC hour (the tax timezone never
+  changes the hour), else the UTC day's 00:00 price
+  (`services/price_history.daily_price`, table `btc_price_daily`); the
+  moment is recorded in `transactions.price_moment` ("hour" or "day"; none
+  when every value is typed). A value priced before hourly prices stays at
+  the day until an edit prices it again or the owner applies Ledger
+  Review's check (#144); a recalculation never re-prices. Year-end holdings
+  still use the day's price. Nothing is asked until the owner picks a
+  price source (`services/outbound.py`: off / public / own mempool,
+  optional fallback),
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
   Source & Privacy action), which Settings then shows read-only. From
   1.2.8, prices stored while the server sets it never count as a choice

@@ -183,5 +183,5 @@ def test_csv_preview_says_income_deposit_will_be_valued():
     )
     assert r.status_code == 200, r.text
     [warning] = [w for w in r.json()["warnings"] if w["column"] == "cost_basis_usd"]
-    assert "day's BTC price" in warning["message"]
+    assert "hour's BTC price" in warning["message"]
     assert "$0" not in warning["message"]

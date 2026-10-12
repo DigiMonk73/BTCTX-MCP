@@ -134,7 +134,7 @@ class TransactionBase(BaseModel):
         default=None,
         description=(
             "USD value of a transfer's or withdrawal's BTC fee. Leave out to use "
-            "fee x that day's price; a value you give is kept."
+            "fee x that hour's price; a value you give is kept."
         ),
     )
     realized_gain_usd: Decimal | None = Field(
@@ -217,7 +217,7 @@ class TransactionUpdate(BaseModel):
     proceeds_usd: Decimal | None = None
     gross_proceeds_usd: Decimal | None = None
     fmv_usd: Decimal | None = None
-    fee_usd: Decimal | None = None  # send null to go back to the day's price
+    fee_usd: Decimal | None = None  # send null to go back to the hour's price
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
 
@@ -270,7 +270,9 @@ class TransactionRead(TransactionBase):
     """
     id: int
     fee_usd_manual: bool = False  # fee_usd was typed by the user
-    cost_basis_from_price: bool = False  # an income or rebate deposit's value came from that day's price
+    cost_basis_from_price: bool = False  # an income or rebate deposit's value came from a price
+    proceeds_from_price: bool = False  # a Spent's proceeds came from a price
+    price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
     created_at: datetime
     updated_at: datetime
 
