@@ -140,3 +140,20 @@ describe("confirm once (#145, 2.9)", () => {
     expect(cardView(chosen, formFromSettings(chosen), false, "UTC").label).toBe("Save");
   });
 });
+
+describe("Tor on StartOS (#145, the amendment's C)", () => {
+  it("prefills no address on StartOS, where 127.0.0.1 can't reach Tor", () => {
+    expect(formFromSettings({ ...base, price_source: "public", host: "startos" }).torUrl).toBe("");
+    expect(formFromSettings({ ...base, price_source: "public", host: "mac" }).torUrl).toBe(TOR_PLACEHOLDER);
+  });
+
+  it("the server's Tor shows ticked and saves back unchanged", () => {
+    const saved: NetworkSettingsData = {
+      ...base, price_source: "public", proxy_url: "socks5h://10.0.3.1:9050", tor_from_server: true, host: "startos",
+    };
+    const form = formFromSettings(saved);
+    expect(form.tor).toBe(true);
+    expect(priceFormChanged(saved, form)).toBe(false);
+    expect(cannotSave(form)).toBeNull();
+  });
+});

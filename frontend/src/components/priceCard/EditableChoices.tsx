@@ -1,5 +1,6 @@
 import React from "react";
 import { PRICE_CHOICES, type PriceForm, type PriceSource } from "../../utils/priceSource";
+import { olderValuesNote, type HistoryStatus } from "../../utils/priceStatus";
 import ChoiceFields from "./ChoiceFields";
 import type { FieldErrors } from "./usePriceCard";
 
@@ -9,10 +10,20 @@ interface Props {
   errors: FieldErrors;
   /** While confirming (2.9): the stored choice, marked "Your current choice". */
   current: PriceSource | null;
+  tor: { fromServer: boolean; onStartOS: boolean };
+  history?: HistoryStatus;
 }
 
+/** What a chosen Mempool without its backup, or Nobody, means for older values (#145). */
+const OlderValues: React.FC<{ source: PriceSource; backup: boolean; history?: HistoryStatus }> = ({
+  source, backup, history,
+}) => {
+  const note = olderValuesNote(source, backup, history);
+  return note ? <p className="price-help price-note">{note}</p> : null;
+};
+
 /** The three choices as native radios in a fieldset, each one's fields right after it. */
-const EditableChoices: React.FC<Props> = ({ form, set, errors, current }) => (
+const EditableChoices: React.FC<Props> = ({ form, set, errors, current, tor, history }) => (
   <fieldset className="price-choices">
     <legend className="price-legend">Where should BitcoinTX get Bitcoin prices?</legend>
     {PRICE_CHOICES.map((c) => (
@@ -36,7 +47,10 @@ const EditableChoices: React.FC<Props> = ({ form, set, errors, current }) => (
             </span>
           </span>
         </label>
-        {form.source === c.value && <ChoiceFields form={form} set={set} errors={errors} />}
+        {form.source === c.value && <ChoiceFields form={form} set={set} errors={errors} tor={tor} />}
+        {form.source === c.value && current === null && (
+          <OlderValues source={c.value} backup={form.backup} history={history} />
+        )}
       </React.Fragment>
     ))}
   </fieldset>

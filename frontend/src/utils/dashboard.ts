@@ -31,7 +31,7 @@ export interface LivePrice {
 }
 
 /** Whether a price answer's reason is that the choice waits to be confirmed (the server's 503). */
-export function waitingToConfirm(detail: unknown): boolean {
+export function waitingDetail(detail: unknown): boolean {
   return typeof detail === "string" && detail.startsWith("Confirm where BitcoinTX gets newer prices");
 }
 
@@ -42,7 +42,7 @@ export type NoPrice = "waiting" | "unchosen" | "off" | "none";
 
 export function noPriceReason(status: number | undefined, detail: unknown): NoPrice {
   if (status !== 503) return "none";
-  if (waitingToConfirm(detail)) return "waiting";
+  if (waitingDetail(detail)) return "waiting";
   return typeof detail === "string" && detail.startsWith("Prices: not chosen yet") ? "unchosen" : "off";
 }
 

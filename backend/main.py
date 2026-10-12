@@ -66,7 +66,8 @@ def _load_network_settings() -> None:
 
 
 def _download_hourly_prices() -> None:
-    """Public sites chosen: the hourly price history comes in, in the background (hourly_prices.py)."""
+    """A choice that allows public sites (public, or your Mempool with its
+    backup): the hourly price history comes in, in the background (hourly_prices.py)."""
     from backend.services import hourly_prices
 
     try:

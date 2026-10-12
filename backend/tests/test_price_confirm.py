@@ -26,6 +26,7 @@ from backend.tests.conftest import default_login
 # The real functions, captured before the session fixture stubs them.
 from backend.services.bitcoin import get_current_price as real_current_price
 from backend.services.hourly_prices import find_hours as real_find_hours
+from backend.services.hourly_prices import download_if_public as real_download_if_public
 from backend.services.hourly_prices import start_download as real_start_download
 from backend.services.price_history import find_prices as real_find_prices
 
@@ -55,6 +56,9 @@ def outside(monkeypatch):
     # The hourly lookups and the history download as they really are (review of #181)
     monkeypatch.setattr(hourly_prices, "find_hours", real_find_hours)
     monkeypatch.setattr(hourly_prices, "start_download", real_start_download)
+    # ...but confirming Public doesn't start the download here, so no background
+    # thread outlives a test (re-check of #181); asks_nothing calls the real one
+    monkeypatch.setattr(hourly_prices, "download_if_public", lambda: None)
     bitcoin._price_cache.update(settings=None)
     yield seen
     outbound._current = outbound.NetworkSettings()
@@ -92,10 +96,11 @@ def asks_nothing(auth_client, outside):
         r = auth_client.get("/api/bitcoin/price/history", params=params)
         assert r.status_code == 422 and "Confirm where BitcoinTX gets newer prices" in r.json()["detail"], params
     assert not hourly_prices.start_download()
-    hourly_prices.download_if_public()
+    real_download_if_public()
     status = auth_client.get("/api/bitcoin/price/status").json()
     assert status["waiting"] is True and status["history"]["state"] == "not_allowed"
     assert outside == []
+
 
 
 def asked_until_confirmed(auth_client, test_engine, outside):

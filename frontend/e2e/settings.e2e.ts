@@ -405,7 +405,8 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
   await expect(page.getByText("Price source saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
     price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
-    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, waiting: false, host: "server",
+    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, waiting: false, tor_from_server: false,
+    host: "server",
     confirmed: true, chosen_at: expect.stringMatching(/Z$/), chosen_via: "settings",
   });
 
@@ -427,6 +428,9 @@ test.describe("a fresh install asks where prices come from", () => {
     const card = page.getByRole("region", { name: "Bitcoin prices" });
     await expect(card).toBeVisible();
     await expect(card.getByRole("status")).toHaveText(/Not chosen yet: nothing is contacted\./);
+    // the hourly history: where it will come from, and that nothing in it names a date (#145)
+    await expect(card).toContainText("downloaded once from Bitstamp when you choose Public price sites");
+    await expect(card).toContainText("Nothing in the download names your dates.");
     await expect(page.locator(".btc-price-value")).toHaveText("Not chosen yet"); // the dashboard asked nothing
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("unset");
     // #149: a reload before choosing, and one after. Playwright's WebKit crashes
@@ -438,6 +442,7 @@ test.describe("a fresh install asks where prices come from", () => {
     await expect(use).toBeDisabled();
     await card.getByLabel(/^My own Mempool/).check();
     await expect(use).toBeDisabled(); // needs its address
+    await expect(card).toContainText("It has hourly prices only from when it began recording.");
     await card.getByLabel(/^Public price sites/).check();
     let loads = 0;
     page.on("load", () => (loads += 1));

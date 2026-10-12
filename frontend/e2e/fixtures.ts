@@ -179,6 +179,8 @@ type Fixtures = {
    * fallback and proxy runs; outsideRequests() lists what it sent out.
    */
   fakeInternet: boolean;
+  /** true: StartOS lends its Tor to the app's own choice (BTCTX_TOR_PROXY_URL, #145). */
+  serverTor: boolean;
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -188,12 +190,14 @@ export const test = base.extend<Fixtures>({
   appMode: ["server", { option: true }],
   priceSource: ["public", { option: true }],
   fakeInternet: [false, { option: true }],
-  app: async ({ appMode, priceSource, fakeInternet }, use, testInfo) => {
+  serverTor: [false, { option: true }],
+  app: async ({ appMode, priceSource, fakeInternet, serverTor }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
       ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
       ...(priceSource === "unset" || priceSource.startsWith("unconfirmed") ? { BTCTX_SMOKE_PRICE_SOURCE: priceSource } : {}),
       ...(priceSource === "invalid" ? { BTCTX_PRICE_SOURCE: "coingecko" } : {}),
+      ...(serverTor ? { BTCTX_HOST: "startos", BTCTX_TOR_PROXY_URL: "socks5h://10.0.3.1:9050" } : {}),
       ...(priceSource === "startos"
         ? {
             BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off",

@@ -462,6 +462,13 @@ Start from the `clean` snapshot.
   Network is editable again and shows the app's own choice (**Nobody**, from
   AUTH-4). Choose **My own Mempool** and leave the address blank. Expect
   **Save** off, with "Enter your Mempool's address." beside it.
+- **PRC-5b** (#145) Still with **Choose in BitcoinTX**: in the app choose
+  **My own Mempool** (address `https://mempool.emzy.de`), tick **If it
+  can't answer, ask public price sites**, and save. Expect the card's first
+  line to read "Downloading the hourly history from Bitstamp: N of M years,
+  each checked." with a progress bar, then "Hourly prices, 2013 to …:
+  downloaded and checked." Untick the backup and choose **Nobody**: the
+  line keeps "downloaded and checked".
 - **PRC-6** Set the action back to **Public price sites** for the rest of
   Track A.
 
@@ -734,16 +741,17 @@ Start from the `clean` snapshot.
   `GET $API/settings/network` (logged in) to say `"price_source":
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.
-- **UPG-6** (#145, confirm once) Before the update (UPG-1), under 1.2.7:
-  action **Choose in BitcoinTX**, then in the app Settings > Privacy &
-  Network choose **Public price sites** and save. Update to the candidate
-  and log in. Expect on the Dashboard the card "Please confirm where
+- **UPG-6** (#145, confirm once) A pass of its own, after UPG-5: restore
+  the VM's `clean` snapshot, sideload the previous release (1.2.7) and set
+  its login as in UPG-1. Under 1.2.7: action **Choose in BitcoinTX**, then
+  in the app Settings > Privacy & Network choose **Public price sites** and
+  save. Sideload the candidate and log in. Expect on the Dashboard the card "Please confirm where
   BitcoinTX gets prices", **Public price sites** selected with "Your
   current choice", its status line "Waiting for you to confirm: nothing is
   contacted until you do.", Current Bitcoin Price "Confirm your choice",
   and the sidebar "waiting for you". The service log has no new line
-  starting "BTC price history from" or "Hourly BTC prices" before you
-  confirm. Press **Confirm**: the card goes away without a reload and a
+  starting "BTC price history from", "Latest BTC prices from" or "Hourly
+  BTC prices" before you confirm. Press **Confirm**: the card goes away without a reload and a
   price appears. Restart the service: not asked again. Settings shows
   "You chose this on … in the first-run question." Set the action back to
   **Public price sites**.

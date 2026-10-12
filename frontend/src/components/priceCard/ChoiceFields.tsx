@@ -6,13 +6,28 @@ interface Props {
   set: (patch: Partial<PriceForm>) => void;
   /** A message under a field, e.g. the server's answer to a bad address. */
   errors: { mempoolUrl?: string; torUrl?: string };
+  /** Tor is the server's (StartOS's action), locked on; or BitcoinTX runs on StartOS without it. */
+  tor: { fromServer: boolean; onStartOS: boolean };
 }
 
 /** "Through Tor", and Tor's address once ticked. An .onion Mempool always
  * goes through Tor, so the box is ticked and fixed then. */
-const TorField: React.FC<Props> = ({ form, set, errors }) => {
+const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
   const onion = form.source === "mempool" && isOnion(form.mempoolUrl);
   const ticked = form.tor || onion;
+  if (tor.fromServer) {
+    return (
+      <div className="price-field">
+        <label className="price-tick">
+          <input type="checkbox" checked disabled aria-describedby="price-tor-help" />
+          <span>Through Tor</span>
+        </label>
+        <p id="price-tor-help" className="price-help">
+          Tor on this server, set in StartOS: every request to a public site, and an .onion, goes through it.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="price-field">
       <label className="price-tick">
@@ -28,7 +43,9 @@ const TorField: React.FC<Props> = ({ form, set, errors }) => {
       <p id="price-tor-help" className="price-help">
         {onion
           ? "An .onion address is reached through Tor."
-          : "Hides your IP address too. Needs Tor running."}
+          : tor.onStartOS
+            ? "Turn on Use Tor in StartOS's Price Source & Privacy action, or type another proxy's address."
+            : "Hides your IP address too. Needs Tor running."}
       </p>
       {ticked && (
         <>
@@ -46,7 +63,7 @@ const TorField: React.FC<Props> = ({ form, set, errors }) => {
             onChange={(e) => set({ torUrl: e.target.value })}
           />
           <p id="price-tor-url-help" className="price-help">
-            Any proxy works.
+            {tor.onStartOS ? "On StartOS, Use Tor in the action is simpler: it fills this in." : "Any proxy works."}
           </p>
           {errors.torUrl && (
             <p id="price-tor-url-error" className="field-error">

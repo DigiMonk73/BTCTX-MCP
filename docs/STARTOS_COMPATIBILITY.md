@@ -137,6 +137,15 @@ start upgrades a pre-1.1.0 install).
 An invalid value turns price lookups off (an error in the log says which;
 `GET /api/settings/network` says `"invalid": true`).
 
+`BTCTX_TOR_PROXY_URL` (new in the stable candidate, #145): Tor on the
+server for a choice made in the app (StartOS: the action's *Use Tor* with
+*Choose in BitcoinTX*). It carries every request that goes through a proxy
+(public sites, an .onion Mempool) and Settings shows it locked on, while
+the rest of the choice stays the owner's; their own proxy setting is kept
+underneath. Ignored when `BTCTX_PRICE_SOURCE` is set (`BTCTX_PROXY_URL`
+decides then). An invalid one asks nobody (an error in the log, and the
+status line says the server's settings aren't valid): never around Tor.
+
 `BTCTX_HOST` (`startos`; new in the stable candidate, #145) says where
 BitcoinTX runs. It changes only words: where a server-set price choice is
 changed ("StartOS's Price Source & Privacy action" rather than words that
@@ -248,6 +257,6 @@ curl -b jar -X POST -F password=test123 -F file=@backup.btx http://localhost:808
 | Session key | `/data/.btctx_secret_key` (auto-generated) or `SECRET_KEY` env |
 | Health | `GET /api/health` (200 = database at current schema) |
 | Maintenance | `python -m backend.cli migrate \| set-password \| recalculate` |
-| Price settings | `BTCTX_PRICE_SOURCE`, `BTCTX_MEMPOOL_URL`, `BTCTX_MEMPOOL_FALLBACK`, `BTCTX_PROXY_URL` (optional) |
+| Price settings | `BTCTX_PRICE_SOURCE`, `BTCTX_MEMPOOL_URL`, `BTCTX_MEMPOOL_FALLBACK`, `BTCTX_PROXY_URL`, `BTCTX_TOR_PROXY_URL` (optional) |
 | Where it runs | `BTCTX_HOST=startos` (optional, words only) |
 | MCP server | Set `BTCTX_URL` to the StartOS address; see [mcp_server/README.md](../mcp_server/README.md) |
