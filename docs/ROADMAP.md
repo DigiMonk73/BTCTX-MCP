@@ -30,20 +30,20 @@ users see and how values are made.
       source shown; a careful plan with mockups, approved before building.
 - [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
       #150; the owner agreed 2026-10-12):
-  - a spend's network fee comes off its proceeds (#157: today the gain is
-    a few dollars too high per spend);
-  - "Consolidate / move within the same wallet", which records only the
-    network fee (#159);
-  - an Inherited deposit source: the value at death as cost, always
-    long-term, "INHERITED" on Form 8949 (#154).
+  - [x] a spend's network fee comes off its proceeds (#157, done in #162);
+  - [ ] "Consolidate / move within the same wallet", which records only the
+        network fee (#159);
+  - [ ] an Inherited deposit source: the value at death (usually) as cost,
+        always long-term, "INHERITED" on Form 8949 (#154); rules and wording
+        approved by the owner before building.
 
 ## Soon
 
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
-      filing season: the user types the form's proceeds and cost for that
-      sale, and Form 8949 shows them with the IRS's code and correction
-      (columns (f) and (g)), BitcoinTX's own gain unchanged. Generic, not
-      tied to one exchange.
+      forms are filed (early 2027): the user types the form's proceeds and
+      cost for that sale, and Form 8949 shows them with the IRS's code and
+      correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
+      report and the guide say when. Generic, not tied to one exchange.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
       backup password).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
