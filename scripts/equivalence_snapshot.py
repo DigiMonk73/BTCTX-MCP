@@ -31,7 +31,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.routers import reports as reports_router
-from backend.services import ai_key, bitcoin, first_run, login_throttle, outbound, price_history
+from backend.services import ai_key, bitcoin, first_run, hourly_prices, login_throttle, outbound, price_history
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.transaction import recalculate_all_transactions
@@ -126,8 +126,13 @@ def _shut_out_the_world(work: Path) -> None:
     async def current_price():
         return {"USD": 60000.0}
 
+    async def no_hours(hour, files_end, stored_to):
+        return {}
+
     price_history.find_prices = price_finder(daily_usd)
     bitcoin.get_current_price = current_price
+    hourly_prices.find_hours = no_hours
+    hourly_prices.start_download = lambda: False
     (work / "data").mkdir(exist_ok=True)
     first_run.DATA_DIR = str(work / "data")
     outbound._current = outbound.NetworkSettings(price_source="public")

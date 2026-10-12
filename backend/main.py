@@ -65,6 +65,16 @@ def _load_network_settings() -> None:
         db.close()
 
 
+def _download_hourly_prices() -> None:
+    """Public sites chosen: the hourly price history comes in, in the background (hourly_prices.py)."""
+    from backend.services import hourly_prices
+
+    try:
+        hourly_prices.download_if_public()
+    except Exception:
+        logger.exception("Could not start the hourly price download")
+
+
 def _prepare_first_run() -> None:
     """The setup code while the account has the default login (first_run.py)."""
     from backend.services import first_run
@@ -94,11 +104,13 @@ def _sync_ai_key_file() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """At startup: migrate the schema and seed the defaults, then the setup
-    code, the network settings and (Mac app) the AI key file."""
+    code, the network settings, (Mac app) the AI key file, and with public
+    price sites chosen the hourly price history's download."""
     init_db()
     _prepare_first_run()
     _load_network_settings()
     _sync_ai_key_file()
+    _download_hourly_prices()
     yield
 
 app = FastAPI(

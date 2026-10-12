@@ -60,12 +60,16 @@ HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is do
 
 # When each download last ran (in memory: a restart may ask again, and every
 # public request is the same for every install anyway).
-_state = {"full_failed_at": -1e9, "latest_day": None, "latest_failed_at": -1e9, "mempool_at": -1e9}
+_state: dict = {}
 
 
 def reset_state() -> None:
     """Forget when downloads last ran (tests)."""
-    _state.update(full_failed_at=-1e9, latest_day=None, latest_failed_at=-1e9, mempool_at=-1e9)
+    _state.update(full_failed_at=-1e9, latest_day=None, latest_failed_at=-1e9,
+                  mempool_at=-1e9, mempool_base=None, mempool_rows=[])
+
+
+reset_state()
 
 
 def utc_day(when: date | datetime) -> date:
@@ -220,13 +224,19 @@ def midnight_prices(rows: list[dict]) -> dict[date, tuple]:
     return out
 
 
-async def own_node_history() -> dict[date, tuple]:
-    """The own mempool server's whole USD history (one request, at most every 10 minutes)."""
+async def own_node_rows() -> tuple[list[dict], bool]:
+    """
+    The own mempool server's whole USD history, and whether it was just
+    asked: one request at most every 10 minutes; its answer is kept that
+    long, so the day and hour lookups (services/hourly_prices.py) share it.
+    """
     base = outbound.current().own_node
+    if not base:
+        return [], False
     now = time.monotonic()
-    if not base or now - _state["mempool_at"] < RETRY_SECONDS:
-        return {}
-    _state["mempool_at"] = now
+    if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
+        return _state["mempool_rows"], False
+    _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
     try:
         async with outbound.own_node_client(timeout=30.0) as client:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
@@ -234,6 +244,15 @@ async def own_node_history() -> dict[date, tuple]:
             rows = resp.json()["prices"]
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
+        return [], False
+    _state["mempool_rows"] = rows
+    return rows, True
+
+
+async def own_node_history() -> dict[date, tuple]:
+    """The own mempool server's 00:00 UTC prices (own_node_rows)."""
+    rows, fresh = await own_node_rows()
+    if not fresh:
         return {}
     prices = midnight_prices(rows)
     logger.info("Price history from your mempool server: %d days", len(prices))

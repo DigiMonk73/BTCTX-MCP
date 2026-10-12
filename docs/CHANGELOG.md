@@ -65,6 +65,20 @@ All notable changes to BitcoinTX are documented in this file.
     remove `BTCTX_PRICE_SOURCE`), check that **Settings → Privacy &
     Network** shows the choice you want.
 
+### Added
+- **The hourly price lookup and its verified download** (#144, the second
+  of five pull requests; nothing is valued at the hour yet). With public
+  price sites chosen, BitcoinTX downloads Bitstamp's hourly prices from
+  2013 once, in the background, into `btc-prices/` next to the database
+  (about 3 MB): every year in the same fixed requests on every install,
+  newest first, through Tor when it's set, and keeps a year only if it
+  gives the fingerprint the release ships. With your own mempool server
+  and its fallback, it's downloaded only when a lookup needs an hour the
+  server doesn't have. Hours after the history come from the server's
+  hourly record (only the hours it recorded live) or from Bitstamp, and
+  are kept (a new table, `btc_price_hourly`; nothing else in the database
+  changes). No request names a transaction's hour.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

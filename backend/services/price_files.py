@@ -130,6 +130,18 @@ def line_for(year: int, text: str) -> YearLine:
     return YearLine(year, first, last, len(rows), fingerprint(text))
 
 
+def parse_year_text(text: str) -> dict[int, Decimal]:
+    """A year file's prices by hour."""
+    lines = text.rstrip("\n").split("\n")
+    if lines[0] != HEADER:
+        raise ValueError("not a price year file")
+    out = {}
+    for row in lines[1:]:
+        hour, price = row.split(",")
+        out[from_label(hour)] = Decimal(price)
+    return out
+
+
 # The manifest
 def read_manifest(path: Path = MANIFEST) -> list[YearLine]:
     if not path.exists():
@@ -182,11 +194,16 @@ def block_starts(year: int, last_hour: int) -> list[int]:
     return list(range(year_start(year), last_hour + 1, BLOCK_HOURS * HOUR))
 
 
-async def bitstamp_block(client, start: int) -> dict[int, Decimal]:
-    """Bitstamp's hourly opens for the 1,000 hours from `start`."""
+async def bitstamp_candles(client, start: int) -> list[dict]:
+    """Bitstamp's hourly candles for the 1,000 hours from `start`, as it sends them."""
     resp = await client.get(BITSTAMP_OHLC_URL, params={"step": HOUR, "limit": BLOCK_HOURS, "start": start})
     resp.raise_for_status()
-    rows = resp.json()["data"]["ohlc"]
+    return resp.json()["data"]["ohlc"]
+
+
+async def bitstamp_block(client, start: int) -> dict[int, Decimal]:
+    """Bitstamp's hourly opens for the 1,000 hours from `start`."""
+    rows = await bitstamp_candles(client, start)
     return {int(r["timestamp"]): Decimal(str(r["open"])) for r in rows if int(r["timestamp"]) % HOUR == 0}
 
 

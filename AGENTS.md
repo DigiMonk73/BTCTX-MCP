@@ -205,6 +205,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
+| `backend/services/hourly_prices.py` | the price when an hour began (#144): stored hours (`btc_price_hourly`), the year files (verified download into `<data dir>/btc-prices/`), a mempool server's live hours, Bitstamp's fixed blocks after the files; else the day's price, marked as such |
 | `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
