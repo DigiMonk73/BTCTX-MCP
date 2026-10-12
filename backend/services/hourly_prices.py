@@ -148,10 +148,11 @@ def start_download() -> bool:
 
 
 def download_if_public() -> None:
-    """At startup and when the price choice is saved: public sites chosen,
-    so the hourly history comes in now (with a mempool server and its
-    fallback, only when a lookup needs it)."""
-    if outbound.current().price_source == "public":
+    """At startup and when the price choice is saved: a choice that allows
+    public sites (public, or your Mempool with its backup: a Mempool never
+    has the hours before it began recording) brings the hourly history in
+    now, so its progress shows (#145, the amendment's choice 1)."""
+    if outbound.current().public_allowed:
         start_download()
 
 

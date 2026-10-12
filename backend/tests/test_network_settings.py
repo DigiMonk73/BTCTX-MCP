@@ -226,7 +226,8 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
     assert saved.pop("chosen_at").endswith("Z")
     assert saved == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
                      "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
-                     "waiting": False, "host": "server", "confirmed": True, "chosen_via": "settings"}
+                     "waiting": False, "tor_from_server": False, "host": "server", "confirmed": True,
+                     "chosen_via": "settings"}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -394,7 +395,8 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=BRIDGE + "/", BTCTX_MEMPOOL_FALLBACK="off")
     assert auth_client.get("/api/settings/network").json() == {
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
-        "managed": True, "invalid": False, "waiting": False, "host": "server", "confirmed": True,
+        "managed": True, "invalid": False, "waiting": False, "tor_from_server": False, "host": "server",
+        "confirmed": True,
         "chosen_at": None, "chosen_via": None}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     assert r.status_code == 409 and "on StartOS: the Price Source & Privacy action" in r.json()["detail"]
@@ -665,3 +667,39 @@ def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
         "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked. "
         "To change that: Settings → Privacy & network. Enter the USD value yourself.")
     assert "))" not in r.json()["detail"] and requests_seen == []
+
+
+# ---------------------------------------------------------------------------
+# Tor on the server with a choice made in the app (#145, the amendment's C):
+# StartOS's "Use Tor" with Choose in BitcoinTX passes BTCTX_TOR_PROXY_URL
+# ---------------------------------------------------------------------------
+STARTOS_TOR = "socks5h://10.0.3.1:9050"
+
+
+def test_the_servers_tor_carries_an_in_app_choice_and_is_locked_on(auth_client, test_engine, monkeypatch):
+    auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": "socks5h://127.0.0.1:9150"})
+    monkeypatch.setenv("BTCTX_TOR_PROXY_URL", STARTOS_TOR)
+    with sessionmaker(bind=test_engine)() as db:
+        s = outbound.load(db)
+    assert (s.proxy_url, s.tor_from_server, s.managed) == (STARTOS_TOR, True, False)
+    shown = auth_client.get("/api/settings/network").json()
+    assert (shown["proxy_url"], shown["tor_from_server"]) == (STARTOS_TOR, True)
+    # The rest stays the owner's: a change of choice keeps the server's Tor, and the
+    # owner's own proxy setting underneath stays as it was
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": ONION})
+    assert r.status_code == 200, r.text  # an .onion needs Tor: the server's is there
+    assert r.json()["proxy_url"] == STARTOS_TOR and outbound.current().own_node == ONION
+    monkeypatch.delenv("BTCTX_TOR_PROXY_URL")
+    with sessionmaker(bind=test_engine)() as db:
+        assert outbound.load(db).proxy_url == "socks5h://127.0.0.1:9150"
+
+
+def test_a_server_set_choice_ignores_the_servers_tor_and_a_bad_one_is_ignored(auth_client, server_env, test_engine,
+                                                                               monkeypatch):
+    monkeypatch.setenv("BTCTX_TOR_PROXY_URL", "ftp://nope:1")
+    with sessionmaker(bind=test_engine)() as db:
+        s = outbound.load(db)
+    assert not s.tor_from_server and s.proxy_url != "ftp://nope:1"
+    monkeypatch.setenv("BTCTX_TOR_PROXY_URL", STARTOS_TOR)
+    s = server_env(BTCTX_PRICE_SOURCE="public", BTCTX_PROXY_URL="")
+    assert s.managed and s.proxy_url is None and not s.tor_from_server  # the action's own Tor setting decides

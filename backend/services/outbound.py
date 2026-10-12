@@ -61,6 +61,10 @@ SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
     "BTCTX_PRICE_SOURCE", "BTCTX_MEMPOOL_FALLBACK", "BTCTX_MEMPOOL_URL", "BTCTX_PROXY_URL")
+# Tor on the server, for a choice made in the app (StartOS: the action's
+# "Use Tor" with Choose in BitcoinTX, #145): used for every request that
+# goes through a proxy, and locked on in Settings
+ENV_TOR = "BTCTX_TOR_PROXY_URL"
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
 SETTINGS_PAGE = "Settings → Privacy & network"
 SET_IN_STARTOS = "StartOS's Price Source & Privacy action"
@@ -86,6 +90,8 @@ class NetworkSettings:
     # A stored choice with no record of when it was made (#145, 2.9): nothing
     # is asked until the owner confirms it
     waiting: bool = False
+    # proxy_url is the server's Tor (BTCTX_TOR_PROXY_URL), not the owner's
+    tor_from_server: bool = False
 
     @property
     def own_node(self) -> str | None:
@@ -267,14 +273,27 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
     _record.update(chosen_at=_get(db, CHOSEN_AT_KEY), chosen_via=_get(db, CHOSEN_VIA_KEY))
     chosen = source in SOURCES
+    tor = server_tor()
     _current = NetworkSettings(
         price_source=source if chosen else "unset",
         mempool_url=_get(db, MEMPOOL_KEY),
         mempool_fallback=_get(db, FALLBACK_KEY) == "on",
-        proxy_url=_get(db, PROXY_KEY),
+        proxy_url=tor or _get(db, PROXY_KEY),
         waiting=chosen and not _record["chosen_at"],
+        tor_from_server=tor is not None,
     )
     return _current
+
+
+def server_tor() -> str | None:
+    """The server's Tor for a choice made in the app (BTCTX_TOR_PROXY_URL),
+    or None. An invalid one is ignored, with an error in the log: requests
+    then use the owner's own proxy setting, as without it."""
+    try:
+        return _clean_url(os.environ.get(ENV_TOR), PROXY_SCHEMES, ENV_TOR)
+    except HTTPException as exc:
+        logger.error("%s is ignored: %s", ENV_TOR, exc.detail)
+        return None
 
 
 def _clean_url(value: str | None, schemes, what: str) -> str | None:
@@ -305,10 +324,11 @@ def save(
     if price_source not in SOURCES:
         raise HTTPException(status_code=422, detail=f"Price source must be one of: {', '.join(SOURCES)}.")
     mempool = _clean_url(mempool_url, ("http", "https"), "Your mempool server")
-    proxy = _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
+    # With the server's Tor, the owner's own proxy setting stays as it was
+    proxy = _get(db, PROXY_KEY) if _current.tor_from_server else _clean_url(proxy_url, PROXY_SCHEMES, "The proxy")
     if price_source == "mempool" and not mempool:
         raise HTTPException(status_code=422, detail="Enter your mempool server's address to use it.")
-    if price_source == "mempool" and _is_onion(mempool) and not proxy:
+    if price_source == "mempool" and _is_onion(mempool) and not (proxy or _current.tor_from_server):
         raise HTTPException(status_code=422, detail=(
             "An .onion mempool server is reached through the proxy: set it below "
             "(e.g. Tor, socks5h://127.0.0.1:9050)."))

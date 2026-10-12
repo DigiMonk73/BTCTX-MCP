@@ -36,6 +36,14 @@ ul.price-choices { list-style: none; }
 .price-field-label { font-size: var(--text-13); font-weight: var(--font-medium); }
 .price-tick { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; font-size: var(--text-sm); cursor: pointer; }
 
+/* The hourly history's line, first on the card (#145) */
+.price-history { display: flex; flex-direction: column; gap: var(--space-2); }
+.price-history-text { margin: 0; font-size: var(--text-13); line-height: 1.5; color: var(--color-text-secondary); }
+.price-history.ok .price-history-text { color: var(--color-success); }
+.price-history.warning .price-history-text { color: var(--color-warning); }
+.price-progress { width: 100%; max-width: 440px; height: 8px; accent-color: var(--color-accent); }
+.price-note { padding: 0 var(--space-3) 0 calc(var(--space-6) + 4px); }
+
 .price-status { margin: 0; font-size: var(--text-13); line-height: 1.5; color: var(--color-text-secondary); }
 .price-status.ok { color: var(--color-success); }
 .price-status.warning { color: var(--color-warning); }
@@ -50,3 +58,11 @@ ul.price-choices { list-style: none; }
 
 /* On the Dashboard, its cards' rows are flex <p>s (dashboard.css): not here */
 .dashboard .price-card.card p { display: block; margin: 0; font-size: var(--text-13); }
+
+/* Short windows (the Mac app's 800 × 600): tighter, so Use this shows without scrolling */
+@media (max-height: 700px) {
+  .price-card { gap: var(--space-2); }
+  .price-card.card { padding: var(--space-4) var(--space-5); }
+  .price-choices { gap: 6px; }
+  .price-choice { padding: var(--space-2) var(--space-3); }
+}

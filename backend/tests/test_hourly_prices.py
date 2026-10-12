@@ -200,16 +200,19 @@ def test_the_download_stops_when_public_sites_stop_being_allowed(sites):
     assert not (hp.folder() / "2025.csv").exists()
 
 
-def test_public_sites_chosen_start_the_download_a_mempool_server_with_its_fallback_doesnt(
-        sites, monkeypatch, auth_client):
+def test_a_choice_allowing_public_sites_starts_the_download_when_saved(sites, monkeypatch, auth_client):
+    """Public sites, or your Mempool with its backup (#145, the amendment's
+    choice 1, owner's OK 2026-10-12); never your Mempool alone or Nobody."""
     started = []
     monkeypatch.setattr(hp, "start_download", lambda: started.append(1) or True)
-    r = auth_client.put("/api/settings/network", json={
-        "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True, "proxy_url": None})
-    assert r.status_code == 200 and started == []
-    r = auth_client.put("/api/settings/network", json={
-        "price_source": "public", "mempool_url": None, "mempool_fallback": False, "proxy_url": None})
-    assert r.status_code == 200 and started == [1]
+    for choice, starts in (({"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": False}, False),
+                           ({"price_source": "off"}, False),
+                           ({"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True}, True),
+                           ({"price_source": "public"}, True)):
+        started.clear()
+        r = auth_client.put("/api/settings/network", json={"mempool_url": None, "mempool_fallback": False,
+                                                           "proxy_url": None, **choice})
+        assert r.status_code == 200 and started == ([1] if starts else []), choice
 
 
 def test_a_stored_hour_wins_over_the_files(sites, db):

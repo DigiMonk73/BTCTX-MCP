@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, statusLine, type PriceStatus, type StatusContext } from "./priceStatus";
+import { clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -118,5 +118,50 @@ describe("re-check of #180: the backup answered once, then both failed", () => {
     expect(statusLine(later, { ...ctx, backup: true }).text).toMatch(
       /^Your Mempool's certificate isn't trusted .* Public price sites answered instead at 2:04 pm\.$/,
     );
+  });
+});
+
+describe("the hourly history's line (#145, the amendment's A)", () => {
+  const h = (over: Partial<PriceStatus["history"]>) => ({ ...base, history: { ...history, ...over } });
+
+  it("before a choice: where it will come from, and that no request names a date", () => {
+    expect(historyLine({ ...h({}), source: "unset" }, ctx)?.text).toBe(
+      "Hourly prices, 2013 to Oct 12, 2026: downloaded once from Bitstamp when you choose Public price sites, or " +
+        "My own Mempool with its backup, each year checked against a fingerprint that comes with BitcoinTX. " +
+        "Nothing in the download names your dates.",
+    );
+  });
+
+  it("downloading, with its progress, through Tor when it is", () => {
+    const line = historyLine(h({ state: "downloading", years_done: 6 }), { ...ctx, tor: true });
+    expect(line?.text).toMatch(/^Downloading the hourly history from Bitstamp through Tor: 6 of 14 years, each checked\./);
+    expect(line?.progress).toEqual({ done: 6, total: 14 });
+  });
+
+  it("done, failed, a year that didn't match, and a choice that doesn't allow it", () => {
+    expect(historyLine(h({ state: "complete", years_done: 14 }), ctx)).toMatchObject({
+      tone: "ok", text: "Hourly prices, 2013 to Oct 12, 2026: downloaded and checked. They work offline from now on, whatever you choose.",
+    });
+    expect(historyLine(h({ state: "failed" }), { ...ctx, tor: true })?.text).toMatch(/through Tor: is Tor running\?/);
+    expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
+      "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. Tried again tomorrow.",
+    );
+    expect(historyLine({ ...h({}), source: "off" }, ctx)?.text).toBe(
+      "The hourly history (2013 to Oct 12, 2026) needs a one-time download from Bitstamp, which your choice doesn't allow.",
+    );
+  });
+
+  it("built in, once Bitstamp agrees: the approved line", () => {
+    expect(historyLine(h({ shipped: true }), ctx)?.text).toBe(
+      "Built in: every hourly price from 2013 to Oct 12, 2026. Works offline, nothing to set.",
+    );
+  });
+
+  it("says what your Mempool alone, or Nobody, means for older values, until the history is here", () => {
+    expect(olderValuesNote("mempool", false, history)).toMatch(/^It has hourly prices only from when it began recording/);
+    expect(olderValuesNote("mempool", true, history)).toBeNull();
+    expect(olderValuesNote("off", false, history)).toMatch(/choose Public price sites until the download finishes, then Nobody/);
+    expect(olderValuesNote("off", false, { ...history, state: "complete" })).toBeNull();
+    expect(olderValuesNote("public", false, history)).toBeNull();
   });
 });

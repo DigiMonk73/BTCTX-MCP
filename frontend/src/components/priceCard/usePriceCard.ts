@@ -15,6 +15,7 @@ import type { PriceStatus } from "../../utils/priceStatus";
 export const PRICE_CHOICE_SAVED = "btctx:price-choice-saved";
 
 const STATUS_EVERY_MS = 30_000; // asks this BitcoinTX only: the route never asks anyone
+const DOWNLOAD_EVERY_MS = 3_000;
 
 const EMPTY: PriceForm = { source: "", mempoolUrl: "", backup: false, tor: false, torUrl: "" };
 
@@ -55,11 +56,16 @@ export function usePriceCard() {
       .then((tz) => setTimezone(tz.timezone))
       .catch(() => undefined);
     loadStatus();
+  }, [loadStatus]);
+
+  // The status every 30 s, every 3 s while the history downloads (its progress)
+  const downloading = status?.history.state === "downloading";
+  useEffect(() => {
     const id = setInterval(() => {
       if (!document.hidden) loadStatus();
-    }, STATUS_EVERY_MS);
+    }, downloading ? DOWNLOAD_EVERY_MS : STATUS_EVERY_MS);
     return () => clearInterval(id);
-  }, [loadStatus]);
+  }, [loadStatus, downloading]);
 
   const set = (patch: Partial<PriceForm>) => {
     setForm((f) => ({ ...f, ...patch }));

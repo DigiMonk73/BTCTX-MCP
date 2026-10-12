@@ -130,3 +130,61 @@ export function statusLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   if (st.source === "off") return { tone: "idle", text: "Fully offline: nothing is contacted. Type newer values yourself." };
   return st.source === "mempool" ? mempoolLine(st, ctx) : publicLine(st, ctx);
 }
+
+/** The card's first line: where the hourly history is (#145, the amendment's A). */
+export interface HistoryLine extends StatusLine {
+  /** Years done of all, while downloading. */
+  progress?: { done: number; total: number };
+}
+
+function untilDay(until: string): string {
+  return new Date(until.replace(/Z$/, ":00Z")).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
+  });
+}
+
+/** The hourly history's line for the card, given the choice in use. */
+export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | null {
+  const h = st.history;
+  if (!h.until || !h.first_year) return null;
+  const span = `${h.first_year} to ${untilDay(h.until)}`;
+  const tor = ctx.tor ? " through Tor" : "";
+  if (h.shipped) return { tone: "ok", text: `Built in: every hourly price from ${span}. Works offline, nothing to set.` };
+  if (h.state === "complete") {
+    return { tone: "ok", text: `Hourly prices, ${span}: downloaded and checked. They work offline from now on, whatever you choose.` };
+  }
+  if (h.state === "downloading") {
+    return {
+      tone: "idle",
+      text: `Downloading the hourly history from Bitstamp${tor}: ${h.years_done} of ${h.years_total} years, each checked. You can keep working; until a year arrives, its values use the day's price.`,
+      progress: { done: h.years_done, total: h.years_total },
+    };
+  }
+  if (h.state === "failed") {
+    const why = ctx.tor ? "Bitstamp didn't answer through Tor: is Tor running?" : "Bitstamp didn't answer.";
+    return { tone: "warning", text: `The hourly history didn't download: ${why} It's tried again in 10 minutes. Meanwhile values use the day's price.` };
+  }
+  if (h.mismatched.length > 0) {
+    const years = h.mismatched.join(", ");
+    return { tone: "warning", text: `Bitstamp's prices for ${years} didn't match BitcoinTX's fingerprint, so ${years} uses the day's price. Tried again tomorrow.` };
+  }
+  if (h.state === "not_allowed" && st.source !== "unset" && !st.waiting) {
+    return { tone: "idle", text: `The hourly history (${span}) needs a one-time download from Bitstamp, which your choice doesn't allow.` };
+  }
+  return {
+    tone: "idle",
+    text: `Hourly prices, ${span}: downloaded once from Bitstamp when you choose Public price sites, or My own Mempool with its backup, each year checked against a fingerprint that comes with BitcoinTX. Nothing in the download names your dates.`,
+  };
+}
+
+/** Under a chosen Mempool without its backup, or Nobody: what that means for older values. */
+export function olderValuesNote(source: string, backup: boolean, h: HistoryStatus | undefined): string | null {
+  if (h?.shipped || h?.state === "complete") return null;
+  if (source === "mempool" && !backup) {
+    return "It has hourly prices only from when it began recording. Older values are typed, unless you tick the backup.";
+  }
+  if (source === "off") {
+    return "Older values are typed, unless the history is already downloaded. To have it and then ask nobody: choose Public price sites until the download finishes, then Nobody. The history stays.";
+  }
+  return null;
+}

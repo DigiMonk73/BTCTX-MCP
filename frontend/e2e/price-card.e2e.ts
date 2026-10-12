@@ -105,6 +105,17 @@ test.describe("the Mac app's window, 800 × 600", () => {
   });
 });
 
+test.describe("the Mac app's window, 800 × 600, after the update", () => {
+  test.use({ appMode: "mac", viewport: { width: 800, height: 600 }, priceSource: "unconfirmed" });
+
+  test("the confirm card fits too: its Confirm button shows", async ({ page, app }) => {
+    await logIn(page, app);
+    const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+    await expect(card.getByRole("button", { name: "Confirm" })).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});
+
 test.describe("a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
