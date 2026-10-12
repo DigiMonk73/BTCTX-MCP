@@ -142,6 +142,12 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
   `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
   `npx playwright install webkit`).
+- **Playwright's WebKit crashes ("Page crashed") at the next navigation
+  after any reload of a signed-in page** (a second reload, or a `goto`),
+  with or without the price card. Real Safari and Chrome reload normally,
+  and the Mac app has no reload shortcut (#149). So a WebKit test reloads a
+  signed-in page at most once (`settings.e2e.ts`, the first-run test, does
+  its reload before choosing only in Chromium).
 - `test.use({ fakeInternet: true })` swaps the stubbed prices for a fake
   internet (`fake_internet` in `scripts/smoke_test.py`): the app's own
   choice of price source, fallback and proxy runs; each past day has its

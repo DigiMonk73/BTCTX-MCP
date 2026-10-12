@@ -142,6 +142,18 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     feeUSDManual: tx.fee_usd_manual ?? false,
     feeUSDStored: tx.fee_usd ?? undefined,
     priceMoment: tx.price_moment ?? null,
+    ...valueOrigins(tx),
+  };
+}
+
+/** Where the saved values came from, for the form's "From the price" / "Typed" (#145). */
+function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
+  return {
+    costBasisFromPrice: tx.cost_basis_from_price ?? false,
+    proceedsFromPrice: tx.proceeds_from_price ?? false,
+    costBasisStored: tx.cost_basis_usd,
+    proceedsStored: tx.gross_proceeds_usd ?? tx.proceeds_usd,
+    priceUsed: tx.price_used ?? null,
   };
 }
 

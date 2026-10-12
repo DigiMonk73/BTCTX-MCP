@@ -34,6 +34,7 @@ from backend.constants import (
     VALUED_AT_RECEIPT,
 )
 
+CENT = Decimal("0.01")
 logger = logging.getLogger(__name__)
 
 
@@ -426,6 +427,43 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict, db: Session) -> bool:
         return True
     tz = get_tax_timezone(db)
     return _valuation_point(tx_data, tx, tz) != _valuation_point({}, tx, tz)
+
+
+def price_used(tx: Transaction, db: Session, years: dict | None = None) -> dict | None:
+    """
+    The stored price a transaction's filled-in values came from (an income
+    or rebate value, Spent proceeds, a BTC fee's value), for the form and the
+    API (#145): its hour or day, source and USD per BTC. Read from this
+    install's table and files only, never asked for. Given only when a value
+    it filled in is that price times its amount to the cent: a value priced
+    elsewhere (an import, another tax timezone since) names no price. One
+    matching value names it for the transaction: a Spent's typed proceeds
+    beside a priced fee keep their own "typed" mark in the form. None otherwise. `years`: a cache
+    of the year files for one request (a list of many transactions).
+    """
+    values = _priced_amounts(tx)
+    if not values or tx.price_moment not in ("hour", "day") or tx.timestamp is None:
+        return None
+    when = tx.timestamp
+    if _is_inherited({"source": tx.source}) and tx.acquired_at is not None:
+        when = date_of_death(tx.acquired_at, db)  # a date: its day's price (#154, #177)
+    found = hourly_prices.stored_price_at(db, when, tx.price_moment, years)
+    if found is None or not any(abs(found.usd * btc - usd) <= CENT for usd, btc in values):
+        return None
+    return {"at": found.at.isoformat().replace("+00:00", "Z"), "moment": found.moment,
+            "source": found.source, "usd_per_btc": found.usd}
+
+
+def _priced_amounts(tx: Transaction) -> list[tuple[Decimal, Decimal]]:
+    """(USD value, BTC it values) for each value BitcoinTX filled in from a price."""
+    out = []
+    if tx.cost_basis_from_price and tx.cost_basis_usd is not None:
+        out.append((Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
+        out.append((Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
+    if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
+        out.append((Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
+    return out
 
 
 def _valuation_point(edited: dict, tx: Transaction, tz):

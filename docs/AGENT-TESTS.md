@@ -280,8 +280,10 @@ Start from the `clean` snapshot.
   pages. The group **Dec 31, 2023** holds #6 as "Withdrawal · Wallet",
   "11:30 PM · Spent", "Gain +$170.00 · +73.91% · Short-term".
 - **GLD-3** Dashboard. Expect: the Portfolio, Realized and Income & Fees
-  figures above. Current Bitcoin Price reads "Prices off". Total Fees reads
-  "N/A" (label "Total Fees in USD").
+  figures above. Current Bitcoin Price reads "Offline", with "You chose
+  Nobody: no live price." under it; Unrealized Gains/Losses reads
+  "Offline"; the sidebar reads "BTC Price: offline" with **Type a price**.
+  Total Fees reads "N/A" (label "Total Fees in USD").
 - **GLD-4** Without prices, try to add each of these, all dated 2025-07-01
   12:00. Expect each to be refused, with the transaction count still 14:
   - Deposit to `Bitcoin Wallet`, Amount `0.001`, Source

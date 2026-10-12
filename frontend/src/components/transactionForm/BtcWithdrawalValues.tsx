@@ -1,4 +1,5 @@
 import React from "react";
+import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import BrokerReportingField from "./BrokerReportingField";
 
@@ -35,6 +36,7 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean; onRefreshFmv: () => void
             What you received, before the network fee: its value is taken off, as for a sale.
           </small>
         )}
+        {spent && <ValueOrigin fromPrice="proceedsFromPrice" stored="proceedsStored" shown="proceeds_usd" />}
         {spent && proceeds === 0 && (
           <div className="field-warning">
             <strong>Warning:</strong> You selected "Spent" but "Proceeds (USD)" is 0.

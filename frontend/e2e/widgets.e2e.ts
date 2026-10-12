@@ -73,7 +73,11 @@ test("converter with prices off says so, never $0.00", async ({ authedPage: page
   const r = await page.request.put("/api/settings/network", { data: off });
   expect(r.ok(), await r.text()).toBeTruthy();
   await page.reload();
-  await expect(page.getByText("BTC Price: Prices off")).toBeVisible();
+  await expect(page.getByText("BTC Price: offline")).toBeVisible();
+  // the way forward: Manual, with a typed price
+  await page.getByRole("complementary").getByRole("button", { name: "Type a price" }).click();
+  await expect(page.getByLabel("BTC price (USD)")).toBeVisible();
+  await page.getByRole("complementary").getByRole("button", { name: "Auto" }).click();
   await expect(page.getByText(/BTC Price: \$/)).toHaveCount(0);
   await page.getByLabel("BTC", { exact: true }).fill("0.5");
   await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("50000000");

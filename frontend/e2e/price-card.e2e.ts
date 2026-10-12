@@ -31,7 +31,7 @@ async function choose(page: Page, data: Record<string, unknown>) {
 /** The card's status line in Settings, once the Dashboard has asked for a price. */
 async function statusAfterAPrice(page: Page) {
   await page.goto("/dashboard"); // asks for the live price with the choice just saved
-  await expect(page.locator(".btc-price-value")).toHaveText(/^(\$|Error)/);
+  await expect(page.locator(".btc-price-value")).toHaveText(/^(\$|No answer)/);
   await page.getByRole("link", { name: "Settings" }).click();
   return page.getByRole("region", { name: "Privacy & network" }).getByRole("status");
 }
@@ -179,7 +179,7 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     await expect(card.getByRole("status")).toHaveText(/Waiting for you to confirm: nothing is contacted until you do\./);
     await expect(page.locator(".btc-price-value")).toHaveText("Confirm your choice");
     await expect(page.getByRole("link", { name: "Confirm now" })).toBeVisible();
-    await expect(page.getByRole("complementary")).toContainText("BTC Price: waiting for you · Confirm");
+    await expect(page.getByRole("complementary").getByText("BTC Price: waiting for you")).toBeVisible();
     await expect(page.getByRole("complementary").getByRole("link", { name: "Confirm" })).toBeVisible();
     await page.goto("/dashboard"); // after a restart of the page: still asked, still nothing sent
     await expect(card).toBeVisible();
@@ -237,6 +237,10 @@ test.describe("a server whose price settings aren't valid", () => {
   test("Settings says so, read-only, and nothing is asked", async ({ page, app }) => {
     const browser = await logIn(page, app);
     await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
+    // The Dashboard: offline, for the server's reason, never "You chose Nobody" (review of #190)
+    await expect(page.locator(".btc-price-value")).toHaveText("Offline");
+    await expect(page.getByText(/^This server's price settings aren't valid, so nothing is asked/)).toBeVisible();
+    await expect(page.getByText("You chose Nobody: no live price.")).toHaveCount(0);
     await page.getByRole("link", { name: "Settings" }).click();
     const net = page.getByRole("region", { name: "Privacy & network" });
     await expect(net.getByText(/Set by this server's settings \(BTCTX_PRICE_SOURCE\)/)).toBeVisible();

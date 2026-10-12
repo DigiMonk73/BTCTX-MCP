@@ -68,5 +68,7 @@ test("with prices off, unrealized gains say so instead of loading forever", asyn
   expect(r.ok(), await r.text()).toBeTruthy();
   await page.reload();
   const row = page.getByRole("paragraph").filter({ hasText: /^\s*Unrealized Gains\/Losses/ });
-  await expect(row).toContainText("Prices off");
+  await expect(row).toContainText("Offline");
+  await expect(page.locator(".btc-price-value")).toHaveText("Offline");
+  await expect(page.getByText("You chose Nobody: no live price.")).toBeVisible();
 });

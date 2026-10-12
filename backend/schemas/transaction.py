@@ -263,6 +263,16 @@ class TransactionUpdate(BaseModel):
         return v
 
 
+class PriceUsed(BaseModel):
+    """The price a transaction's filled-in values came from (#145): its UTC
+    hour's (or day's) start, "hour" or "day", where it came from, and the USD
+    per BTC. Read from the stored price at display time; nothing is saved."""
+    at: str
+    moment: str
+    source: str
+    usd_per_btc: Decimal
+
+
 class TransactionRead(TransactionBase):
     """
     Schema for reading transactions from the database.
@@ -273,6 +283,7 @@ class TransactionRead(TransactionBase):
     cost_basis_from_price: bool = False  # an income or rebate deposit's value came from a price
     proceeds_from_price: bool = False  # a Spent's proceeds came from a price
     price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
+    price_used: PriceUsed | None = None  # that price, when this install has it (never asked for)
     created_at: datetime
     updated_at: datetime
 

@@ -42,8 +42,8 @@ import os
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -80,6 +80,7 @@ class Priced:
     usd: Decimal
     moment: str
     at: datetime  # the hour's or the day's start, UTC
+    source: str = field(default="", compare=False)  # e.g. "bitstamp", "mempool", "kraken"
 
 
 def hour_of(when: datetime) -> int:
@@ -98,10 +99,39 @@ def price_at(db: Session, when: datetime) -> Priced:
     hour = hour_of(when)
     found = hourly_price(db, when)
     if found is not None:
-        return Priced(found[0], "hour", _utc(hour))
+        return Priced(found[0], "hour", _utc(hour), found[1])
     usd = price_history.daily_price(db, when)
     day = price_history.utc_day(when)
-    return Priced(usd, "day", datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
+    return Priced(usd, "day", datetime(day.year, day.month, day.day, tzinfo=timezone.utc),
+                  price_history.stored_source(db, day) or "")
+
+
+def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict | None = None) -> Priced | None:
+    """
+    The price this install already has for `when` at "hour" or "day", from
+    its own table and files only: never a request. What a saved value was
+    priced at, since a stored price never changes (#145: the form and the
+    API say which hour and source).
+    """
+    if moment == "day":
+        day = price_history.utc_day(when)
+        usd = price_history.stored_price(db, day)
+        at = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        return None if usd is None else Priced(usd, "day", at, price_history.stored_source(db, day) or "")
+    hour = hour_of(when)
+    row = db.get(BtcPriceHourly, hour)
+    if row is not None:
+        return Priced(Decimal(row.usd), "hour", _utc(hour), row.source)
+    # One request's cache (a list of many transactions): the manifest read and
+    # each year file parsed once, not once per row
+    years = {} if years is None else years
+    if "manifest" not in years:
+        years["manifest"] = pf.read_manifest(pf.MANIFEST)
+    line = next((y for y in years["manifest"] if y.first_hour <= hour <= y.last_hour), None)
+    if line is not None and line.year not in years:
+        years[line.year] = _year_prices(line)
+    prices = years.get(line.year) if line else None
+    return Priced(prices[hour], "hour", _utc(hour), "bitstamp") if prices and hour in prices else None
 
 
 def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:

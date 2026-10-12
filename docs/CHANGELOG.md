@@ -254,6 +254,20 @@ All notable changes to BitcoinTX are documented in this file.
   once the package passes the new `BTCTX_HOST=startos`;
   `GET /api/settings/network` adds `host` and `invalid`). Invalid server
   settings say so instead of "Price lookups are off".
+- **Where prices show, in the redesign's words** (#145). The Dashboard's
+  Current Bitcoin Price says where the price came from and when ("From
+  your Mempool · 2:02 pm", "From public price sites (Kraken)"), or why
+  there's none and what to do: "Offline" (you chose Nobody), "Not chosen
+  yet" or "Confirm your choice" (with a link to the card), "No answer" (the
+  reason, and a link to change the source). The sidebar converter says
+  "offline", "not chosen yet" or "no answer" instead of "Prices off" and
+  "No price", with **Type a price** (Manual) or a link to the card, and its
+  Date mode gains an hour, in your tax timezone, looked up in BitcoinTX's
+  own history. When you edit a transaction, a value BitcoinTX filled in
+  says which price it came from ("From the price: $50,083.00 at 14:00 UTC,
+  Mar 1, 2024 · Bitstamp"), and one you typed says "Typed". The API gives
+  each transaction's `price_used` and each past price's `source`; neither
+  asks anything.
 - **The price card says where the hourly history is** (#145): before a
   choice, that it's downloaded once from Bitstamp when you choose public
   price sites (or your Mempool with its backup), each year checked against

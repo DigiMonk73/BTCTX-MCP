@@ -85,8 +85,9 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }
-/* "Confirm now" under the price while waiting (#145): a link, not a heading */
-.btc-price-link { position: relative; display: block; margin-top: var(--space-2); font-size: var(--text-13); color: var(--color-accent); text-decoration: underline; text-align: center; }
+/* Under the price: where it came from and when, or why there's none (#145) */
+.dashboard .card p.btc-price-why a { color: var(--color-accent); text-decoration: underline; }
+.dashboard .card p.btc-price-why { display: block; margin: var(--space-2) 0 0; font-size: var(--text-13); color: var(--color-text-secondary); text-align: center; }
 
 .btc-block-height {
   display: flex;

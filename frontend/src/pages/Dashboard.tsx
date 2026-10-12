@@ -1,4 +1,3 @@
-import axios from "axios";
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
@@ -7,7 +6,9 @@ import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { NO_TOTALS, accountTotals, waitingDetail, type AccountTotals, type LivePrice } from "../utils/dashboard";
+import { NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
+import { useLivePrice } from "../components/dashboard/useLivePrice";
+import { getTaxTimezone } from "../utils/taxTimezone";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
@@ -20,14 +21,7 @@ const Dashboard: React.FC = () => {
   const [gainsAndLosses, setGainsAndLosses] = useState<GainsAndLosses | null>(null);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [currentBtcPrice, setCurrentBtcPrice] = useState<number | null>(null);
-  const [isPriceLoading, setIsPriceLoading] = useState(true);
   const [blockHeight, setBlockHeight] = useState<number | null>(null);
-  // Settings → Privacy & network: no price source chosen, or prices off (503)
-  const [pricesOff, setPricesOff] = useState(false);
-  // The server's reason when there's no price (shown on hover)
-  const [priceProblem, setPriceProblem] = useState<string | undefined>(undefined);
-  const [priceWaiting, setPriceWaiting] = useState(false);
   // No price source chosen yet, or one to confirm (2.9): the question sits at the top (#145)
   const [unchosen, setUnchosen] = useState(false);
   // Bumped when the price choice is saved: prices are asked again, no reload (#149)
@@ -41,36 +35,28 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     api
-      .get<{ price_source: string; managed?: boolean; confirmed?: boolean }>("/settings/network")
-      .then((res) =>
-        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false)),
+      .get<{ price_source: string; managed?: boolean; confirmed?: boolean; proxy_url?: string | null }>(
+        "/settings/network",
       )
-      .catch(() => undefined);
+      .then((res) => {
+        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false));
+        setThroughTor(Boolean(res.data.proxy_url));
+      })
+      .catch(() => setThroughTor(false));
   }, [priceRound]);
 
+  const live = useLivePrice(priceRound);
+  // null until the settings answer: the source line waits for it, so it
+  // never shows without "through Tor" first
+  const [throughTor, setThroughTor] = useState<boolean | null>(null);
+  const price = { ...live, source: throughTor === null ? undefined : live.source, throughTor: Boolean(throughTor) };
+  const [timezone, setTimezone] = useState("UTC");
+
   useEffect(() => {
-    setIsPriceLoading(true);
-    setPricesOff(false);
-    setPriceProblem(undefined);
-    setPriceWaiting(false);
-    api
-      .get("/bitcoin/price")
-      .then((res) => {
-        if (res.data && res.data.USD) {
-          setCurrentBtcPrice(res.data.USD);
-        }
-      })
-      .catch((err) => {
-        // Shown as "Error", or "Prices off" when that is the owner's choice
-        if (axios.isAxiosError(err) && err.response?.status === 503) setPricesOff(true);
-        const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-        if (typeof detail === "string") setPriceProblem(detail);
-        setPriceWaiting(waitingDetail(detail));
-      })
-      .finally(() => {
-        setIsPriceLoading(false);
-      });
-  }, [priceRound]);
+    getTaxTimezone()
+      .then((tz) => setTimezone(tz.timezone))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     api
@@ -155,15 +141,12 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const price: LivePrice = {
-    loading: isPriceLoading, value: currentBtcPrice, off: pricesOff, problem: priceProblem, waiting: priceWaiting,
-  };
   return (
     <div className="dashboard">
       {unchosen && <PriceSourceCard variant="first-run" />}
       <div className="dashboard-grid">
         <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
-        <BtcPriceCard price={price} blockHeight={blockHeight} />
+        <BtcPriceCard price={price} blockHeight={blockHeight} timezone={timezone} />
         <RealizedGainsCard gains={gainsAndLosses} />
         <IncomeFeesCard gains={gainsAndLosses} price={price} />
       </div>

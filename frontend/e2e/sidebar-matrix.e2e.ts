@@ -28,7 +28,7 @@ const MEMPOOL_DOWN = "http://mempool.invalid:3006";
 const TOR_STOPPED = "socks5h://tor.invalid:9050";
 const STARTOS_MEMPOOL = "http://10.0.3.1:32768"; // fixtures: priceSource "startos"
 
-type Price = number | "Prices off" | "No price";
+type Price = number | "not chosen yet" | "offline" | "no answer" | "No price";
 type Network = {
   price_source: "off" | "public" | "mempool";
   mempool_url?: string;
@@ -195,7 +195,7 @@ async function useEveryMode(page: Page, live: Price, day: Price) {
  */
 async function answerTheFirstRunQuestion(page: Page, app: App, answer: (prompt: Locator) => Promise<void>) {
   const browser = await logIn(page, app);
-  await useEveryMode(page, "Prices off", "No price");
+  await useEveryMode(page, "not chosen yet", "No price");
   expect(sentOut(app, browser)).toEqual([]);
 
   const prompt = page.getByRole("region", { name: "Bitcoin prices" });
@@ -221,7 +221,7 @@ test("not chosen yet: nothing is asked and Manual works; picking public sites br
 test("off: nothing is asked; Auto and Date say so, Manual works", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "off" });
-  await useEveryMode(page, "Prices off", "No price");
+  await useEveryMode(page, "offline", "No price");
   expect(sentOut(app, browser)).toEqual([]);
 });
 
@@ -242,7 +242,7 @@ test("public sites through Tor: the prices, every request through the proxy", as
 test("public sites with Tor stopped: no price, and nothing goes around the proxy", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public", proxy_url: TOR_STOPPED });
-  await useEveryMode(page, "No price", "No price");
+  await useEveryMode(page, "no answer", "No price");
   expect(proxies(sentOut(app, browser))).toEqual([TOR_STOPPED]);
 });
 
@@ -256,7 +256,7 @@ test("own mempool server: the prices, from it alone", async ({ page, app }) => {
 test("own mempool server down, no backup: no price, and no public site is asked", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN });
-  await useEveryMode(page, "No price", "No price");
+  await useEveryMode(page, "no answer", "No price");
   expect(origins(sentOut(app, browser))).toEqual([MEMPOOL_DOWN]);
 });
 
@@ -282,6 +282,24 @@ test("own mempool server down, with the public backup: the prices from the publi
   expect(origins(sent)[0]).toBe(MEMPOOL_DOWN); // asked first
   expect(origins(sent).length).toBeGreaterThan(1); // then the public sites
   expect(proxies(sent)).toEqual([null]);
+});
+
+test("Date with an hour: that hour in the tax timezone, its UTC day's price here; nothing names the day", async ({
+  page, app,
+}) => {
+  // #145: 23:00 in Chicago is 05:00 UTC the next day; 05:00 in Tokyo, 20:00 UTC the day before.
+  // The fake internet has day prices only, so the hour's price is its UTC day's.
+  const browser = await logIn(page, app);
+  await choose(page, { price_source: "public" });
+  const sidebar = page.getByRole("complementary");
+  await sidebar.getByRole("button", { name: "Date" }).click();
+  await sidebar.getByLabel("Select date").fill(DAY);
+  await expect(sidebar.getByText(shown(DAY_PRICE), { exact: true })).toBeVisible(); // the day, as before
+  const tokyo = (await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)) === "Asia/Tokyo";
+  await sidebar.getByLabel("Hour").selectOption(tokyo ? "5" : "23");
+  const expected = fakePastPrice(tokyo ? "2024-02-29" : "2024-03-02");
+  await expect(sidebar.getByText(shown(expected), { exact: true })).toBeVisible();
+  sentOut(app, browser); // no request named the day, or the hour
 });
 
 test.describe("set by the server (StartOS)", () => {
@@ -310,7 +328,7 @@ test.describe("the Mac app", () => {
   test("off: nothing is asked; Auto and Date say so, Manual works", async ({ page, app }) => {
     const browser = await logIn(page, app);
     await choose(page, { price_source: "off" });
-    await useEveryMode(page, "Prices off", "No price");
+    await useEveryMode(page, "offline", "No price");
     expect(sentOut(app, browser)).toEqual([]);
   });
 });
