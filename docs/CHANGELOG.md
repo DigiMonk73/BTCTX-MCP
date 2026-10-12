@@ -80,9 +80,10 @@ All notable changes to BitcoinTX are documented in this file.
   refresh`, in each release's bump pull request) adds the new hours and
   refuses, writing nothing, on a missing hour, a changed past price, or a
   disagreement with Bitfinex or Kraken (no hour over 2% apart, a median gap
-  of 0.5% at most, no hour's shift: limits measured on 2023–2026). The
-  release workflow checks it again, and a monthly workflow opens an issue
-  if Bitstamp stops giving a year's fingerprint. Closed years are pinned by
+  of 0.5% at most, and the hours must line up better than shifted by an
+  hour: limits measured on 2023–2026). The release workflow checks it
+  again, and a monthly workflow opens an issue if Bitstamp stops giving a
+  year's fingerprint or stops answering. Closed years are pinned by
   a test. The folder's README explains it all in plain words.
 - **The reference ledger's figures, checked by a second calculation**
   (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,

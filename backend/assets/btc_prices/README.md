@@ -4,7 +4,8 @@ The hourly price history BitcoinTX values with when a transaction has no
 dollar amount of its own (an income or rebate deposit, a BTC network fee, a
 spend without a price, the Refresh button for a gift's value): **the price
 of bitcoin when the transaction's hour began**, in UTC (issue #144). This
-folder is that history's record.
+folder is that history's record. It's built in steps: the app starts
+downloading and using it with #144's later changes.
 
 ## What the prices are
 
@@ -15,8 +16,9 @@ folder is that history's record.
 - **From 1 January 2013.** Before that, most hours had no trade; those
   years keep the day's 00:00 UTC price.
 - **Every hour has a price.** Bitstamp has a candle for every hour since
-  2013; an hour without a trade repeats the last price (Bitstamp's own
-  rule). A year missing an hour is incomplete and isn't used.
+  2013, even one without a trade (242 of them, 107 during its halt of 5–9
+  January 2015): such an hour opens at the previous hour's close. A year
+  missing an hour is incomplete and isn't used.
 
 ## What's here, and why not the prices themselves
 
@@ -49,7 +51,8 @@ the year files are added here and the fingerprints stay the same.
 
 - `python scripts/price_history.py check-sources` downloads every year
   again and compares it with the manifest.
-- A year's file: `shasum -a 256 2024.csv` gives its line's fingerprint.
+- A year's file, once the app has downloaded it: `shasum -a 256 2024.csv`
+  gives its line's fingerprint.
 
 ## How it's kept up to date
 
@@ -62,7 +65,13 @@ the year files are added here and the fingerprints stay the same.
   gap of 0.5% at most, and the hours must agree better as they are than
   shifted by an hour. Measured from 2023 to October 2026, Bitstamp and
   Bitfinex were 0.09% apart at the median and 1.12% at most (the USDC
-  weekend of March 2023); Bitstamp and Kraken 0.05% at most.
+  weekend of March 2023); Bitstamp and Kraken 0.05% at most. Failed
+  requests are tried twice more.
+- **If a real market event trips a limit** (both exchanges right, as in a
+  stablecoin's crash), the hours are excused in a pull request, with the
+  owner's OK: listed with the reason in `EXCUSED_HOURS` in
+  `scripts/price_history.py`. They still count in the median and the shift
+  test.
 - **The release workflow** checks again before it builds anything: the
   manifest is well formed, its newest 30 days still give their fingerprint
   and pass the cross-check, and it ends at most 14 days before the release.

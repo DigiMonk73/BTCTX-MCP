@@ -14,7 +14,7 @@ A year file, YYYY.csv (UTF-8, "\\n" line endings):
 one row per UTC hour from 1 January 00:00 to the manifest's last hour,
 in order. `usd` is Bitstamp's BTC/USD hourly opening price, two decimals:
 the price when the hour began. Every hour has a row (Bitstamp has a candle
-for every hour since 2013; an hour without a trade repeats the last price),
+for every hour since 2013; one without a trade opens at the last price),
 so a year with a missing hour is incomplete and is never used.
 
 The manifest, MANIFEST.csv beside it, holds one line per year:
@@ -53,7 +53,7 @@ _LABEL = re.compile(r"\d{4}-\d\d-\d\dT\d\d:00Z")
 
 
 class IncompleteYear(ValueError):
-    """A year's prices miss an hour (or hold one outside the year)."""
+    """A year's prices miss an hour."""
 
 
 @dataclass(frozen=True)
@@ -128,18 +128,6 @@ def line_for(year: int, text: str) -> YearLine:
     rows = text.rstrip("\n").split("\n")[1:]
     first, last = from_label(rows[0].split(",")[0]), from_label(rows[-1].split(",")[0])
     return YearLine(year, first, last, len(rows), fingerprint(text))
-
-
-def parse_year_text(text: str) -> dict[int, Decimal]:
-    """A year file's prices by hour."""
-    lines = text.rstrip("\n").split("\n")
-    if lines[0] != HEADER:
-        raise ValueError("not a price year file")
-    out = {}
-    for row in lines[1:]:
-        hour, price = row.split(",")
-        out[from_label(hour)] = Decimal(price)
-    return out
 
 
 # The manifest

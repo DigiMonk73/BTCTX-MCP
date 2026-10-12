@@ -5,8 +5,9 @@ name: Price history watch
 # (scripts/price_history.py check-sources)? Installs download those years
 # and use one only if it matches, so a changed past price or an API change
 # shows up here before users' downloads fail. A failure opens an issue
-# (label claude, once while it's open). It checks develop, where refreshes
-# land; a push only runs the check, never opens an issue.
+# (label claude, once while it's open), titled by what happened: a changed
+# price, or Bitstamp not answering. It checks develop, where refreshes land;
+# a push only runs the check, never opens an issue.
 on:
   schedule:
     - cron: "0 15 3 * *"   # the 3rd of each month, 15:00 UTC
@@ -45,13 +46,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          title="Price history: Bitstamp's hourly prices no longer match the manifest"
+          # report.md: the issue's title on its first line, then its body
+          if [ -s report.md ]; then
+            title=$(head -n 1 report.md)
+            tail -n +3 report.md > body.md
+          else
+            title="Price history: the monthly check failed"
+            printf '%s\n\n— the price history watch\n' \
+              "It failed before writing its report: see ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}." > body.md
+          fi
           if gh issue list --state open --limit 500 --json title -q '.[].title' | grep -Fxq -- "$title"; then
             echo "Already open: $title"
-          elif [ -s report.md ]; then
-            gh issue create --title "$title" --body-file report.md --label claude
           else
-            gh issue create --title "$title" --label claude --body "The monthly price history check failed before it could write its report: see the run, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
-
-          — the price history watch"
+            gh issue create --title "$title" --body-file body.md --label claude
           fi

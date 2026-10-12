@@ -7,6 +7,7 @@ with or an hour off, writing nothing; the monthly source check; the
 release check. Every exchange is faked: no test touches the network.
 """
 
+import asyncio
 import importlib.util
 import random
 from decimal import Decimal
@@ -55,9 +56,6 @@ def at(text: str) -> int:
     return pf.from_label(text)
 
 
-# ---------------------------------------------------------------------------
-# The manifest in the repo
-# ---------------------------------------------------------------------------
 def test_the_manifest_is_well_formed_and_every_closed_year_is_pinned():
     assert script.main(["verify"]) == 0
     lines = pf.read_manifest()
@@ -67,9 +65,6 @@ def test_the_manifest_is_well_formed_and_every_closed_year_is_pinned():
     assert not lines[-1].is_closed() or lines[-1].year in PINNED
 
 
-# ---------------------------------------------------------------------------
-# The year file
-# ---------------------------------------------------------------------------
 def test_a_year_file_is_one_row_per_hour_with_two_decimals():
     first = pf.year_start(2024)
     prices = {first: D("42283"), first + HOUR: D("42199.5"), first + 2 * HOUR: D("42010.07")}
@@ -80,7 +75,6 @@ def test_a_year_file_is_one_row_per_hour_with_two_decimals():
     line = pf.line_for(2024, text)
     assert (line.first_hour, line.last_hour, line.hours) == (first, first + 2 * HOUR, 3)
     assert line.sha256 == pf.fingerprint(text) and len(line.sha256) == 64
-    assert pf.parse_year_text(text) == {h: D(pf.usd(p)) for h, p in prices.items()}
     assert pf.usd(D("1E+5")) == "100000.00"
 
 
@@ -103,17 +97,12 @@ def test_a_year_is_asked_in_the_same_fixed_blocks_on_every_install():
 
 
 def pf_download(world, year, last):
-    import asyncio
-
     async def go():
         async with httpx.AsyncClient(transport=httpx.MockTransport(world.handler)) as client:
             return await pf.download_year(client, year, last)
     return asyncio.run(go())
 
 
-# ---------------------------------------------------------------------------
-# The script against fake exchanges
-# ---------------------------------------------------------------------------
 def market(first_year: int, last_year: int, seed: int = 7) -> dict[int, Decimal]:
     """A market that moves like Bitcoin's (about 0.4% an hour), every hour of the years."""
     rng, price, out = random.Random(seed), 60000.0, {}
@@ -131,13 +120,16 @@ class Exchanges:
         rng = random.Random(1)
         self.bitfinex = {h: D(f"{float(p) * (1 + rng.gauss(0, 0.0005)):.2f}") for h, p in prices.items()}
         self.kraken = dict(prices)
-        self.now, self.down, self.requests = now, set(), []
+        self.now, self.down, self.requests, self.hiccups = now, set(), [], 0
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(str(request.url))
         host, params = request.url.host, request.url.params
         if host in self.down:
             return httpx.Response(503)
+        if self.hiccups:  # a passing failure: the next try works
+            self.hiccups -= 1
+            return httpx.Response(429)
         current = int(self.now) // HOUR * HOUR
         if host == "www.bitstamp.net":
             start = int(params["start"])
@@ -161,6 +153,7 @@ def world(monkeypatch, tmp_path):
     """A history from 2025 (as if it were the first year), a fresh manifest file, no pauses."""
     monkeypatch.setattr(pf, "FIRST_YEAR", 2025)
     monkeypatch.setattr(script, "PAUSE", {"bitstamp": 0, "bitfinex": 0})
+    monkeypatch.setattr(script, "RETRY_WAITS", (0, 0))
     w = Exchanges(market(2025, 2026))
     w.manifest = tmp_path / "MANIFEST.csv"
     return w
@@ -224,7 +217,44 @@ def bitfinex_half_a_percent_higher(w):
     w.bitfinex = {h: p * D("1.006") for h, p in w.bitfinex.items()}
 
 
+def a_steady_premium_in_a_quiet_market(w):
+    """Not broken: Bitfinex 0.4% above Bitstamp every hour, the market moving 0.1% an hour."""
+    rng, price = random.Random(3), 60000.0
+    for h in sorted(w.bitstamp):
+        w.bitstamp[h] = w.kraken[h] = D(f"{price:.2f}")
+        w.bitfinex[h] = D(f"{price * 1.004:.2f}")
+        price *= 1 + rng.gauss(0, 0.001)
+
+
+def kraken_off_for_an_hour(w):
+    w.kraken[at("2026-03-10T12:00Z")] *= D("1.03")
+
+
+def bitfinex_missing_most_hours(w):
+    w.bitfinex = {h: p for h, p in w.bitfinex.items() if h < at("2026-02-15T00:00Z")}
+
+
+def an_excused_hour(w):
+    w.bitfinex[at("2026-03-01T12:00Z")] *= D("1.025")
+    script.EXCUSED_HOURS["2026-03-01T12:00Z"] = "a test"
+
+
+def passing_hiccups(w):
+    w.hiccups = 2
+
+
+@pytest.mark.parametrize("change", [a_steady_premium_in_a_quiet_market, an_excused_hour, passing_hiccups])
+def test_refresh_accepts(world, monkeypatch, change):
+    monkeypatch.setattr(script, "EXCUSED_HOURS", {})
+    change(world)
+    assert run(world, "refresh", now="2026-02-01T00:00Z") == 0
+    assert run(world, "refresh", now="2026-03-15T00:00Z") == 0
+    assert pf.read_manifest(world.manifest)[-1].last_hour == at("2026-03-14T23:00Z")
+
+
 @pytest.mark.parametrize("break_it, says", [
+    (kraken_off_for_an_hour, "more than 2% from Kraken, the first 2026-03-10T12:00Z"),
+    (bitfinex_missing_most_hours, "Bitfinex has only"),
     (one_hour_off, "more than 2% from Bitfinex, the first 2026-03-01T12:00Z"),
     (a_missing_hour, "1 hours missing, the first 2026-03-01T12:00Z"),
     (a_changed_past_price, "2026: Bitstamp's prices for the hours already in the manifest changed"),
@@ -275,3 +305,60 @@ def test_verify_catches_a_bad_line_and_a_year_file_that_doesnt_match(world, caps
     world.manifest.write_text(world.manifest.read_text().replace(",8760,", ",8759,"), encoding="utf-8")
     assert run(world, "verify", now="2026-03-15T00:00Z") == 1
     assert "2025: hours doesn't match" in capsys.readouterr().err
+
+
+def test_bitfinex_is_asked_in_blocks_that_meet(world, monkeypatch):
+    monkeypatch.setattr(script, "BITFINEX_BLOCK", 100)
+    assert run(world, "refresh", now="2026-02-01T00:00Z") == 0
+    asked = [httpx.URL(u).params for u in world.requests if "bitfinex" in u]
+    spans = [(int(q["start"]) // 1000, int(q["end"]) // 1000) for q in asked]
+    assert spans[0][0] == pf.year_start(2025) and spans[-1][1] == at("2026-01-31T23:00Z")
+    assert all(b[0] == a[1] + HOUR and b[1] - b[0] <= 99 * HOUR for a, b in zip(spans, spans[1:]))
+
+
+def test_the_release_check_cross_checks_the_newest_hours(world, capsys):
+    assert run(world, "refresh", now="2026-03-15T00:00Z") == 0
+    world.bitfinex[at("2026-03-01T12:00Z")] *= D("1.025")
+    assert run(world, "release-check", "--no-age-check", now="2026-03-16T00:00Z") == 1
+    assert "more than 2% from Bitfinex" in capsys.readouterr().err
+
+
+def _good_lines():
+    lines = [pf.YearLine(y, pf.year_start(y), pf.year_end(y), (pf.year_end(y) - pf.year_start(y)) // HOUR + 1,
+                         "a" * 64) for y in (2025, 2026)]
+    return lines
+
+
+@pytest.mark.parametrize("spoil, says", [
+    (lambda lines: lines[1:], "the years must run from 2025"),
+    (lambda lines: [lines[0].__class__(2025, lines[0].first_hour, lines[0].last_hour - HOUR, lines[0].hours - 1,
+                                       lines[0].sha256), lines[1]], "a year before the last must have every hour"),
+    (lambda lines: [lines[0], lines[1].__class__(2026, lines[1].first_hour + HOUR, lines[1].last_hour,
+                                                  lines[1].hours - 1, lines[1].sha256)], "first_hour isn't"),
+    (lambda lines: [lines[0], lines[1].__class__(2026, lines[1].first_hour, lines[1].last_hour, lines[1].hours,
+                                                  "not-a-hash")], "sha256 isn't 64 hex digits"),
+    (lambda lines: lines, "last_hour is in the future"),
+    (lambda lines: [], "the manifest has no years"),
+])
+def test_verify_refuses_a_bad_manifest(world, capsys, spoil, says):
+    world.manifest.write_text(pf.manifest_text(spoil(_good_lines())), encoding="utf-8")
+    assert run(world, "verify", now="2026-06-01T00:00Z") == 1
+    assert says in capsys.readouterr().err
+
+
+def test_check_sources_tells_an_outage_from_a_change(world, tmp_path):
+    assert run(world, "refresh", now="2026-03-15T00:00Z") == 0
+    report = tmp_path / "report.md"
+    world.down.add("www.bitstamp.net")
+    assert run(world, "check-sources", "--report", str(report), now="2026-04-01T00:00Z") == 1
+    assert report.read_text().split("\n")[0] == "Price history: the monthly check couldn't reach Bitstamp"
+    world.down.clear()
+    world.bitstamp[at("2025-06-01T00:00Z")] += D("1")
+    assert run(world, "check-sources", "--report", str(report), now="2026-04-01T00:00Z") == 1
+    assert report.read_text().split("\n")[0] == (
+        "Price history: Bitstamp's hourly prices no longer match the manifest")
+
+
+def test_check_sources_refuses_an_empty_manifest(world):
+    world.manifest.write_text(pf.manifest_text([]), encoding="utf-8")
+    assert run(world, "check-sources", now="2026-04-01T00:00Z") == 1
