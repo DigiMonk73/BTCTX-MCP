@@ -39,6 +39,8 @@ describe("the status line", () => {
       "Your Mempool didn't answer at 2:04 pm. Type newer values meanwhile, or tick \"If it can't answer, ask public price sites\".",
     );
     expect(statusLine({ ...down, managed: true }, ctx).text).toBe("Your Mempool didn't answer at 2:04 pm. Type newer values meanwhile.");
+    // the backup already ticked (its answer not in yet): not asked to tick it
+    expect(statusLine(down, { ...ctx, backup: true }).text).toBe("Your Mempool didn't answer at 2:04 pm. Type newer values meanwhile.");
   });
 
   it("#178: an untrusted certificate is named, and when the backup answers it says so", () => {
