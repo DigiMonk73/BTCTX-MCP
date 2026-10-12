@@ -7,7 +7,7 @@ import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { NO_TOTALS, accountTotals, type AccountTotals, type LivePrice } from "../utils/dashboard";
+import { NO_TOTALS, accountTotals, waitingToConfirm, type AccountTotals, type LivePrice } from "../utils/dashboard";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
@@ -27,6 +27,7 @@ const Dashboard: React.FC = () => {
   const [pricesOff, setPricesOff] = useState(false);
   // The server's reason when there's no price (shown on hover)
   const [priceProblem, setPriceProblem] = useState<string | undefined>(undefined);
+  const [priceWaiting, setPriceWaiting] = useState(false);
   // No price source chosen yet, or one to confirm (2.9): the question sits at the top (#145)
   const [unchosen, setUnchosen] = useState(false);
   // Bumped when the price choice is saved: prices are asked again, no reload (#149)
@@ -51,6 +52,7 @@ const Dashboard: React.FC = () => {
     setIsPriceLoading(true);
     setPricesOff(false);
     setPriceProblem(undefined);
+    setPriceWaiting(false);
     api
       .get("/bitcoin/price")
       .then((res) => {
@@ -63,6 +65,7 @@ const Dashboard: React.FC = () => {
         if (axios.isAxiosError(err) && err.response?.status === 503) setPricesOff(true);
         const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
         if (typeof detail === "string") setPriceProblem(detail);
+        setPriceWaiting(waitingToConfirm(detail));
       })
       .finally(() => {
         setIsPriceLoading(false);
@@ -152,7 +155,9 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const price: LivePrice = { loading: isPriceLoading, value: currentBtcPrice, off: pricesOff, problem: priceProblem };
+  const price: LivePrice = {
+    loading: isPriceLoading, value: currentBtcPrice, off: pricesOff, problem: priceProblem, waiting: priceWaiting,
+  };
   return (
     <div className="dashboard">
       {unchosen && <PriceSourceCard variant="first-run" />}

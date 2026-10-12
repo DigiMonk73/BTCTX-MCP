@@ -14,7 +14,7 @@ interface PortfolioOverviewProps {
 function unrealizedGains(price: LivePrice, averageCostBasis: number | null, totalBtc: number): React.ReactNode {
   // Without a price there is nothing to wait for: say why, as the price card does
   if (!price.loading && price.value === null) {
-    return price.off ? "Prices off" : "No price";
+    return price.waiting ? "Confirm your choice" : price.off ? "Prices off" : "No price";
   }
   if (price.loading || price.value === null || averageCostBasis === null) {
     return "Loading...";

@@ -126,14 +126,11 @@ All notable changes to BitcoinTX are documented in this file.
     and a command never makes a price choice. Installs from before 1.1.0
     keep what they did, except one that never changed its price settings
     and first starts 1.2.8 with the source set by the server: it asks once.
-  - Not covered: an install whose first start on 1.2.8 is already without
-    the server's source (on StartOS, updated or restored while stopped and
-    switched before starting; in Docker, `BTCTX_PRICE_SOURCE` removed in the
-    same update); and a Public choice this bug already saved, which looks
-    like your own.
-  - What to do: whenever you switch the action to Choose in BitcoinTX (or
-    remove `BTCTX_PRICE_SOURCE`), check that **Settings → Privacy &
-    Network** shows the choice you want.
+  - What this fix alone couldn't cover (an install whose first start is
+    already without the server's source, and a Public choice this bug
+    already saved, which looks like your own) is covered by the next
+    entry: after this update, BitcoinTX asks once to confirm a price
+    choice saved before it, and asks nobody until you do (#145).
 
 ### Changed
 - **After this update, BitcoinTX asks once to confirm where it gets

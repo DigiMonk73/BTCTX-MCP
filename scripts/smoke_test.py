@@ -94,8 +94,11 @@ def serve(port: int, db_path: str) -> None:
 
         init_db()
         with SessionLocal() as db:
-            if chosen == "unconfirmed":
-                outbound._set(db, outbound.SOURCE_KEY, "public")
+            if chosen.startswith("unconfirmed"):  # "unconfirmed", "-off" or "-mempool"
+                stored = {"unconfirmed": "public"}.get(chosen, chosen.removeprefix("unconfirmed-"))
+                outbound._set(db, outbound.SOURCE_KEY, stored)
+                if stored == "mempool":
+                    outbound._set(db, outbound.MEMPOOL_KEY, "http://umbrel.local:3006")
                 db.commit()
             else:
                 outbound.save(db, "public", None, False, None)
