@@ -435,6 +435,9 @@ async def test_portfolio_and_price(mcp_client):
 
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15"})
     assert price["usd"] == 50000.0
+    # a transaction's time: the price BitcoinTX values it at (the day's here: no hourly prices in tests)
+    price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15T21:05:00-05:00"})
+    assert (price["usd"], price["moment"], price["priced_at"]) == (50000.0, "day", "2024-01-16T00:00:00Z")
 
 
 async def test_wrong_key_is_a_clear_error(backend_db):

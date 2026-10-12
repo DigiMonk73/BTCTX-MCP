@@ -102,6 +102,7 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,
     feeUSDManual: tx.fee_usd_manual ?? false,
     feeUSDStored: tx.fee_usd ?? undefined,
+    priceMoment: tx.price_moment ?? null,
   };
 }
 
@@ -183,7 +184,7 @@ interface TypePayload {
   source?: string;
   purpose?: string;
   // null = not given: the server fills what it can (an income deposit's
-  // basis, a Spent withdrawal's proceeds, a gift's FMV) from that day's price.
+  // basis, a Spent withdrawal's proceeds, a gift's FMV) from that hour's price.
   cost_basis_usd: number | null;
   proceeds_usd?: number | null;
   fmv_usd?: number | null;
@@ -255,7 +256,7 @@ function acquiredAt(data: TransactionFormData): string | null {
 
 /**
  * A BTC fee's USD value (transfers and BTC withdrawals): typed -> kept;
- * cleared after being typed -> null (back to the day's price); otherwise
+ * cleared after being typed -> null (back to the hour's price); otherwise
  * undefined, left out, so a stored value is kept and a new fee is priced by
  * the server.
  */

@@ -254,3 +254,13 @@ def test_the_ai_import_marks_what_it_fills(auth_client):
     assert saved["Withdrawal"]["price_moment"] == "hour" and saved["Withdrawal"]["proceeds_from_price"] is True
     assert D(saved["Withdrawal"]["gross_proceeds_usd"]) == (
         price_of(at("2026-04-01T16:00:00Z")) * D("0.01")).quantize(D("0.01"))
+
+
+def test_the_price_route_gives_the_price_a_moment_is_valued_at(auth_client):
+    r = auth_client.get("/api/bitcoin/price/history", params={"at": "2026-04-01T09:47:00-05:00"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"USD": float(price_of(at("2026-04-01T14:00:00Z"))), "moment": "hour",
+                        "at": "2026-04-01T14:00:00Z"}
+    for bad in ("tomorrow", "2999-01-01T00:00:00Z"):
+        assert auth_client.get("/api/bitcoin/price/history", params={"at": bad}).status_code == 400
+    assert auth_client.get("/api/bitcoin/price/history").status_code == 400

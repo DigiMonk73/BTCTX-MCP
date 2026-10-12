@@ -62,7 +62,7 @@ test.describe("BTC deposits", () => {
   });
 
   for (const source of ["Income", "Interest", "Reward", "Rebate"]) {
-    test(`deposit ${source} with a blank basis gets the day's value`, async ({ authedPage: page }) => {
+    test(`deposit ${source} with a blank basis gets the price's value`, async ({ authedPage: page }) => {
       await openAddForm(page, "Deposit");
       await setWhen(page);
       await page.getByLabel("Account").selectOption("Exchange");
@@ -124,7 +124,7 @@ test.describe("withdrawals", () => {
     expect(tx.holding_period).toBe("LONG");
   });
 
-  test("Spent without proceeds is valued at the day's price", async ({ authedPage: page }) => {
+  test("Spent without proceeds is valued at the price", async ({ authedPage: page }) => {
     // Finding F1: the form used to send 0 for a blank, saving $0 proceeds.
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
@@ -146,7 +146,7 @@ test.describe("withdrawals", () => {
     await page.getByLabel("Currency").selectOption("BTC");
     await page.getByLabel("Purpose").selectOption("Spent");
     await expect(page.getByLabel("Proceeds (USD)")).toHaveValue("");
-    await expect(page.getByText("Leave blank to use that day's BTC price as the proceeds.")).toBeVisible();
+    await expect(page.getByText("Leave blank to use the BTC price when that hour began as the proceeds.")).toBeVisible();
     await page.getByLabel("Proceeds (USD)").fill("0");
     await expect(page.getByText(/You selected "Spent" but "Proceeds \(USD\)" is 0/)).toBeVisible();
   });

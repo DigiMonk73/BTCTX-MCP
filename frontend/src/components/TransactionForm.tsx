@@ -12,7 +12,7 @@ import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransa
 import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
 
 // What a change of type resets, and a new transaction starts with. Blank,
-// not 0: a blank income basis or Spent proceeds means "use that day's BTC
+// not 0: a blank income basis or Spent proceeds means "use that hour's BTC
 // price" (the server fills it); 0 would be saved as $0.
 const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   fee: 0,
@@ -95,14 +95,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     reset({ ...getValues(), type: newType, ...TYPE_DEFAULTS });
   };
 
-  // The FMV of a gift, donation or loss: amount x that day's price (or the
-  // live price for a date not yet past).
+  // The FMV of a gift, donation or loss: amount x the price when its hour
+  // began (the server's, as for every value it fills; or the live price for
+  // a time not yet come).
   const handleRefreshFmv = async () => {
     try {
       const formVals = getValues();
       const txDate = new Date(localDatetimeToIso(formVals.timestamp));
       const priceResponse = txDate < new Date()
-        ? await api.get(`/bitcoin/price/history?date=${txDate.toISOString().split("T")[0]}`)
+        ? await api.get("/bitcoin/price/history", { params: { at: txDate.toISOString() } })
         : await api.get("/bitcoin/price");
 
       const data = priceResponse.data;

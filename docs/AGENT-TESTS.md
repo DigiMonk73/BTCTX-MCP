@@ -408,8 +408,13 @@ Start from the `clean` snapshot.
   - The service log has a line "BTC price history from public site …: N
     days".
   - Repeat the first GLD-4 deposit (Income, blank basis). Expect: saved
-    with Cost Basis = 0.001 × that day's price, where the Sats Converter's
-    **Date** mode shows the price for 2025-07-01. Delete it.
+    with Cost Basis = 0.001 × the price when its hour began:
+    `GET $API/bitcoin/price/history?at=<its time, ISO 8601>` gives that
+    price with `"moment": "hour"` (the hourly history downloads in the
+    background after the choice above, about a minute; until it's in, the
+    answer is the day's price with `"moment": "day"`, so wait and ask
+    again), and it's within a few percent of the Sats Converter's **Date**
+    mode price for 2025-07-01. Delete it.
   - The Complete Tax Report now values the holdings (RPT-6).
   - Ledger Review > **Check again**. Expect exactly one item: "Income and
     rebate deposits valued far from that day's price: 1", which is #9. Its

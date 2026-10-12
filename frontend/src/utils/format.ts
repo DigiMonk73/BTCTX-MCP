@@ -80,6 +80,7 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     fee_usd: rawTx.fee_usd == null ? null : parseDecimal(rawTx.fee_usd),
     fee_usd_manual: rawTx.fee_usd_manual ?? false,
     acquired_at: rawTx.acquired_at ?? null,
+    price_moment: rawTx.price_moment ?? null,
     fee_currency: rawTx.fee_currency ?? undefined,
     created_at: rawTx.created_at ?? undefined,
     updated_at: rawTx.updated_at ?? undefined,
