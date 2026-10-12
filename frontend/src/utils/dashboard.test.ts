@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountTotals, gainClass } from "./dashboard";
+import { accountTotals, gainClass, noPriceReason, priceSourceWords } from "./dashboard";
 
 const balance = (account_id: number, name: string, currency: string, value: number | string): AccountBalance => ({
   account_id, name, currency, balance: value,
@@ -32,5 +32,18 @@ describe("gainClass", () => {
     expect(gainClass(12.5)).toBe("text-gain");
     expect(gainClass(-0.01)).toBe("text-loss");
     expect(gainClass(0)).toBe("");
+  });
+});
+
+describe("the price's source and why there's none (#145)", () => {
+  it("names public sites, through Tor when it is, and your Mempool", () => {
+    expect(priceSourceWords("kraken", true)).toBe("From public price sites (Kraken, through Tor)");
+    expect(priceSourceWords("bitstamp")).toBe("From public price sites (Bitstamp)");
+    expect(priceSourceWords("mempool", true)).toBe("From your Mempool");
+  });
+
+  it("tells invalid server settings apart from Nobody", () => {
+    expect(noPriceReason(503, "This server's price settings aren't valid: BTCTX_TOR_PROXY_URL")).toBe("invalid");
+    expect(noPriceReason(503, "Price lookups are off")).toBe("off");
   });
 });

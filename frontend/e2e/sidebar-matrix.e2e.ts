@@ -287,7 +287,7 @@ test("own mempool server down, with the public backup: the prices from the publi
 test("Date with an hour: that hour in the tax timezone, its UTC day's price here; nothing names the day", async ({
   page, app,
 }) => {
-  // #145: 23:00 in Chicago is 05:00 UTC the next day; in Tokyo, 14:00 UTC the same day.
+  // #145: 23:00 in Chicago is 05:00 UTC the next day; 05:00 in Tokyo, 20:00 UTC the day before.
   // The fake internet has day prices only, so the hour's price is its UTC day's.
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public" });
@@ -295,9 +295,9 @@ test("Date with an hour: that hour in the tax timezone, its UTC day's price here
   await sidebar.getByRole("button", { name: "Date" }).click();
   await sidebar.getByLabel("Select date").fill(DAY);
   await expect(sidebar.getByText(shown(DAY_PRICE), { exact: true })).toBeVisible(); // the day, as before
-  await sidebar.getByLabel("Hour").selectOption("23");
   const tokyo = (await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)) === "Asia/Tokyo";
-  const expected = tokyo ? DAY_PRICE : fakePastPrice("2024-03-02");
+  await sidebar.getByLabel("Hour").selectOption(tokyo ? "5" : "23");
+  const expected = fakePastPrice(tokyo ? "2024-02-29" : "2024-03-02");
   await expect(sidebar.getByText(shown(expected), { exact: true })).toBeVisible();
   sentOut(app, browser); // no request named the day, or the hour
 });

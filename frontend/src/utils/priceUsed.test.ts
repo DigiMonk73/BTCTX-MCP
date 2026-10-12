@@ -9,6 +9,7 @@ describe("where a saved value came from (#145)", () => {
     expect(priceUsedWords({ ...hour, moment: "day", at: "2024-03-01T00:00:00Z", source: "mempool" })).toBe(
       "$50,083.00, the day's price (00:00 UTC) on Mar 1, 2024 · your Mempool",
     );
+    expect(priceUsedWords({ ...hour, source: "coinbase" })).toBe("$50,083.00 at 14:00 UTC, Mar 1, 2024 · Coinbase");
   });
 
   it("says From the price or Typed while the saved value shows, nothing otherwise", () => {

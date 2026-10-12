@@ -42,12 +42,14 @@ const Dashboard: React.FC = () => {
         setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false));
         setThroughTor(Boolean(res.data.proxy_url));
       })
-      .catch(() => undefined);
+      .catch(() => setThroughTor(false));
   }, [priceRound]);
 
   const live = useLivePrice(priceRound);
-  const [throughTor, setThroughTor] = useState(false);
-  const price = { ...live, throughTor };
+  // null until the settings answer: the source line waits for it, so it
+  // never shows without "through Tor" first
+  const [throughTor, setThroughTor] = useState<boolean | null>(null);
+  const price = { ...live, source: throughTor === null ? undefined : live.source, throughTor: Boolean(throughTor) };
   const [timezone, setTimezone] = useState("UTC");
 
   useEffect(() => {
