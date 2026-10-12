@@ -260,12 +260,23 @@ def _export_row(txn: Transaction) -> dict[str, str]:
         "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
         "cost_basis_typed": _basis_typed(txn),
         "acquired_at": txn.acquired_at.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.acquired_at else "",
+        "proceeds_typed": _proceeds_typed(txn),
+        "price_moment": txn.price_moment or "",
     }
 
 
+def _proceeds_typed(txn: Transaction) -> str:
+    """A Spent's proceeds: yes if typed, no if priced (an edit prices them
+    again); blank otherwise."""
+    spent = (txn.type or "").lower() == "withdrawal" and (txn.purpose or "").lower() == "spent"
+    if not spent or txn.gross_proceeds_usd is None:
+        return ""
+    return "no" if txn.proceeds_from_price else "yes"
+
+
 def _basis_typed(txn: Transaction) -> str:
-    """An income or rebate deposit's basis: yes if typed, no if priced from
-    the day (so a re-import keeps re-pricing it on edits, #76); blank otherwise."""
+    """An income or rebate deposit's basis: yes if typed, no if priced (so a
+    re-import keeps re-pricing it on edits, #76); blank otherwise."""
     valued = (txn.type or "").lower() == "deposit" and (txn.source or "").lower() in VALUED_AT_RECEIPT \
         and txn.to_account_id in BTC_ACCOUNTS
     if not valued or txn.cost_basis_usd is None:

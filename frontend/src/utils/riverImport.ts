@@ -75,9 +75,10 @@ export function importRow(r: EditableRow) {
     fee_currency: r.feeAmount ? (r.type === "Buy" || r.type === "Sell" ? "USD" : "BTC") : null,
     source: r.type === "Deposit" ? r.source : null,
     purpose: r.type === "Withdrawal" ? r.purpose : null,
-    // The preview's value from that day's price, left as it was: not typed,
-    // so an edit of the deposit prices it again (#76)
+    // The preview's value from the price, left as it was: not typed, so an
+    // edit of the deposit prices it again (#76); and the price's moment
     cost_basis_typed: basisFromPrice(r) ? "no" : null,
+    price_moment: basisFromPrice(r) ? (r.proposal.price_moment ?? null) : null,
   };
 }
 

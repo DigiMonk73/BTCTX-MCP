@@ -79,6 +79,31 @@ All notable changes to BitcoinTX are documented in this file.
   are kept (a new table, `btc_price_hourly`; nothing else in the database
   changes). No request names a transaction's hour.
 
+### Changed
+- **Values BitcoinTX fills in from the BTC price now use the price when the
+  transaction's hour began** (#144, tax figures; the third of five pull
+  requests). That's an income or rebate deposit's value left blank, a
+  Spent withdrawal's proceeds left blank, a BTC network fee's value, and
+  what the AI connector's and River imports fill in. IRS rules value bitcoin
+  at the date and time of each transaction (Treas. Reg. §1.1001-7(b)(3));
+  the day's midnight (UTC) price used so far could be hours from it (on
+  2025–2026 prices, about 1% off on average, the hour about 0.24%). The
+  price is Bitstamp's opening price for the UTC hour (the hourly history
+  above) or, for later hours, your mempool server's hourly record or
+  Bitstamp's latest hours; where there's none (before 2013, or no source
+  answering), that day's 00:00 UTC price as before. Each transaction now
+  records which moment its priced values came from (`price_moment`: hour or
+  day), and a Spent's proceeds from the price are marked like an income
+  value's, so an edit of its amount, time or purpose prices them again.
+  - **Nothing already saved changes.** Values priced before this release
+    stay at the day's price, marked "day". An edit that changes what a
+    priced value depends on (its amount, account, type, or now its hour
+    rather than its day) prices it again, at the hour. A recalculation
+    never re-prices anything. A value you typed is never touched.
+  - The CSV export carries the marks (two new columns, `proceeds_typed`
+    and `price_moment`); an older file imports as before, its priced
+    values counted as priced at the day.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

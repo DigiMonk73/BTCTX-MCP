@@ -142,7 +142,7 @@ class Transaction(Base):
         nullable=True,
         doc=(
             "USD value of a BTC fee, stored when the transaction is saved "
-            "(fee x that day's price, or typed by the user) so recalculation "
+            "(fee x that hour's price, or typed by the user) so recalculation "
             "never prices it again. NULL for USD fees and no fee."
         ),
     )
@@ -160,8 +160,8 @@ class Transaction(Base):
         default=False,
         server_default=sa_false(),
         doc=(
-            "True when an income or rebate deposit's cost_basis_usd came from that day's "
-            "price (left blank when entered): an edit of its amount, day or "
+            "True when an income or rebate deposit's cost_basis_usd came from the "
+            "price (left blank when entered): an edit of its amount, hour or "
             "account values it again. A typed value is kept."
         ),
     )
@@ -173,6 +173,28 @@ class Transaction(Base):
             "A My BTC or Gift deposit's date originally acquired: its lot's "
             "acquisition date (holding period, Form 8949 column (b), FIFO). "
             "NULL: the deposit's own date."
+        ),
+    )
+    # After acquired_at, where migration 0010 added them
+    price_moment = Column(
+        String,
+        nullable=True,
+        doc=(
+            "The moment of the price this transaction's priced values came from "
+            "(an income or rebate basis, a Spent's proceeds, a BTC fee's value): "
+            "'hour' (its UTC hour's opening price) or 'day' (its UTC day's 00:00 "
+            "price). NULL when every value is typed."
+        ),
+    )
+    proceeds_from_price = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "True when a Spent withdrawal's proceeds came from the price (left blank "
+            "when entered): an edit of its amount, time or purpose prices them again. "
+            "A typed value is kept."
         ),
     )
 

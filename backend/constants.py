@@ -57,7 +57,7 @@ INCOME_SOURCES = frozenset({"income", "interest", "reward"})
 # Its value at receipt is its cost basis; it is never income.
 REBATE_SOURCE = "rebate"
 # Deposit sources valued at receipt: left blank, the value (the cost basis)
-# is that day's price x the amount (lowercase)
+# is that hour's price x the amount (lowercase)
 VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE}
 # Deposit sources whose coins can have been acquired before the deposit (a
 # date originally acquired, #91): the user's own, or a gift with the giver's basis

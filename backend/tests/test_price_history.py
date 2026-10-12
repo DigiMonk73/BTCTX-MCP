@@ -391,13 +391,13 @@ def test_a_fee_value_is_money(auth_client, funded):
 def test_an_edit_that_leaves_the_fee_alone_keeps_its_stored_value(auth_client, test_engine, funded):
     """The form sends every field on each edit: a stored value (e.g. one
     kept from before v0.9.2) must not be priced again unless the fee, its
-    currency, the type or the day changes."""
+    currency, the type or the hour changes."""
     tx = transfer(auth_client)
     with test_engine.begin() as con:
         con.execute(text("UPDATE transactions SET fee_usd = '11.11' WHERE id = :id"), {"id": tx["id"]})
     full = {k: tx[k] for k in ("type", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency")}
     r = auth_client.put(f"/api/transactions/{tx['id']}",
-                        json={**full, "amount": "0.11", "timestamp": "2024-05-01T18:00:00Z"})  # same UTC day
+                        json={**full, "amount": "0.11", "timestamp": "2024-05-01T12:40:00Z"})  # same UTC hour
     assert r.status_code == 200 and r.json()["fee_usd"] == "11.11"
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={**full, "fee_amount": "0.0004"})
     assert r.json()["fee_usd"] == "20.00"
