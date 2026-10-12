@@ -167,9 +167,9 @@ So derived values must be recomputable from the Transaction row alone.
   00:00 price). Nothing is asked until the owner picks a price source
   (`services/outbound.py`: off / public / own mempool, optional fallback),
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
-  Source & Privacy action), which Settings then shows read-only. Prices
-  stored while the server sets it never count as a choice (it stores
-  `unset`), and a CLI command never makes one (#134).
+  Source & Privacy action), which Settings then shows read-only. From
+  1.2.8, prices stored while the server sets it never count as a choice
+  (it stores `unset`), and a CLI command never makes one (#134).
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
