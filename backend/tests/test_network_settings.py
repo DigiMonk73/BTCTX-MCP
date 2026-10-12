@@ -487,10 +487,12 @@ def test_the_startos_package_passes_the_names_the_app_reads():
         assert source in outbound.SOURCES and f"'{source}'" in package
 
 
-def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
+def test_the_live_price_asks_kraken_first_then_bitstamp(auth_client, monkeypatch):
     """Privacy audit 2026-09-29 (1k), owner decision: CoinGecko was asked
     first and refuses VPN and Tor users, so each refresh contacted two
-    sites. Kraken first; CoinGecko only when Kraken fails."""
+    sites; Kraken came first. #161 (owner, 2026-10-12): CoinGecko is never
+    asked (its terms ask for a credit and discourage storing its data); the
+    fallback is Bitstamp, which the price history already asks."""
     asked = []
 
     def sites(request: httpx.Request) -> httpx.Response:
@@ -499,7 +501,9 @@ def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
             return httpx.Response(503)
         if request.url.host == "api.kraken.com":
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": ["61000.5", "1"]}}})
-        return httpx.Response(200, json={"bitcoin": {"usd": 60999}})
+        if str(request.url) == bitcoin.BITSTAMP_TICKER_URL:
+            return httpx.Response(200, json={"timestamp": "1", "last": "60999.25", "open": "60000"})
+        return httpx.Response(404)
 
     asked_mode: list = []
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
@@ -510,8 +514,45 @@ def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
 
     asked.clear(); asked_mode.append("kraken-down")
     bitcoin._price_cache.update(settings=None)
-    assert asyncio.run(real_current_price()) == {"USD": 60999.0}
-    assert asked == ["api.kraken.com", "api.coingecko.com"]
+    assert asyncio.run(real_current_price()) == {"USD": 60999.25}
+    assert asked == ["api.kraken.com", "www.bitstamp.net"]
+
+
+@pytest.mark.parametrize("kraken, bitstamp", [("0", "0"), ("-1", "Infinity"), ("NaN", "nan")])
+def test_a_live_price_that_isnt_positive_and_finite_is_no_price(auth_client, monkeypatch, kraken, bitstamp):
+    """Review of #166: a price of 0, below 0, NaN or infinite is never
+    shown (infinity would break the JSON answer); the plain 502."""
+    def sites(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.kraken.com":
+            return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": [kraken, "1"]}}})
+        return httpx.Response(200, json={"last": bitstamp})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
+    auth_client.put("/api/settings/network", json=PUBLIC)
+    bitcoin._price_cache.update(settings=None)
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(real_current_price())
+    assert exc.value.status_code == 502
+
+
+def test_a_mempool_server_without_a_price_yet_leaves_it_to_the_fallback(auth_client, monkeypatch):
+    """Re-check of #166: a mempool server answers USD -1 until its first good
+    fetch (its price updater's empty prices). That's no price: the public
+    fallback answers, never a negative price."""
+    asked = []
+
+    def sites(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.host)
+        if request.url.host == "umbrel.local":
+            return httpx.Response(200, json={"time": 1, "USD": -1})
+        return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": ["61000.5", "1"]}}})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
+    auth_client.put("/api/settings/network", json={
+        **PUBLIC, "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True})
+    bitcoin._price_cache.update(settings=None)
+    assert asyncio.run(real_current_price()) == {"USD": 61000.5}
+    assert asked == ["umbrel.local", "api.kraken.com"]
 
 
 def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_seen):

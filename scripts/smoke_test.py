@@ -182,8 +182,10 @@ def _fake_answer(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"prices": _mempool_rows(price_history.FIRST_PRICE_DAY)})
     if (path.endswith("/api/blocks/tip/height") and not params) or url == bitcoin.BLOCKCHAIN_INFO_HEIGHT_URL:
         return httpx.Response(200, text=str(BLOCK_HEIGHT))
-    if url == bitcoin.KRAKEN_TICKER_URL:
-        return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": [str(CURRENT_PRICE), "1"]}}})
+    tickers = {bitcoin.KRAKEN_TICKER_URL: {"error": [], "result": {"XXBTZUSD": {"c": [str(CURRENT_PRICE), "1"]}}},
+               bitcoin.BITSTAMP_TICKER_URL: {"last": str(CURRENT_PRICE)}}
+    if url in tickers:
+        return httpx.Response(200, json=tickers[url])
     if url.startswith(price_history.BITSTAMP_OHLC_URL) and _is_bitstamp_block(params):
         return httpx.Response(200, json={"data": {"ohlc": _bitstamp_rows(params)}})
     return httpx.Response(404)
