@@ -277,7 +277,7 @@ conventions: [AGENTS.md](AGENTS.md).
 | Frontend | React + TypeScript + Vite |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | PDFs | pypdf (IRS form filling), ReportLab (reports) |
-| BTC prices | Your mempool server, or public sites: past days from one download of the whole daily history (Bitstamp, else Coinbase), then the latest days (Bitstamp, Kraken or Coinbase); live price from Kraken or CoinGecko |
+| BTC prices | Your mempool server, or public sites: past days from one download of Bitstamp's whole daily history, then the latest days (Bitstamp, else Kraken); live price from Kraken, else Bitstamp |
 | Block height | Your mempool server, or Blockchain.info, Blockstream, mempool.space |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 

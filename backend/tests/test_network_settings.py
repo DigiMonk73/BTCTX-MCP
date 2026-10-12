@@ -487,10 +487,12 @@ def test_the_startos_package_passes_the_names_the_app_reads():
         assert source in outbound.SOURCES and f"'{source}'" in package
 
 
-def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
+def test_the_live_price_asks_kraken_first_then_bitstamp(auth_client, monkeypatch):
     """Privacy audit 2026-09-29 (1k), owner decision: CoinGecko was asked
     first and refuses VPN and Tor users, so each refresh contacted two
-    sites. Kraken first; CoinGecko only when Kraken fails."""
+    sites; Kraken came first. #161 (owner, 2026-10-12): CoinGecko is never
+    asked (its terms ask for a credit and discourage storing its data); the
+    fallback is Bitstamp, which the price history already asks."""
     asked = []
 
     def sites(request: httpx.Request) -> httpx.Response:
@@ -499,7 +501,9 @@ def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
             return httpx.Response(503)
         if request.url.host == "api.kraken.com":
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": ["61000.5", "1"]}}})
-        return httpx.Response(200, json={"bitcoin": {"usd": 60999}})
+        if str(request.url) == bitcoin.BITSTAMP_TICKER_URL:
+            return httpx.Response(200, json={"timestamp": "1", "last": "60999.25", "open": "60000"})
+        return httpx.Response(404)
 
     asked_mode: list = []
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
@@ -510,8 +514,8 @@ def test_the_live_price_asks_kraken_first(auth_client, monkeypatch):
 
     asked.clear(); asked_mode.append("kraken-down")
     bitcoin._price_cache.update(settings=None)
-    assert asyncio.run(real_current_price()) == {"USD": 60999.0}
-    assert asked == ["api.kraken.com", "api.coingecko.com"]
+    assert asyncio.run(real_current_price()) == {"USD": 60999.25}
+    assert asked == ["api.kraken.com", "www.bitstamp.net"]
 
 
 def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_seen):

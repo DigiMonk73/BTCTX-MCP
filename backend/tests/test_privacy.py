@@ -285,9 +285,10 @@ def test_settings_names_every_site_public_prices_may_contact():
     root = Path(__file__).resolve().parents[2]
     code = "".join((root / "backend/services" / f).read_text() for f in ("bitcoin.py", "price_history.py"))
     hosts = set(re.findall(r'"https://([^/"]+)', code))
-    names = {"api.kraken.com": "Kraken", "api.coingecko.com": "CoinGecko", "blockchain.info": "Blockchain.info",
-             "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp",
-             "api.exchange.coinbase.com": "Coinbase"}
+    names = {"api.kraken.com": "Kraken", "blockchain.info": "Blockchain.info",
+             "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp"}
+    # #161 (owner, 2026-10-12): never asked again, for their terms
+    assert not {h for h in hosts if "coinbase" in h or "coingecko" in h}
     assert hosts <= set(names), f"a new site: name it in Settings and here: {hosts - set(names)}"
     help_text = (root / "frontend/src/utils/priceSource.ts").read_text()
     public = help_text[help_text.index('value: "public"'):help_text.index('value: "off"')]

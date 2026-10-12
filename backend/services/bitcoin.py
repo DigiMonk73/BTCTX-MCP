@@ -19,8 +19,8 @@ from backend.services import outbound
 
 logger = logging.getLogger(__name__)
 
-COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker?pair=XBTUSD"
+BITSTAMP_TICKER_URL = "https://www.bitstamp.net/api/v2/ticker/btcusd/"
 
 BLOCKCHAIN_INFO_HEIGHT_URL = "https://blockchain.info/q/getblockcount"
 BLOCKSTREAM_HEIGHT_URL = "https://blockstream.info/api/blocks/tip/height"
@@ -82,11 +82,6 @@ async def _first_public(urls_and_parsers, what: str):
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
-def _coingecko_price(resp) -> dict | None:
-    price = resp.json()["bitcoin"]["usd"]
-    return {"USD": float(price)} if price else None
-
-
 def _kraken_price(resp) -> dict | None:
     data = resp.json()
     if data.get("error"):
@@ -95,10 +90,16 @@ def _kraken_price(resp) -> dict | None:
     return {"USD": float(data["result"][pair]["c"][0])}  # last trade
 
 
+def _bitstamp_price(resp) -> dict | None:
+    price = float(resp.json()["last"])  # last trade
+    return {"USD": price} if price > 0 else None
+
+
 async def get_current_price() -> dict:
     """
-    The current BTC price in USD: the own mempool server, or Kraken then
-    CoinGecko (which refuses VPN and Tor users, so it's only the fallback).
+    The current BTC price in USD: the own mempool server, or Kraken, else
+    Bitstamp (the sites the price history already asks). CoinGecko is never
+    asked: its terms ask for a credit and discourage storing its data (#161).
     503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     settings = outbound.current()
@@ -109,7 +110,7 @@ async def get_current_price() -> dict:
         price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
         if price is None:
             price = await _first_public(
-                [(KRAKEN_TICKER_URL, _kraken_price), (COINGECKO_PRICE_URL, _coingecko_price)], "BTC price")
+                [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price")
         _price_cache.update(settings=settings, at=time.monotonic(), value=price)
         return price
 

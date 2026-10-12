@@ -49,10 +49,11 @@ def midnight(d: date) -> int:
 
 
 class FakeSources:
-    """Bitstamp/Coinbase/Kraken (and a mempool server) answering from tables of days."""
+    """Bitstamp/Kraken (and a mempool server) answering from tables of days.
+    Any other site is down (503), and every request is recorded."""
 
     def __init__(self):
-        self.bitstamp = self.coinbase = self.kraken = self.mempool = None
+        self.bitstamp = self.kraken = self.mempool = None
         self.requests = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -67,13 +68,6 @@ class FakeSources:
                 rows = self.bitstamp[-limit:]
             ohlc = [{"timestamp": str(midnight(d)), "open": str(p)} for d, p in rows]
             return httpx.Response(200, json={"data": {"pair": "BTC/USD", "ohlc": ohlc}})
-        if "coinbase" in host and self.coinbase is not None:
-            if "start" in params:
-                lo, hi = (date.fromisoformat(params[k][:10]) for k in ("start", "end"))
-                rows = [(d, p) for d, p in self.coinbase if lo <= d <= hi]
-            else:
-                rows = self.coinbase[-300:]
-            return httpx.Response(200, json=[[midnight(d), 1, 2, p, 3, 4] for d, p in rows])
         if "kraken" in host and self.kraken is not None:
             rows = [[midnight(d), str(p), "0", "0", "0", "0", "0", 1] for d, p in self.kraken[-720:]]
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": rows, "last": 0}})
@@ -152,15 +146,35 @@ def test_a_new_day_later_asks_only_for_the_latest_days(sources, db):
     assert len(sources.requests) == 1
 
 
-def test_coinbase_blocks_when_bitstamp_is_down(sources, db):
-    sources.coinbase = candles(price_history.COINBASE_FIRST_DAY,
-                               (TODAY - price_history.COINBASE_FIRST_DAY).days + 1, price=lambda d: 23456)
+def hosts(sources) -> list[str]:
+    return [httpx.URL(u).host for u in sources.requests]
+
+
+def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_later(sources, db):
+    """#161 (owner, 2026-10-12): Coinbase's terms forbid building an end-user
+    app on its data, so it's no longer the history's second source."""
     day = date(2023, 2, 1)
-    assert price_history.daily_price(db, day) == D("23456.00")
+    with pytest.raises(HTTPException) as exc:
+        price_history.daily_price(db, day)
+    assert exc.value.status_code == 422
+    assert hosts(sources) == ["www.bitstamp.net"]  # the first block failed: nothing else
+    with pytest.raises(HTTPException):
+        price_history.daily_price(db, day)  # within RETRY_SECONDS: not asked again
+    assert len(sources.requests) == 1
+    price_history._state["full_failed_at"] -= price_history.RETRY_SECONDS
+    sources.bitstamp = all_days()
+    assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+    assert set(hosts(sources)) == {"www.bitstamp.net"} and price_history._history_complete(db)
+
+
+def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
+    """#161: Kraken is the only fallback for the latest days."""
+    price_history._mark_history_complete(db)
+    sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
+    day = TODAY - timedelta(days=2)
+    assert price_history.daily_price(db, day) == D("64000.00")
+    assert hosts(sources) == ["www.bitstamp.net", "api.kraken.com"]
     assert not sources.names_a_day(day)
-    coinbase = [u for u in sources.requests if "coinbase" in u]
-    assert len(coinbase) == len(price_history._blocks(price_history.COINBASE_FIRST_DAY, 300))
-    assert not price_history._history_complete(db)  # Bitstamp is tried again later
 
 
 def test_timestamps_use_their_utc_day(sources, db):

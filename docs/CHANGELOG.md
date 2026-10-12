@@ -65,6 +65,17 @@ All notable changes to BitcoinTX are documented in this file.
     remove `BTCTX_PRICE_SOURCE`), check that **Settings → Privacy &
     Network** shows the choice you want.
 
+### Changed
+- **Public price sites: Coinbase and CoinGecko are no longer asked**
+  (#161, the owner's decision). Coinbase's market data terms keep its data
+  for personal or research use and say it "may not be used to build an
+  application intended for use by end users"; CoinGecko's ask for a credit
+  and discourage storing its data. Past prices now come from Bitstamp's
+  whole daily history (if that download fails, it's tried again later),
+  then the latest days from Bitstamp, else Kraken; the live price from
+  Kraken, else Bitstamp. Prices already stored don't change. Settings, the
+  READMEs and StartOS's Price Source & Privacy action list the sites asked.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the
