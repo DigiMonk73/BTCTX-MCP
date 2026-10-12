@@ -45,10 +45,12 @@ def _init_db():
 
     result = init_db()
     # The app's price settings: a recalculation or review may look up a price.
-    # Never a reason to fail a command (Set Login Credentials runs here too).
+    # Never a reason to fail a command (Set Login Credentials runs here too),
+    # nor to make a price choice: on StartOS a command may run without the
+    # server's variables (#134), so only the app's start upgrades old installs.
     try:
         with SessionLocal() as db:
-            outbound.load(db)
+            outbound.load(db, upgrade=False)
     except Exception as e:
         print(f"warning: couldn't read the price settings, no price lookups: {e}", file=sys.stderr)
     return result

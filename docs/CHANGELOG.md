@@ -4,6 +4,35 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Switching StartOS's Price Source & Privacy to "Choose in BitcoinTX"
+  no longer picks public price sites for you** (privacy, #134). While the
+  action sets the source (My Mempool, Public or Off), no choice is made in
+  the app, but prices get stored. After a switch to **Choose in
+  BitcoinTX**, BitcoinTX took those stored prices for an install from
+  before 1.1.0 (when public sites were on by default), saved **Public price
+  sites** as your choice and asked them for prices, without showing its
+  price question. A command run without the server's settings saved the
+  same choice, ready for a later switch: the package's **Set Login
+  Credentials** (Reset Login Credentials before 1.2.4:1), or
+  `python -m backend.cli` run by hand in the service.
+  - Affected: StartOS (and Docker installs that set `BTCTX_PRICE_SOURCE`),
+    1.2.0 to 1.2.7, only installs that stored prices while the server set
+    the source and had no choice made in the app.
+  - Now BitcoinTX records "not chosen yet" while the server sets the
+    source, so after a switch it asks you, whatever the action was set to;
+    and a command never makes a price choice. Installs from before 1.1.0
+    keep what they did, except one that never changed its price settings
+    and first starts 1.2.8 with the source set by the server: it asks once.
+  - Not covered: an install whose first start on 1.2.8 is already without
+    the server's source (on StartOS, updated or restored while stopped and
+    switched before starting; in Docker, `BTCTX_PRICE_SOURCE` removed in the
+    same update); and a Public choice this bug already saved, which looks
+    like your own.
+  - What to do: whenever you switch the action to Choose in BitcoinTX (or
+    remove `BTCTX_PRICE_SOURCE`), check that **Settings → Privacy &
+    Network** shows the choice you want.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

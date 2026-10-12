@@ -19,10 +19,11 @@ app_settings):
 The server can set them instead (the StartOS package does, from its Price
 Source & Privacy action): when BTCTX_PRICE_SOURCE is set, it and
 BTCTX_MEMPOOL_URL, BTCTX_MEMPOOL_FALLBACK and BTCTX_PROXY_URL replace the
-stored settings, which stay untouched underneath, and Settings shows them
-read-only ("managed"). A mempool choice may come without an address (StartOS
-while Mempool isn't installed): then nothing answers but the fallback. An
-invalid value turns price lookups off rather than guessing.
+stored settings, which stay untouched underneath (an install with none gets
+"unset": _mark_unchosen), and Settings shows them read-only ("managed"). A
+mempool choice may come without an address (StartOS while Mempool isn't
+installed): then nothing answers but the fallback. An invalid value turns
+price lookups off rather than guessing.
 
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
@@ -137,6 +138,21 @@ def _upgrade_from_live_data(db: Session) -> str | None:
     return source
 
 
+def _mark_unchosen(db: Session) -> None:
+    """
+    While the server sets the source, prices get stored with no choice made
+    in the app. Record that none was ("unset", as a restore does), so a later
+    switch back to the app's own setting (StartOS: Choose in BitcoinTX) asks
+    the owner instead of taking those prices for a pre-1.1.0 install's public
+    choice (#134). A pre-1.1.0 install's own old settings are its choice and
+    are left for _upgrade_from_live_data.
+    """
+    if any(_get(db, key) for key in (SOURCE_KEY, OLD_LIVE_KEY, MEMPOOL_KEY)):
+        return
+    _set(db, SOURCE_KEY, "unset")
+    db.commit()
+
+
 def from_env() -> NetworkSettings | None:
     """The settings the server sets (BTCTX_PRICE_SOURCE and co.), or None."""
     source = os.environ.get(ENV_SOURCE, "").strip().lower()
@@ -188,14 +204,25 @@ def carry_over(db: Session, before: dict) -> NetworkSettings:
     return load(db)
 
 
-def load(db: Session) -> NetworkSettings:
-    """Read the settings (at startup, after a restore): the server's, else the database's."""
+def load(db: Session, upgrade: bool = True) -> NetworkSettings:
+    """
+    Read the settings (at startup, after a restore): the server's, else the
+    database's. `upgrade=False` (a command-line run, which on StartOS may lack
+    the server's variables) never works out a pre-1.1.0 install's choice:
+    the app's start does that (#134).
+    """
     global _current
     managed = from_env()
     if managed:
         _current = managed
+        try:
+            _mark_unchosen(db)
+        except Exception:
+            # The server's settings apply all the same; only the note is missing.
+            db.rollback()
+            logger.exception("Could not record that no price source was chosen in the app")
         return _current
-    source = _get(db, SOURCE_KEY) or _upgrade_from_live_data(db)
+    source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
     _current = NetworkSettings(
         price_source=source if source in SOURCES else "unset",
         mempool_url=_get(db, MEMPOOL_KEY),

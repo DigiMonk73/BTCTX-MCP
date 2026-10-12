@@ -111,7 +111,11 @@ configured.
 command does). When `BTCTX_PRICE_SOURCE` is set they replace Settings →
 Privacy & Network, which shows them read-only (`GET /api/settings/network`
 says `"managed": true`; a change is 409); the stored settings stay untouched
-underneath and come back once the variable is gone.
+underneath and come back once the variable is gone. From 1.2.8, an install
+with none records "not chosen" (`price_source` = `unset`) at a start with the
+variable, so once it's gone the owner is asked, whatever prices were stored
+meanwhile (#134). A CLI command never makes a price choice (only the app's
+start upgrades a pre-1.1.0 install).
 
 | Variable | Values |
 |----------|--------|

@@ -95,13 +95,16 @@ def test_a_fresh_install_asks_nothing_until_the_owner_chooses():
         assert not outbound.current().public_allowed and outbound.current().own_node is None
 
 
-@pytest.mark.parametrize("old, expected", [
+OLDER_INSTALLS = [
     ({"live_data": "off"}, ("off", False)),
     ({"live_data": "on"}, ("public", False)),
     ({"live_data": "on", "mempool_url": NODE}, ("mempool", True)),
     ({"live_data": "off", "mempool_url": NODE}, ("mempool", False)),
     ({"mempool_url": NODE}, ("mempool", True)),
-])
+]
+
+
+@pytest.mark.parametrize("old, expected", OLDER_INSTALLS)
 def test_older_installs_keep_what_they_did(old, expected):
     Session = fresh_db(**old)
     with Session() as db:
@@ -142,6 +145,58 @@ def test_entries_made_before_choosing_never_turn_public_sites_on():
         assert outbound.load(db).price_source == "unset"
         assert not outbound.current().public_allowed
         assert db.execute(text("SELECT count(*) FROM app_settings WHERE key='price_source'")).scalar() == 0
+
+
+@pytest.mark.parametrize("server, stored_from", [
+    ({"BTCTX_PRICE_SOURCE": "off"}, "bitstamp"),  # stored while it was on Public, before Off
+    ({"BTCTX_PRICE_SOURCE": "public"}, "bitstamp"),
+    ({"BTCTX_PRICE_SOURCE": "mempool", "BTCTX_MEMPOOL_URL": BRIDGE}, "mempool"),
+], ids=["off", "public", "mempool"])
+def test_switching_to_choose_in_bitcointx_asks_the_owner(monkeypatch, server, stored_from):
+    """#134, seen on StartOS: the Price Source & Privacy action set the source,
+    so no choice was made in the app, and prices were stored. Switching the
+    action to Choose in BitcoinTX restarts the app without BTCTX_PRICE_SOURCE,
+    and it took those prices for a pre-1.1.0 install's public choice: it saved
+    Public and asked public sites. It asks the owner instead."""
+    Session = fresh_db()
+    for key, value in server.items():
+        monkeypatch.setenv(key, value)
+    with Session() as db:  # the service runs with the action's choice
+        assert outbound.load(db).managed
+        db.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES ('2024-01-01', 42000, :s)"),
+                   {"s": stored_from})
+        db.commit()
+    for key in server:
+        monkeypatch.delenv(key)
+    for _ in range(2):  # the restart after the switch, and the next one
+        with Session() as db:
+            s = outbound.load(db)
+            assert s.price_source == "unset" and not s.public_allowed and s.own_node is None
+            assert db.execute(text("SELECT value FROM app_settings WHERE key='price_source'")).scalar() == "unset"
+
+
+def test_the_server_settings_apply_even_if_that_note_cant_be_saved(monkeypatch):
+    def fails(*_):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setenv("BTCTX_PRICE_SOURCE", "off")
+    monkeypatch.setattr(outbound, "_set", fails)
+    with fresh_db()() as db:
+        assert outbound.load(db) == outbound.NetworkSettings(price_source="off", managed=True)
+
+
+@pytest.mark.parametrize("old, expected", OLDER_INSTALLS)
+def test_older_installs_keep_what_they_did_after_the_server_set_the_source(monkeypatch, old, expected):
+    """A pre-1.1.0 install's own settings are its choice: once the server
+    stops setting the source, they decide as before."""
+    Session = fresh_db(**old)
+    monkeypatch.setenv("BTCTX_PRICE_SOURCE", "off")
+    with Session() as db:
+        outbound.load(db)
+    monkeypatch.delenv("BTCTX_PRICE_SOURCE")
+    with Session() as db:
+        s = outbound.load(db)
+        assert (s.price_source, s.mempool_fallback) == expected
 
 
 def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
