@@ -4,7 +4,7 @@ import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
 
 // Valued when acquired: the server fills a blank basis from that hour's price
-// (an inheritance's: the hour of the date of death)
+// (an inheritance's: the date of death's day price, #173)
 const VALUED_SOURCES = ["Income", "Interest", "Reward", "Rebate", "Inherited"];
 // Where there's no hourly price (before 2013, or an own mempool server
 // without the public fallback, for hours before its record), the day's
