@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext } from "./priceStatus";
+import { clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -50,6 +50,11 @@ describe("the status line", () => {
       "Your Mempool's certificate isn't trusted (a private one, like StartOS's home-network address), so BitcoinTX " +
         "can't use it. There's no newer price: use its http:// or .onion address instead, or on StartOS choose My Mempool on this server.",
     );
+    // #188: at a home-network address, the card offers to trust it
+    expect(statusLine(untrusted, { ...ctx, trustable: true }).text).toMatch(
+      /There's no newer price until you trust it: if it's your own server, use Trust this server below\.$/,
+    );
+    expect(mempoolProblem(untrusted)).toBe("mempool_untrusted_certificate");
     const backup = { ...untrusted, last_ok: { at: T2, from: "kraken" } };
     const line = statusLine(backup, { ...ctx, backup: true });
     expect(line.tone).toBe("warning");

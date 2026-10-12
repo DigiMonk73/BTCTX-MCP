@@ -227,7 +227,7 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
     assert saved == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
                      "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
                      "waiting": False, "tor_from_server": False, "host": "server", "confirmed": True,
-                     "chosen_via": "settings"}
+                     "chosen_via": "settings", "mempool_certificate": None, "mempool_trustable": False}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -397,7 +397,7 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
         "managed": True, "invalid": False, "waiting": False, "tor_from_server": False, "host": "server",
         "confirmed": True,
-        "chosen_at": None, "chosen_via": None}
+        "chosen_at": None, "chosen_via": None, "mempool_certificate": None, "mempool_trustable": False}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     assert r.status_code == 409 and "on StartOS: the Price Source & Privacy action" in r.json()["detail"]
     # The stored settings are untouched, and back once the server stops setting them
@@ -476,6 +476,11 @@ def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_en
 OWN_REQUESTS_ALLOWED = {"services/reports/draft_forms.py"}
 
 
+# #188: a raw connection (a TLS handshake) is an outside request too
+RAW_CONNECTIONS = ("open_connection", "create_connection", "wrap_socket", "wrap_bio", "start_tls",
+                   "get_server_certificate", "HTTPConnection", "HTTPSConnection")
+
+
 def test_no_other_module_makes_its_own_http_client():
     """Every outside request goes through services/outbound.py, so the
     settings above can't be bypassed. Review of #52: urllib.request
@@ -490,9 +495,15 @@ def test_no_other_module_makes_its_own_http_client():
             if isinstance(node, ast.Attribute) and node.attr in ("AsyncClient", "Client", "get", "post", "request") \
                     and isinstance(node.value, ast.Name) and node.value.id in ("httpx", "requests", "urllib"):
                 offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
+            if isinstance(node, ast.Attribute) and (node.attr in RAW_CONNECTIONS or (
+                    node.attr == "socket" and isinstance(node.value, ast.Name) and node.value.id == "socket")):
+                offenders.append(f"{where}:{node.lineno} .{node.attr}")
+            if isinstance(node, ast.ImportFrom) and any(a.name in RAW_CONNECTIONS for a in node.names):
+                offenders.append(f"{where}:{node.lineno} imports {[a.name for a in node.names]}")
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
                 if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") or n.startswith("urllib.request")
+                       or n == "http.client" or (getattr(node, "module", None) == "socket" and n == "socket")
                        or (getattr(node, "module", None) == "urllib" and n == "request") for n in names):
                     offenders.append(f"{where}:{node.lineno} imports {names}")
     assert [o for o in offenders if o.split(":")[0] not in OWN_REQUESTS_ALLOWED] == []
