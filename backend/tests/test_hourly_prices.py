@@ -12,6 +12,7 @@ Every outside service is faked.
 """
 
 import random
+import time
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -326,7 +327,8 @@ def test_a_block_with_an_hour_missing_is_asked_again(sites, db, monkeypatch):
     db.flush()
     sites.requests.clear()
     assert hp.hourly_price(db, utc("2026-03-16T12:30Z")) == (sites.prices[gap], "bitstamp")
-    assert sites.bitstamp_starts() == [at("2026-03-16T00:00Z")]  # only the block missing an hour
+    # the blocks missing an hour: the gap's, and the current hour's
+    assert sites.bitstamp_starts() == [at("2026-03-16T00:00Z"), at("2026-03-20T00:00Z")]
 
 
 def test_a_failed_download_waits_before_it_is_tried_again(sites, db):
@@ -368,6 +370,56 @@ def test_the_download_stops_at_the_next_request_when_public_sites_stop_being_all
     hp.start_download()
     finish_download()
     assert len(sites.bitstamp_starts()) == 1
+    assert hp._state["failed_at"] < 0  # a stop isn't a failure: switched back on, it goes on at once
+
+
+def test_a_proxy_set_during_the_download_carries_the_next_request(sites, monkeypatch):
+    proxies, real_client = [], outbound.async_client
+
+    def recorded(timeout=outbound.TIMEOUT):
+        proxies.append(outbound.current().proxy_url)
+        return real_client(timeout=timeout)
+
+    def tor_after_one_block(fake):
+        if len(fake.bitstamp_starts()) == 1:
+            use(price_source="public", proxy_url="socks5h://127.0.0.1:9050")
+
+    monkeypatch.setattr(outbound, "async_client", recorded)
+    sites.after_request = tor_after_one_block
+    hp.start_download()
+    finish_download()
+    assert proxies[0] is None and set(proxies[1:]) == {"socks5h://127.0.0.1:9050"}
+
+
+def test_the_current_hour_comes_from_bitstamp_once_it_has_traded(sites, db):
+    """Re-check of #169: with every earlier hour kept, the current hour's
+    block was skipped and the hour got the day's price."""
+    hp.start_download()
+    finish_download()
+    for h in range(FILES_END + HOUR, NOW, HOUR):
+        db.add(BtcPriceHourly(hour=h, usd=sites.prices[h], source="bitstamp"))
+    db.flush()
+    sites.requests.clear()
+    assert hp.price_at(db, utc("2026-03-20T10:05Z")) == hp.Priced(sites.prices[NOW], "hour", utc("2026-03-20T10:00Z"))
+    assert sites.bitstamp_starts() == [FILES_END + HOUR]  # its block, the one after the files
+
+
+def test_a_lookup_waiting_for_a_download_that_fails_ends_at_once(sites, db, monkeypatch):
+    monkeypatch.setattr(hp, "WAIT_SECONDS", 20)
+    sites.bitstamp_down = True
+    started = time.monotonic()
+    assert hp.price_at(db, utc("2025-06-01T13:00Z")).moment == "day"
+    assert time.monotonic() - started < 5
+
+
+def test_a_mempool_servers_answer_isnt_kept_once_it_is_no_longer_the_source(sites, db):
+    use(price_source="mempool", mempool_url=NODE)
+    sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
+    hp.hourly_price(db, utc("2026-03-17T07:00Z"))
+    assert price_history._state["mempool_rows"]
+    use(price_source="public")
+    hp.hourly_price(db, utc("2026-03-17T08:00Z"))
+    assert price_history._state["mempool_rows"] == [] and not hp._live["rows"]
 
 
 def test_without_a_manifest_no_public_site_is_asked(sites, db, tmp_path, monkeypatch):

@@ -160,11 +160,10 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     """
     settings = outbound.current()
     found: dict[int, tuple[Decimal, str]] = {}
-    if settings.own_node:
-        rows, _ = await price_history.own_node_rows()
-        price = live_hours(rows).get(hour)
-        if price is not None:
-            found[hour] = (price, "mempool")
+    rows, _ = await price_history.own_node_rows()  # none (and none kept) without a mempool server
+    price = live_hours(rows).get(hour)
+    if price is not None:
+        found[hour] = (price, "mempool")
     if hour not in found and files_end is not None and hour > files_end and settings.public_allowed:
         found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
     return found
@@ -368,7 +367,7 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
     client, out = ChoiceClient(), {}
     for start in range(files_end + HOUR, current + 1, size):
-        if all(h in stored for h in range(start, min(start + size, current), HOUR)):
+        if all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR)):
             continue
         for row in await pf.bitstamp_candles(client, start):
             h = int(row["timestamp"])

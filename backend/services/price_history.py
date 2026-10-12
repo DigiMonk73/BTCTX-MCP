@@ -269,8 +269,7 @@ async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
     settings = outbound.current()
     prices: dict[date, tuple] = {}
     complete = False
-    if settings.own_node:
-        prices.update(await own_node_history())
+    prices.update(await own_node_history())  # nothing (and nothing kept) without a mempool server
     if day not in prices and settings.public_allowed:
         public, complete = await public_history(full)
         for d, value in public.items():
