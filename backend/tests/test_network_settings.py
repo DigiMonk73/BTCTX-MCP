@@ -260,7 +260,7 @@ def test_off_still_uses_stored_prices(auth_client, requests_seen, test_engine):
         db.commit()
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
-    assert r.status_code == 200 and r.json() == {"USD": 22400.0}
+    assert r.status_code == 200 and r.json() == {"USD": 22400.0, "source": "test"}
     assert requests_seen == []
 
 

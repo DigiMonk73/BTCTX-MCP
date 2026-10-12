@@ -280,6 +280,12 @@ def stored_price(db: Session, when: date | datetime) -> Decimal | None:
     return Decimal(row.usd) if row else None
 
 
+def stored_source(db: Session, when: date | datetime) -> str | None:
+    """Where the stored day's price came from, e.g. "bitstamp"."""
+    row = db.get(BtcPriceDaily, utc_day(when))
+    return row.source if row else None
+
+
 def _store(db: Session, prices: dict[date, tuple]) -> None:
     if not prices:
         return
