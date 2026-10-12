@@ -224,14 +224,15 @@ Start from the `clean` snapshot.
 
 - **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload). Expect: it
   installs, and the service page shows version `X.Y.Z`.
-- **INS-2** Expect two tasks: **Set Login Credentials** (critical) and
-  **Price Source & Privacy** (important).
+- **INS-2** Expect two critical tasks: **Set Login Credentials** and
+  **Price Source & Privacy** ("Choose who BitcoinTX asks for newer Bitcoin
+  prices, or nobody"). The service can't be started until both have run.
 - **INS-3** Run **Set Login Credentials** (the service is still stopped).
   Expect: no warning (there is no login to replace yet), then title "Login
   Credentials", username `admin`, a 24-character password, and a message
   that it is shown only now. The critical task clears. Record the password.
-- **INS-4** Run **Price Source & Privacy**. Choose **Choose in BitcoinTX
-  (Settings > Privacy & Network)** and leave both toggles off. Expect: "Price
+- **INS-4** Run **Price Source & Privacy**. Choose **Decide in BitcoinTX
+  instead** and leave both toggles off. Expect: "Price
   Source Saved"; the task clears.
 - **INS-5** Start the service. Expect: the health check **Web Interface**
   reads "BitcoinTX is ready" within a minute. The service log has no
@@ -443,7 +444,7 @@ Start from the `clean` snapshot.
   dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
-  **Reach public price sites over Tor**. Expect: a price on the Dashboard.
+  **Use Tor**. Expect: a price on the Dashboard.
   Bitstamp is the price history's only site since #161 (and the live
   price's fallback), and PRC-2 already downloaded the history without Tor,
   so check Bitstamp through Tor directly, with Tor on your machine (the
@@ -461,7 +462,7 @@ Start from the `clean` snapshot.
   - With the service running (no download runs after PRC-2), remove the
     hourly files: `start-cli package attach btctx -n btctx -- rm -rf
     /data/btc-prices` (they're downloaded again). Restart the service, with
-    **Public price sites** and **Reach public price sites over Tor** still
+    **Public price sites** and **Use Tor** still
     set.
   - Expect in the service log, newest year first, one line per year:
     "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Each year
@@ -496,10 +497,10 @@ Start from the `clean` snapshot.
   with a public Mempool instance, since the VM can't run Mempool (it needs
   a synced node). Checked 2026-10-12: BitcoinTX's own code gets the price,
   the block height and 939 days of history from it.
-  - Action **Price Source & Privacy**: **Choose in BitcoinTX**. Then
-    Settings > Privacy & Network: **My mempool server**, address
+  - Action **Price Source & Privacy**: **Decide in BitcoinTX instead**. Then
+    Settings > Privacy & Network: **My own Mempool**, address
     `https://mempool.emzy.de` (mempool.space refuses the lab's address),
-    **Fall back to public price sites** off. Save.
+    **If it can't answer, ask public price sites** off. Save.
   - Expect: the Dashboard shows a price and a block height. Logged in,
     `GET $API/bitcoin/price/history?at=<an hour after the last_hour of the
     tested commit's MANIFEST.csv, e.g. today's 00:00 UTC>` answers a price
@@ -519,11 +520,11 @@ Start from the `clean` snapshot.
   - Afterwards choose **Off** in Settings > Privacy & Network, clear the
     address, and save: PRC-5 expects the app's own choice to be Off (from
     AUTH-4) and a blank address.
-- **PRC-5** Action: **Choose in BitcoinTX**. Expect: Settings > Privacy &
+- **PRC-5** Action: **Decide in BitcoinTX instead**. Expect: Settings > Privacy &
   Network is editable again and shows the app's own choice (**Nobody**, from
   AUTH-4). Choose **My own Mempool** and leave the address blank. Expect
   **Save** off, with "Enter your Mempool's address." beside it.
-- **PRC-5b** (#145) Still with **Choose in BitcoinTX**: in the app choose
+- **PRC-5b** (#145) Still with **Decide in BitcoinTX instead**: in the app choose
   **My own Mempool** (address `https://mempool.emzy.de`), tick **If it
   can't answer, ask public price sites**, and save. PRC-2 already
   downloaded the hourly history, so expect the card's first line "Hourly
@@ -799,8 +800,8 @@ Start from the `clean` snapshot.
   `backend.cli` may have been run by hand in Track B before this step: under
   the previous release that saves a choice. Logged in,
   `GET $API/bitcoin/price/history?date=2024-12-31`: expect a USD value, so a
-  price is stored. Action **Price Source & Privacy**: **Choose in
-  BitcoinTX**. Once the service has restarted, expect the card "Bitcoin
+  price is stored. Action **Price Source & Privacy**: **Decide in
+  BitcoinTX instead**. Once the service has restarted, expect the card "Bitcoin
   prices" on the Dashboard, nothing chosen, and
   `GET $API/settings/network` (logged in) to say `"price_source":
   "unset"`, `"managed": false`. Public price sites saved by themselves is
@@ -819,6 +820,13 @@ Start from the `clean` snapshot.
   price appears. Restart the service: not asked again. Settings shows
   "You chose this on … in the first-run question." Set the action back to
   **Public price sites**.
+- **UPG-7** (#145, the package asks once) A pass of its own: restore the
+  VM's `clean` snapshot, sideload the previous release (1.2.7), set its
+  login as in UPG-1, start it, and never run **Price Source & Privacy**.
+  Sideload the candidate. Expect one task, **Price Source & Privacy**,
+  important (not critical): "Prices are now hourly. Check who BitcoinTX
+  asks for newer ones." The service keeps running. Dismiss the task in
+  StartOS, then restart the service and the server: it doesn't come back.
 
 ## Track C: the Mac app (only on a Mac)
 

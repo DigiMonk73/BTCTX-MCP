@@ -127,7 +127,7 @@ def confirm(auth_client, via="first-run", **choice):
 
 def test_1_public_saved_by_the_134_bug_is_asked_with_public_preselected(auth_client, test_engine, outside):
     """The #134 state: the server set the source, prices were stored, then the
-    old code saved Public by itself on a switch to Choose in BitcoinTX."""
+    old code saved Public by itself on a switch to Decide in BitcoinTX instead."""
     stored(test_engine, price_source="public")
     for _ in range(2):  # asked again after a restart, until confirmed
         s = start(test_engine)
@@ -172,7 +172,7 @@ def test_4_your_mempool_is_paused_until_confirmed(auth_client, test_engine, outs
 
 def test_5_set_by_startos_is_never_asked_until_the_switch_to_choose_in_bitcointx(
         auth_client, test_engine, outside, monkeypatch):
-    """And #155's narrow gap: after the switch to Choose in BitcoinTX, an
+    """And #155's narrow gap: after the switch to Decide in BitcoinTX instead, an
     unrecorded choice made in the app (or one saved while stopped) is asked."""
     stored(test_engine, price_source="public")
     monkeypatch.setenv("BTCTX_PRICE_SOURCE", "mempool")
@@ -184,7 +184,7 @@ def test_5_set_by_startos_is_never_asked_until_the_switch_to_choose_in_bitcointx
     outside.clear()
     monkeypatch.delenv("BTCTX_PRICE_SOURCE")
     monkeypatch.delenv("BTCTX_MEMPOOL_URL")
-    asked_until_confirmed(auth_client, test_engine, outside)  # Choose in BitcoinTX
+    asked_until_confirmed(auth_client, test_engine, outside)  # Decide in BitcoinTX instead
 
 
 @pytest.mark.parametrize("settings", [{}, {"price_source": "unset"}], ids=["no row", "unset"])

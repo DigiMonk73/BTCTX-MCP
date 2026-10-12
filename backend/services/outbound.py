@@ -27,7 +27,7 @@ price lookups off rather than guessing ("invalid"). BTCTX_HOST=startos only
 changes words: where a server-set choice is changed (host()).
 
 With a choice made in the app, the server may lend its Tor
-(BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Choose in BitcoinTX): it is
+(BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Decide in BitcoinTX instead): it is
 the proxy then, locked on, and an invalid one asks nobody (server_tor).
 
 A test checks no other backend module builds its own client. The one
@@ -71,7 +71,7 @@ PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
     "BTCTX_PRICE_SOURCE", "BTCTX_MEMPOOL_FALLBACK", "BTCTX_MEMPOOL_URL", "BTCTX_PROXY_URL")
 # Tor on the server, for a choice made in the app (StartOS: the action's
-# "Use Tor" with Choose in BitcoinTX, #145): used for every request that
+# "Use Tor" with Decide in BitcoinTX instead, #145): used for every request that
 # goes through a proxy, and locked on in Settings
 ENV_TOR = "BTCTX_TOR_PROXY_URL"
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
@@ -218,7 +218,7 @@ def _mark_unchosen(db: Session) -> None:
     """
     While the server sets the source, prices get stored with no choice made
     in the app. Record that none was ("unset", as a restore does), so a later
-    switch back to the app's own setting (StartOS: Choose in BitcoinTX) asks
+    switch back to the app's own setting (StartOS: Decide in BitcoinTX instead) asks
     the owner instead of taking those prices for a pre-1.1.0 install's public
     choice (#134). A pre-1.1.0 install's own old settings are its choice and
     are left for _upgrade_from_live_data.

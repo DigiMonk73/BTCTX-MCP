@@ -164,7 +164,7 @@ def test_entries_made_before_choosing_never_turn_public_sites_on():
 def test_switching_to_choose_in_bitcointx_asks_the_owner(monkeypatch, server, stored_from):
     """#134, seen on StartOS: the Price Source & Privacy action set the source,
     so no choice was made in the app, and prices were stored. Switching the
-    action to Choose in BitcoinTX restarts the app without BTCTX_PRICE_SOURCE,
+    action to Decide in BitcoinTX instead restarts the app without BTCTX_PRICE_SOURCE,
     and it took those prices for a pre-1.1.0 install's public choice: it saved
     Public and asked public sites. It asks the owner instead."""
     Session = fresh_db()
@@ -514,7 +514,11 @@ def test_the_startos_package_passes_the_names_the_app_reads():
     """startos/startos/priceSource.ts sets exactly these; a rename on one side would silently drop the choice."""
     package = (BACKEND.parent / "startos" / "startos" / "priceSource.ts").read_text()
     passed = set(re.findall(r"\b(BTCTX_[A-Z_]+)\b", package))
-    assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY}
+    assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY,
+                      outbound.ENV_TOR}
+    # ...and says where BitcoinTX runs, for the words (#145)
+    utils = (BACKEND.parent / "startos" / "startos" / "utils.ts").read_text()
+    assert f"{outbound.ENV_HOST}: 'startos'" in utils and "startos" in outbound.HOSTS
     for source in ("off", "public", "mempool"):
         assert source in outbound.SOURCES and f"'{source}'" in package
 
@@ -682,7 +686,7 @@ def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
 
 # ---------------------------------------------------------------------------
 # Tor on the server with a choice made in the app (#145, the amendment's C):
-# StartOS's "Use Tor" with Choose in BitcoinTX passes BTCTX_TOR_PROXY_URL
+# StartOS's "Use Tor" with Decide in BitcoinTX instead passes BTCTX_TOR_PROXY_URL
 # ---------------------------------------------------------------------------
 STARTOS_TOR = "socks5h://10.0.3.1:9050"
 
