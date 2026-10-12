@@ -43,7 +43,7 @@ import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -106,7 +106,7 @@ def price_at(db: Session, when: datetime) -> Priced:
                   price_history.stored_source(db, day) or "")
 
 
-def stored_price_at(db: Session, when: datetime, moment: str) -> Priced | None:
+def stored_price_at(db: Session, when: date | datetime, moment: str) -> Priced | None:
     """
     The price this install already has for `when` at "hour" or "day", from
     its own table and files only: never a request. What a saved value was

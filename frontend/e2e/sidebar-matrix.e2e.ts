@@ -107,6 +107,8 @@ function historyDownload(r: OutsideRequest): boolean {
   if (!r.url.startsWith("https://www.bitstamp.net/api/v2/ohlc/btcusd/") || url.searchParams.get("step") !== "3600") {
     return false;
   }
+  // A history ending exactly on a block's edge would let the backup's first newer block
+  // through too: true of no manifest yet (the open year ends mid-block)
   const start = Number(url.searchParams.get("start"));
   const yearStart = Date.UTC(new Date(start * 1000).getUTCFullYear(), 0, 1) / 1000;
   return (start - yearStart) % (1000 * 3600) === 0;

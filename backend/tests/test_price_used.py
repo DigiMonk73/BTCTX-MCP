@@ -65,3 +65,11 @@ def test_a_typed_value_has_none_and_reading_asks_nobody(auth_client, monkeypatch
     for t in auth_client.get("/api/transactions").json():  # reading never looks a price up
         assert t["id"] in (tx["id"], deposit_priced["id"])
     assert asked == []
+
+
+def test_an_inheritance_names_its_date_of_deaths_day(auth_client):
+    """#154/#177: an inheritance is valued on the date of death as entered, its day's price."""
+    auth_client.delete("/api/transactions/delete_all")
+    tx = deposit(auth_client, source="Inherited", acquired_at="2025-06-10T12:00:00Z")
+    assert tx["price_moment"] == "day"
+    assert tx["price_used"]["at"] == "2025-06-10T00:00:00Z" and tx["price_used"]["moment"] == "day"

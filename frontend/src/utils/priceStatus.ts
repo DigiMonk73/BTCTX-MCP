@@ -146,7 +146,8 @@ function untilDay(until: string): string {
 /** The hourly history's line for the card, given the choice in use. */
 export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | null {
   const h = st.history;
-  if (!h.until || !h.first_year) return null;
+  // Invalid server settings: the status line says why; "your choice" would be wrong
+  if (!h.until || !h.first_year || st.invalid) return null;
   const span = `${h.first_year} to ${untilDay(h.until)}`;
   const tor = ctx.tor ? " through Tor" : "";
   if (h.shipped) return { tone: "ok", text: `Built in: every hourly price from ${span}. Works offline, nothing to set.` };

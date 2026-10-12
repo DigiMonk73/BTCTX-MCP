@@ -705,6 +705,13 @@ def test_a_bad_server_tor_asks_nobody_and_a_server_set_choice_ignores_it(auth_cl
     assert s.invalid and not s.public_allowed and not s.tor_from_server
     r = auth_client.get("/api/bitcoin/blockheight")
     assert r.status_code == 503 and "aren't valid, so nothing is asked" in r.json()["detail"]
+    # ...with a Mempool and its backup too: the reason is the server's settings, never
+    # "your Mempool didn't answer" (re-check of #186)
+    auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE,
+                                                   "mempool_fallback": True})
+    for path in ("/api/bitcoin/blockheight", "/api/bitcoin/price/history?date=2026-01-05"):
+        r = auth_client.get(path)
+        assert "aren't valid, so nothing is asked" in r.json()["detail"] and "Mempool" not in r.json()["detail"], path
     assert requests_seen == []
     monkeypatch.setenv("BTCTX_TOR_PROXY_URL", STARTOS_TOR)
     s = server_env(BTCTX_PRICE_SOURCE="public", BTCTX_PROXY_URL="")

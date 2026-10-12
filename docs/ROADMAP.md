@@ -58,6 +58,15 @@ users see and how values are made.
       pin stays the documented setup. Chosen over `uvx btctx-mcp@latest`
       (2026-09-29): that runs ahead of StartOS's app, skips Start9's review
       for the code holding the AI key, and contacts PyPI on every launch.
+- [ ] **CHANGELOG notes as separate files, after the stable release**
+      (owner, 2026-10-12): each pull request adds its own small note file,
+      and the release joins them into `docs/CHANGELOG.md`, so two pull
+      requests in flight never conflict there. It changes what reads the
+      CHANGELOG (`release.yml`'s version check and release notes,
+      `scripts/mirror-startos-release.sh`), the pull request template, and
+      the docs that say to edit it (AGENTS.md "Releasing", MAINTENANCE,
+      TESTING, `startos/UPDATING.md`), so it waits until the candidate is
+      out.
 
 ## Later
 

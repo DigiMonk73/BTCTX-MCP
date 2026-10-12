@@ -536,3 +536,48 @@ def test_typing_the_proceeds_while_the_fee_changes_puts_the_fee_at_the_hour(auth
     assert (edited["price_moment"], edited["proceeds_from_price"], edited["gross_proceeds_usd"]) == (
         "hour", False, "2222.22")
     assert D(edited["fee_usd"]) == (price_of(at("2026-04-01T15:00:00Z")) * D("0.0002")).quantize(D("0.01"))
+
+
+@pytest.fixture
+def kiritimati(auth_client):
+    """A tax timezone of UTC+14, where noon is the day before in UTC (#177)."""
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati"}).status_code == 200
+    yield
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+
+
+def a_price_a_day(monkeypatch):
+    """Each day its own price: 2025-05-19 → 19000, 2025-05-20 → 20000."""
+    stub_daily_prices(monkeypatch, lambda day: day.day * 1000)
+
+
+def test_an_inheritance_is_valued_on_the_date_entered_in_any_tax_timezone(auth_client, kiritimati, monkeypatch):
+    """#177: the date of death 2025-05-20 is stored as noon in Kiritimati,
+    2025-05-19 22:00 UTC; it was valued at 2025-05-19's price."""
+    a_price_a_day(monkeypatch)
+    tx = deposit(auth_client, timestamp="2025-06-01T00:00:00Z", source="Inherited", acquired_at="2025-05-20")
+    assert tx["acquired_at"].startswith("2025-05-19T22:00:00")
+    assert (tx["cost_basis_usd"], tx["price_moment"]) == ("2000.00", "day")
+    assert edit(auth_client, tx, acquired_at="2025-05-20")["cost_basis_usd"] == "2000.00"  # unchanged save
+    assert edit(auth_client, tx, acquired_at="2025-05-19")["cost_basis_usd"] == "1900.00"
+
+
+def test_the_ai_import_values_an_inheritance_on_the_date_entered(auth_client, kiritimati, monkeypatch):
+    a_price_a_day(monkeypatch)
+    rows = [{"date": "2025-06-01T00:00:00Z", "type": "Deposit", "amount": "0.1", "from_account": "External",
+             "to_account": "Wallet", "source": "Inherited", "acquired_at": "2025-05-20"}]
+    r = auth_client.post("/api/import/entries/execute", json={"rows": rows})
+    assert r.status_code == 200, r.text
+    assert auth_client.get("/api/transactions").json()[0]["cost_basis_usd"] == "2000.00"
+
+
+def test_the_report_names_the_date_entered(auth_client, test_engine, kiritimati, monkeypatch):
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services.reports.reporting_core import generate_report_data
+
+    a_price_a_day(monkeypatch)
+    deposit(auth_client, timestamp="2025-06-01T00:00:00Z", source="Inherited", acquired_at="2025-05-20")
+    with sessionmaker(bind=test_engine)() as db:
+        rows = generate_report_data(db, 2025)["priced_values"]
+    assert [r["priced_at"] for r in rows] == ["Its date of death's (2025-05-20) 00:00 UTC price"]
