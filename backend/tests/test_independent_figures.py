@@ -1,10 +1,10 @@
 """
 scripts/independent_figures.py recomputes the reference test ledger's tax
-figures from the rules alone, without the app's code (#150, #80 item 2).
-Here it must agree to the cent with testdata/reference_figures.json, the
-app's own figures, which test_seed_ledger.py keeps current. A difference is
-a bug in one of the two calculations or a meant change: find out which
-before changing either.
+figures from the rules, without the app's code (#150, #80 item 2). Here it
+must agree to the cent with testdata/reference_figures.json, the app's own
+figures, which test_seed_ledger.py keeps current. A difference is a bug in
+one of the two calculations or a meant change: find out which before
+changing either.
 """
 
 import ast
@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
-YEARS = [2023, 2024, 2025, 2026]
 
 
 def _script():
@@ -29,14 +28,17 @@ independent = _script()
 
 
 def test_an_independent_calculation_gives_the_apps_figures():
-    # The one convention the two share on purpose: an exact half cent rounds
-    # down, as the app does (#100). Every Form 8949 row, Schedule D line,
-    # income and rebate figure, gift and year-end lot must then be the same.
+    # The script shares three conventions with the app on purpose (its
+    # docstring): proceeds shared among lots with the last taking what's
+    # left, each row's basis rounded on its own (#100), and here an exact
+    # half cent rounded down. With those, every Form 8949 row, Schedule D
+    # line, box total, gains summary, income figure, rebate, gift and
+    # year-end lot of every year must be the same.
     transactions = json.loads(independent.LEDGER.read_text())["transactions"]
     ledger = independent.replay(transactions, independent.ROUNDING["half-down"])
     saved = json.loads(independent.FIGURES.read_text())["years"]
-    found = [f"{year}: {line}" for year in YEARS
-             for line in independent.differences(independent.year_figures(ledger, year), saved[str(year)])]
+    found = [f"{year}: {line}" for year, figures in saved.items()
+             for line in independent.differences(independent.year_figures(ledger, int(year)), figures)]
     assert not found, "\n".join(found)
 
 
