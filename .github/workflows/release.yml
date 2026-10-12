@@ -16,7 +16,9 @@ name: Release
 # a release stops at the start if Start9 changed their fork and startos/
 # doesn't have it yet (scripts/start9-pull.sh --check), and after the mirror
 # push an issue here holds the one-click link for the pull request to their
-# fork (the only way a release reaches them). Branch-based so a release
+# fork (the only way a release reaches them). The hourly price history must
+# be current and cross-checked (scripts/price_history.py release-check)
+# before anything is built. Branch-based so a release
 # doesn't depend on being able to push tags. An existing release is left
 # alone. Setup of the two secrets: startos/UPDATING.md.
 on:
@@ -71,6 +73,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           START9_FORK: ${{ vars.START9_FORK }}
         run: scripts/start9-pull.sh --check
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: The hourly price history is well formed, current and cross-checked
+        # scripts/price_history.py release-check: the manifest's newest 30
+        # days still give their fingerprint and agree with Bitfinex and
+        # Kraken, and it ends at most 14 days before this commit (`make
+        # prices` in the bump pull request). A package-only revision (-N)
+        # ships the history it had: no age check.
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          pip install --require-hashes -r backend/requirements.txt
+          if [[ "$TAG" == *-* ]]; then age=(--no-age-check); else age=(--commit-time "$(git show -s --format=%ct "$GITHUB_SHA")"); fi
+          python scripts/price_history.py release-check "${age[@]}"
 
   image:
     needs: check

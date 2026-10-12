@@ -100,6 +100,21 @@ All notable changes to BitcoinTX are documented in this file.
   and records its decisions on its issue. Small changes stay in one
   session. The main session keeps a handoff for itself on the umbrella
   issue, current after every change, so a new one can take over.
+  session.
+- **The hourly price history's record and tools** (#144, the first of five
+  pull requests; nothing in the app uses them yet).
+  `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,
+  the SHA-256 fingerprint of a plain-text file of Bitstamp's hourly opening
+  prices (one row per UTC hour), so every install that downloads them will
+  hold exactly the same prices. `make prices` (`scripts/price_history.py
+  refresh`, in each release's bump pull request) adds the new hours and
+  refuses, writing nothing, on a missing hour, a changed past price, or a
+  disagreement with Bitfinex or Kraken (no hour over 2% apart, a median gap
+  of 0.5% at most, and the hours must line up better than shifted by an
+  hour: limits measured on 2023–2026). The release workflow checks it
+  again, and a monthly workflow opens an issue if Bitstamp stops giving a
+  year's fingerprint or stops answering. Closed years are pinned by
+  a test. The folder's README explains it all in plain words.
 - **The reference ledger's figures, checked by a second calculation**
   (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
   Schedule D line, box total, gains summary, income and rebate figure, gift
