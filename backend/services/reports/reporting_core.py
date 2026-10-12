@@ -23,7 +23,7 @@ from backend.models.transaction import (
     LotDisposal,
 )
 from backend.models.account import Account
-from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
+from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, local_date, tax_year_bounds
 from backend.services.reports.form_8949 import (
     INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
 )
@@ -131,7 +131,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     income_txs        = _build_income_transactions(txns)
     rebates           = _build_rebates(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
-    priced_values     = _build_priced_values(txns)
+    priced_values     = _build_priced_values(txns, get_tax_timezone(db))
     data_sources_list = _gather_data_sources(txns)
 
     # 5) Construct final dictionary
@@ -497,7 +497,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
     return results
 
 
-def _build_priced_values(txns: list[Transaction]) -> list[dict[str, Any]]:
+def _build_priced_values(txns: list[Transaction], tz) -> list[dict[str, Any]]:
     """
     The year's values BitcoinTX filled in from the BTC price, and which
     price each used (#144): an income, rebate or inherited deposit's value,
@@ -508,18 +508,18 @@ def _build_priced_values(txns: list[Transaction]) -> list[dict[str, Any]]:
     return [
         {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,
          "usd": float(usd), "priced_at": priced_at}
-        for tx in txns for name, usd, priced_at in _priced_values(tx)
+        for tx in txns for name, usd, priced_at in _priced_values(tx, tz)
     ]
 
 
-def _priced_values(tx: Transaction) -> Iterator[tuple[str, Decimal, str]]:
+def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
     """(what, USD, which price) for each of a transaction's values from a price."""
     source = (tx.source or "").lower()
     if tx.cost_basis_from_price and tx.cost_basis_usd is not None and _is_btc_deposit(tx) \
             and source in VALUED_AT_RECEIPT:
         if source == INHERITED_SOURCE and tx.acquired_at is not None:
             yield "Value (cost basis)", tx.cost_basis_usd, \
-                f"Its date of death's ({price_history.utc_day(tx.acquired_at)}) 00:00 UTC price"
+                f"Its date of death's ({local_date(tx.acquired_at, tz)}) 00:00 UTC price"
         else:
             name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
             yield name, tx.cost_basis_usd, _price_used(tx)

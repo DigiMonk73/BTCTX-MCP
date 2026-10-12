@@ -172,12 +172,14 @@ So derived values must be recomputable from the Transaction row alone.
   staking, bonuses).
 - **Inherited** (source Inherited, #154): basis = value on the date of death
   (IRC §1014), the deposit's required `acquired_at`, which also dates its lot;
-  valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed,
-  or that day's price, priced again when the date of death changes), never
-  income. Every disposal of its coins is long-term (§1223(9)) with INHERITED
-  in Form 8949 column (b): `bitcoin_lots.inherited`, kept through transfers.
-  Ledger Review doesn't compare its value with the day's price (an estate's
-  value can rightly differ).
+  valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed, or
+  that day's price, priced again when the date of death changes; the date is
+  the one entered: `acquired_at`'s date in the tax timezone, not its UTC day,
+  `transaction.date_of_death`, #177), never income. Every disposal of its
+  coins is long-term (§1223(9)) with INHERITED in Form 8949 column (b):
+  `bitcoin_lots.inherited`, kept through transfers. Ledger Review doesn't
+  compare its value with the day's price (an estate's value can rightly
+  differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every valuation goes through `services/hourly_prices.price_at`
