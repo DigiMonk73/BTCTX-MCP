@@ -91,7 +91,7 @@ const LedgerReview: React.FC = () => {
         (data.backup ? `; the copy from before is backups/${data.backup} in BitcoinTX's data folder.` : "."));
       applied = true;
     } catch {
-      setNotice("Nothing was applied: BitcoinTX refused or could not apply it. Your ledger is as it was.");
+      setNotice("The apply failed, or its answer didn't arrive: the review below shows the ledger as it is now.");
     } finally {
       setLoading(false);
     }

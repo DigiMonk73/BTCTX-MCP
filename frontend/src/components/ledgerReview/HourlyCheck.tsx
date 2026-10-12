@@ -46,7 +46,7 @@ const YearGroup: React.FC<YearProps> = ({ check, year, ticked, onTick, busy, onA
   const applyYear = () =>
     void onApply(
       { year: year.year },
-      `Change all ${plural(year.count, "transaction")} of ${year.year} to the price of their hour (that day's ` +
+      `Change ${year.count === 1 ? "the 1 transaction" : `all ${year.count} transactions`} of ${year.year} to the price of their hour (that day's ` +
         `where there's none) and recalculate the ledger?\n\nThis changes ${year.year}'s totals: ` +
         `${yearTotals(year)}. If you already filed ${year.year}, these are figures on a filed return: whether ` +
         "to amend is a question for a tax professional. A backup copy of the database is made first.",

@@ -291,6 +291,19 @@ def test_the_ai_import_marks_what_it_fills(auth_client):
         price_of(at("2026-04-01T16:00:00Z")) * D("0.01")).quantize(D("0.01"))
 
 
+def test_the_ai_import_values_an_inheritance_at_its_date_of_deaths_day(auth_client, monkeypatch):
+    """Review of #176: the connector's import priced it at the hour of noon
+    on the date of death, while the form uses that day's price (#173)."""
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    rows = [{"date": "2026-04-01T12:30:00Z", "type": "Deposit", "amount": "0.1", "from_account": "External",
+             "to_account": "Wallet", "source": "Inherited", "acquired_at": "2026-02-10"}]
+    r = auth_client.post("/api/import/entries/execute", json={"rows": rows})
+    assert r.status_code == 200, r.text
+    tx = auth_client.get("/api/transactions").json()[0]
+    assert (tx["cost_basis_usd"], tx["price_moment"], tx["cost_basis_from_price"]) == ("3000.00", "day", True)
+    assert CALLS == []  # never an hour's price
+
+
 def test_the_gross_sent_is_the_value_an_edit_types(auth_client):
     """Review of #173: with both sent, the gross is what's stored."""
     buy(auth_client)
