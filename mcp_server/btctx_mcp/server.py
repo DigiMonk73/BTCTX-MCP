@@ -80,8 +80,8 @@ class TransactionInput(BaseModel):
     fmv_usd: Decimal | None = Field(
         default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
     fee_usd: Decimal | None = Field(
-        default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x that "
-                                  "day's price is stored).")
+        default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
+                                  "price when its hour began is stored).")
     acquired_at: str | None = Field(
         default=None, description="MyBTC/Gift deposits into Wallet or Exchange BTC: when the coins were originally "
                                   "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
@@ -270,7 +270,7 @@ mcp = MCPServer(
     instructions=LEDGER_GUIDE,
 )
 # The SDK logs at INFO to stderr, which AI apps keep in log files; httpx's
-# request lines (…/price/history?date=…) would name the ledger's dates there.
+# request lines (…/price/history?date=… or ?at=…) would name the ledger's dates there.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -351,17 +351,21 @@ async def list_transactions(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 @with_version_notice
 async def get_btc_price(date: str | None = None) -> ToolResult:
-    """BTC price in USD for a date (YYYY-MM-DD): the daily price at 00:00 UTC that day,
-    or right now if no date is given. For a transaction, pass the UTC date of its time
-    (a 9 pm US Central sale on Jul 31 is Aug 1 UTC): that day's price is the nearest
-    daily price before it, and it's the one BitcoinTX uses when it values income or
-    spending. Use it to value income, spending, or gifts when the user doesn't know
-    the USD amount."""
+    """BTC price in USD. For a transaction, pass its date and time as you would to
+    add_transactions (e.g. 2025-07-31T21:05:00, in the tax timezone unless an offset is
+    given): you get the price BitcoinTX itself uses for income, spending and fees, the
+    price when that hour began (UTC), or that day's 00:00 UTC price where it has no hourly
+    one ("moment" says which). A date alone (YYYY-MM-DD) gives that UTC day's 00:00
+    price; nothing gives the price right now. Use it to value income, spending, or gifts
+    when the user doesn't know the USD amount."""
     if date:
-        data = await _call("GET", "/api/bitcoin/price/history", params={"date": date})
+        data = await _call("GET", "/api/bitcoin/price/history", params=await _price_query(date))
     else:
         data = await _call("GET", "/api/bitcoin/price")
-    return {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
+    result = {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
+    if isinstance(data, dict) and data.get("moment"):
+        result.update(moment=data["moment"], priced_at=data.get("at"))
+    return result
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -431,11 +435,14 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
-    An Income/Interest/Reward/Rebate deposit's value that came from that day's price is priced
-    again when you change its amount, date or account, or move it there from another source (a
-    switch among those four keeps it; sending back the value it already has doesn't make it
-    typed); a value the user typed is kept. An Inherited deposit's is priced on its date of
-    death (acquired_at), and again when that changes.
+    An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
+    (at the hour) when you change its amount, the time's hour or the account, or move it there
+    from another source (a switch among those four keeps it; sending back the value it already
+    has doesn't make it typed); a Spent's proceeds that came from the price, when you change
+    its amount or the time's hour, or send them blank (a change of purpose makes them typed).
+    A value the user typed is kept.
+    An Inherited deposit's is priced at its date of death (acquired_at), and again when that
+    changes.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
     date; "none" clears it (the holding period then starts at the deposit). For an Inherited
     deposit it is the date of death, which it must keep."""
@@ -471,6 +478,18 @@ async def update_transaction(
 
 def _text(value: Decimal | None) -> str | None:
     return None if value is None else format(value, "f")
+
+
+async def _price_query(date: str) -> dict[str, str]:
+    """A date alone asks for that UTC day's price; a date and time, read as
+    add_transactions reads it (the tax timezone unless an offset is given),
+    for the price of its moment."""
+    parsed = _parse_date_text(date.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{date}'.")
+    if parsed[1]:
+        return {"date": parsed[0].date().isoformat()}
+    return {"at": _in_utc(parsed, await _tax_zone(), time(12)).isoformat()}
 
 
 async def _timestamp_from(date: str) -> str:

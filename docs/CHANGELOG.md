@@ -170,6 +170,15 @@ All notable changes to BitcoinTX are documented in this file.
   - The CSV export carries the marks (two new columns, `proceeds_typed`
     and `price_moment`); an older file imports as before, its priced
     values counted as priced at the day.
+- **The form and the AI connector say "the price when that hour began"**
+  (#144). The form's hints for a blank income value, Spent proceeds and a
+  fee's value say so, a stored fee value says which price it came from,
+  and a gift's, donation's or lost bitcoin's **Refresh** fills its value at that hour's
+  price (it asked for the day's). The price API takes a time
+  (`/api/bitcoin/price/history?at=…`, answering which price it used), and
+  the AI connector's `get_btc_price` takes a transaction's time and gives
+  the price BitcoinTX values it at; its guide says the same. Update the
+  connector (`btctx-mcp`) with this release.
 - **The live price says where it came from and when** (#145, the price
   source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
   `kraken` or `bitstamp`) and `at`, so the screens can say when your
