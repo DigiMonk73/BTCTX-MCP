@@ -274,12 +274,18 @@ def test_a_mempool_server_without_the_hour_leaves_it_to_the_fallbacks_download(s
     assert sites.requests[0].startswith(NODE)  # the own server first
 
 
-def test_no_hourly_price_before_the_first_year_and_none_for_a_future_hour(sites, db):
+def test_no_hourly_price_before_the_first_year_or_for_an_hour_not_begun(sites, db, monkeypatch):
+    """Review of #173: an entry dated today (noon in the tax timezone) was
+    refused until that hour came; it takes the day's price, marked as such.
+    A later day has no price."""
+    monkeypatch.setattr(price_history, "_today", lambda: datetime(2026, 3, 20, tzinfo=timezone.utc).date())
     priced = hp.price_at(db, utc("2024-12-31T23:30Z"))
     assert priced.moment == "day" and sites.requests == []
+    later_today = hp.price_at(db, utc("2026-03-20T17:00Z"))
+    assert later_today.moment == "day" and later_today.at == utc("2026-03-20T00:00Z")
     with pytest.raises(HTTPException) as exc:
-        hp.price_at(db, utc("2026-03-20T11:00Z"))
-    assert exc.value.status_code == 422 and "future" in exc.value.detail
+        hp.price_at(db, utc("2026-03-21T09:00Z"))
+    assert exc.value.status_code == 422
 
 
 def test_a_file_that_doesnt_give_its_fingerprint_is_never_read(sites, db):
