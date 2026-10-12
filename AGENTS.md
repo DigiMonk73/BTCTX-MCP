@@ -205,6 +205,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
+| `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
@@ -284,6 +285,7 @@ make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
+make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
@@ -313,7 +315,9 @@ Full steps, the package version and the signing/mirror secrets:
    `desktop/BitcoinTX.spec`, the image tag in
    `startos/startos/manifest/index.ts`, `startos/startos/versions/current.ts`
    and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
-   fails until they agree). Move the CHANGELOG's Unreleased section to the
+   fails until they agree), and run `make prices` (the hourly price
+   history's new hours; the release refuses one more than 14 days old).
+   Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
    when a new tax year's forms are added. The StartOS release notes
    (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax

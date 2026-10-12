@@ -1,0 +1,57 @@
+name: Price history watch
+
+# Monthly: does Bitstamp still give every year of the hourly price history
+# exactly as fingerprinted in backend/assets/btc_prices/MANIFEST.csv
+# (scripts/price_history.py check-sources)? Installs download those years
+# and use one only if it matches, so a changed past price or an API change
+# shows up here before users' downloads fail. A failure opens an issue
+# (label claude, once while it's open). It checks develop, where refreshes
+# land; a push only runs the check, never opens an issue.
+on:
+  schedule:
+    - cron: "0 15 3 * *"   # the 3rd of each month, 15:00 UTC
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/price_history.py
+      - backend/services/price_files.py
+      - backend/assets/btc_prices/**
+      - .github/workflows/price-history-watch.yml
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: price-history-watch-${{ github.event_name == 'push' && github.ref || 'develop' }}
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'develop' }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - run: pip install --require-hashes -r backend/requirements.txt
+      - name: Bitstamp still gives every year's fingerprint
+        id: check
+        run: python scripts/price_history.py check-sources --report report.md
+      - name: Open an issue (unless one is open)
+        if: ${{ failure() && steps.check.outcome == 'failure' && github.event_name != 'push' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Price history: Bitstamp's hourly prices no longer match the manifest"
+          if gh issue list --state open --limit 500 --json title -q '.[].title' | grep -Fxq -- "$title"; then
+            echo "Already open: $title"
+          elif [ -s report.md ]; then
+            gh issue create --title "$title" --body-file report.md --label claude
+          else
+            gh issue create --title "$title" --label claude --body "The monthly price history check failed before it could write its report: see the run, ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}.
+
+          — the price history watch"
+          fi

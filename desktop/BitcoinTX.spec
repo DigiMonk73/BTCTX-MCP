@@ -164,6 +164,7 @@ hidden_imports = [
     "backend.services.login_throttle",
     "backend.services.review",
     "backend.services.price_history",
+    "backend.services.price_files",
     "backend.services.outbound",
     "socksio",
     "httpcore._async.socks_proxy",
