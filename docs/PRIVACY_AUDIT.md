@@ -34,7 +34,7 @@ minor, and some things that are only documented.
 | 1h | `.onion` mempool address with no proxy | **fixed** (was: leak) | accepted, then looked up through normal DNS | yes |
 | 1i | Clearnet mempool server bypasses Tor | documented only | Settings says only `.onion` uses the proxy | |
 | 1j | In-app restore brings back the backup's price settings | **fixed** (owner: keep the settings in use) | an old "public, no proxy" backup turns lookups on again, directly; the code does it on purpose (the AI key and login, by contrast, stay) | yes |
-| 1k | CoinGecko refuses VPN and Tor addresses | **fixed** (owner: Kraken first, CoinGecko fallback) | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
+| 1k | CoinGecko refuses VPN and Tor addresses | **fixed** (owner: Kraken first, CoinGecko fallback; CoinGecko dropped 2026-10-12, #161: Bitstamp is the fallback) | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
 | 2 | Browser: CSP, headers, cookie, storage, links, Mac webview | no leak | strict CSP, no-referrer, HttpOnly cookie, no browser storage, only self-hosted fonts | VM (SEC-3, SEC-7) |
 | 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
 | 3b | Encrypted backup file | **fixed** (owner: hidden, typed twice, no minimum) | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
