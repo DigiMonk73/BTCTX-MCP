@@ -4,6 +4,55 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A consolidation's network fee can be recorded** (tax figures, #159).
+  When you consolidate the coins (UTXOs) in your wallet, or move bitcoin
+  between two of your wallets that BitcoinTX counts as one, the network
+  fee is a disposal of the coins that paid it (IRS digital-asset FAQ, Q81
+  and Q97), but there was nowhere to record it: a transfer to the same
+  account was refused. Now the Transfer form's To Account offers **Wallet:
+  consolidate / move within the same wallet** (and, from the exchange,
+  **Exchange: move between exchanges BitcoinTX counts as one**). Enter what
+  left (fee included) and what arrived, as for any transfer. Only the fee
+  is recorded: a disposal of your oldest coins at the fee's value, on Form
+  8949 in box I or L (C or F before 2025), never broker-reported. Your
+  coins, their dates and cost basis stay as they are. The CSV import and
+  export, the AI connector and its guide take it too; the list shows it as
+  a Consolidation (Between exchanges for the exchange). No existing figure
+  changes: only entries you add create new fee rows. If you left a past
+  consolidation's fee out, you can add it now: it is checked against what
+  the wallet held on its date. After a move between two exchanges, a sale
+  at the one the coins moved to usually shows no basis on its 1099-DA: set
+  that sale's Broker form to Proceeds only, as the form's hint says.
+- **Inherited bitcoin can be recorded** (tax figures, #154). A deposit's
+  Source now has **Inherited**, which follows the rules for property
+  inherited from someone who died, different from a gift's:
+  - its cost basis is its value on the **date of death** (IRC §1014),
+    which the deposit must have (the form's **Date of death**; `acquired_at`
+    in a CSV or the AI connector). Leave the value blank to use that day's
+    BTC price, or type it: the value on the estate's alternate valuation
+    date if it chose one; and if the estate's Form 8971, Schedule A, gives
+    a value marked as having increased the estate tax, your basis can't be
+    more (IRC §1014(f));
+  - every sale or spend of these coins is **long-term** however soon it
+    comes (IRC §1223(9)), with **INHERITED** in Form 8949's column (b), as
+    the form's instructions ask. The rule follows the coins when you move
+    them between the wallet and the exchange;
+  - it isn't income. The form explains the rules where Inherited is
+    chosen, and the Complete Tax Report adds a note in a year with such a
+    sale.
+
+  Before, the choice was My BTC or Gift, and either could print wrong
+  figures: a sale within a year of the death came out short-term, or a
+  Gift's basis was the person's own cost. **What to do:** if you recorded
+  inherited bitcoin that way, edit the deposit: Source **Inherited**, the
+  date of death (the edit must give it), and its value that day. A
+  deposit saved before 1.1.0 (when the source was free text) as
+  "inherited" follows these rules too from the next recalculation; Ledger
+  Review lists any without a date of death, which an edit then asks for.
+  The update adds one column to the database's lots (rebuilt at every
+  recalculation), after its usual backup copy.
+
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax
   figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
@@ -116,6 +165,14 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Development
+- **Big work runs as a main session and numbered sessions** (AGENTS.md,
+  "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
+  stable release (#143): one session plans with the owner. The plan goes
+  on GitHub: an umbrella issue, an issue per session with its checklist,
+  and a kickoff prompt on each. Each session works through its checklist
+  and records its decisions on its issue. Small changes stay in one
+  session. The main session keeps a handoff for itself on the umbrella
+  issue, current after every change, so a new one can take over.
 - **The hourly price history's record and tools** (#144, the first of five
   pull requests; nothing in the app uses them yet).
   `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,

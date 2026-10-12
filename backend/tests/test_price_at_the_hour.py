@@ -379,3 +379,65 @@ def test_ledger_reviews_fee_check_leaves_fees_priced_at_the_hour(auth_client, mo
          to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
     review = auth_client.get("/api/review").json()
     assert next(c for c in review["checks"] if c["key"] == "fee_value_off")["count"] == 0
+
+
+
+@pytest.mark.parametrize("change", [{"fee_amount": "0.0001"}, {"fee_usd": None}])
+def test_a_fee_priced_by_an_edit_of_a_day_spend_takes_the_day(auth_client, monkeypatch, change):
+    """Re-check of #173: a fee added (or a typed one cleared) on a spend whose
+    proceeds keep the day's price was priced at the hour, the row marked "hour"."""
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
+    fields = {"fee_amount": "0"} if "fee_amount" in change else {"fee_usd": "7.77"}
+    tx = get(auth_client, spend(auth_client, **fields))
+    stub_prices_at(monkeypatch, price_of)
+    edited = edit(auth_client, tx, **change)
+    assert (edited["price_moment"], edited["gross_proceeds_usd"], edited["fee_usd"]) == ("day", "1500.00", "3.00")
+
+
+def test_a_transfer_fee_priced_again_is_at_the_hour(auth_client, monkeypatch):
+    buy(auth_client)
+    stub_prices_at(monkeypatch, price_of, moment="day")
+    tx = post(auth_client, type="Transfer", timestamp="2026-04-01T07:45:00Z", from_account_id=EXCHANGE_BTC,
+              to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
+    assert tx["price_moment"] == "day"
+    stub_prices_at(monkeypatch, price_of)
+    edited = edit(auth_client, tx, fee_amount="0.0003")
+    assert edited["price_moment"] == "hour"
+    assert D(edited["fee_usd"]) == (price_of(at("2026-04-01T07:00:00Z")) * D("0.0003")).quantize(D("0.01"))
+
+
+def test_a_file_without_the_moment_means_the_day(auth_client, monkeypatch):
+    """Re-check of #173: the CSV instructions say a blank moment is the day."""
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    rows = ("date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,"
+            "purpose,proceeds_typed,price_moment\n" + IMPORTED_BUY +
+            "2026-04-01T15:20:00Z,Withdrawal,0.05,Exchange BTC,External,,1500.00,0.0001,BTC,Spent,no,\n")
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(rows.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    tx = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal")
+    assert (tx["price_moment"], tx["fee_usd"]) == ("day", "3.00")
+
+
+def test_the_day_wins_when_a_transactions_values_differ():
+    from backend.services.transaction import _note_moment
+
+    data = {"price_moment": "day"}
+    _note_moment(data, "hour")
+    assert data["price_moment"] == "day"
+    data = {}
+    _note_moment(data, "hour")
+    assert data["price_moment"] == "hour"
+
+
+def test_pricing_at_the_day_ends_with_its_block_even_on_an_error(test_engine):
+    from sqlalchemy.orm import sessionmaker
+    from backend.services.transaction import DAY_PRICES, _priced_at_the_day
+
+    with sessionmaker(bind=test_engine)() as db:
+        with pytest.raises(RuntimeError):
+            with _priced_at_the_day(db, True):
+                assert db.info[DAY_PRICES] is True
+                raise RuntimeError
+        assert not db.info.get(DAY_PRICES)

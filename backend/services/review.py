@@ -14,7 +14,7 @@ Checks:
 - lost_with_loss (F2): a Lost withdrawal whose stored gain isn't $0. Lost
   now counts like a gift ($0 gain); Recalculate Ledger removes the old loss.
 - deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
-  (source MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
+  (source MyBTC, Gift, Inherited, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
 - fee_value_off (F14): a transfer's BTC fee whose stored USD value is more
   than 5% away from fee x that day's price: most likely valued at the live
@@ -28,6 +28,12 @@ Checks:
   nothing fills it. After the 1.2.6 upgrade every older such deposit is
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
+- inherited_without_date (#154): an Inherited deposit into a BTC account
+  with no date of death. New ones must have it; a deposit saved before
+  1.1.0, when the source was free text, may say "inherited" without one. Its
+  coins follow the inheritance rules (long-term, INHERITED in column (b))
+  from the next recalculation, but it is valued and sorted by the deposit's
+  date, and an edit asks for the date of death.
 - income_without_value (#77): an income or rebate deposit (#98) with a $0
   or blank basis: for income, no income is reported for it; either way its
   whole value becomes gain when it's sold. The rules forbid it (a blank is
@@ -60,7 +66,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import price_history
 from backend.services.calculation import btc_text
@@ -90,6 +96,12 @@ CHECKS: dict[str, tuple] = {
         "Transfer fees valued far from that day's price (probably at the live price)",
         "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
         "price and recalculates.",
+    ),
+    "inherited_without_date": (
+        "Inherited deposits without a date of death",
+        "Edit each one: enter the date of death, and check the Cost Basis is the value that day. Until then it "
+        "is dated by the deposit. Its coins are long-term, with INHERITED on Form 8949, from the next "
+        "recalculation: Recalculate Ledger (Settings), or editing it or any other transaction.",
     ),
     "income_without_value": (
         "Income and rebate deposits with a $0 or blank value",
@@ -134,6 +146,15 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "giver).",
     ),
 }
+
+# The deposits whose value is checked against the day's price: income and
+# rebates. An inheritance's value can rightly differ from it (the estate's
+# Form 8971, or its alternate valuation date six months on, #154), so it is
+# checked like My BTC and Gift: only for a $0 or blank basis.
+DAY_VALUED = VALUED_AT_RECEIPT - {INHERITED_SOURCE}
+# Deposits with a date originally acquired the reminder is about: an
+# Inherited one must have its date of death (#154), so it's never missing
+DATED_FROM_DEPOSIT = ORIGINAL_DATE_SOURCES - {INHERITED_SOURCE}
 
 TOLERANCE = Decimal("0.05")
 CENT = Decimal("0.01")
@@ -309,10 +330,13 @@ def _row_issues(t: Transaction, tz):
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() in ORIGINAL_DATE_SOURCES and t.acquired_at is None:
+            and (t.source or "").lower() in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() not in VALUED_AT_RECEIPT and _is_zero_or_blank(t.cost_basis_usd):
+            and (t.source or "").lower() == INHERITED_SOURCE and t.acquired_at is None:
+        yield "inherited_without_date", _item(t, tz, "No date of death.", "")
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(
             t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
             "A basis you enter lowers the gain when this BTC is sold by the same amount.",
@@ -352,7 +376,7 @@ def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
 
 def _is_valued_deposit(t: Transaction) -> bool:
     """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in VALUED_AT_RECEIPT
+    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in DAY_VALUED
 
 
 def _is_income(t: Transaction) -> bool:

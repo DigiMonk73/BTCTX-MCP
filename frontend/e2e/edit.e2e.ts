@@ -95,6 +95,22 @@ for (const c of CASES) {
   });
 }
 
+test("a Gift made Inherited asks for the date of death and the value again (#154)", async ({ authedPage: page }) => {
+  await createTx(page.request, {
+    type: "Deposit", timestamp: TS, from_account_id: 99, to_account_id: 2, amount: "0.01", fee_amount: "0",
+    fee_currency: "BTC", source: "Gift", cost_basis_usd: "50.00", acquired_at: "2015-01-01",
+  });
+  await openEdit(page, "Deposit");
+  await expect(page.getByLabel("Date originally acquired")).toHaveValue("2015-01-01");
+  await page.getByLabel("Source").selectOption("Inherited");
+  // The giver's purchase date isn't a date of death, nor their cost a value at death
+  await expect(page.getByLabel("Date of death")).toHaveValue("");
+  await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
+  await page.getByRole("button", { name: "Update Transaction" }).click();
+  await expect(page.getByText("Enter the date of death.")).toBeVisible();
+  expect((await listTx(page.request))[0]).toMatchObject({ source: "Gift", cost_basis_usd: "50.00" });
+});
+
 test("saving an edit without changes changes nothing", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   const created = await createTx(page.request, CASES[4].tx);

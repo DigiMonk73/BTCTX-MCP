@@ -196,7 +196,8 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
 async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     """
     Fill FMV-derived USD values the tax math needs but the caller omitted:
-      - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt
+      - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt;
+        Inherited deposits: FMV on the date of death (acquired_at)
       - Spent withdrawals: proceeds = FMV of what was bought
       - Gift/Donation withdrawals: fmv_usd for the tax report
     Uses the price of the transaction's hour (else its day:
@@ -210,7 +211,8 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         target = _autofill_target(p.tx_data)
         if target is None:
             continue
-        when = p.tx_data["timestamp"]
+        # An inheritance is valued on the date of death (#154), anything else at its own time
+        when = (p.tx_data.get("acquired_at") if target == "cost_basis_usd" else None) or p.tx_data["timestamp"]
         hour = hourly_prices.hour_of(when)
         if hour not in price_cache:
             try:

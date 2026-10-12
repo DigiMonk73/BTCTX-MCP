@@ -44,6 +44,27 @@ test.describe("BTC deposits", () => {
     });
   }
 
+  test("an Inherited deposit needs its date of death and is valued that day (#154)", async ({ authedPage: page }) => {
+    await openAddForm(page, "Deposit");
+    await setWhen(page);
+    await page.getByLabel("Account").selectOption("Wallet");
+    await page.getByLabel("Amount").fill("0.02");
+    await page.getByLabel("Source").selectOption("Inherited");
+    await expect(page.getByText("any sale of it is long-term however soon you sell")).toBeVisible();
+    await expect(page.getByText("alternate valuation date")).toBeVisible();
+    await page.getByRole("button", { name: "Save Transaction" }).click();
+    await expect(page.getByText("Enter the date of death.")).toBeVisible();
+    expect(await listTx(page.request)).toHaveLength(0);
+
+    await page.getByLabel("Date of death").fill("2023-11-20");
+    await saveForm(page);
+    const tx = await lastTx(page);
+    expect(tx).toMatchObject({ source: "Inherited", cost_basis_from_price: true });
+    expect(tx.acquired_at).toMatch(/^2023-11-20/);
+    // Blank: 0.02 BTC at that day's price
+    expect(Number(tx.cost_basis_usd)).toBe(0.02 * HISTORICAL_PRICE);
+  });
+
   test("a MyBTC deposit needs its basis stated; 0 is accepted", async ({ authedPage: page }) => {
     await openAddForm(page, "Deposit");
     await setWhen(page);
@@ -214,6 +235,54 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   const by = Object.fromEntries(balances.map((b: { name: string; balance: string }) => [b.name, Number(b.balance)]));
   expect(by["Wallet"]).toBe(0.4999);
   expect(by["Exchange BTC"]).toBe(0.5);
+});
+
+test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", async ({ authedPage: page }) => {
+  await createTx(page.request, {
+    type: "Deposit", timestamp: "2023-01-02T18:00:00Z", from_account_id: 99, to_account_id: 2,
+    amount: "1.0", cost_basis_usd: "20000", source: "MyBTC",
+  });
+  await openAddForm(page, "Transfer");
+  await setWhen(page);
+  await page.getByLabel("From Account").selectOption("Wallet");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await page.getByLabel("To Account").selectOption("Wallet");
+  await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
+  await page.getByLabel("Amount (From)").fill("0.8");
+  await page.getByLabel("Amount (To)").fill("0.8");
+  await page.getByRole("button", { name: "Save Transaction" }).click();
+  await expect(page.getByText("records only its network fee: Amount (To) must be less")).toBeVisible();
+  await page.getByLabel("Amount (To)").fill("0.7999");
+  await saveForm(page);
+
+  const tx = await lastTx(page);
+  expect(tx).toMatchObject({ type: "Transfer", from_account_id: 2, to_account_id: 2, fee_currency: "BTC" });
+  expect(Number(tx.fee_amount)).toBe(0.0001);
+  const balances = await (await page.request.get("/api/calculations/accounts/balances")).json();
+  const by = Object.fromEntries(balances.map((b: { name: string; balance: string }) => [b.name, Number(b.balance)]));
+  expect(by["Wallet"]).toBe(0.9999);
+  expect(by["BTC Fees"]).toBe(0.0001);
+
+  // Edited, it opens as saved; another source gets that source's usual destination
+  await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
+  await expect(page.getByRole("listitem").first()).toContainText("Consolidation");
+  await page.getByRole("listitem").first().getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByLabel("To Account")).toHaveValue("Wallet");
+  await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
+  await page.getByLabel("From Account").selectOption("Bank");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await page.getByLabel("From Account").selectOption("Wallet");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+});
+
+test("a move between pooled exchanges is listed as Between exchanges (#159)", async ({ authedPage: page }) => {
+  await seedFunds(page.request);
+  await createTx(page.request, {
+    type: "Transfer", timestamp: "2024-02-01T12:00:00Z", from_account_id: 4, to_account_id: 4,
+    amount: "0.5", fee_amount: "0.0001", fee_currency: "BTC", fee_usd: "5.00",
+  });
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await expect(page.getByText("Between exchanges")).toBeVisible();
 });
 
 test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {

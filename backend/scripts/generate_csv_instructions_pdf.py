@@ -21,19 +21,19 @@ COLUMNS = [
     ["amount", "Yes", "BTC (up to 8 decimals), or USD for Bank/Exchange USD rows. Transfer: what left the account, fee included. Withdrawal: what the recipient got, fee on top"],
     ["from_account", "Yes", "Source account name"],
     ["to_account", "Yes", "Destination account name"],
-    ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward/Rebate blank = that hour's value"],
+    ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward/Rebate blank = that hour's value; Inherited: its value on the date of death, blank = that hour's value"],
     ["proceeds_usd", "Conditional", "Sell: gross USD, before the fee (the fee is subtracted). Spent withdrawal: value received, before the network fee (the fee's value is subtracted); blank = that hour's value"],
     ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
     ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
-    ["source", "No", "For Deposits: N/A, MyBTC, Gift, Income, Interest, Reward, Rebate"],
+    ["source", "No", "For Deposits: N/A, MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate"],
     ["purpose", "Conditional", "For Withdrawals: Spent, Gift, Donation, Lost"],
     ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value that day (shown in the tax report)"],
     ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
     ["fee_usd_typed", "No", "With fee_usd: yes (or blank) if you typed that value, no if it came from the price (the export writes it)"],
-    ["cost_basis_typed", "No", "Income/Interest/Reward/Rebate deposit with cost_basis_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
-    ["acquired_at", "No", "MyBTC or Gift deposit into Wallet/Exchange BTC: when the coins were first acquired (by the giver, for a gift). Blank = the deposit's date"],
+    ["cost_basis_typed", "No", "Income/Interest/Reward/Rebate/Inherited deposit with cost_basis_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
+    ["acquired_at", "Conditional", "MyBTC or Gift deposit into Wallet/Exchange BTC: when the coins were first acquired (by the giver, for a gift); blank = the deposit's date. Inherited: the date of death (required)"],
     ["proceeds_typed", "No", "Spent withdrawal with proceeds_usd: yes (or blank) if you typed them, no if they came from the price (the export writes it)"],
     ["price_moment", "No", "With a value from the price: hour (the BTC price when its hour began, UTC) or day (that day's 00:00 UTC price). Blank = day (the export writes it)"],
 ]
@@ -42,7 +42,7 @@ TYPES = [
     ["Type", "Description"],
     ["Deposit", "BTC entering your portfolio (purchase, gift received, income, etc.)"],
     ["Withdrawal", "BTC leaving your portfolio (spent, gift sent, donation, loss)"],
-    ["Transfer", "Moving BTC between your own wallets (no taxable event)"],
+    ["Transfer", "Moving money or BTC between your own accounts (not a sale; a BTC network fee is a small disposal). Wallet to Wallet: a consolidation, where only the fee is recorded"],
     ["Buy", "Purchasing BTC on an exchange with USD"],
     ["Sell", "Selling BTC on an exchange for USD"],
 ]
@@ -61,6 +61,7 @@ SOURCES = [
     ["N/A", "Not applicable or unspecified"],
     ["MyBTC", "BTC you already owned (transferring in)"],
     ["Gift", "Received as a gift (cost_basis_usd: the giver's basis, 0 if unknown)"],
+    ["Inherited", "Inherited from someone who died: acquired_at is the date of death (required), cost_basis_usd its value that day (or on the estate's alternate valuation date; a Form 8971 value that increased the estate tax caps it); always long-term, INHERITED on Form 8949"],
     ["Income", "Payment for goods/services"],
     ["Interest", "Earned as interest"],
     ["Reward", "Mining, staking, or a sign-up or referral bonus (income)"],
@@ -77,9 +78,9 @@ PURPOSES = [
 
 ACCOUNT_RULES = [
     ["Type", "From Account", "To Account", "Required Fields"],
-    ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that day's value"],
+    ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that day's value;\nInherited: acquired_at (date of death) required"],
     ["Withdrawal", "Wallet or\nExchange BTC", "External", "purpose required;\nproceeds_usd for \"Spent\""],
-    ["Transfer", "Any account", "Another account,\nsame currency", "Fee in the sending account's currency;\naccounts must be different"],
+    ["Transfer", "Any account", "Another account,\nsame currency; or the\nsame Wallet or\nExchange BTC", "Fee in the sending account's currency;\nto the same account (a consolidation):\na BTC fee is required, and only it\nis recorded"],
     ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],
     ["Sell", "Exchange BTC", "Exchange USD", "proceeds_usd required;\nfee must be USD"],
 ]
@@ -102,6 +103,8 @@ EXAMPLES = [
     ("Deposit (BTC entering your wallet):", "2024-01-20T14:00:00Z,Deposit,0.5,External,Wallet,21000.00,,,Income,,"),
     ("Withdrawal (spending BTC):", "2024-03-01T09:00:00Z,Withdrawal,0.1,Wallet,External,,5500.00,,,Spent,"),
     ("Transfer (moving between wallets):", "2024-02-01T16:45:00Z,Transfer,1.0,Exchange BTC,Wallet,,,0.0001,BTC,,,"),
+    ("Transfer within the wallet (a consolidation: only the fee):",
+     "2024-02-05T09:00:00Z,Transfer,0.4,Wallet,Wallet,,,0.00005,BTC,,,"),
 ]
 
 COMMON_ERRORS = [
@@ -115,7 +118,8 @@ COMMON_ERRORS = [
     ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
     ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],
     ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Wallet or Exchange BTC"],
-    ["\"Cannot transfer to same account\"", "Transfer requires different source and destination"],
+    ["\"Transfer must have different from_account and to_account\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
+    ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
 ]
 
 TABLE_STYLE = TableStyle([
