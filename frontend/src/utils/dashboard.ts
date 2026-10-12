@@ -25,6 +25,10 @@ export interface LivePrice {
   waiting?: boolean;
   /** No price source chosen yet. */
   unchosen?: boolean;
+  /** The server's price settings are invalid: nothing is asked (not the owner's choice). */
+  invalid?: boolean;
+  /** Public sites are asked through a proxy (Tor). */
+  throughTor?: boolean;
   /** Where the price came from ("mempool", "kraken"…) and when (UTC), from the server. */
   source?: string;
   at?: string;
@@ -38,11 +42,12 @@ export function waitingDetail(detail: unknown): boolean {
 /** Why there's no live price, from the server's answer (backend/services/outbound.py,
  * refuse_public): waiting to confirm, not chosen yet, Nobody (503, by choice), or no
  * answer from the chosen source (502, or anything else). */
-export type NoPrice = "waiting" | "unchosen" | "off" | "none";
+export type NoPrice = "waiting" | "unchosen" | "off" | "invalid" | "none";
 
 export function noPriceReason(status: number | undefined, detail: unknown): NoPrice {
   if (status !== 503) return "none";
   if (waitingDetail(detail)) return "waiting";
+  if (typeof detail === "string" && detail.startsWith("This server's price settings aren't valid")) return "invalid";
   return typeof detail === "string" && detail.startsWith("Prices: not chosen yet") ? "unchosen" : "off";
 }
 
@@ -50,14 +55,15 @@ export function noPriceReason(status: number | undefined, detail: unknown): NoPr
 export function noPriceWords(price: LivePrice): string {
   if (price.waiting) return "Confirm your choice";
   if (price.unchosen) return "Not chosen yet";
-  return price.off ? "Offline" : "No answer";
+  return price.off || price.invalid ? "Offline" : "No answer";
 }
 
 /** "From your Mempool", "From public price sites (Kraken)": where a live price came from. */
-export function priceSourceWords(source: string | undefined): string | null {
+export function priceSourceWords(source: string | undefined, throughTor = false): string | null {
   if (!source) return null;
   if (source === "mempool") return "From your Mempool";
-  return `From public price sites (${source.charAt(0).toUpperCase()}${source.slice(1)})`;
+  const site = `${source.charAt(0).toUpperCase()}${source.slice(1)}`;
+  return `From public price sites (${site}${throughTor ? ", through Tor" : ""})`;
 }
 
 /** The totals of the account balances. Fee accounts and unreadable balances

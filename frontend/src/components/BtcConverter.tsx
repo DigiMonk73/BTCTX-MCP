@@ -18,10 +18,28 @@ const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
   waiting: "waiting for you",
   unchosen: "not chosen yet",
   off: "offline",
+  invalid: "offline",
   none: "no answer",
   missing: "No price",
 };
 type Field = "USD" | "BTC" | "SATS" | null;
+
+/** Auto mode's line: the live price, or why there's none and the way forward (#145). */
+const AutoPriceRow: React.FC<{ text: string; why: string | null; onTypeAPrice: () => void }> = (
+  { text, why, onTypeAPrice },
+) => (
+  <div className="auto-price-row price-mode-row">
+    <p className="btc-price">BTC Price: {text}</p>
+    {(why === "waiting" || why === "unchosen") && (
+      <Link className="converter-action" to="/dashboard">{why === "waiting" ? "Confirm" : "Choose"}</Link>
+    )}
+    {(why === "off" || why === "invalid" || why === "none") && (
+      <button type="button" className="converter-action" onClick={onTypeAPrice}>
+        Type a price
+      </button>
+    )}
+  </div>
+);
 
 const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
@@ -101,6 +119,7 @@ const BtcConverter: React.FC = () => {
   useEffect(() => {
     if (mode !== "date" || !selectedDate) return;
 
+    priceTicket.current += 1; // an answer for an earlier day or hour is dropped
     setBtcPrice(0);
     setNoPrice("loading");
     const at = selectedHour === "" ? null : zonedHourToIso(selectedDate, Number(selectedHour), timezone);
@@ -258,17 +277,11 @@ const BtcConverter: React.FC = () => {
       )}
 
       {mode === "auto" && (
-        <div className="auto-price-row price-mode-row">
-          <p className="btc-price">BTC Price: {priceText()}</p>
-          {btcPrice <= 0 && (noPrice === "waiting" || noPrice === "unchosen") && (
-            <Link className="converter-action" to="/dashboard">{noPrice === "waiting" ? "Confirm" : "Choose"}</Link>
-          )}
-          {btcPrice <= 0 && (noPrice === "off" || noPrice === "none") && (
-            <button type="button" className="converter-action" onClick={() => handleModeChange("manual")}>
-              Type a price
-            </button>
-          )}
-        </div>
+        <AutoPriceRow
+          text={priceText()}
+          why={btcPrice > 0 ? null : noPrice}
+          onTypeAPrice={() => handleModeChange("manual")}
+        />
       )}
 
       {mode === "date" && (

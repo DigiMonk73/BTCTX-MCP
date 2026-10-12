@@ -16,7 +16,7 @@ interface BtcPriceCardProps {
 const PriceWhy: React.FC<{ price: LivePrice; timezone: string }> = ({ price, timezone }) => {
   if (price.loading) return null;
   if (price.value !== null) {
-    const from = priceSourceWords(price.source);
+    const from = priceSourceWords(price.source, price.throughTor);
     if (!from) return null;
     return <p className="btc-price-why">{price.at ? `${from} · ${clock(price.at, timezone)}` : from}</p>;
   }
@@ -29,6 +29,7 @@ const PriceWhy: React.FC<{ price: LivePrice; timezone: string }> = ({ price, tim
     );
   }
   if (price.off) return <p className="btc-price-why">You chose Nobody: no live price.</p>;
+  if (price.invalid) return <p className="btc-price-why">{price.problem}</p>;
   return (
     <p className="btc-price-why">
       {price.problem ?? "The price source didn't answer."} <Link to="/settings">Change the price source</Link>

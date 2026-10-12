@@ -35,14 +35,19 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     api
-      .get<{ price_source: string; managed?: boolean; confirmed?: boolean }>("/settings/network")
-      .then((res) =>
-        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false)),
+      .get<{ price_source: string; managed?: boolean; confirmed?: boolean; proxy_url?: string | null }>(
+        "/settings/network",
       )
+      .then((res) => {
+        setUnchosen(!res.data.managed && (res.data.price_source === "unset" || res.data.confirmed === false));
+        setThroughTor(Boolean(res.data.proxy_url));
+      })
       .catch(() => undefined);
   }, [priceRound]);
 
-  const price = useLivePrice(priceRound);
+  const live = useLivePrice(priceRound);
+  const [throughTor, setThroughTor] = useState(false);
+  const price = { ...live, throughTor };
   const [timezone, setTimezone] = useState("UTC");
 
   useEffect(() => {

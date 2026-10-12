@@ -31,6 +31,7 @@ export function useLivePrice(round: number): LivePrice {
         if (current) {
           setPrice({
             loading: false, value: null, off: why === "off", waiting: why === "waiting", unchosen: why === "unchosen",
+            invalid: why === "invalid",
             problem: typeof detail === "string" ? detail : undefined,
           });
         }
