@@ -150,7 +150,7 @@ def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
 
 _VALIDATED_FIELDS = (
     "type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
-    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "source", "purpose", "acquired_at",
+    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "source", "purpose", "acquired_at",
 )
 
 # What each type takes as input. A Sell's or Withdrawal's cost basis (and a

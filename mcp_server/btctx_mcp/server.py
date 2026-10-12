@@ -250,7 +250,7 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
         "to": ACCOUNT_NAMES.get(tx.get("to_account_id"), tx.get("to_account_id")),
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
-                "proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
+                "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
                 "broker_reporting", "acquired_at"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):

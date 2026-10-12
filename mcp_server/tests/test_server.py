@@ -197,6 +197,30 @@ async def test_preview_then_add_then_list(mcp_client):
     assert again["imported_count"] == 0 and again["skipped_duplicates"] == 2
 
 
+async def test_a_listed_spend_shows_its_gross_beside_its_after_fee_proceeds(mcp_client):
+    """#157: a spend's proceeds_usd is after its network fee. Listed alone,
+    an AI copying it back into update_transaction took the fee off again;
+    the gross the user entered is listed beside it, and the guide says
+    which one to send."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    spend = {
+        "date": "2024-02-01T12:00:00Z", "type": "Withdrawal", "amount": "0.005",
+        "from_account": "Exchange BTC", "to_account": "External", "purpose": "Spent",
+        "proceeds_usd": "300.00", "fee_amount": "0.00001", "fee_currency": "BTC",
+    }
+    assert (await call(mcp_client, "add_transactions", {"transactions": [BUY, spend]}))["imported_count"] == 2
+    listed = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    # The fee: 0.00001 BTC x $50,000 = $0.50, off the $300 received
+    assert (Decimal(listed["gross_proceeds_usd"]), Decimal(listed["proceeds_usd"])) == (
+        Decimal("300.00"), Decimal("299.50"))
+    await call(mcp_client, "update_transaction",
+               {"transaction_id": listed["id"], "proceeds_usd": listed["gross_proceeds_usd"]})
+    again = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    assert Decimal(again["proceeds_usd"]) == Decimal("299.50")
+    assert "send the new gross as proceeds_usd" in " ".join(LEDGER_GUIDE.split())
+
+
 async def test_income_deposit_autofills_basis(mcp_client):
     dep = {
         "date": "2024-02-01", "type": "Deposit", "amount": "0.002",

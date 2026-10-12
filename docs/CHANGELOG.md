@@ -10,8 +10,8 @@ All notable changes to BitcoinTX are documented in this file.
   a BTC network fee, the spend's proceeds were the full value received, and
   the fee was also its own small disposal at its value: the gain came out
   too high by the fee's value. The fee paid to make a spend is a cost of
-  it (Treas. Reg. §1.1001-7(b)(2)(ii)(A) and its bitcoin example; the IRS
-  digital-asset FAQ, Q63), so it now comes off the spend's proceeds, as a
+  it (Treas. Reg. §1.1001-7(b)(2)(ii)(A) and its Example 4, a fee paid out of
+  the coins sent; the IRS digital-asset FAQ, Q63), so it now comes off the spend's proceeds, as a
   Sell's fee always has; the fee's own row stays (Q97). Example: 0.08 BTC
   spent for $8,800 with an $8.80 fee now has proceeds of $8,791.20, and
   with the fee's row the spend realizes $8,800, not $8,808.80. Applied to
