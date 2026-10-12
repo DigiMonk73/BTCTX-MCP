@@ -68,12 +68,12 @@ function mempoolReason(what: Problem, at: string, ctx: StatusContext): string {
   return `Your Mempool didn't answer at ${clock(at, ctx.timezone)}.`;
 }
 
-function mempoolFix(what: Problem, managed: boolean): string {
+function mempoolFix(what: Problem, managed: boolean, backup: boolean): string {
   if (what === "mempool_untrusted_certificate") {
     return "There's no newer price: use its http:// or .onion address instead, or on StartOS choose My Mempool on this server.";
   }
   if (what === "mempool_missing") return "Install and start it, or choose another source in StartOS.";
-  return managed
+  return managed || backup
     ? "Type newer values meanwhile."
     : 'Type newer values meanwhile, or tick "If it can\'t answer, ask public price sites".';
 }
@@ -92,7 +92,7 @@ function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   const mine = problem?.what.startsWith("mempool") ? problem : (st.last_mempool_problem ?? null);
   const reason = mine ? mempoolReason(mine.what, mine.at, ctx) : "Your Mempool didn't answer.";
   if (problem && newer(problem.at, ok?.at)) {
-    if (problem === mine) return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed)}` };
+    if (problem === mine) return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed, ctx.backup)}` };
     const at = clock(problem.at, ctx.timezone);
     const backup = problem.what === "tor_no_answer"
       ? `Public price sites didn't answer through Tor either, at ${at}. Is Tor running?`

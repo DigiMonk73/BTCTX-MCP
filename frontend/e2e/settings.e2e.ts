@@ -340,8 +340,8 @@ test("ledger review: a My BTC deposit without its original date is a folded remi
   await expect(list).toHaveCount(0);
 });
 
-test("ledger review fixes a live-priced transfer fee after asking", async ({ app, authedPage: page }) => {
-  await seedKnownLedger(page.request); // its transfer fee: 0.0001 x $50,000 = $5.00
+test("ledger review prices a day-valued fee again after asking (#144)", async ({ app, authedPage: page }) => {
+  await seedKnownLedger(page.request); // its transfer fee: 0.0001 x $50,000 = $5.00, at the day (no hourly prices here)
   const transfer = (await listTx(page.request)).find((t) => t.type === "Transfer")!;
   // As an older version saved it when the day's lookup failed: at the live price.
   execFileSync(python(), ["-c",
@@ -353,11 +353,24 @@ test("ledger review fixes a live-priced transfer fee after asking", async ({ app
   const dialogs = acceptDialogs(page);
   await openSettings(page);
   const review = page.getByRole("region", { name: "Ledger review" });
-  const title = "Transfer fees valued far from that day's price (probably at the live price)";
-  await expect(review.getByRole("list", { name: title })).toContainText("$6.00 -> $5.00");
-  await review.getByRole("button", { name: "Fix these" }).click();
+  const title = "Values priced at the day's price that the hour would change";
+  await expect(review.getByText(`${title}: 1`)).toBeVisible();
+  const item = review.getByRole("listitem").filter({ hasText: `#${transfer.id} · ` });
+  await expect(item).toContainText("Fee value $6.00 -> $5.00.");
+  const apply = review.getByRole("button", { name: "Apply to the ticked ones" });
+  await expect(apply).toBeDisabled();
+  await item.getByRole("checkbox").check();
+  // A refused apply says so, and stays said after the review reloads
+  await page.route("**/api/review/hourly-prices", (route) => route.fulfill({ status: 500, body: "{}" }),
+    { times: 1 });
+  await apply.click();
+  await expect(review.getByText(/^The apply failed, or its answer didn't arrive/)).toBeVisible();
+  expect(await listTx(page.request)).toContainEqual(expect.objectContaining({ id: transfer.id, fee_usd: "6.00" }));
+  await apply.click();
+  await expect(review.getByText(/^Changed 1 transaction and recalculated the ledger; the copy from before is backups\//))
+    .toBeVisible();
   await expect(review.getByText("Nothing to review.")).toBeVisible();
-  expect(dialogs[0]).toContain("Set 1 transfer fee value(s) to that day's BTC price");
+  expect(dialogs[1]).toContain("Change the 1 ticked transaction to the values shown");
   const fixed = (await listTx(page.request)).find((t) => t.id === transfer.id)!;
   expect(fixed.fee_usd).toBe("5.00");
 });
