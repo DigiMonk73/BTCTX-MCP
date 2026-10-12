@@ -59,6 +59,14 @@ users see and how values are made.
       (2026-09-29): that runs ahead of StartOS's app, skips Start9's review
       for the code holding the AI key, and contacts PyPI on every launch.
 
+- [ ] **CHANGELOG notes as separate files, after the stable release**
+      (owner, 2026-10-12): each pull request adds its own small note file,
+      and the release joins them into `docs/CHANGELOG.md`, so two pull
+      requests in flight never conflict there. It changes the release steps
+      (AGENTS.md "Releasing", `release.yml`), the pull request template and
+      the tests that check the CHANGELOG, so it waits until the candidate is
+      out.
+
 ## Later
 
 - [ ] Column-mapping UI for arbitrary exchange CSVs, with saved presets

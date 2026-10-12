@@ -642,10 +642,29 @@ one session. Claude suggests this setup when a request is that big.
   said it to. The main session starts the next session when what it
   waits for is done, and keeps #41's "Next", linking to the umbrella
   issue instead of repeating its order.
-- **Running sessions at once:** only on separate parts. When two touch
-  the same files, the reference figures or a migration, the one that
-  merges second merges `develop` in, and checks the migration numbering
-  and the figures again.
+- **The footprint and merge plan** (owner, 2026-10-12): planned up front,
+  so conflicts are few and expected. On the umbrella issue the main
+  session lists, for each session:
+  - **its footprint:** the files and areas it expects to touch;
+  - **its hot spots, shared with other sessions:** `docs/CHANGELOG.md`, the
+    reference ledger and `testdata/reference_figures.json`,
+    `scripts/independent_figures.py`, migrations, `docs/AGENT-TESTS.md`,
+    the i18n dictionaries;
+  - **any migration numbers reserved for it**, each with its
+    `down_revision` (one session's 0008, the next one's 0009 after 0008);
+  - **the merge order** between sessions.
+
+  Sessions that share a hot spot other than the CHANGELOG don't run at
+  the same time, or run with a fixed merge order. A session whose
+  footprint grows says so on its issue before it merges, and the main
+  session checks it against the others.
+- **Running sessions at once:** only on separate parts, in the planned
+  merge order. The one that merges second merges `develop` in (never a
+  rebase), keeps both CHANGELOG entries, reruns `make reference-figures`
+  instead of hand-merging the figures, and checks the migration
+  numbering. Within a session, stack at most two pull requests that touch
+  the same files; otherwise merge one before starting the next, since
+  each squash makes the next one conflict.
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:
