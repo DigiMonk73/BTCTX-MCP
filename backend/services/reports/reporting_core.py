@@ -52,12 +52,16 @@ def _held_value_price(db: Session, when: datetime) -> hourly_prices.Priced | Non
 
 
 def _year_end_note(priced: hourly_prices.Priced | None, year: int) -> str:
-    """How the year-end holdings are valued, as the report shows it."""
+    """How the year-end holdings are valued, as the report shows it. A year
+    not over reads the same (the cover says so): a reference figure mustn't
+    change with the day it's computed."""
     if priced is None:
         return f"No BTC price for when {year} ended: not priced"
+    usd = priced.usd.quantize(Decimal("0.01"))
     if priced.moment == "hour":
-        return f"@ ${priced.usd:,} per BTC, the price when the tax year ended ({priced.at:%Y-%m-%d %H:%M} UTC)"
-    return (f"@ ${priced.usd:,} per BTC, {priced.at:%Y-%m-%d}'s 00:00 UTC price (no hourly price for when the "
+        # A tax year can end at :15 or :45 (Asia/Kathmandu): the price when that hour began
+        return f"@ ${usd:,} per BTC, the price at the hour the tax year ended ({priced.at:%Y-%m-%d %H:%M} UTC)"
+    return (f"@ ${usd:,} per BTC, {priced.at:%Y-%m-%d}'s 00:00 UTC price (no hourly price for when the "
             "tax year ended)")
 
 
@@ -171,7 +175,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]
 
     # The Jan 1 price, only if something was held (None: not priced)
     priced = _held_value_price(db, from_dt) if open_lots else None
-    january1_price = priced.usd if priced else None
+    january1_price = priced.usd.quantize(Decimal("0.01")) if priced else None
 
     results = []
     for lot in open_lots:
@@ -300,7 +304,7 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
 
     _, year_end = tax_year_bounds(year, get_tax_timezone(db))
     priced = _held_value_price(db, year_end) if open_lots else None
-    eoy_price = priced.usd if priced else None
+    eoy_price = priced.usd.quantize(Decimal("0.01")) if priced else None
     price_note = _year_end_note(priced, year)
 
     rows = []

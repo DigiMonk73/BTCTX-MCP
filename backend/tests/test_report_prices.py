@@ -64,10 +64,10 @@ def test_holdings_are_valued_when_the_tax_year_ends_and_the_next_one_starts_ther
     end = report(test_engine, 2024)
     held = [r for r in end["end_of_year_balances"] if r["asset"].startswith("BTC")]
     assert [r["value"] for r in held] == [70000.0]
-    assert held[0]["description"] == "@ $70,000.00 per BTC, the price when the tax year ended (2025-01-01 05:00 UTC)"
+    assert held[0]["description"] == "@ $70,000.00 per BTC, the price at the hour the tax year ended (2025-01-01 05:00 UTC)"
     start = report(test_engine, 2025)
     assert [r["value"] for r in start["start_of_year_balances"]] == [70000.0]
-    assert "Market value at $70,000.00 per BTC, the price when the tax year ended (2025-01-01 05:00 UTC)." \
+    assert "Market value at $70,000.00 per BTC, the price at the hour the tax year ended (2025-01-01 05:00 UTC)." \
         in pdf_text(end)
 
 
@@ -83,8 +83,17 @@ def test_a_year_not_over_has_no_year_end_value(auth_client, test_engine, clean, 
     year = datetime.now(timezone.utc).year
     buy(auth_client, f"{year}-01-02T12:00:00Z")
     stub_prices_at(monkeypatch, lambda when: 60000)
-    total = next(r for r in report(test_engine, year)["end_of_year_balances"] if r["asset"] == "Total")
-    assert total["value"] is None
+    balances = report(test_engine, year)["end_of_year_balances"]
+    assert next(r for r in balances if r["asset"] == "Total")["value"] is None
+    assert balances[0]["description"] == f"No BTC price for when {year} ended: not priced"
+
+
+def test_the_year_end_price_is_shown_in_cents(auth_client, test_engine, clean, monkeypatch):
+    """Review of #176: a Bitstamp hour after the year files comes as returned (97123.456)."""
+    buy(auth_client)
+    stub_prices_at(monkeypatch, lambda when: Decimal("97123.456"))
+    held = [r for r in report(test_engine, 2024)["end_of_year_balances"] if r["asset"].startswith("BTC")]
+    assert held[0]["description"].startswith("@ $97,123.46 per BTC") and held[0]["value"] == 97123.46
 
 
 def test_the_years_values_from_a_price_are_listed_with_the_price_used(auth_client, test_engine, clean, monkeypatch):
@@ -119,7 +128,8 @@ def test_a_year_with_only_typed_values_says_so(auth_client, test_engine, clean):
     buy(auth_client)
     data = report(test_engine, 2024)
     assert data["priced_values"] == []
-    assert "Values from the BTC price None: every USD value of 2024's transactions was entered with it." \
+    assert "Values from the BTC price None of 2024's income, rebate, inherited, spend or network fee values: each " \
+           "was entered with its transaction." \
         in pdf_text(data)
 
 

@@ -1,6 +1,7 @@
 """
 Complete tax report data: year-end holdings are a snapshot at the end of the
-tax year (later activity excluded), valued at the Dec 31 BTC price, and the
+tax year (later activity excluded), valued at the price when the tax year
+ended (#144), and the
 asset summary is the year's real gains — no placeholder numbers.
 """
 

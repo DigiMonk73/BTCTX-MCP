@@ -199,14 +199,17 @@ All notable changes to BitcoinTX are documented in this file.
     transaction (Treas. Reg. §1.1001-7(b)(3)) and approves no price source
     or method, and that a value from your own records is better evidence.
   - A new table, **Values from the BTC price**, lists each of the year's
-    values BitcoinTX filled in (income and rebate values, Spent proceeds,
-    network fee values) and the price each used: when its hour began, or
-    that day's 00:00 UTC price. Every other value was entered.
+    values BitcoinTX filled in (income, rebate and inherited values, Spent
+    proceeds, network fee values) and the price each used: when its hour
+    began, that day's 00:00 UTC price, or the date of death's. Every other
+    such value was entered. (A gift's or donation's value isn't tracked
+    this way; the report says so.)
   - **Holdings at the start and end of a tax year** are valued at the
     price when it began and ended (midnight in the tax timezone: the
     hour's price, else that day's), so one year's end and the next one's
     start agree. Before, the year-end value used December 31's 00:00 UTC
-    price, up to a day earlier. Holdings values are for information (no
+    price: a day before the year ended, more west of UTC (29 hours in New
+    York). Holdings values are for information (no
     IRS form takes them); a report made before the year ends leaves them
     unpriced, as before.
   - With a donation, the gifts section says a deduction over $5,000 needs
