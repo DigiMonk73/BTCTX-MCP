@@ -337,7 +337,7 @@ def test_ledger_review_checks_its_fee_value():
     with ENGINE.begin() as con:  # valued at another price, as an older version could
         con.execute(text("UPDATE transactions SET fee_usd = '12.00' WHERE id = :id"), {"id": move["id"]})
     review = CLIENT.get("/api/review").json()
-    check = next(c for c in review["checks"] if c["key"] == "fee_value_off")
+    check = next(c for c in review["checks"] if c["key"] == "day_priced_values")
     assert [i["id"] for i in check["items"]] == [move["id"]]
-    assert "$12.00 -> $10.00" in check["items"][0]["change"]
+    assert "Fee value $12.00 -> $10.00" in check["items"][0]["change"]
     assert date.fromisoformat(check["items"][0]["date"][:10]) == date(2025, 6, 1)

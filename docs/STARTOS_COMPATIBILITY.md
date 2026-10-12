@@ -48,7 +48,8 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        it matches the fingerprints the release ships; can be
   │                        deleted (it's downloaded again)
   └── backups/             automatic copies taken before a schema upgrade,
-                           a restore, or asked for with the AI key (mode 600;
+                           a restore, or Ledger Review's hourly prices are
+                           applied, or asked for with the AI key (mode 600;
                            only created when needed)
 ```
 
@@ -161,15 +162,18 @@ Change these only together with the package (`startos/`):
   - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
     Ledger action (run with the price variables above, as it may look up a
     missing day's price).
-  - `python -m backend.cli review [--fix-fee-prices]`: the read-only Ledger
-    Review; not used by the package.
+  - `python -m backend.cli review [--apply-hourly-prices YEAR]`: the
+    Ledger Review, read-only unless `--apply-hourly-prices` (that tax
+    year's values priced at the day, at their hour, after a backup copy);
+    not used by the package.
   Each command migrates first, so it works on an empty volume. Exit 0 on
   success, 1 with a message on stderr on failure.
 - **Price settings:** the `BTCTX_*` variables above.
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
-  newest 5 pre-upgrade/pre-restore copies and 3 AI-requested copies are kept
-  in `/data/backups/`.
+  newest 5 pre-upgrade/pre-restore copies, 5 copies before Ledger Review's
+  hourly prices were applied and 3 AI-requested copies are kept in
+  `/data/backups/`.
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
