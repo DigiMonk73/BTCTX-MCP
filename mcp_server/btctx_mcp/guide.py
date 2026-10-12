@@ -147,8 +147,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
-   gross_proceeds_usd is what the user entered. To change the proceeds,
-   send the new gross as proceeds_usd, never the listed after-fee value.
+   gross_proceeds_usd is before it (entered, or that day's value). To
+   change the proceeds, send the new gross as proceeds_usd, never the
+   listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show
    the user what it lists; let them decide what to change. Fee-value fixes
    are made by the user in Settings -> Ledger Review. Call recalculate_ledger

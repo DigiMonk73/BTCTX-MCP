@@ -27,6 +27,16 @@ All notable changes to BitcoinTX are documented in this file.
   edit any transaction, which recalculates too. Returns already filed
   overstated the gain by these fees; whether to amend over a few dollars is
   for you or your tax professional to decide.
+- **The AI connector lists a Sell's or spend's gross proceeds** (#157):
+  `list_transactions` shows `gross_proceeds_usd`, what was entered (or the
+  day's value), beside `proceeds_usd`, which is after the fee, and the
+  guide tells the AI to edit with the gross. Copying the listed after-fee
+  value into an edit took the fee off a second time. Update the connector
+  (`btctx-mcp`) with this release.
+- **An edit can no longer save a negative fee value.** A new transaction
+  and a CSV import refused one, but an edit with the AI connector's edit
+  tool or the API took it (the form wasn't affected). Such a row now
+  refuses other edits until its fee value is set again.
 - **Switching StartOS's Price Source & Privacy to "Choose in BitcoinTX"
   no longer picks public price sites for you** (privacy, #134). While the
   action sets the source (My Mempool, Public or Off), no choice is made in

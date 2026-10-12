@@ -219,6 +219,10 @@ async def test_a_listed_spend_shows_its_gross_beside_its_after_fee_proceeds(mcp_
     again = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
     assert Decimal(again["proceeds_usd"]) == Decimal("299.50")
     assert "send the new gross as proceeds_usd" in " ".join(LEDGER_GUIDE.split())
+    # Changed into a gift, it has no proceeds: its old gross isn't listed as a value
+    await call(mcp_client, "update_transaction", {"transaction_id": listed["id"], "purpose": "Gift"})
+    gift = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    assert "proceeds_usd" not in gift and "gross_proceeds_usd" not in gift
 
 
 async def test_income_deposit_autofills_basis(mcp_client):

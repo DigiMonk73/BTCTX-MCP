@@ -255,6 +255,8 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
+    if "proceeds_usd" not in out:  # e.g. a spend changed into a gift keeps its old gross
+        out.pop("gross_proceeds_usd", None)
     return out
 
 
