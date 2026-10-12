@@ -390,7 +390,7 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     if _typed_basis(tx, tx_data):
         tx_data["cost_basis_from_price"] = False
         return
-    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data):
+    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db):
         edited["cost_basis_usd"] = None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
@@ -409,10 +409,10 @@ def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
                 and sent == Decimal(tx.cost_basis_usd).quantize(Decimal("0.01")))
 
 
-def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
+def _income_inputs_changed(tx: Transaction, tx_data: dict, db: Session) -> bool:
     """Whether the edit changes an input of the priced value: the account,
     amount, the price's moment (the deposit's UTC hour, or an
-    inheritance's UTC day of death: _valuation_point) or type, or a source
+    inheritance's date of death: _valuation_point) or type, or a source
     that wasn't valued at receipt. Between two sources that are (Reward to
     Rebate, the fix #98 asks of users) the value can't change, so it isn't
     priced again and needs no price."""
@@ -424,17 +424,17 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
         return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
-    return _valuation_point(tx_data, tx) != _valuation_point({}, tx)
+    tz = get_tax_timezone(db)
+    return _valuation_point(tx_data, tx, tz) != _valuation_point({}, tx, tz)
 
 
-def _valuation_point(edited: dict, tx: Transaction):
+def _valuation_point(edited: dict, tx: Transaction, tz):
     """When a valued deposit is priced, after the edit `edited`: an
-    inheritance on its date of death's UTC day (a date has no hour, and the
-    form sends it as noon in the tax timezone: the hour isn't the owner's,
-    #154), anything else at its UTC hour."""
+    inheritance on its date of death (date_of_death), anything else at its
+    UTC hour."""
     if _is_inherited({"source": edited.get("source", tx.source)}):
         moment = edited.get("acquired_at", tx.acquired_at) or edited.get("timestamp", tx.timestamp)
-        return price_history.utc_day(moment) if moment is not None else None
+        return local_date(moment, tz) if moment is not None else None
     moment = edited.get("timestamp", tx.timestamp)
     return hourly_prices.hour_of(moment) if moment is not None else None
 
@@ -1174,6 +1174,27 @@ def _price_at(timestamp: datetime, db: Session) -> hourly_prices.Priced:
     return hourly_prices.price_at(db, timestamp)
 
 
+def date_of_death(moment: datetime, db: Session):
+    """
+    An inheritance's date of death (#154): a calendar date, the one the
+    owner entered, which acquired_at holds as noon in the tax timezone (or
+    a time a file gave). So its date in the tax timezone, never its UTC
+    day: more than 12 hours ahead of UTC (UTC+13, +14) noon is the day
+    before in UTC, 12 hours behind (UTC-12) the day after, and a file's
+    time near midnight can be another day in UTC too (#177).
+    """
+    return local_date(moment, get_tax_timezone(db))
+
+
+def date_of_death_price(db: Session, moment: datetime) -> hourly_prices.Priced:
+    """An inheritance's price: the date of death has no hour, so that date's
+    00:00 UTC price (price_history.daily_price), marked "day". 422 when
+    there's none."""
+    day = date_of_death(moment, db)
+    return hourly_prices.Priced(price_history.daily_price(db, day), "day",
+                                datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
+
+
 def _valued_at_receipt(tx_data: dict, db: Session) -> bool:
     """A deposit with source Income, Interest, Reward, Rebate or Inherited into a BTC account."""
     if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in VALUED_AT_RECEIPT:
@@ -1213,9 +1234,7 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     moment = tx_data.get("acquired_at") or tx_data.get("timestamp") or datetime.now(timezone.utc)
     when = "on the date of death" if _is_inherited(tx_data) else "at receipt"
     try:
-        # A date of death has no hour: that day's price (#154)
-        with _priced_at_the_day(db, _is_inherited(tx_data) or bool(db.info.get(DAY_PRICES))):
-            priced = _price_at(moment, db)
+        priced = date_of_death_price(db, moment) if _is_inherited(tx_data) else _price_at(moment, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
