@@ -13,9 +13,10 @@ Lookup order:
      request ever names the day:
      - own mempool server: its whole price history in one request, keeping
        the 00:00 UTC hours its 23:00 and 01:00 hours agree with;
-     - public sites: the whole daily history once, in fixed blocks that are
-       the same for every install (Bitstamp, else Coinbase), then only "the
-       latest days" (Bitstamp, else Kraken, else Coinbase).
+     - public sites: Bitstamp's whole daily history once, in fixed blocks
+       that are the same for every install (retried later if it fails), then
+       only "the latest days" (Bitstamp, else Kraken). Coinbase is never
+       asked: its terms forbid building an end-user app on its data (#161).
 Every price found is stored and a stored day never changes, so tax figures
 don't move. There is never a fallback to today's live price: a past value at
 today's price is wrong. No price means a clear 422 (type the value in).
@@ -47,10 +48,8 @@ logger = logging.getLogger(__name__)
 CENT = Decimal("0.01")
 # The first day of Bitstamp's daily history; no clean source goes further back.
 FIRST_PRICE_DAY = date(2011, 8, 18)
-COINBASE_FIRST_DAY = date(2015, 7, 20)
-BITSTAMP_BLOCK, COINBASE_BLOCK = 1000, 300  # days per request
+BITSTAMP_BLOCK = 1000  # days per request
 
-COINBASE_CANDLES_URL = "https://api.exchange.coinbase.com/products/BTC-USD/candles"
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 MEMPOOL_HISTORY_PATH = "/api/v1/historical-price"
 DAY = 86400
@@ -99,18 +98,6 @@ async def _bitstamp(client, start: date | None = None) -> dict[date, Decimal]:
     return {_from_unix(row["timestamp"]): Decimal(str(row["open"])) for row in resp.json()["data"]["ohlc"]}
 
 
-async def _coinbase(client, start: date | None = None) -> dict[date, Decimal]:
-    """300 daily opens from `start` (a fixed block start), or the latest ones."""
-    params = {"granularity": DAY}
-    if start is not None:
-        end = min(start + timedelta(days=COINBASE_BLOCK - 1), _today())
-        params.update(start=f"{start.isoformat()}T00:00:00Z", end=f"{end.isoformat()}T00:00:00Z")
-    resp = await client.get(COINBASE_CANDLES_URL, params=params)
-    resp.raise_for_status()
-    # [time, low, high, open, close, volume]
-    return {_from_unix(row[0]): Decimal(str(row[3])) for row in resp.json()}
-
-
 async def _kraken_latest(client) -> dict[date, Decimal]:
     """Kraken's latest 720 daily opens."""
     resp = await client.get(KRAKEN_OHLC_URL, params={"pair": "XBTUSD", "interval": 1440})
@@ -140,8 +127,9 @@ def _kept(prices: dict[date, Decimal], source: str) -> dict[date, tuple]:
 async def public_history(full: bool) -> tuple[dict[date, tuple], bool]:
     """
     Daily prices from public sites, and whether Bitstamp's whole history came
-    in. full: every day since FIRST_PRICE_DAY in fixed blocks (Bitstamp; else
-    Coinbase, from 2015). Otherwise the latest days, at most once a UTC day.
+    in. full: every day since FIRST_PRICE_DAY in fixed blocks from Bitstamp
+    (retried after RETRY_SECONDS if one fails). Otherwise the latest days, at
+    most once a UTC day.
     """
     if full:
         return await _whole_public_history()
@@ -153,26 +141,22 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
     async with outbound.async_client() as client:
-        for name, fetch, first, size in (
-            ("bitstamp", _bitstamp, FIRST_PRICE_DAY, BITSTAMP_BLOCK),
-            ("coinbase", _coinbase, COINBASE_FIRST_DAY, COINBASE_BLOCK),
-        ):
-            got = await _every_block(client, name, fetch, first, size)
-            if got:
-                logger.info("BTC price history from public site %s: %d days", name, len(got))
-                return _kept(got, name), name == "bitstamp"
+        got = await _bitstamp_blocks(client)
+    if got:
+        logger.info("BTC price history from public site bitstamp: %d days", len(got))
+        return _kept(got, "bitstamp"), True
     _state["full_failed_at"] = now
     return {}, False
 
 
-async def _every_block(client, name: str, fetch, first: date, size: int) -> dict[date, Decimal]:
-    """Every block from one site, or nothing when one of them fails."""
+async def _bitstamp_blocks(client) -> dict[date, Decimal]:
+    """Every block of Bitstamp's daily history, or nothing when one of them fails."""
     got: dict[date, Decimal] = {}
     try:
-        for start in _blocks(first, size):
-            got.update(await fetch(client, start))
+        for start in _blocks(FIRST_PRICE_DAY, BITSTAMP_BLOCK):
+            got.update(await _bitstamp(client, start))
     except Exception as exc:
-        logger.info("BTC price history from %s failed: %s", name, exc)
+        logger.info("BTC price history from bitstamp failed: %s", exc)
         return {}
     return got
 
@@ -182,7 +166,7 @@ async def _latest_public_prices() -> tuple[dict[date, tuple], bool]:
     if _state["latest_day"] == today or now - _state["latest_failed_at"] < RETRY_SECONDS:
         return {}, False
     async with outbound.async_client() as client:
-        for name, fetch in (("bitstamp", _bitstamp), ("kraken", _kraken_latest), ("coinbase", _coinbase)):
+        for name, fetch in (("bitstamp", _bitstamp), ("kraken", _kraken_latest)):
             try:
                 got = _kept(await fetch(client), name)
             except Exception as exc:
