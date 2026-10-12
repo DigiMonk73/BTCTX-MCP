@@ -407,14 +407,18 @@ Start from the `clean` snapshot.
     the expected-figures table.
   - The service log has a line "BTC price history from public site …: N
     days".
-  - Repeat the first GLD-4 deposit (Income, blank basis). Expect: saved
-    with Cost Basis = 0.001 × the price when its hour began:
-    `GET $API/bitcoin/price/history?at=<its time, ISO 8601>` gives that
-    price with `"moment": "hour"` (the hourly history downloads in the
-    background after the choice above, about a minute; until it's in, the
-    answer is the day's price with `"moment": "day"`, so wait and ask
-    again), and it's within a few percent of the Sats Converter's **Date**
-    mode price for 2025-07-01. Delete it.
+  - The hourly price history downloads in the background after the choice
+    above (about a minute). Logged in, ask
+    `GET $API/bitcoin/price/history?at=2025-07-01T16:00:00Z` (12:00 New
+    York, GLD-4's time) every 30 seconds until it answers `"moment":
+    "hour"`; it's within a few percent of the Sats Converter's **Date** mode
+    price for 2025-07-01. If after five minutes it still says `"day"` and
+    the service log has "Hourly BTC prices for 2025 from Bitstamp aren't
+    used", that's by design (Bitstamp's data no longer gives the shipped
+    fingerprint): use the `"day"` answer below, and note it.
+  - Then repeat the first GLD-4 deposit (Income, blank basis). Expect:
+    saved with Cost Basis = 0.001 × that price and `price_moment` equal to
+    the answer's `moment`. Delete it.
   - The Complete Tax Report now values the holdings (RPT-6).
   - Ledger Review > **Check again**. Expect exactly one item: "Income and
     rebate deposits valued far from that day's price: 1", which is #9. Its

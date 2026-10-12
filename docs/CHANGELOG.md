@@ -112,7 +112,7 @@ All notable changes to BitcoinTX are documented in this file.
 - **The form and the AI connector say "the price when that hour began"**
   (#144). The form's hints for a blank income value, Spent proceeds and a
   fee's value say so, a stored fee value says which price it came from,
-  and a gift's or donation's **Refresh** fills its value at that hour's
+  and a gift's, donation's or lost bitcoin's **Refresh** fills its value at that hour's
   price (it asked for the day's). The price API takes a time
   (`/api/bitcoin/price/history?at=…`, answering which price it used), and
   the AI connector's `get_btc_price` takes a transaction's time and gives

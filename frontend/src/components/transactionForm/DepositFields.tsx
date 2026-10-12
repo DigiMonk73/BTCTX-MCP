@@ -5,6 +5,10 @@ import { takesOriginalDate } from "../../utils/transactionForm";
 
 // Valued at receipt: the server fills a blank basis from that hour's price
 const VALUED_SOURCES = ["Income", "Interest", "Reward", "Rebate"];
+// Where there's no hourly price (before 2013, or an own mempool server
+// without the public fallback, for hours before its record), the day's
+const BLANK_IS_PRICED =
+  "Leave blank to use the BTC price when that hour began (that day's, where there's no hourly price).";
 // What tells Reward (income) and Rebate (not income, #98) apart
 const SOURCE_HINTS: Record<string, string> = {
   Reward: "Mining, staking, or a sign-up or referral bonus: income.",
@@ -14,10 +18,10 @@ const SOURCE_HINTS: Record<string, string> = {
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115). */
 function basisHint(source: string | undefined, valued: boolean): string {
   if (source === "Rebate") {
-    return "Its USD value when you received it (its cost basis, not income). Leave blank to use the BTC price when that hour began.";
+    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED}`;
   }
   if (valued) {
-    return "Its USD value when you received it (also your income). Leave blank to use the BTC price when that hour began.";
+    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED}`;
   }
   if (source === "Gift") {
     return "The giver's cost basis: what they paid for these coins (type 0 if unknown).";

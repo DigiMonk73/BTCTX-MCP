@@ -198,7 +198,7 @@ declare global {
     gross_proceeds_usd?: number;
     broker_reporting?: BrokerReporting | null;
     // A BTC fee's USD value: a number is kept as typed; null = go back to the
-    // day's price; left out = keep what's stored (or price a new fee).
+    // price (the hour's); left out = keep what's stored (or price a new fee).
     fee_usd?: number | null;
     // A My BTC / Gift deposit's date originally acquired (ISO 8601); null = the deposit's date
     acquired_at?: string | null;

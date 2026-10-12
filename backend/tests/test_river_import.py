@@ -17,7 +17,7 @@ from typing import Dict, List
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.tests.conftest import stub_daily_prices
+from backend.tests.conftest import stub_daily_prices, stub_prices_at
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -521,3 +521,20 @@ def test_an_autofilled_basis_left_as_it_was_keeps_its_mark_and_moment():
     execute(rows)
     interest = next(t for t in CLIENT.get("/api/transactions").json() if t["source"] == "Interest")
     assert interest["cost_basis_from_price"] is True and interest["price_moment"] == "day"
+
+
+
+def test_an_autofilled_basis_at_the_hour_keeps_that_moment(monkeypatch):
+    """The preview's moment travels through the page and back (#144)."""
+    stub_prices_at(monkeypatch, lambda when: 100000)
+    delete_all_transactions()
+    data = preview(SYNTHETIC_ROWS)
+    new = [p for p in data["proposals"] if p["status"] == "new"]
+    rows = proposals_to_execute_rows(data)
+    for p, row in zip(new, rows):
+        if p["basis_autofilled"]:
+            assert p["price_moment"] == "hour"
+            row.update(cost_basis_typed="no", price_moment=p["price_moment"])
+    execute(rows)
+    interest = next(t for t in CLIENT.get("/api/transactions").json() if t["source"] == "Interest")
+    assert interest["price_moment"] == "hour"

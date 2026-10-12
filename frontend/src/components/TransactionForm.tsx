@@ -5,7 +5,7 @@ import api from "../api";
 import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { parseDecimal, parseTransaction } from "../utils/format";
-import { localDatetimeToIso, mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
+import { fmvPriceRequest, mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
 import { getTaxTimezone } from "../utils/taxTimezone";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
@@ -95,16 +95,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     reset({ ...getValues(), type: newType, ...TYPE_DEFAULTS });
   };
 
-  // The FMV of a gift, donation or loss: amount x the price when its hour
-  // began (the server's, as for every value it fills; or the live price for
-  // a time not yet come).
+  // The FMV of a gift, donation or loss: amount x the price that values its
+  // time (fmvPriceRequest).
   const handleRefreshFmv = async () => {
     try {
       const formVals = getValues();
-      const txDate = new Date(localDatetimeToIso(formVals.timestamp));
-      const priceResponse = txDate < new Date()
-        ? await api.get("/bitcoin/price/history", { params: { at: txDate.toISOString() } })
-        : await api.get("/bitcoin/price");
+      const request = fmvPriceRequest(formVals.timestamp);
+      const priceResponse = await api.get(request.url, { params: request.params });
 
       const data = priceResponse.data;
       const btcPrice = data?.USD ? parseDecimal(data.USD) : 0;

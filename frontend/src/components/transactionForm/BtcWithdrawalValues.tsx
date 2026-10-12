@@ -26,7 +26,8 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean; onRefreshFmv: () => void
         />
         {spent && (proceeds == null || Number.isNaN(proceeds)) && (
           <small className="field-hint">
-            Leave blank to use the BTC price when that hour began as the proceeds.
+            Leave blank to use the BTC price when that hour began as the proceeds (that day's, where
+            there's no hourly price).
           </small>
         )}
         {spent && (proceeds ?? 0) > 0 && (fee ?? 0) > 0 && (

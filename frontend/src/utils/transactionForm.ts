@@ -7,6 +7,17 @@ export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
 }
 
+/** Where a form value's FMV Refresh asks for the price: for a moment past,
+ * the price the server values that moment at (its hour's, as for every value
+ * it fills); for one not yet come, the live price. */
+export function fmvPriceRequest(
+  localDatetime: string,
+  now = new Date(),
+): { url: string; params?: { at: string } } {
+  const at = localDatetimeToIso(localDatetime);
+  return new Date(at) < now ? { url: "/bitcoin/price/history", params: { at } } : { url: "/bitcoin/price" };
+}
+
 /**
  * The inverse of localDatetimeToIso: a moment as this computer's wall-clock
  * time for a "datetime-local" input (e.g. "2026-07-31T15:16:07"), seconds

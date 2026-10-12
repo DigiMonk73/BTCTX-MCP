@@ -384,6 +384,9 @@ def test_the_price_route_gives_the_price_a_moment_is_valued_at(auth_client):
     assert r.status_code == 200, r.text
     assert r.json() == {"USD": float(price_of(at("2026-04-01T14:00:00Z"))), "moment": "hour",
                         "at": "2026-04-01T14:00:00Z"}
-    for bad in ("tomorrow", "2999-01-01T00:00:00Z"):
+    for bad in ("tomorrow", "2999-01-01T00:00:00Z", "0001-01-01T00:00:00+14:00"):
         assert auth_client.get("/api/bitcoin/price/history", params={"at": bad}).status_code == 400
+    # an offset's "+" sent unencoded (a space), and a lowercase z
+    for sent in ("2026-04-01T16:47:00 02:00", "2026-04-01T14:47:00z"):
+        assert auth_client.get("/api/bitcoin/price/history", params={"at": sent}).json()["at"] == "2026-04-01T14:00:00Z"
     assert auth_client.get("/api/bitcoin/price/history").status_code == 400

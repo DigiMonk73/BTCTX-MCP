@@ -146,7 +146,7 @@ test.describe("withdrawals", () => {
     await page.getByLabel("Currency").selectOption("BTC");
     await page.getByLabel("Purpose").selectOption("Spent");
     await expect(page.getByLabel("Proceeds (USD)")).toHaveValue("");
-    await expect(page.getByText("Leave blank to use the BTC price when that hour began as the proceeds.")).toBeVisible();
+    await expect(page.getByText(/Leave blank to use the BTC price when that hour began as the proceeds/)).toBeVisible();
     await page.getByLabel("Proceeds (USD)").fill("0");
     await expect(page.getByText(/You selected "Spent" but "Proceeds \(USD\)" is 0/)).toBeVisible();
   });

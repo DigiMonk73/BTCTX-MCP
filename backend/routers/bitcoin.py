@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -46,12 +47,18 @@ def get_historical_bitcoin_price(date: str | None = None, at: str | None = None,
     return {"USD": float(price)}
 
 
+# An offset's "+" sent unencoded arrives as a space: "…14:47:00 02:00"
+_SPACED_OFFSET = re.compile(r"(\d\d:\d\d(?::\d\d(?:\.\d+)?)?) (\d\d:?\d\d)$")
+
+
 def _price_at(at: str, db: Session) -> dict:
+    text = _SPACED_OFFSET.sub(r"\1+\2", at.strip()).replace("z", "Z").replace("Z", "+00:00")
     try:
-        when = datetime.fromisoformat(at.replace("Z", "+00:00"))
-    except ValueError:
+        when = datetime.fromisoformat(text)
+        when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+        when.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
         raise HTTPException(status_code=400, detail="Invalid time. Use ISO 8601, e.g. 2025-03-01T14:47:00Z.")
-    when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
     if when > datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Time cannot be in the future.")
     priced = hourly_prices.price_at(db, when)

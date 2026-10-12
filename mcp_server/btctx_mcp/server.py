@@ -348,17 +348,15 @@ async def list_transactions(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 @with_version_notice
 async def get_btc_price(date: str | None = None) -> ToolResult:
-    """BTC price in USD. For a transaction, pass its time as an ISO 8601 date and time
-    with its offset (e.g. 2025-07-31T21:05:00-05:00): you get the price BitcoinTX itself
-    uses for income, spending and fees, the price when that hour began (UTC), or that
-    day's 00:00 UTC price where it has no hourly one ("moment" says which). A date alone
-    (YYYY-MM-DD) gives that UTC day's 00:00 price; nothing gives the price right now.
-    Use it to value income, spending, or gifts when the user doesn't know the USD
-    amount."""
-    if date and "T" in date:
-        data = await _call("GET", "/api/bitcoin/price/history", params={"at": date})
-    elif date:
-        data = await _call("GET", "/api/bitcoin/price/history", params={"date": date})
+    """BTC price in USD. For a transaction, pass its date and time as you would to
+    add_transactions (e.g. 2025-07-31T21:05:00, in the tax timezone unless an offset is
+    given): you get the price BitcoinTX itself uses for income, spending and fees, the
+    price when that hour began (UTC), or that day's 00:00 UTC price where it has no hourly
+    one ("moment" says which). A date alone (YYYY-MM-DD) gives that UTC day's 00:00
+    price; nothing gives the price right now. Use it to value income, spending, or gifts
+    when the user doesn't know the USD amount."""
+    if date:
+        data = await _call("GET", "/api/bitcoin/price/history", params=await _price_query(date))
     else:
         data = await _call("GET", "/api/bitcoin/price")
     result = {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
@@ -433,11 +431,12 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
-    An Income/Interest/Reward/Rebate deposit's value that came from the price, and a Spent's
-    proceeds that did, are priced again (at the hour) when you change the amount, the time's
-    hour or the account, or move the deposit there from another source (a switch among those
-    four keeps it; sending back the value it already has doesn't make it typed); a value the
-    user typed is kept.
+    An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
+    (at the hour) when you change its amount, the time's hour or the account, or move it there
+    from another source (a switch among those four keeps it; sending back the value it already
+    has doesn't make it typed); a Spent's proceeds that came from the price, when you change
+    its amount or the time's hour, or send them blank (a change of purpose makes them typed).
+    A value the user typed is kept.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
     date; "none" clears it (the holding period then starts at the deposit)."""
     changes: dict[str, Any] = {}
@@ -472,6 +471,18 @@ async def update_transaction(
 
 def _text(value: Decimal | None) -> str | None:
     return None if value is None else format(value, "f")
+
+
+async def _price_query(date: str) -> dict[str, str]:
+    """A date alone asks for that UTC day's price; a date and time, read as
+    add_transactions reads it (the tax timezone unless an offset is given),
+    for the price of its moment."""
+    parsed = _parse_date_text(date.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{date}'.")
+    if parsed[1]:
+        return {"date": parsed[0].date().isoformat()}
+    return {"at": _in_utc(parsed, await _tax_zone(), time(12)).isoformat()}
 
 
 async def _timestamp_from(date: str) -> str:

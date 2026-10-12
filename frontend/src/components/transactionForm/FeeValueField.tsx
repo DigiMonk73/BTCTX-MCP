@@ -28,7 +28,8 @@ const FeeValueField: React.FC = () => {
       <small className="field-hint">
         {stored != null && !manual
           ? `Stored: ${formatUsd(stored)} (fee × ${moment} BTC price). Type a value to replace it.`
-          : "Leave blank to use fee × the BTC price when that hour began, or type what the fee was worth."}
+          : "Leave blank to use fee × the BTC price when that hour began (that day's, where there's no "
+            + "hourly price), or type what the fee was worth."}
       </small>
     </div>
   );
