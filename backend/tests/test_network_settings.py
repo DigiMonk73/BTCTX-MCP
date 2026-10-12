@@ -608,7 +608,8 @@ def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, r
     r = auth_client.put("/api/settings/network", json=PUBLIC)
     assert r.status_code == 409 and r.json()["detail"] == f"The price choice is set in {where}, so it can't be changed here."
     r = auth_client.get("/api/bitcoin/price")
-    assert r.status_code == 503 and r.json()["detail"] == f"You chose Nobody for prices, so none is asked ({where})."
+    assert r.status_code == 503 and r.json()["detail"] == (
+        f"You chose Nobody for prices, so none is asked. To change that: {where}.")
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
     r = auth_client.get("/api/bitcoin/price")
     assert r.status_code == 502 and r.json()["detail"] == (
@@ -651,6 +652,6 @@ def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
     assert r.status_code == 422 and r.json()["detail"] == (
-        "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked "
-        "(Settings → Privacy & network). Enter the USD value yourself.")
+        "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked. "
+        "To change that: Settings → Privacy & network. Enter the USD value yourself.")
     assert "))" not in r.json()["detail"] and requests_seen == []

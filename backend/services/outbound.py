@@ -317,7 +317,7 @@ def refuse_public() -> HTTPException:
         detail = ("This server's price settings aren't valid, so nothing is asked. "
                   + (f"Fix them in {where}." if host() == "startos" else "Fix its BTCTX_ settings: the log says which."))
     elif s.price_source == "off":
-        detail = f"You chose Nobody for prices, so none is asked ({where})."
+        detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
     else:
         detail = f"Prices: not chosen yet. Choose where BitcoinTX gets them in {where}."
     return HTTPException(status_code=503, detail=detail)
