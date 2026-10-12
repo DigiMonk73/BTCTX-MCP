@@ -54,10 +54,13 @@ async def _from_own_node(path: str, parse: Callable):
         async with outbound.own_node_client() as client:
             resp = await client.get(base + path)
             resp.raise_for_status()
-            return parse(resp)
+            value = parse(resp)
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
         return None
+    if value is None:
+        logger.warning("Own mempool server %s%s answered without a price (yet)", base, path)
+    return value
 
 
 async def _first_public(urls_and_parsers, what: str):
