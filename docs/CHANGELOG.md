@@ -139,6 +139,37 @@ All notable changes to BitcoinTX are documented in this file.
   mempool server answers -1 until it has one) is skipped instead of shown.
   Prices already stored don't change. Settings, the
   READMEs and StartOS's Price Source & Privacy action list the sites asked.
+- **Values BitcoinTX fills in from the BTC price now use the price when the
+  transaction's hour began** (#144, tax figures; the third of five pull
+  requests). That's an income or rebate deposit's value left blank, a
+  Spent withdrawal's proceeds left blank, a BTC network fee's value, and
+  what the AI connector's and River imports fill in. IRS rules value bitcoin
+  at the date and time of each transaction (Treas. Reg. §1.1001-7(b)(3));
+  the day's midnight (UTC) price used so far could be hours from it (on
+  2025–2026 prices, about 1% off on average, the hour about 0.24%). The
+  price is Bitstamp's opening price for the UTC hour (the hourly history
+  above) or, for later hours, your mempool server's hourly record or
+  Bitstamp's latest hours; where there's none (before 2013, or no source
+  answering), that day's 00:00 UTC price as before. An inheritance's value
+  (#154) stays at its date of death's day price: a date has no hour. Each
+  transaction now records which moment its priced values came from
+  (`price_moment`: hour or day), and a Spent's proceeds from the price are
+  marked like an income value's, so an edit of its amount or hour prices
+  them again.
+  - **Nothing already saved changes.** Values priced before this release
+    stay at the day's price, marked "day". An edit that changes what a
+    priced value depends on (its amount, account, type, or now its hour
+    rather than its day) prices it again, at the hour; on a spend whose
+    other priced value (its proceeds, or its network fee's value) keeps the
+    day's price, at the day, so a transaction's values share one price
+    (Ledger Review offers both at the hour). A recalculation never
+    re-prices anything. A value you typed is never touched.
+  - An entry dated today whose hour hasn't begun (a date alone means noon
+    in the tax timezone) takes that day's price, marked "day"; a later
+    day has no price, as before.
+  - The CSV export carries the marks (two new columns, `proceeds_typed`
+    and `price_moment`); an older file imports as before, its priced
+    values counted as priced at the day.
 - **The live price says where it came from and when** (#145, the price
   source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
   `kraken` or `bitstamp`) and `at`, so the screens can say when your

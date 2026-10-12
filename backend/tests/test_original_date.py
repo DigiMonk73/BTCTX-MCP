@@ -134,7 +134,8 @@ def test_the_csv_export_and_import_carry_the_date(auth_client, test_engine):
     deposit(auth_client, acquired_at=TWO_YEARS_BEFORE)
     export = auth_client.get("/api/backup/csv")
     header, row = export.text.splitlines()[:2]
-    assert header.endswith(",acquired_at") and row.endswith(",2023-03-14T12:00:00Z")
+    column = header.split(",").index("acquired_at")
+    assert row.split(",")[column] == "2023-03-14T12:00:00Z"
     auth_client.delete("/api/transactions/delete_all")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
@@ -204,7 +205,8 @@ def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):
     con = sqlite3.connect(str(db))
     after = con.execute("SELECT * FROM transactions").fetchall()
     con.close()
-    assert [row[:-1] for row in after] == before and after[0][-1] is None
+    n = len(before[0])  # 0007's column comes next; later migrations add theirs after it
+    assert [row[:n] for row in after] == before and after[0][n] is None
 
 
 def test_coins_acquired_the_morning_of_the_deposit_are_allowed(auth_client):

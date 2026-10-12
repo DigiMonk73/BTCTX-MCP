@@ -10,6 +10,7 @@ import pytest
 import shutil
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -76,6 +77,20 @@ def price_finder(price_for):
 
 def stub_daily_prices(monkeypatch, price_for):
     monkeypatch.setattr("backend.services.price_history.find_prices", price_finder(price_for))
+
+
+def stub_prices_at(monkeypatch, price_for, moment="hour"):
+    """Every valuation (services/hourly_prices.price_at) gets price_for(when)
+    as its hour's price (or its day's, with moment="day"), asked afresh each
+    time: nothing is stored, so a test sees whether a value is priced again."""
+    from backend.services import hourly_prices
+
+    def price_at(db, when):
+        hour = hourly_prices.hour_of(when)
+        at = datetime.fromtimestamp(hour if moment == "hour" else hour // 86400 * 86400, tz=timezone.utc)
+        return hourly_prices.Priced(Decimal(str(price_for(when))).quantize(Decimal("0.01")), moment, at)
+
+    monkeypatch.setattr(hourly_prices, "price_at", price_at)
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -95,6 +95,7 @@ class RiverProposal:
     type_choices: list[str] = field(default_factory=list)
     funding_choices: list[str] = field(default_factory=list)
     basis_autofilled: bool = False
+    price_moment: str | None = None  # the autofilled basis's price: "hour" or "day"
     status: str = STATUS_NEW
     matched_tx_id: int | None = None
     discrepancy: str | None = None
@@ -339,7 +340,7 @@ class _RiverAdapter:
     def income(self, row: RiverRow) -> RiverProposal:
         # BTC paid by River (interest on the cash balance too, which River
         # pays in BTC). Its basis, the value at receipt, is filled from the
-        # day's price by the router; editable.
+        # hour's price by the router; editable.
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
             type="Deposit", from_account_id=ACCOUNT_EXTERNAL,
