@@ -302,6 +302,7 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   await card.getByRole("button", { name: "Trust this server" }).click();
   await confirm.getByRole("button", { name: "Trust", exact: true }).click();
   await expect(card).toContainText("Trusted for your Mempool: start9 Local Root CA");
+  await expect(card.getByRole("button", { name: "Forget this server's certificate" })).toBeFocused();
   await expect(card.getByRole("button", { name: "Trust this server" })).toHaveCount(0);
   await card.getByRole("button", { name: "Forget this server's certificate" }).click();
   await expect(card.getByRole("button", { name: "Trust this server" })).toBeVisible();

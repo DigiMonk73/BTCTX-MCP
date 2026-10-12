@@ -326,18 +326,21 @@ def _trusted_root(db: Session, mempool_url: str | None) -> str | None:
         return None
     if not isinstance(stored, dict) or not mempool_url or stored.get("url") != mempool_url:
         return None
+    pem = stored.get("pem")
     try:
-        trusting(stored.get("pem") or "")
+        if not isinstance(pem, str) or pem.count("-----BEGIN") != 1 or "-----BEGIN CERTIFICATE-----" not in pem:
+            raise ValueError("not one certificate")
+        trusting(pem)
     except (ssl.SSLError, ValueError, TypeError):
-        return None  # not a certificate (a damaged row): trust nothing
-    return stored["pem"]
+        return None  # not exactly one certificate (a damaged row): trust nothing
+    return pem
 
 
 def connection_host(url: str) -> str | None:
     """The host httpx connects to for this address (#188: judged, not urlparse's)."""
     try:
         return httpx.URL(url).host
-    except httpx.InvalidURL:
+    except (httpx.InvalidURL, ValueError):  # ValueError: idna's, e.g. "xn--zz"
         return None
 
 

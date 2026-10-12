@@ -50,16 +50,12 @@ class Root:
 def private_address(url: str | None) -> bool:
     """
     Whether a Mempool address is an https home-network one (the only kind
-    offered). Judged on the host the connection will use: plain ASCII, the
-    same for urlparse and httpx (no Unicode dots: "evil。com" connects to
-    evil.com), and a number the resolver reads as an IPv4 address
-    ("134744072", "0x08080808" are 8.8.8.8) is that address, not a name.
+    offered). Judged on the host the connection will use (_plain_host), and
+    a number the resolver reads as an IPv4 address ("134744072",
+    "0x08080808" are 8.8.8.8) is that address, not a one-word name.
     """
-    parsed = urlparse(url or "")
-    host = (parsed.hostname or "").rstrip(".").lower()
-    if parsed.scheme != "https" or not host or not host.isascii():
-        return False
-    if (outbound.connection_host(url) or "").rstrip(".").lower() != host:
+    host = _plain_host(url)
+    if host is None:
         return False
     try:
         ip = ipaddress.ip_address(host)
@@ -71,6 +67,24 @@ def private_address(url: str | None) -> bool:
         except OSError:
             return True
     return any(ip in network for network in PRIVATE_NETWORKS)
+
+
+def _plain_host(url: str | None) -> str | None:
+    """
+    An https address's host, when nothing about it is read two ways: plain
+    ASCII and the same for urlparse and httpx (no Unicode dots: "evil。com"
+    connects to evil.com), no trailing dot ("10.0.0.1." is a name to the
+    resolver), a port urlparse can read ("：443", 99999 aren't). Else None.
+    """
+    parsed = urlparse(url or "")
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not host or not host.isascii() or host.endswith("."):
+        return None
+    try:
+        parsed.port  # noqa: B018 (raises for a port it can't read)
+    except ValueError:
+        return None
+    return host if (outbound.connection_host(url) or "").lower() == host else None
 
 
 def root_of(pem: str) -> Root:

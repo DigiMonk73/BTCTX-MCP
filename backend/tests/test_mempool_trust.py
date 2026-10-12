@@ -168,6 +168,7 @@ def test_a_server_that_doesnt_show_its_root_cant_be_trusted(auth_client, tmp_pat
     "http://umbrel.local", "https://abc.onion",
     # review of #193: the resolver's reading, not a name's look
     "https://134744072", "https://0x08080808", "https://0", "https://evil。com", "https://evil．com",
+    "https://xn--zz", "https://10.0.0.1.", "https://box.local:４４３", "https://box.local:99999",
 ])
 def test_a_public_address_is_never_offered(auth_client, monkeypatch, url):
     """Never for a public internet name, so it can't get around a real certificate problem."""
@@ -218,5 +219,31 @@ def test_a_restore_keeps_this_installs_trusted_root(auth_client, home_server, te
         db.execute(text("DELETE FROM app_settings WHERE key = :k"), {"k": outbound.TRUSTED_ROOT_KEY})
         db.commit()  # what restoring a backup without it does
         assert outbound.carry_over(db, before).mempool_root is not None
+    finally:
+        db.close()
+
+
+def test_an_address_httpx_cant_read_never_breaks_the_settings(auth_client, monkeypatch):
+    """Re-check of #193: "xn--zz" is accepted as an address but idna refuses it."""
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(
+        price_source="mempool", mempool_url="https://xn--zz"))
+    r = auth_client.get(NETWORK)
+    assert r.status_code == 200 and r.json()["mempool_trustable"] is False
+
+
+def test_a_damaged_row_trusts_nothing(test_engine):
+    """A row that isn't exactly one certificate (two, or a key before one) trusts nothing."""
+    root_key = ec.generate_private_key(ec.SECP256R1())
+    root = _cert(_name("x Local Root CA"), _name("x Local Root CA"), root_key, root_key, ca=True)
+    one = _pem(root).decode()
+    key = root_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                 serialization.NoEncryption()).decode()
+    db = sessionmaker(bind=test_engine)()
+    try:
+        for pem, kept in ((one, True), (one + one, False), (key + one, False), ("junk", False), (None, False)):
+            outbound._set(db, outbound.TRUSTED_ROOT_KEY, json.dumps({"url": "https://box.local", "pem": pem}))
+            assert (outbound._trusted_root(db, "https://box.local") is not None) is kept, pem
+        outbound._set(db, outbound.TRUSTED_ROOT_KEY, None)
+        db.commit()
     finally:
         db.close()

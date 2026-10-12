@@ -37,12 +37,18 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
   // Keyboard focus follows the step: to Trust when the details show, back on Cancel
   const trustButton = useRef<HTMLButtonElement>(null);
   const lookButton = useRef<HTMLButtonElement>(null);
+  const forgetButton = useRef<HTMLButtonElement>(null);
   const returning = useRef(false);
+  const justTrusted = useRef(false);
   useEffect(() => {
     if (offer) trustButton.current?.focus();
     else if (returning.current) lookButton.current?.focus();
     returning.current = false;
   }, [offer]);
+  useEffect(() => {
+    if (justTrusted.current) forgetButton.current?.focus(); // where the trust can be undone
+    justTrusted.current = false;
+  }, [saved.mempool_certificate]);
   if (saved.price_source !== "mempool") return null;
 
   const run = async (work: () => Promise<void>, fallback: string) => {
@@ -58,6 +64,7 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
   const look = () => run(async () => setOffer((await api.get<Offer>(ROUTE)).data), "Could not reach your Mempool.");
   const trust = (sha256: string) =>
     run(async () => {
+      justTrusted.current = true;
       onChange((await api.put<NetworkSettingsData>(ROUTE, { sha256 })).data);
       setOffer(null);
       toast.success("Trusted: BitcoinTX now uses your Mempool.");
@@ -72,7 +79,7 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
         <p className="price-help">
           Trusted for your Mempool: {trusted.name} <span className="price-fingerprint">(SHA-256 {trusted.sha256})</span>
         </p>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={forget} disabled={busy}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={forget} disabled={busy} ref={forgetButton}>
           Forget this server's certificate
         </button>
       </div>

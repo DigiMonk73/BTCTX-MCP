@@ -477,7 +477,8 @@ OWN_REQUESTS_ALLOWED = {"services/reports/draft_forms.py"}
 
 
 # #188: a raw connection (a TLS handshake) is an outside request too
-RAW_CONNECTIONS = ("open_connection", "create_connection", "wrap_socket", "wrap_bio", "start_tls")
+RAW_CONNECTIONS = ("open_connection", "create_connection", "wrap_socket", "wrap_bio", "start_tls",
+                   "get_server_certificate", "HTTPConnection", "HTTPSConnection")
 
 
 def test_no_other_module_makes_its_own_http_client():
@@ -502,6 +503,7 @@ def test_no_other_module_makes_its_own_http_client():
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
                 if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") or n.startswith("urllib.request")
+                       or n == "http.client" or (getattr(node, "module", None) == "socket" and n == "socket")
                        or (getattr(node, "module", None) == "urllib" and n == "request") for n in names):
                     offenders.append(f"{where}:{node.lineno} imports {names}")
     assert [o for o in offenders if o.split(":")[0] not in OWN_REQUESTS_ALLOWED] == []
