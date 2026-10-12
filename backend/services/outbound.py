@@ -207,7 +207,7 @@ def carry_over(db: Session, before: dict) -> NetworkSettings:
 def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     """
     Read the settings (at startup, after a restore): the server's, else the
-    database's. `upgrade=False` (a command-line run, which on StartOS lacks
+    database's. `upgrade=False` (a command-line run, which on StartOS may lack
     the server's variables) never works out a pre-1.1.0 install's choice:
     the app's start does that (#134).
     """
@@ -215,7 +215,12 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     managed = from_env()
     if managed:
         _current = managed
-        _mark_unchosen(db)
+        try:
+            _mark_unchosen(db)
+        except Exception:
+            # The server's settings apply all the same; only the note is missing.
+            db.rollback()
+            logger.exception("Could not record that no price source was chosen in the app")
         return _current
     source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
     _current = NetworkSettings(

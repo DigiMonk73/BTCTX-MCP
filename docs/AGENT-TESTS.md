@@ -695,8 +695,11 @@ Start from the `clean` snapshot.
   Expect: refused, or a service that won't start with "database schema is
   …" in its health check. Record which. Sideload the new one again and
   expect every figure intact.
-- **UPG-5** (#134) The source is still set by the action only (UPG-1), with
-  prices stored. Action **Price Source & Privacy**: **Choose in
+- **UPG-5** (#134) The source is still set by the action only (UPG-1). No
+  `backend.cli` may have been run by hand in Track B before this step: under
+  the previous release that saves a choice. Logged in,
+  `GET $API/bitcoin/price/history?date=2024-12-31`: expect a USD value, so a
+  price is stored. Action **Price Source & Privacy**: **Choose in
   BitcoinTX**. Once the service has restarted, expect the panel "Where
   should BitcoinTX get Bitcoin prices?" on every page, and
   `GET $API/settings/network` (logged in) to say `"price_source":

@@ -175,6 +175,16 @@ def test_switching_to_choose_in_bitcointx_asks_the_owner(monkeypatch, server, st
             assert db.execute(text("SELECT value FROM app_settings WHERE key='price_source'")).scalar() == "unset"
 
 
+def test_the_server_settings_apply_even_if_that_note_cant_be_saved(monkeypatch):
+    def fails(*_):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setenv("BTCTX_PRICE_SOURCE", "off")
+    monkeypatch.setattr(outbound, "_set", fails)
+    with fresh_db()() as db:
+        assert outbound.load(db) == outbound.NetworkSettings(price_source="off", managed=True)
+
+
 @pytest.mark.parametrize("old, expected", OLDER_INSTALLS)
 def test_older_installs_keep_what_they_did_after_the_server_set_the_source(monkeypatch, old, expected):
     """A pre-1.1.0 install's own settings are its choice: once the server
