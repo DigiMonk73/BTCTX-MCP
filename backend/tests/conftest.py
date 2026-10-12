@@ -100,7 +100,7 @@ def _stub_price_apis():
         return
 
     async def current():
-        return {"USD": STUB_CURRENT_USD}
+        return {"USD": STUB_CURRENT_USD, "source": "kraken", "at": "2026-01-01T00:00:00Z"}
 
     async def no_hours(hour, files_end, stored):
         return {}

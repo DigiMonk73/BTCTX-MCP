@@ -226,6 +226,16 @@ All notable changes to BitcoinTX are documented in this file.
     unpriced, as before.
   - With a donation, the gifts section says a deduction over $5,000 needs
     a qualified appraisal (IRS digital asset FAQ, Q78).
+- **The live price says where it came from and when** (#145, the price
+  source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
+  `kraken` or `bitstamp`) and `at`, so the screens can say when your
+  Mempool's backup answered instead. The price messages use the new words:
+  "Nobody" for the choice once called Off, "not chosen yet", "your
+  Mempool" and "the backup (public price sites)", and they say where to
+  change a choice the server sets (StartOS's Price Source & Privacy action
+  once the package passes the new `BTCTX_HOST=startos`;
+  `GET /api/settings/network` adds `host` and `invalid`). Invalid server
+  settings say so instead of "Price lookups are off".
 
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing

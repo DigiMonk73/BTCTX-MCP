@@ -134,7 +134,16 @@ start upgrades a pre-1.1.0 install).
 | `BTCTX_MEMPOOL_FALLBACK` | `on`/`off` (also true/false, 1/0, yes/no): ask public sites when the mempool server can't answer |
 | `BTCTX_PROXY_URL` | proxy for public sites, e.g. `socks5h://10.0.3.1:9050` |
 
-An invalid value turns price lookups off (an error in the log says which).
+An invalid value turns price lookups off (an error in the log says which;
+`GET /api/settings/network` says `"invalid": true`).
+
+`BTCTX_HOST` (`startos`; new in the stable candidate, #145) says where
+BitcoinTX runs. It changes only words: where a server-set price choice is
+changed ("StartOS's Price Source & Privacy action" rather than words that
+fit any server). Without it the Mac app is `mac` (its launcher's
+`BTCTX_DESKTOP`) and anything else `server`; `GET /api/settings/network`
+gives it as `host`.
+
 The StartOS package sets them from its Price Source & Privacy action, with
 Mempool's and Tor's bridge addresses (`startos/startos/priceSource.ts`; a test
 checks the names agree). Docker users may set them the same way.
@@ -240,4 +249,5 @@ curl -b jar -X POST -F password=test123 -F file=@backup.btx http://localhost:808
 | Health | `GET /api/health` (200 = database at current schema) |
 | Maintenance | `python -m backend.cli migrate \| set-password \| recalculate` |
 | Price settings | `BTCTX_PRICE_SOURCE`, `BTCTX_MEMPOOL_URL`, `BTCTX_MEMPOOL_FALLBACK`, `BTCTX_PROXY_URL` (optional) |
+| Where it runs | `BTCTX_HOST=startos` (optional, words only) |
 | MCP server | Set `BTCTX_URL` to the StartOS address; see [mcp_server/README.md](../mcp_server/README.md) |

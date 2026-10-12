@@ -107,6 +107,10 @@ declare global {
   // The live price
   interface LiveBtcPriceResponse {
     USD: number;
+    /** Where it came from: "mempool", or a public site ("kraken", "bitstamp"). */
+    source?: string;
+    /** When it arrived (UTC, "…Z"). */
+    at?: string;
   }
 
   // Transactions

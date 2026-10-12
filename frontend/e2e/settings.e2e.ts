@@ -399,7 +399,7 @@ test("privacy & network: price source, mempool fallback, proxy; off shows on the
   await expect(page.getByText("Privacy & network settings saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
     price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
-    proxy_url: "socks5h://127.0.0.1:9050", managed: false,
+    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, host: "server",
   });
 
   await source.selectOption("off");

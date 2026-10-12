@@ -23,7 +23,8 @@ stored settings, which stay untouched underneath (an install with none gets
 "unset": _mark_unchosen), and Settings shows them read-only ("managed"). A
 mempool choice may come without an address (StartOS while Mempool isn't
 installed): then nothing answers but the fallback. An invalid value turns
-price lookups off rather than guessing.
+price lookups off rather than guessing ("invalid"). BTCTX_HOST=startos only
+changes words: where a server-set choice is changed (host()).
 
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
@@ -42,6 +43,8 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from backend.services.desktop import is_desktop
+
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 10.0
@@ -54,7 +57,13 @@ ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
     "BTCTX_PRICE_SOURCE", "BTCTX_MEMPOOL_FALLBACK", "BTCTX_MEMPOOL_URL", "BTCTX_PROXY_URL")
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
 SETTINGS_PAGE = "Settings → Privacy & network"
+SET_IN_STARTOS = "StartOS's Price Source & Privacy action"
+# A server that doesn't say what it is may be StartOS before its package
+# passes BTCTX_HOST: words that fit both
 SET_BY_SERVER = "the server's price settings (on StartOS: the Price Source & Privacy action)"
+# Where the app runs: StartOS's package sets BTCTX_HOST=startos; the Mac
+# app is known by its launcher's BTCTX_DESKTOP; anything else is a server.
+ENV_HOST, HOSTS = "BTCTX_HOST", ("mac", "server", "startos")
 
 # Tests set this to an httpx.MockTransport to fake the outside services.
 _transport: httpx.AsyncBaseTransport | None = None
@@ -67,6 +76,7 @@ class NetworkSettings:
     mempool_fallback: bool = False
     proxy_url: str | None = None
     managed: bool = False  # set by the server (environment), not in Settings
+    invalid: bool = False  # the server's settings are invalid: nothing is asked
 
     @property
     def own_node(self) -> str | None:
@@ -86,8 +96,24 @@ def current() -> NetworkSettings:
     return _current
 
 
+def host() -> str:
+    """Where BitcoinTX runs: "mac", "startos" or "server" (Docker, source).
+    Only the words change with it: where a server-set choice is changed."""
+    named = os.environ.get(ENV_HOST, "").strip().lower()
+    if named in HOSTS:
+        return named
+    return "mac" if is_desktop() else "server"
+
+
 def as_dict() -> dict:
-    return asdict(_current)
+    return {**asdict(_current), "host": host()}
+
+
+def where_to_change() -> str:
+    """Where the owner changes the price choice in use."""
+    if not _current.managed:
+        return SETTINGS_PAGE
+    return SET_IN_STARTOS if host() == "startos" else SET_BY_SERVER
 
 
 def _get(db: Session, key: str) -> str | None:
@@ -174,7 +200,7 @@ def from_env() -> NetworkSettings | None:
     except (ValueError, HTTPException) as exc:
         logger.error("Price lookups are off: the server's price settings are invalid: %s",
                      getattr(exc, "detail", exc))
-        return NetworkSettings(price_source="off", managed=True)
+        return NetworkSettings(price_source="off", managed=True, invalid=True)
     logger.info(
         "Price settings from the server: source %s, mempool server %s, fallback to public sites %s, proxy %s",
         settings.price_source, settings.mempool_url or "none", "on" if settings.mempool_fallback else "off",
@@ -255,7 +281,7 @@ def save(
     proxy_url: str | None,
 ) -> NetworkSettings:
     if _current.managed:
-        raise HTTPException(status_code=409, detail=f"These are set by {SET_BY_SERVER}, so they can't be changed here.")
+        raise HTTPException(status_code=409, detail=f"The price choice is set in {where_to_change()}, so it can't be changed here.")
     if price_source not in SOURCES:
         raise HTTPException(status_code=422, detail=f"Price source must be one of: {', '.join(SOURCES)}.")
     mempool = _clean_url(mempool_url, ("http", "https"), "Your mempool server")
@@ -275,21 +301,24 @@ def save(
 
 
 def refuse_public() -> HTTPException:
-    """Why no public price site may be asked: 503 when prices are off or
-    not chosen yet (the Dashboard says "Prices off"), 502 when the chosen
+    """Why no public price site may be asked: 503 when the owner chose
+    Nobody or hasn't chosen yet (the Dashboard says why), 502 when the chosen
     mempool server is missing or didn't answer (an error, not a choice)."""
     s = _current
-    where = SET_BY_SERVER if s.managed else SETTINGS_PAGE
+    where = where_to_change()
     if s.price_source == "mempool":
-        missing = ("isn't available (on StartOS: install and start Mempool)" if not s.mempool_url
-                   else "didn't answer")
+        if not s.mempool_url:  # only a server's setting: StartOS while Mempool isn't installed
+            return HTTPException(status_code=502, detail=(
+                "Mempool isn't available, and the backup (public price sites) is off. Install and start "
+                f"Mempool, or change the choice in {where}."))
         return HTTPException(status_code=502, detail=(
-            f"Your mempool server {missing}, and falling back to public price sites is off. "
-            f"Change that in {where}."))
-    if s.price_source == "off":
-        detail = f"Price lookups are off ({where})."
+            f"Your Mempool didn't answer, and the backup (public price sites) is off. Change that in {where}."))
+    if s.invalid:
+        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}; the log says which."
+    elif s.price_source == "off":
+        detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
     else:
-        detail = f"Choose where BitcoinTX gets prices: {where}."
+        detail = f"Prices: not chosen yet. Choose where BitcoinTX gets them in {where}."
     return HTTPException(status_code=503, detail=detail)
 
 
