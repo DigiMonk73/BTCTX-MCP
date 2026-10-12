@@ -361,7 +361,7 @@ def refuse_public() -> HTTPException:
     mempool server is missing or didn't answer (an error, not a choice)."""
     s = _current
     where = where_to_change()
-    if s.price_source == "mempool" and not s.waiting:
+    if s.price_source == "mempool" and s.asking:
         if not s.mempool_url:  # only a server's setting: StartOS while Mempool isn't installed
             return HTTPException(status_code=502, detail=(
                 "Mempool isn't available, and the backup (public price sites) is off. Install and start "

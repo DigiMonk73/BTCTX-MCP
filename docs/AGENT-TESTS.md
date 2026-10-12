@@ -464,11 +464,14 @@ Start from the `clean` snapshot.
   **Save** off, with "Enter your Mempool's address." beside it.
 - **PRC-5b** (#145) Still with **Choose in BitcoinTX**: in the app choose
   **My own Mempool** (address `https://mempool.emzy.de`), tick **If it
-  can't answer, ask public price sites**, and save. Expect the card's first
-  line to read "Downloading the hourly history from Bitstamp: N of M years,
-  each checked." with a progress bar, then "Hourly prices, 2013 to …:
-  downloaded and checked." Untick the backup and choose **Nobody**: the
-  line keeps "downloaded and checked".
+  can't answer, ask public price sites**, and save. PRC-2 already
+  downloaded the hourly history, so expect the card's first line "Hourly
+  prices, 2013 to …: downloaded and checked." (a year PRC-2 recorded as
+  not matching shows "Bitstamp's prices for YYYY didn't match…": record
+  which). Choose **Nobody**: the line keeps "downloaded and checked". The
+  download's progress line ("Downloading the hourly history from Bitstamp:
+  N of M years, each checked.") is seen during PRC-2, right after its
+  save: note it there if the card is open.
 - **PRC-6** Set the action back to **Public price sites** for the rest of
   Track A.
 

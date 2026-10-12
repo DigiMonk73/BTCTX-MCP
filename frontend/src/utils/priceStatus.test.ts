@@ -169,6 +169,10 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     );
   });
 
+  it("re-check of #186: with the server's settings invalid, no line blames the choice", () => {
+    expect(historyLine({ ...h({ state: "not_allowed" }), source: "public", invalid: true }, ctx)).toBeNull();
+  });
+
   it("built in, once Bitstamp agrees: the approved line", () => {
     expect(historyLine(h({ shipped: true }), ctx)?.text).toBe(
       "Built in: every hourly price from 2013 to Oct 12, 2026. Works offline, nothing to set.",
