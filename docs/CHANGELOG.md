@@ -94,12 +94,18 @@ All notable changes to BitcoinTX are documented in this file.
   answering), that day's 00:00 UTC price as before. Each transaction now
   records which moment its priced values came from (`price_moment`: hour or
   day), and a Spent's proceeds from the price are marked like an income
-  value's, so an edit of its amount, time or purpose prices them again.
+  value's, so an edit of its amount or hour prices them again.
   - **Nothing already saved changes.** Values priced before this release
     stay at the day's price, marked "day". An edit that changes what a
     priced value depends on (its amount, account, type, or now its hour
-    rather than its day) prices it again, at the hour. A recalculation
-    never re-prices anything. A value you typed is never touched.
+    rather than its day) prices it again, at the hour; on a spend whose
+    other priced value (its proceeds, or its network fee's value) keeps the
+    day's price, at the day, so a transaction's values share one price
+    (Ledger Review offers both at the hour). A recalculation never
+    re-prices anything. A value you typed is never touched.
+  - An entry dated today whose hour hasn't begun (a date alone means noon
+    in the tax timezone) takes that day's price, marked "day"; a later
+    day has no price, as before.
   - The CSV export carries the marks (two new columns, `proceeds_typed`
     and `price_moment`); an older file imports as before, its priced
     values counted as priced at the day.

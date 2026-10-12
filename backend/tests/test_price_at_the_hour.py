@@ -145,20 +145,55 @@ def test_a_value_priced_at_the_day_is_priced_at_the_hour_when_an_edit_prices_it(
     assert D(edited["cost_basis_usd"]) == (price_of(at("2026-04-01T12:00:00Z")) * D("0.2")).quantize(D("0.01"))
 
 
-def test_a_spends_proceeds_and_fee_share_one_price_after_an_edit(auth_client, monkeypatch):
-    """A Spent priced at the day: an edit of its amount prices its proceeds
-    and its fee again, together, at the hour."""
+def day_priced_spend(auth_client, monkeypatch) -> dict:
+    """A Spent saved at the day's price ($30,000): proceeds and fee from it."""
     buy(auth_client)
     stub_daily_prices(monkeypatch, lambda day: 30000)
     stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
     tx = get(auth_client, spend(auth_client))
     assert (tx["price_moment"], tx["fee_usd"], tx["gross_proceeds_usd"]) == ("day", "3.00", "1500.00")
     stub_prices_at(monkeypatch, price_of)
+    return tx
+
+
+def test_a_spends_value_priced_again_keeps_the_days_price_while_the_other_does(auth_client, monkeypatch):
+    """Review of #173: an edit of the amount prices the proceeds again; the
+    fee's value keeps the day's price, so the proceeds take it too (one
+    price for a transaction's values), and the row stays "day" for Ledger
+    Review to offer at the hour."""
+    tx = day_priced_spend(auth_client, monkeypatch)
     edited = edit(auth_client, tx, amount="0.04")
-    hour_price = price_of(at("2026-04-01T15:00:00Z"))
+    assert (edited["price_moment"], edited["gross_proceeds_usd"], edited["fee_usd"]) == ("day", "1200.00", "3.00")
+
+
+def test_a_fee_edit_alone_leaves_the_proceeds(auth_client, monkeypatch):
+    """Review of #173: adding to the fee re-priced the untouched proceeds at the hour."""
+    tx = day_priced_spend(auth_client, monkeypatch)
+    edited = edit(auth_client, tx, fee_amount="0.0002")
+    assert (edited["price_moment"], edited["gross_proceeds_usd"], edited["fee_usd"]) == ("day", "1500.00", "6.00")
+
+
+def test_a_new_hour_prices_a_spends_proceeds_and_fee_at_the_hour(auth_client, monkeypatch):
+    tx = day_priced_spend(auth_client, monkeypatch)
+    edited = edit(auth_client, tx, timestamp="2026-04-01T17:10:00Z")
+    hour_price = price_of(at("2026-04-01T17:00:00Z"))
     assert edited["price_moment"] == "hour" and edited["proceeds_from_price"] is True
-    assert D(edited["gross_proceeds_usd"]) == (hour_price * D("0.04")).quantize(D("0.01"))
+    assert D(edited["gross_proceeds_usd"]) == (hour_price * D("0.05")).quantize(D("0.01"))
     assert D(edited["fee_usd"]) == (hour_price * D("0.0001")).quantize(D("0.01"))
+
+
+@pytest.mark.parametrize("cleared", [None, "0"])
+def test_a_cleared_or_zero_spend_value_is_priced_again_at_the_hour(auth_client, monkeypatch, cleared):
+    """Review of #173: the form's null for an emptied field wasn't read as
+    blank, so a day-priced spend was priced again at the day, and $0 at the hour."""
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
+    tx = get(auth_client, spend(auth_client, fee_amount="0"))
+    stub_prices_at(monkeypatch, price_of)
+    edited = get(auth_client, edit(auth_client, tx, proceeds_usd=cleared))
+    assert edited["price_moment"] == "hour" and edited["proceeds_from_price"] is True
+    assert D(edited["gross_proceeds_usd"]) == (price_of(at("2026-04-01T15:00:00Z")) * D("0.05")).quantize(D("0.01"))
 
 
 def test_the_form_sending_back_a_priced_spends_value_isnt_typing_it(auth_client):
@@ -256,6 +291,94 @@ def test_the_ai_import_marks_what_it_fills(auth_client):
         price_of(at("2026-04-01T16:00:00Z")) * D("0.01")).quantize(D("0.01"))
 
 
+def test_the_gross_sent_is_the_value_an_edit_types(auth_client):
+    """Review of #173: with both sent, the gross is what's stored."""
+    buy(auth_client)
+    tx = get(auth_client, spend(auth_client))
+    typed = edit(auth_client, tx, proceeds_usd=tx["gross_proceeds_usd"], gross_proceeds_usd="2222.22")
+    assert typed["proceeds_from_price"] is False and typed["gross_proceeds_usd"] == "2222.22"
+
+
+def test_typing_over_the_only_priced_value_clears_the_moment(auth_client):
+    tx = deposit(auth_client)
+    typed = edit(auth_client, tx, cost_basis_usd="999.99")
+    assert typed["cost_basis_from_price"] is False and typed["price_moment"] is None
+
+
+def test_a_deposit_moved_to_the_bank_has_no_priced_value(auth_client):
+    """Review of #173: the mark stays (it's unused), but no value, so no moment."""
+    tx = deposit(auth_client)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"to_account_id": BANK, "amount": "100"})
+    assert r.status_code == 200, r.text
+    assert r.json()["cost_basis_usd"] is None and r.json()["price_moment"] is None
+
+
+# A CSV import needs an empty ledger: its rows bring their own buy.
+IMPORTED_BUY = "2026-01-02T10:00:00Z,Buy,1,Bank,Exchange BTC,40000,,0,USD,,,\n"
+
+
+def test_an_import_priced_at_the_day_prices_its_fee_at_the_day(auth_client, monkeypatch):
+    """Review of #173: a fee priced at save took the hour and overwrote the
+    import's "day", so Ledger Review would never list the day-priced proceeds."""
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    rows = ("date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,"
+            "purpose,proceeds_typed,price_moment\n" + IMPORTED_BUY +
+            "2026-04-01T15:20:00Z,Withdrawal,0.05,Exchange BTC,External,,1500.00,0.0001,BTC,Spent,no,day\n")
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(rows.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    tx = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal")
+    assert (tx["price_moment"], tx["fee_usd"], tx["proceeds_from_price"]) == ("day", "3.00", True)
+
+
+def test_a_value_priced_at_recalculation_takes_its_rows_moment(auth_client, monkeypatch, test_engine):
+    """A row's other values at the day: a value priced at recalculation (an
+    old fee without a stored value) takes the day too (_price_for)."""
+    tx = day_priced_spend(auth_client, monkeypatch)
+    from sqlalchemy import text as sql
+    with test_engine.begin() as con:
+        con.execute(sql("UPDATE transactions SET fee_usd = NULL WHERE id = :id"), {"id": tx["id"]})
+    buy(auth_client, when="2026-01-01T10:00:00Z")  # any change recalculates
+    after = get(auth_client, tx)
+    assert (after["fee_usd"], after["price_moment"]) == ("3.00", "day")
+
+
+@pytest.mark.parametrize("source, account", [("Rebate", WALLET), ("Interest", EXCHANGE_BTC)])
+def test_rebates_and_exchange_deposits_are_priced_at_the_hour_too(auth_client, source, account):
+    tx = deposit(auth_client, source=source, to_account_id=account)
+    assert tx["price_moment"] == "hour"
+    assert D(tx["cost_basis_usd"]) == (price_of(at("2026-04-01T12:00:00Z")) * D("0.1")).quantize(D("0.01"))
+
+
+def test_an_edit_sending_one_field_like_the_ai_connector_prices_again_at_the_hour(auth_client, monkeypatch):
+    stub_prices_at(monkeypatch, price_of, moment="day")
+    tx = deposit(auth_client)
+    stub_prices_at(monkeypatch, price_of)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"amount": "0.3"})
+    assert r.status_code == 200, r.text
+    assert r.json()["price_moment"] == "hour"
+    assert D(r.json()["cost_basis_usd"]) == (price_of(at("2026-04-01T12:00:00Z")) * D("0.3")).quantize(D("0.01"))
+
+
+def test_a_sales_proceeds_are_never_marked_as_priced(auth_client):
+    """An import's proceeds_typed "no" counts only on a Spent."""
+    rows = ("date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,"
+            "purpose,proceeds_typed,price_moment\n" + IMPORTED_BUY +
+            "2026-04-01T15:20:00Z,Sell,0.05,Exchange BTC,Exchange USD,,1500.00,0,USD,,no,\n")
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(rows.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    sale = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Sell")
+    assert sale["proceeds_from_price"] is False and sale["price_moment"] is None
+
+
+def test_ledger_reviews_fee_check_leaves_fees_priced_at_the_hour(auth_client, monkeypatch):
+    """Review of #173: it compared them with the day's price and offered to
+    set them to it."""
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 10000)  # far from the hour's
+    post(auth_client, type="Transfer", timestamp="2026-04-01T07:45:00Z", from_account_id=EXCHANGE_BTC,
+         to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
+    review = auth_client.get("/api/review").json()
+    assert next(c for c in review["checks"] if c["key"] == "fee_value_off")["count"] == 0
 def test_the_price_route_gives_the_price_a_moment_is_valued_at(auth_client):
     r = auth_client.get("/api/bitcoin/price/history", params={"at": "2026-04-01T09:47:00-05:00"})
     assert r.status_code == 200, r.text

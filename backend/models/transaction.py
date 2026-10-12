@@ -193,7 +193,8 @@ class Transaction(Base):
         server_default=sa_false(),
         doc=(
             "True when a Spent withdrawal's proceeds came from the price (left blank "
-            "when entered): an edit of its amount, time or purpose prices them again. "
+            "when entered): an edit of its amount or hour prices them again (a change of "
+            "purpose or type makes them typed). "
             "A typed value is kept."
         ),
     )
