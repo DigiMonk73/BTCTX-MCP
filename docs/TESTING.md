@@ -180,8 +180,8 @@ each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the
 ledger has one), it uses every account route the app offers,
 every report has entries in each part (every Form 8949 box of 2024, 2025
-and 2026, in any tax timezone), and My BTC and Gift deposits carry a date
-originally acquired. Every USD value a price lookup would fill is given, so
+and 2026, in any tax timezone), My BTC and Gift deposits carry a date
+originally acquired, and inherited coins are sold within a year of the death. Every USD value a price lookup would fill is given, so
 it loads with the price source Off. Each row's `why` says what it is for.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).

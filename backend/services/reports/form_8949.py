@@ -134,11 +134,7 @@ def build_form_8949_and_schedule_d(
     for disp in disposals:
         box = disposal_box(disp, year, tz)
 
-        # Format date_acquired
-        if disp.lot and disp.lot.acquired_date:
-            acquired_str = format_tax_date(disp.lot.acquired_date, tz)
-        else:
-            acquired_str = ""
+        acquired_str = acquired_text(disp, tz)
 
         # date_sold
         sold_str = ""
@@ -175,6 +171,19 @@ def build_form_8949_and_schedule_d(
         "long_term":  [r.to_dict() for r in rows_long],
         "schedule_d": schedule_d
     }
+
+
+# Column (b) for inherited property, reported in Part II (Form 8949
+# instructions, column (b)): its term is long whenever it's sold (#154)
+INHERITED = "INHERITED"
+
+
+def acquired_text(disp: LotDisposal, tz=timezone.utc) -> str:
+    """Column (b): the lot's date acquired in the tax timezone, or INHERITED."""
+    lot = disp.lot
+    if lot is not None and lot.inherited:
+        return INHERITED
+    return format_tax_date(lot.acquired_date, tz) if lot is not None and lot.acquired_date else ""
 
 
 def disposal_box(disp: LotDisposal, year: int, tz=timezone.utc) -> str:

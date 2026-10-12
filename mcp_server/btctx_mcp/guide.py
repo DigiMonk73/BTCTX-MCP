@@ -60,6 +60,21 @@ Deposit: External -> any account
     MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.
+    Inherited = inherited from someone who died. acquired_at = the date of
+               death (REQUIRED: ask). cost_basis_usd = their value on that
+               date, or on the estate's alternate valuation date if it
+               chose one (left out: the date of death's price); if the
+               estate's Form 8971, Schedule A, gives a value marked as
+               having increased the estate tax, the basis can't be more:
+               use it. Always long-term, with INHERITED in Form 8949's
+               column (b). Never record an inheritance as a Gift: the rules
+               differ. When
+               changing a deposit's source to or from Inherited, send
+               acquired_at in the same update. Suggest the user's tax
+               preparer if they owned the coins jointly with the person who
+               died (only part may be inherited), or gave them to that
+               person within a year before the death (the basis may be the
+               user's own, IRC §1014(e)).
     Income   = paid in BTC for work/goods.
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.
@@ -130,6 +145,7 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   deposit to Exchange USD, which BitcoinTX doesn't count as income: the user
   reports it from the bank's or exchange's own tax form.
 - Card or shopping sats-back -> Deposit/Rebate (not Reward).
+- Bitcoin from someone's estate or will -> Deposit/Inherited (not Gift).
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only

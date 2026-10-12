@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, and My BTC and Gift deposits with a date originally acquired. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
  "transactions": [
   {
    "type": "Deposit",
@@ -94,6 +94,19 @@
    "fee_currency": "BTC",
    "source": "Interest",
    "cost_basis_usd": "1350.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2023-06-10T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 2,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "53.60",
+   "acquired_at": "2023-05-20T12:00:00Z",
+   "why": "Inherited (#154): its cost basis is its value on the date of death (acquired_at), and it's long-term whenever sold. Newer than the wallet's coins that are sold, so it stays in the year-end lots."
   },
   {
    "type": "Deposit",
@@ -380,6 +393,19 @@
   },
   {
    "type": "Deposit",
+   "timestamp": "2024-07-15T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 2,
+   "amount": "0.003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "188.10",
+   "acquired_at": "2024-06-30T12:00:00Z",
+   "why": "Inherited, the year's row the coverage test asks for: valued on its date of death, newer than the wallet's coins that are sold, so it stays in the year-end lots."
+  },
+  {
+   "type": "Deposit",
    "timestamp": "2024-07-20T12:00:00Z",
    "from_account_id": 99,
    "to_account_id": 2,
@@ -632,6 +658,19 @@
    "fee_currency": "BTC",
    "source": "Interest",
    "cost_basis_usd": "210.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-03-20T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 2,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "168.80",
+   "acquired_at": "2025-02-28T12:00:00Z",
+   "why": "Inherited, the year's row the coverage test asks for: valued on its date of death, newer than the wallet's coins that are sold, so it stays in the year-end lots."
   },
   {
    "type": "Withdrawal",
@@ -1155,6 +1194,19 @@
    "why": "A move between two exchanges pooled as Exchange BTC (#159): only its network fee, from the 2026 coins left there, short-term and never broker-reported: Box I. After the year's last sale, so the boxes above stay as they are."
   },
   {
+   "type": "Deposit",
+   "timestamp": "2026-08-29T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 4,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "2100.00",
+   "acquired_at": "2026-02-01T12:00:00Z",
+   "why": "Inherited coins into the exchange: dated by the death (2026-02-01), they come before the 2026-03-20 coins left there, so the next sale takes them."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-09-01T12:00:00Z",
    "from_account_id": 2,
@@ -1166,6 +1218,17 @@
    "fmv_usd": "1480.00",
    "purpose": "Gift",
    "why": "A gift, a donation and a loss are not sales, but their network fees are: Box L. FIFO takes the 2020 gift's coins first (its date originally acquired)."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-09-02T12:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 3,
+   "amount": "0.01",
+   "fee_amount": "2.30",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1150.00",
+   "why": "Inherited coins sold seven months after the death: long-term all the same (IRC §1223(9)), INHERITED in column (b), on a 1099-DA without basis: Box K."
   },
   {
    "type": "Withdrawal",

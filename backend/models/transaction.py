@@ -294,6 +294,16 @@ class BitcoinLot(Base):
         nullable=False,
         doc="The whole lot's cost basis in USD."
     )
+    inherited = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "Inherited coins (an Inherited deposit, #154): always long-term (IRC "
+            "§1223(9)), and Form 8949 column (b) says INHERITED. A moved lot keeps it."
+        ),
+    )
 
     created_transaction = relationship(
         "Transaction",
@@ -312,7 +322,7 @@ class BitcoinLot(Base):
         return (
             f"<BitcoinLot(id={self.id}, total_btc={self.total_btc}, "
             f"remaining_btc={self.remaining_btc}, cost_basis_usd={self.cost_basis_usd}, "
-            f"acquired_date={self.acquired_date})>"
+            f"acquired_date={self.acquired_date}, inherited={self.inherited})>"
         )
 
 

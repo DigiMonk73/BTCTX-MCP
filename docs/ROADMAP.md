@@ -33,7 +33,7 @@ users see and how values are made.
   - [x] a spend's network fee comes off its proceeds (#157, done in #162);
   - [x] "Consolidate / move within the same wallet", which records only the
         network fee (#159);
-  - [ ] an Inherited deposit source: the value at death (usually) as cost,
+  - [x] an Inherited deposit source: the value at death (usually) as cost,
         always long-term, "INHERITED" on Form 8949 (#154); rules and wording
         approved by the owner before building.
 

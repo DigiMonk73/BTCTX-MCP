@@ -24,6 +24,34 @@ All notable changes to BitcoinTX are documented in this file.
   the wallet held on its date. After a move between two exchanges, a sale
   at the one the coins moved to usually shows no basis on its 1099-DA: set
   that sale's Broker form to Proceeds only, as the form's hint says.
+- **Inherited bitcoin can be recorded** (tax figures, #154). A deposit's
+  Source now has **Inherited**, which follows the rules for property
+  inherited from someone who died, different from a gift's:
+  - its cost basis is its value on the **date of death** (IRC §1014),
+    which the deposit must have (the form's **Date of death**; `acquired_at`
+    in a CSV or the AI connector). Leave the value blank to use that day's
+    BTC price, or type it: the value on the estate's alternate valuation
+    date if it chose one; and if the estate's Form 8971, Schedule A, gives
+    a value marked as having increased the estate tax, your basis can't be
+    more (IRC §1014(f));
+  - every sale or spend of these coins is **long-term** however soon it
+    comes (IRC §1223(9)), with **INHERITED** in Form 8949's column (b), as
+    the form's instructions ask. The rule follows the coins when you move
+    them between the wallet and the exchange;
+  - it isn't income. The form explains the rules where Inherited is
+    chosen, and the Complete Tax Report adds a note in a year with such a
+    sale.
+
+  Before, the choice was My BTC or Gift, and either could print wrong
+  figures: a sale within a year of the death came out short-term, or a
+  Gift's basis was the person's own cost. **What to do:** if you recorded
+  inherited bitcoin that way, edit the deposit: Source **Inherited**, the
+  date of death (the edit must give it), and its value that day. A
+  deposit saved before 1.1.0 (when the source was free text) as
+  "inherited" follows these rules too from the next recalculation; Ledger
+  Review lists any without a date of death, which an edit then asks for.
+  The update adds one column to the database's lots (rebuilt at every
+  recalculation), after its usual backup copy.
 
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax

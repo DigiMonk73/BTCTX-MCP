@@ -33,7 +33,7 @@ class EntryRow(BaseModel):
     acquired_at: str | None = Field(
         default=None,
         description="My BTC or Gift deposit: when the coins were originally acquired (by the giver, for a gift), "
-                    "read like date. Omitted: the deposit's date.",
+                    "read like date. Omitted: the deposit's date. Inherited deposit: the date of death (required).",
     )
 
 

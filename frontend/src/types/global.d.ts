@@ -208,7 +208,7 @@ declare global {
 
   type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
 
-  type DepositSource = "N/A" | "MyBTC" | "Gift" | "Income" | "Interest" | "Reward" | "Rebate";
+  type DepositSource = "N/A" | "MyBTC" | "Gift" | "Inherited" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
   // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
   type BrokerReporting = "none" | "proceeds" | "basis";
@@ -252,7 +252,8 @@ declare global {
     feeUSD?: number;
     feeUSDManual?: boolean; // the stored value was typed (clearing it sends null)
     feeUSDStored?: number;  // the stored value, shown as a hint
-    // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date
+    // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
+    // An Inherited deposit's date of death (required)
     acquiredDate?: string;
   }
 
