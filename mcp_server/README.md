@@ -20,8 +20,9 @@ settings.
 **What the AI's model sees:** everything the tools return (transactions,
 balances, gains, the review list) and everything you paste into the chat.
 The MCP server itself sends nothing anywhere else. When a preview fills in a
-value, BitcoinTX asks only the price source you chose in Settings → Privacy &
-Network (your own mempool server, public price sites, or nothing), and no
+value, BitcoinTX uses its own stored hourly prices, or asks only the source
+you chose (in Settings → Privacy & Network, or on StartOS in the Price Source
+& Privacy action: your own Mempool, public price sites, or Nobody), and no
 request names a transaction date. Your AI app sends the conversation to its
 model. With a cloud AI that is the provider's servers;
 see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model).
@@ -85,8 +86,9 @@ on the model behind your AI app, not on this server:
   handled under its privacy terms. Your AI key is not sent: it stays in the
   configuration on your computer.
 - **Local model:** what the AI reads stays on your machine. BitcoinTX itself
-  asks only the price source you chose (your own mempool server or public
-  price sites; Settings → Privacy & Network). Use an app that runs MCP
+  asks only the price source you chose (your own Mempool or public price
+  sites, or Nobody; Settings → Privacy & Network, or StartOS's Price Source &
+  Privacy action). Use an app that runs MCP
   servers with a model on your own machine, for example
   [LM Studio](https://lmstudio.ai/docs/app/mcp) (0.3.17 or later) or
   [Goose](https://goose-docs.ai/) with [Ollama](https://ollama.com/).
