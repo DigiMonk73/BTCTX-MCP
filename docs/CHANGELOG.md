@@ -267,7 +267,10 @@ All notable changes to BitcoinTX are documented in this file.
   and a kickoff prompt on each. Each session works through its checklist
   and records its decisions on its issue. Small changes stay in one
   session. The main session keeps a handoff for itself on the umbrella
-  issue, current after every change, so a new one can take over.
+  issue, current after every change, so a new one can take over. The plan
+  lists each session's footprint, its shared hot spots, any reserved
+  migration numbers and the merge order, so conflicts are few and
+  expected.
 - **The hourly price history's record and tools** (#144, the first of five
   pull requests; nothing in the app uses them yet).
   `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,
