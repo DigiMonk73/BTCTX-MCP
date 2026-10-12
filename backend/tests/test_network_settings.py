@@ -503,7 +503,11 @@ def test_the_startos_package_passes_the_names_the_app_reads():
     """startos/startos/priceSource.ts sets exactly these; a rename on one side would silently drop the choice."""
     package = (BACKEND.parent / "startos" / "startos" / "priceSource.ts").read_text()
     passed = set(re.findall(r"\b(BTCTX_[A-Z_]+)\b", package))
-    assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY}
+    assert passed == {outbound.ENV_SOURCE, outbound.ENV_FALLBACK, outbound.ENV_MEMPOOL, outbound.ENV_PROXY,
+                      outbound.ENV_TOR}
+    # ...and says where BitcoinTX runs, for the words (#145)
+    utils = (BACKEND.parent / "startos" / "startos" / "utils.ts").read_text()
+    assert f"{outbound.ENV_HOST}: 'startos'" in utils and "startos" in outbound.HOSTS
     for source in ("off", "public", "mempool"):
         assert source in outbound.SOURCES and f"'{source}'" in package
 
