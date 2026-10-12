@@ -28,6 +28,7 @@ export interface PriceStatus {
   source: PriceSource | "unset";
   managed: boolean;
   invalid: boolean;
+  waiting: boolean;
   host: Host;
   last_ok: { at: string; from: string } | null;
   last_problem: { at: string; what: Problem } | null;
@@ -124,6 +125,7 @@ export function statusLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   if (st.invalid) {
     return { tone: "warning", text: "This server's price settings aren't valid, so nothing is contacted." };
   }
+  if (st.waiting) return { tone: "idle", text: "Waiting for you to confirm: nothing is contacted until you do." };
   if (st.source === "unset") return { tone: "idle", text: "Not chosen yet: nothing is contacted." };
   if (st.source === "off") return { tone: "idle", text: "Fully offline: nothing is contacted. Type newer values yourself." };
   return st.source === "mempool" ? mempoolLine(st, ctx) : publicLine(st, ctx);

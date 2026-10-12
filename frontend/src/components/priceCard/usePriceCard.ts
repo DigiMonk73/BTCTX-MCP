@@ -67,10 +67,10 @@ export function usePriceCard() {
   };
 
   /** Save; true when saved. A refusal about a field shows under it, else it's returned. */
-  const save = async (): Promise<{ ok: boolean; message?: string }> => {
+  const save = async (via: "first-run" | "settings"): Promise<{ ok: boolean; message?: string }> => {
     setSaving(true);
     try {
-      const res = await api.put<NetworkSettingsData>("/settings/network", payloadFromForm(form));
+      const res = await api.put<NetworkSettingsData>("/settings/network", { ...payloadFromForm(form), via });
       setSaved(res.data);
       setForm(formFromSettings(res.data));
       loadStatus();

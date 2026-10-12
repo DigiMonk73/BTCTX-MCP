@@ -6,6 +6,8 @@
  * sets it. One set of words everywhere (#145).
  */
 
+import { clock } from "./priceStatus";
+
 export type PriceSource = "off" | "public" | "mempool";
 export type Host = "mac" | "startos" | "server";
 
@@ -21,6 +23,31 @@ export interface NetworkSettingsData {
   invalid?: boolean;
   /** Where BitcoinTX runs: the Mac app, StartOS, or another server (Docker, source). */
   host?: Host;
+  /** False while a stored choice waits to be confirmed (#145, 2.9): nothing is asked until then. */
+  confirmed?: boolean;
+  /** When and where the choice was made in the card (UTC; "first-run" or "settings"). */
+  chosen_at?: string | null;
+  chosen_via?: "first-run" | "settings" | null;
+}
+
+/** A stored choice made before the card kept a record: asked once (#145, 2.9). */
+export function waitingToConfirm(s: NetworkSettingsData): boolean {
+  return !s.managed && s.confirmed === false;
+}
+
+export const CONFIRM_TITLE = "Please confirm where BitcoinTX gets prices";
+export const CONFIRM_WHY =
+  "BitcoinTX now keeps a record of when you chose. Yours has none yet, so it asks once. Your current " +
+  "choice is selected. Until you confirm, nothing is contacted; prices BitcoinTX already has still work.";
+
+/** "You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question." */
+export function chosenWhen(s: NetworkSettingsData, timezone: string): string | null {
+  if (!s.chosen_at || s.managed) return null;
+  const at = new Date(s.chosen_at);
+  const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
+  const time = clock(s.chosen_at, timezone);
+  const where = s.chosen_via === "first-run" ? "in the first-run question" : "in Settings";
+  return `You chose this on ${day} at ${time}, ${where}.`;
 }
 
 export interface PriceChoice {
@@ -143,4 +170,20 @@ export function shownAddress(s: NetworkSettingsData, what: "mempool" | "tor"): s
     return url ? "Tor on this server" : null;
   }
   return url;
+}
+
+/** What the card shows around its choices, worked out from its state. */
+export function cardView(saved: NetworkSettingsData, form: PriceForm, firstRun: boolean, timezone: string) {
+  const confirming = waitingToConfirm(saved);
+  const changed = priceFormChanged(saved, form);
+  const blocked = cannotSave(form);
+  return {
+    confirming,
+    title: confirming ? CONFIRM_TITLE : "Bitcoin prices",
+    current: confirming && saved.price_source !== "unset" ? saved.price_source : null,
+    when: confirming ? null : chosenWhen(saved, timezone),
+    blocked: form.source === "" ? null : blocked,
+    canSave: blocked === null && (changed || confirming),
+    label: confirming && !changed ? "Confirm" : firstRun ? "Use this" : "Save",
+  };
 }

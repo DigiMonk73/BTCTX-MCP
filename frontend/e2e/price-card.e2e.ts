@@ -121,6 +121,72 @@ test.describe("a phone", () => {
   });
 });
 
+test.describe("confirm once after the update (#145, 2.9)", () => {
+  test.use({ priceSource: "unconfirmed" });
+
+  test("a choice an older release stored is asked once, pre-selected; nothing is sent until Confirm", async ({
+    page, app,
+  }) => {
+    const browser = await logIn(page, app);
+    const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+    await expect(card).toBeVisible();
+    await expect(card.getByLabel(/^Public price sites/)).toBeChecked();
+    await expect(card.locator(".price-choice.chosen")).toContainText("Public price sitesYour current choice");
+    await expect(card.getByRole("status")).toHaveText(/Waiting for you to confirm: nothing is contacted until you do\./);
+    await expect(page.locator(".btc-price-value")).toHaveText("Confirm your choice");
+    await expect(page.getByRole("link", { name: "Confirm now" })).toBeVisible();
+    await expect(page.getByRole("complementary")).toContainText("BTC Price: waiting for you · Confirm");
+    await expect(page.getByRole("complementary").getByRole("link", { name: "Confirm" })).toBeVisible();
+    await page.goto("/dashboard"); // after a restart of the page: still asked, still nothing sent
+    await expect(card).toBeVisible();
+    expect(outsideRequests(app)).toEqual([]);
+
+    await card.getByRole("button", { name: "Confirm" }).click();
+    await expect(card).toHaveCount(0);
+    await expect(page.locator(".btc-price-value")).toHaveText(/^\$/); // asked now, in place
+    expect(outsideRequests(app).length).toBeGreaterThan(0);
+    const shown = await (await page.request.get("/api/settings/network")).json();
+    expect([shown.price_source, shown.confirmed, shown.chosen_via]).toEqual(["public", true, "first-run"]);
+    await page.goto("/dashboard");
+    await expect(page.getByRole("region", { name: /Bitcoin prices|Please confirm/ })).toHaveCount(0);
+    await page.getByRole("link", { name: "Settings" }).click();
+    await expect(page.getByText(/^You chose this on .* at .*, in the first-run question\.$/)).toBeVisible();
+    expect(browser).toEqual([]);
+  });
+
+  test("changing the choice while confirming saves the new one", async ({ page, app }) => {
+    await logIn(page, app);
+    const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+    await card.getByLabel(/^Nobody/).check();
+    await card.getByRole("button", { name: "Use this" }).click();
+    await expect(card).toHaveCount(0);
+    const shown = await (await page.request.get("/api/settings/network")).json();
+    expect([shown.price_source, shown.confirmed]).toEqual(["off", true]);
+    expect(outsideRequests(app)).toEqual([]);
+  });
+});
+
+for (const [fixture, label] of [["unconfirmed-off", "Nobody"], ["unconfirmed-mempool", "My own Mempool"]] as const) {
+  test.describe(`confirm once: ${label}`, () => {
+    test.use({ priceSource: fixture });
+
+    test("asked with it pre-selected; nothing is sent before Confirm, and only to the choice after", async ({
+      page, app,
+    }) => {
+      await logIn(page, app);
+      const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+      await expect(card.locator(".price-choice.chosen")).toContainText(`${label}Your current choice`);
+      await page.goto("/dashboard");
+      await expect(card).toBeVisible();
+      expect(outsideRequests(app)).toEqual([]);
+      await card.getByRole("button", { name: "Confirm" }).click();
+      await expect(card).toHaveCount(0);
+      const origins = [...new Set(outsideRequests(app).map((r) => new URL(r.url).origin))];
+      expect(origins).toEqual(fixture === "unconfirmed-off" ? [] : ["http://umbrel.local:3006"]);
+    });
+  });
+}
+
 test.describe("a server whose price settings aren't valid", () => {
   test.use({ priceSource: "invalid" });
 

@@ -294,10 +294,15 @@ def test_cli_uses_the_price_settings(tmp_path, monkeypatch):
     con.executemany("INSERT INTO app_settings (key, value) VALUES (?, ?)",
                     [("price_source", "mempool"), ("mempool_url", "http://umbrel.local:3006")])
     con.commit()
-    con.close()
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(database, "init_db", lambda: init_db(engine))
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings())
+    # A choice from before the card kept a record waits for the owner (#145, 2.9): nobody is asked
+    assert backend_cli.main(["migrate"]) == 0
+    assert outbound.current().waiting and outbound.current().own_node is None
+    con.execute("INSERT INTO app_settings (key, value) VALUES ('price_choice_at', '2026-10-14T20:12:00Z')")
+    con.commit()
+    con.close()
     assert backend_cli.main(["migrate"]) == 0
     assert outbound.current().own_node == "http://umbrel.local:3006"
 

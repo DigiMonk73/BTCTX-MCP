@@ -140,6 +140,9 @@ class NetworkSettingsIn(BaseModel):
     mempool_url: str | None = Field(default=None, max_length=300)
     mempool_fallback: bool = False
     proxy_url: str | None = Field(default=None, max_length=300)
+    # Where the choice was made, for its record (#145, 2.9): the first-run
+    # question on the Dashboard, or Settings
+    via: Literal["first-run", "settings"] = "settings"
 
 
 @router.get("/network")
@@ -150,6 +153,7 @@ def get_network_settings():
 @router.put("/network")
 def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Session = Depends(get_db)):
     _require_login(request)
-    outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url)
+    outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url,
+                  payload.via)
     hourly_prices.download_if_public()
     return outbound.as_dict()

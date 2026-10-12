@@ -85,13 +85,23 @@ def serve(port: int, db_path: str) -> None:
         stub_prices()
 
     # The owner already chose public price sites (a fresh install asks first),
-    # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset.
-    if os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public") != "unset":
+    # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset;
+    # or "unconfirmed": public, stored by an older release with no record of
+    # the choice, so the app asks once to confirm it (#145, 2.9).
+    chosen = os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public")
+    if chosen != "unset":
         from backend.database import SessionLocal, init_db
 
         init_db()
         with SessionLocal() as db:
-            outbound.save(db, "public", None, False, None)
+            if chosen.startswith("unconfirmed"):  # "unconfirmed", "-off" or "-mempool"
+                stored = {"unconfirmed": "public"}.get(chosen, chosen.removeprefix("unconfirmed-"))
+                outbound._set(db, outbound.SOURCE_KEY, stored)
+                if stored == "mempool":
+                    outbound._set(db, outbound.MEMPOOL_KEY, "http://umbrel.local:3006")
+                db.commit()
+            else:
+                outbound.save(db, "public", None, False, None)
 
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=port, log_level="warning")

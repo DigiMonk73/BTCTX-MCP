@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   TOR_PLACEHOLDER,
   cannotSave,
+  cardView,
+  chosenWhen,
+  waitingToConfirm,
   formFromSettings,
   managedBanner,
   payloadFromForm,
@@ -107,5 +110,33 @@ describe("set by the server", () => {
     expect(shownAddress({ ...startos, mempool_url: null }, "mempool")).toMatch(/isn't installed/);
     expect(shownAddress(startos, "tor")).toBe("Tor on this server");
     expect(shownAddress({ ...startos, host: "server" }, "mempool")).toBe("http://10.0.3.1:32768");
+  });
+});
+
+describe("confirm once (#145, 2.9)", () => {
+  const unrecorded: NetworkSettingsData = { ...base, price_source: "public", confirmed: false };
+
+  it("asks with the current choice pre-selected; Confirm saves it as it is", () => {
+    const form = formFromSettings(unrecorded);
+    const view = cardView(unrecorded, form, true, "UTC");
+    expect(view.title).toBe("Please confirm where BitcoinTX gets prices");
+    expect([view.current, view.label, view.canSave, view.when]).toEqual(["public", "Confirm", true, null]);
+    expect(waitingToConfirm(unrecorded)).toBe(true);
+  });
+
+  it("a changed choice is saved with Use this; nothing to confirm when the server sets it", () => {
+    const view = cardView(unrecorded, { ...formFromSettings(unrecorded), source: "off" }, true, "UTC");
+    expect([view.label, view.canSave]).toEqual(["Use this", true]);
+    expect(waitingToConfirm({ ...unrecorded, managed: true })).toBe(false);
+    expect(waitingToConfirm({ ...base, confirmed: true })).toBe(false);
+  });
+
+  it("says when and where a recorded choice was made, in the tax timezone", () => {
+    const chosen: NetworkSettingsData = {
+      ...unrecorded, confirmed: true, chosen_at: "2026-10-14T20:12:00Z", chosen_via: "first-run",
+    };
+    expect(chosenWhen(chosen, "America/Chicago")).toBe("You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question.");
+    expect(chosenWhen({ ...chosen, chosen_via: "settings" }, "UTC")).toBe("You chose this on Oct 14, 2026 at 8:12 pm, in Settings.");
+    expect(cardView(chosen, formFromSettings(chosen), false, "UTC").label).toBe("Save");
   });
 });

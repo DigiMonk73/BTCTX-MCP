@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import api from "../api";
+import { waitingDetail } from "../utils/dashboard";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
@@ -11,20 +13,22 @@ const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
   const [btcPrice, setBtcPrice] = useState<number>(0);
   // Why there's no price, when there's none: never shown as "$0.00"
-  const [noPrice, setNoPrice] = useState<"loading" | "off" | "none">("loading");
+  const [noPrice, setNoPrice] = useState<"loading" | "off" | "waiting" | "none">("loading");
   // Bumped by every mode switch and every typed price: an answer to an older
   // request (slow to arrive) is dropped instead of overwriting the price.
   const priceTicket = useRef(0);
   const fetchPrice = async (url: string) => {
     const ticket = priceTicket.current;
     let price = 0;
-    let why: "off" | "none" = "none";
+    let why: "off" | "waiting" | "none" = "none";
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
     } catch (err) {
       // no price: 0; 503 is prices off (or not chosen yet) by choice
-      if (axios.isAxiosError(err) && err.response?.status === 503) why = "off";
+      if (axios.isAxiosError(err) && err.response?.status === 503) {
+        why = waitingDetail(err.response?.data?.detail) ? "waiting" : "off";
+      }
     }
     if (ticket === priceTicket.current) {
       setBtcPrice(price);
@@ -35,7 +39,7 @@ const BtcConverter: React.FC = () => {
   const priceText = () =>
     btcPrice > 0
       ? "$" + btcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : noPrice === "loading" ? "…" : noPrice === "off" ? "Prices off" : "No price";
+      : noPrice === "loading" ? "…" : noPrice === "off" ? "Prices off" : noPrice === "waiting" ? "waiting for you" : "No price";
 
   // Date mode's day
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -231,7 +235,15 @@ const BtcConverter: React.FC = () => {
 
       {mode === "auto" && (
         <div className="auto-price-row price-mode-row">
-          <p className="btc-price">BTC Price: {priceText()}</p>
+          <p className="btc-price">
+            BTC Price: {priceText()}
+            {noPrice === "waiting" && btcPrice <= 0 && (
+              <>
+                {" · "}
+                <Link className="converter-action" to="/dashboard">Confirm</Link>
+              </>
+            )}
+          </p>
         </div>
       )}
 

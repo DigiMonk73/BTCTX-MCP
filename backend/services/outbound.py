@@ -37,6 +37,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -51,6 +52,11 @@ TIMEOUT = 10.0
 SOURCE_KEY, FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY = (
     "price_source", "mempool_fallback", "mempool_url", "proxy_url")
 OLD_LIVE_KEY = "live_data"  # before v1.1.0: "on"/"off"
+# The record of a choice made in the price card (#145, plan 2.9): when, and
+# where ("first-run" or "settings"). Written only by save(), from
+# PUT /api/settings/network (a login, never the AI key or a command).
+CHOSEN_AT_KEY, CHOSEN_VIA_KEY = "price_choice_at", "price_choice_via"
+CHOSEN_VIA = ("first-run", "settings")
 SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
@@ -77,16 +83,19 @@ class NetworkSettings:
     proxy_url: str | None = None
     managed: bool = False  # set by the server (environment), not in Settings
     invalid: bool = False  # the server's settings are invalid: nothing is asked
+    # A stored choice with no record of when it was made (#145, 2.9): nothing
+    # is asked until the owner confirms it
+    waiting: bool = False
 
     @property
     def own_node(self) -> str | None:
         """The mempool server to ask, when it's the chosen source."""
-        return self.mempool_url if self.price_source == "mempool" else None
+        return self.mempool_url if self.price_source == "mempool" and not self.waiting else None
 
     @property
     def public_allowed(self) -> bool:
-        return self.price_source == "public" or (
-            self.price_source == "mempool" and self.mempool_fallback)
+        return not self.waiting and (self.price_source == "public" or (
+            self.price_source == "mempool" and self.mempool_fallback))
 
 
 _current = NetworkSettings()
@@ -106,7 +115,13 @@ def host() -> str:
 
 
 def as_dict() -> dict:
-    return {**asdict(_current), "host": host()}
+    """The settings in use, where BitcoinTX runs, and the record of the choice
+    (`confirmed` is false while a stored choice waits for the owner)."""
+    return {**asdict(_current), "host": host(), "confirmed": not _current.waiting, **_record}
+
+
+# When and where the stored choice was made, as load() last read it
+_record: dict = {"chosen_at": None, "chosen_via": None}
 
 
 def where_to_change() -> str:
@@ -210,7 +225,7 @@ def from_env() -> NetworkSettings | None:
 
 def snapshot(db: Session) -> dict:
     """The owner's own price settings (not the server's), to keep across a restore."""
-    kept = {key: _get(db, key) for key in (FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY)}
+    kept = {key: _get(db, key) for key in (FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY)}
     # Not chosen yet stays "unset": a restored database's stored prices must
     # not pass for a pre-1.1.0 install's public choice (_upgrade_from_live_data)
     kept[SOURCE_KEY] = _get(db, SOURCE_KEY) or "unset"
@@ -240,6 +255,7 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     global _current
     managed = from_env()
     if managed:
+        _record.update(chosen_at=None, chosen_via=None)  # the server's choice: nothing to confirm
         _current = managed
         try:
             _mark_unchosen(db)
@@ -249,11 +265,14 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
             logger.exception("Could not record that no price source was chosen in the app")
         return _current
     source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
+    _record.update(chosen_at=_get(db, CHOSEN_AT_KEY), chosen_via=_get(db, CHOSEN_VIA_KEY))
+    chosen = source in SOURCES
     _current = NetworkSettings(
-        price_source=source if source in SOURCES else "unset",
+        price_source=source if chosen else "unset",
         mempool_url=_get(db, MEMPOOL_KEY),
         mempool_fallback=_get(db, FALLBACK_KEY) == "on",
         proxy_url=_get(db, PROXY_KEY),
+        waiting=chosen and not _record["chosen_at"],
     )
     return _current
 
@@ -279,6 +298,7 @@ def save(
     mempool_url: str | None,
     mempool_fallback: bool,
     proxy_url: str | None,
+    via: str = "settings",
 ) -> NetworkSettings:
     if _current.managed:
         raise HTTPException(status_code=409, detail=f"The price choice is set in {where_to_change()}, so it can't be changed here.")
@@ -296,6 +316,8 @@ def save(
     _set(db, MEMPOOL_KEY, mempool)
     _set(db, FALLBACK_KEY, "on" if mempool_fallback else "off")
     _set(db, PROXY_KEY, proxy)
+    _set(db, CHOSEN_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
+    _set(db, CHOSEN_VIA_KEY, via if via in CHOSEN_VIA else "settings")
     db.commit()
     return load(db)
 
@@ -306,14 +328,17 @@ def refuse_public() -> HTTPException:
     mempool server is missing or didn't answer (an error, not a choice)."""
     s = _current
     where = where_to_change()
-    if s.price_source == "mempool":
+    if s.price_source == "mempool" and not s.waiting:
         if not s.mempool_url:  # only a server's setting: StartOS while Mempool isn't installed
             return HTTPException(status_code=502, detail=(
                 "Mempool isn't available, and the backup (public price sites) is off. Install and start "
                 f"Mempool, or change the choice in {where}."))
         return HTTPException(status_code=502, detail=(
             f"Your Mempool didn't answer, and the backup (public price sites) is off. Change that in {where}."))
-    if s.invalid:
+    if s.waiting:
+        detail = ("Confirm where BitcoinTX gets newer prices: open BitcoinTX's Dashboard or "
+                  f"{SETTINGS_PAGE}. Nothing is asked until you do.")
+    elif s.invalid:
         detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}; the log says which."
     elif s.price_source == "off":
         detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
