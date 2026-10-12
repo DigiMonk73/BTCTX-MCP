@@ -93,5 +93,13 @@ export function usePriceCard() {
     }
   };
 
-  return { saved, form, set, status, timezone, errors, saving, save };
+  /** Settings the server answered with after another change (#188's trust): shown, and prices asked again. */
+  const applied = (settings: NetworkSettingsData) => {
+    setSaved(settings);
+    setForm(formFromSettings(settings));
+    loadStatus();
+    window.dispatchEvent(new Event(PRICE_CHOICE_SAVED));
+  };
+
+  return { saved, form, set, status, timezone, errors, saving, save, applied };
 }

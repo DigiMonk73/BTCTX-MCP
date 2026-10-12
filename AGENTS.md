@@ -239,6 +239,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
 | `backend/services/hourly_prices.py` | the price when an hour began (#144): stored hours (`btc_price_hourly`), the year files (verified download into `<data dir>/btc-prices/`), a mempool server's live hours, Bitstamp's fixed blocks after the files; else the day's price, marked as such |
 | `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
+| `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
@@ -305,7 +306,8 @@ So derived values must be recomputable from the Transaction row alone.
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
   switch settings, backup download/restore, CSV export, file imports (CSV,
-  River), delete-all, Ledger Review fixes, settings changes or debug.
+  River), delete-all, Ledger Review fixes, settings changes (the Mempool
+  certificate's trust, #188, included) or debug.
 
 ## Testing (see `docs/TESTING.md`)
 

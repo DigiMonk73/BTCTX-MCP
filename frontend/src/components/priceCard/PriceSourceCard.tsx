@@ -1,8 +1,9 @@
 import React from "react";
 import { useToast } from "../../contexts/useToast";
-import { CONFIRM_WHY, FOOTER, cardView } from "../../utils/priceSource";
+import { CONFIRM_WHY, FOOTER, cardView, type NetworkSettingsData } from "../../utils/priceSource";
 import { historyLine, statusLine, type PriceStatus, type StatusLine } from "../../utils/priceStatus";
 import EditableChoices from "./EditableChoices";
+import MempoolTrust from "./MempoolTrust";
 import ReadOnlyChoices from "./ReadOnlyChoices";
 import { usePriceCard } from "./usePriceCard";
 import "../../styles/priceCard.css";
@@ -15,8 +16,9 @@ interface Props {
 const ICONS = { ok: "●", idle: "○", warning: "▲" } as const;
 const LOADING: StatusLine = { tone: "idle", text: "Loading…" };
 
-function lineFor(status: PriceStatus | null, backup: boolean, tor: boolean, timezone: string): StatusLine {
-  return status ? statusLine(status, { backup, tor, timezone }) : LOADING;
+function lineFor(status: PriceStatus | null, saved: NetworkSettingsData, timezone: string): StatusLine {
+  const ctx = { backup: saved.mempool_fallback, tor: Boolean(saved.proxy_url), timezone, trustable: saved.mempool_trustable };
+  return status ? statusLine(status, ctx) : LOADING;
 }
 
 /** The hourly history's line, first on the card, with the download's progress (#145). */
@@ -51,12 +53,12 @@ const History: React.FC<{ status: PriceStatus | null; tor: boolean; timezone: st
  */
 const PriceSourceCard: React.FC<Props> = ({ variant }) => {
   const toast = useToast();
-  const { saved, form, set, status, timezone, errors, saving, save } = usePriceCard();
+  const { saved, form, set, status, timezone, errors, saving, save, applied } = usePriceCard();
   if (!saved) return null;
 
   const firstRun = variant === "first-run";
   const view = cardView(saved, form, firstRun, timezone);
-  const line = lineFor(status, saved.mempool_fallback, Boolean(saved.proxy_url), timezone);
+  const line = lineFor(status, saved, timezone);
   const Heading = firstRun ? "h2" : "h4"; // in Settings, under its section's h3
 
   const onSave = async () => {
@@ -88,6 +90,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
       <p className={`price-status ${line.tone}`} role="status">
         <span aria-hidden="true">{ICONS[line.tone]}</span> {line.text}
       </p>
+      <MempoolTrust saved={saved} status={status} onChange={applied} />
       {view.when && <p className="price-help">{view.when}</p>}
       {!view.confirming && <p className="price-footer">{FOOTER}</p>}
       {!saved.managed && (

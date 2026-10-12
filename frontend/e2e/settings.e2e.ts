@@ -408,6 +408,7 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
     proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, waiting: false, tor_from_server: false,
     host: "server",
     confirmed: true, chosen_at: expect.stringMatching(/Z$/), chosen_via: "settings",
+    mempool_certificate: null, mempool_trustable: false, // an http address: nothing to trust (#188)
   });
 
   await net.getByLabel(/^Nobody/).check();

@@ -5,6 +5,19 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Trust this server: your own Mempool at a home server's https address**
+  (#188, follow-up to #178). A StartOS server's home-network address (and
+  other home servers') has a certificate from that server's own authority,
+  which BitcoinTX couldn't use. When that's why your Mempool can't be used,
+  the price card now offers **Trust this server**: it shows the server, its
+  root certificate's name and SHA-256 fingerprint, and "Only do this on your
+  own home network." Once trusted, BitcoinTX checks that Mempool against
+  that root alone, for that address only; never for public price sites.
+  Offered only for home-network addresses (`.local`, `.lan`, a one-word
+  name, 10.x, 172.16–31.x, 192.168.x), never a public internet name.
+  **Forget this server's certificate** undoes it, and so does changing the
+  Mempool's address. An in-app restore keeps this install's choice, like
+  the price source. Login only, never the AI key.
 - **A consolidation's network fee can be recorded** (tax figures, #159).
   When you consolidate the coins (UTXOs) in your wallet, or move bitcoin
   between two of your wallets that BitcoinTX counts as one, the network

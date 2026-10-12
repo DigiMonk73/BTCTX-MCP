@@ -30,6 +30,10 @@ export interface NetworkSettingsData {
   /** When and where the choice was made in the card (UTC; "first-run" or "settings"). */
   chosen_at?: string | null;
   chosen_via?: "first-run" | "settings" | null;
+  /** A home server's root certificate trusted for this Mempool address (#188). */
+  mempool_certificate?: { name: string; sha256: string } | null;
+  /** The Mempool's address is an https home-network one: its certificate may be trusted (#188). */
+  mempool_trustable?: boolean;
 }
 
 /** A stored choice made before the card kept a record: asked once (#145, 2.9). */

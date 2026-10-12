@@ -49,6 +49,8 @@ export interface StatusContext {
   backup: boolean;
   tor: boolean;
   timezone: string;
+  /** The Mempool's certificate may be trusted on the card (#188). */
+  trustable?: boolean;
 }
 
 /** "2:04 pm" in the tax timezone. */
@@ -68,9 +70,11 @@ function mempoolReason(what: Problem, at: string, ctx: StatusContext): string {
   return `Your Mempool didn't answer at ${clock(at, ctx.timezone)}.`;
 }
 
-function mempoolFix(what: Problem, managed: boolean, backup: boolean): string {
+function mempoolFix(what: Problem, managed: boolean, backup: boolean, trustable = false): string {
   if (what === "mempool_untrusted_certificate") {
-    return "There's no newer price: use its http:// or .onion address instead, or on StartOS choose My Mempool on this server.";
+    return trustable
+      ? "There's no newer price until you trust it: if it's your own server, use Trust this server below."
+      : "There's no newer price: use its http:// or .onion address instead, or on StartOS choose My Mempool on this server.";
   }
   if (what === "mempool_missing") return "Install and start it, or choose another source in StartOS.";
   return managed || backup
@@ -86,13 +90,21 @@ function newer(a: string | undefined, b: string | undefined): boolean {
   return (a ?? "") > (b ?? "");
 }
 
+/** Why your Mempool last failed, kept when the backup failed after it. */
+export function mempoolProblem(st: PriceStatus): Problem | null {
+  const problem = st.last_problem;
+  return (problem?.what.startsWith("mempool") ? problem : (st.last_mempool_problem ?? null))?.what ?? null;
+}
+
 function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   const { last_ok: ok, last_problem: problem } = st;
   // Why your Mempool last failed, kept when the backup failed after it
   const mine = problem?.what.startsWith("mempool") ? problem : (st.last_mempool_problem ?? null);
   const reason = mine ? mempoolReason(mine.what, mine.at, ctx) : "Your Mempool didn't answer.";
   if (problem && newer(problem.at, ok?.at)) {
-    if (problem === mine) return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed, ctx.backup)}` };
+    if (problem === mine) {
+      return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed, ctx.backup, ctx.trustable)}` };
+    }
     const at = clock(problem.at, ctx.timezone);
     const backup = problem.what === "tor_no_answer"
       ? `Public price sites didn't answer through Tor either, at ${at}. Is Tor running?`
