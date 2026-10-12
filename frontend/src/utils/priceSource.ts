@@ -41,7 +41,7 @@ export const PRICE_CHOICES: PriceChoice[] = [
     label: "Public price sites",
     help:
       "Bitstamp and Kraken for prices; Blockchain.info, Blockstream or mempool.space for the block " +
-      "height. They see your IP address, never your dates.",
+      "height. They see your IP address and when BitcoinTX is open, never your dates.",
   },
   {
     value: "off",

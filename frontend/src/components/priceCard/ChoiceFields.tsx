@@ -91,7 +91,7 @@ const ChoiceFields: React.FC<Props> = (props) => {
             <span>If it can&apos;t answer, ask public price sites</span>
           </label>
           <p id="price-backup-help" className="price-help">
-            Bitstamp and Kraken. They see your IP address, never your dates.
+            Bitstamp and Kraken. They see your IP address and when BitcoinTX is open, never your dates.
           </p>
         </div>
         {torOffered(form) && <TorField {...props} />}
