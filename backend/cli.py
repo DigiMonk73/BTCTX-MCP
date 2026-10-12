@@ -153,7 +153,7 @@ def cmd_review(args: argparse.Namespace) -> int:
     db = SessionLocal()
     try:
         if args.apply_hourly_prices is not None:
-            result = apply_hourly_prices(db, year=args.apply_hourly_prices)
+            result = apply_hourly_prices(db, year=args.apply_hourly_prices, wait=True)
             for c in result["changed"]:
                 moved = "; ".join(f"{f} ${old} -> ${new}" for f, (old, new) in c["values"].items())
                 print(f"  #{c['id']}  {moved}  (at the {c['moment']}'s price)")

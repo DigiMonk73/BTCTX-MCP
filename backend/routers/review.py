@@ -11,7 +11,7 @@ tax figures.
 
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, conint
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -31,7 +31,8 @@ def get_review(db: Session = Depends(get_db)):
 
 class HourlyPrices(BaseModel):
     """The transactions to price at their hour: these ids, or a whole tax year."""
-    ids: list[int] | None = Field(default=None, min_length=1, max_length=100000)
+    # One SQL IN (...) each: well under SQLite's 32,766 variables
+    ids: list[conint(ge=1, le=2**63 - 1)] | None = Field(default=None, min_length=1, max_length=10000)
     year: int | None = Field(default=None, ge=2009, le=2100)
 
 

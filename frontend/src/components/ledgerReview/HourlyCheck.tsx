@@ -11,10 +11,10 @@ function signed(value: string): string {
 /** A year's totals that move, e.g. "income +$1000.10, fee values +$1.00" */
 function yearTotals(y: HourlyYear): string {
   const parts: [string, string][] = [
-    ["income", y.income], ["basis", y.basis], ["proceeds", y.proceeds], ["fee values", y.fees],
+    ["income", y.income], ["basis", y.basis], ["proceeds before fees", y.proceeds], ["fee values", y.fees],
   ];
   const moved = parts.filter(([, v]) => Number(v) !== 0).map(([name, v]) => `${name} ${signed(v)}`);
-  return moved.length ? moved.join(", ") : "less than a cent";
+  return moved.length ? moved.join(", ") : "no net change";
 }
 
 const ItemRow: React.FC<{ item: ReviewItem; ticked: boolean; onTick: (id: number) => void }> = (
@@ -35,7 +35,8 @@ interface YearProps {
   ticked: Set<number>;
   onTick: (id: number) => void;
   busy: boolean;
-  onApply: (pick: HourlyPick, question: string) => void;
+  /** true once applied: the ticks are then cleared */
+  onApply: (pick: HourlyPick, question: string) => Promise<boolean>;
 }
 
 /** One tax year: what changes, its listed items, and a button for all of it. */
@@ -43,7 +44,7 @@ const YearGroup: React.FC<YearProps> = ({ check, year, ticked, onTick, busy, onA
   const items = check.items.filter((i) => i.year === year.year);
   const unlisted = year.count - year.listed;
   const applyYear = () =>
-    onApply(
+    void onApply(
       { year: year.year },
       `Change all ${plural(year.count, "transaction")} of ${year.year} to the price of their hour (that day's ` +
         `where there's none) and recalculate the ledger?\n\nThis changes ${year.year}'s totals: ` +
@@ -86,12 +87,15 @@ const HourlyCheck: React.FC<{ check: ReviewCheck; busy: boolean; onApply: YearPr
   };
   // Only those still listed: an applied one is gone after the review reloads
   const picked = check.items.filter((i) => ticked.has(i.id)).map((i) => i.id);
-  const applyTicked = () =>
-    onApply(
+  const applyTicked = async () => {
+    const applied = await onApply(
       { ids: picked },
       `Change the ${plural(picked.length, "ticked transaction")} to the values shown and recalculate the ` +
         "ledger?\n\nThis changes their tax figures. A backup copy of the database is made first.",
     );
+    // A row applied at the day (no hourly price yet) comes back once the hour's price is here: unticked
+    if (applied) setTicked(new Set());
+  };
   return (
     <div className="ledger-review-check">
       <strong>
@@ -106,7 +110,7 @@ const HourlyCheck: React.FC<{ check: ReviewCheck; busy: boolean; onApply: YearPr
         <YearGroup key={year.year} {...{ check, year, ticked, onTick: tick, busy, onApply }} />
       ))}
       <p className="settings-option-subtitle">{check.action}</p>
-      <button onClick={applyTicked} disabled={busy || picked.length === 0} className="btn btn-primary">
+      <button onClick={() => void applyTicked()} disabled={busy || picked.length === 0} className="btn btn-primary">
         Apply to the ticked ones
       </button>
     </div>

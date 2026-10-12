@@ -25,7 +25,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, INHERITED_SOURCE, VALUED_AT_RECEIPT
-from backend.migrate import backup_sqlite, sqlite_file
+from backend.migrate import REVIEW_COPIES_KEPT, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.tax_time import get_tax_timezone, local_date
@@ -33,12 +33,13 @@ from backend.services.tax_time import get_tax_timezone, local_date
 CENT = Decimal("0.01")
 
 
-def hourly_changes(db: Session, ids=None, year: int | None = None) -> list[dict[str, Any]]:
+def hourly_changes(db: Session, ids=None, year: int | None = None, wait: bool = False) -> list[dict[str, Any]]:
     """
     Transactions priced at the day whose priced values the price of their
     hour (else their day's) would change, in date order: {id, tax_year,
     moment, at, price, values: {field: (old, new)}}. ids or year: only
-    those.
+    those. wait: for a year's hourly prices still downloading (the CLI);
+    else such a year is compared with the day's price meanwhile.
     """
     tz = get_tax_timezone(db)
     q = db.query(Transaction).filter(Transaction.price_moment == "day")
@@ -51,13 +52,13 @@ def hourly_changes(db: Session, ids=None, year: int | None = None) -> list[dict[
         tax_year = local_date(t.timestamp, tz).year
         if year is not None and tax_year != year:
             continue
-        change = _change_for(db, t)
+        change = _change_for(db, t, wait)
         if change is not None:
             changes.append({"id": t.id, "tax_year": tax_year, **change})
     return changes
 
 
-def apply_hourly_prices(db: Session, ids=None, year: int | None = None) -> dict[str, Any]:
+def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bool = False) -> dict[str, Any]:
     """
     Price the picked transactions' day-priced values at their hour (where
     there's none, the day's), after a backup copy of the database, and
@@ -65,12 +66,12 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None) -> dict[
     """
     from backend.services.transaction import recalculate_all_transactions
 
-    changes = hourly_changes(db, ids=ids, year=year)
+    changes = hourly_changes(db, ids=ids, year=year, wait=wait)
     db.commit()  # prices downloaded meanwhile; the copy is of the ledger as it is
     if not changes:
         return {"changed": [], "backup": None}
     path = sqlite_file(db.get_bind())
-    backup = backup_sqlite(path, "hourly-prices") if path is not None else None
+    backup = backup_sqlite(path, "hourly-prices", kind="review", keep=REVIEW_COPIES_KEPT) if path is not None else None
     for change in changes:
         t = db.get(Transaction, change["id"])
         for field, (_old, new) in change["values"].items():
@@ -83,10 +84,10 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None) -> dict[
     return {"changed": changes, "backup": backup.name if backup else None}
 
 
-def _change_for(db: Session, t: Transaction) -> dict[str, Any] | None:
+def _change_for(db: Session, t: Transaction, wait: bool) -> dict[str, Any] | None:
     """What pricing a transaction's priced values at their hour would change, or None."""
     moment = t.timestamp
-    found = hourly_prices.hourly_price(db, moment, wait=False)
+    found = hourly_prices.hourly_price(db, moment, wait=wait)
     if found is not None:
         price, at = found[0], "hour"
     else:
