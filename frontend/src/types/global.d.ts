@@ -142,6 +142,17 @@ declare global {
     fee_usd_manual?: boolean;         // typed by the user
     acquired_at?: string | null;      // a My BTC / Gift deposit's date originally acquired
     price_moment?: PriceMoment | null; // its priced values': the hour's price or the day's
+    cost_basis_from_price?: boolean;  // an income or rebate value BitcoinTX filled in
+    proceeds_from_price?: boolean;    // a Spent's proceeds BitcoinTX filled in
+    price_used?: PriceUsed | null;    // the stored price they came from (#145)
+  }
+
+  /** The stored price a transaction's filled-in values came from (#145). */
+  interface PriceUsed {
+    at: string; // the hour's or the day's start, UTC
+    moment: PriceMoment;
+    source: string; // "bitstamp", "mempool", "kraken"…
+    usd_per_btc: string | number;
   }
 
   /** A transaction with its amounts as numbers (parseTransaction). */
@@ -171,6 +182,9 @@ declare global {
     fee_usd_manual?: boolean;
     acquired_at?: string | null;
     price_moment?: PriceMoment | null;
+    cost_basis_from_price?: boolean;
+    proceeds_from_price?: boolean;
+    price_used?: PriceUsed | null;
   }
 
   /** The moment a value BitcoinTX priced came from: the price when its hour
@@ -263,6 +277,12 @@ declare global {
     feeUSDManual?: boolean; // the stored value was typed (clearing it sends null)
     feeUSDStored?: number;  // the stored value, shown as a hint
     priceMoment?: PriceMoment | null; // the stored priced values' moment
+    // Where the saved values came from (#145): undefined for a new transaction
+    costBasisFromPrice?: boolean;
+    proceedsFromPrice?: boolean;
+    costBasisStored?: number;
+    proceedsStored?: number;
+    priceUsed?: PriceUsed | null;
     // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
     // An Inherited deposit's date of death (required)
     acquiredDate?: string;

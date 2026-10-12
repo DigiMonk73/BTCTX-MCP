@@ -1,6 +1,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { formatUsd } from "../../utils/format";
+import { priceUsedWords } from "../../utils/priceUsed";
 
 /**
  * A BTC fee's USD value (transfers and BTC withdrawals), shown once there is
@@ -14,6 +15,7 @@ const FeeValueField: React.FC = () => {
   const stored = watch("feeUSDStored");
   const manual = watch("feeUSDManual");
   const moment = watch("priceMoment") === "day" ? "that day's 00:00 UTC" : "that hour's";
+  const used = watch("priceUsed");
   return (
     <div className="field">
       <label htmlFor="tx-fee-value-usd">Fee value (USD)</label>
@@ -27,7 +29,7 @@ const FeeValueField: React.FC = () => {
       />
       <small className="field-hint">
         {stored != null && !manual
-          ? `Stored: ${formatUsd(stored)} (fee × ${moment} BTC price). Type a value to replace it.`
+          ? `Stored: ${formatUsd(stored)} (fee × ${used ? priceUsedWords(used) : `${moment} BTC price`}). Type a value to replace it.`
           : "Leave blank to use fee × the BTC price when that hour began (that day's, where there's no "
             + "hourly price), or type what the fee was worth."}
       </small>

@@ -1,4 +1,5 @@
 import React from "react";
+import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
@@ -148,6 +149,7 @@ const DepositFields: React.FC = () => {
             <span className="field-error">{errors.costBasisUSD.message}</span>
           )}
           <small className="field-hint">{basisHint(source, isValued)}</small>
+          {isValued && <ValueOrigin fromPrice="costBasisFromPrice" stored="costBasisStored" shown="costBasisUSD" />}
         </div>
       )}
     </>
