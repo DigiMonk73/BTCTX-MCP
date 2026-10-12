@@ -523,7 +523,6 @@ def test_an_autofilled_basis_left_as_it_was_keeps_its_mark_and_moment():
     assert interest["cost_basis_from_price"] is True and interest["price_moment"] == "day"
 
 
-
 def test_an_autofilled_basis_at_the_hour_keeps_that_moment(monkeypatch):
     """The preview's moment travels through the page and back (#144)."""
     stub_prices_at(monkeypatch, lambda when: 100000)

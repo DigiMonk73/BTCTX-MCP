@@ -4,7 +4,7 @@ The whole path a change takes, from this computer to GitHub, to a release,
 to Start9's app store, and back. Written for the owner, who isn't a
 professional coder, and for every AI session, so both remember it the same
 way. The detailed rules are in `AGENTS.md` ("Branches", "Releasing",
-"Start9", "Bugs and security", "Pull requests"); this page is the map. Words in *italics* are in
+"Start9", "Bugs and security", "Pull requests", "Big work"); this page is the map. Words in *italics* are in
 the glossary at the end.
 
 ## The picture
@@ -64,6 +64,19 @@ workflow keeps up to date by itself. We don't touch it.)
    - **tax figures or what the app computes, the database, the StartOS
      package, anything that goes to Start9, and releases**: they wait for
      the owner to say **"merge"**.
+
+## 1b. Big work
+
+A big job (a release, a redesign, research then build) is split up first.
+One main session talks it through with the owner and writes the plan on
+GitHub: an issue for the whole job, an issue for each numbered session
+with its checklist, and a ready-to-paste kickoff prompt on each. The
+owner starts each session from a card or its prompt, and each one works
+through its own checklist, pull request by pull request, stopping where
+the owner decides. The main session keeps a ready-to-paste handoff for
+itself on the job's issue, up to date after every change, so a fresh
+main session can take over when this one grows too long. Details:
+`AGENTS.md`, "Big work".
 
 ## 2. A release
 

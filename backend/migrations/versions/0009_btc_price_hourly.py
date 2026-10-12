@@ -7,8 +7,7 @@
 Nothing else changes: no figure moves.
 
 Revision ID: 0009
-Revises: 0007 (0008 once #163's migration is in develop: whichever merges
-second points this chain at the other)
+Revises: 0008
 Create Date: 2026-10-12
 """
 
@@ -16,7 +15,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0009"
-down_revision = "0007"
+down_revision = "0008"
 branch_labels = None
 depends_on = None
 
