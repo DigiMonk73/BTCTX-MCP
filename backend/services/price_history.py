@@ -294,7 +294,7 @@ def no_price(day: date) -> HTTPException:
         detail = f"No BTC price is available for {day.isoformat()}; enter the USD value yourself."
     else:
         detail = (f"No BTC price is stored for {day.isoformat()}. "
-                  f"{outbound.refuse_public().detail} Or enter the USD value yourself.")
+                  f"{outbound.refuse_public().detail} Enter the USD value yourself.")
     return HTTPException(status_code=422, detail=detail)
 
 

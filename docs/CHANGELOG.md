@@ -139,6 +139,16 @@ All notable changes to BitcoinTX are documented in this file.
   mempool server answers -1 until it has one) is skipped instead of shown.
   Prices already stored don't change. Settings, the
   READMEs and StartOS's Price Source & Privacy action list the sites asked.
+- **The live price says where it came from and when** (#145, the price
+  source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
+  `kraken` or `bitstamp`) and `at`, so the screens can say when your
+  Mempool's backup answered instead. The price messages use the new words:
+  "Nobody" for the choice once called Off, "not chosen yet", "your
+  Mempool" and "the backup (public price sites)", and they say where to
+  change a choice the server sets: StartOS's Price Source & Privacy action,
+  or the server's `BTCTX_PRICE_SOURCE` setting (new `BTCTX_HOST=startos`;
+  `GET /api/settings/network` adds `host` and `invalid`). Invalid server
+  settings say so instead of "Price lookups are off".
 
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing

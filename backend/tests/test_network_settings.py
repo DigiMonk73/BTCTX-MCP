@@ -12,6 +12,7 @@ import ast
 import re
 import asyncio
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -73,6 +74,14 @@ def requests_seen(monkeypatch, real_network_code):
 
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(handler))
     return seen
+
+
+def usd_and_source(price: dict) -> tuple:
+    """A live price's USD and source, after checking its time is now (UTC, "Z")."""
+    at = datetime.fromisoformat(price["at"].replace("Z", "+00:00"))
+    assert price["at"].endswith("Z") and abs((datetime.now(timezone.utc) - at).total_seconds()) < 60
+    assert set(price) == {"USD", "source", "at"}
+    return price["USD"], price["source"]
 
 
 def node_down():
@@ -214,7 +223,8 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
         "proxy_url": " socks5h://127.0.0.1:9050 "})
     assert r.status_code == 200
     assert r.json() == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
-                        "proxy_url": "socks5h://127.0.0.1:9050", "managed": False}
+                        "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
+                        "host": "server"}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -254,7 +264,7 @@ def test_off_still_uses_stored_prices(auth_client, requests_seen, test_engine):
 
 def test_your_own_mempool_server_only(auth_client, requests_seen):
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE})
-    assert auth_client.get("/api/bitcoin/price").json() == {"USD": 61234.0}
+    assert usd_and_source(auth_client.get("/api/bitcoin/price").json()) == (61234.0, "mempool")
     assert auth_client.get("/api/bitcoin/blockheight").json() == {"height": 912345}
     assert requests_seen == [NODE + "/api/v1/prices", NODE + "/api/blocks/tip/height"]
     node_down()
@@ -262,7 +272,7 @@ def test_your_own_mempool_server_only(auth_client, requests_seen):
     r = auth_client.get("/api/bitcoin/blockheight")
     # 502, an error: the owner chose a source and it failed. 503 means prices
     # are off by choice, which the Dashboard shows as "Prices off".
-    assert r.status_code == 502 and "falling back to public price sites is off" in r.json()["detail"]
+    assert r.status_code == 502 and "the backup (public price sites) is off" in r.json()["detail"]
     assert all(u.startswith(NODE) for u in requests_seen)  # never a public site
 
 
@@ -277,7 +287,7 @@ def test_your_mempool_with_fallback_asks_the_public_sites_when_it_is_down(auth_c
 def test_the_live_price_is_asked_once_a_minute(auth_client, requests_seen):
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE})
     for _ in range(5):
-        assert auth_client.get("/api/bitcoin/price").json() == {"USD": 61234.0}
+        assert usd_and_source(auth_client.get("/api/bitcoin/price").json()) == (61234.0, "mempool")
     assert requests_seen.count(NODE + "/api/v1/prices") == 1
 
 
@@ -298,7 +308,8 @@ def test_the_dashboard_and_sidebar_asking_at_once_make_one_request(auth_client, 
     async def page_load():
         return await asyncio.gather(real_current_price(), real_current_price())
 
-    assert asyncio.run(page_load()) == [{"USD": 61234.0}, {"USD": 61234.0}]
+    first, second = asyncio.run(page_load())
+    assert first == second and usd_and_source(first) == (61234.0, "mempool")
     assert asked == [NODE + "/api/v1/prices"]
 
 
@@ -381,9 +392,9 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=BRIDGE + "/", BTCTX_MEMPOOL_FALLBACK="off")
     assert auth_client.get("/api/settings/network").json() == {
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
-        "managed": True}
+        "managed": True, "invalid": False, "host": "server"}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
-    assert r.status_code == 409 and "Price Source & Privacy action" in r.json()["detail"]
+    assert r.status_code == 409 and "this server's BTCTX_PRICE_SOURCE setting" in r.json()["detail"]
     # The stored settings are untouched, and back once the server stops setting them
     server_env(BTCTX_PRICE_SOURCE="")
     assert outbound.current() == outbound.NetworkSettings(
@@ -397,9 +408,10 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
     {"BTCTX_PRICE_SOURCE": "mempool", "BTCTX_MEMPOOL_URL": "umbrel.local"},
 ])
 def test_invalid_server_settings_turn_lookups_off(auth_client, server_env, requests_seen, env):
-    assert server_env(**env) == outbound.NetworkSettings(price_source="off", managed=True)
+    assert server_env(**env) == outbound.NetworkSettings(price_source="off", managed=True, invalid=True)
     r = auth_client.get("/api/bitcoin/blockheight")
-    assert r.status_code == 503 and "Price lookups are off" in r.json()["detail"]
+    assert r.status_code == 503 and "price settings aren't valid, so nothing is asked" in r.json()["detail"]
+    assert auth_client.get("/api/settings/network").json()["invalid"] is True
     assert requests_seen == []
 
 
@@ -434,19 +446,20 @@ def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_e
     assert requests_seen == []
 
 
-def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen):
+def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen, monkeypatch):
     """StartOS passes no address while Mempool is missing: nothing is asked, and the reason says so."""
+    monkeypatch.setenv("BTCTX_HOST", "startos")
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
     assert outbound.current().own_node is None
     r = auth_client.get("/api/bitcoin/blockheight")
     # VM test 2026-09-29 (F6): the Dashboard said "Prices off" for this; and
     # one pair of brackets, not "(… (on StartOS: …))".
-    assert r.status_code == 502 and "install and start Mempool" in r.json()["detail"]
+    assert r.status_code == 502 and "Install and start Mempool" in r.json()["detail"]
     assert "))" not in r.json()["detail"]
     r = auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2023-03-03T12:00:00Z", from_account_id=99, to_account_id=2,
         amount="0.01", source="Income", fee_amount="0", fee_currency="BTC"))
-    assert r.status_code == 422 and "install and start Mempool" in r.text
+    assert r.status_code == 422 and "Install and start Mempool" in r.text
     assert requests_seen == []
 
 
@@ -509,12 +522,12 @@ def test_the_live_price_asks_kraken_first_then_bitstamp(auth_client, monkeypatch
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
     auth_client.put("/api/settings/network", json=PUBLIC)
     bitcoin._price_cache.update(settings=None)
-    assert asyncio.run(real_current_price()) == {"USD": 61000.5}
+    assert usd_and_source(asyncio.run(real_current_price())) == (61000.5, "kraken")
     assert asked == ["api.kraken.com"]
 
     asked.clear(); asked_mode.append("kraken-down")
     bitcoin._price_cache.update(settings=None)
-    assert asyncio.run(real_current_price()) == {"USD": 60999.25}
+    assert usd_and_source(asyncio.run(real_current_price())) == (60999.25, "bitstamp")
     assert asked == ["api.kraken.com", "www.bitstamp.net"]
 
 
@@ -551,7 +564,7 @@ def test_a_mempool_server_without_a_price_yet_leaves_it_to_the_fallback(auth_cli
     auth_client.put("/api/settings/network", json={
         **PUBLIC, "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True})
     bitcoin._price_cache.update(settings=None)
-    assert asyncio.run(real_current_price()) == {"USD": 61000.5}
+    assert usd_and_source(asyncio.run(real_current_price())) == (61000.5, "kraken")
     assert asked == ["umbrel.local", "api.kraken.com"]
 
 
@@ -562,3 +575,57 @@ def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_s
     assert asyncio.run(real_block_height()) == {"height": 912345}
     assert asyncio.run(real_block_height()) == {"height": 912345}
     assert requests_seen == [NODE + "/api/blocks/tip/height"]
+
+
+# ---------------------------------------------------------------------------
+# Where BitcoinTX runs (#145): the words say where a server-set choice is
+# changed, and Nobody is called Nobody.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("env, host", [
+    ({}, "server"),
+    ({"BTCTX_DESKTOP": "1"}, "mac"),
+    ({"BTCTX_HOST": "startos"}, "startos"),
+    ({"BTCTX_HOST": " StartOS "}, "startos"),
+    ({"BTCTX_HOST": "somewhere", "BTCTX_DESKTOP": "1"}, "mac"),  # an unknown name is ignored
+])
+def test_where_bitcointx_runs(auth_client, monkeypatch, env, host):
+    monkeypatch.delenv("BTCTX_HOST", raising=False)
+    monkeypatch.delenv("BTCTX_DESKTOP", raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    assert outbound.host() == host
+    assert auth_client.get("/api/settings/network").json()["host"] == host
+
+
+@pytest.mark.parametrize("host, where", [
+    ("startos", "StartOS's Price Source & Privacy action"),
+    ("server", "this server's BTCTX_PRICE_SOURCE setting"),
+])
+def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, requests_seen, monkeypatch,
+                                                       host, where):
+    monkeypatch.setenv("BTCTX_HOST", host)
+    server_env(BTCTX_PRICE_SOURCE="off")
+    r = auth_client.put("/api/settings/network", json=PUBLIC)
+    assert r.status_code == 409 and r.json()["detail"] == f"The price choice is set in {where}, so it can't be changed here."
+    r = auth_client.get("/api/bitcoin/price")
+    assert r.status_code == 503 and r.json()["detail"] == f"You chose Nobody for prices, so none is asked ({where})."
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
+    detail = auth_client.get("/api/bitcoin/price").json()["detail"]
+    missing = "Mempool isn't installed on this server yet" if host == "startos" else "BTCTX_MEMPOOL_URL isn't set"
+    assert detail.startswith(missing) and detail.endswith(f"in {where}.")
+    assert requests_seen == []
+
+
+def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
+    """The redesign's words (#145): "Nobody" is the choice once called Off,
+    and no message nests brackets (VM note, #143)."""
+    outbound._current = outbound.NetworkSettings()
+    r = auth_client.get("/api/bitcoin/price")
+    assert r.json()["detail"] == (
+        "Prices: not chosen yet. Choose where BitcoinTX gets them in Settings → Privacy & network.")
+    auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
+    r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
+    assert r.status_code == 422 and r.json()["detail"] == (
+        "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked "
+        "(Settings → Privacy & network). Enter the USD value yourself.")
+    assert "))" not in r.json()["detail"] and requests_seen == []

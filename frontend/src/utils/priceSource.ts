@@ -14,6 +14,10 @@ export interface NetworkSettingsData {
   proxy_url: string | null;
   /** Set by the server (StartOS: the Price Source & Privacy action), read-only here. */
   managed?: boolean;
+  /** The server's settings are invalid: nothing is asked. */
+  invalid?: boolean;
+  /** Where BitcoinTX runs: the Mac app, StartOS, or another server (Docker, source). */
+  host?: "mac" | "startos" | "server";
 }
 
 export const MANAGED_NOTE =
