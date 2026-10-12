@@ -99,12 +99,18 @@ async def _first_public(urls_and_parsers, what: str) -> tuple:
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
+# A public site's short name, as the live price's "source" gives it
+SITES = {"api.kraken.com": "kraken", "www.bitstamp.net": "bitstamp", "blockchain.info": "blockchain.info",
+         "blockstream.info": "blockstream", "mempool.space": "mempool.space"}
+
+
 def _site(url: str) -> str:
     """A public site's short name: https://api.kraken.com/... is "kraken"."""
-    return (urlparse(url).hostname or "").split(".")[-2]
+    host = urlparse(url).hostname or ""
+    return SITES.get(host, host)
 
 
-def _now() -> str:
+def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
@@ -140,11 +146,12 @@ async def get_current_price() -> dict:
         cached = _price_cache
         if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
             return cached["value"]
-        price, source = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"])), "mempool"
+        price = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"]))
+        source = "mempool"
         if price is None:
             price, source = await _first_public(
                 [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price")
-        price = {**price, "source": source, "at": _now()}
+        price = {**price, "source": source, "at": now_iso()}
         _price_cache.update(settings=settings, at=time.monotonic(), value=price)
         return price
 

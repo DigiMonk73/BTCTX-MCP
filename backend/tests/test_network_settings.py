@@ -394,7 +394,7 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
         "managed": True, "invalid": False, "host": "server"}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
-    assert r.status_code == 409 and "this server's BTCTX_PRICE_SOURCE setting" in r.json()["detail"]
+    assert r.status_code == 409 and "on StartOS: the Price Source & Privacy action" in r.json()["detail"]
     # The stored settings are untouched, and back once the server stops setting them
     server_env(BTCTX_PRICE_SOURCE="")
     assert outbound.current() == outbound.NetworkSettings(
@@ -450,9 +450,8 @@ def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_e
     assert requests_seen == []
 
 
-def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen, monkeypatch):
+def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_env, requests_seen):
     """StartOS passes no address while Mempool is missing: nothing is asked, and the reason says so."""
-    monkeypatch.setenv("BTCTX_HOST", "startos")
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
     assert outbound.current().own_node is None
     r = auth_client.get("/api/bitcoin/blockheight")
@@ -603,7 +602,8 @@ def test_where_bitcointx_runs(auth_client, monkeypatch, env, host):
 
 @pytest.mark.parametrize("host, where", [
     ("startos", "StartOS's Price Source & Privacy action"),
-    ("server", "this server's BTCTX_PRICE_SOURCE setting"),
+    # Docker, or StartOS before its package says so: words that fit both
+    ("server", "the server's price settings (on StartOS: the Price Source & Privacy action)"),
 ])
 def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, requests_seen, monkeypatch,
                                                        host, where):
@@ -612,12 +612,41 @@ def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, r
     r = auth_client.put("/api/settings/network", json=PUBLIC)
     assert r.status_code == 409 and r.json()["detail"] == f"The price choice is set in {where}, so it can't be changed here."
     r = auth_client.get("/api/bitcoin/price")
-    assert r.status_code == 503 and r.json()["detail"] == f"You chose Nobody for prices, so none is asked ({where})."
+    assert r.status_code == 503 and r.json()["detail"] == (
+        f"You chose Nobody for prices, so none is asked. To change that: {where}.")
+    r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
+    assert r.status_code == 422 and "))" not in r.json()["detail"]  # no brackets inside brackets (#143)
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
-    detail = auth_client.get("/api/bitcoin/price").json()["detail"]
-    missing = "Mempool isn't installed on this server yet" if host == "startos" else "BTCTX_MEMPOOL_URL isn't set"
-    assert detail.startswith(missing) and detail.endswith(f"in {where}.")
+    r = auth_client.get("/api/bitcoin/price")
+    assert r.status_code == 502 and r.json()["detail"] == (
+        "Mempool isn't available, and the backup (public price sites) is off. Install and start Mempool, "
+        f"or change the choice in {where}.")
     assert requests_seen == []
+
+
+@pytest.mark.parametrize("host, fix", [
+    ("startos", "Fix them in StartOS's Price Source & Privacy action; the log says which."),
+    ("server", "Fix them in the server's price settings (on StartOS: the Price Source & Privacy action); "
+               "the log says which."),
+])
+def test_invalid_server_settings_say_where_to_fix_them(auth_client, server_env, requests_seen, monkeypatch,
+                                                         host, fix):
+    """Review of #179: an invalid BTCTX_MEMPOOL_URL was blamed on BTCTX_PRICE_SOURCE."""
+    monkeypatch.setenv("BTCTX_HOST", host)
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="umbrel.local")
+    assert auth_client.get("/api/bitcoin/price").json()["detail"] == (
+        f"This server's price settings aren't valid, so nothing is asked. {fix}")
+    assert requests_seen == []
+
+
+def test_your_mempool_not_answering_without_the_backup_says_so(auth_client, requests_seen):
+    auth_client.put("/api/settings/network", json={
+        **PUBLIC, "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": False})
+    node_down()
+    r = auth_client.get("/api/bitcoin/price")
+    assert r.status_code == 502 and r.json()["detail"] == (
+        "Your Mempool didn't answer, and the backup (public price sites) is off. "
+        "Change that in Settings → Privacy & network.")
 
 
 def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
@@ -630,6 +659,6 @@ def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
     assert r.status_code == 422 and r.json()["detail"] == (
-        "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked "
-        "(Settings → Privacy & network). Enter the USD value yourself.")
+        "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked. "
+        "To change that: Settings → Privacy & network. Enter the USD value yourself.")
     assert "))" not in r.json()["detail"] and requests_seen == []
