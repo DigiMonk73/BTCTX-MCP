@@ -78,7 +78,7 @@ PURPOSES = [
 
 ACCOUNT_RULES = [
     ["Type", "From Account", "To Account", "Required Fields"],
-    ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that day's value;\nInherited: acquired_at (date of death) required"],
+    ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that hour's value;\nInherited: acquired_at (date of death) required;\nblank = that day's value"],
     ["Withdrawal", "Wallet or\nExchange BTC", "External", "purpose required;\nproceeds_usd for \"Spent\""],
     ["Transfer", "Any account", "Another account,\nsame currency; or the\nsame Wallet or\nExchange BTC", "Fee in the sending account's currency;\nto the same account (a consolidation):\na BTC fee is required, and only it\nis recorded"],
     ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],

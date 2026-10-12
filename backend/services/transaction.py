@@ -423,13 +423,18 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
         return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
-    return _valuation_hour(tx_data, tx) != _valuation_hour({}, tx)
+    return _valuation_point(tx_data, tx) != _valuation_point({}, tx)
 
 
-def _valuation_hour(edited: dict, tx: Transaction):
-    """The UTC hour a valued deposit is priced at, after the edit `edited`:
-    an inheritance's date of death, else the deposit's own (#154)."""
-    moment = edited.get("acquired_at", tx.acquired_at) or edited.get("timestamp", tx.timestamp)
+def _valuation_point(edited: dict, tx: Transaction):
+    """When a valued deposit is priced, after the edit `edited`: an
+    inheritance on its date of death's UTC day (a date has no hour, and the
+    form sends it as noon in the tax timezone: the hour isn't the owner's,
+    #154), anything else at its UTC hour."""
+    if _is_inherited({"source": edited.get("source", tx.source)}):
+        moment = edited.get("acquired_at", tx.acquired_at) or edited.get("timestamp", tx.timestamp)
+        return price_history.utc_day(moment) if moment is not None else None
+    moment = edited.get("timestamp", tx.timestamp)
     return hourly_prices.hour_of(moment) if moment is not None else None
 
 
@@ -1191,9 +1196,10 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     receipt, which for income is also the income on the tax report (a rebate
     is never income, #98); an inherited one, its value on the date of death
     (IRC §1014; never income, #154). Entered without one (blank, or the
-    form's 0), value it at the hour's BTC price (its moment in
-    tx_data["price_moment"]) instead of saving $0; refuse to save when no
-    price is available. Returns True when it filled cost_basis_usd.
+    form's 0), value it at the hour's BTC price (an inheritance: the date of
+    death's day price; its moment in tx_data["price_moment"]) instead of
+    saving $0; refuse to save when no price is available. Returns True when
+    it filled cost_basis_usd.
     """
     if not _valued_at_receipt(tx_data, db) or Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
         return False
@@ -1206,7 +1212,9 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     moment = tx_data.get("acquired_at") or tx_data.get("timestamp") or datetime.now(timezone.utc)
     when = "on the date of death" if _is_inherited(tx_data) else "at receipt"
     try:
-        priced = _price_at(moment, db)
+        # A date of death has no hour: that day's price (#154)
+        with _priced_at_the_day(db, _is_inherited(tx_data) or bool(db.info.get(DAY_PRICES))):
+            priced = _price_at(moment, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
