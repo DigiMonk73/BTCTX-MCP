@@ -274,12 +274,18 @@ def test_a_mempool_server_without_the_hour_leaves_it_to_the_fallbacks_download(s
     assert sites.requests[0].startswith(NODE)  # the own server first
 
 
-def test_no_hourly_price_before_the_first_year_and_none_for_a_future_hour(sites, db):
+def test_no_hourly_price_before_the_first_year_or_for_an_hour_not_begun(sites, db, monkeypatch):
+    """Review of #173: an entry dated today (noon in the tax timezone) was
+    refused until that hour came; it takes the day's price, marked as such.
+    A later day has no price."""
+    monkeypatch.setattr(price_history, "_today", lambda: datetime(2026, 3, 20, tzinfo=timezone.utc).date())
     priced = hp.price_at(db, utc("2024-12-31T23:30Z"))
     assert priced.moment == "day" and sites.requests == []
+    later_today = hp.price_at(db, utc("2026-03-20T17:00Z"))
+    assert later_today.moment == "day" and later_today.at == utc("2026-03-20T00:00Z")
     with pytest.raises(HTTPException) as exc:
-        hp.price_at(db, utc("2026-03-20T11:00Z"))
-    assert exc.value.status_code == 422 and "future" in exc.value.detail
+        hp.price_at(db, utc("2026-03-21T09:00Z"))
+    assert exc.value.status_code == 422
 
 
 def test_a_file_that_doesnt_give_its_fingerprint_is_never_read(sites, db):
@@ -389,6 +395,7 @@ def test_a_proxy_set_during_the_download_carries_the_next_request(sites, monkeyp
     hp.start_download()
     finish_download()
     assert proxies[0] is None and set(proxies[1:]) == {"socks5h://127.0.0.1:9050"}
+    assert len(proxies) == len(sites.bitstamp_starts())  # a client for each request: the next one uses Tor
 
 
 def test_the_current_hour_comes_from_bitstamp_once_it_has_traded(sites, db):
@@ -420,6 +427,20 @@ def test_a_mempool_servers_answer_isnt_kept_once_it_is_no_longer_the_source(site
     use(price_source="public")
     hp.hourly_price(db, utc("2026-03-17T08:00Z"))
     assert price_history._state["mempool_rows"] == [] and not hp._live["rows"]
+
+
+def test_the_day_lookup_drops_the_kept_mempool_answer_too(sites, db, monkeypatch):
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
+    use(price_source="mempool", mempool_url=NODE)
+    sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
+    price_history.daily_price(db, utc("2026-03-17T00:00Z"))
+    assert price_history._state["mempool_rows"]
+    use(price_source="public")
+    try:
+        price_history.daily_price(db, utc("2025-01-05T00:00Z"))  # a day not stored: asked
+    except HTTPException:
+        pass  # no public price in this fake world: what matters is what was kept
+    assert price_history._state["mempool_rows"] == []
 
 
 def test_without_a_manifest_no_public_site_is_asked(sites, db, tmp_path, monkeypatch):

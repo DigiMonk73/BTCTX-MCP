@@ -46,7 +46,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import HTTPException
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -89,10 +88,13 @@ def hour_of(when: datetime) -> int:
 
 
 def price_at(db: Session, when: datetime) -> Priced:
-    """The price that values `when`: its hour's, else its UTC day's. 422 when neither."""
+    """
+    The price that values `when`: its hour's, else its UTC day's. A time
+    later today (an hour not begun: an entry dated today, which an import
+    reads as noon in the tax timezone) takes the day's price, marked as
+    such; a later day has none (422).
+    """
     hour = hour_of(when)
-    if hour > _current_hour():
-        raise HTTPException(status_code=422, detail=f"No BTC price for a future time ({pf.label(hour)}).")
     found = hourly_price(db, when)
     if found is not None:
         return Priced(found[0], "hour", _utc(hour))
