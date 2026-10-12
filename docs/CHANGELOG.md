@@ -128,6 +128,17 @@ All notable changes to BitcoinTX are documented in this file.
     Network** shows the choice you want.
 
 ### Changed
+- **Public price sites: Coinbase and CoinGecko are no longer asked**
+  (#161, the owner's decision). Coinbase's market data terms keep its data
+  for personal or research use and say it "may not be used to build an
+  application intended for use by end users"; CoinGecko's ask for a credit
+  and discourage storing its data. Past prices now come from Bitstamp's
+  whole daily history (if that download fails, it's tried again later),
+  then the latest days from Bitstamp, else Kraken; the live price from
+  Kraken, else Bitstamp; a live price of 0, below 0 or not a number (a
+  mempool server answers -1 until it has one) is skipped instead of shown.
+  Prices already stored don't change. Settings, the
+  READMEs and StartOS's Price Source & Privacy action list the sites asked.
 - **Values BitcoinTX fills in from the BTC price now use the price when the
   transaction's hour began** (#144, tax figures; the third of five pull
   requests). That's an income or rebate deposit's value left blank, a
