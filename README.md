@@ -244,7 +244,8 @@ to do.
 
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
 period are calculated differently; from before v0.9.2, withdrawal fees and
-Lost withdrawals are. Either way, stored gains can change. The
+Lost withdrawals are; from v0.9.2 to v1.2.7, a spend's network fee is (it now
+comes off the spend's proceeds). Either way, stored gains can change. The
 [CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
 release.
 

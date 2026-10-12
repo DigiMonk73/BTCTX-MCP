@@ -81,9 +81,11 @@ Withdrawal: any account -> External
                Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
-  was received for amount; the fee is recorded as its own small disposal.
-  That fee disposal is taxable for every purpose, Gift, Donation and Lost
-  included, even though the withdrawal itself isn't.
+  was received for amount, before the fee: BitcoinTX takes the fee's value
+  off it (a cost of the spend, as for a Sell) and records the fee as its
+  own small disposal at that value. That fee disposal is taxable for every
+  purpose, Gift, Donation and Lost included, even though the withdrawal
+  itself isn't.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination
@@ -144,6 +146,10 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    (minus anything they rejected). The write is all-or-nothing.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
+   A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
+   gross_proceeds_usd is before it (entered, or that day's value). To
+   change the proceeds, send the new gross as proceeds_usd, never the
+   listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show
    the user what it lists; let them decide what to change. Fee-value fixes
    are made by the user in Settings -> Ledger Review. Call recalculate_ledger

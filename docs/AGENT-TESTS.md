@@ -132,7 +132,7 @@ listed at its default.
 | 11 | 2025-01-10 12:00 | Buy | `Bank (auto-buy)`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
 | 12 | 2025-04-01 12:00 | Sell | Amount BTC `0.05`, Gross Proceeds (USD) `4000` | … Realized Gain: −$1,000.00 |
 | 13 | 2025-05-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.1`, Purpose `Spent`, Proceeds (USD) `9000` | … Realized Gain: +$6,700.00 |
-| 14 | 2025-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$770.00 |
+| 14 | 2025-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$765.00 (the $5 fee comes off the proceeds, #157) |
 
 What each row does: #4 moves lot A's BTC to the Wallet, and its fee is a
 disposal. #6 is 04:30 UTC on Jan 1, 2024, but counts in 2023 because the tax
@@ -145,14 +145,14 @@ it's long-term. #14's fee is its own disposal.
 |---|---|
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
-| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,072.70 · Long-Term Losses $0.00 · Net Long-Term +$11,072.70 · Total Net Capital Gains +$19,438.10 |
+| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
-| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
-| Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10005.00 / 2532.30 / 7472.70 |
+| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 995.00 · 230.00 · 765.00` |
+| Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10000.00 / 2532.30 / 7467.70 |
 | Complete Tax Report 2023 (no IRS forms for 2023 in the app) | 1. Summary › Capital gains and losses: Short-term 4 disposals, Proceeds $13,400.00, Cost basis $11,834.60, Net gain $1,565.40; Long-term 0, all $0.00 (the cover's Net capital gain is the same $1,565.40). 2. Capital gains and losses lists, as Proceeds / Cost basis / Gain: 06/01/2023 0.0002 BTC ($10.00 / $4.60 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($400.00 / $230.00 / $170.00). 5. Holdings at year end, lot by lot: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, "Average cost: $23,404.12 per BTC"; each Market value = quantity × the Dec 31 price the report states |
-| Complete Tax Report 2025, 6. Using these forms | "This year's boxes: H and L", "Schedule D: lines 2 and 10"; the Bitcoin-only figures: line 7 ($1,000.00), line 15 $7,472.70, line 16 $6,472.70, "Line 16 isn't a loss, so line 21 doesn't apply." |
+| Complete Tax Report 2025, 6. Using these forms | "This year's boxes: H and L", "Schedule D: lines 2 and 10"; the Bitcoin-only figures: line 7 ($1,000.00), line 15 $7,467.70, line 16 $6,467.70, "Line 16 isn't a loss, so line 21 doesn't apply." |
 | Complete Tax Report 2024 | 1. Summary › Bitcoin holdings, January 1, 2024: 0.98980000 BTC, Avg cost per BTC $23,404.12 (the same BTC as the 2023 report's year end). Summary › Income: Income $1,000.00, Total $1,000.00. 3. Income: 05/01/2024 Income 0.02000000 BTC $1,000.00. 4. Gifts, donations and lost coins: 06/01/2024 Gift 0.10000000 BTC, Fair market value "not given". 5. Holdings at year end, lot by lot: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
 | Transaction History CSV | 2023: 6 rows (the Dec 31 spend is in it, stamped `2024-01-01T04:30:00+00:00`) · 2024: 4 rows · 2025: 4 rows |
 
@@ -378,7 +378,7 @@ Start from the `clean` snapshot.
     03/03/2024.
   - 2025 lines unchanged, dates one day later (for example 01/11/2025 →
     04/02/2025).
-  - Dashboard Total Net Capital Gains still +$19,438.10.
+  - Dashboard Total Net Capital Gains still +$19,433.10.
 - **TZ-2** Set it back to `America/New_York`. Expect: every golden figure
   is back.
 

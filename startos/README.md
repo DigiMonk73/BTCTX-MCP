@@ -147,7 +147,7 @@ Three actions raise tasks.
 
 The critical task blocks starting the service until the login exists. The price task does not block: until a source is chosen, the app asks at first login and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, holding period) stay wrong until a recalculation.
 
-Updating across the change that made a withdrawal's network fee its own disposal (and gave Lost withdrawals no gain or loss) raises no task, but the next recalculation (or any add, edit or delete) changes those figures. **Settings → Ledger Review** in the app lists them beforehand.
+Updating across the change that made a withdrawal's network fee its own disposal (and gave Lost withdrawals no gain or loss), or the one that takes a spend's network fee off its proceeds, raises no task, but the next recalculation (or any add, edit or delete) changes those figures. **Settings → Ledger Review** in the app lists them beforehand.
 
 ## Health Checks
 

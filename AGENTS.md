@@ -134,8 +134,11 @@ So derived values must be recomputable from the Transaction row alone.
 - **Withdrawal fee**: a BTC network fee on a withdrawal is on top of `amount`
   and is its own disposal (`lot_disposals.is_fee`, oldest BTC first) at
   `fee_usd`, taxable even for Gift/Donation/Lost and never broker-reported.
-  A Spent's proceeds are for `amount`, with no fee cut. The transaction's
-  own proceeds/basis/gain are the amount's (fee disposals left out).
+  A Spent's fee is a cost of the spend (Treas. Reg. §1.1001-7(b)(2)(ii)(A),
+  #157, all years): its proceeds are the gross for `amount` less `fee_usd`,
+  so the spend and its fee together realize the gross (a fee worth more
+  than the gross takes only the gross). The transaction's own
+  proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
   date and pro-rated basis. The fee is a disposal.

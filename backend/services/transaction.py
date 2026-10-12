@@ -150,7 +150,7 @@ def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
 
 _VALIDATED_FIELDS = (
     "type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
-    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "source", "purpose", "acquired_at",
+    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "source", "purpose", "acquired_at",
 )
 
 # What each type takes as input. A Sell's or Withdrawal's cost basis (and a
@@ -655,8 +655,8 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
 def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     """
     For a Sell/Withdrawal from a BTC account, do FIFO disposal of partial lots.
-    - The proceeds are for the amount sold or spent: a Sell's net proceeds,
-      a Spent withdrawal's full proceeds (no fee cut).
+    - The proceeds are for the amount sold or spent, net of its fee: a Sell's
+      net proceeds, a Spent withdrawal's gross less its BTC fee's value.
     - Gift/Donation/Lost => the amount carries no proceeds and no gain.
     - A withdrawal's BTC network fee is its own disposal (like a transfer's),
       at the fee's stored USD value, taxable whatever the purpose. It uses the
@@ -680,6 +680,8 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
+    if tx.type == "Withdrawal" and (tx.purpose or "").lower() == "spent":
+        total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
     for lot in _open_lots(tx.from_account_id, db):
@@ -717,6 +719,20 @@ def _amount_proceeds(tx: Transaction, tx_data: dict, btc_outflow: Decimal, db: S
         return Decimal("0")
 
 
+def _spend_net_of_fee(gross: Decimal, fee_usd: Decimal) -> tuple[Decimal, Decimal]:
+    """
+    A spend's proceeds and its fee disposal's. The fee paid to make the spend
+    is a cost of it, so it comes off what the spend brought in (Treas. Reg.
+    §1.1001-7(b)(2)(ii)(A) and its Example 4, IRS digital-asset FAQ Q63;
+    #157), while the coins that paid it are disposed of at its value (Q97).
+    Together they realize the gross. A fee worth more than the gross takes
+    only the gross, so no proceeds go below zero. Always from the gross: the
+    net again, less the fee, would shrink with every recalculation.
+    """
+    fee_proceeds = min(fee_usd, gross)
+    return gross - fee_proceeds, fee_proceeds
+
+
 def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
     """The account's lots with BTC left, oldest first."""
     return (
@@ -736,7 +752,8 @@ class _FifoDisposal:
     A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
     fee's part before the amount's, each with its share of the proceeds.
     The last part of each takes what is left, so the parts add up exactly
-    to fee_usd and to the proceeds.
+    to the fee's value (fee_usd; a spend's at most its gross) and to the
+    proceeds.
     """
 
     def __init__(self, tx: Transaction, amount_btc: Decimal, total_proceeds: Decimal, not_a_sale: bool,
@@ -826,7 +843,8 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0:
+    elif total_proceeds > 0 or tx.type == "Withdrawal":
+        # A spend whose fee took all it brought in has 0 (#157), not the gross
         tx.proceeds_usd = total_proceeds
 
     if earliest_date:
