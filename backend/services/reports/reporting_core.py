@@ -505,9 +505,10 @@ def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None)
     was entered with its transaction; a gift's or donation's value isn't
     marked either way.
     """
+    years: dict = {}  # the stored history's year files, read once for the report
     return [
         {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,
-         "usd": float(usd), "priced_at": priced_at + _from_where(tx, db)}
+         "usd": float(usd), "priced_at": priced_at + _from_where(tx, db, years)}
         for tx in txns for name, usd, priced_at in _priced_values(tx, tz)
     ]
 
@@ -516,11 +517,11 @@ def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None)
 _SOURCE_NAMES = {"bitstamp": "Bitstamp", "kraken": "Kraken", "mempool": "your Mempool"}
 
 
-def _from_where(tx: Transaction, db: Session | None) -> str:
+def _from_where(tx: Transaction, db: Session | None, years: dict) -> str:
     """", Bitstamp": where the stored price a transaction's values came from
     was found (services/transaction.price_used, read only); nothing when
     it isn't known."""
-    used = price_used(tx, db) if db is not None else None
+    used = price_used(tx, db, years) if db is not None else None
     source = (used or {}).get("source", "")
     return f", {_SOURCE_NAMES.get(source, source)}" if source in _SOURCE_NAMES else ""
 
