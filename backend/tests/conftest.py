@@ -87,7 +87,7 @@ def _stub_price_apis():
     async def current():
         return {"USD": STUB_CURRENT_USD}
 
-    async def no_hours(hour, files_end, stored_to):
+    async def no_hours(hour, files_end, stored):
         return {}
 
     import backend.services.bitcoin as bitcoin

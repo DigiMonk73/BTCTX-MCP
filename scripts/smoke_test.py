@@ -121,7 +121,7 @@ def stub_prices() -> None:
             raise outbound.refuse_public()
         return {"height": BLOCK_HEIGHT}
 
-    async def no_hours(hour, files_end, stored_to):
+    async def no_hours(hour, files_end, stored):
         return {}
 
     price_history.find_prices = find_prices
