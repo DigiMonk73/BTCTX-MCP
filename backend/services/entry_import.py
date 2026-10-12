@@ -27,7 +27,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INHERITED_SOURCE, VALUED_AT_RECEIPT
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -36,7 +36,7 @@ from backend.schemas.entry_import import (
     EntryRow,
     SimulatedResult,
 )
-from backend.services import hourly_prices
+from backend.services import hourly_prices, price_history
 from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
@@ -201,10 +201,11 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
       - Spent withdrawals: proceeds = FMV of what was bought
       - Gift/Donation withdrawals: fmv_usd for the tax report
     Uses the price of the transaction's hour (else its day:
-    services/hourly_prices.py); on lookup failure the field stays empty and
+    services/hourly_prices.py), an inheritance its date of death's day price
+    as the form does (#173); on lookup failure the field stays empty and
     the row gets a warning.
     """
-    price_cache: dict[int, hourly_prices.Priced | None] = {}
+    price_cache: dict[tuple, hourly_prices.Priced | None] = {}
     for p in prepared:
         if p.tx_data is None:
             continue
@@ -212,21 +213,22 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         if target is None:
             continue
         # An inheritance is valued on the date of death (#154), anything else at its own time
-        when = (p.tx_data.get("acquired_at") if target == "cost_basis_usd" else None) or p.tx_data["timestamp"]
-        hour = hourly_prices.hour_of(when)
-        if hour not in price_cache:
+        inherited = target == "cost_basis_usd" and str(p.tx_data.get("source") or "").lower() == INHERITED_SOURCE
+        when = (p.tx_data.get("acquired_at") if inherited else None) or p.tx_data["timestamp"]
+        key = ("day", price_history.utc_day(when)) if inherited else ("hour", hourly_prices.hour_of(when))
+        if key not in price_cache:
             try:
-                price_cache[hour] = await run_in_threadpool(hourly_prices.price_at, db, when)
+                lookup = _date_of_death_price if inherited else hourly_prices.price_at
+                price_cache[key] = await run_in_threadpool(lookup, db, when)
             except Exception as exc:
                 # The time (a transaction's) only in the DEBUG log
                 logger.warning("FMV lookup failed (%s)", type(exc).__name__)
                 logger.debug("FMV lookup failed for %s: %s", when, exc)
-                price_cache[hour] = None
-        priced = price_cache[hour]
+                price_cache[key] = None
+        priced = price_cache[key]
         if priced is None:
-            p.result.warnings.append(
-                f"Could not fetch the BTC price for {when:%Y-%m-%d %H:00} UTC; {target} was left empty."
-            )
+            moment = f"{when:%Y-%m-%d}" if inherited else f"{when:%Y-%m-%d %H:00} UTC"
+            p.result.warnings.append(f"Could not fetch the BTC price for {moment}; {target} was left empty.")
             continue
         p.tx_data[target] = (priced.usd * p.tx_data["amount"]).quantize(Decimal("0.01"))
         # From the price, not typed: an edit re-prices it (#76). A gift's
@@ -240,6 +242,13 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]
+
+
+def _date_of_death_price(db: Session, when: datetime) -> hourly_prices.Priced:
+    """A date of death has no hour: that UTC day's 00:00 price, marked "day" (#154), as the form's."""
+    day = price_history.utc_day(when)
+    return hourly_prices.Priced(price_history.daily_price(db, when), "day",
+                                datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
 
 
 # Dedup
