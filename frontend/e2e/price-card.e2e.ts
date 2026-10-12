@@ -129,6 +129,7 @@ test.describe("Tor on this server, set in StartOS (#145)", () => {
     await expect(net.getByLabel("Tor's address")).toHaveCount(0);
     await net.getByLabel(/^Nobody/).check(); // the rest stays the owner's to change
     await net.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Price source saved.").last()).toBeVisible(); // saved before it's read back
     const shown = await (await page.request.get("/api/settings/network")).json();
     expect([shown.price_source, shown.proxy_url, shown.tor_from_server]).toEqual(["off", "socks5h://10.0.3.1:9050", true]);
   });
