@@ -609,6 +609,16 @@ one session. Claude suggests this setup when a request is that big.
   the same files, the reference figures or a migration, the one that
   merges second merges `develop` in, and checks the migration numbering
   and the figures again.
+- **The lead's own handoff:** the main session (the lead) keeps a
+  comment "Kickoff prompt for the lead session" on the umbrella issue,
+  edited in place after every change, never left as a snapshot: its role
+  and duties, how to start, and the current state (sessions done, running
+  and next; what waits on the owner; recent decisions; what to watch).
+  The owner keeps the lead as long as it works well, through compactions
+  too. When it grows too long, the owner starts a new lead from that
+  comment, and the old one is archived. A new lead finds the running
+  sessions in the session list and on the issues, since sessions an
+  earlier lead started don't send it their end notices.
 
 ## Starting a session
 
