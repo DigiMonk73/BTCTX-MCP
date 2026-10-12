@@ -1,34 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../api";
+import HourlyCheck from "./ledgerReview/HourlyCheck";
+import type { HourlyPick, LedgerReviewResponse, ReviewCheck } from "./ledgerReview/types";
 
-interface ReviewItem {
-  id: number;
-  date: string;
-  type: string;
-  purpose: string | null;
-  source: string | null;
-  amount: string;
-  issue: string;
-  change: string;
-}
-
-interface ReviewCheck {
-  key: string;
-  kind: "check" | "reminder";
-  title: string;
-  action: string;
-  explanation: string[];
-  count: number;
-  items: ReviewItem[];
-}
-
-interface LedgerReviewResponse {
-  timezone: string;
-  /** Items that may point at a wrong figure; reminders aren't counted. */
-  total: number;
-  reminders: number;
-  checks: ReviewCheck[];
-  recalc_error?: string | null;
+interface HourlyResult {
+  changed: { id: number }[];
+  backup: string | null;
+  recalculated: boolean;
 }
 
 const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
@@ -70,14 +48,16 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
 };
 
 /**
- * Settings section: the read-only Ledger review (GET /api/review) — saved
- * transactions worth a second look after an upgrade. It changes nothing;
- * the owner edits a transaction or runs Recalculate Ledger themselves.
+ * Settings section: the Ledger review (GET /api/review) — saved
+ * transactions worth a second look after an upgrade. Looking changes
+ * nothing; the owner edits a transaction or runs Recalculate Ledger
+ * themselves, or applies the hourly check's values (#144).
  */
 const LedgerReview: React.FC = () => {
   const [review, setReview] = useState<LedgerReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,22 +76,27 @@ const LedgerReview: React.FC = () => {
     void load();
   }, [load]);
 
-  // Only the fee values have a fix here: it changes tax figures, so ask first.
-  const fixFees = async (check: ReviewCheck) => {
-    const ok = window.confirm(
-      `Set ${check.count} transfer fee value(s) to that day's BTC price and recalculate the ledger?\n\n` +
-        "This changes the fees' gains on your tax reports. Back up first (Settings → Backup & Restore).",
-    );
-    if (!ok) return;
+  // Only the hourly check applies anything: it asks first (HourlyCheck)
+  // Its outcome stays shown after the review reloads (load() clears `failed`)
+  const applyHourly = async (pick: HourlyPick, question: string): Promise<boolean> => {
+    if (!window.confirm(question)) return false;
     setLoading(true);
+    setNotice(null);
+    let applied = false;
     try {
-      await api.post("/review/fee-prices", { ids: check.items.map((i) => i.id) });
+      const { data } = await api.post<HourlyResult>("/review/hourly-prices", pick);
+      const n = data.changed.length;
+      setNotice(!data.recalculated ? "Nothing changed: those values are already at that price." :
+        `Changed ${n} transaction${n === 1 ? "" : "s"} and recalculated the ledger` +
+        (data.backup ? `; the copy from before is backups/${data.backup} in BitcoinTX's data folder.` : "."));
+      applied = true;
     } catch {
-      setFailed(true);
+      setNotice("The apply failed, or its answer didn't arrive: the review below shows the ledger as it is now.");
     } finally {
       setLoading(false);
     }
     await load();
+    return applied;
   };
 
   const found = review?.checks.filter((c) => c.count > 0 && c.kind === "check") ?? [];
@@ -124,15 +109,16 @@ const LedgerReview: React.FC = () => {
         <div className="option-info">
           <span className="settings-option-title">Transactions to check</span>
           <p className="settings-option-subtitle">
-            Saved transactions worth a second look after an upgrade. Read-only: nothing here
-            changes your ledger.
+            Saved transactions worth a second look after an upgrade. Looking changes nothing:
+            only what you apply below does, after asking.
           </p>
         </div>
         <button onClick={load} disabled={loading} className="btn btn-secondary">
           {loading ? "Checking..." : "Check again"}
         </button>
       </div>
-      {failed && <p className="settings-option-subtitle">The review could not be loaded or applied.</p>}
+      {failed && <p className="settings-option-subtitle">The review could not be loaded.</p>}
+      {notice && <p className="settings-option-subtitle">{notice}</p>}
       {review?.recalc_error && (
         <p className="settings-option-subtitle">
           Recalculate Ledger would stop with: {review.recalc_error}
@@ -143,20 +129,19 @@ const LedgerReview: React.FC = () => {
           {review.reminders > 0 ? "Nothing looks wrong." : "Nothing to review."}
         </p>
       )}
-      {found.map((check) => (
-        <div key={check.key} className="ledger-review-check">
-          <strong>
-            {check.title}: {check.count}
-          </strong>
-          <ReviewItems check={check} />
-          <p className="settings-option-subtitle">{check.action}</p>
-          {check.key === "fee_value_off" && (
-            <button onClick={() => fixFees(check)} disabled={loading} className="btn btn-primary">
-              Fix these
-            </button>
-          )}
-        </div>
-      ))}
+      {found.map((check) =>
+        check.key === "day_priced_values" ? (
+          <HourlyCheck key={check.key} check={check} busy={loading} onApply={applyHourly} />
+        ) : (
+          <div key={check.key} className="ledger-review-check">
+            <strong>
+              {check.title}: {check.count}
+            </strong>
+            <ReviewItems check={check} />
+            <p className="settings-option-subtitle">{check.action}</p>
+          </div>
+        ),
+      )}
       {reminders.map((check) => (
         <ReminderGroup key={check.key} check={check} />
       ))}
