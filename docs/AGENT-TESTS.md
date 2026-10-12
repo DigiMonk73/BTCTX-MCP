@@ -421,6 +421,10 @@ Start from the `clean` snapshot.
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Reach public price sites over Tor**. Expect: a price on the Dashboard.
+  If this install hasn't downloaded the price history yet, also add an
+  Income deposit with no value: expect the log line "BTC price history from
+  public site bitstamp: N days" (Bitstamp, the only history site since
+  #161, answering over Tor).
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "Error": requests must fail
   rather than go out directly. Start Tor: the price is back.

@@ -518,6 +518,23 @@ def test_the_live_price_asks_kraken_first_then_bitstamp(auth_client, monkeypatch
     assert asked == ["api.kraken.com", "www.bitstamp.net"]
 
 
+@pytest.mark.parametrize("kraken, bitstamp", [("0", "0"), ("-1", "Infinity"), ("NaN", "nan")])
+def test_a_live_price_of_zero_or_not_a_number_is_no_price(auth_client, monkeypatch, kraken, bitstamp):
+    """Review of #166: Bitstamp's "Infinity" made the route answer 500, and
+    Kraken's "0" showed $0.00. Neither is a price: the plain 502."""
+    def sites(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.kraken.com":
+            return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": [kraken, "1"]}}})
+        return httpx.Response(200, json={"last": bitstamp})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
+    auth_client.put("/api/settings/network", json=PUBLIC)
+    bitcoin._price_cache.update(settings=None)
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(real_current_price())
+    assert exc.value.status_code == 502
+
+
 def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_seen):
     """Privacy audit 2026-09-29 (1d): every Dashboard visit asked for it."""
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": NODE})

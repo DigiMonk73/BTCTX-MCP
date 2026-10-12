@@ -151,8 +151,8 @@ def hosts(sources) -> list[str]:
 
 
 def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_later(sources, db):
-    """#161 (owner, 2026-10-12): Coinbase's terms forbid building an end-user
-    app on its data, so it's no longer the history's second source."""
+    """#161 (owner, 2026-10-12): only Bitstamp is asked for the history
+    (Coinbase's terms forbid building an end-user app on its data)."""
     day = date(2023, 2, 1)
     with pytest.raises(HTTPException) as exc:
         price_history.daily_price(db, day)
@@ -170,8 +170,14 @@ def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_late
 def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
     """#161: Kraken is the only fallback for the latest days."""
     price_history._mark_history_complete(db)
-    sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
     day = TODAY - timedelta(days=2)
+    with pytest.raises(HTTPException) as exc:  # both down: no third site
+        price_history.daily_price(db, day)
+    assert exc.value.status_code == 422
+    assert hosts(sources) == ["www.bitstamp.net", "api.kraken.com"]
+    price_history._state["latest_failed_at"] -= price_history.RETRY_SECONDS
+    sources.requests.clear()
+    sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
     assert price_history.daily_price(db, day) == D("64000.00")
     assert hosts(sources) == ["www.bitstamp.net", "api.kraken.com"]
     assert not sources.names_a_day(day)

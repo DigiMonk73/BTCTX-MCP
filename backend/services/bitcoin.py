@@ -10,6 +10,7 @@ ever naming a date.
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
 
@@ -82,17 +83,22 @@ async def _first_public(urls_and_parsers, what: str):
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
+def _usd(value) -> dict | None:
+    """A site's price, unless it's no price at all (0, negative, NaN, infinite)."""
+    price = float(value)
+    return {"USD": price} if math.isfinite(price) and price > 0 else None
+
+
 def _kraken_price(resp) -> dict | None:
     data = resp.json()
     if data.get("error"):
         return None
     pair = next(iter(data["result"]))
-    return {"USD": float(data["result"][pair]["c"][0])}  # last trade
+    return _usd(data["result"][pair]["c"][0])  # last trade
 
 
 def _bitstamp_price(resp) -> dict | None:
-    price = float(resp.json()["last"])  # last trade
-    return {"USD": price} if price > 0 else None
+    return _usd(resp.json()["last"])  # last trade
 
 
 async def get_current_price() -> dict:

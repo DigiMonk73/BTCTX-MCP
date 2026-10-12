@@ -142,7 +142,7 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
     async with outbound.async_client() as client:
-        got = await _every_block(client, "bitstamp", _bitstamp, FIRST_PRICE_DAY, BITSTAMP_BLOCK)
+        got = await _bitstamp_blocks(client)
     if got:
         logger.info("BTC price history from public site bitstamp: %d days", len(got))
         return _kept(got, "bitstamp"), True
@@ -150,14 +150,14 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     return {}, False
 
 
-async def _every_block(client, name: str, fetch, first: date, size: int) -> dict[date, Decimal]:
-    """Every block from one site, or nothing when one of them fails."""
+async def _bitstamp_blocks(client) -> dict[date, Decimal]:
+    """Every block of Bitstamp's daily history, or nothing when one of them fails."""
     got: dict[date, Decimal] = {}
     try:
-        for start in _blocks(first, size):
-            got.update(await fetch(client, start))
+        for start in _blocks(FIRST_PRICE_DAY, BITSTAMP_BLOCK):
+            got.update(await _bitstamp(client, start))
     except Exception as exc:
-        logger.info("BTC price history from %s failed: %s", name, exc)
+        logger.info("BTC price history from bitstamp failed: %s", exc)
         return {}
     return got
 
