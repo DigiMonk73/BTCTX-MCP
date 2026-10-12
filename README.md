@@ -40,19 +40,22 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   your computer ([below](#connect-an-ai-mcp)).
 - **Ledger Review** (Settings): a read-only list of saved entries worth a
   second look, including every figure a recalculation would change
-- **Your own node for prices**: point BitcoinTX at your own mempool server
-  (Settings → Privacy & Network) and the live price, block height and past
-  prices come from it; no public site is contacted. A fresh install contacts
-  nothing until you choose who it asks for newer prices (your Mempool,
-  public price sites, or Nobody)
+- **Your own node for prices**: point BitcoinTX at your own Mempool
+  (Settings → Privacy & Network) and the live price, block height and newer
+  prices come from it; no public site is contacted. Your Mempool has hourly
+  prices only from when it began recording. A fresh install contacts nothing
+  until you choose where prices come from (your own Mempool, public price
+  sites, or Nobody)
 - **Prices at the hour, without giving away your dates**: BitcoinTX values
   a transaction at the price when its hour began, from its own stored
-  history. That hourly history (2013 on) comes in one download from
-  Bitstamp, the same for every install and checked against fingerprints
-  that come with BitcoinTX; after that only the newest hours, in fixed
-  blocks: no request ever names one of your dates. BitcoinTX records one
-  price per hour, so it won't always match a chart of one exchange at
-  another moment. A VPN or Tor hides your IP address from the sites
+  history. When your choice allows public price sites, that hourly history
+  (2013 on) comes in one download from Bitstamp. The download is the same
+  for every install and checked against fingerprints that come with
+  BitcoinTX. After that, only the newest hours come, in fixed blocks, so no
+  request ever names one of your dates. Where no hour is known, the day's
+  price is used. BitcoinTX records one price per hour, so it won't always
+  match a chart of one exchange at another moment. A VPN or Tor hides your
+  IP address from the sites
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
@@ -163,9 +166,9 @@ needs no code (it only listens on your Mac). On StartOS this screen never
 appears: run the **Set Login Credentials** action, which creates the login
 (`admin` and a random password) and shows it once.
 
-After that, BitcoinTX asks who to ask for newer Bitcoin prices (your own
-Mempool, public price sites, or Nobody); nothing is contacted before you
-choose.
+After that, BitcoinTX asks "Where should BitcoinTX get Bitcoin prices?"
+(your own Mempool, public price sites, or Nobody); nothing is contacted
+before you choose.
 
 ## Connect an AI (MCP)
 
