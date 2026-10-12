@@ -389,6 +389,7 @@ def test_a_proxy_set_during_the_download_carries_the_next_request(sites, monkeyp
     hp.start_download()
     finish_download()
     assert proxies[0] is None and set(proxies[1:]) == {"socks5h://127.0.0.1:9050"}
+    assert len(proxies) == len(sites.bitstamp_starts())  # a client for each request: the next one uses Tor
 
 
 def test_the_current_hour_comes_from_bitstamp_once_it_has_traded(sites, db):
@@ -420,6 +421,20 @@ def test_a_mempool_servers_answer_isnt_kept_once_it_is_no_longer_the_source(site
     use(price_source="public")
     hp.hourly_price(db, utc("2026-03-17T08:00Z"))
     assert price_history._state["mempool_rows"] == [] and not hp._live["rows"]
+
+
+def test_the_day_lookup_drops_the_kept_mempool_answer_too(sites, db, monkeypatch):
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
+    use(price_source="mempool", mempool_url=NODE)
+    sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
+    price_history.daily_price(db, utc("2026-03-17T00:00Z"))
+    assert price_history._state["mempool_rows"]
+    use(price_source="public")
+    try:
+        price_history.daily_price(db, utc("2025-01-05T00:00Z"))  # a day not stored: asked
+    except HTTPException:
+        pass  # no public price in this fake world: what matters is what was kept
+    assert price_history._state["mempool_rows"] == []
 
 
 def test_without_a_manifest_no_public_site_is_asked(sites, db, tmp_path, monkeypatch):
