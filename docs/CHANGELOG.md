@@ -208,8 +208,8 @@ All notable changes to BitcoinTX are documented in this file.
     price when it began and ended (midnight in the tax timezone: the
     hour's price, else that day's), so one year's end and the next one's
     start agree. Before, the year-end value used December 31's 00:00 UTC
-    price: a day before the year ended, more west of UTC (29 hours in New
-    York). Holdings values are for information (no
+    price, hours before the year ended (29 hours in New York, 15 in
+    Tokyo). Holdings values are for information (no
     IRS form takes them); a report made before the year ends leaves them
     unpriced, as before.
   - With a donation, the gifts section says a deduction over $5,000 needs

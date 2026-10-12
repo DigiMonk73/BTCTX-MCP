@@ -501,8 +501,9 @@ def _build_priced_values(txns: list[Transaction]) -> list[dict[str, Any]]:
     """
     The year's values BitcoinTX filled in from the BTC price, and which
     price each used (#144): an income, rebate or inherited deposit's value,
-    a Spent's proceeds, a BTC network fee's value. Every other USD value in
-    the report was entered with its transaction.
+    a Spent's proceeds, a BTC network fee's value. Every other such value
+    was entered with its transaction; a gift's or donation's value isn't
+    marked either way.
     """
     return [
         {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,

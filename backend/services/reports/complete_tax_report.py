@@ -74,7 +74,7 @@ def generate_comprehensive_tax_report(report_dict: dict[str, Any]) -> bytes:
 # Gift and donation values aren't marked when filled in from a price (the AI
 # connector fills a blank one; the form's Refresh fills the field to edit)
 GIFT_VALUES_NOTE = ("A gift's or donation's value (section 4) isn't tracked this way: one the AI connector filled "
-                    "in uses the price when the transaction's hour began.")
+                    "in uses the price when the transaction's hour began (that day's where there's none).")
 
 class _ReportDocument(BaseDocTemplate):
     """Letter pages: the cover without the running header, the rest with it;
@@ -705,15 +705,14 @@ class _TaxReport:
         if not rows:
             return story + [self.text(f"None of {self.year}'s income, rebate, inherited, spend or network fee "
                                       "values: each was entered with its transaction.", self.styles.normal),
-                            self.text(GIFT_VALUES_NOTE, self.styles.note)]
+                            *([self.text(GIFT_VALUES_NOTE, self.styles.note)] if self.gifts else [])]
         table = [self.header("Date", "Transaction", "Value", "Price used", "USD", numbers_from=4)]
         table += [[self.text(self.date(r["date"])), self.text(r["transaction"]), self.text(r["value"]),
                    self.text(r["priced_at"]), self.number(fmt_usd(r["usd"]))] for r in rows]
         return story + [self.text(self.priced_values_note(), self.styles.note),
                         Spacer(1, 6), data_table(table, [0.85, 1.35, 1.35, 2.55, 0.9])]
 
-    @staticmethod
-    def priced_values_note() -> str:
+    def priced_values_note(self) -> str:
         return ("Every other income, rebate, inherited, spend and network fee value of the year was entered with "
-                "its transaction. A lot's cost basis from an earlier year is listed in that year's report. "
-                + GIFT_VALUES_NOTE)
+                "its transaction. A lot's cost basis from an earlier year is listed in that year's report."
+                + (f" {GIFT_VALUES_NOTE}" if self.gifts else ""))
