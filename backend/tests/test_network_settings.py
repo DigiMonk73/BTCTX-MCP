@@ -227,7 +227,7 @@ def test_changing_them_is_login_only_and_checked(auth_client, ai_key_headers):
     assert saved == {"price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True,
                      "proxy_url": "socks5h://127.0.0.1:9050", "managed": False, "invalid": False,
                      "waiting": False, "tor_from_server": False, "host": "server", "confirmed": True,
-                     "chosen_via": "settings"}
+                     "chosen_via": "settings", "mempool_certificate": None, "mempool_trustable": False}
 
 
 def test_settings_survive_a_restart(auth_client, test_engine):
@@ -397,7 +397,7 @@ def test_the_server_settings_win_and_settings_shows_them_read_only(auth_client, 
         "price_source": "mempool", "mempool_url": BRIDGE, "mempool_fallback": False, "proxy_url": None,
         "managed": True, "invalid": False, "waiting": False, "tor_from_server": False, "host": "server",
         "confirmed": True,
-        "chosen_at": None, "chosen_via": None}
+        "chosen_at": None, "chosen_via": None, "mempool_certificate": None, "mempool_trustable": False}
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     assert r.status_code == 409 and "on StartOS: the Price Source & Privacy action" in r.json()["detail"]
     # The stored settings are untouched, and back once the server stops setting them
@@ -489,6 +489,12 @@ def test_no_other_module_makes_its_own_http_client():
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr in ("AsyncClient", "Client", "get", "post", "request") \
                     and isinstance(node.value, ast.Name) and node.value.id in ("httpx", "requests", "urllib"):
+                offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
+            # #188: a raw connection (a TLS handshake) is an outside request too
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and (
+                    (node.value.id == "asyncio" and node.attr in ("open_connection", "create_connection"))
+                    or (node.value.id == "socket" and node.attr in ("create_connection", "socket"))
+                    or (node.value.id == "ssl" and node.attr == "wrap_socket")):
                 offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]

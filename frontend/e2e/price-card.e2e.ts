@@ -251,3 +251,54 @@ test.describe("a server whose price settings aren't valid", () => {
     expect(browser).toEqual([]);
   });
 });
+
+test("#188: Trust this server shows the server's root first, then trusts it; Forget undoes it", async ({ page, app }) => {
+  // The card's side only: the app's answers for a home server's Mempool are
+  // faked here (backend/tests/test_mempool_trust.py runs the real exchange)
+  const SHA = "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89";
+  let trusted = false;
+  await logIn(page, app);
+  await choose(page, { price_source: "public" });
+  await page.route("**/api/settings/network", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const real = await (await route.fetch()).json();
+    await route.fulfill({
+      json: {
+        ...real, price_source: "mempool", mempool_url: "https://start9.local", mempool_trustable: true,
+        mempool_certificate: trusted ? { name: "start9 Local Root CA", sha256: SHA } : null,
+      },
+    });
+  });
+  await page.route("**/api/bitcoin/price/status", async (route) => {
+    const real = await (await route.fetch()).json();
+    const problem = { at: new Date().toISOString(), what: "mempool_untrusted_certificate" };
+    await route.fulfill({ json: { ...real, source: "mempool", last_ok: null, last_problem: trusted ? null : problem } });
+  });
+  await page.route("**/api/settings/network/mempool-certificate", async (route) => {
+    const method = route.request().method();
+    if (method === "GET") return route.fulfill({ json: { server: "start9.local", name: "start9 Local Root CA", sha256: SHA } });
+    trusted = method === "PUT";
+    if (trusted) expect(route.request().postDataJSON()).toEqual({ sha256: SHA }); // what the owner was shown
+    const settings = await (await page.request.get("/api/settings/network")).json();
+    return route.fulfill({
+      json: {
+        ...settings, price_source: "mempool", mempool_url: "https://start9.local", mempool_trustable: true,
+        mempool_certificate: trusted ? { name: "start9 Local Root CA", sha256: SHA } : null,
+      },
+    });
+  });
+
+  await page.goto("/settings");
+  const card = page.getByRole("region", { name: "Privacy & network" });
+  await expect(card.getByRole("status")).toContainText("use Trust this server below");
+  await card.getByRole("button", { name: "Trust this server" }).click();
+  const confirm = card.getByRole("group", { name: "Trust this server" });
+  await expect(confirm).toContainText("start9.local's certificate authority: start9 Local Root CA");
+  await expect(confirm).toContainText(`SHA-256: ${SHA}`);
+  await expect(confirm).toContainText("Only do this on your own home network.");
+  await confirm.getByRole("button", { name: "Trust", exact: true }).click();
+  await expect(card).toContainText("Trusted for your Mempool: start9 Local Root CA");
+  await expect(card.getByRole("button", { name: "Trust this server" })).toHaveCount(0);
+  await card.getByRole("button", { name: "Forget this server's certificate" }).click();
+  await expect(card.getByRole("button", { name: "Trust this server" })).toBeVisible();
+});

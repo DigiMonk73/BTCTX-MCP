@@ -38,9 +38,11 @@ draft forms from irs.gov when run on a test install.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-from dataclasses import asdict, dataclass
+import ssl
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -61,6 +63,9 @@ OLD_LIVE_KEY = "live_data"  # before v1.1.0: "on"/"off"
 # PUT /api/settings/network (a login, never the AI key or a command).
 CHOSEN_AT_KEY, CHOSEN_VIA_KEY = "price_choice_at", "price_choice_via"
 CHOSEN_VIA = ("first-run", "settings")
+# A home server's root certificate the owner trusts for their Mempool (#188,
+# services/mempool_trust.py): {"url", "pem"}, for that Mempool address only
+TRUSTED_ROOT_KEY = "mempool_trusted_root"
 SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
@@ -96,6 +101,9 @@ class NetworkSettings:
     waiting: bool = False
     # proxy_url is the server's Tor (BTCTX_TOR_PROXY_URL), not the owner's
     tor_from_server: bool = False
+    # The root certificate the owner trusts for this Mempool address (#188):
+    # its requests are checked against it alone
+    mempool_root: str | None = None
 
     @property
     def own_node(self) -> str | None:
@@ -134,7 +142,17 @@ def host() -> str:
 def as_dict() -> dict:
     """The settings in use, where BitcoinTX runs, and the record of the choice
     (`confirmed` is false while a stored choice waits for the owner)."""
-    return {**asdict(_current), "host": host(), "confirmed": not _current.waiting, **_record}
+    from backend.services import mempool_trust
+
+    settings = asdict(_current)
+    root = settings.pop("mempool_root")
+    certificate = mempool_trust.root_of(root) if root else None
+    return {
+        **settings, "host": host(), "confirmed": not _current.waiting, **_record,
+        # #188: the home server's root trusted for the Mempool, and whether one may be
+        "mempool_certificate": {"name": certificate.name, "sha256": certificate.sha256} if certificate else None,
+        "mempool_trustable": mempool_trust.private_address(_current.mempool_url),
+    }
 
 
 # When and where the stored choice was made, as load() last read it
@@ -242,7 +260,8 @@ def from_env() -> NetworkSettings | None:
 
 def snapshot(db: Session) -> dict:
     """The owner's own price settings (not the server's), to keep across a restore."""
-    kept = {key: _get(db, key) for key in (FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY)}
+    kept = {key: _get(db, key) for key in (
+        FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY, TRUSTED_ROOT_KEY)}
     # Not chosen yet stays "unset": a restored database's stored prices must
     # not pass for a pre-1.1.0 install's public choice (_upgrade_from_live_data)
     kept[SOURCE_KEY] = _get(db, SOURCE_KEY) or "unset"
@@ -273,7 +292,7 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     managed = from_env()
     if managed:
         _record.update(chosen_at=None, chosen_via=None)  # the server's choice: nothing to confirm
-        _current = managed
+        _current = replace(managed, mempool_root=_trusted_root(db, managed.mempool_url))
         try:
             _mark_unchosen(db)
         except Exception:
@@ -293,8 +312,34 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
         waiting=chosen and not _record["chosen_at"],
         tor_from_server=bool(tor),
         invalid=tor == "",
+        mempool_root=_trusted_root(db, _get(db, MEMPOOL_KEY)),
     )
     return _current
+
+
+def _trusted_root(db: Session, mempool_url: str | None) -> str | None:
+    """The root the owner trusted for this Mempool address (#188), or None:
+    one trusted for another address never applies."""
+    try:
+        stored = json.loads(_get(db, TRUSTED_ROOT_KEY) or "null")
+    except ValueError:
+        return None
+    if not isinstance(stored, dict) or not mempool_url or stored.get("url") != mempool_url:
+        return None
+    return stored.get("pem") or None
+
+
+def trust_root(db: Session, mempool_url: str, pem: str) -> NetworkSettings:
+    """Trust a home server's root certificate for this Mempool address (#188)."""
+    _set(db, TRUSTED_ROOT_KEY, json.dumps({"url": mempool_url, "pem": pem}))
+    db.commit()
+    return load(db)
+
+
+def forget_root(db: Session) -> NetworkSettings:
+    _set(db, TRUSTED_ROOT_KEY, None)
+    db.commit()
+    return load(db)
 
 
 def server_tor() -> str | None:
@@ -345,6 +390,8 @@ def save(
         raise HTTPException(status_code=422, detail=(
             "An .onion mempool server is reached through the proxy: set it below "
             "(e.g. Tor, socks5h://127.0.0.1:9050)."))
+    if _get(db, MEMPOOL_KEY) != mempool:
+        _set(db, TRUSTED_ROOT_KEY, None)  # a new address: the old server's certificate is forgotten (#188)
     _set(db, SOURCE_KEY, price_source)
     _set(db, MEMPOOL_KEY, mempool)
     _set(db, FALLBACK_KEY, "on" if mempool_fallback else "off")
@@ -410,7 +457,29 @@ def own_node_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
         raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
     if _transport is not None:
         return httpx.AsyncClient(timeout=timeout, transport=_transport)
-    return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None)
+    # A home server's root the owner trusts for this address: it alone (#188)
+    verify = ssl.create_default_context(cadata=_current.mempool_root) if _current.mempool_root else True
+    return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None, verify=verify)
+
+
+async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -> list[bytes]:
+    """
+    The certificates the owner's Mempool sends (DER, unverified), from a TLS
+    handshake alone: no HTTP request (#188, services/mempool_trust.py). Only
+    for a home-network address, so direct, like own_node_client.
+    """
+    import asyncio
+
+    _, writer = await asyncio.open_connection(host, port, ssl=context, server_hostname=host)
+    try:
+        ssl_object = writer.get_extra_info("ssl_object")
+        if hasattr(ssl_object, "get_unverified_chain"):  # Python 3.13+
+            return [bytes(c) for c in ssl_object.get_unverified_chain()]
+        import _ssl  # Python 3.10–3.12: the same call, not yet public
+
+        return [c.public_bytes(_ssl.ENCODING_DER) for c in ssl_object._sslobj.get_unverified_chain()]
+    finally:
+        writer.close()
 
 
 def _is_onion(url: str | None) -> bool:

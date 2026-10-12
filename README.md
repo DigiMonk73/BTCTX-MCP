@@ -42,9 +42,11 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   second look, including every figure a recalculation would change
 - **Your own node for prices**: point BitcoinTX at your own mempool server
   (Settings → Privacy & Network) and the live price, block height and past
-  prices come from it; no public site is contacted. A fresh install contacts
-  nothing until you choose where prices come from (your mempool, public price
-  sites, or off)
+  prices come from it; no public site is contacted. A home server's https
+  address (a StartOS `.local` one, say) works too: the card offers **Trust
+  this server** for its own certificate, for that address only. A fresh
+  install contacts nothing until you choose where prices come from (your
+  mempool, public price sites, or off)
 - **Past prices that don't give away your dates**: they're stored locally.
   From public sites, the whole daily history comes in one download that's
   the same for every install, then only "the latest days": no request ever
