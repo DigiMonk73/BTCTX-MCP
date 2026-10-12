@@ -88,3 +88,33 @@ describe("waiting for the owner to confirm (#145, 2.9)", () => {
     }
   });
 });
+
+describe("re-check of #180: the backup answered once, then both failed", () => {
+  const T0 = "2026-10-12T19:00:00Z";
+  const state = {
+    ...base,
+    last_ok: { at: T0, from: "kraken" },
+    last_mempool_problem: { at: T1, what: "mempool_untrusted_certificate" as const },
+    last_problem: { at: T2, what: "public_no_answer" as const },
+  };
+
+  it("never says the public sites answered when they just failed, and keeps the Mempool's reason", () => {
+    const line = statusLine(state, { ...ctx, backup: true });
+    expect(line.text).toMatch(/^Your Mempool's certificate isn't trusted .* Public price sites didn't answer either, at 2:04 pm\.$/);
+    expect(line.text).not.toMatch(/answered instead/);
+  });
+
+  it("through Tor, asks whether Tor is running", () => {
+    const tor = { ...state, last_problem: { at: T2, what: "tor_no_answer" as const } };
+    expect(statusLine(tor, { ...ctx, backup: true, tor: true }).text).toMatch(
+      /Public price sites didn't answer through Tor either, at 2:04 pm\. Is Tor running\?$/,
+    );
+  });
+
+  it("the backup answering after a failure keeps the Mempool's reason", () => {
+    const later = { ...state, last_problem: state.last_mempool_problem, last_ok: { at: T2, from: "kraken" } };
+    expect(statusLine(later, { ...ctx, backup: true }).text).toMatch(
+      /^Your Mempool's certificate isn't trusted .* Public price sites answered instead at 2:04 pm\.$/,
+    );
+  });
+});
