@@ -462,6 +462,13 @@ Start from the `clean` snapshot.
   Network is editable again and shows the app's own choice (**Nobody**, from
   AUTH-4). Choose **My own Mempool** and leave the address blank. Expect
   **Save** off, with "Enter your Mempool's address." beside it.
+- **PRC-5b** (#145) Still with **Choose in BitcoinTX**: in the app choose
+  **My own Mempool** (address `https://mempool.emzy.de`), tick **If it
+  can't answer, ask public price sites**, and save. Expect the card's first
+  line to read "Downloading the hourly history from Bitstamp: N of M years,
+  each checked." with a progress bar, then "Hourly prices, 2013 to …:
+  downloaded and checked." Untick the backup and choose **Nobody**: the
+  line keeps "downloaded and checked".
 - **PRC-6** Set the action back to **Public price sites** for the rest of
   Track A.
 

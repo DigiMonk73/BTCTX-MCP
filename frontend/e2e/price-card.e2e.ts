@@ -116,6 +116,39 @@ test.describe("the Mac app's window, 800 × 600, after the update", () => {
   });
 });
 
+test.describe("Tor on this server, set in StartOS (#145)", () => {
+  test.use({ priceSource: "public", serverTor: true });
+
+  test("Settings shows Through Tor ticked and locked, with no address to type", async ({ page, app }) => {
+    await logIn(page, app);
+    await page.getByRole("link", { name: "Settings" }).click();
+    const net = page.getByRole("region", { name: "Privacy & network" });
+    await expect(net.getByLabel("Through Tor")).toBeChecked();
+    await expect(net.getByLabel("Through Tor")).toBeDisabled();
+    await expect(net.getByText(/^Tor on this server, set in StartOS/)).toBeVisible();
+    await expect(net.getByLabel("Tor's address")).toHaveCount(0);
+    await net.getByLabel(/^Nobody/).check(); // the rest stays the owner's to change
+    await net.getByRole("button", { name: "Save" }).click();
+    const shown = await (await page.request.get("/api/settings/network")).json();
+    expect([shown.price_source, shown.proxy_url, shown.tor_from_server]).toEqual(["off", "socks5h://10.0.3.1:9050", true]);
+  });
+});
+
+test.describe("the Mac app's window, 800 × 600, a Mempool to confirm", () => {
+  test.use({ appMode: "mac", viewport: { width: 800, height: 600 }, priceSource: "unconfirmed-mempool" });
+
+  test("its Confirm button is reached by scrolling down, never sideways", async ({ page, app }) => {
+    // A Mempool's address, backup and Tor fields make this one-time card taller than
+    // the window (#186's review): a short scroll down, no sideways scrolling
+    await logIn(page, app);
+    const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+    const confirm = card.getByRole("button", { name: "Confirm" });
+    await confirm.scrollIntoViewIfNeeded();
+    await expect(confirm).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});
+
 test.describe("a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

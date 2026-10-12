@@ -142,12 +142,30 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     expect(historyLine(h({ state: "complete", years_done: 14 }), ctx)).toMatchObject({
       tone: "ok", text: "Hourly prices, 2013 to Oct 12, 2026: downloaded and checked. They work offline from now on, whatever you choose.",
     });
-    expect(historyLine(h({ state: "failed" }), { ...ctx, tor: true })?.text).toMatch(/through Tor: is Tor running\?/);
-    expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
-      "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. Tried again tomorrow.",
+    expect(historyLine(h({ state: "failed" }), { ...ctx, tor: true })?.text).toMatch(
+      /through Tor: is Tor running\? It's tried again when BitcoinTX next needs it or restarts, at least 10 minutes later\./,
     );
+    expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
+      "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. " +
+        "Tried again a day later, when BitcoinTX next needs it or restarts.",
+    );
+    expect(historyLine(h({ state: "waiting", mismatched: [2019, 2020] }), ctx)?.text).toMatch(/so 2019, 2020 use the day's price/);
     expect(historyLine({ ...h({}), source: "off" }, ctx)?.text).toBe(
       "The hourly history (2013 to Oct 12, 2026) needs a one-time download from Bitstamp, which your choice doesn't allow.",
+    );
+  });
+
+  it("review of #186: chosen but not downloaded (yet, or a failure long ago) never reads as not chosen", () => {
+    expect(historyLine({ ...h({ state: "waiting" }), source: "public" }, ctx)?.text).toBe(
+      "Hourly prices, 2013 to Oct 12, 2026: not downloaded yet. BitcoinTX downloads the rest from Bitstamp " +
+        "when BitcoinTX next needs it or restarts. Meanwhile those values use the day's price.",
+    );
+    expect(historyLine({ ...h({ state: "waiting", years_done: 6 }), source: "mempool" }, ctx)?.text).toMatch(
+      /: 6 of 14 years downloaded and checked\./,
+    );
+    // a year that didn't match, then Nobody chosen: the choice's line, not "tried again"
+    expect(historyLine({ ...h({ state: "not_allowed", mismatched: [2019] }), source: "off" }, ctx)?.text).toMatch(
+      /which your choice doesn't allow\.$/,
     );
   });
 

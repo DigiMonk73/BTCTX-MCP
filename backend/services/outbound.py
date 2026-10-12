@@ -26,6 +26,10 @@ installed): then nothing answers but the fallback. An invalid value turns
 price lookups off rather than guessing ("invalid"). BTCTX_HOST=startos only
 changes words: where a server-set choice is changed (host()).
 
+With a choice made in the app, the server may lend its Tor
+(BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Choose in BitcoinTX): it is
+the proxy then, locked on, and an invalid one asks nobody (server_tor).
+
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
 install-draft-forms` (services/reports/draft_forms.py) fetches the IRS's
@@ -96,12 +100,19 @@ class NetworkSettings:
     @property
     def own_node(self) -> str | None:
         """The mempool server to ask, when it's the chosen source."""
-        return self.mempool_url if self.price_source == "mempool" and not self.waiting else None
+        return self.mempool_url if self.price_source == "mempool" and self.asking else None
 
     @property
     def public_allowed(self) -> bool:
-        return not self.waiting and (self.price_source == "public" or (
+        return self.asking and (self.price_source == "public" or (
             self.price_source == "mempool" and self.mempool_fallback))
+
+    @property
+    def asking(self) -> bool:
+        """Whether anything may be asked: not while a choice waits to be
+        confirmed, nor while the server's settings are invalid (its Tor
+        included: never around it)."""
+        return not self.waiting and not self.invalid
 
 
 _current = NetworkSettings()
@@ -280,20 +291,22 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
         mempool_fallback=_get(db, FALLBACK_KEY) == "on",
         proxy_url=tor or _get(db, PROXY_KEY),
         waiting=chosen and not _record["chosen_at"],
-        tor_from_server=tor is not None,
+        tor_from_server=bool(tor),
+        invalid=tor == "",
     )
     return _current
 
 
 def server_tor() -> str | None:
     """The server's Tor for a choice made in the app (BTCTX_TOR_PROXY_URL),
-    or None. An invalid one is ignored, with an error in the log: requests
-    then use the owner's own proxy setting, as without it."""
+    None when it isn't set, or "" when it's invalid: then nothing is asked
+    (the server asked for Tor, so never around it), with an error in the
+    log and the status line saying the server's settings aren't valid."""
     try:
         return _clean_url(os.environ.get(ENV_TOR), PROXY_SCHEMES, ENV_TOR)
     except HTTPException as exc:
-        logger.error("%s is ignored: %s", ENV_TOR, exc.detail)
-        return None
+        logger.error("Price lookups are off: %s is invalid: %s", ENV_TOR, exc.detail)
+        return ""
 
 
 def _clean_url(value: str | None, schemes, what: str) -> str | None:
@@ -359,7 +372,8 @@ def refuse_public() -> HTTPException:
         detail = ("Confirm where BitcoinTX gets newer prices: open BitcoinTX's Dashboard or "
                   f"{SETTINGS_PAGE}. Nothing is asked until you do.")
     elif s.invalid:
-        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}; the log says which."
+        server = SET_IN_STARTOS if host() == "startos" else SET_BY_SERVER  # the server's, even with a choice made here
+        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {server}; the log says which."
     elif s.price_source == "off":
         detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
     else:

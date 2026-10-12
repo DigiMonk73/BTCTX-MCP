@@ -36,6 +36,7 @@ const History: React.FC<{ status: PriceStatus | null; tor: boolean; timezone: st
           value={line.progress.done}
           max={line.progress.total}
           aria-label="Hourly history downloaded"
+          aria-valuetext={`${line.progress.done} of ${line.progress.total} years`}
         />
       )}
     </div>

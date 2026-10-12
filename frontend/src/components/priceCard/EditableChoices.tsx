@@ -48,7 +48,9 @@ const EditableChoices: React.FC<Props> = ({ form, set, errors, current, tor, his
           </span>
         </label>
         {form.source === c.value && <ChoiceFields form={form} set={set} errors={errors} tor={tor} />}
-        {form.source === c.value && <OlderValues source={c.value} backup={form.backup} history={history} />}
+        {form.source === c.value && current === null && (
+          <OlderValues source={c.value} backup={form.backup} history={history} />
+        )}
       </React.Fragment>
     ))}
   </fieldset>

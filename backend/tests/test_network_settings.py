@@ -694,12 +694,18 @@ def test_the_servers_tor_carries_an_in_app_choice_and_is_locked_on(auth_client, 
         assert outbound.load(db).proxy_url == "socks5h://127.0.0.1:9150"
 
 
-def test_a_server_set_choice_ignores_the_servers_tor_and_a_bad_one_is_ignored(auth_client, server_env, test_engine,
-                                                                               monkeypatch):
+def test_a_bad_server_tor_asks_nobody_and_a_server_set_choice_ignores_it(auth_client, server_env, test_engine,
+                                                                          monkeypatch, requests_seen):
+    """Review of #186: an invalid BTCTX_TOR_PROXY_URL never lets requests go
+    around Tor (the owner asked StartOS for it): nothing is asked."""
+    auth_client.put("/api/settings/network", json=PUBLIC)
     monkeypatch.setenv("BTCTX_TOR_PROXY_URL", "ftp://nope:1")
     with sessionmaker(bind=test_engine)() as db:
         s = outbound.load(db)
-    assert not s.tor_from_server and s.proxy_url != "ftp://nope:1"
+    assert s.invalid and not s.public_allowed and not s.tor_from_server
+    r = auth_client.get("/api/bitcoin/blockheight")
+    assert r.status_code == 503 and "aren't valid, so nothing is asked" in r.json()["detail"]
+    assert requests_seen == []
     monkeypatch.setenv("BTCTX_TOR_PROXY_URL", STARTOS_TOR)
     s = server_env(BTCTX_PRICE_SOURCE="public", BTCTX_PROXY_URL="")
     assert s.managed and s.proxy_url is None and not s.tor_from_server  # the action's own Tor setting decides

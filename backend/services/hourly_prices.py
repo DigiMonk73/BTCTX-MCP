@@ -25,8 +25,9 @@ Lookup order (hourly_price):
   (price_history.daily_price) and says so ("day").
 
 The download asks for every year, newest first, in fixed blocks: nothing
-in it depends on a ledger. It runs in the background once public sites are
-the chosen source (at startup, or when the choice is saved), and when a
+in it depends on a ledger. It runs in the background once the choice allows
+public sites (public, or your Mempool with its backup: #145), at startup or
+when the choice is saved, and when a
 lookup needs a year whose file isn't here and the own mempool server (if
 any) doesn't have the hour. Each request goes out with the choice as it is
 then: none once public sites aren't allowed, through the proxy set then.

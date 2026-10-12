@@ -96,9 +96,21 @@ function sentOut(app: App, browser: string[]): OutsideRequest[] {
   return sent;
 }
 
-/** The hourly history's download: Bitstamp's hourly candles in fixed blocks (services/price_files.py). */
-const historyDownload = (r: OutsideRequest) =>
-  r.url.startsWith("https://www.bitstamp.net/api/v2/ohlc/btcusd/") && new URL(r.url).searchParams.get("step") === "3600";
+/**
+ * The hourly history's download: Bitstamp's hourly candles in its fixed
+ * blocks of 1,000 hours from each 1 January 00:00 UTC (services/price_files.py).
+ * Not the backup's lookup of newer hours, which starts the hour after the
+ * history ends (review of #186).
+ */
+function historyDownload(r: OutsideRequest): boolean {
+  const url = new URL(r.url);
+  if (!r.url.startsWith("https://www.bitstamp.net/api/v2/ohlc/btcusd/") || url.searchParams.get("step") !== "3600") {
+    return false;
+  }
+  const start = Number(url.searchParams.get("start"));
+  const yearStart = Date.UTC(new Date(start * 1000).getUTCFullYear(), 0, 1) / 1000;
+  return (start - yearStart) % (1000 * 3600) === 0;
+}
 const origins = (sent: OutsideRequest[]) => [...new Set(sent.map((r) => new URL(r.url).origin))];
 const proxies = (sent: OutsideRequest[]) => [...new Set(sent.map((r) => r.proxy))];
 

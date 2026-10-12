@@ -160,17 +160,35 @@ export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | 
       progress: { done: h.years_done, total: h.years_total },
     };
   }
+  const chosen = st.source !== "unset" && !st.waiting;
+  if (h.state === "not_allowed" && chosen) {
+    return { tone: "idle", text: `The hourly history (${span}) needs a one-time download from Bitstamp, which your choice doesn't allow.` };
+  }
+  return problemLine(h, span, ctx) ?? (chosen ? pendingLine(h, span) : notChosenLine(span));
+}
+
+// Tried again when a value next needs a missing year, or at the next start (hourly_prices.start_download)
+const LATER = "when BitcoinTX next needs it or restarts";
+
+function problemLine(h: HistoryStatus, span: string, ctx: StatusContext): HistoryLine | null {
   if (h.state === "failed") {
     const why = ctx.tor ? "Bitstamp didn't answer through Tor: is Tor running?" : "Bitstamp didn't answer.";
-    return { tone: "warning", text: `The hourly history didn't download: ${why} It's tried again in 10 minutes. Meanwhile values use the day's price.` };
+    return { tone: "warning", text: `The hourly history didn't download: ${why} It's tried again ${LATER}, at least 10 minutes later. Meanwhile values use the day's price.` };
   }
   if (h.mismatched.length > 0) {
     const years = h.mismatched.join(", ");
-    return { tone: "warning", text: `Bitstamp's prices for ${years} didn't match BitcoinTX's fingerprint, so ${years} uses the day's price. Tried again tomorrow.` };
+    const verb = h.mismatched.length > 1 ? "use" : "uses";
+    return { tone: "warning", text: `Bitstamp's prices for ${years} didn't match BitcoinTX's fingerprint, so ${years} ${verb} the day's price. Tried again a day later, ${LATER}.` };
   }
-  if (h.state === "not_allowed" && st.source !== "unset" && !st.waiting) {
-    return { tone: "idle", text: `The hourly history (${span}) needs a one-time download from Bitstamp, which your choice doesn't allow.` };
-  }
+  return null;
+}
+
+function pendingLine(h: HistoryStatus, span: string): HistoryLine {
+  const done = h.years_done > 0 ? `${h.years_done} of ${h.years_total} years downloaded and checked` : "not downloaded yet";
+  return { tone: "idle", text: `Hourly prices, ${span}: ${done}. BitcoinTX downloads the rest from Bitstamp ${LATER}. Meanwhile those values use the day's price.` };
+}
+
+function notChosenLine(span: string): HistoryLine {
   return {
     tone: "idle",
     text: `Hourly prices, ${span}: downloaded once from Bitstamp when you choose Public price sites, or My own Mempool with its backup, each year checked against a fingerprint that comes with BitcoinTX. Nothing in the download names your dates.`,
