@@ -33,7 +33,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
   const firstRun = variant === "first-run";
   const view = cardView(saved, form, firstRun, timezone);
   const line = lineFor(status, saved.mempool_fallback, Boolean(saved.proxy_url), timezone);
-  const Heading = firstRun ? "h2" : "h3";
+  const Heading = firstRun ? "h2" : "h4"; // in Settings, under its section's h3
 
   const onSave = async () => {
     const result = await save(firstRun ? "first-run" : "settings");

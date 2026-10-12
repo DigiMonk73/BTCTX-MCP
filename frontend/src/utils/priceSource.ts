@@ -146,6 +146,8 @@ export function priceFormChanged(saved: NetworkSettingsData | null, f: PriceForm
 export function cannotSave(f: PriceForm): string | null {
   if (f.source === "") return "Choose one of the three.";
   if (f.source === "mempool" && !f.mempoolUrl.trim()) return "Enter your Mempool's address.";
+  // Review of #180: ticked with no address would have asked the sites directly
+  if (f.tor && torOffered(f) && !f.torUrl.trim()) return "Enter Tor's address.";
   if (payloadFromForm(f).proxy_url === null && f.source === "mempool" && isOnion(f.mempoolUrl)) {
     return "An .onion address is reached through Tor: enter Tor's address.";
   }

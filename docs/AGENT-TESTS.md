@@ -252,10 +252,13 @@ Start from the `clean` snapshot.
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
   Settings > Tax Timezone reads "Current: America/New_York": the first login
   adopts the browser's timezone.
-- **AUTH-4** Expect the panel "Where should BitcoinTX get Bitcoin prices?"
-  on every page. Choose **Off**, then **Use this**. Expect: the page
-  reloads and the panel is gone. Settings > Privacy & Network shows Price
-  source **Off**, with the fields editable and no "Set by your server" note.
+- **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
+  other pages), nothing chosen, its status line "Not chosen yet: nothing is
+  contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
+  the card is gone. Settings > Privacy & Network shows the card with
+  **Nobody** chosen, editable, "Fully offline: nothing is contacted." and
+  "You chose this on … in the first-run question.", and no "Set in
+  StartOS" banner.
 - **AUTH-4b** Settings > **About BitcoinTX**. Expect, in order: the
   warning "Important: one wallet, one exchange." with its notice (one
   self-custody wallet and one exchange account; since 2025 the IRS figures
@@ -267,7 +270,7 @@ Start from the `clean` snapshot.
   to log out?", then the login page. Opening `$URL/dashboard` redirects to
   login. Log back in.
 
-### GLD: the golden ledger through the UI (price source Off)
+### GLD: the golden ledger through the UI (price source Nobody)
 
 - **GLD-1** Enter the 14 golden transactions. Expect: each toast as in
   the table.
@@ -330,7 +333,7 @@ Start from the `clean` snapshot.
   panel. Expect: "Discard changes?". **Go back** keeps the panel; **Discard
   changes** closes it with nothing saved.
 
-### RPT: reports (price source Off)
+### RPT: reports (price source Nobody)
 
 - **RPT-1** Reports. Expect the **Tax year** list to hold the ledger's
   years (2023–2025) and the current year. Select **IRS Reports**: 2023
@@ -354,7 +357,7 @@ Start from the `clean` snapshot.
   Then Transaction History 2023 with Format **PDF**: expect
   `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
   "Page 1 of N" at the foot of each page.
-- **RPT-5** Complete Tax Report 2023 and 2024, with Off and no stored
+- **RPT-5** Complete Tax Report 2023 and 2024, with Nobody and no stored
   prices. Expect: both generate. Every holdings value (Beginning of Year
   and End of Year) reads "not priced", with the note "No BTC price for
   YYYY-12-31: not priced" (and for 2024 "No BTC price is stored for
@@ -394,14 +397,16 @@ Start from the `clean` snapshot.
 
 ### PRC: price sources
 
-- **PRC-1** While Off: the service log has no lines starting "BTC price
+- **PRC-1** While Nobody: the service log has no lines starting "BTC price
   history from" or "Price history from your mempool server".
 - **PRC-2** Action **Price Source & Privacy**: choose **Public price
   sites**, with Tor off. Expect: "Price Source Saved" and a service restart.
   Then:
-  - Settings > Privacy & Network reads "Set by your server: on StartOS,
-    change them with the Price Source & Privacy action on BitcoinTX's
-    service page." with the inputs disabled and no Save button.
+  - Settings > Privacy & Network reads "Set in StartOS. To change it:
+    BitcoinTX › Actions › Price Source & Privacy.", with **Public price
+    sites** marked "✓ Chosen", no choices to click and no Save button. Its
+    status line reads "Newer prices from public price sites. Last price …"
+    once the Dashboard has shown a price.
   - Dashboard: a price above $0 and "Block Height: N" with N > 900,000.
     Unrealized Gains/Losses and Total Fees (approx) match the formulas in
     the expected-figures table.
@@ -447,9 +452,9 @@ Start from the `clean` snapshot.
   the dependency as missing and the price error says to install and start
   Mempool.
 - **PRC-5** Action: **Choose in BitcoinTX**. Expect: Settings > Privacy &
-  Network is editable again and shows the app's own choice (**Off**, from
-  AUTH-4). Choose **My mempool server** with the address blank and save.
-  Expect it refused: "Enter your mempool server's address to use it."
+  Network is editable again and shows the app's own choice (**Nobody**, from
+  AUTH-4). Choose **My own Mempool** and leave the address blank. Expect
+  **Save** off, with "Enter your Mempool's address." beside it.
 - **PRC-6** Set the action back to **Public price sites** for the rest of
   Track A.
 
