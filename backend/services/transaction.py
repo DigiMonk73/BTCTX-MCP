@@ -1179,8 +1179,9 @@ def date_of_death(moment: datetime, db: Session):
     An inheritance's date of death (#154): a calendar date, the one the
     owner entered, which acquired_at holds as noon in the tax timezone (or
     a time a file gave). So its date in the tax timezone, never its UTC
-    day: in a tax timezone 12 or more hours from UTC, noon is another day
-    in UTC, and a file's time near midnight can be too (#177).
+    day: more than 12 hours ahead of UTC (UTC+13, +14) noon is the day
+    before in UTC, 12 hours behind (UTC-12) the day after, and a file's
+    time near midnight can be another day in UTC too (#177).
     """
     return local_date(moment, get_tax_timezone(db))
 
