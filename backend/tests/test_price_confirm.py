@@ -20,11 +20,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
-from backend.services import bitcoin, outbound, price_history
+from backend.services import bitcoin, hourly_prices, outbound, price_history
 from backend.tests.conftest import default_login
 
 # The real functions, captured before the session fixture stubs them.
 from backend.services.bitcoin import get_current_price as real_current_price
+from backend.services.hourly_prices import find_hours as real_find_hours
+from backend.services.hourly_prices import start_download as real_start_download
 from backend.services.price_history import find_prices as real_find_prices
 
 NODE = "http://umbrel.local:3006"
@@ -50,6 +52,9 @@ def outside(monkeypatch):
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(handler))
     monkeypatch.setattr(price_history, "find_prices", real_find_prices)
     monkeypatch.setattr(bitcoin, "get_current_price", real_current_price)
+    # The hourly lookups and the history download as they really are (review of #181)
+    monkeypatch.setattr(hourly_prices, "find_hours", real_find_hours)
+    monkeypatch.setattr(hourly_prices, "start_download", real_start_download)
     bitcoin._price_cache.update(settings=None)
     yield seen
     outbound._current = outbound.NetworkSettings()
@@ -78,13 +83,27 @@ def record(test_engine) -> dict:
 
 
 def asks_nothing(auth_client, outside):
-    """While waiting: the live price, a newer day, and the status all ask nobody."""
-    r = auth_client.get("/api/bitcoin/price")
-    assert r.status_code == 503 and r.json()["detail"].startswith("Confirm where BitcoinTX gets newer prices")
-    r = auth_client.get("/api/bitcoin/price/history", params={"date": "2026-01-05"})
-    assert r.status_code == 422 and "Confirm where BitcoinTX gets newer prices" in r.json()["detail"]
-    assert auth_client.get("/api/bitcoin/price/status").json()["waiting"] is True
+    """While waiting: the live price, the block height, a newer day, a newer
+    and an older hour, the history download and the status all ask nobody."""
+    for path in ("/api/bitcoin/price", "/api/bitcoin/blockheight"):
+        r = auth_client.get(path)
+        assert r.status_code == 503 and r.json()["detail"].startswith("Confirm where BitcoinTX gets newer prices")
+    for params in ({"date": "2026-01-05"}, {"at": "2026-01-05T14:20:00Z"}, {"at": "2014-03-01T09:00:00Z"}):
+        r = auth_client.get("/api/bitcoin/price/history", params=params)
+        assert r.status_code == 422 and "Confirm where BitcoinTX gets newer prices" in r.json()["detail"], params
+    assert not hourly_prices.start_download()
+    hourly_prices.download_if_public()
+    status = auth_client.get("/api/bitcoin/price/status").json()
+    assert status["waiting"] is True and status["history"]["state"] == "not_allowed"
     assert outside == []
+
+
+def asked_until_confirmed(auth_client, test_engine, outside):
+    """Asked again at each restart until confirmed (the plan's section 5)."""
+    for _ in range(2):
+        assert start(test_engine).waiting
+        assert auth_client.get("/api/settings/network").json()["confirmed"] is False
+        asks_nothing(auth_client, outside)
 
 
 def live_price():
@@ -115,8 +134,7 @@ def test_1_public_saved_by_the_134_bug_is_asked_with_public_preselected(auth_cli
 
 def test_2_your_own_public_choice_is_asked_once_then_never_again(auth_client, test_engine, outside):
     stored(test_engine, price_source="public", mempool_fallback="off")
-    start(test_engine)
-    asks_nothing(auth_client, outside)
+    asked_until_confirmed(auth_client, test_engine, outside)
     shown = confirm(auth_client, price_source="public", via="first-run")
     assert shown["confirmed"] is True and shown["chosen_via"] == "first-run" and shown["chosen_at"].endswith("Z")
     assert live_price()["source"] == "kraken"  # asked now
@@ -127,8 +145,7 @@ def test_2_your_own_public_choice_is_asked_once_then_never_again(auth_client, te
 
 def test_3_nobody_is_asked_too_and_nothing_is_sent_before_or_after(auth_client, test_engine, outside):
     stored(test_engine, price_source="off", proxy_url=TOR)
-    assert start(test_engine).waiting
-    asks_nothing(auth_client, outside)
+    asked_until_confirmed(auth_client, test_engine, outside)
     shown = confirm(auth_client, price_source="off", proxy_url=TOR, via="settings")
     assert shown["confirmed"] and shown["proxy_url"] == TOR  # kept as it was
     assert live_price() == 503 and outside == []
@@ -141,18 +158,17 @@ def test_3_nobody_is_asked_too_and_nothing_is_sent_before_or_after(auth_client, 
 ], ids=["mempool", "with its backup", "onion"])
 def test_4_your_mempool_is_paused_until_confirmed(auth_client, test_engine, outside, settings):
     stored(test_engine, **settings)
-    assert start(test_engine).waiting
-    asks_nothing(auth_client, outside)
+    asked_until_confirmed(auth_client, test_engine, outside)
     confirm(auth_client, price_source="mempool", mempool_url=settings["mempool_url"],
             mempool_fallback=settings["mempool_fallback"] == "on", proxy_url=settings.get("proxy_url"))
     assert live_price()["source"] == "mempool"
     assert [u for u in outside if not u.startswith(settings["mempool_url"])] == []
 
 
-def test_5_set_by_startos_is_never_asked_until_the_switch_to_decide_in_bitcointx(
+def test_5_set_by_startos_is_never_asked_until_the_switch_to_choose_in_bitcointx(
         auth_client, test_engine, outside, monkeypatch):
-    """And #155's narrow gap: after the switch, an unrecorded choice made in
-    the app (or one saved while stopped) is asked."""
+    """And #155's narrow gap: after the switch to Choose in BitcoinTX, an
+    unrecorded choice made in the app (or one saved while stopped) is asked."""
     stored(test_engine, price_source="public")
     monkeypatch.setenv("BTCTX_PRICE_SOURCE", "mempool")
     monkeypatch.setenv("BTCTX_MEMPOOL_URL", NODE)
@@ -163,8 +179,7 @@ def test_5_set_by_startos_is_never_asked_until_the_switch_to_decide_in_bitcointx
     outside.clear()
     monkeypatch.delenv("BTCTX_PRICE_SOURCE")
     monkeypatch.delenv("BTCTX_MEMPOOL_URL")
-    assert start(test_engine).waiting  # Decide in BitcoinTX
-    asks_nothing(auth_client, outside)
+    asked_until_confirmed(auth_client, test_engine, outside)  # Choose in BitcoinTX
 
 
 @pytest.mark.parametrize("settings", [{}, {"price_source": "unset"}], ids=["no row", "unset"])
@@ -180,9 +195,8 @@ def test_6_not_chosen_gets_the_first_run_question_not_the_confirm_one(auth_clien
 
 def test_7_a_pre_1_1_0_install_is_upgraded_as_before_then_asked(auth_client, test_engine, outside):
     stored(test_engine, live_data="on")
-    s = start(test_engine)
-    assert s.price_source == "public" and s.waiting
-    asks_nothing(auth_client, outside)
+    assert start(test_engine).price_source == "public"
+    asked_until_confirmed(auth_client, test_engine, outside)
 
 
 def test_8_changing_the_choice_while_confirming_saves_the_new_one(auth_client, test_engine, outside):
@@ -222,5 +236,5 @@ def test_10_a_command_and_the_ai_key_never_write_the_record(auth_client, test_en
     # Nothing else in the backend writes it: only save() names the keys
     backend = Path(__file__).resolve().parents[1]
     writers = [p.relative_to(backend).as_posix() for p in backend.rglob("*.py")
-               if "tests" not in p.parts and "CHOSEN_AT_KEY" in p.read_text()]
+               if "tests" not in p.parts and ("CHOSEN_AT_KEY" in p.read_text() or "price_choice_at" in p.read_text())]
     assert writers == ["services/outbound.py"]

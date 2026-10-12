@@ -734,6 +734,19 @@ Start from the `clean` snapshot.
   `GET $API/settings/network` (logged in) to say `"price_source":
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.
+- **UPG-6** (#145, confirm once) Before the update (UPG-1), under 1.2.7:
+  action **Choose in BitcoinTX**, then in the app Settings > Privacy &
+  Network choose **Public price sites** and save. Update to the candidate
+  and log in. Expect on the Dashboard the card "Please confirm where
+  BitcoinTX gets prices", **Public price sites** selected with "Your
+  current choice", its status line "Waiting for you to confirm: nothing is
+  contacted until you do.", Current Bitcoin Price "Confirm your choice",
+  and the sidebar "waiting for you". The service log has no new line
+  starting "BTC price history from" or "Hourly BTC prices" before you
+  confirm. Press **Confirm**: the card goes away without a reload and a
+  price appears. Restart the service: not asked again. Settings shows
+  "You chose this on … in the first-run question." Set the action back to
+  **Public price sites**.
 
 ## Track C: the Mac app (only on a Mac)
 

@@ -34,6 +34,13 @@ const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight }) => (
         <span className="btc-price-value">
           {formatUsd(price.value)}
         </span>
+      ) : price.waiting ? (
+        <span className="btc-price-value">
+          Confirm your choice{" "}
+          <a href="#price-card-title" className="btc-price-link">
+            Confirm now
+          </a>
+        </span>
       ) : price.off ? (
         <span className="btc-price-value" title={price.problem || "Settings → Privacy & network"}>Prices off</span>
       ) : (

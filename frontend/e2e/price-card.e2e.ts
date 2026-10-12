@@ -133,7 +133,8 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     await expect(card.getByLabel(/^Public price sites/)).toBeChecked();
     await expect(card.locator(".price-choice.chosen")).toContainText("Public price sitesYour current choice");
     await expect(card.getByRole("status")).toHaveText(/Waiting for you to confirm: nothing is contacted until you do\./);
-    await expect(page.locator(".btc-price-value")).toHaveText("Prices off");
+    await expect(page.locator(".btc-price-value")).toHaveText("Confirm your choice Confirm now");
+    await expect(page.getByRole("complementary")).toContainText("BTC Price: waiting for you · Confirm");
     await page.goto("/dashboard"); // after a restart of the page: still asked, still nothing sent
     await expect(card).toBeVisible();
     expect(outsideRequests(app)).toEqual([]);
@@ -162,6 +163,27 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     expect(outsideRequests(app)).toEqual([]);
   });
 });
+
+for (const [fixture, label] of [["unconfirmed-off", "Nobody"], ["unconfirmed-mempool", "My own Mempool"]] as const) {
+  test.describe(`confirm once: ${label}`, () => {
+    test.use({ priceSource: fixture });
+
+    test("asked with it pre-selected; nothing is sent before Confirm, and only to the choice after", async ({
+      page, app,
+    }) => {
+      await logIn(page, app);
+      const card = page.getByRole("region", { name: "Please confirm where BitcoinTX gets prices" });
+      await expect(card.locator(".price-choice.chosen")).toContainText(`${label}Your current choice`);
+      await page.goto("/dashboard");
+      await expect(card).toBeVisible();
+      expect(outsideRequests(app)).toEqual([]);
+      await card.getByRole("button", { name: "Confirm" }).click();
+      await expect(card).toHaveCount(0);
+      const origins = [...new Set(outsideRequests(app).map((r) => new URL(r.url).origin))];
+      expect(origins).toEqual(fixture === "unconfirmed-off" ? [] : ["http://umbrel.local:3006"]);
+    });
+  });
+}
 
 test.describe("a server whose price settings aren't valid", () => {
   test.use({ priceSource: "invalid" });

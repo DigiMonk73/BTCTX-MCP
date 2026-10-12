@@ -6,6 +6,8 @@
  * sets it. One set of words everywhere (#145).
  */
 
+import { clock } from "./priceStatus";
+
 export type PriceSource = "off" | "public" | "mempool";
 export type Host = "mac" | "startos" | "server";
 
@@ -43,10 +45,7 @@ export function chosenWhen(s: NetworkSettingsData, timezone: string): string | n
   if (!s.chosen_at || s.managed) return null;
   const at = new Date(s.chosen_at);
   const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
-  const time = at
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone })
-    .replace(" AM", " am")
-    .replace(" PM", " pm");
+  const time = clock(s.chosen_at, timezone);
   const where = s.chosen_via === "first-run" ? "in the first-run question" : "in Settings";
   return `You chose this on ${day} at ${time}, ${where}.`;
 }
