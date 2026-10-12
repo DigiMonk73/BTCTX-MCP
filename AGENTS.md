@@ -609,6 +609,19 @@ one session. Claude suggests this setup when a request is that big.
   the same files, the reference figures or a migration, the one that
   merges second merges `develop` in, and checks the migration numbering
   and the figures again.
+- **The main session's own handoff:** the main session (the "lead")
+  keeps a comment "Kickoff prompt for the lead session" on the umbrella
+  issue, edited in place after every change, never left as a snapshot:
+  its role and duties, how to start, and a short current state as
+  pointers (the running sessions and their open pull requests, what to
+  watch, decisions not yet on an issue). Session status stays in the
+  index, what waits on the owner on #41 and the `owner` issues, and
+  decisions on their issues. After a compaction, the main session
+  re-reads that comment and the index first. The owner keeps it as long
+  as it works well; when it grows too long, the owner starts a new main
+  session from that comment and archives the old one. A new main session
+  finds the running sessions in the session list and on the issues,
+  since sessions an earlier one started don't send it their end notices.
 
 ## Starting a session
 

@@ -77,7 +77,8 @@ All notable changes to BitcoinTX are documented in this file.
   on GitHub: an umbrella issue, an issue per session with its checklist,
   and a kickoff prompt on each. Each session works through its checklist
   and records its decisions on its issue. Small changes stay in one
-  session.
+  session. The main session keeps a handoff for itself on the umbrella
+  issue, current after every change, so a new one can take over.
 - **The reference ledger's figures, checked by a second calculation**
   (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
   Schedule D line, box total, gains summary, income and rebate figure, gift
