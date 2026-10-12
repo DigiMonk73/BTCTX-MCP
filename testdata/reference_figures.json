@@ -1,6 +1,6 @@
 {
  "dashboard": {
-  "average_cost_basis": "55026.32",
+  "average_cost_basis": "55194.63",
   "balances": [
    {
     "account_id": 1,
@@ -10,19 +10,19 @@
    },
    {
     "account_id": 2,
-    "balance": "2.99271000",
+    "balance": "2.99971000",
     "currency": "BTC",
     "name": "Wallet"
    },
    {
     "account_id": 3,
-    "balance": "302300.89000000",
+    "balance": "303448.59000000",
     "currency": "USD",
     "name": "Exchange USD"
    },
    {
     "account_id": 4,
-    "balance": "0.10996000",
+    "balance": "0.11996000",
     "currency": "BTC",
     "name": "Exchange BTC"
    },
@@ -34,7 +34,7 @@
    },
    {
     "account_id": 6,
-    "balance": "698.91000000",
+    "balance": "701.21000000",
     "currency": "USD",
     "name": "USD Fees"
    }
@@ -42,7 +42,7 @@
   "gains_and_losses": {
    "fees": {
     "BTC": 0.00098,
-    "USD": 698.91
+    "USD": 701.21
    },
    "gifts_btc": 0.138,
    "gifts_received": 4525.0,
@@ -50,20 +50,20 @@
    "income_earned": 32675.0,
    "interest_btc": 0.056,
    "interest_earned": 1897.0,
-   "long_term_gains": 103195.98,
+   "long_term_gains": 103293.68,
    "long_term_losses": 0.0,
-   "long_term_net": 103195.98,
+   "long_term_net": 103293.68,
    "rebates_btc": 0.04045,
    "rebates_received": 5636.3,
    "rewards_btc": 0.232,
    "rewards_earned": 13080.0,
-   "sells_proceeds": 267606.09,
+   "sells_proceeds": 268753.79,
    "short_term_gains": 35453.71,
    "short_term_losses": 262.7,
    "short_term_net": 35191.01,
    "total_income": 47652.0,
    "total_losses": 0.0,
-   "total_net_capital_gains": 138386.99,
+   "total_net_capital_gains": 138484.69,
    "withdrawals_spent": 26266.46
   }
  },
@@ -340,6 +340,7 @@
     "data_sources": [
      "Gift",
      "Income",
+     "Inherited",
      "Interest",
      "MyBTC",
      "N/A",
@@ -403,6 +404,15 @@
      },
      {
       "account": "Wallet",
+      "acquired": "2023-05-20T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 53.6,
+      "description": "No BTC price for 2023-12-31: not priced",
+      "quantity": 0.002,
+      "value": null
+     },
+     {
+      "account": "Wallet",
       "acquired": "2023-05-20T16:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1350.0,
@@ -457,9 +467,9 @@
      },
      {
       "asset": "Total",
-      "cost": 67806.43,
+      "cost": 67860.03,
       "description": "",
-      "quantity": 2.81303,
+      "quantity": 2.81503,
       "value": null
      }
     ],
@@ -1107,6 +1117,7 @@
     "data_sources": [
      "Gift",
      "Income",
+     "Inherited",
      "Interest",
      "MyBTC",
      "N/A",
@@ -1166,6 +1177,15 @@
       "cost": 2800.0,
       "description": "No BTC price for 2024-12-31: not priced",
       "quantity": 0.1,
+      "value": null
+     },
+     {
+      "account": "Wallet",
+      "acquired": "2023-05-20T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 53.6,
+      "description": "No BTC price for 2024-12-31: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -1268,6 +1288,15 @@
       "value": null
      },
      {
+      "account": "Wallet",
+      "acquired": "2024-06-30T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 188.1,
+      "description": "No BTC price for 2024-12-31: not priced",
+      "quantity": 0.003,
+      "value": null
+     },
+     {
       "account": "Exchange BTC",
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -1332,9 +1361,9 @@
      },
      {
       "asset": "Total",
-      "cost": 191231.25,
+      "cost": 191472.95,
       "description": "",
-      "quantity": 4.250895,
+      "quantity": 4.255895,
       "value": null
      }
     ],
@@ -1486,6 +1515,11 @@
      {
       "avg_cost_basis": 27000.0,
       "quantity": 0.05,
+      "value": null
+     },
+     {
+      "avg_cost_basis": 26800.0,
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -2570,6 +2604,7 @@
     "data_sources": [
      "Gift",
      "Income",
+     "Inherited",
      "Interest",
      "MyBTC",
      "N/A",
@@ -2629,6 +2664,15 @@
       "cost": 2800.0,
       "description": "No BTC price for 2025-12-31: not priced",
       "quantity": 0.1,
+      "value": null
+     },
+     {
+      "account": "Wallet",
+      "acquired": "2023-05-20T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 53.6,
+      "description": "No BTC price for 2025-12-31: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -2723,6 +2767,15 @@
      },
      {
       "account": "Wallet",
+      "acquired": "2024-06-30T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 188.1,
+      "description": "No BTC price for 2025-12-31: not priced",
+      "quantity": 0.003,
+      "value": null
+     },
+     {
+      "account": "Wallet",
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1486.47,
@@ -2800,6 +2853,15 @@
       "cost": 15030.0,
       "description": "No BTC price for 2025-12-31: not priced",
       "quantity": 0.15,
+      "value": null
+     },
+     {
+      "account": "Wallet",
+      "acquired": "2025-02-28T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 168.8,
+      "description": "No BTC price for 2025-12-31: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -2885,9 +2947,9 @@
      },
      {
       "asset": "Total",
-      "cost": 205281.19,
+      "cost": 205691.69,
       "description": "",
-      "quantity": 3.56151,
+      "quantity": 3.56851,
       "value": null
      }
     ],
@@ -3048,6 +3110,11 @@
       "value": null
      },
      {
+      "avg_cost_basis": 26800.0,
+      "quantity": 0.002,
+      "value": null
+     },
+     {
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
       "value": null
@@ -3105,6 +3172,11 @@
      {
       "avg_cost_basis": 60120.0,
       "quantity": 0.25,
+      "value": null
+     },
+     {
+      "avg_cost_basis": 62700.0,
+      "quantity": 0.003,
       "value": null
      },
      {
@@ -3354,6 +3426,16 @@
      "proceeds": "2.96"
     },
     {
+     "box": "K",
+     "cost": "1050.00",
+     "date_acquired": "INHERITED",
+     "date_sold": "09/02/2026",
+     "description": "0.01000000 BTC",
+     "gain_loss": "97.70",
+     "holding_period": "LONG",
+     "proceeds": "1147.70"
+    },
+    {
      "box": "L",
      "cost": "0.23",
      "date_acquired": "02/15/2023",
@@ -3379,19 +3461,19 @@
      {
       "asset": "BTC",
       "loss": 262.7,
-      "net": 33726.46,
-      "profit": 33989.16
+      "net": 33824.16,
+      "profit": 34086.86
      }
     ],
     "capital_gains_summary": {
      "long_term": {
-      "basis": 38266.9,
-      "gain": 26654.27,
+      "basis": 39316.9,
+      "gain": 26751.97,
       "losses": 0.0,
-      "proceeds": 64921.17,
-      "profits": 26654.27
+      "proceeds": 66068.87,
+      "profits": 26751.97
      },
-     "number_of_disposals": 17,
+     "number_of_disposals": 18,
      "short_term": {
       "basis": 38908.61,
       "gain": 7072.19,
@@ -3400,9 +3482,9 @@
       "profits": 7334.89
      },
      "total": {
-      "basis": 77175.51,
-      "gain": 33726.46,
-      "proceeds": 110901.97
+      "basis": 78225.51,
+      "gain": 33824.16,
+      "proceeds": 112049.67
      }
     },
     "capital_gains_transactions": [
@@ -3602,6 +3684,19 @@
       "type": "Withdrawal"
      },
      {
+      "amount": 0.01,
+      "asset": "BTC",
+      "box": "K",
+      "cost": 1050.0,
+      "date_acquired": "INHERITED",
+      "date_sold": "2026-09-02T12:00:00+00:00",
+      "gain_loss": 97.7,
+      "holding_period": "LONG",
+      "kind": "Sale",
+      "proceeds": 1147.7,
+      "type": "Sell"
+     },
+     {
       "amount": 1e-05,
       "asset": "BTC",
       "box": "L",
@@ -3780,6 +3875,16 @@
       "realized_gain_usd": 2.46
      },
      {
+      "amount_disposed": 0.01,
+      "asset": "BTC",
+      "date_acquired": "INHERITED",
+      "date_sold": "2026-09-02T12:00:00+00:00",
+      "disposal_basis_usd": 1050.0,
+      "holding_period": "LONG",
+      "proceeds_usd_for_that_portion": 1147.7,
+      "realized_gain_usd": 97.7
+     },
+     {
       "amount_disposed": 1e-05,
       "asset": "BTC",
       "date_acquired": "2023-02-15T14:00:00+00:00",
@@ -3803,6 +3908,7 @@
     "data_sources": [
      "Gift",
      "Income",
+     "Inherited",
      "Interest",
      "MyBTC",
      "N/A",
@@ -3844,6 +3950,15 @@
       "cost": 2800.0,
       "description": "No BTC price for 2026-12-31: not priced",
       "quantity": 0.1,
+      "value": null
+     },
+     {
+      "account": "Wallet",
+      "acquired": "2023-05-20T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 53.6,
+      "description": "No BTC price for 2026-12-31: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -3938,6 +4053,15 @@
      },
      {
       "account": "Wallet",
+      "acquired": "2024-06-30T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 188.1,
+      "description": "No BTC price for 2026-12-31: not priced",
+      "quantity": 0.003,
+      "value": null
+     },
+     {
+      "account": "Wallet",
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1486.47,
@@ -3988,6 +4112,15 @@
       "cost": 8000.0,
       "description": "No BTC price for 2026-12-31: not priced",
       "quantity": 0.08,
+      "value": null
+     },
+     {
+      "account": "Wallet",
+      "acquired": "2025-02-28T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 168.8,
+      "description": "No BTC price for 2026-12-31: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -4073,6 +4206,15 @@
      },
      {
       "account": "Exchange BTC",
+      "acquired": "2026-02-01T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 1050.0,
+      "description": "No BTC price for 2026-12-31: not priced",
+      "quantity": 0.01,
+      "value": null
+     },
+     {
+      "account": "Exchange BTC",
       "acquired": "2026-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 11230.79,
@@ -4145,9 +4287,9 @@
      },
      {
       "asset": "Total",
-      "cost": 170728.51,
+      "cost": 172189.01,
       "description": "",
-      "quantity": 3.10267,
+      "quantity": 3.11967,
       "value": null
      }
     ],
@@ -4186,11 +4328,11 @@
      },
      {
       "box": "K",
-      "cost": 18645.22,
-      "gain_loss": 11709.18,
+      "cost": 19695.22,
+      "gain_loss": 11806.88,
       "line": "9",
-      "proceeds": 30354.4,
-      "rows": 2
+      "proceeds": 31502.1,
+      "rows": 3
      },
      {
       "box": "L",
@@ -4279,6 +4421,11 @@
       "value": null
      },
      {
+      "avg_cost_basis": 26800.0,
+      "quantity": 0.002,
+      "value": null
+     },
+     {
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
       "value": null
@@ -4315,6 +4462,11 @@
      },
      {
       "avg_cost_basis": 65000.0,
+      "quantity": 0.003,
+      "value": null
+     },
+     {
+      "avg_cost_basis": 62700.0,
       "quantity": 0.003,
       "value": null
      },
@@ -4375,6 +4527,11 @@
      },
      {
       "avg_cost_basis": 105000.0,
+      "quantity": 0.002,
+      "value": null
+     },
+     {
+      "avg_cost_basis": 84400.0,
       "quantity": 0.002,
       "value": null
      },
@@ -4470,15 +4627,15 @@
       "proceeds": "27309.37"
      },
      "9": {
-      "cost": "18645.22",
-      "gain_loss": "11709.18",
-      "proceeds": "30354.40"
+      "cost": "19695.22",
+      "gain_loss": "11806.88",
+      "proceeds": "31502.10"
      }
     },
     "long_term": {
-     "cost": "38266.90",
-     "gain_loss": "26654.27",
-     "proceeds": "64921.17"
+     "cost": "39316.90",
+     "gain_loss": "26751.97",
+     "proceeds": "66068.87"
     },
     "short_term": {
      "cost": "38908.61",

@@ -25,7 +25,7 @@ from backend.models.transaction import (
 from backend.models.account import Account
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 from backend.services.reports.form_8949 import (
-    SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
+    INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
 )
 
 from backend.services.transaction import (
@@ -347,7 +347,9 @@ def _disposal_row(d: LotDisposal) -> dict[str, Any]:
     lot = d.lot
     return {
         "date_sold": tx.timestamp.isoformat() if tx and tx.timestamp else "",
-        "date_acquired": lot.acquired_date.isoformat() if lot and lot.acquired_date else "",
+        # As Form 8949's column (b): inherited coins have no date there (#154)
+        "date_acquired": INHERITED if lot and lot.inherited else (
+            lot.acquired_date.isoformat() if lot and lot.acquired_date else ""),
         "asset": "BTC",
         "type": "Transfer fee" if tx and tx.type == "Transfer" else (tx.type if tx else ""),
         "amount": float(d.disposed_btc or 0),

@@ -27,6 +27,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
+    INHERITED_SOURCE,
     ORIGINAL_DATE_SOURCES,
     VALUED_AT_RECEIPT,
 )
@@ -220,9 +221,9 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
 
 
 def _drop_original_date_if_not_allowed(tx: Transaction, tx_data: dict, db: Session) -> None:
-    """An edit that makes the row something other than a My BTC or Gift
-    deposit into a BTC account drops its date originally acquired (unless it
-    sends one, which the checks then refuse)."""
+    """An edit that makes the row something other than a My BTC, Gift or
+    Inherited deposit into a BTC account drops its date originally acquired
+    (unless it sends one, which the checks then refuse)."""
     if tx.acquired_at is None or "acquired_at" in tx_data:
         return
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "source", "to_account_id")}
@@ -255,9 +256,10 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     _revalue_income_deposit(tx, tx_data, db)
 
 
-# What an income or rebate deposit's value depends on: the day's price x the
-# amount, and whether it is one into a BTC account at all.
-_INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp")
+# What an income, rebate or inherited deposit's value depends on: the day's
+# price x the amount (the day received, or the date of death in acquired_at),
+# and whether it is one into a BTC account at all.
+_INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp", "acquired_at")
 
 
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -307,10 +309,10 @@ def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
 
 def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     """Whether the edit changes an input of the day's value: the account,
-    amount, UTC day (the price's day) or type, or a source that wasn't
-    valued at receipt. Between two sources that are (Reward to Rebate, the
-    fix #98 asks of users) the value can't change, so it isn't priced again
-    and needs no price."""
+    amount, UTC day (the price's day: of the deposit, or of an inheritance's
+    date of death) or type, or a source that wasn't valued at receipt.
+    Between two sources that are (Reward to Rebate, the fix #98 asks of
+    users) the day stays, so it isn't priced again and needs no price."""
     for key in ("type", "to_account_id"):
         if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
             return True
@@ -319,9 +321,14 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
         return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
-    if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
-        return price_history.utc_day(tx_data["timestamp"]) != price_history.utc_day(tx.timestamp)
-    return False
+    return _valuation_day(tx_data, tx) != _valuation_day({}, tx)
+
+
+def _valuation_day(edited: dict, tx: Transaction):
+    """The UTC day a valued deposit is priced on, after the edit `edited`:
+    an inheritance's date of death, else the deposit's day (#154)."""
+    moment = edited.get("acquired_at", tx.acquired_at) or edited.get("timestamp", tx.timestamp)
+    return price_history.utc_day(moment) if moment is not None else None
 
 
 def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -404,6 +411,12 @@ def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> s
 
     anniversary = local_date(acquired, tz) + relativedelta(years=1)
     return "LONG" if local_date(disposed, tz) > anniversary else "SHORT"
+
+
+def lot_holding_period(lot: BitcoinLot, disposed: datetime, tz=timezone.utc) -> str:
+    """A disposal's term from its lot: inherited coins are long-term however
+    soon they're sold (IRC §1223(9), #154); others by holding_period()."""
+    return "LONG" if lot.inherited else holding_period(lot.acquired_date, disposed, tz)
 
 
 # Types whose proceeds are derived (net of fees) from the user's gross input
@@ -642,11 +655,13 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     new_lot = BitcoinLot(
         created_txn_id=tx.id,
         # Coins already owned (My BTC) or a gift with the giver's basis keep
-        # their holding period from when they were first acquired (#91)
+        # their holding period from when they were first acquired (#91);
+        # inherited coins are dated by the date of death (#154)
         acquired_date=tx.acquired_at or tx.timestamp,
         total_btc=btc_amount,
         remaining_btc=btc_amount,
         cost_basis_usd=cost_basis,
+        inherited=tx.type == "Deposit" and _is_inherited({"source": tx.source}),
     )
     db.add(new_lot)
     db.flush()
@@ -798,7 +813,7 @@ class _FifoDisposal:
             disposal_basis_usd=basis,
             proceeds_usd_for_that_portion=proceeds,
             realized_gain_usd=Decimal("0.0") if gain_zero else proceeds - basis,
-            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, self.tz),
+            holding_period=lot_holding_period(lot, self.tx.timestamp, self.tz),
             is_fee=is_fee,
         ))
         lot.remaining_btc -= qty
@@ -825,7 +840,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     total_basis = Decimal("0.0")
     total_gain = Decimal("0.0")
     total_proceeds = Decimal("0.0")
-    earliest_date = None
+    earliest_lot = None
 
     for disp in disposals:
         total_basis += (disp.disposal_basis_usd or Decimal("0"))
@@ -833,8 +848,8 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         total_proceeds += (disp.proceeds_usd_for_that_portion or Decimal("0"))
 
         lot = disp.lot  # Eager loaded, no additional query
-        if lot and (earliest_date is None or lot.acquired_date < earliest_date):
-            earliest_date = lot.acquired_date
+        if lot and (earliest_lot is None or lot.acquired_date < earliest_lot.acquired_date):
+            earliest_lot = lot
 
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
@@ -847,8 +862,8 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # A spend whose fee took all it brought in has 0 (#157), not the gross
         tx.proceeds_usd = total_proceeds
 
-    if earliest_date:
-        tx.holding_period = holding_period(earliest_date, tx.timestamp, get_tax_timezone(db))
+    if earliest_lot:
+        tx.holding_period = lot_holding_period(earliest_lot, tx.timestamp, get_tax_timezone(db))
     else:
         tx.holding_period = None
 
@@ -950,10 +965,14 @@ def get_historical_btc_price(timestamp: datetime, db: Session) -> Decimal:
 
 
 def _valued_at_receipt(tx_data: dict, db: Session) -> bool:
-    """A deposit with source Income, Interest, Reward or Rebate into a BTC account."""
+    """A deposit with source Income, Interest, Reward, Rebate or Inherited into a BTC account."""
     if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in VALUED_AT_RECEIPT:
         return False
     return _into_btc(tx_data, db)
+
+
+def _is_inherited(tx_data: dict) -> bool:
+    return (tx_data.get("source") or "").lower() == INHERITED_SOURCE
 
 
 def _into_btc(tx_data: dict, db: Session) -> bool:
@@ -966,9 +985,11 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     An income or rebate deposit (source Income, Interest, Reward or Rebate
     into a BTC account) has a cost basis equal to its market value at
     receipt, which for income is also the income on the tax report (a rebate
-    is never income, #98). Entered without one (blank, or the form's 0),
-    value it at the day's BTC price instead of saving $0; refuse to save when
-    no price is available. Returns True when it filled cost_basis_usd.
+    is never income, #98); an inherited one, its value on the date of death
+    (IRC §1014; never income, #154). Entered without one (blank, or the
+    form's 0), value it at that day's BTC price instead of saving $0; refuse
+    to save when no price is available. Returns True when it filled
+    cost_basis_usd.
     """
     if not _valued_at_receipt(tx_data, db) or Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
         return False
@@ -976,16 +997,16 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     if amount <= 0:
         return False
 
-    timestamp = tx_data.get("timestamp") or datetime.now(timezone.utc)
+    # When it was acquired: the day received, or an inheritance's date of
+    # death (#154; only those deposits of the four have an acquired_at)
+    moment = tx_data.get("acquired_at") or tx_data.get("timestamp") or datetime.now(timezone.utc)
+    when = "on the date of death" if _is_inherited(tx_data) else "at receipt"
     try:
-        price = get_historical_btc_price(timestamp, db)
+        price = get_historical_btc_price(moment, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"{e.detail} Enter this {tx_data['source']} deposit's USD value "
-                "at receipt as its cost basis."
-            ),
+            detail=f"{e.detail} Enter this {tx_data['source']} deposit's USD value {when} as its cost basis.",
         )
     tx_data["cost_basis_usd"] = (price * amount).quantize(Decimal("0.01"))
     return True
@@ -1063,7 +1084,7 @@ class _LotMove:
         self.remaining_outflow = btc_outflow
         self.remaining_fee = fee_btc
         self.fee_proceeds_so_far = Decimal("0")
-        self.to_destination: list[tuple[Decimal, Decimal, datetime]] = []
+        self.to_destination: list[tuple[Decimal, Decimal, datetime, bool]] = []
 
     def take_from(self, lot: BitcoinLot) -> None:
         btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
@@ -1079,7 +1100,7 @@ class _LotMove:
         if portion_for_fee > 0:
             self.dispose_fee(lot, portion_for_fee, cost_per_btc)
         if portion_for_dest > 0:
-            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date))
+            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date, lot.inherited))
 
     def dispose_fee(self, lot: BitcoinLot, portion: Decimal, cost_per_btc: Decimal) -> None:
         disposal_basis = (cost_per_btc * portion).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
@@ -1097,13 +1118,13 @@ class _LotMove:
             disposal_basis_usd=disposal_basis,
             proceeds_usd_for_that_portion=proceeds_for_fee,
             realized_gain_usd=proceeds_for_fee - disposal_basis,
-            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, get_tax_timezone(self.db)),
+            holding_period=lot_holding_period(lot, self.tx.timestamp, get_tax_timezone(self.db)),
             is_fee=True,
         ))
         self.remaining_fee -= portion
 
     def add_destination_lots(self) -> None:
-        for amt_btc, cost_per_btc, acquired_date in self.to_destination:
+        for amt_btc, cost_per_btc, acquired_date, inherited in self.to_destination:
             if acquired_date.tzinfo is None:
                 acquired_date = acquired_date.replace(tzinfo=timezone.utc)
             cost_portion = (cost_per_btc * amt_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
@@ -1112,7 +1133,8 @@ class _LotMove:
                 acquired_date=acquired_date,
                 total_btc=amt_btc,
                 remaining_btc=amt_btc,
-                cost_basis_usd=cost_portion
+                cost_basis_usd=cost_portion,
+                inherited=inherited,  # inherited coins stay inherited (#154)
             ))
 
 
@@ -1233,11 +1255,12 @@ def _enforce_broker_reporting(tx_type, value) -> None:
 USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXCHANGE_BTC, ACCOUNT_EXTERNAL}
 TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
 WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")
-DEPOSIT_SOURCES = ("MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate", "N/A")
+DEPOSIT_SOURCES = ("MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate", "N/A")
 GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 
 
@@ -1380,6 +1403,12 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
         if data.get("purpose") not in WITHDRAWAL_PURPOSES:
             _bad("A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
 
+    # Inherited coins are valued, and sorted first in, first out, by the date
+    # of death (#154): without it, the deposit's date would stand in silently
+    if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
+            and _is_inherited(data) and data.get("acquired_at") is None:
+        _bad(INHERITED_NEEDS_DATE)
+
     # A BTC deposit that isn't income or a rebate (MyBTC, Gift, N/A...) needs
     # its cost basis stated: a blank one would make its whole value gain when
     # it's sold. Income and rebates are valued at the day's price instead
@@ -1398,12 +1427,13 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
                           deposit: datetime, tz) -> str | None:
     """
     Why a date originally acquired can't go on this row, or None. Only on a
-    My BTC or Gift deposit into a BTC account, after Bitcoin began, and no
+    My BTC, Gift or Inherited deposit into a BTC account, after Bitcoin began, and no
     later than the deposit's day: compared as days in the tax timezone, so
     coins first acquired the morning of a deposit made at noon are allowed.
     """
     if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
-        return "A date originally acquired is only for a My BTC or Gift deposit into Wallet or Exchange BTC."
+        return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
+                "death, into Wallet or Exchange BTC.")
     if as_utc(acquired) < GENESIS:
         return "The date originally acquired is before Bitcoin existed (3 January 2009)."
     if local_date(acquired, tz) > local_date(deposit, tz):

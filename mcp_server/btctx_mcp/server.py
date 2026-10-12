@@ -44,7 +44,7 @@ ToolResult = Dict[str, Any]  # noqa: UP006
 
 AccountName = Literal["Bank", "Wallet", "Exchange USD", "Exchange BTC", "External"]
 TxTypeName = Literal["Buy", "Sell", "Deposit", "Withdrawal", "Transfer"]
-DepositSource = Literal["MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate"]
+DepositSource = Literal["MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"]
 WithdrawalPurpose = Literal["Spent", "Gift", "Donation", "Lost"]
 
 # Fixed account ids seeded by the app (backend/constants.py)
@@ -68,7 +68,8 @@ class TransactionInput(BaseModel):
     from_account: AccountName
     to_account: AccountName
     cost_basis_usd: Decimal | None = Field(
-        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate).")
+        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate, "
+                                  "and for Inherited from the date of death).")
     proceeds_usd: Decimal | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
     fee_amount: Decimal | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
@@ -83,7 +84,8 @@ class TransactionInput(BaseModel):
     acquired_at: str | None = Field(
         default=None, description="MyBTC/Gift deposits into Wallet or Exchange BTC: when the coins were originally "
                                   "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
-                                  "Form 8949's date acquired use it; omitted, the deposit's date.")
+                                  "Form 8949's date acquired use it; omitted, the deposit's date. Inherited "
+                                  "deposits: the date of death (required).")
 
 
 _client: BtctxClient | None = None
@@ -430,9 +432,11 @@ async def update_transaction(
     An Income/Interest/Reward/Rebate deposit's value that came from that day's price is priced
     again when you change its amount, date or account, or move it there from another source (a
     switch among those four keeps it; sending back the value it already has doesn't make it
-    typed); a value the user typed is kept.
+    typed); a value the user typed is kept. An Inherited deposit's is priced on its date of
+    death (acquired_at), and again when that changes.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
-    date; "none" clears it (the holding period then starts at the deposit)."""
+    date; "none" clears it (the holding period then starts at the deposit). For an Inherited
+    deposit it is the date of death, which it must keep."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)

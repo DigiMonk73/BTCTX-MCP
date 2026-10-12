@@ -81,6 +81,7 @@ class Lot:
     acquired: datetime
     covered: bool
     order: int
+    inherited: bool = False
 
 
 @dataclass
@@ -95,6 +96,7 @@ class Row:
     sold: datetime
     covered: bool
     broker_reporting: str | None
+    inherited: bool = False
 
 
 @dataclass
@@ -109,8 +111,9 @@ class Ledger:
     year: int | None = None
     next_order: int = 0
 
-    def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool) -> None:
-        self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order))
+    def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool,
+                inherited: bool = False) -> None:
+        self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order, inherited))
         self.next_order += 1
 
     def take(self, account: int, quantity: Fraction) -> list[tuple[Lot, Fraction, Fraction]]:
@@ -220,9 +223,12 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
         return
     amount, value = _money(tx["amount"]), _money(tx.get("cost_basis_usd"))
     # A My BTC or Gift deposit's holding period runs from when it was first
-    # acquired (the giver's date for a gift: IRC §1223(2)).
+    # acquired (the giver's date for a gift: IRC §1223(2)). Inherited coins
+    # are acquired at the death (IRC §1014: their basis is their value then)
+    # and long-term whenever sold (§1223(9)).
     acquired = _moment(tx["acquired_at"]) if tx.get("acquired_at") else when
-    ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False)
+    ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False,
+                   inherited=tx.get("source") == "Inherited")
     # Income is its value at receipt, which is also its basis; a rebate is
     # valued the same way but lowers a purchase price instead of being income.
     if tx.get("source") in INCOME_SOURCES:
@@ -273,7 +279,7 @@ def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
     # The amount left the source including the fee; what arrives keeps each
     # lot's date and its share of basis: moving your own coins isn't a sale.
     for lot, quantity, basis in ledger.take(source, _money(tx["amount"]) - fee):
-        ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False)
+        ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False, inherited=lot.inherited)
 
 
 def _money(value: str | None) -> Fraction:
@@ -304,16 +310,17 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
     for number, (lot, quantity, basis) in enumerate(pieces, 1):
         share = left if number == len(pieces) else Fraction(_cents(proceeds * quantity / total, ledger.rounding))
         left -= share
-        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting))
+        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting, lot.inherited))
 
 
 def _form_row(row: Row, year: int, rounding: str) -> dict:
-    long_term = _is_long_term(row.acquired.date(), row.sold.date())
+    # Inherited property: Part II, "INHERITED" in column (b) (Form 8949 instructions)
+    long_term = row.inherited or _is_long_term(row.acquired.date(), row.sold.date())
     proceeds, cost = _cents(row.proceeds, rounding), _cents(row.basis, rounding)
     return {
         "box": _box(row, year, long_term),
         "description": f"{_btc(row.quantity)} BTC",
-        "date_acquired": row.acquired.strftime("%m/%d/%Y"),
+        "date_acquired": "INHERITED" if row.inherited else row.acquired.strftime("%m/%d/%Y"),
         "date_sold": row.sold.strftime("%m/%d/%Y"),
         "proceeds": str(proceeds),
         "cost": str(cost),

@@ -163,6 +163,14 @@ So derived values must be recomputable from the Transaction row alone.
   dashboard's income, listed apart in the report (`rebates`) and on the
   dashboard (`rebates_received`, #129). Reward stays income (mining,
   staking, bonuses).
+- **Inherited** (source Inherited, #154): basis = value on the date of death
+  (IRC §1014), the deposit's required `acquired_at`, which also dates its lot;
+  valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed,
+  or that day's price, priced again when the date of death changes), never
+  income. Every disposal of its coins is long-term (§1223(9)) with INHERITED
+  in Form 8949 column (b): `bitcoin_lots.inherited`, kept through transfers.
+  Ledger Review doesn't compare its value with the day's price (an estate's
+  value can rightly differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every past-day valuation goes through
@@ -184,6 +192,7 @@ So derived values must be recomputable from the Transaction row alone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date
   originally acquired (`acquired_at`) when given, else the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
+  Inherited coins are long-term whatever the dates (above).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in

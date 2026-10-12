@@ -4,6 +4,32 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Inherited bitcoin can be recorded** (tax figures, #154). A deposit's
+  Source now has **Inherited**, which follows the rules for property
+  inherited from someone who died, different from a gift's:
+  - its cost basis is its value on the **date of death** (IRC §1014),
+    which the deposit must have (the form's **Date of death**; `acquired_at`
+    in a CSV or the AI connector). Leave the value blank to use that day's
+    BTC price, or type it: if the estate gave you a value (Form 8971,
+    Schedule A), use that one, as your basis can't be more;
+  - every sale or spend of these coins is **long-term** however soon it
+    comes (IRC §1223(9)), with **INHERITED** in Form 8949's column (b), as
+    the form's instructions ask. The rule follows the coins when you move
+    them between the wallet and the exchange;
+  - it isn't income. The form explains the rules where Inherited is
+    chosen, and the Complete Tax Report adds a note in a year with such a
+    sale.
+
+  Before, the choice was My BTC or Gift, and either could print wrong
+  figures: a sale within a year of the death came out short-term, or a
+  Gift's basis was the person's own cost. **What to do:** if you recorded
+  inherited bitcoin that way, edit the deposit: Source **Inherited**, the
+  date of death, and its value that day. A deposit saved before 1.1.0
+  (when the source was free text) as "inherited" now follows these rules
+  too. The update adds one column to the database's lots (rebuilt at every
+  recalculation), after its usual backup copy.
+
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax
   figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with

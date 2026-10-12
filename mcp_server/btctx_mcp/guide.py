@@ -54,6 +54,16 @@ Deposit: External -> any account
                If the coins were worth less on the day of the gift than
                the giver paid, tell the user BitcoinTX doesn't apply that
                gift rule (IRC §1015) and suggest their tax preparer.
+    Inherited = inherited from someone who died. acquired_at = the date of
+               death (REQUIRED: ask). cost_basis_usd = their value on that
+               date (left out: that day's price); if the estate gave a
+               value (Form 8971, Schedule A), use it. Always long-term,
+               with INHERITED in Form 8949's column (b). Never record an
+               inheritance as a Gift: the rules differ. If the user owned
+               the coins jointly with the person who died, or gave them to
+               that person within a year before the death, suggest their
+               tax preparer: only part may be inherited, or the basis may
+               be the user's own (IRC §1014(e)).
     acquired_at sets the holding period and Form 8949's date acquired:
     coins held more than a year are long-term. Without it, BitcoinTX
     counts from the deposit, so say so if the user doesn't know it.
@@ -121,6 +131,7 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   deposit to Exchange USD, which BitcoinTX doesn't count as income: the user
   reports it from the bank's or exchange's own tax form.
 - Card or shopping sats-back -> Deposit/Rebate (not Reward).
+- Bitcoin from someone's estate or will -> Deposit/Inherited (not Gift).
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only

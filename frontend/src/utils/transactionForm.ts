@@ -236,11 +236,12 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
   return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
 }
 
-/** Deposit sources whose coins may have been acquired before the deposit. */
-const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift"];
+/** Deposit sources whose coins may have been acquired before the deposit
+ * (an inheritance: on the date of death, #154). */
+const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 
-/** Whether a deposit takes "Date originally acquired": My BTC or Gift into
- * Wallet or Exchange BTC. */
+/** Whether a deposit takes "Date originally acquired" (an inheritance's
+ * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
 export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
   const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
   return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");

@@ -44,6 +44,27 @@ test.describe("BTC deposits", () => {
     });
   }
 
+  test("an Inherited deposit needs its date of death and is valued that day (#154)", async ({ authedPage: page }) => {
+    await openAddForm(page, "Deposit");
+    await setWhen(page);
+    await page.getByLabel("Account").selectOption("Wallet");
+    await page.getByLabel("Amount").fill("0.02");
+    await page.getByLabel("Source").selectOption("Inherited");
+    await expect(page.getByText("any sale of it is long-term however soon you sell")).toBeVisible();
+    await expect(page.getByText("If the estate gave you a value")).toBeVisible();
+    await page.getByRole("button", { name: "Save Transaction" }).click();
+    await expect(page.getByText("Enter the date of death.")).toBeVisible();
+    expect(await listTx(page.request)).toHaveLength(0);
+
+    await page.getByLabel("Date of death").fill("2023-11-20");
+    await saveForm(page);
+    const tx = await lastTx(page);
+    expect(tx).toMatchObject({ source: "Inherited", cost_basis_from_price: true });
+    expect(tx.acquired_at).toMatch(/^2023-11-20/);
+    // Blank: 0.02 BTC at that day's price
+    expect(Number(tx.cost_basis_usd)).toBe(0.02 * HISTORICAL_PRICE);
+  });
+
   test("a MyBTC deposit needs its basis stated; 0 is accepted", async ({ authedPage: page }) => {
     await openAddForm(page, "Deposit");
     await setWhen(page);

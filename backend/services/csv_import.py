@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.services.transaction import (
-    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record, original_date_problem,
+    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, create_transaction_record,
+    original_date_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -30,7 +31,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BTC_ACCOUNTS,
-    INCOME_SOURCES,
+    INHERITED_SOURCE,
     VALUED_AT_RECEIPT,
 )
 
@@ -566,17 +567,27 @@ def _trade_rules(row: _Row):
         yield _error(row.number, "fee_currency", f"{row.tx_type} fee must be in USD.")
 
 
+# What a blank value in a deposit valued when acquired becomes, by source
+_VALUED_AS = {
+    INHERITED_SOURCE: "the BTC price on the date of death in acquired_at (its cost basis, not income)",
+    "rebate": "that day's BTC price (its market value at receipt, a rebate, not income)",
+}
+
+
 def _deposit_rules(row: _Row):
     source = row.source
     into_btc = row.to_id in BTC_ACCOUNTS
     if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
         yield _error(row.number, "source", DEPOSIT_SOURCE_UNKNOWN)
-    elif not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
-        also = "which is also the income" if source.lower() in INCOME_SOURCES else "a rebate, not income"
+        return
+    if into_btc and (source or "").lower() == INHERITED_SOURCE and row.acquired_at is None:
+        yield _error(row.number, "acquired_at", INHERITED_NEEDS_DATE)
+    if not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
+        valued_as = _VALUED_AS.get(source.lower(),
+                                   "that day's BTC price (its market value at receipt, which is also the income)")
         yield _warning(
             row.number, "cost_basis_usd",
-            f"No cost_basis_usd for this {source} deposit. It will be valued at "
-            f"that day's BTC price (its market value at receipt, {also}).",
+            f"No cost_basis_usd for this {source} deposit. It will be valued at {valued_as}.",
         )
     elif row.cost_basis_usd is None and into_btc:
         # A blank basis would make the whole value gain when it's sold.
@@ -684,6 +695,10 @@ TEMPLATE_ROWS = [
      "500.00", "", "", "", "Reward", "", "Mining or staking reward"],
     ["2024-01-31T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
      "1000.00", "", "", "", "", "", "BTC deposit with no specific source"],
+    ["2024-01-31T12:00:00Z", "Deposit", "0.01", "External", "Wallet",
+     "420.00", "", "", "", "Inherited", "",
+     "Inherited BTC: cost_basis_usd is its value on the date of death (acquired_at); always long-term",
+     "", "", "", "", "", "2023-12-05"],
     # To the exchange, a sale, and the proceeds back to the bank
     ["2024-02-01T10:00:00Z", "Transfer", "0.5", "Wallet", "Exchange BTC",
      "", "", "0.0001", "BTC", "", "", "Move BTC to exchange for trading", "4.30"],
