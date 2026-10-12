@@ -30,7 +30,7 @@ All notable changes to BitcoinTX are documented in this file.
   - its cost basis is its value on the **date of death** (IRC §1014),
     which the deposit must have (the form's **Date of death**; `acquired_at`
     in a CSV or the AI connector). Leave the value blank to use that day's
-    BTC price, or type it: the value on the estate's alternate valuation
+    BTC price (the date as entered, in any tax timezone, #177), or type it: the value on the estate's alternate valuation
     date if it chose one; and if the estate's Form 8971, Schedule A, gives
     a value marked as having increased the estate tax, your basis can't be
     more (IRC §1014(f));
