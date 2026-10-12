@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key
+from backend.services.bitcoin import get_current_price as _UNSTUBBED_CURRENT_PRICE  # the real one, before the stub
 from backend.services.tax_time import set_tax_timezone
 from backend.tests.conftest import init_test_db, stub_daily_prices
 from btctx_mcp import server
@@ -427,15 +428,13 @@ async def test_list_transactions_days_are_in_the_tax_timezone(mcp_client, backen
 
 async def test_the_portfolio_says_why_there_is_no_live_price(mcp_client, monkeypatch):
     """Review of #191: with Nobody (or not chosen yet), the AI gets BitcoinTX's reason, not two nulls."""
-    from fastapi import HTTPException
+    from backend.services import bitcoin, outbound
 
-    async def nobody():
-        raise HTTPException(status_code=503, detail="You chose Nobody for prices, so none is asked.")
-
-    monkeypatch.setattr("backend.services.bitcoin.get_current_price", nobody)
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    monkeypatch.setattr(bitcoin, "get_current_price", _UNSTUBBED_CURRENT_PRICE)  # the app's own refusal
     portfolio = await call(mcp_client, "get_portfolio")
     assert portfolio["btc_price_usd"] is None and portfolio["btc_price_source"] is None
-    assert "You chose Nobody for prices" in portfolio["btc_price_unavailable"]
+    assert "You chose Nobody for prices, so none is asked. To change that:" in portfolio["btc_price_unavailable"]
 
 
 async def test_portfolio_and_price(mcp_client):

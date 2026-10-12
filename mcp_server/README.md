@@ -35,7 +35,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
 | `list_transactions` | Search by date range, type and account |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
-| `get_portfolio` | Account balances, average cost basis, live BTC price (from the price source chosen in Settings → Privacy & Network), tax timezone |
+| `get_portfolio` | Account balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |

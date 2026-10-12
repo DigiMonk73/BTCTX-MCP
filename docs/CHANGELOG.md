@@ -259,8 +259,12 @@ All notable changes to BitcoinTX are documented in this file.
   price names the source of each price ("When its hour began (2025-03-01
   14:00 UTC), Bitstamp", or "your Mempool"); no figure changes. The AI
   connector's `get_btc_price` and `get_portfolio` give the price's
-  `source`, and its guide explains the price choices (your Mempool, public
-  price sites, Nobody) and that only you change them, in BitcoinTX.
+  `source` ("mempool" for your own Mempool, otherwise the public site), and
+  when there's no live price, `get_portfolio` gives BitcoinTX's reason
+  (`btc_price_unavailable`). Its guide explains the price choices (your
+  Mempool, public price sites, Nobody), that only you change them (in
+  Settings, or where the server sets them: StartOS's Price Source & Privacy
+  action), and that it asks you for a value BitcoinTX has no price for.
 - **Where prices show, in the redesign's words** (#145). The Dashboard's
   Current Bitcoin Price says where the price came from and when ("From
   your Mempool · 2:02 pm", "From public price sites (Kraken)"), or why
