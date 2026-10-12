@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import bitcoin, price_history
+from backend.services import bitcoin, price_history, price_status
 
 router = APIRouter(
     tags=["Bitcoin"]
@@ -18,6 +18,17 @@ async def get_current_bitcoin_price():
     503 when prices are off or not chosen, 502 when the chosen source fails.
     """
     return await bitcoin.get_current_price()
+
+
+@router.get("/price/status", summary="Where newer prices come from now, and the hourly history")
+def get_price_status():
+    """
+    The status line's facts (services/price_status.py): the choice, where
+    the last price came from and when, the last problem and why, and the
+    hourly history's download. Never makes a request. Login only: the AI
+    key isn't allowed here (services/ai_key.py, AI_KEY_ROUTES).
+    """
+    return price_status.status()
 
 
 @router.get("/price/history", summary="Get historical Bitcoin price (one date)")

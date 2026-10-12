@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 from fastapi import HTTPException
 
-from backend.services import outbound
+from backend.services import outbound, price_status
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +49,11 @@ def _one_at_a_time() -> asyncio.Lock:
 
 async def _from_own_node(path: str, parse: Callable):
     """Ask the owner's mempool server when it's the chosen source; None if it fails."""
-    base = outbound.current().own_node
+    settings = outbound.current()
+    base = settings.own_node
     if not base:
+        if settings.price_source == "mempool":  # chosen, no address: StartOS before Mempool is installed
+            price_status.failed(price_status.MEMPOOL_MISSING)
         return None
     try:
         async with outbound.own_node_client() as client:
@@ -59,9 +62,13 @@ async def _from_own_node(path: str, parse: Callable):
             value = parse(resp)
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
+        price_status.mempool_failed(exc)
         return None
     if value is None:
         logger.warning("Own mempool server %s%s answered without a price (yet)", base, path)
+        price_status.failed(price_status.MEMPOOL_NO_ANSWER)
+    else:
+        price_status.answered("mempool")
     return value
 
 
@@ -78,11 +85,14 @@ async def _first_public(urls_and_parsers, what: str) -> tuple:
                 if resp.status_code == 200:
                     value = parse(resp)
                     if value is not None:
+                        price_status.answered(_site(url))
                         return value, _site(url)
             except Exception as exc:
                 unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
-    if outbound.current().proxy_url and unreached == len(urls_and_parsers):
+    through_proxy = outbound.current().proxy_url and unreached == len(urls_and_parsers)
+    price_status.failed(price_status.TOR_NO_ANSWER if through_proxy else price_status.PUBLIC_NO_ANSWER)
+    if through_proxy:
         raise HTTPException(status_code=502, detail=(
             f"No public site answered for the {what}: none could be reached through the proxy for "
             "public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)"))

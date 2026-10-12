@@ -157,12 +157,13 @@ def _public_price_source():
     Tests run with the public price source chosen (a fresh install has none
     until the owner picks) and with fresh download timers.
     """
-    from backend.services import hourly_prices, outbound, price_history
+    from backend.services import hourly_prices, outbound, price_history, price_status
 
     saved = outbound._current
     outbound._current = outbound.NetworkSettings(price_source="public")
     price_history.reset_state()
     hourly_prices.reset_state()
+    price_status.reset()
     yield
     outbound._current = saved
 

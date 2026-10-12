@@ -153,6 +153,40 @@ def download_if_public() -> None:
         start_download()
 
 
+def download_status() -> dict:
+    """
+    The hourly history's state, for the status line (services/price_status.py):
+    how far it reaches, how many years are here and checked, and whether
+    the download runs, failed, or isn't allowed by the choice. Reads only
+    this install's files and memory: it never asks anything.
+    """
+    lines = pf.read_manifest(pf.MANIFEST)
+    done = [line.year for line in lines if _verified(line)]
+    mismatched = sorted(y for y, at in _state["mismatched"].items()
+                        if time.monotonic() - at < MISMATCH_RETRY_SECONDS and y not in done)
+    failed = _state["failed_wall"] if time.monotonic() - _state["failed_at"] < RETRY_SECONDS else None
+    if lines and len(done) == len(lines):
+        state = "complete"
+    elif _state["running"]:
+        state = "downloading"
+    elif not outbound.current().public_allowed:
+        state = "not_allowed"
+    elif failed:
+        state = "failed"
+    else:
+        state = "waiting"
+    return {
+        "until": pf.label(lines[-1].last_hour) if lines else None,
+        "first_year": lines[0].year if lines else None,
+        "shipped": False,  # the year files come with the app once Bitstamp agrees (#144)
+        "years_total": len(lines),
+        "years_done": len(done),
+        "state": state,
+        "failed_at": failed,
+        "mismatched": mismatched,
+    }
+
+
 async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict[int, tuple[Decimal, str]]:
     """
     What the chosen sources give while `hour` is missing. `hour` only
@@ -212,7 +246,7 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
-    _state.update(running=False, failed_at=-1e9, mismatched={}, public_at=-1e9)
+    _state.update(running=False, failed_at=-1e9, failed_wall=None, mismatched={}, public_at=-1e9, verified={})
     _live.update(rows=None, hours={})
 
 
@@ -245,6 +279,21 @@ def _year_prices(line: pf.YearLine) -> dict[int, Decimal] | None:
         while len(_years) > CACHED_YEARS:
             _years.popitem(last=False)
     return prices
+
+
+def _verified(line: pf.YearLine) -> bool:
+    """Whether the year's file is here and gives its fingerprint (each
+    file is checked once while it stays the same size and age)."""
+    try:
+        stat = (folder() / f"{line.year}.csv").stat()
+    except OSError:
+        return False
+    key = (line.sha256, stat.st_size, stat.st_mtime_ns)
+    if _state["verified"].get(line.year) != key:
+        if _file_text(line) is None:
+            return False
+        _state["verified"][line.year] = key
+    return True
 
 
 def _file_text(line: pf.YearLine) -> str | None:
@@ -302,6 +351,7 @@ def _download(lines: list[pf.YearLine]) -> None:
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
         _state["failed_at"] = time.monotonic()
+        _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     finally:
         with _changed:
             _state["running"] = False
