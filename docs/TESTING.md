@@ -215,6 +215,19 @@ make reference-figures      # rewrites testdata/reference_figures.json
 and the pull request shows the difference; a change in tax figures waits
 for the owner's "merge".
 
+**A second calculation checks them.** `scripts/independent_figures.py`
+recomputes the ledger's figures (Form 8949 rows, Schedule D lines, income,
+rebates, gifts, year-end lots) from the IRS's and the ledger's documented
+rules, importing nothing of the app (#150). `backend/tests/test_independent_figures.py`
+fails on any difference from `reference_figures.json`, so a change meant to
+move figures also changes the rule it follows there, or it was a bug. Both
+round an exact half cent down, as the app does (#100); with the usual
+half-up the script shows the few one-cent ties:
+
+```bash
+python scripts/independent_figures.py --compare --years 2023 2024 2025 2026 [--rounding half-down]
+```
+
 **Each release's database is kept** in the test lab
 (`~/code/btctx-vm-lab/ledgers/reference-vX.Y.Z.db`, with its figures in
 `reference-vX.Y.Z.json`), made in the release tests (docs/AGENT-TESTS.md,

@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""
+A second, deliberately simple calculation of a ledger's tax figures, to check
+BitcoinTX's own (#150, and #80 item 2). It is written from the rules alone:
+the IRS's (FIFO per account, "more than one year", Form 8949's boxes and
+Schedule D's lines) and the ledger's documented ones (AGENTS.md "Tax
+invariants", the AI connector's ledger guide). It imports nothing from
+backend/, so a mistake in the app's code can't hide in both.
+
+It replays the reference test ledger (testdata/reference_ledger.json) and
+gives each year's Form 8949 rows, Schedule D lines, income, rebates, gifts
+and year-end holdings. Amounts stay exact (fractions) until a form prints
+them, or a disposal's proceeds are shared among its lots:
+
+    python scripts/independent_figures.py --year 2025          # JSON
+    python scripts/independent_figures.py --compare            # against reference_figures.json
+
+`--compare` lists every difference from testdata/reference_figures.json for
+2024 and 2025 (`--years` for others). An exact half cent rounds up, as the
+IRS rounds to whole dollars; `--rounding half-down` rounds it down, as the
+app does (#100), and backend/tests/test_independent_figures.py checks that
+the two calculations then agree to the cent. Dates are taken in UTC, the
+reference figures' tax time zone.
+
+A test tool: it lives in scripts/, which no build ships.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
+from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
+from fractions import Fraction
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+LEDGER = ROOT / "testdata" / "reference_ledger.json"
+FIGURES = ROOT / "testdata" / "reference_figures.json"
+
+WALLET, EXCHANGE_BTC = 2, 4
+BTC_ACCOUNTS = {WALLET: "Wallet", EXCHANGE_BTC: "Exchange BTC"}
+INCOME_SOURCES = ("Income", "Interest", "Reward")
+NOT_SALES = ("Gift", "Donation", "Lost")
+CENT = Decimal("0.01")
+SATS = Decimal("0.00000001")
+# Brokers report digital-asset basis only for assets bought from 2026 on and
+# kept in the same account (Treas. Reg. §1.6045-1(a)(15)(i)(J)): "covered".
+COVERED_FROM = date(2026, 1, 1)
+# Form 8949's checkbox for (who reported it, long-term?): before 2025 the
+# 1099-B boxes A-F; from 2025 digital assets have their own, G-L.
+BOXES_UNTIL_2024 = {"basis": "AD", "proceeds": "BE", "none": "CF"}
+BOXES_FROM_2025 = {"basis": "GJ", "proceeds": "HK", "none": "IL"}
+SCHEDULE_D_LINE = {
+    "A": "1b", "B": "2", "C": "3", "D": "8b", "E": "9", "F": "10",
+    "G": "1b", "H": "2", "I": "3", "J": "8b", "K": "9", "L": "10",
+}
+ROUNDING = {"half-up": ROUND_HALF_UP, "half-down": ROUND_HALF_DOWN}
+
+
+@dataclass
+class Lot:
+    """BTC acquired together: its basis travels with it, by the satoshi."""
+
+    quantity: Fraction
+    basis: Fraction
+    acquired: datetime
+    covered: bool
+    order: int
+
+
+@dataclass
+class Row:
+    """One Form 8949 row: the part of a disposal that came from one lot."""
+
+    kind: str  # "sale", "spend" or "fee"
+    quantity: Fraction
+    proceeds: Fraction
+    basis: Fraction
+    acquired: datetime
+    sold: datetime
+    covered: bool
+    broker_reporting: str | None
+
+
+@dataclass
+class Ledger:
+    lots: dict[int, list[Lot]] = field(default_factory=lambda: {a: [] for a in BTC_ACCOUNTS})
+    rows: list[Row] = field(default_factory=list)
+    income: list[tuple[datetime, str, Fraction]] = field(default_factory=list)
+    rebates: list[tuple[datetime, Fraction, Fraction]] = field(default_factory=list)
+    gifts: list[tuple[datetime, str, Fraction, str | None]] = field(default_factory=list)
+    holdings: dict[int, list[tuple[str, Lot]]] = field(default_factory=dict)
+    rounding: str = ROUND_HALF_UP
+    next_order: int = 0
+
+    def add_lot(self, account: int, quantity, basis, acquired: datetime, covered: bool) -> None:
+        self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order))
+        self.next_order += 1
+
+    def take(self, account: int, quantity: Fraction) -> list[tuple[Lot, Fraction, Fraction]]:
+        """Remove `quantity` BTC oldest acquisition first: (lot, BTC, basis) per piece."""
+        pieces = []
+        for lot in sorted(self.lots[account], key=lambda lot: (lot.acquired, lot.order)):
+            if quantity == 0:
+                break
+            used = min(quantity, lot.quantity)
+            basis = lot.basis * used / lot.quantity
+            pieces.append((lot, used, basis))
+            lot.quantity -= used
+            lot.basis -= basis
+            quantity -= used
+        if quantity:
+            raise ValueError(f"not enough BTC in account {account}")
+        self.lots[account] = [lot for lot in self.lots[account] if lot.quantity]
+        return pieces
+
+
+def money(value) -> Fraction:
+    return Fraction(Decimal(str(value))) if value not in (None, "") else Fraction(0)
+
+
+def moment(text: str) -> datetime:
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+
+
+def cents(value: Fraction, rounding: str = ROUND_HALF_UP) -> Decimal:
+    exact = Decimal(value.numerator) / Decimal(value.denominator)
+    # A half cent shows as ...5 exactly only if the division ended there.
+    if Fraction(exact) != value:
+        rounding = ROUND_HALF_UP
+    return exact.quantize(CENT, rounding)
+
+
+def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:
+    """Every transaction in time order (the file's order on a tie)."""
+    ledger = Ledger(rounding=rounding)
+    ordered = sorted(enumerate(transactions), key=lambda pair: (moment(pair[1]["timestamp"]), pair[0]))
+    for _, tx in ordered:
+        when = moment(tx["timestamp"])
+        _snapshot_years_before(ledger, when.year)
+        {"Deposit": deposit, "Buy": buy, "Sell": sell,
+         "Withdrawal": withdrawal, "Transfer": transfer}[tx["type"]](ledger, tx, when)
+    _snapshot_years_before(ledger, when.year + 1)
+    return ledger
+
+
+def deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
+    if tx["to_account_id"] not in BTC_ACCOUNTS:
+        return
+    amount, value = money(tx["amount"]), money(tx.get("cost_basis_usd"))
+    # A My BTC or Gift deposit's holding period runs from when it was first
+    # acquired (the giver's date for a gift: IRC §1223(2)).
+    acquired = moment(tx["acquired_at"]) if tx.get("acquired_at") else when
+    ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False)
+    # Income is its value at receipt, which is also its basis; a rebate is
+    # valued the same way but lowers a purchase price instead of being income.
+    if tx.get("source") in INCOME_SOURCES:
+        ledger.income.append((when, tx["source"], value))
+    elif tx.get("source") == "Rebate":
+        ledger.rebates.append((when, amount, value))
+
+
+def buy(ledger: Ledger, tx: dict, when: datetime) -> None:
+    # The dollar fee is part of what the BTC cost (IRC §1012).
+    basis = money(tx["cost_basis_usd"]) + money(tx["fee_amount"])
+    ledger.add_lot(EXCHANGE_BTC, money(tx["amount"]), basis, when, covered=when.date() >= COVERED_FROM)
+
+
+def sell(ledger: Ledger, tx: dict, when: datetime) -> None:
+    # The fee comes off the gross proceeds (amount realized, IRC §1001).
+    proceeds = _gross_proceeds(tx) - money(tx["fee_amount"])
+    pieces = ledger.take(tx["from_account_id"], money(tx["amount"]))
+    _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"))
+
+
+def withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
+    account = tx["from_account_id"]
+    if account not in BTC_ACCOUNTS:
+        return
+    _pay_network_fee(ledger, tx, account, when)
+    amount = money(tx["amount"])
+    pieces = ledger.take(account, amount)
+    purpose = tx["purpose"]
+    if purpose in NOT_SALES:
+        ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd")))
+        return
+    # A Spent's proceeds are what was received for the amount; the fee is
+    # its own disposal, so nothing is taken off.
+    _dispose(ledger, "spend", pieces, _gross_proceeds(tx), when, tx.get("broker_reporting"))
+
+
+def transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
+    source, destination = tx["from_account_id"], tx["to_account_id"]
+    if source not in BTC_ACCOUNTS:
+        return
+    fee = _pay_network_fee(ledger, tx, source, when)
+    # The amount left the source including the fee; what arrives keeps each
+    # lot's date and its share of basis: moving your own coins isn't a sale.
+    for lot, quantity, basis in ledger.take(source, money(tx["amount"]) - fee):
+        ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False)
+
+
+def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime) -> Fraction:
+    """A fee paid in BTC disposes of that BTC, at its value, oldest first."""
+    fee = money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+    if fee:
+        pieces = ledger.take(account, fee)
+        _dispose(ledger, "fee", pieces, money(tx["fee_usd"]), when, None)
+    return fee
+
+
+def _dispose(ledger: Ledger, kind: str, pieces, proceeds: Fraction, when: datetime, reporting) -> None:
+    """One row per lot. Each gets its share of the proceeds in cents, and the
+    last what is left, so the rows report all of them (the amount realized)."""
+    total, left = sum(quantity for _, quantity, _ in pieces), proceeds
+    for number, (lot, quantity, basis) in enumerate(pieces, 1):
+        share = left if number == len(pieces) else Fraction(cents(proceeds * quantity / total, ledger.rounding))
+        left -= share
+        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting))
+
+
+def _gross_proceeds(tx: dict) -> Fraction:
+    """What the BTC brought before fees (the ledger guide's proceeds_usd)."""
+    return money(tx.get("gross_proceeds_usd", tx.get("proceeds_usd")))
+
+
+def _snapshot_years_before(ledger: Ledger, this_year: int) -> None:
+    """Keep each year's closing lots, once the ledger has moved past it."""
+    for year in range(2009, this_year):
+        if year not in ledger.holdings:
+            ledger.holdings[year] = [(BTC_ACCOUNTS[account], replace(lot))
+                                     for account, lots in ledger.lots.items() for lot in lots]
+
+
+def is_long_term(acquired: date, sold: date) -> bool:
+    """IRS: held "more than 1 year", so the anniversary itself is short-term."""
+    try:
+        anniversary = acquired.replace(year=acquired.year + 1)
+    except ValueError:  # bought on February 29
+        anniversary = date(acquired.year + 1, 2, 28)
+    return sold > anniversary
+
+
+def box(row: Row, year: int, long_term: bool) -> str:
+    boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
+    if row.kind == "fee":
+        reported = "none"  # no broker reports a network fee
+    elif row.broker_reporting:
+        reported = row.broker_reporting  # what the user's 1099 showed
+    elif row.kind == "sale" and year >= 2025:
+        reported = "basis" if row.covered else "proceeds"  # the exchange's 1099-DA
+    else:
+        reported = "none"
+    return boxes[reported][long_term]
+
+
+def year_figures(ledger: Ledger, year: int) -> dict:
+    rows = [_form_row(row, year, ledger.rounding) for row in ledger.rows if row.sold.year == year]
+    return {
+        "form_8949": rows,
+        "schedule_d": _schedule_d(rows),
+        "income": _income(ledger, year),
+        "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(cents(value))}
+                    for when, amount, value in ledger.rebates if when.year == year],
+        "gifts_donations_lost": [
+            {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv)}
+            for when, kind, amount, fmv in ledger.gifts if when.year == year],
+        "end_of_year_holdings": [
+            {"account": account, "acquired": lot.acquired.isoformat(),
+             "quantity": _btc(lot.quantity), "cost": str(cents(lot.basis, ledger.rounding))}
+            for account, lot in ledger.holdings[year]],
+    }
+
+
+def _form_row(row: Row, year: int, rounding: str) -> dict:
+    long_term = is_long_term(row.acquired.date(), row.sold.date())
+    proceeds, cost = cents(row.proceeds, rounding), cents(row.basis, rounding)
+    return {
+        "box": box(row, year, long_term),
+        "description": f"{_btc(row.quantity)} BTC",
+        "date_acquired": row.acquired.strftime("%m/%d/%Y"),
+        "date_sold": row.sold.strftime("%m/%d/%Y"),
+        "proceeds": str(proceeds),
+        "cost": str(cost),
+        # Column (h) is (d) minus (e) as printed, so each row adds up.
+        "gain_loss": str(proceeds - cost),
+        "holding_period": "LONG" if long_term else "SHORT",
+    }
+
+
+def _schedule_d(rows: list[dict]) -> dict:
+    """Each box's rows add up to its Schedule D line; then each Part's total."""
+    zero = {"proceeds": "0.00", "cost": "0.00", "gain_loss": "0.00"}
+    lines: dict[str, dict] = {}
+    totals = {"short_term": dict(zero), "long_term": dict(zero)}
+    for row in rows:
+        term = "long_term" if row["holding_period"] == "LONG" else "short_term"
+        for bucket in (lines.setdefault(SCHEDULE_D_LINE[row["box"]], dict(zero)), totals[term]):
+            for column in zero:
+                bucket[column] = str(Decimal(bucket[column]) + Decimal(row[column]))
+    return {"lines": lines, **totals}
+
+
+def _income(ledger: Ledger, year: int) -> dict:
+    income = {source: Fraction(0) for source in INCOME_SOURCES}
+    for when, source, value in ledger.income:
+        if when.year == year:
+            income[source] += value
+    income["Total"] = sum(income.values())
+    return {source: str(cents(value)) for source, value in income.items()}
+
+
+def _btc(quantity: Fraction) -> str:
+    return str((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS))
+
+
+def differences(mine: dict, app: dict) -> list[str]:
+    """Every figure where this calculation and the app's saved one disagree."""
+    found = _row_differences(mine["form_8949"], app["form_8949"])
+    found += _schedule_d_differences(mine["schedule_d"], app["schedule_d"])
+    report = app["report"]
+    app_income = {key: str(Decimal(str(value)).quantize(CENT)) for key, value in report["income_summary"].items()}
+    found += _compare("income", mine["income"], app_income)
+    found += _compare("rebates", mine["rebates"], [
+        {"date": r["date"], "amount": _btc(Fraction(str(r["amount"]))), "value_usd": _usd(r["value_usd"])}
+        for r in report["rebates"]])
+    found += _compare("gifts, donations, lost", mine["gifts_donations_lost"], [
+        {"date": g["date"], "type": g["type"], "amount": _btc(Fraction(str(g["amount"]))), "fmv_usd": _usd(g["fmv_usd"])}
+        for g in report["gifts_donations_lost"]])
+    found += _holding_differences(mine["end_of_year_holdings"], report["end_of_year_balances"])
+    return found
+
+
+def _row_differences(mine: list[dict], app: list[dict]) -> list[str]:
+    return _unmatched("Form 8949 row", mine, app)
+
+
+def _schedule_d_differences(mine: dict, app: dict) -> list[str]:
+    found = [f"Schedule D line {line}: here {mine['lines'].get(line)}, in the app {app['lines'].get(line)}"
+             for line in sorted(set(mine["lines"]) | set(app["lines"]))
+             if mine["lines"].get(line) != app["lines"].get(line)]
+    return found + [f"Schedule D {term}: here {mine[term]}, in the app {app[term]}"
+                    for term in ("short_term", "long_term") if mine[term] != app[term]]
+
+
+def _holding_differences(mine: list[dict], app: list[dict]) -> list[str]:
+    app_lots = [{"account": lot["account"], "acquired": lot["acquired"],
+                 "quantity": _btc(Fraction(str(lot["quantity"]))), "cost": _usd(lot["cost"])}
+                for lot in app if "account" in lot]  # not the "Total" line
+    return _unmatched("year-end lot", mine, app_lots)
+
+
+def _unmatched(what: str, mine: list[dict], app: list[dict]) -> list[str]:
+    """Items on one side only, each once (a list may hold equal items)."""
+    left = sorted(json.dumps(item, sort_keys=True) for item in mine)
+    right = sorted(json.dumps(item, sort_keys=True) for item in app)
+    only_mine, only_app = list(left), list(right)
+    for item in left:
+        if item in only_app:
+            only_app.remove(item)
+            only_mine.remove(item)
+    return ([f"{what} only here: {item}" for item in only_mine]
+            + [f"{what} only in the app: {item}" for item in only_app])
+
+
+def _compare(what: str, mine, app) -> list[str]:
+    return [] if mine == app else [f"{what}: here {mine}, in the app {app}"]
+
+
+def _usd(value) -> str | None:
+    return None if value is None else str(Decimal(str(value)).quantize(CENT))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--year", type=int, help="print one year's figures as JSON")
+    parser.add_argument("--compare", action="store_true", help="compare with the reference figures")
+    parser.add_argument("--years", type=int, nargs="+", default=[2024, 2025])
+    parser.add_argument("--rounding", choices=ROUNDING, default="half-up",
+                        help="how an exact half cent rounds (the app: half-down)")
+    args = parser.parse_args()
+    ledger = replay(json.loads(LEDGER.read_text())["transactions"], ROUNDING[args.rounding])
+    if args.year:
+        print(json.dumps(year_figures(ledger, args.year), indent=1))
+        return 0
+    saved = json.loads(FIGURES.read_text())["years"]
+    found = [f"{year}: {line}" for year in args.years
+             for line in differences(year_figures(ledger, year), saved[str(year)])]
+    print("\n".join(found) or f"No differences in {', '.join(map(str, args.years))}.")
+    return 1 if found else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
