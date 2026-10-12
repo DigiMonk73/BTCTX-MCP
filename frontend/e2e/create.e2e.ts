@@ -216,6 +216,33 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   expect(by["Exchange BTC"]).toBe(0.5);
 });
 
+test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", async ({ authedPage: page }) => {
+  await createTx(page.request, {
+    type: "Deposit", timestamp: "2023-01-02T18:00:00Z", from_account_id: 99, to_account_id: 2,
+    amount: "1.0", cost_basis_usd: "20000", source: "MyBTC",
+  });
+  await openAddForm(page, "Transfer");
+  await setWhen(page);
+  await page.getByLabel("From Account").selectOption("Wallet");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await page.getByLabel("To Account").selectOption("Wallet");
+  await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
+  await page.getByLabel("Amount (From)").fill("0.8");
+  await page.getByLabel("Amount (To)").fill("0.8");
+  await page.getByRole("button", { name: "Save Transaction" }).click();
+  await expect(page.getByText("records only its network fee: Amount (To) must be less")).toBeVisible();
+  await page.getByLabel("Amount (To)").fill("0.7999");
+  await saveForm(page);
+
+  const tx = await lastTx(page);
+  expect(tx).toMatchObject({ type: "Transfer", from_account_id: 2, to_account_id: 2, fee_currency: "BTC" });
+  expect(Number(tx.fee_amount)).toBe(0.0001);
+  const balances = await (await page.request.get("/api/calculations/accounts/balances")).json();
+  const by = Object.fromEntries(balances.map((b: { name: string; balance: string }) => [b.name, Number(b.balance)]));
+  expect(by["Wallet"]).toBe(0.9999);
+  expect(by["BTC Fees"]).toBe(0.0001);
+});
+
 test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await openAddForm(page, "Transfer");

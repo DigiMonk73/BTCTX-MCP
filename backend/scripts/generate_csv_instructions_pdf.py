@@ -40,7 +40,7 @@ TYPES = [
     ["Type", "Description"],
     ["Deposit", "BTC entering your portfolio (purchase, gift received, income, etc.)"],
     ["Withdrawal", "BTC leaving your portfolio (spent, gift sent, donation, loss)"],
-    ["Transfer", "Moving BTC between your own wallets (no taxable event)"],
+    ["Transfer", "Moving money or BTC between your own accounts (not a sale; a BTC network fee is a small disposal). Wallet to Wallet: a consolidation, where only the fee is recorded"],
     ["Buy", "Purchasing BTC on an exchange with USD"],
     ["Sell", "Selling BTC on an exchange for USD"],
 ]
@@ -77,7 +77,7 @@ ACCOUNT_RULES = [
     ["Type", "From Account", "To Account", "Required Fields"],
     ["Deposit", "External", "Wallet or\nExchange BTC", "cost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that day's value"],
     ["Withdrawal", "Wallet or\nExchange BTC", "External", "purpose required;\nproceeds_usd for \"Spent\""],
-    ["Transfer", "Any account", "Another account,\nsame currency", "Fee in the sending account's currency;\naccounts must be different"],
+    ["Transfer", "Any account", "Another account,\nsame currency; or the\nsame Wallet or\nExchange BTC", "Fee in the sending account's currency;\nto the same account (a consolidation):\na BTC fee is required, and only it\nis recorded"],
     ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],
     ["Sell", "Exchange BTC", "Exchange USD", "proceeds_usd required;\nfee must be USD"],
 ]
@@ -100,6 +100,8 @@ EXAMPLES = [
     ("Deposit (BTC entering your wallet):", "2024-01-20T14:00:00Z,Deposit,0.5,External,Wallet,21000.00,,,Income,,"),
     ("Withdrawal (spending BTC):", "2024-03-01T09:00:00Z,Withdrawal,0.1,Wallet,External,,5500.00,,,Spent,"),
     ("Transfer (moving between wallets):", "2024-02-01T16:45:00Z,Transfer,1.0,Exchange BTC,Wallet,,,0.0001,BTC,,,"),
+    ("Transfer within the wallet (a consolidation: only the fee):",
+     "2024-02-05T09:00:00Z,Transfer,0.4,Wallet,Wallet,,,0.00005,BTC,,,"),
 ]
 
 COMMON_ERRORS = [
@@ -113,7 +115,8 @@ COMMON_ERRORS = [
     ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
     ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],
     ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Wallet or Exchange BTC"],
-    ["\"Cannot transfer to same account\"", "Transfer requires different source and destination"],
+    ["\"Transfer must have different from_account and to_account\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
+    ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
 ]
 
 TABLE_STYLE = TableStyle([

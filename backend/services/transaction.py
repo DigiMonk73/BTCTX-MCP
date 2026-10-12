@@ -27,6 +27,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
+    BTC_ACCOUNTS,
     ORIGINAL_DATE_SOURCES,
     VALUED_AT_RECEIPT,
 )
@@ -250,7 +251,8 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
             tx_data[key] = merged.get(key)
     if any(k in tx_data for k in ("type", "from_account_id", "to_account_id")):
         _enforce_transaction_type_rules(merged, db)
-    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id")):
+    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id",
+                                  "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
 
@@ -1005,6 +1007,9 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     """
     Splits source lots for an internal BTC transfer from one BTC account to another,
     disposing the fee portion and carrying forward the remainder as a new partial-lot.
+    A move within one account (a UTXO consolidation, or between two wallets
+    BitcoinTX pools, #159) disposes of the fee only: the coins that moved stay
+    in their lots, with their dates and basis.
     """
     from_acct = db.get(Account, tx.from_account_id)
     to_acct = db.get(Account, tx.to_account_id)
@@ -1026,26 +1031,26 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     if btc_outflow <= 0:
         return
 
-    move = _LotMove(tx, btc_outflow, fee_btc, db)
-    for lot in _open_lots(tx.from_account_id, db):
-        if move.remaining_outflow <= 0:
-            break
-        if lot.remaining_btc <= 0:
-            continue
-        move.take_from(lot)
+    lots = _open_lots(tx.from_account_id, db)
+    if tx.from_account_id == tx.to_account_id:
+        btc_outflow = _fee_leaving_account(lots, btc_outflow, fee_btc)
 
-    if move.remaining_fee > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Not enough BTC to cover fee {fee_btc}"
-        )
-    if move.remaining_outflow > 0:
+    move = _LotMove(tx, btc_outflow, fee_btc, db)
+    move.take_all(lots)
+    move.add_destination_lots()
+    db.flush()
+
+
+def _fee_leaving_account(lots: list[BitcoinLot], btc_outflow: Decimal, fee_btc: Decimal) -> Decimal:
+    """A move within one account (#159): the coins sent must be there, as for
+    any transfer, and only the fee leaves the account (IRS digital-asset FAQ
+    Q81, Q97). What leaves it."""
+    if sum(lot.remaining_btc for lot in lots) < btc_outflow:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to transfer {btc_outflow} (including fee {fee_btc})"
         )
-    move.add_destination_lots()
-    db.flush()
+    return fee_btc
 
 
 class _LotMove:
@@ -1059,11 +1064,29 @@ class _LotMove:
     """
 
     def __init__(self, tx: Transaction, btc_outflow: Decimal, fee_btc: Decimal, db: Session):
-        self.tx, self.fee_btc, self.db = tx, fee_btc, db
+        self.tx, self.btc_outflow, self.fee_btc, self.db = tx, btc_outflow, fee_btc, db
         self.remaining_outflow = btc_outflow
         self.remaining_fee = fee_btc
         self.fee_proceeds_so_far = Decimal("0")
         self.to_destination: list[tuple[Decimal, Decimal, datetime]] = []
+
+    def take_all(self, lots: list[BitcoinLot]) -> None:
+        """The whole outflow from `lots`, oldest first; too little BTC is a 400."""
+        for lot in lots:
+            if self.remaining_outflow <= 0:
+                break
+            if lot.remaining_btc > 0:
+                self.take_from(lot)
+        if self.remaining_fee > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough BTC to cover fee {self.fee_btc}"
+            )
+        if self.remaining_outflow > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough BTC to transfer {self.btc_outflow} (including fee {self.fee_btc})"
+            )
 
     def take_from(self, lot: BitcoinLot) -> None:
         btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
@@ -1239,6 +1262,7 @@ MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
+SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 
 
 def _canonical(value, choices) -> str | None:
@@ -1463,7 +1487,8 @@ def _fill_stored_fee_currency(tx: Transaction, db: Session) -> None:
 def _enforce_fee_rules(tx_data: dict, db: Session):
     """
     Validate fee usage by transaction type:
-      - Transfer => fee must match from_acct currency
+      - Transfer => fee must match from_acct currency; a move within one
+        account (#159) records only its fee, so it needs one
       - Buy/Sell => fee must be USD
       - Deposit/Withdrawal => no special fee rule
     """
@@ -1471,6 +1496,9 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
     from_id = tx_data.get("from_account_id")
     fee_amt = Decimal(tx_data.get("fee_amount") or 0)
     fee_cur = (tx_data.get("fee_currency") or "").upper()  # filled by _fill_fee_currency
+
+    if tx_type == "Transfer" and from_id == tx_data.get("to_account_id") and fee_amt <= 0:
+        raise HTTPException(status_code=400, detail=SAME_ACCOUNT_NEEDS_FEE)
 
     # If there's no fee, skip checks
     if fee_amt <= 0:
@@ -1519,7 +1547,8 @@ _TYPE_ACCOUNT_RULES = {
     "Transfer": [
         (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL,
          "Transfer => both from/to must be internal."),
-        (lambda f, t: f == t, "Transfer => from and to must be different accounts."),
+        # Only a BTC account can send to itself: a consolidation (#159)
+        (lambda f, t: f == t and f not in BTC_ACCOUNTS, "Transfer => from and to must be different accounts."),
     ],
     "Buy": [
         (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), "Buy => from must be Bank or Exchange USD."),
@@ -1536,8 +1565,9 @@ def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     """
     The accounts each type allows: a Deposit from External to one of the
     user's accounts, a Withdrawal the other way, a Transfer between two of
-    them in the same currency, a Buy from Bank or Exchange USD to Exchange
-    BTC, a Sell from Exchange BTC to Exchange USD.
+    them in the same currency (or from a BTC account to itself: a
+    consolidation, #159), a Buy from Bank or Exchange USD to Exchange BTC, a
+    Sell from Exchange BTC to Exchange USD.
     """
     tx_type = tx_data.get("type")
     from_id = tx_data.get("from_account_id")

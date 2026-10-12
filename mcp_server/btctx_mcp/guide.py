@@ -30,8 +30,8 @@ transactions. Tax correctness matters more than speed.
   https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange). Then
   record it in Wallet, or Exchange BTC / Exchange USD, never External. A
   move between the wallet and the exchange is a Transfer; a move between two
-  wallets (or two exchanges) stays in one account and isn't a Transfer: ask
-  the user.
+  of the user's wallets (or two exchanges) stays in one account: a Transfer
+  from Wallet to Wallet (or Exchange BTC to Exchange BTC), below.
 
 ## Transaction types
 Buy: Bank or Exchange USD -> Exchange BTC
@@ -96,6 +96,11 @@ Transfer: between the user's own accounts, same currency
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
+  Wallet -> Wallet (or Exchange BTC -> Exchange BTC): a UTXO consolidation,
+  or a move between two of the user's wallets (exchanges) that BitcoinTX
+  pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
+  required. Only the fee is recorded, as a small disposal of the oldest
+  coins; the rest keep their lots, dates and basis.
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
@@ -114,6 +119,8 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   Exchange BTC -> Wallet.
 - Sending from cold storage back to the exchange to sell -> Transfer
   Wallet -> Exchange BTC, then a Sell.
+- Consolidating UTXOs, or sending to another wallet of the user's ->
+  Transfer Wallet -> Wallet with its network fee.
 - A send to an address: ask whether it is the user's own wallet (Transfer) or
   someone else (Withdrawal + purpose) - never guess this.
 - Paid in BTC -> Deposit/Income. Exchange interest paid in BTC ->

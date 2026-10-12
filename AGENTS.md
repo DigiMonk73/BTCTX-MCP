@@ -141,7 +141,9 @@ So derived values must be recomputable from the Transaction row alone.
   proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and pro-rated basis. The fee is a disposal.
+  date and pro-rated basis. The fee is a disposal. A BTC account to itself
+  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
+  between pooled wallets, #159) needs a fee and records only it: no lot moves.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).

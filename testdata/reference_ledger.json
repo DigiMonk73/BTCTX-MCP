@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, and My BTC and Gift deposits with a date originally acquired. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, and My BTC and Gift deposits with a date originally acquired. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
  "transactions": [
   {
    "type": "Deposit",
@@ -795,6 +795,18 @@
   },
   {
    "type": "Transfer",
+   "timestamp": "2025-09-20T12:00:00Z",
+   "from_account_id": 2,
+   "to_account_id": 2,
+   "amount": "0.30000000",
+   "fee_amount": "0.00002000",
+   "fee_currency": "BTC",
+   "cost_basis_usd": "0.00",
+   "fee_usd": "2.30",
+   "why": "A UTXO consolidation in the wallet (#159): a transfer to the same account records only its network fee, a disposal of the wallet's oldest coins: Box L. The coins that moved keep their lots."
+  },
+  {
+   "type": "Transfer",
    "timestamp": "2025-10-01T09:00:00Z",
    "from_account_id": 2,
    "to_account_id": 4,
@@ -1129,6 +1141,18 @@
    "source": "Rebate",
    "cost_basis_usd": "14.80",
    "why": "Card sats-back: a Rebate, valued at receipt (its cost basis), not income."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-08-28T12:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 4,
+   "amount": "0.07",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "cost_basis_usd": "0.00",
+   "fee_usd": "1.10",
+   "why": "A move between two exchanges pooled as Exchange BTC (#159): only its network fee, from the covered 2026 coins, short-term and never broker-reported: Box I. After the year's last sale, so the boxes above stay as they are."
   },
   {
    "type": "Withdrawal",

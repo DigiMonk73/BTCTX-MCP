@@ -270,6 +270,10 @@ def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
     if source not in BTC_ACCOUNTS:
         return
     fee = _pay_network_fee(ledger, tx, source, when)
+    if destination == source:
+        # A consolidation, or a move between wallets pooled as one (#159):
+        # only the fee leaves the account (IRS digital-asset FAQ Q81, Q97).
+        return
     # The amount left the source including the fee; what arrives keeps each
     # lot's date and its share of basis: moving your own coins isn't a sale.
     for lot, quantity, basis in ledger.take(source, _money(tx["amount"]) - fee):
