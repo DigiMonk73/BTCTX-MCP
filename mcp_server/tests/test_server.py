@@ -425,6 +425,19 @@ async def test_list_transactions_days_are_in_the_tax_timezone(mcp_client, backen
     assert (dec_31["total_matching"], jan_1["total_matching"]) == (1, 0)
 
 
+async def test_the_portfolio_says_why_there_is_no_live_price(mcp_client, monkeypatch):
+    """Review of #191: with Nobody (or not chosen yet), the AI gets BitcoinTX's reason, not two nulls."""
+    from fastapi import HTTPException
+
+    async def nobody():
+        raise HTTPException(status_code=503, detail="You chose Nobody for prices, so none is asked.")
+
+    monkeypatch.setattr("backend.services.bitcoin.get_current_price", nobody)
+    portfolio = await call(mcp_client, "get_portfolio")
+    assert portfolio["btc_price_usd"] is None and portfolio["btc_price_source"] is None
+    assert "You chose Nobody for prices" in portfolio["btc_price_unavailable"]
+
+
 async def test_portfolio_and_price(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     portfolio = await call(mcp_client, "get_portfolio")
@@ -432,6 +445,7 @@ async def test_portfolio_and_price(mcp_client):
     assert balances["Wallet"] > 0
     assert portfolio["btc_price_usd"] == 60000.0
     assert "btc_price_source" in portfolio  # where the live price came from, when known (#145)
+    assert "btc_price_unavailable" not in portfolio
     assert portfolio["tax_timezone"] == "UTC"
 
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15"})
