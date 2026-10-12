@@ -1152,7 +1152,7 @@
    "fee_currency": "BTC",
    "cost_basis_usd": "0.00",
    "fee_usd": "1.10",
-   "why": "A move between two exchanges pooled as Exchange BTC (#159): only its network fee, from the covered 2026 coins, short-term and never broker-reported: Box I. After the year's last sale, so the boxes above stay as they are."
+   "why": "A move between two exchanges pooled as Exchange BTC (#159): only its network fee, from the 2026 coins left there, short-term and never broker-reported: Box I. After the year's last sale, so the boxes above stay as they are."
   },
   {
    "type": "Withdrawal",

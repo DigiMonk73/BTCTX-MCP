@@ -100,7 +100,9 @@ Transfer: between the user's own accounts, same currency
   or a move between two of the user's wallets (exchanges) that BitcoinTX
   pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
   required. Only the fee is recorded, as a small disposal of the oldest
-  coins; the rest keep their lots, dates and basis.
+  coins; the rest keep their lots, dates and basis. After a move between
+  two exchanges, a sale at the other one usually has no basis on its
+  1099-DA: set that Sell's broker_reporting to "proceeds".
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 

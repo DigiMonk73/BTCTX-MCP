@@ -66,8 +66,14 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _maybe_verify_balance_for_internal(new_tx, db)
     if new_tx.type == "Transfer":
         _default_btc_transfer_fee(new_tx, db)
-    _post_lots(new_tx, tx_data, db)
-    _recalculate_if_backdated(new_tx, db)
+    if _is_backdated(new_tx, db):
+        # Every lot is rebuilt in date order, which also checks the new entry
+        # against the account as it was on its date. Checked first against
+        # today's lots, a past consolidation (#159) was refused once coins
+        # had left the account later, though only its fee leaves it.
+        recalculate_all_transactions(db)
+    else:
+        _post_lots(new_tx, tx_data, db)
 
     if auto_commit:
         db.commit()
@@ -131,9 +137,10 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
     return new_tx
 
 
-def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
-    """A transaction dated before the latest one changes which lots the
-    later ones used: recalculate everything, in time order."""
+def _is_backdated(new_tx: Transaction, db: Session) -> bool:
+    """Whether a new transaction is dated before the latest one: it changes
+    which lots the later ones used, so everything is recalculated, in time
+    order."""
     latest_other_tx = (
         db.query(Transaction)
         .filter(Transaction.id != new_tx.id)
@@ -146,7 +153,8 @@ def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
             f"[Backdated Create] New tx {new_tx.id} at {new_tx.timestamp} is earlier than "
             f"existing tx {latest_other_tx.id} at {latest_other_tx.timestamp}. Triggering recalculation."
         )
-        recalculate_all_transactions(db)
+        return True
+    return False
 
 
 _VALIDATED_FIELDS = (

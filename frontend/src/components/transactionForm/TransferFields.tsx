@@ -11,7 +11,46 @@ const WITHIN_LABEL: Partial<Record<AccountType, string>> = {
 };
 const WITHIN_HINT =
   "Only the network fee is recorded: it's a disposal of your oldest coins at the fee's value (Form 8949, " +
-  "box I or L). Your coins, their dates and cost basis stay as they are.";
+  "box I or L; C or F before 2025). Your coins, their dates and cost basis stay as they are.";
+// Between two exchanges BitcoinTX pools, it can't tell which one later sells
+const BETWEEN_EXCHANGES_HINT =
+  "A later sale at the exchange the coins moved to usually shows no basis on its 1099-DA: set that sale's " +
+  "Broker form to Proceeds only.";
+
+/** The destination: a choice when a BTC account can also send to itself (#159). */
+const ToAccountField: React.FC = () => {
+  const { register, watch } = useFormContext<TransactionFormData>();
+  const fromAccount = watch("fromAccount");
+  const fromCurrency = watch("fromCurrency");
+  const toAccount = watch("toAccount");
+  const destinations = transferDestinations(fromAccount, fromCurrency);
+  const within = fromCurrency === "BTC" && !!fromAccount && toAccount === fromAccount;
+  return (
+    <div className="field">
+      <label htmlFor="tx-to-account">To Account</label>
+      {destinations.length > 1 ? (
+        <select id="tx-to-account" className="input" {...register("toAccount", { deps: ["amountTo"] })}>
+          {destinations.map((account) => (
+            <option key={account} value={account}>
+              {account === fromAccount ? WITHIN_LABEL[account] : account}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id="tx-to-account"
+          type="text"
+          className="input"
+          {...register("toAccount")}
+          readOnly
+        />
+      )}
+      {within && <small className="field-hint">{WITHIN_HINT}</small>}
+      {within && fromAccount === "Exchange" && <small className="field-hint">{BETWEEN_EXCHANGES_HINT}</small>}
+      {!within && toAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
+    </div>
+  );
+};
 
 /**
  * A transfer between the user's accounts: the destination follows from the
@@ -22,9 +61,6 @@ const TransferFields: React.FC = () => {
   const { register, watch, setValue, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
   const fromAccount = watch("fromAccount");
   const fromCurrency = watch("fromCurrency");
-  const toAccount = watch("toAccount");
-  const destinations = transferDestinations(fromAccount, fromCurrency);
-  const within = fromCurrency === "BTC" && !!fromAccount && toAccount === fromAccount;
   // Another source: its usual destination, not the old one. Set here, not left
   // to useFieldAutofill: a destination select that mounts without a value
   // takes its first option in the form's values without a re-render, and
@@ -98,28 +134,7 @@ const TransferFields: React.FC = () => {
         )}
       </div>
 
-      <div className="field">
-        <label htmlFor="tx-to-account">To Account</label>
-        {destinations.length > 1 ? (
-          <select id="tx-to-account" className="input" {...register("toAccount")}>
-            {destinations.map((account) => (
-              <option key={account} value={account}>
-                {account === fromAccount ? WITHIN_LABEL[account] : account}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            id="tx-to-account"
-            type="text"
-            className="input"
-            {...register("toAccount")}
-            readOnly
-          />
-        )}
-        {within && <small className="field-hint">{WITHIN_HINT}</small>}
-        {!within && toAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
-      </div>
+      <ToAccountField />
 
       <div className="field">
         <label htmlFor="tx-to-currency">To Currency</label>

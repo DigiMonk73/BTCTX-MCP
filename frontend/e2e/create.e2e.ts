@@ -241,6 +241,17 @@ test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", 
   const by = Object.fromEntries(balances.map((b: { name: string; balance: string }) => [b.name, Number(b.balance)]));
   expect(by["Wallet"]).toBe(0.9999);
   expect(by["BTC Fees"]).toBe(0.0001);
+
+  // Edited, it opens as saved; another source gets that source's usual destination
+  await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
+  await expect(page.getByRole("listitem").first()).toContainText("Consolidation");
+  await page.getByRole("listitem").first().getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByLabel("To Account")).toHaveValue("Wallet");
+  await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
+  await page.getByLabel("From Account").selectOption("Bank");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await page.getByLabel("From Account").selectOption("Wallet");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
 });
 
 test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {

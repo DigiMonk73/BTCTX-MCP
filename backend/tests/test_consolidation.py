@@ -152,9 +152,12 @@ def test_the_fee_takes_the_oldest_coins_first_across_lots():
     assert [lot[3] for lot in lots(WALLET)] == [Decimal("0"), Decimal("0.99996")]
 
 
-def test_a_move_within_the_exchange_keeps_a_covered_lot_covered():
-    """Two exchanges pooled as Exchange BTC: nothing leaves its lot, so coins
-    bought there in 2026 stay covered (Box G when sold)."""
+def test_a_move_between_pooled_exchanges_leaves_the_lots_as_they_were():
+    """Two exchanges pooled as Exchange BTC: only the fee leaves, so the
+    coins keep the lot they were bought in, and a later sale's box is worked
+    out as before (G for coins bought there in 2026). BitcoinTX can't tell
+    which exchange sells: a sale at the other one, whose 1099-DA shows no
+    basis, sets its Broker form (the hint and the guide say so)."""
     tx(type="Deposit", timestamp="2026-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=EXCHANGE_USD,
        amount="50000.00", source="N/A")
     tx(type="Buy", timestamp="2026-01-10T12:00:00Z", from_account_id=EXCHANGE_USD, to_account_id=EXCHANGE_BTC,
@@ -195,6 +198,36 @@ def test_what_is_refused(account, amount, fee, message):
     assert r.status_code == 400, r.text
     assert message in r.json()["detail"]
     assert len(CLIENT.get("/api/transactions").json()) == 3
+
+
+def test_a_past_consolidation_can_be_added_after_later_moves():
+    """Checked against the wallet on its date, not today's: a sweep of the
+    whole wallet in June, added after a July gift, was refused (review of #168)."""
+    deposit("2023-03-01", "1.0", "20000.00")
+    tx(type="Withdrawal", timestamp="2025-07-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+       amount="0.5", purpose="Gift", fmv_usd="50000.00")
+    r = consolidate("2025-06-01", "1.0", "0.0001", fee_usd="10.00")
+    assert r.status_code == 200, r.text
+    assert balances()[WALLET] == Decimal("0.4999")
+    assert [d[1] for d in disposals(r.json()["id"])] == [Decimal("0.0001")]
+
+
+def test_the_ai_import_takes_a_past_consolidation_too():
+    deposit("2023-03-01", "1.0", "20000.00")
+    tx(type="Withdrawal", timestamp="2025-07-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+       amount="0.5", purpose="Gift", fmv_usd="50000.00")
+    preview = CLIENT.post("/api/import/entries/preview", json={"rows": [{
+        "date": "2025-06-01T12:00:00Z", "type": "Transfer", "amount": "1.0", "from_account": "Wallet",
+        "to_account": "Wallet", "fee_amount": "0.0001", "fee_currency": "BTC"}]}).json()
+    assert preview["results"][0]["status"] == "ready", preview
+
+
+def test_a_past_consolidation_of_more_than_the_wallet_held_then_is_refused():
+    deposit("2023-03-01", "1.0", "20000.00")
+    deposit("2025-08-01", "1.0", "60000.00")  # today's 2.0 would cover it; June's 1.0 doesn't
+    r = consolidate("2025-06-01", "1.5", "0.0001")
+    assert r.status_code == 400 and "Not enough BTC to transfer" in r.json()["detail"], r.text
+    assert len(CLIENT.get("/api/transactions").json()) == 2
 
 
 def test_edits_keep_it_to_the_fee():
