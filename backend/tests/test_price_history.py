@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import outbound
-from backend.tests.conftest import stub_daily_prices
+from backend.tests.conftest import stub_daily_prices, stub_prices_at
 
 # The real function, captured before the session fixture stubs it.
 from backend.services.price_history import find_prices as real_find_prices
@@ -305,12 +305,15 @@ def test_no_price_messages_speak_to_the_form_as_well_as_the_api(sources, auth_cl
     assert r.status_code == 422 and "edit that transaction" not in detail and "Proceeds (USD)" in detail
 
 
-def test_the_refresh_button_and_the_server_use_the_same_price(auth_client):
+def test_the_refresh_button_and_the_server_use_the_same_price(auth_client, monkeypatch):
     """F3: the form's FMV Refresh and the server's income valuation read the
-    same stored price for the same UTC day."""
+    same price for the same moment: since #144, its hour's (Refresh asks
+    `at`, fmvPriceRequest), each hour here its own."""
+    stub_prices_at(monkeypatch, lambda when: 60000 + when.hour)
     auth_client.delete("/api/transactions/delete_all")
     try:
-        refresh = auth_client.get("/api/bitcoin/price/history", params={"date": "2024-05-01"}).json()["USD"]
+        refresh = auth_client.get("/api/bitcoin/price/history", params={"at": "2024-05-01T12:00:00.000Z"}).json()["USD"]
+        assert refresh == 60012.0
         r = auth_client.post("/api/transactions", json=dict(
             type="Deposit", timestamp="2024-05-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
             amount="0.5", source="Income", fee_amount="0", fee_currency="BTC"))

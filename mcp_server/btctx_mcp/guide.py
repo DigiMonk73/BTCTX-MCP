@@ -83,13 +83,14 @@ Deposit: External -> any account
     Rebate   = bitcoin back for spending: a rewards card's sats-back,
                shopping cash-back. Generally a rebate on the purchase, not
                income; its value at receipt is its basis. Never Reward.
-    For all four, a basis left out is filled from that day's price; if no
-    price is available the row is refused - then ask the user for the value.
+    For all four, a basis left out is filled from the price when that hour
+    began (UTC; that day's price where there's no hourly one); if no price
+    is available the row is refused - then ask the user for the value.
   USD deposits to Bank / Exchange USD: amount is USD, no source needed.
 Withdrawal: any account -> External
   BTC withdrawals need purpose:
     Spent    = paid a merchant or sold P2P for cash. proceeds_usd = value
-               received (auto-filled from the day's price if omitted).
+               received (auto-filled from that hour's price if omitted).
     Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
     Donation = gave to a charity (not a sale; fmv_usd auto-filled).
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
@@ -107,7 +108,7 @@ Transfer: between the user's own accounts, same currency
   receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
   fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
-  A BTC fee's USD value is stored as fee x that day's price; pass fee_usd
+  A BTC fee's USD value is stored as fee x that hour's price; pass fee_usd
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
@@ -172,7 +173,7 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
-   gross_proceeds_usd is before it (entered, or that day's value). To
+   gross_proceeds_usd is before it (entered, or that hour's value). To
    change the proceeds, send the new gross as proceeds_usd, never the
    listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show
