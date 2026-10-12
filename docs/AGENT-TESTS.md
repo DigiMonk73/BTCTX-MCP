@@ -70,7 +70,7 @@ the published files are the ones you tested.
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
   BAK-5). Finish StartOS setup, then snapshot it as `clean`. Tracks A and B
   each start from `clean`.
-- **Optional services on the VM:** Tor (PRC-3). Mempool (PRC-4) needs a
+- **Optional services on the VM:** Tor (PRC-3, PRC-3b). Mempool (PRC-4) needs a
   synced Bitcoin node, so skip it unless the VM has one.
 - **Your browser runs in `America/New_York`.** The transaction form reads
   times in the browser's timezone, and the expected figures assume New York.
@@ -443,11 +443,59 @@ Start from the `clean` snapshot.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "Error": requests must fail
   rather than go out directly. Start Tor: the price is back.
+- **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
+  hourly price history's one-time download over real Tor (#144). It was
+  only tested with stubs and a direct download while it was built.
+  - With the service stopped, remove the data folder's `btc-prices/`
+    (`/data/btc-prices` in the service; it's downloaded again), so the
+    download starts from nothing. Start the service, with **Public price
+    sites** and **Reach public price sites over Tor** still set.
+  - Expect in the service log, newest year first, one line per year:
+    "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Over Tor
+    each year takes a minute or more.
+  - After two or three such lines, stop Tor. Expect "Hourly BTC prices: the
+    download from Bitstamp failed: …", and **no new "checked" line while
+    Tor is stopped**: a request must fail rather than go out directly (as
+    PRC-3's "Error"). A line meanwhile is a blocker FAIL.
+  - Start Tor, then restart the service. Expect the download to resume:
+    "checked" lines only for the years not yet logged (a year already
+    checked is never downloaded again), down to 2013.
+  - When it ends, `/data/btc-prices` holds one `YYYY.csv` per line of
+    `backend/assets/btc_prices/MANIFEST.csv` of the tested commit (no
+    `.partial` file). Each file's SHA-256 (`sha256sum` in the service)
+    equals its line's `sha256`, which the app already checked: a
+    difference is a blocker FAIL. A log line "Hourly BTC prices for YYYY
+    from Bitstamp aren't used" means Bitstamp's data no longer gives that
+    year's fingerprint: note it (as in PRC-2); it isn't the download's
+    fault.
+  - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
+    answers `"moment": "hour"`.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
   Expect: a price and block height, and the log line "Price history from
   your mempool server: N days". Without Mempool installed, StartOS shows
   the dependency as missing and the price error says to install and start
   Mempool.
+- **PRC-4b** (needs internet, not Mempool) The app's own-mempool path,
+  with a public Mempool instance, since the VM can't run Mempool (it needs
+  a synced node). Checked 2026-10-12: BitcoinTX's own code gets the price,
+  the block height and 939 days of history from it.
+  - Action **Price Source & Privacy**: **Choose in BitcoinTX**. Then
+    Settings > Privacy & Network: **My mempool server**, address
+    `https://mempool.emzy.de` (mempool.space refuses the lab's address),
+    **Fall back to public price sites** off. Save.
+  - Expect: the Dashboard shows a price and a block height, and the
+    service log has "Price history from your mempool server: N days".
+    While the fallback is off, the log has no line starting "BTC price
+    history from public site" or "Hourly BTC prices for": nothing is sent
+    to public price sites (a blocker FAIL otherwise).
+  - Repeat it in the Mac test build (`desktop/run-test-build.sh`, its own
+    data folder and port; never the installed app), where the log is the
+    build's terminal output.
+  - StartOS's **My Mempool on this server** (the internal connection to
+    the Mempool service) can't be tested here: the owner checks it on
+    their own server during the soak (#143, section 5).
+  - Afterwards choose **Off** in Settings > Privacy & Network and save:
+    PRC-5 expects the app's own choice to be Off (from AUTH-4).
 - **PRC-5** Action: **Choose in BitcoinTX**. Expect: Settings > Privacy &
   Network is editable again and shows the app's own choice (**Off**, from
   AUTH-4). Choose **My mempool server** with the address blank and save.
