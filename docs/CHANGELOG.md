@@ -71,6 +71,13 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Development
+- **Big work runs as a main session and numbered sessions** (AGENTS.md,
+  "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
+  stable release (#143): one session plans with the owner. The plan goes
+  on GitHub: an umbrella issue, an issue per session with its checklist,
+  and a kickoff prompt on each. Each session works through its checklist
+  and records its decisions on its issue. Small changes stay in one
+  session.
 - **The hourly price history's record and tools** (#144, the first of five
   pull requests; nothing in the app uses them yet).
   `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,
