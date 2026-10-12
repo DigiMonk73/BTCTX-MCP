@@ -451,28 +451,33 @@ Start from the `clean` snapshot.
 - **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
   hourly price history's one-time download over real Tor (#144). It was
   only tested with stubs and a direct download while it was built.
-  - With the service stopped, remove the data folder's `btc-prices/`
-    (`/data/btc-prices` in the service; it's downloaded again), so the
-    download starts from nothing. Start the service, with **Public price
-    sites** and **Reach public price sites over Tor** still set.
+  - With the service running (no download runs after PRC-2), remove the
+    hourly files: `start-cli package attach btctx -n btctx -- rm -rf
+    /data/btc-prices` (they're downloaded again). Restart the service, with
+    **Public price sites** and **Reach public price sites over Tor** still
+    set.
   - Expect in the service log, newest year first, one line per year:
-    "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Over Tor
-    each year takes a minute or more.
-  - After two or three such lines, stop Tor. Expect "Hourly BTC prices: the
-    download from Bitstamp failed: …", and **no new "checked" line while
-    Tor is stopped**: a request must fail rather than go out directly (as
-    PRC-3's "Error"). A line meanwhile is a blocker FAIL.
+    "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Each year
+    takes up to a minute.
+  - After two or three such lines, stop Tor. Within about 30 seconds expect
+    "Hourly BTC prices: the download from Bitstamp failed: …". After that
+    line, **no "checked" line may appear until Tor is started and the
+    service restarted**: a request must fail rather than go out directly
+    (as PRC-3's "Error"); one then is a blocker FAIL. (A "checked" line
+    just before the failed line can be a year that finished as Tor
+    stopped.)
   - Start Tor, then restart the service. Expect the download to resume:
-    "checked" lines only for the years not yet logged (a year already
-    checked is never downloaded again), down to 2013.
-  - When it ends, `/data/btc-prices` holds one `YYYY.csv` per line of
-    `backend/assets/btc_prices/MANIFEST.csv` of the tested commit (no
-    `.partial` file). Each file's SHA-256 (`sha256sum` in the service)
-    equals its line's `sha256`, which the app already checked: a
-    difference is a blocker FAIL. A log line "Hourly BTC prices for YYYY
-    from Bitstamp aren't used" means Bitstamp's data no longer gives that
-    year's fingerprint: note it (as in PRC-2); it isn't the download's
-    fault.
+    "checked" lines only for the years not yet checked (a year already
+    saved is never downloaded again; one cut off part-way is downloaded
+    whole), down to 2013.
+  - When it ends, `/data/btc-prices` holds a `YYYY.csv` for each line of
+    `backend/assets/btc_prices/MANIFEST.csv` of the tested commit, except
+    a year logged as "aren't used", and no `.partial` file. Each file's
+    SHA-256 (`sha256sum` in the service) equals its line's `sha256`, which
+    the app already checked: a difference is a blocker FAIL. A line "Hourly
+    BTC prices for YYYY from Bitstamp aren't used" means Bitstamp's data no
+    longer gives that year's fingerprint: note it (as in PRC-2); it isn't
+    the download's fault.
   - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
     answers `"moment": "hour"`.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
@@ -488,19 +493,25 @@ Start from the `clean` snapshot.
     Settings > Privacy & Network: **My mempool server**, address
     `https://mempool.emzy.de` (mempool.space refuses the lab's address),
     **Fall back to public price sites** off. Save.
-  - Expect: the Dashboard shows a price and a block height, and the
-    service log has "Price history from your mempool server: N days".
-    While the fallback is off, the log has no line starting "BTC price
-    history from public site" or "Hourly BTC prices for": nothing is sent
-    to public price sites (a blocker FAIL otherwise).
-  - Repeat it in the Mac test build (`desktop/run-test-build.sh`, its own
-    data folder and port; never the installed app), where the log is the
-    build's terminal output.
+  - Expect: the Dashboard shows a price and a block height. Logged in,
+    `GET $API/bitcoin/price/history?at=<an hour after the last_hour of the
+    tested commit's MANIFEST.csv, e.g. today's 00:00 UTC>` answers a price
+    with `"moment": "hour"`, from the server's recorded hours (`"day"`:
+    note it).
+  - **Nothing goes to public sites without the fallback:** save the address
+    `https://mempool.invalid` (still fallback off). Expect
+    `GET $API/bitcoin/price` to answer 502, "Your mempool server didn't
+    answer, and falling back to public price sites is off. …", and the
+    Dashboard's price to read "Error": BitcoinTX asked no public site
+    instead. A price shown instead is a blocker FAIL. Then save
+    `https://mempool.emzy.de` again.
   - StartOS's **My Mempool on this server** (the internal connection to
     the Mempool service) can't be tested here: the owner checks it on
-    their own server during the soak (#143, section 5).
-  - Afterwards choose **Off** in Settings > Privacy & Network and save:
-    PRC-5 expects the app's own choice to be Off (from AUTH-4).
+    their own server during the soak (#143, section 5). The Mac app's own
+    check is MAC-7.
+  - Afterwards choose **Off** in Settings > Privacy & Network, clear the
+    address, and save: PRC-5 expects the app's own choice to be Off (from
+    AUTH-4) and a blank address.
 - **PRC-5** Action: **Choose in BitcoinTX**. Expect: Settings > Privacy &
   Network is editable again and shows the app's own choice (**Off**, from
   AUTH-4). Choose **My mempool server** with the address blank and save.
@@ -831,6 +842,14 @@ point, leave it alone, touch nothing in it, and record that.
   banner. Opening it again while it's open brings the window forward, with
   no second copy.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
+- **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
+  Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
+  save. Expect the Dashboard's price and block height. Then the Sats
+  Converter's **Date** mode on a past day. Expect a price, and in
+  `DATA/logs/run-test-build.out` "Price history from your mempool server:
+  N days" with N in the hundreds (only if no daily price was stored yet:
+  this build has asked no public site). Set it back to **Off** and clear
+  the address.
 
 ## REF: the reference ledger and the landing page's pictures (every run)
 
