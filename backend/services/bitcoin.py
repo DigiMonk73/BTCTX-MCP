@@ -95,6 +95,7 @@ SITES = {"api.kraken.com": "kraken", "www.bitstamp.net": "bitstamp", "blockchain
 
 
 def _site(url: str) -> str:
+    """A public site's short name: https://api.kraken.com/... is "kraken"."""
     host = urlparse(url).hostname or ""
     return SITES.get(host, host)
 

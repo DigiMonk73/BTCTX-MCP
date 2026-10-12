@@ -610,6 +610,8 @@ def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, r
     r = auth_client.get("/api/bitcoin/price")
     assert r.status_code == 503 and r.json()["detail"] == (
         f"You chose Nobody for prices, so none is asked. To change that: {where}.")
+    r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
+    assert r.status_code == 422 and "))" not in r.json()["detail"]  # no brackets inside brackets (#143)
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL="")
     r = auth_client.get("/api/bitcoin/price")
     assert r.status_code == 502 and r.json()["detail"] == (
@@ -619,8 +621,9 @@ def test_a_server_set_choice_says_where_it_is_changed(auth_client, server_env, r
 
 
 @pytest.mark.parametrize("host, fix", [
-    ("startos", "Fix them in StartOS's Price Source & Privacy action."),
-    ("server", "Fix its BTCTX_ settings: the log says which."),
+    ("startos", "Fix them in StartOS's Price Source & Privacy action; the log says which."),
+    ("server", "Fix them in the server's price settings (on StartOS: the Price Source & Privacy action); "
+               "the log says which."),
 ])
 def test_invalid_server_settings_say_where_to_fix_them(auth_client, server_env, requests_seen, monkeypatch,
                                                          host, fix):

@@ -314,8 +314,7 @@ def refuse_public() -> HTTPException:
         return HTTPException(status_code=502, detail=(
             f"Your Mempool didn't answer, and the backup (public price sites) is off. Change that in {where}."))
     if s.invalid:
-        detail = ("This server's price settings aren't valid, so nothing is asked. "
-                  + (f"Fix them in {where}." if host() == "startos" else "Fix its BTCTX_ settings: the log says which."))
+        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}; the log says which."
     elif s.price_source == "off":
         detail = f"You chose Nobody for prices, so none is asked. To change that: {where}."
     else:
