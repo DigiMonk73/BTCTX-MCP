@@ -191,7 +191,10 @@ export const test = base.extend<Fixtures>({
       ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
       ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
       ...(priceSource === "startos"
-        ? { BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off" }
+        ? {
+            BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off",
+            BTCTX_HOST: "startos",
+          }
         : {}),
     }));
     await use(app);

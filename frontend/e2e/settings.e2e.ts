@@ -30,11 +30,11 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
   await openSettings(page);
   const select = page.getByLabel("Tax timezone");
   await expect(select).toHaveValue("America/Chicago");
-  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+  await expect(page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(2);
 
   await select.selectOption("Asia/Tokyo");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Tax timezone set to Asia/Tokyo. Gains were recalculated.")).toBeVisible();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(1);
   expect((await historyCsv(page, 2025)).match(/Sell/g)).toHaveLength(1);
@@ -362,37 +362,44 @@ test("ledger review fixes a live-priced transfer fee after asking", async ({ app
   expect(fixed.fee_usd).toBe("5.00");
 });
 
-test("privacy & network: price source, mempool fallback, proxy; off shows on the dashboard", async ({ authedPage: page }) => {
+test("privacy & network: the price card, its fields and errors; Nobody shows on the dashboard", async ({
+  authedPage: page,
+}) => {
   await openSettings(page);
   const net = page.getByRole("region", { name: "Privacy & network" });
-  const save = net.getByRole("button", { name: "Save privacy & network settings" });
-  const source = net.getByLabel("Price source");
-  await expect(source).toHaveValue("public");
+  const save = net.getByRole("button", { name: "Save" });
+  await expect(net.getByLabel(/^Public price sites/)).toBeChecked();
   await expect(save).toBeDisabled();
 
-  await net.getByLabel("Proxy for public sites").fill("ftp://127.0.0.1:9050");
+  // Through Tor: its address, prefilled; a bad one is refused under the field (and in a toast)
+  await net.getByLabel("Through Tor").check();
+  await expect(net.getByLabel("Tor's address")).toHaveValue("socks5h://127.0.0.1:9050");
+  await net.getByLabel("Tor's address").fill("ftp://127.0.0.1:9050");
   await save.click();
-  await expect(page.getByText(/The proxy must look like socks5:\/\/host:port/)).toBeVisible();
+  await expect(net.locator(".field-error")).toHaveText(/The proxy must look like socks5:\/\/host:port/);
+  await expect(net.getByLabel("Tor's address")).toHaveAttribute("aria-invalid", "true");
 
-  // My mempool: its address and the fallback switch appear.
-  await source.selectOption("mempool");
-  await expect(net.getByLabel("Fall back to public price sites")).not.toBeChecked();
-  await net.getByLabel("Proxy for public sites").fill("socks5h://127.0.0.1:9050");
+  // My own Mempool: its address (needed to save) and the backup; Tor only with the backup
+  await net.getByLabel(/^My own Mempool/).check();
+  await expect(net.getByLabel("If it can't answer, ask public price sites")).not.toBeChecked();
+  await expect(net.getByLabel("Through Tor")).toHaveCount(0);
+  await expect(save).toBeDisabled();
+  await expect(net.getByText("Enter your Mempool's address.")).toBeVisible();
+  await net.getByLabel("Your Mempool's address").fill("http://127.0.0.1:9");
+  await net.getByLabel("If it can't answer, ask public price sites").check();
+  await net.getByLabel("Tor's address").fill("socks5h://127.0.0.1:9050");
   await save.click();
-  await expect(page.getByText("Enter your mempool server's address to use it.")).toBeVisible();
-  await net.getByLabel("Your mempool server").fill("http://127.0.0.1:9");
-  await net.getByLabel("Fall back to public price sites").check();
-  await save.click();
-  await expect(page.getByText("Privacy & network settings saved.")).toBeVisible();
+  await expect(page.getByText("Price source saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
     price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
-    proxy_url: "socks5h://127.0.0.1:9050", managed: false,
+    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, host: "server",
   });
 
-  await source.selectOption("off");
-  await expect(net.getByLabel("Your mempool server")).toHaveCount(0);
+  await net.getByLabel(/^Nobody/).check();
+  await expect(net.getByLabel("Your Mempool's address")).toHaveCount(0);
   await save.click();
-  await expect(page.getByText("Privacy & network settings saved.").last()).toBeVisible();
+  await expect(page.getByText("Price source saved.").last()).toBeVisible();
+  await expect(net.getByRole("status")).toContainText("Fully offline: nothing is contacted.");
   await page.getByRole("link", { name: "Dashboard" }).click();
   await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the price card
 });
@@ -400,38 +407,55 @@ test("privacy & network: price source, mempool fallback, proxy; off shows on the
 test.describe("a fresh install asks where prices come from", () => {
   test.use({ priceSource: "unset" });
 
-  test("nothing is chosen until the owner picks; the question then goes away", async ({ authedPage: page }) => {
-    const prompt = page.getByRole("region", { name: "Choose a price source" });
-    await expect(prompt).toBeVisible();
+  test("on the Dashboard only, nothing chosen until the owner picks; saved with no reload (#149)", async ({
+    authedPage: page, browserName,
+  }) => {
+    const card = page.getByRole("region", { name: "Bitcoin prices" });
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("status")).toHaveText(/Not chosen yet: nothing is contacted\./);
     await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the dashboard asked nothing
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("unset");
-    const use = prompt.getByRole("button", { name: "Use this" });
+    // #149: a reload before choosing, and one after. Playwright's WebKit crashes
+    // at the next navigation after any reload of a signed-in page, with or
+    // without this card (#149 checks Safari and the Mac app by hand): there,
+    // only the one after
+    if (browserName !== "webkit") await page.reload();
+    const use = card.getByRole("button", { name: "Use this" });
     await expect(use).toBeDisabled();
-    await prompt.getByLabel(/My mempool server/).check();
+    await card.getByLabel(/^My own Mempool/).check();
     await expect(use).toBeDisabled(); // needs its address
-    await prompt.getByLabel(/Public price sites/).check();
+    await card.getByLabel(/^Public price sites/).check();
+    let loads = 0;
+    page.on("load", () => (loads += 1));
     await use.click();
-    await expect(prompt).toHaveCount(0);
+    await expect(card).toHaveCount(0);
+    await expect(page.locator(".btc-price-value")).not.toHaveText("Prices off"); // asked again, in place
+    expect(loads).toBe(0);
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
     await openSettings(page);
-    await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel("Price source")).toHaveValue("public");
+    await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel(/^Public price sites/)).toBeChecked();
   });
 });
 
 test.describe("prices set by StartOS", () => {
   test.use({ priceSource: "startos" });
 
-  test("Settings shows them read-only and the first-login question never appears", async ({ authedPage: page }) => {
-    await expect(page.getByRole("region", { name: "Choose a price source" })).toHaveCount(0);
+  test("Settings shows them read-only, in words, and the first-run question never appears", async ({
+    authedPage: page,
+  }) => {
+    await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
     await openSettings(page);
     const net = page.getByRole("region", { name: "Privacy & network" });
-    await expect(net.getByText(/^Set by your server: on StartOS/)).toBeVisible();
-    await expect(net.getByLabel("Price source")).toHaveValue("mempool");
-    await expect(net.getByLabel("Price source")).toBeDisabled();
-    await expect(net.getByLabel("Your mempool server")).toHaveValue("http://10.0.3.1:32768");
-    await expect(net.getByLabel("Your mempool server")).toBeDisabled();
-    await expect(net.getByLabel("Fall back to public price sites")).toBeDisabled();
-    await expect(net.getByRole("button", { name: "Save privacy & network settings" })).toHaveCount(0);
+    await expect(net.getByText("Set in StartOS. To change it: BitcoinTX › Actions › Price Source & Privacy.")).toBeVisible();
+    const chosen = net.locator(".price-choice.chosen");
+    await expect(chosen).toContainText("My own Mempool");
+    await expect(chosen).toContainText("✓ Chosen");
+    await expect(chosen).toContainText("Mempool on this server");
+    await expect(net).not.toContainText("10.0.3.1"); // StartOS's internal address isn't for people
+    await expect(net.getByRole("radio")).toHaveCount(0);
+    await expect(net.getByRole("button", { name: "Save" })).toHaveCount(0);
     const r = await page.request.put("/api/settings/network", { data: { price_source: "public" } });
     expect(r.status()).toBe(409);
   });

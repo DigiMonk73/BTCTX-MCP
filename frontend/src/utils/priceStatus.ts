@@ -68,7 +68,7 @@ function mempoolReason(what: Problem, at: string, ctx: StatusContext): string {
 
 function mempoolFix(what: Problem, managed: boolean): string {
   if (what === "mempool_untrusted_certificate") {
-    return "So there's no newer price. Use its http:// or .onion address. On StartOS, choose My Mempool on this server.";
+    return "There's no newer price: use its http:// or .onion address instead, or on StartOS choose My Mempool on this server.";
   }
   if (what === "mempool_missing") return "Install and start it, or choose another source in StartOS.";
   return managed
