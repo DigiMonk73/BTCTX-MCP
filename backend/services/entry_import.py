@@ -36,7 +36,7 @@ from backend.schemas.entry_import import (
     EntryRow,
     SimulatedResult,
 )
-from backend.services import hourly_prices, price_history
+from backend.services import hourly_prices
 from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
@@ -48,6 +48,8 @@ from backend.services.river_import import (
 )
 from backend.services.transaction import (
     create_transaction_record,
+    date_of_death,
+    date_of_death_price,
     ensure_fee_account_exists,
 )
 
@@ -215,10 +217,10 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         # An inheritance is valued on the date of death (#154), anything else at its own time
         inherited = target == "cost_basis_usd" and str(p.tx_data.get("source") or "").lower() == INHERITED_SOURCE
         when = (p.tx_data.get("acquired_at") if inherited else None) or p.tx_data["timestamp"]
-        key = ("day", price_history.utc_day(when)) if inherited else ("hour", hourly_prices.hour_of(when))
+        key = ("day", date_of_death(when, db)) if inherited else ("hour", hourly_prices.hour_of(when))
         if key not in price_cache:
             try:
-                lookup = _date_of_death_price if inherited else hourly_prices.price_at
+                lookup = date_of_death_price if inherited else hourly_prices.price_at
                 price_cache[key] = await run_in_threadpool(lookup, db, when)
             except Exception as exc:
                 # The time (a transaction's) only in the DEBUG log
@@ -227,7 +229,7 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
                 price_cache[key] = None
         priced = price_cache[key]
         if priced is None:
-            moment = f"{when:%Y-%m-%d}" if inherited else f"{when:%Y-%m-%d %H:00} UTC"
+            moment = f"{date_of_death(when, db)}" if inherited else f"{when:%Y-%m-%d %H:00} UTC"
             p.result.warnings.append(f"Could not fetch the BTC price for {moment}; {target} was left empty.")
             continue
         p.tx_data[target] = (priced.usd * p.tx_data["amount"]).quantize(Decimal("0.01"))
@@ -242,13 +244,6 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]
-
-
-def _date_of_death_price(db: Session, when: datetime) -> hourly_prices.Priced:
-    """A date of death has no hour: that UTC day's 00:00 price, marked "day" (#154), as the form's."""
-    day = price_history.utc_day(when)
-    return hourly_prices.Priced(price_history.daily_price(db, when), "day",
-                                datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
 
 
 # Dedup
