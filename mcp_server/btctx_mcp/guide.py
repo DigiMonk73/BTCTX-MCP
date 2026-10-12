@@ -30,8 +30,8 @@ transactions. Tax correctness matters more than speed.
   https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange). Then
   record it in Wallet, or Exchange BTC / Exchange USD, never External. A
   move between the wallet and the exchange is a Transfer; a move between two
-  wallets (or two exchanges) stays in one account and isn't a Transfer: ask
-  the user.
+  of the user's wallets (or two exchanges) stays in one account: a Transfer
+  from Wallet to Wallet (or Exchange BTC to Exchange BTC), below.
 
 ## Transaction types
 Buy: Bank or Exchange USD -> Exchange BTC
@@ -60,6 +60,21 @@ Deposit: External -> any account
     MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.
+    Inherited = inherited from someone who died. acquired_at = the date of
+               death (REQUIRED: ask). cost_basis_usd = their value on that
+               date, or on the estate's alternate valuation date if it
+               chose one (left out: the date of death's price); if the
+               estate's Form 8971, Schedule A, gives a value marked as
+               having increased the estate tax, the basis can't be more:
+               use it. Always long-term, with INHERITED in Form 8949's
+               column (b). Never record an inheritance as a Gift: the rules
+               differ. When
+               changing a deposit's source to or from Inherited, send
+               acquired_at in the same update. Suggest the user's tax
+               preparer if they owned the coins jointly with the person who
+               died (only part may be inherited), or gave them to that
+               person within a year before the death (the basis may be the
+               user's own, IRC §1014(e)).
     Income   = paid in BTC for work/goods.
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.
@@ -96,6 +111,13 @@ Transfer: between the user's own accounts, same currency
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
+  Wallet -> Wallet (or Exchange BTC -> Exchange BTC): a UTXO consolidation,
+  or a move between two of the user's wallets (exchanges) that BitcoinTX
+  pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
+  required. Only the fee is recorded, as a small disposal of the oldest
+  coins; the rest keep their lots, dates and basis. After a move between
+  two exchanges, a sale at the other one usually has no basis on its
+  1099-DA: set that Sell's broker_reporting to "proceeds".
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
@@ -114,6 +136,8 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   Exchange BTC -> Wallet.
 - Sending from cold storage back to the exchange to sell -> Transfer
   Wallet -> Exchange BTC, then a Sell.
+- Consolidating UTXOs, or sending to another wallet of the user's ->
+  Transfer Wallet -> Wallet with its network fee.
 - A send to an address: ask whether it is the user's own wallet (Transfer) or
   someone else (Withdrawal + purpose) - never guess this.
 - Paid in BTC -> Deposit/Income. Exchange interest paid in BTC ->
@@ -121,6 +145,7 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   deposit to Exchange USD, which BitcoinTX doesn't count as income: the user
   reports it from the bank's or exchange's own tax form.
 - Card or shopping sats-back -> Deposit/Rebate (not Reward).
+- Bitcoin from someone's estate or will -> Deposit/Inherited (not Gift).
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only

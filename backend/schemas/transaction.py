@@ -90,7 +90,7 @@ class TransactionBase(BaseModel):
     )
     fee_currency: str | None = None
 
-    source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward, Rebate or N/A
+    source: str | None = None  # a Deposit's: MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate or N/A
     purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
     acquired_at: datetime | date | None = Field(
         default=None,
@@ -98,7 +98,8 @@ class TransactionBase(BaseModel):
             "My BTC or Gift deposit into a BTC account only: when the coins were "
             "originally acquired (by the giver, for a gift). A date alone means noon "
             "in the tax timezone. The holding period and Form 8949 column (b) use it. "
-            "Omit or null: the deposit's own date."
+            "Omit or null: the deposit's own date. An Inherited deposit's is the date "
+            "of death, and required."
         ),
     )
     broker_reporting: BrokerReporting | None = Field(
@@ -209,7 +210,7 @@ class TransactionUpdate(BaseModel):
 
     source: str | None = None
     purpose: str | None = None
-    acquired_at: datetime | date | None = None  # My BTC / Gift deposits; null: the deposit's date
+    acquired_at: datetime | date | None = None  # My BTC / Gift deposits (null: the deposit's date); Inherited: the date of death
     broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
 
     cost_basis_usd: Decimal | None = None

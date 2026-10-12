@@ -195,7 +195,8 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
 async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     """
     Fill FMV-derived USD values the tax math needs but the caller omitted:
-      - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt
+      - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt;
+        Inherited deposits: FMV on the date of death (acquired_at)
       - Spent withdrawals: proceeds = FMV of what was bought
       - Gift/Donation withdrawals: fmv_usd for the tax report
     Uses the daily historical price; on lookup failure the field stays
@@ -208,10 +209,12 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         target = _autofill_target(p.tx_data)
         if target is None:
             continue
-        date_str = p.tx_data["timestamp"].strftime("%Y-%m-%d")
+        # An inheritance is valued on the date of death (#154), anything else on its own date
+        moment = (p.tx_data.get("acquired_at") if target == "cost_basis_usd" else None) or p.tx_data["timestamp"]
+        date_str = moment.strftime("%Y-%m-%d")
         if date_str not in price_cache:
             try:
-                price_cache[date_str] = await price_history.daily_price_async(db, p.tx_data["timestamp"])
+                price_cache[date_str] = await price_history.daily_price_async(db, moment)
             except Exception as exc:
                 # The day (a transaction's date) only in the DEBUG log
                 logger.warning("FMV lookup failed (%s)", type(exc).__name__)
