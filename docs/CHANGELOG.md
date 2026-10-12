@@ -4,6 +4,30 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A spend's network fee no longer counts twice in its gain** (tax
+  figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
+  a BTC network fee, the spend's proceeds were the full value received, and
+  the fee was also its own small disposal at its value: the gain came out
+  too high by the fee's value. The fee paid to make a spend is a cost of
+  it (Treas. Reg. §1.1001-7(b)(2)(ii)(A) and its bitcoin example; the IRS
+  digital-asset FAQ, Q63), so it now comes off the spend's proceeds, as a
+  Sell's fee always has; the fee's own row stays (Q97). Example: 0.08 BTC
+  spent for $8,800 with an $8.80 fee now has proceeds of $8,791.20, and
+  with the fee's row the spend realizes $8,800, not $8,808.80. Applied to
+  every year (the owner's decision: before 2025 no rule is written for
+  bitcoin, and the general rule that a sale's costs reduce what it brought
+  points the same way). Gifts, donations, losses and transfers are
+  unchanged: their fee is a disposal, not a cost of a sale.
+  **Affected:** versions 0.9.2 to 1.2.7, spends that paid a BTC fee, every
+  tax year; each overstated the gain by its fee's value (usually a few
+  dollars), so reports showed slightly more tax, never less. **What to
+  do:** after updating, Ledger Review lists each spend whose figures
+  change, old and new; then run Recalculate Ledger (Settings), or add or
+  edit any transaction, which recalculates too. Returns already filed
+  overstated the gain by these fees; whether to amend over a few dollars is
+  for you or your tax professional to decide.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

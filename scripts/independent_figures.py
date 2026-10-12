@@ -248,16 +248,21 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     account = tx["from_account_id"]
     if account not in BTC_ACCOUNTS:
         return
-    _pay_network_fee(ledger, tx, account, when)
-    amount = _money(tx["amount"])
-    pieces = ledger.take(account, amount)
     purpose = tx["purpose"]
     if purpose in NOT_SALES:
+        _pay_network_fee(ledger, tx, account, when)
+        amount = _money(tx["amount"])
+        ledger.take(account, amount)
         ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd")))
         return
-    # A Spent's proceeds are what was received for the amount; the fee is
-    # its own disposal, so nothing is taken off (AGENTS.md; questioned in #157).
-    _dispose(ledger, "spend", pieces, _gross_proceeds(tx), when, tx.get("broker_reporting"))
+    # The fee paid to make a spend is a cost of it: it comes off what was
+    # received, and the two realize what was received (Treas. Reg.
+    # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
+    received = _gross_proceeds(tx)
+    fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
+    _pay_network_fee(ledger, tx, account, when, fee_value)
+    pieces = ledger.take(account, _money(tx["amount"]))
+    _dispose(ledger, "spend", pieces, received - fee_value, when, tx.get("broker_reporting"))
 
 
 def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -280,12 +285,14 @@ def _gross_proceeds(tx: dict) -> Fraction:
     return _money(tx.get("gross_proceeds_usd", tx.get("proceeds_usd")))
 
 
-def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime) -> Fraction:
-    """A fee paid in BTC disposes of that BTC, at its value, oldest first."""
+def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
+                     value: Fraction | None = None) -> Fraction:
+    """A fee paid in BTC disposes of that BTC, at its value (`fee_usd`
+    unless given), oldest first. Returns the BTC it took."""
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
     if fee:
         pieces = ledger.take(account, fee)
-        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]), when, None)
+        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, None)
     return fee
 
 

@@ -81,9 +81,11 @@ Withdrawal: any account -> External
                Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
-  was received for amount; the fee is recorded as its own small disposal.
-  That fee disposal is taxable for every purpose, Gift, Donation and Lost
-  included, even though the withdrawal itself isn't.
+  was received for amount, before the fee: BitcoinTX takes the fee's value
+  off it (a cost of the spend, as for a Sell) and records the fee as its
+  own small disposal at that value. That fee disposal is taxable for every
+  purpose, Gift, Donation and Lost included, even though the withdrawal
+  itself isn't.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination

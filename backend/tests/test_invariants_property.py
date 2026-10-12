@@ -236,8 +236,10 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
 
         # Disposals: gain = proceeds - basis; a gift/donation/lost amount carries
         # nothing, but its network fee is a disposal like any other (F24); a
-        # transaction's fee disposals add up to its stored fee value.
-        fee_parts = defaultdict(Decimal)
+        # transaction's fee disposals add up to its stored fee value, except a
+        # spend's, which is a cost of the spend (#157): the spend and its fee
+        # together realize what the spend brought in, the fee at most that.
+        fee_parts, amount_parts = defaultdict(Decimal), defaultdict(Decimal)
         for d in disposals:
             tx = txs_db[d.transaction_id]
             if d.is_fee:
@@ -246,6 +248,7 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             elif tx.type == "Withdrawal" and (tx.purpose or "").lower() in NON_TAXABLE:
                 assert d.proceeds_usd_for_that_portion == 0 and d.realized_gain_usd == 0, (tx.purpose, d.id)
             else:
+                amount_parts[tx.id] += d.proceeds_usd_for_that_portion
                 assert d.realized_gain_usd == d.proceeds_usd_for_that_portion - d.disposal_basis_usd, d.id
             # Holding period: long-term only after the one-year anniversary.
             acquired = local_date(d.lot.acquired_date, tz)
@@ -254,7 +257,12 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             expected = "LONG" if sold > anniversary else "SHORT"
             assert d.holding_period == expected, (acquired, sold, d.holding_period)
         for tx_id, total in fee_parts.items():
-            assert total == txs_db[tx_id].fee_usd, (tx_id, total, txs_db[tx_id].fee_usd)
+            tx = txs_db[tx_id]
+            if tx.type == "Withdrawal" and (tx.purpose or "").lower() == "spent":
+                assert total == min(tx.fee_usd, tx.gross_proceeds_usd), (tx_id, total, tx.fee_usd)
+                assert total + amount_parts[tx_id] == tx.gross_proceeds_usd, (tx_id, tx.gross_proceeds_usd)
+            else:
+                assert total == tx.fee_usd, (tx_id, total, tx.fee_usd)
 
         # Basis conservation (rounding: at most a cent per operation).
         acquired_basis = sum(

@@ -50,21 +50,21 @@
    "income_earned": 32675.0,
    "interest_btc": 0.056,
    "interest_earned": 1897.0,
-   "long_term_gains": 103207.58,
+   "long_term_gains": 103195.98,
    "long_term_losses": 0.0,
-   "long_term_net": 103207.58,
+   "long_term_net": 103195.98,
    "rebates_btc": 0.04045,
    "rebates_received": 5636.3,
    "rewards_btc": 0.232,
    "rewards_earned": 13080.0,
    "sells_proceeds": 267606.09,
-   "short_term_gains": 35465.65,
+   "short_term_gains": 35453.71,
    "short_term_losses": 262.7,
-   "short_term_net": 35202.95,
+   "short_term_net": 35191.01,
    "total_income": 47652.0,
    "total_losses": 0.0,
-   "total_net_capital_gains": 138410.53,
-   "withdrawals_spent": 26290.0
+   "total_net_capital_gains": 138386.99,
+   "withdrawals_spent": 26266.46
   }
  },
  "years": {
@@ -116,9 +116,9 @@
      "date_acquired": "01/20/2023",
      "date_sold": "10/20/2023",
      "description": "0.00500000 BTC",
-     "gain_loss": "45.00",
+     "gain_loss": "44.70",
      "holding_period": "SHORT",
-     "proceeds": "150.00"
+     "proceeds": "149.70"
     },
     {
      "box": "C",
@@ -146,8 +146,8 @@
      {
       "asset": "BTC",
       "loss": 0.0,
-      "net": 1817.34,
-      "profit": 1817.34
+      "net": 1817.04,
+      "profit": 1817.04
      }
     ],
     "capital_gains_summary": {
@@ -161,15 +161,15 @@
      "number_of_disposals": 7,
      "short_term": {
       "basis": 4308.57,
-      "gain": 1817.34,
+      "gain": 1817.04,
       "losses": 0.0,
-      "proceeds": 6125.91,
-      "profits": 1817.34
+      "proceeds": 6125.61,
+      "profits": 1817.04
      },
      "total": {
       "basis": 4308.57,
-      "gain": 1817.34,
-      "proceeds": 6125.91
+      "gain": 1817.04,
+      "proceeds": 6125.61
      }
     },
     "capital_gains_transactions": [
@@ -232,10 +232,10 @@
       "cost": 105.0,
       "date_acquired": "2023-01-20T09:00:00+00:00",
       "date_sold": "2023-10-20T12:00:00+00:00",
-      "gain_loss": 45.0,
+      "gain_loss": 44.7,
       "holding_period": "SHORT",
       "kind": "Spend",
-      "proceeds": 150.0,
+      "proceeds": 149.7,
       "type": "Withdrawal"
      },
      {
@@ -313,8 +313,8 @@
       "date_sold": "2023-10-20T12:00:00+00:00",
       "disposal_basis_usd": 105.0,
       "holding_period": "SHORT",
-      "proceeds_usd_for_that_portion": 150.0,
-      "realized_gain_usd": 45.0
+      "proceeds_usd_for_that_portion": 149.7,
+      "realized_gain_usd": 44.7
      },
      {
       "amount_disposed": 8e-05,
@@ -467,9 +467,9 @@
      {
       "box": "C",
       "cost": 4308.57,
-      "gain_loss": 1817.34,
+      "gain_loss": 1817.04,
       "line": "3",
-      "proceeds": 6125.91,
+      "proceeds": 6125.61,
       "rows": 7
      }
     ],
@@ -555,8 +555,8 @@
     "lines": {
      "3": {
       "cost": "4308.57",
-      "gain_loss": "1817.34",
-      "proceeds": "6125.91"
+      "gain_loss": "1817.04",
+      "proceeds": "6125.61"
      }
     },
     "long_term": {
@@ -566,8 +566,8 @@
     },
     "short_term": {
      "cost": "4308.57",
-     "gain_loss": "1817.34",
-     "proceeds": "6125.91"
+     "gain_loss": "1817.04",
+     "proceeds": "6125.61"
     }
    }
   },
@@ -639,9 +639,9 @@
      "date_acquired": "02/15/2023",
      "date_sold": "05/10/2024",
      "description": "0.02986000 BTC",
-     "gain_loss": "1224.26",
+     "gain_loss": "1222.35",
      "holding_period": "LONG",
-     "proceeds": "1911.04"
+     "proceeds": "1909.13"
     },
     {
      "box": "F",
@@ -649,9 +649,9 @@
      "date_acquired": "03/01/2023",
      "date_sold": "05/10/2024",
      "description": "0.02014000 BTC",
-     "gain_loss": "824.73",
+     "gain_loss": "823.44",
      "holding_period": "LONG",
-     "proceeds": "1288.96"
+     "proceeds": "1287.67"
     },
     {
      "box": "E",
@@ -729,17 +729,17 @@
      {
       "asset": "BTC",
       "loss": 0.0,
-      "net": 22510.07,
-      "profit": 22510.07
+      "net": 22506.87,
+      "profit": 22506.87
      }
     ],
     "capital_gains_summary": {
      "long_term": {
       "basis": 11963.75,
-      "gain": 20628.0,
+      "gain": 20624.8,
       "losses": 0.0,
-      "proceeds": 32591.75,
-      "profits": 20628.0
+      "proceeds": 32588.55,
+      "profits": 20624.8
      },
      "number_of_disposals": 15,
      "short_term": {
@@ -751,8 +751,8 @@
      },
      "total": {
       "basis": 13574.67,
-      "gain": 22510.07,
-      "proceeds": 36084.74
+      "gain": 22506.87,
+      "proceeds": 36081.54
      }
     },
     "capital_gains_transactions": [
@@ -841,10 +841,10 @@
       "cost": 686.78,
       "date_acquired": "2023-02-15T14:00:00+00:00",
       "date_sold": "2024-05-10T11:00:00+00:00",
-      "gain_loss": 1224.26,
+      "gain_loss": 1222.35,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1911.04,
+      "proceeds": 1909.13,
       "type": "Withdrawal"
      },
      {
@@ -854,10 +854,10 @@
       "cost": 464.23,
       "date_acquired": "2023-03-01T11:00:00+00:00",
       "date_sold": "2024-05-10T11:00:00+00:00",
-      "gain_loss": 824.73,
+      "gain_loss": 823.44,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1288.96,
+      "proceeds": 1287.67,
       "type": "Withdrawal"
      },
      {
@@ -1020,8 +1020,8 @@
       "date_sold": "2024-05-10T11:00:00+00:00",
       "disposal_basis_usd": 686.78,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1911.04,
-      "realized_gain_usd": 1224.26
+      "proceeds_usd_for_that_portion": 1909.13,
+      "realized_gain_usd": 1222.35
      },
      {
       "amount_disposed": 0.02014,
@@ -1030,8 +1030,8 @@
       "date_sold": "2024-05-10T11:00:00+00:00",
       "disposal_basis_usd": 464.23,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1288.96,
-      "realized_gain_usd": 824.73
+      "proceeds_usd_for_that_portion": 1287.67,
+      "realized_gain_usd": 823.44
      },
      {
       "amount_disposed": 0.15,
@@ -1382,9 +1382,9 @@
      {
       "box": "F",
       "cost": 3257.09,
-      "gain_loss": 7146.65,
+      "gain_loss": 7143.45,
       "line": "10",
-      "proceeds": 10403.74,
+      "proceeds": 10400.54,
       "rows": 10
      }
     ],
@@ -1531,8 +1531,8 @@
     "lines": {
      "10": {
       "cost": "3257.09",
-      "gain_loss": "7146.65",
-      "proceeds": "10403.74"
+      "gain_loss": "7143.45",
+      "proceeds": "10400.54"
      },
      "1b": {
       "cost": "1150.92",
@@ -1562,8 +1562,8 @@
     },
     "long_term": {
      "cost": "11963.75",
-     "gain_loss": "20628.00",
-     "proceeds": "32591.75"
+     "gain_loss": "20624.80",
+     "proceeds": "32588.55"
     },
     "short_term": {
      "cost": "1610.92",
@@ -1630,9 +1630,9 @@
      "date_acquired": "04/01/2024",
      "date_sold": "04/01/2025",
      "description": "0.08000000 BTC",
-     "gain_loss": "3589.60",
+     "gain_loss": "3580.80",
      "holding_period": "SHORT",
-     "proceeds": "8800.00"
+     "proceeds": "8791.20"
     },
     {
      "box": "H",
@@ -1800,9 +1800,9 @@
      "date_acquired": "07/01/2024",
      "date_sold": "10/20/2025",
      "description": "0.03000000 BTC",
-     "gain_loss": "2246.40",
+     "gain_loss": "2242.35",
      "holding_period": "LONG",
-     "proceeds": "4050.00"
+     "proceeds": "4045.95"
     },
     {
      "box": "L",
@@ -1870,30 +1870,30 @@
      {
       "asset": "BTC",
       "loss": 0.0,
-      "net": 80349.47,
-      "profit": 80349.47
+      "net": 80336.62,
+      "profit": 80336.62
      }
     ],
     "capital_gains_summary": {
      "long_term": {
       "basis": 36534.36,
-      "gain": 55920.96,
+      "gain": 55916.91,
       "losses": 0.0,
-      "proceeds": 92455.32,
-      "profits": 55920.96
+      "proceeds": 92451.27,
+      "profits": 55916.91
      },
      "number_of_disposals": 29,
      "short_term": {
       "basis": 23987.88,
-      "gain": 24428.51,
+      "gain": 24419.71,
       "losses": 0.0,
-      "proceeds": 48416.39,
-      "profits": 24428.51
+      "proceeds": 48407.59,
+      "profits": 24419.71
      },
      "total": {
       "basis": 60522.24,
-      "gain": 80349.47,
-      "proceeds": 140871.71
+      "gain": 80336.62,
+      "proceeds": 140858.86
      }
     },
     "capital_gains_transactions": [
@@ -2021,10 +2021,10 @@
       "cost": 5210.4,
       "date_acquired": "2024-04-01T10:00:00+00:00",
       "date_sold": "2025-04-01T10:00:00+00:00",
-      "gain_loss": 3589.6,
+      "gain_loss": 3580.8,
       "holding_period": "SHORT",
       "kind": "Spend",
-      "proceeds": 8800.0,
+      "proceeds": 8791.2,
       "type": "Withdrawal"
      },
      {
@@ -2190,10 +2190,10 @@
       "cost": 1803.6,
       "date_acquired": "2024-07-01T14:00:00+00:00",
       "date_sold": "2025-10-20T11:00:00+00:00",
-      "gain_loss": 2246.4,
+      "gain_loss": 2242.35,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 4050.0,
+      "proceeds": 4045.95,
       "type": "Withdrawal"
      },
      {
@@ -2373,8 +2373,8 @@
       "date_sold": "2025-04-01T10:00:00+00:00",
       "disposal_basis_usd": 5210.4,
       "holding_period": "SHORT",
-      "proceeds_usd_for_that_portion": 8800.0,
-      "realized_gain_usd": 3589.6
+      "proceeds_usd_for_that_portion": 8791.2,
+      "realized_gain_usd": 3580.8
      },
      {
       "amount_disposed": 0.1,
@@ -2503,8 +2503,8 @@
       "date_sold": "2025-10-20T11:00:00+00:00",
       "disposal_basis_usd": 1803.6,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 4050.0,
-      "realized_gain_usd": 2246.4
+      "proceeds_usd_for_that_portion": 4045.95,
+      "realized_gain_usd": 2242.35
      },
      {
       "amount_disposed": 1.5e-05,
@@ -2911,9 +2911,9 @@
      {
       "box": "I",
       "cost": 7344.86,
-      "gain_loss": 6206.81,
+      "gain_loss": 6198.01,
       "line": "3",
-      "proceeds": 13551.67,
+      "proceeds": 13542.87,
       "rows": 3
      },
      {
@@ -2935,9 +2935,9 @@
      {
       "box": "L",
       "cost": 1817.28,
-      "gain_loss": 2271.51,
+      "gain_loss": 2267.46,
       "line": "10",
-      "proceeds": 4088.79,
+      "proceeds": 4084.74,
       "rows": 12
      }
     ],
@@ -3160,8 +3160,8 @@
     "lines": {
      "10": {
       "cost": "1817.28",
-      "gain_loss": "2271.51",
-      "proceeds": "4088.79"
+      "gain_loss": "2267.46",
+      "proceeds": "4084.74"
      },
      "1b": {
       "cost": "7517.61",
@@ -3175,8 +3175,8 @@
      },
      "3": {
       "cost": "7344.86",
-      "gain_loss": "6206.81",
-      "proceeds": "13551.67"
+      "gain_loss": "6198.01",
+      "proceeds": "13542.87"
      },
      "8b": {
       "cost": "4256.80",
@@ -3191,13 +3191,13 @@
     },
     "long_term": {
      "cost": "36534.36",
-     "gain_loss": "55920.96",
-     "proceeds": "92455.32"
+     "gain_loss": "55916.91",
+     "proceeds": "92451.27"
     },
     "short_term": {
      "cost": "23987.88",
-     "gain_loss": "24428.51",
-     "proceeds": "48416.39"
+     "gain_loss": "24419.71",
+     "proceeds": "48407.59"
     }
    }
   },
@@ -3249,9 +3249,9 @@
      "date_acquired": "03/20/2026",
      "date_sold": "06/01/2026",
      "description": "0.02000000 BTC",
-     "gain_loss": "31.60",
+     "gain_loss": "28.76",
      "holding_period": "SHORT",
-     "proceeds": "2840.00"
+     "proceeds": "2837.16"
     },
     {
      "box": "G",
@@ -3309,9 +3309,9 @@
      "date_acquired": "03/01/2019",
      "date_sold": "07/01/2026",
      "description": "0.00397000 BTC",
-     "gain_loss": "456.55",
+     "gain_loss": "456.20",
      "holding_period": "LONG",
-     "proceeds": "575.65"
+     "proceeds": "575.30"
     },
     {
      "box": "L",
@@ -3319,9 +3319,9 @@
      "date_acquired": "01/20/2023",
      "date_sold": "07/01/2026",
      "description": "0.00772500 BTC",
-     "gain_loss": "957.90",
+     "gain_loss": "957.23",
      "holding_period": "LONG",
-     "proceeds": "1120.12"
+     "proceeds": "1119.45"
     },
     {
      "box": "L",
@@ -3329,9 +3329,9 @@
      "date_acquired": "01/20/2023",
      "date_sold": "07/01/2026",
      "description": "0.02985000 BTC",
-     "gain_loss": "3701.40",
+     "gain_loss": "3698.80",
      "holding_period": "LONG",
-     "proceeds": "4328.25"
+     "proceeds": "4325.65"
     },
     {
      "box": "L",
@@ -3339,9 +3339,9 @@
      "date_acquired": "02/15/2023",
      "date_sold": "07/01/2026",
      "description": "0.00845500 BTC",
-     "gain_loss": "1031.52",
+     "gain_loss": "1030.79",
      "holding_period": "LONG",
-     "proceeds": "1225.98"
+     "proceeds": "1225.25"
     },
     {
      "box": "L",
@@ -3379,30 +3379,30 @@
      {
       "asset": "BTC",
       "loss": 262.7,
-      "net": 33733.65,
-      "profit": 33996.35
+      "net": 33726.46,
+      "profit": 33989.16
      }
     ],
     "capital_gains_summary": {
      "long_term": {
       "basis": 38266.9,
-      "gain": 26658.62,
+      "gain": 26654.27,
       "losses": 0.0,
-      "proceeds": 64925.52,
-      "profits": 26658.62
+      "proceeds": 64921.17,
+      "profits": 26654.27
      },
      "number_of_disposals": 17,
      "short_term": {
       "basis": 38908.61,
-      "gain": 7075.03,
+      "gain": 7072.19,
       "losses": 262.7,
-      "proceeds": 45983.64,
-      "profits": 7337.73
+      "proceeds": 45980.8,
+      "profits": 7334.89
      },
      "total": {
       "basis": 77175.51,
-      "gain": 33733.65,
-      "proceeds": 110909.16
+      "gain": 33726.46,
+      "proceeds": 110901.97
      }
     },
     "capital_gains_transactions": [
@@ -3504,10 +3504,10 @@
       "cost": 2808.4,
       "date_acquired": "2026-03-20T12:00:00+00:00",
       "date_sold": "2026-06-01T12:00:00+00:00",
-      "gain_loss": 31.6,
+      "gain_loss": 28.76,
       "holding_period": "SHORT",
       "kind": "Spend",
-      "proceeds": 2840.0,
+      "proceeds": 2837.16,
       "type": "Withdrawal"
      },
      {
@@ -3530,10 +3530,10 @@
       "cost": 119.1,
       "date_acquired": "2019-03-01T12:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 456.55,
+      "gain_loss": 456.2,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 575.65,
+      "proceeds": 575.3,
       "type": "Withdrawal"
      },
      {
@@ -3543,10 +3543,10 @@
       "cost": 162.22,
       "date_acquired": "2023-01-20T09:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 957.9,
+      "gain_loss": 957.23,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1120.12,
+      "proceeds": 1119.45,
       "type": "Withdrawal"
      },
      {
@@ -3556,10 +3556,10 @@
       "cost": 626.85,
       "date_acquired": "2023-01-20T09:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 3701.4,
+      "gain_loss": 3698.8,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 4328.25,
+      "proceeds": 4325.65,
       "type": "Withdrawal"
      },
      {
@@ -3569,10 +3569,10 @@
       "cost": 194.46,
       "date_acquired": "2023-02-15T14:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 1031.52,
+      "gain_loss": 1030.79,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1225.98,
+      "proceeds": 1225.25,
       "type": "Withdrawal"
      },
      {
@@ -3706,8 +3706,8 @@
       "date_sold": "2026-06-01T12:00:00+00:00",
       "disposal_basis_usd": 2808.4,
       "holding_period": "SHORT",
-      "proceeds_usd_for_that_portion": 2840.0,
-      "realized_gain_usd": 31.6
+      "proceeds_usd_for_that_portion": 2837.16,
+      "realized_gain_usd": 28.76
      },
      {
       "amount_disposed": 3e-05,
@@ -3726,8 +3726,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 119.1,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 575.65,
-      "realized_gain_usd": 456.55
+      "proceeds_usd_for_that_portion": 575.3,
+      "realized_gain_usd": 456.2
      },
      {
       "amount_disposed": 0.007725,
@@ -3736,8 +3736,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 162.22,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1120.12,
-      "realized_gain_usd": 957.9
+      "proceeds_usd_for_that_portion": 1119.45,
+      "realized_gain_usd": 957.23
      },
      {
       "amount_disposed": 0.02985,
@@ -3746,8 +3746,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 626.85,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 4328.25,
-      "realized_gain_usd": 3701.4
+      "proceeds_usd_for_that_portion": 4325.65,
+      "realized_gain_usd": 3698.8
      },
      {
       "amount_disposed": 0.008455,
@@ -3756,8 +3756,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 194.46,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1225.98,
-      "realized_gain_usd": 1031.52
+      "proceeds_usd_for_that_portion": 1225.25,
+      "realized_gain_usd": 1030.79
      },
      {
       "amount_disposed": 0.05,
@@ -4171,9 +4171,9 @@
      {
       "box": "I",
       "cost": 2815.61,
-      "gain_loss": 32.83,
+      "gain_loss": 29.99,
       "line": "3",
-      "proceeds": 2848.44,
+      "proceeds": 2845.6,
       "rows": 3
      },
      {
@@ -4195,9 +4195,9 @@
      {
       "box": "L",
       "cost": 1104.72,
-      "gain_loss": 6157.03,
+      "gain_loss": 6152.68,
       "line": "10",
-      "proceeds": 7261.75,
+      "proceeds": 7257.4,
       "rows": 8
      }
     ],
@@ -4446,8 +4446,8 @@
     "lines": {
      "10": {
       "cost": "1104.72",
-      "gain_loss": "6157.03",
-      "proceeds": "7261.75"
+      "gain_loss": "6152.68",
+      "proceeds": "7257.40"
      },
      "1b": {
       "cost": "21063.00",
@@ -4461,8 +4461,8 @@
      },
      "3": {
       "cost": "2815.61",
-      "gain_loss": "32.83",
-      "proceeds": "2848.44"
+      "gain_loss": "29.99",
+      "proceeds": "2845.60"
      },
      "8b": {
       "cost": "18516.96",
@@ -4477,13 +4477,13 @@
     },
     "long_term": {
      "cost": "38266.90",
-     "gain_loss": "26658.62",
-     "proceeds": "64925.52"
+     "gain_loss": "26654.27",
+     "proceeds": "64921.17"
     },
     "short_term": {
      "cost": "38908.61",
-     "gain_loss": "7075.03",
-     "proceeds": "45983.64"
+     "gain_loss": "7072.19",
+     "proceeds": "45980.80"
     }
    }
   }

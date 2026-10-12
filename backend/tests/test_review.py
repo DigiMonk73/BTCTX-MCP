@@ -240,8 +240,8 @@ def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_clie
 
 def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_client, test_engine):
     """After upgrading, rows computed by the old rules are listed old -> new
-    (here a spend whose fee was cut from its proceeds, and a Lost withdrawal
-    with a loss), and nothing is written."""
+    (here a spend whose fee wasn't taken off its proceeds, #157, and a Lost
+    withdrawal with a loss), and nothing is written."""
     auth_client.delete("/api/transactions/delete_all")
     post = lambda **b: auth_client.post("/api/transactions", json=b).json()  # noqa: E731
     try:
@@ -254,8 +254,8 @@ def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_c
                      fee_currency="BTC", purpose="Spent")
         lost = post(type="Withdrawal", timestamp="2024-07-01T12:00:00Z", from_account_id=EXCH_BTC,
                     to_account_id=EXTERNAL, amount="0.05", fee_amount="0", fee_currency="BTC", purpose="Lost")
-        with test_engine.begin() as con:  # the figures v0.9.1 stored
-            con.execute(text("UPDATE transactions SET proceeds_usd = '990.10', realized_gain_usd = '788.10'"
+        with test_engine.begin() as con:  # the figures 0.9.2 to 1.2.7 stored, and v0.9.1's Lost
+            con.execute(text("UPDATE transactions SET proceeds_usd = '1000.00', realized_gain_usd = '800.00'"
                              " WHERE id = :id"), {"id": spend["id"]})
             con.execute(text("UPDATE transactions SET realized_gain_usd = '-1000.00' WHERE id = :id"),
                         {"id": lost["id"]})
@@ -268,11 +268,12 @@ def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_c
         check = next(c for c in review["checks"] if c["key"] == "recalc_changes")
         by_id = {i["id"]: i for i in check["items"]}
         assert set(by_id) == {spend["id"], lost["id"]}
-        # The spend: 1,000.00 for 0.01 BTC, basis 200, gain 800. Its fee: 0.0001 x
-        # $50,000 = 5.00, basis 2.00, gain 3.00. Taxable gain 803.00. (The
-        # disposals weren't touched above, so they already show the new rule.)
-        assert by_id[spend["id"]]["changes"] == {"proceeds_usd": ["990.10", "1000.00"],
-                                                 "realized_gain_usd": ["788.10", "800.00"]}
+        # The spend: 1,000.00 received less its fee, 995.00 for 0.01 BTC, basis
+        # 200, gain 795. Its fee: 0.0001 x $50,000 = 5.00, basis 2.00, gain
+        # 3.00. Taxable gain 798.00. (The disposals weren't touched above, so
+        # they already show the new rule.)
+        assert by_id[spend["id"]]["changes"] == {"proceeds_usd": ["1000.00", "995.00"],
+                                                 "realized_gain_usd": ["800.00", "795.00"]}
         assert by_id[lost["id"]]["changes"] == {"realized_gain_usd": ["-1000.00", "0.00"]}
 
         with test_engine.connect() as con:
