@@ -280,8 +280,8 @@ class _TaxReport:
             ("Cost basis method", "First in, first out (FIFO), for each account"),
             ("Tax timezone", f"{self.tz_name}: it decides each transaction's tax year, the dates shown "
                              "and the holding period"),
-            ("Prices", "USD values as entered with each transaction; a value left blank comes from that "
-                       "day's stored daily BTC price"),
+            ("Prices", "USD values as entered; one left blank: the BTC price when its hour began (UTC), "
+                       "else that day's"),
             ("Generated", f"{self.data.get('report_date', '')} UTC"),
         )
         made = self.made_before_year_end()
@@ -668,7 +668,8 @@ class _TaxReport:
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
             "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
             "USD values are the ones entered with each transaction. A value left blank comes from the BTC "
-            "price when its hour began (UTC), or that day's 00:00 UTC price where no hourly price was had.",
+            "price when its hour began (UTC), or that day's 00:00 UTC price where no hourly price was had "
+            "(an inheritance: its date of death's).",
             f"All dates are shown as MM/DD/YYYY (the IRS format) in the tax timezone ({self.tz_name}).",
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",

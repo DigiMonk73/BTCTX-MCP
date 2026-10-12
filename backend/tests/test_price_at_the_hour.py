@@ -452,3 +452,60 @@ def test_pricing_at_the_day_ends_with_its_block_even_on_an_error(test_engine):
                 assert db.info[DAY_PRICES] is True
                 raise RuntimeError
         assert not db.info.get(DAY_PRICES)
+
+
+
+def test_an_inheritance_is_valued_at_its_date_of_deaths_day_and_a_save_changing_nothing_keeps_it(
+        auth_client, monkeypatch):
+    """Final re-check of #173: a date of death has no hour. It was priced at
+    the hour of noon in the tax timezone, so the form's unchanged save (the
+    date sent again, read as noon in a new tax timezone) moved the basis."""
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    tx = deposit(auth_client, source="Inherited", acquired_at="2026-02-10")
+    assert (tx["cost_basis_usd"], tx["price_moment"]) == ("3000.00", "day")
+    assert CALLS == []  # never the hour's price
+    try:
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"})
+        saved = edit(auth_client, tx, acquired_at="2026-02-10", cost_basis_usd=tx["cost_basis_usd"])
+        assert saved["cost_basis_usd"] == "3000.00"
+    finally:
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+
+
+def test_a_day_spend_with_a_typed_fee_goes_to_the_hour_when_its_proceeds_are_priced_again(auth_client, monkeypatch):
+    """A typed fee isn't a value kept at the day: the proceeds are the only priced value."""
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
+    tx = get(auth_client, spend(auth_client, fee_usd="7.77"))
+    stub_prices_at(monkeypatch, price_of)
+    edited = edit(auth_client, tx, amount="0.04")
+    assert edited["price_moment"] == "hour" and edited["fee_usd"] == "7.77"
+
+
+def test_an_hour_spend_edited_stays_at_the_hour(auth_client):
+    buy(auth_client)
+    tx = get(auth_client, spend(auth_client))
+    edited = edit(auth_client, tx, amount="0.04")
+    assert edited["price_moment"] == "hour"
+    assert D(edited["gross_proceeds_usd"]) == (price_of(at("2026-04-01T15:00:00Z")) * D("0.04")).quantize(D("0.01"))
+
+
+def test_a_day_fee_beside_typed_proceeds_goes_to_the_hour_when_priced_again(auth_client, monkeypatch):
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
+    tx = get(auth_client, spend(auth_client, proceeds_usd="1600.00"))
+    assert (tx["price_moment"], tx["proceeds_from_price"]) == ("day", False)
+    stub_prices_at(monkeypatch, price_of)
+    edited = edit(auth_client, tx, fee_amount="0.0002")
+    assert edited["price_moment"] == "hour"
+    assert D(edited["fee_usd"]) == (price_of(at("2026-04-01T15:00:00Z")) * D("0.0002")).quantize(D("0.01"))
+
+
+def test_typing_the_proceeds_while_the_fee_changes_puts_the_fee_at_the_hour(auth_client, monkeypatch):
+    tx = day_priced_spend(auth_client, monkeypatch)
+    edited = edit(auth_client, tx, proceeds_usd="2222.22", fee_amount="0.0002")
+    assert (edited["price_moment"], edited["proceeds_from_price"], edited["gross_proceeds_usd"]) == (
+        "hour", False, "2222.22")
+    assert D(edited["fee_usd"]) == (price_of(at("2026-04-01T15:00:00Z")) * D("0.0002")).quantize(D("0.01"))

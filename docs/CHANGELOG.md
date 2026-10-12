@@ -140,10 +140,12 @@ All notable changes to BitcoinTX are documented in this file.
   price is Bitstamp's opening price for the UTC hour (the hourly history
   above) or, for later hours, your mempool server's hourly record or
   Bitstamp's latest hours; where there's none (before 2013, or no source
-  answering), that day's 00:00 UTC price as before. Each transaction now
-  records which moment its priced values came from (`price_moment`: hour or
-  day), and a Spent's proceeds from the price are marked like an income
-  value's, so an edit of its amount or hour prices them again.
+  answering), that day's 00:00 UTC price as before. An inheritance's value
+  (#154) stays at its date of death's day price: a date has no hour. Each
+  transaction now records which moment its priced values came from
+  (`price_moment`: hour or day), and a Spent's proceeds from the price are
+  marked like an income value's, so an edit of its amount or hour prices
+  them again.
   - **Nothing already saved changes.** Values priced before this release
     stay at the day's price, marked "day". An edit that changes what a
     priced value depends on (its amount, account, type, or now its hour
