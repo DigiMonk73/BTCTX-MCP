@@ -220,7 +220,7 @@ actions:
   - set-credentials
 tasks:
   - { action: set-credentials, severity: critical }
-  - { action: price-source, severity: critical } # install; important after an update or restore without a choice
+  - { action: price-source, severity: critical } # install; important once after an update or restore never asked, without a choice
   - { action: recalculate-ledger, severity: important }
 health_checks:
   - webui # GET /api/health == 200

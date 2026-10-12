@@ -305,6 +305,21 @@ All notable changes to BitcoinTX are documented in this file.
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
+### StartOS package
+- **Price Source & Privacy, in the redesign's words** (#145). The action asks
+  who BitcoinTX asks for newer prices: **My Mempool on this server**
+  ("recommended: installed" once Mempool is), **Public price sites**,
+  **Nobody** or **Decide in BitcoinTX instead**, with **Use Tor** and **If
+  Mempool can't answer, ask public price sites**. A new install doesn't
+  start until a choice is made (any of the four, Nobody included: Start9's
+  "critical" task, as for the login). After an update or a restore of an
+  install that was never asked and has no choice made in the action, an
+  "important" task asks once, without stopping the service. **Use Tor**
+  with *Decide in BitcoinTX instead* now lends StartOS's Tor to the app's
+  own choice. The package passes
+  `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
+  five languages; the README and instructions say the same.
+
 ### Development
 - **Big work runs as a main session and numbered sessions** (AGENTS.md,
   "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
@@ -437,18 +452,6 @@ All notable changes to BitcoinTX are documented in this file.
 ### StartOS package
 - **Package 1.2.7:0.** Release notes in five languages. They keep 1.2.6's,
   which StartOS users updating from 1.2.5:0 haven't seen, marked "From 1.2.6".
-- **Price Source & Privacy, in the redesign's words** (#145). The action asks
-  who BitcoinTX asks for newer prices: **My Mempool on this server**
-  ("recommended: installed" once Mempool is), **Public price sites**,
-  **Nobody** or **Decide in BitcoinTX instead**, with **Use Tor** and **If
-  Mempool can't answer, ask public price sites**. A new install doesn't
-  start until a choice is made (any of the four, Nobody included: Start9's
-  "critical" task, as for the login). After an update or a restore of an
-  install that was never asked and has no choice made in the action, an
-  "important" task asks once, without stopping the service. **Use Tor** with *Decide in BitcoinTX instead* now
-  lends StartOS's Tor to the app's own choice. The package passes
-  `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
-  five languages; the README and instructions say the same.
 
 ### Development
 

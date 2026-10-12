@@ -139,7 +139,7 @@ An invalid value turns price lookups off (an error in the log says which;
 
 `BTCTX_TOR_PROXY_URL` (new in the stable candidate, #145): Tor on the
 server for a choice made in the app (StartOS: the action's *Use Tor* with
-*Choose in BitcoinTX*). It carries every request that goes through a proxy
+*Decide in BitcoinTX instead*). It carries every request that goes through a proxy
 (public sites, an .onion Mempool) and Settings shows it locked on, while
 the rest of the choice stays the owner's; their own proxy setting is kept
 underneath. Ignored when `BTCTX_PRICE_SOURCE` is set (`BTCTX_PROXY_URL`
