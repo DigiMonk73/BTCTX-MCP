@@ -257,8 +257,7 @@ Start from the `clean` snapshot.
   contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
   the card is gone. Settings > Privacy & Network shows the card with
   **Nobody** chosen, editable, "Fully offline: nothing is contacted." and
-  "You chose this on … in the first-run question.", and no "Set in
-  StartOS" banner.
+  no "Set in StartOS" banner.
 - **AUTH-4b** Settings > **About BitcoinTX**. Expect, in order: the
   warning "Important: one wallet, one exchange." with its notice (one
   self-custody wallet and one exchange account; since 2025 the IRS figures
@@ -722,8 +721,8 @@ Start from the `clean` snapshot.
   the previous release that saves a choice. Logged in,
   `GET $API/bitcoin/price/history?date=2024-12-31`: expect a USD value, so a
   price is stored. Action **Price Source & Privacy**: **Choose in
-  BitcoinTX**. Once the service has restarted, expect the panel "Where
-  should BitcoinTX get Bitcoin prices?" on every page, and
+  BitcoinTX**. Once the service has restarted, expect the card "Bitcoin
+  prices" on the Dashboard, nothing chosen, and
   `GET $API/settings/network` (logged in) to say `"price_source":
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.

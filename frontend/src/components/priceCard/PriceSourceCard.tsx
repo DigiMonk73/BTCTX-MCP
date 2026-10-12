@@ -82,7 +82,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
             className="btn btn-primary"
             onClick={onSave}
             disabled={saving || blocked !== null || !priceFormChanged(saved, form)}
-            aria-describedby={blocked ? "price-blocked" : undefined}
+            aria-describedby={blocked && form.source !== "" ? "price-blocked" : undefined}
           >
             {saving ? "Saving…" : firstRun ? "Use this" : "Save"}
           </button>

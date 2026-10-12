@@ -87,21 +87,20 @@ function newer(a: string | undefined, b: string | undefined): boolean {
 
 function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   const { last_ok: ok, last_problem: problem } = st;
-  const backupAnswered = ok !== null && ok.from !== "mempool";
-  if (problem && backupAnswered) {
-    // #178: never "from your Mempool" while the backup gives the prices
-    return {
-      tone: "warning",
-      text: `${mempoolReason(problem.what, problem.at, ctx)} Public price sites answered instead at ${clock(ok.at, ctx.timezone)}.`,
-    };
-  }
-  if (problem && newer(problem.at, ok?.at) && problem.what.startsWith("mempool")) {
-    return { tone: "warning", text: `${mempoolReason(problem.what, problem.at, ctx)} ${mempoolFix(problem.what, st.managed)}` };
-  }
+  // Why your Mempool last failed, kept when the backup failed after it
+  const mine = problem?.what.startsWith("mempool") ? problem : (st.last_mempool_problem ?? null);
+  const reason = mine ? mempoolReason(mine.what, mine.at, ctx) : "Your Mempool didn't answer.";
   if (problem && newer(problem.at, ok?.at)) {
-    const first = st.last_mempool_problem;
-    const reason = first ? mempoolReason(first.what, first.at, ctx) : "Your Mempool didn't answer.";
-    return { tone: "warning", text: `${reason} ${capital(PUBLIC_SITES)} didn't answer either, at ${clock(problem.at, ctx.timezone)}.` };
+    if (problem === mine) return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed)}` };
+    const at = clock(problem.at, ctx.timezone);
+    const backup = problem.what === "tor_no_answer"
+      ? `Public price sites didn't answer through Tor either, at ${at}. Is Tor running?`
+      : `${capital(PUBLIC_SITES)} didn't answer either, at ${at}.`;
+    return { tone: "warning", text: `${reason} ${backup}` };
+  }
+  if (ok && ok.from !== "mempool") {
+    // #178: never "from your Mempool" while the backup gives the prices
+    return { tone: "warning", text: `${reason} Public price sites answered instead at ${clock(ok.at, ctx.timezone)}.` };
   }
   if (ok) return { tone: "ok", text: `Newer prices from your Mempool. Last price ${clock(ok.at, ctx.timezone)}.` };
   return { tone: "idle", text: "Newer prices will come from your Mempool." };
