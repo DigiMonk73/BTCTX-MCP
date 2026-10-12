@@ -392,7 +392,8 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
   await expect(page.getByText("Price source saved.")).toBeVisible();
   expect(await (await page.request.get("/api/settings/network")).json()).toEqual({
     price_source: "mempool", mempool_url: "http://127.0.0.1:9", mempool_fallback: true,
-    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, host: "server",
+    proxy_url: "socks5h://127.0.0.1:9050", managed: false, invalid: false, waiting: false, host: "server",
+    confirmed: true, chosen_at: expect.stringMatching(/Z$/), chosen_via: "settings",
   });
 
   await net.getByLabel(/^Nobody/).check();
