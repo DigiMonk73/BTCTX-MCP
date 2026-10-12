@@ -19,5 +19,7 @@ describe("where a saved value came from (#145)", () => {
     expect(valueOrigin(true, 5008.3, 5100, hour)).toBeNull(); // being changed
     expect(valueOrigin(undefined, undefined, 5008.3, hour)).toBeNull(); // a new transaction
     expect(valueOrigin(true, 5008.3, 5008.3, null)).toBe("From the price. Type a value to replace it.");
+    // review of #190: a 0 or blank value isn't "typed": the save prices it
+    expect(valueOrigin(false, 0, 0, null)).toBeNull();
   });
 });

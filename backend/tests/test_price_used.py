@@ -12,7 +12,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.btc_price import BtcPriceHourly
-from backend.services import hourly_prices, outbound
+from backend.services import hourly_prices, price_history
+from backend.services import price_files as pf
 from backend.tests.conftest import STUB_HISTORICAL_USD
 
 WALLET, EXCHANGE_BTC, EXTERNAL = 2, 4, 99
@@ -57,14 +58,45 @@ def test_a_typed_value_has_none_and_reading_asks_nobody(auth_client, monkeypatch
     auth_client.delete("/api/transactions/delete_all")
     tx = deposit(auth_client, cost_basis_usd="7000")
     assert tx["price_used"] is None
-    asked = []
-    monkeypatch.setattr(hourly_prices, "find_hours", lambda *a: asked.append(a))
-    monkeypatch.setattr(outbound, "_transport", None)
-    deposit_priced = deposit(auth_client, timestamp="2026-04-02T08:00:00Z")
-    asked.clear()
-    for t in auth_client.get("/api/transactions").json():  # reading never looks a price up
-        assert t["id"] in (tx["id"], deposit_priced["id"])
-    assert asked == []
+    priced = deposit(auth_client, timestamp="2026-04-02T08:00:00Z")
+
+    def asked(*args, **kwargs):  # review of #190: any lookup here would be a request
+        raise AssertionError("reading transactions looked a price up")
+
+    for name in ("find_hours", "start_download", "hourly_price", "price_at"):
+        monkeypatch.setattr(hourly_prices, name, asked)
+    monkeypatch.setattr(price_history, "daily_price", asked)
+    monkeypatch.setattr(price_history, "find_prices", asked)
+    ids = {t["id"] for t in auth_client.get("/api/transactions").json()}
+    assert ids == {tx["id"], priced["id"]}
+    assert auth_client.get(f"/api/transactions/{priced['id']}").json()["price_used"]["moment"] == "day"
+
+
+def test_a_value_the_stored_price_didnt_give_names_no_price(auth_client, test_engine):
+    """Review of #190: an imported value marked "from the price", or one priced on
+    another day (a tax timezone changed since), isn't that price times the amount."""
+    auth_client.delete("/api/transactions/delete_all")
+    tx = deposit(auth_client)
+    with test_engine.begin() as conn:
+        conn.execute(text("UPDATE transactions SET cost_basis_usd = 4321.00 WHERE id = :i"), {"i": tx["id"]})
+    assert auth_client.get(f"/api/transactions/{tx['id']}").json()["price_used"] is None
+
+
+def test_an_hour_from_the_year_files_names_bitstamp(auth_client, monkeypatch):
+    """The year files' hours (Bitstamp's hourly opens): read once per list."""
+    auth_client.delete("/api/transactions/delete_all")
+    hour = hourly_prices.hour_of(datetime(2026, 4, 1, 12, tzinfo=timezone.utc))
+    line = pf.YearLine(2026, pf.year_start(2026), hour + 3600, 1, "x")
+    reads = []
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: reads.append(1) or [line])
+    monkeypatch.setattr(hourly_prices, "_year_prices", lambda y: {hour: Decimal("70000.00")})
+    monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, **k: (Decimal("70000.00"), "bitstamp"))
+    tx = deposit(auth_client)
+    assert tx["price_used"] == {"at": HOUR, "moment": "hour", "source": "bitstamp", "usd_per_btc": "70000.00"}
+    deposit(auth_client, timestamp="2026-04-01T12:10:00Z")
+    reads.clear()
+    assert all(t["price_used"]["source"] == "bitstamp" for t in auth_client.get("/api/transactions").json())
+    assert len(reads) == 1  # one manifest read for the whole list
 
 
 def test_an_inheritance_names_its_date_of_deaths_day(auth_client):

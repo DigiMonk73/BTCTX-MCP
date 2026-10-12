@@ -19,14 +19,14 @@ from backend.database import get_db
 router = APIRouter(tags=["transactions"])
 
 
-def _attach_utc_and_build_read_model(tx, db: Session | None = None) -> TransactionRead:
+def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
     """The transaction as TransactionRead, its UTC times written with 'Z'
     rather than '+00:00', and the stored price its filled-in values came
     from (price_used; read only, never asked for)."""
     pyd_model = TransactionRead.model_validate(tx)
     data = pyd_model.model_dump()
     if db is not None:
-        data["price_used"] = tx_service.price_used(tx, db)
+        data["price_used"] = tx_service.price_used(tx, db, years)
 
     for field in ["timestamp", "created_at", "updated_at"]:
         val = data.get(field)
@@ -43,7 +43,8 @@ def _attach_utc_and_build_read_model(tx, db: Session | None = None) -> Transacti
 def list_transactions(db: Session = Depends(get_db)):
     """Every transaction, newest first."""
     raw_txs = tx_service.get_all_transactions(db)
-    return [_attach_utc_and_build_read_model(tx, db) for tx in raw_txs]
+    years: dict = {}  # the year files, read once for the whole list
+    return [_attach_utc_and_build_read_model(tx, db, years) for tx in raw_txs]
 
 
 @router.get("/{tx_id}", response_model=TransactionRead)

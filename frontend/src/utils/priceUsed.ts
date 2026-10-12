@@ -14,7 +14,7 @@ function day(iso: string): string {
 export function priceUsedWords(p: PriceUsed): string {
   const usd = `$${Number(p.usd_per_btc).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const when = p.moment === "hour" ? ` at ${p.at.slice(11, 16)} UTC, ${day(p.at)}` : `, the day's price (00:00 UTC) on ${day(p.at)}`;
-  const source = SOURCE_NAMES[p.source] ?? p.source;
+  const source = SOURCE_NAMES[p.source] ?? (p.source ? p.source.charAt(0).toUpperCase() + p.source.slice(1) : "");
   return source ? `${usd}${when} · ${source}` : `${usd}${when}`;
 }
 
@@ -30,6 +30,7 @@ export function valueOrigin(
   used: PriceUsed | null | undefined,
 ): string | null {
   if (fromPrice === undefined || stored === undefined) return null; // a new transaction
+  if (!fromPrice && !stored) return null; // blank or 0: the save prices it (review of #190)
   if (shown === undefined || Number.isNaN(shown) || Math.abs(shown - stored) > 0.004) return null; // being changed
   if (!fromPrice) return "Typed: you typed this value; it's kept as it is.";
   return used
