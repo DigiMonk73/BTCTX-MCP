@@ -124,7 +124,7 @@ Only while stopped. Sets the username to `admin` and a new random password throu
 
 ### Price Source & Privacy
 
-A form (prefilled from `store.json`): **Price source** (My Mempool on this server / Public price sites / Off / Choose in BitcoinTX), **Fall back to public price sites**, **Reach public price sites over Tor**. Saves to `store.json` and clears its task; `main.ts` and `dependencies.ts` watch those keys, so the service restarts with the new `BTCTX_*` variables and dependencies. "Choose in BitcoinTX" (`unset`) passes nothing and the app's own Settings decide again. Resolves "no prices" (Mempool not installed or not running: install/start it, or turn on the fallback) and "the public sites see my IP" (Tor or Set Outbound Gateway).
+A form (prefilled from `store.json`): **Price source** (My Mempool on this server / Public price sites / Off / Choose in BitcoinTX), **Fall back to public price sites**, **Reach public price sites over Tor**. Saves to `store.json` and clears its task; `main.ts` and `dependencies.ts` watch those keys, so the service restarts with the new `BTCTX_*` variables and dependencies. "Choose in BitcoinTX" (`unset`) passes nothing and the app's own Settings decide again: what was chosen there, or, if nothing was, the app asks. Resolves "no prices" (Mempool not installed or not running: install/start it, or turn on the fallback) and "the public sites see my IP" (Tor or Set Outbound Gateway).
 
 ### Connect an AI Assistant
 
