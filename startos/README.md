@@ -178,7 +178,7 @@ BitcoinTX on StartOS is the same app as on Docker; these are the differences and
 3. **The MCP server is not hosted here.** It runs on the user's computer and connects to the MCP API address.
 4. **No riscv64 build.**
 5. **English and US taxes only.** The app's interface is in English and it produces US (IRS) tax forms. The store listing, release notes, actions and tasks are translated (Spanish, German, Polish, French); they name the app's own screens in English.
-6. **Prices set in the action are read-only in the app.** Choose **Decide in BitcoinTX instead** in the action to manage them in the app again (for example for a mempool server on another machine, or your own proxy); with **Use Tor** on, the app uses this server's Tor, locked on.
+6. **Prices set in the action are read-only in the app.** Choose **Decide in BitcoinTX instead** in the action to manage them in the app again (for example for a mempool server on another machine, or your own proxy); with **Use Tor** on, the app uses this server's Tor, locked on. For a mempool at another home server's `https://` address (`.local`, `.lan`, a one-word name or a private IP), the app's card offers **Trust this server**, which pins that server's root certificate for that address only (never for public sites).
 
 ---
 
