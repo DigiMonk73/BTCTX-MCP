@@ -314,6 +314,11 @@ All notable changes to BitcoinTX are documented in this file.
   `GET /api/bitcoin/price/status`, login only, which asks nothing itself).
 
 ### Documentation
+- **The README and the AI connector's README in the redesign's words** (#145):
+  who BitcoinTX asks for newer prices (your Mempool, public price sites,
+  Nobody), prices at the hour from the one-time, fingerprint-checked
+  Bitstamp download, and that one price per hour won't always match a chart
+  of one exchange at another moment.
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
