@@ -71,6 +71,13 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Development
+- **Big work runs as a main session and numbered sessions** (AGENTS.md,
+  "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
+  stable release (#143): one session plans with the owner. The plan goes
+  on GitHub: an umbrella issue, one issue per session with its checklist,
+  and a kickoff prompt on each. Each session works through its checklist
+  and records its decisions on its issue. Small changes stay in one
+  session.
 - **The reference ledger's figures, checked by a second calculation**
   (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
   Schedule D line, box total, gains summary, income and rebate figure, gift

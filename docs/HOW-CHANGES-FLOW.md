@@ -65,6 +65,14 @@ workflow keeps up to date by itself. We don't touch it.)
      package, anything that goes to Start9, and releases**: they wait for
      the owner to say **"merge"**.
 
+**Big work** (a release, a redesign, research then build) is split up
+first. One main session talks it through with the owner and writes the
+plan on GitHub: an issue for the whole job, one issue per numbered
+session with its checklist, and a ready-to-paste kickoff prompt on each.
+The owner starts each session from a card or its prompt, and each one
+works through its own checklist, pull request by pull request. Details:
+`AGENTS.md`, "Big work".
+
 ## 2. A release
 
 1. A pull request into `develop` raises the version number everywhere and
