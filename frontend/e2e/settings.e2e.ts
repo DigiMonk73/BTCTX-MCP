@@ -415,7 +415,7 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
   await expect(page.getByText("Price source saved.").last()).toBeVisible();
   await expect(net.getByRole("status")).toContainText("Fully offline: nothing is contacted.");
   await page.getByRole("link", { name: "Dashboard" }).click();
-  await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the price card
+  await expect(page.locator(".btc-price-value")).toHaveText("Offline"); // the price card
 });
 
 test.describe("a fresh install asks where prices come from", () => {
@@ -427,7 +427,7 @@ test.describe("a fresh install asks where prices come from", () => {
     const card = page.getByRole("region", { name: "Bitcoin prices" });
     await expect(card).toBeVisible();
     await expect(card.getByRole("status")).toHaveText(/Not chosen yet: nothing is contacted\./);
-    await expect(page.locator(".btc-price-value")).toHaveText("Prices off"); // the dashboard asked nothing
+    await expect(page.locator(".btc-price-value")).toHaveText("Not chosen yet"); // the dashboard asked nothing
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("unset");
     // #149: a reload before choosing, and one after. Playwright's WebKit crashes
     // at the next navigation after any reload of a signed-in page, with or
@@ -443,7 +443,7 @@ test.describe("a fresh install asks where prices come from", () => {
     page.on("load", () => (loads += 1));
     await use.click();
     await expect(card).toHaveCount(0);
-    await expect(page.locator(".btc-price-value")).not.toHaveText("Prices off"); // asked again, in place
+    await expect(page.locator(".btc-price-value")).toHaveText(/^\$/); // asked again, in place
     expect(loads).toBe(0);
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
     await page.reload();

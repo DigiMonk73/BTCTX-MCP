@@ -22,3 +22,16 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
+
+/* Beside "BTC Price: offline": the way forward, on the same line (#145) */
+.auto-price-row { gap: var(--space-2); flex-wrap: wrap; }
+.converter-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--text-13);
+  text-decoration: underline;
+  cursor: pointer;
+}

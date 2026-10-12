@@ -1,5 +1,5 @@
 import React from "react";
-import type { AccountTotals, LivePrice } from "../../utils/dashboard";
+import { noPriceWords, type AccountTotals, type LivePrice } from "../../utils/dashboard";
 import { formatBtc, formatSignedUsd, formatUsd } from "../../utils/format";
 import FigureRow from "./FigureRow";
 
@@ -14,7 +14,7 @@ interface PortfolioOverviewProps {
 function unrealizedGains(price: LivePrice, averageCostBasis: number | null, totalBtc: number): React.ReactNode {
   // Without a price there is nothing to wait for: say why, as the price card does
   if (!price.loading && price.value === null) {
-    return price.waiting ? "Confirm your choice" : price.off ? "Prices off" : "No price";
+    return noPriceWords(price);
   }
   if (price.loading || price.value === null || averageCostBasis === null) {
     return "Loading...";

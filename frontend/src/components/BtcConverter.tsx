@@ -2,33 +2,43 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { waitingToConfirm } from "../utils/dashboard";
+import { noPriceReason, type NoPrice } from "../utils/dashboard";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
 type Mode = "manual" | "auto" | "date";
+
+// What the converter says instead of a price (#145): never "$0.00"
+const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
+  loading: "…",
+  waiting: "waiting for you",
+  unchosen: "not chosen yet",
+  off: "offline",
+  none: "no answer",
+  missing: "No price",
+};
 type Field = "USD" | "BTC" | "SATS" | null;
 
 const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
   const [btcPrice, setBtcPrice] = useState<number>(0);
-  // Why there's no price, when there's none: never shown as "$0.00"
-  const [noPrice, setNoPrice] = useState<"loading" | "off" | "waiting" | "none">("loading");
+  // Why there's no price, when there's none: never shown as "$0.00". "missing":
+  // Date mode's day has none
+  const [noPrice, setNoPrice] = useState<"loading" | NoPrice | "missing">("loading");
   // Bumped by every mode switch and every typed price: an answer to an older
   // request (slow to arrive) is dropped instead of overwriting the price.
   const priceTicket = useRef(0);
   const fetchPrice = async (url: string) => {
     const ticket = priceTicket.current;
     let price = 0;
-    let why: "off" | "waiting" | "none" = "none";
+    let why: NoPrice | "missing" = "none";
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
     } catch (err) {
-      // no price: 0; 503 is prices off (or not chosen yet) by choice
-      if (axios.isAxiosError(err) && err.response?.status === 503) {
-        why = waitingToConfirm(err.response?.data?.detail) ? "waiting" : "off";
-      }
+      // no price: 0, and why (backend/services/outbound.py's 503s are choices)
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+      why = url.includes("/history") ? "missing" : noPriceReason(status, axios.isAxiosError(err) ? err.response?.data?.detail : undefined);
     }
     if (ticket === priceTicket.current) {
       setBtcPrice(price);
@@ -39,7 +49,7 @@ const BtcConverter: React.FC = () => {
   const priceText = () =>
     btcPrice > 0
       ? "$" + btcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      : noPrice === "loading" ? "…" : noPrice === "off" ? "Prices off" : noPrice === "waiting" ? "waiting for you" : "No price";
+      : NO_PRICE_WORDS[noPrice];
 
   // Date mode's day
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -235,15 +245,15 @@ const BtcConverter: React.FC = () => {
 
       {mode === "auto" && (
         <div className="auto-price-row price-mode-row">
-          <p className="btc-price">
-            BTC Price: {priceText()}
-            {noPrice === "waiting" && btcPrice <= 0 && (
-              <>
-                {" · "}
-                <Link to="/dashboard">Confirm</Link>
-              </>
-            )}
-          </p>
+          <p className="btc-price">BTC Price: {priceText()}</p>
+          {btcPrice <= 0 && (noPrice === "waiting" || noPrice === "unchosen") && (
+            <Link className="converter-action" to="/dashboard">{noPrice === "waiting" ? "Confirm" : "Choose"}</Link>
+          )}
+          {btcPrice <= 0 && (noPrice === "off" || noPrice === "none") && (
+            <button type="button" className="converter-action" onClick={() => handleModeChange("manual")}>
+              Type a price
+            </button>
+          )}
         </div>
       )}
 
