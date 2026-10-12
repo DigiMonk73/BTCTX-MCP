@@ -87,12 +87,20 @@ def _stub_price_apis():
     async def current():
         return {"USD": STUB_CURRENT_USD}
 
+    async def no_hours(hour, files_end, stored):
+        return {}
+
     import backend.services.bitcoin as bitcoin
+    import backend.services.hourly_prices as hourly_prices
     import backend.services.price_history as price_history
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(price_history, "find_prices", price_finder(lambda day: STUB_HISTORICAL_USD))
         mp.setattr(bitcoin, "get_current_price", current)
+        # No hourly prices from a source, and no download of the year files:
+        # valuations at the hour fall back to the stubbed day's price.
+        mp.setattr(hourly_prices, "find_hours", no_hours)
+        mp.setattr(hourly_prices, "start_download", lambda: False)
         yield
 
 
@@ -104,6 +112,17 @@ def _first_run_files(tmp_path_factory):
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(first_run, "DATA_DIR", str(tmp_path_factory.mktemp("data")))
+        yield
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_hourly_price_files(tmp_path_factory):
+    """The hourly price files are looked for in an empty temp folder, never
+    next to the database DATABASE_FILE names (services/hourly_prices.py)."""
+    from backend.services import hourly_prices
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(hourly_prices, "DATA_DIR", str(tmp_path_factory.mktemp("no-price-files")))
         yield
 
 
@@ -138,11 +157,12 @@ def _public_price_source():
     Tests run with the public price source chosen (a fresh install has none
     until the owner picks) and with fresh download timers.
     """
-    from backend.services import outbound, price_history
+    from backend.services import hourly_prices, outbound, price_history
 
     saved = outbound._current
     outbound._current = outbound.NetworkSettings(price_source="public")
     price_history.reset_state()
+    hourly_prices.reset_state()
     yield
     outbound._current = saved
 
@@ -156,6 +176,7 @@ def _empty_price_history(request):
 
         with request.getfixturevalue("test_engine").begin() as con:
             con.execute(text("DELETE FROM btc_price_daily"))
+            con.execute(text("DELETE FROM btc_price_hourly"))
     yield
 
 

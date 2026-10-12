@@ -101,6 +101,7 @@ def stub_prices() -> None:
     """Replace the price lookups with fixed prices, but only from a source
     the settings allow (as for real)."""
     import backend.services.bitcoin as bitcoin
+    import backend.services.hourly_prices as hourly_prices
     import backend.services.price_history as price_history
     from backend.services import outbound
 
@@ -120,9 +121,16 @@ def stub_prices() -> None:
             raise outbound.refuse_public()
         return {"height": BLOCK_HEIGHT}
 
+    async def no_hours(hour, files_end, stored):
+        return {}
+
     price_history.find_prices = find_prices
     bitcoin.get_current_price = current
     bitcoin.get_block_height = block_height
+    # No hourly prices and no download of the year files: valuations at the
+    # hour take the stubbed day's price.
+    hourly_prices.find_hours = no_hours
+    hourly_prices.start_download = lambda: False
 
 
 def fake_internet(log_path: str) -> None:

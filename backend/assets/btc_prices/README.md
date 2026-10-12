@@ -41,11 +41,16 @@ hour_utc,usd
 Bitstamp allows its data to be redistributed only under its data licence,
 so the owner asked Bitstamp for permission (2026-10-12). Until it's given,
 this repo holds **only the fingerprints**: each install downloads the same
-years from Bitstamp, in the same fixed requests (1,000 hours from 1 January
+years from Bitstamp into its data folder (`btc-prices/`, next to the
+database), in the same fixed requests (1,000 hours from 1 January
 00:00 UTC, then the next 1,000…, never anything about a ledger), and uses a
-year only if its text gives the fingerprint here. So every install holds
-exactly the same prices, and anyone can check them. If permission comes,
-the year files are added here and the fingerprints stay the same.
+year only if its text gives the fingerprint here. That happens once public
+price sites are the chosen source (with your own mempool server and its
+fallback, only when a lookup needs an hour the server doesn't have), newest
+year first, each request with the choice as it is then: through the proxy
+(Tor) set then, and none once public sites aren't allowed. So every install
+holds exactly the same prices, and anyone can check them. If permission
+comes, the year files are added here and the fingerprints stay the same.
 
 ## Checking them
 

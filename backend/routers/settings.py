@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import ai_key, outbound
+from backend.services import ai_key, hourly_prices, outbound
 from backend.services.desktop import desktop_info
 from backend.services.tax_time import get_tax_timezone_name, set_tax_timezone
 from backend.services.transaction import recalculate_all_transactions
@@ -151,4 +151,5 @@ def get_network_settings():
 def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Session = Depends(get_db)):
     _require_login(request)
     outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url)
+    hourly_prices.download_if_public()
     return outbound.as_dict()

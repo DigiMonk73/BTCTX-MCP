@@ -128,10 +128,27 @@ def _shut_out_the_world(work: Path) -> None:
 
     price_history.find_prices = price_finder(daily_usd)
     bitcoin.get_current_price = current_price
+    _no_hourly_prices()
     (work / "data").mkdir(exist_ok=True)
     first_run.DATA_DIR = str(work / "data")
     outbound._current = outbound.NetworkSettings(price_source="public")
     mcp_server.connector_version = app_version
+
+
+def _no_hourly_prices() -> None:
+    """No hourly price and no download of the year files (#144): values are
+    priced at the stubbed day's price. A release before hourly prices has
+    neither (the snapshot code is this checkout's, the app the release's)."""
+    try:
+        from backend.services import hourly_prices
+    except ImportError:
+        return
+
+    async def no_hours(hour, files_end, stored):
+        return {}
+
+    hourly_prices.find_hours = no_hours
+    hourly_prices.start_download = lambda: False
 
 
 def _ledgers():

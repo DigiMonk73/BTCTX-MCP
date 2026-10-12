@@ -53,6 +53,19 @@ All notable changes to BitcoinTX are documented in this file.
   The update adds one column to the database's lots (rebuilt at every
   recalculation), after its usual backup copy.
 
+- **The hourly price lookup and its verified download** (#144, the second
+  of five pull requests; nothing is valued at the hour yet). With public
+  price sites chosen, BitcoinTX downloads Bitstamp's hourly prices from
+  2013 once, in the background, into `btc-prices/` next to the database
+  (about 3 MB): every year in the same fixed requests on every install,
+  newest first, through Tor when it's set, and keeps a year only if it
+  gives the fingerprint the release ships. With your own mempool server
+  and its fallback, it's downloaded only when a lookup needs an hour the
+  server doesn't have. Hours after the history come from the server's
+  hourly record (only the hours it recorded live) or from Bitstamp, and
+  are kept (a new table, `btc_price_hourly`; nothing else in the database
+  changes). No request names a transaction's hour.
+
 ### Fixed
 - **A spend's network fee no longer counts twice in its gain** (tax
   figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
@@ -141,7 +154,6 @@ All notable changes to BitcoinTX are documented in this file.
   and records its decisions on its issue. Small changes stay in one
   session. The main session keeps a handoff for itself on the umbrella
   issue, current after every change, so a new one can take over.
-  session.
 - **The hourly price history's record and tools** (#144, the first of five
   pull requests; nothing in the app uses them yet).
   `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,
