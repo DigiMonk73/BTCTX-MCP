@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE
+from backend.constants import BTC_ACCOUNTS, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -28,25 +28,37 @@ from backend.services.reports.form_8949 import (
     INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
 )
 
-from backend.services.transaction import (
-    recalculate_all_transactions,
-    get_btc_price,
-)
+from backend.services import hourly_prices, price_history
+from backend.services.transaction import recalculate_all_transactions
 
 logger = logging.getLogger(__name__)
 
 
-def _held_value_price(db: Session, when: datetime, day: str):
+def _held_value_price(db: Session, when: datetime) -> hourly_prices.Priced | None:
     """
-    The BTC price that values holdings on `day`, or None when none is stored
-    or can be fetched (price lookups off, or no history for that day). The
-    report then shows those values as not priced, never $0 or an error.
+    The BTC price that values holdings at a tax year's bound `when`: the
+    price when that hour began, else that UTC day's 00:00 price (#144,
+    hourly_prices.price_at); None when there's none (price lookups off, no
+    history, or a bound still to come). The report then shows those values
+    as not priced, never $0 or an error.
     """
+    if when > datetime.now(timezone.utc):
+        return None  # the year isn't over: no year-end value yet
     try:
-        return Decimal(get_btc_price(when, db)).quantize(Decimal("0.01"))
+        return hourly_prices.price_at(db, when)
     except Exception as exc:
-        logger.warning("No BTC price for %s: %s", day, getattr(exc, "detail", exc))
+        logger.warning("No BTC price for %s: %s", when.isoformat(), getattr(exc, "detail", exc))
         return None
+
+
+def _year_end_note(priced: hourly_prices.Priced | None, year: int) -> str:
+    """How the year-end holdings are valued, as the report shows it."""
+    if priced is None:
+        return f"No BTC price for when {year} ended: not priced"
+    if priced.moment == "hour":
+        return f"@ ${priced.usd:,} per BTC, the price when the tax year ended ({priced.at:%Y-%m-%d %H:%M} UTC)"
+    return (f"@ ${priced.usd:,} per BTC, {priced.at:%Y-%m-%d}'s 00:00 UTC price (no hourly price for when the "
+            "tax year ended)")
 
 
 @contextmanager
@@ -115,6 +127,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     income_txs        = _build_income_transactions(txns)
     rebates           = _build_rebates(txns)
     gifts_lost        = _build_gifts_donations_lost(txns)
+    priced_values     = _build_priced_values(txns)
     data_sources_list = _gather_data_sources(txns)
 
     # 5) Construct final dictionary
@@ -138,6 +151,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
         "income_transactions": income_txs,
         "rebates": rebates,
         "gifts_donations_lost": gifts_lost,
+        "priced_values": priced_values,
         "data_sources": data_sources_list,
     }
     return result
@@ -145,7 +159,8 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
 def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     """
-    BTC held when the tax year begins, valued at the Jan 1 BTC price. Replays
+    BTC held when the tax year begins, valued at the price then (the
+    previous year's end: _held_value_price). Replays
     only the transactions before that instant, as the year-end snapshot does,
     so it always equals the previous year's end-of-year holdings. Runs on a
     scratch copy (see generate_report_data).
@@ -155,7 +170,8 @@ def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]
     open_lots = db.query(BitcoinLot).filter(BitcoinLot.remaining_btc > 0).all()
 
     # The Jan 1 price, only if something was held (None: not priced)
-    january1_price = _held_value_price(db, from_dt, f"{year}-01-01") if open_lots else None
+    priced = _held_value_price(db, from_dt) if open_lots else None
+    january1_price = priced.usd if priced else None
 
     results = []
     for lot in open_lots:
@@ -270,7 +286,8 @@ def _build_asset_summary(db: Session, start_dt: datetime, end_dt: datetime) -> l
 
 def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     """
-    BTC still held at the end of `year`, valued at the Dec 31 BTC price.
+    BTC still held at the end of `year`, valued at the price when the tax
+    year ended (_held_value_price; it was December 31's 00:00 UTC price).
     Expects the lots to be a year-end snapshot (see generate_report_data).
     """
     open_lots = (
@@ -281,12 +298,10 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
     )
     account_names = {a.id: a.name for a in db.query(Account)}
 
-    dec31 = datetime(year, 12, 31, 12, tzinfo=timezone.utc)
-    eoy_price = _held_value_price(db, dec31, f"{year}-12-31") if open_lots else None
-    if eoy_price is not None:
-        price_note = f"@ ${eoy_price:,} per BTC on {year}-12-31"
-    else:
-        price_note = f"No BTC price for {year}-12-31: not priced"
+    _, year_end = tax_year_bounds(year, get_tax_timezone(db))
+    priced = _held_value_price(db, year_end) if open_lots else None
+    eoy_price = priced.usd if priced else None
+    price_note = _year_end_note(priced, year)
 
     rows = []
     total_btc = Decimal("0.0")
@@ -312,7 +327,7 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
             "acquired": lot.acquired_date.isoformat() if lot.acquired_date else "",
             "quantity": float(rem_btc),
             "cost": float(partial_cost),
-            "value": None if cur_value is None else float(cur_value),  # None: no Dec 31 price
+            "value": None if cur_value is None else float(cur_value),  # None: no year-end price
             "description": price_note
         })
 
@@ -476,6 +491,54 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
             }
             results.append(row)
     return results
+
+
+def _build_priced_values(txns: list[Transaction]) -> list[dict[str, Any]]:
+    """
+    The year's values BitcoinTX filled in from the BTC price, and which
+    price each used (#144): an income, rebate or inherited deposit's value,
+    a Spent's proceeds, a BTC network fee's value. Every other USD value in
+    the report was entered with its transaction.
+    """
+    return [
+        {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,
+         "usd": float(usd), "priced_at": priced_at}
+        for tx in txns for name, usd, priced_at in _priced_values(tx)
+    ]
+
+
+def _priced_values(tx: Transaction) -> Iterator[tuple[str, Decimal, str]]:
+    """(what, USD, which price) for each of a transaction's values from a price."""
+    source = (tx.source or "").lower()
+    if tx.cost_basis_from_price and tx.cost_basis_usd is not None and _is_btc_deposit(tx) \
+            and source in VALUED_AT_RECEIPT:
+        if source == INHERITED_SOURCE and tx.acquired_at is not None:
+            yield "Value (cost basis)", tx.cost_basis_usd, \
+                f"Its date of death's ({price_history.utc_day(tx.acquired_at)}) 00:00 UTC price"
+        else:
+            name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
+            yield name, tx.cost_basis_usd, _price_used(tx)
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and tx.type == "Withdrawal" \
+            and (tx.purpose or "").lower() == "spent":
+        yield "Proceeds (before fees)", tx.gross_proceeds_usd, _price_used(tx)
+    if tx.fee_usd is not None and not tx.fee_usd_manual and (tx.fee_currency or "").upper() == "BTC" \
+            and Decimal(tx.fee_amount or 0) > 0:
+        yield "Network fee value", tx.fee_usd, _price_used(tx)
+
+
+def _price_used(tx: Transaction) -> str:
+    """Which price valued a transaction's priced values: its hour's, or its
+    UTC day's (marked "day", or saved before the mark existed)."""
+    if tx.price_moment == "hour":
+        hour = datetime.fromtimestamp(hourly_prices.hour_of(tx.timestamp), tz=timezone.utc)
+        return f"When its hour began ({hour:%Y-%m-%d %H:00} UTC)"
+    return f"That day's ({price_history.utc_day(tx.timestamp)}) 00:00 UTC price"
+
+
+def _transaction_label(tx: Transaction) -> str:
+    """"Deposit (Reward)", "Withdrawal (Spent)", "Transfer"."""
+    detail = tx.source if tx.type == "Deposit" else tx.purpose if tx.type == "Withdrawal" else None
+    return f"{tx.type} ({detail})" if detail else tx.type
 
 
 def _gather_data_sources(txns: list[Transaction]) -> list[str]:

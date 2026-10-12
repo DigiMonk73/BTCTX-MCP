@@ -353,7 +353,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13922.16,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.66296,
       "value": null
      },
@@ -362,7 +362,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2097.27,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.09987,
       "value": null
      },
@@ -371,7 +371,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2298.85,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.09995,
       "value": null
      },
@@ -380,7 +380,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 9201.15,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.40005,
       "value": null
      },
@@ -389,7 +389,7 @@
       "acquired": "2023-03-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 17287.5,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.75,
       "value": null
      },
@@ -398,7 +398,7 @@
       "acquired": "2023-04-10T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2800.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -407,7 +407,7 @@
       "acquired": "2023-05-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 53.6,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -416,7 +416,7 @@
       "acquired": "2023-05-20T16:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1350.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.05,
       "value": null
      },
@@ -425,7 +425,7 @@
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 520.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -434,7 +434,7 @@
       "acquired": "2023-08-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2320.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -443,7 +443,7 @@
       "acquired": "2023-09-10T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10452.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.4,
       "value": null
      },
@@ -452,7 +452,7 @@
       "acquired": "2023-11-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5550.0,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.15,
       "value": null
      },
@@ -461,7 +461,7 @@
       "acquired": "2023-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7.5,
-      "description": "No BTC price for 2023-12-31: not priced",
+      "description": "No BTC price for when 2023 ended: not priced",
       "quantity": 0.0002,
       "value": null
      },
@@ -550,6 +550,7 @@
      }
     ],
     "period": "2023-01-01 to 2023-12-31",
+    "priced_values": [],
     "rebates": [
      {
       "amount": 0.0002,
@@ -1130,7 +1131,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 4576.21,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.217915,
       "value": null
      },
@@ -1139,7 +1140,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2097.27,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.09987,
       "value": null
      },
@@ -1148,7 +1149,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 626.85,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.02985,
       "value": null
      },
@@ -1157,7 +1158,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 9201.15,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.40005,
       "value": null
      },
@@ -1166,7 +1167,7 @@
       "acquired": "2023-03-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13365.77,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.57986,
       "value": null
      },
@@ -1175,7 +1176,7 @@
       "acquired": "2023-04-10T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2800.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -1184,7 +1185,7 @@
       "acquired": "2023-05-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 53.6,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -1193,7 +1194,7 @@
       "acquired": "2023-05-20T16:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1350.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.05,
       "value": null
      },
@@ -1202,7 +1203,7 @@
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 520.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -1211,7 +1212,7 @@
       "acquired": "2023-08-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2320.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -1220,7 +1221,7 @@
       "acquired": "2023-09-10T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10452.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.4,
       "value": null
      },
@@ -1229,7 +1230,7 @@
       "acquired": "2023-11-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5550.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.15,
       "value": null
      },
@@ -1238,7 +1239,7 @@
       "acquired": "2023-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7.5,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.0002,
       "value": null
      },
@@ -1247,7 +1248,7 @@
       "acquired": "2024-01-15T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 21292.5,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.5,
       "value": null
      },
@@ -1256,7 +1257,7 @@
       "acquired": "2024-03-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12600.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.2,
       "value": null
      },
@@ -1265,7 +1266,7 @@
       "acquired": "2024-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 195.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -1274,7 +1275,7 @@
       "acquired": "2024-04-01T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 19539.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.3,
       "value": null
      },
@@ -1283,7 +1284,7 @@
       "acquired": "2024-06-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 6500.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -1292,7 +1293,7 @@
       "acquired": "2024-06-30T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 188.1,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -1301,7 +1302,7 @@
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 15030.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.25,
       "value": null
      },
@@ -1310,7 +1311,7 @@
       "acquired": "2024-07-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 900.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -1319,7 +1320,7 @@
       "acquired": "2024-09-15T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7200.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.12,
       "value": null
      },
@@ -1328,7 +1329,7 @@
       "acquired": "2024-10-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12024.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.2,
       "value": null
      },
@@ -1337,7 +1338,7 @@
       "acquired": "2024-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 14.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.00015,
       "value": null
      },
@@ -1346,7 +1347,7 @@
       "acquired": "2024-12-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 35070.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.35,
       "value": null
      },
@@ -1355,7 +1356,7 @@
       "acquired": "2024-12-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 8000.0,
-      "description": "No BTC price for 2024-12-31: not priced",
+      "description": "No BTC price for when 2024 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -1484,6 +1485,7 @@
      }
     ],
     "period": "2024-01-01 to 2024-12-31",
+    "priced_values": [],
     "rebates": [
      {
       "amount": 0.00015,
@@ -2650,7 +2652,7 @@
       "acquired": "2019-03-01T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 120.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.004,
       "value": null
      },
@@ -2659,7 +2661,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 161.8,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.007705,
       "value": null
      },
@@ -2668,7 +2670,7 @@
       "acquired": "2023-01-20T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 626.85,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.02985,
       "value": null
      },
@@ -2677,7 +2679,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 9201.15,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.40005,
       "value": null
      },
@@ -2686,7 +2688,7 @@
       "acquired": "2023-03-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13365.77,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.57986,
       "value": null
      },
@@ -2695,7 +2697,7 @@
       "acquired": "2023-04-10T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2800.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -2704,7 +2706,7 @@
       "acquired": "2023-05-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 53.6,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -2713,7 +2715,7 @@
       "acquired": "2023-05-20T16:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1350.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.05,
       "value": null
      },
@@ -2722,7 +2724,7 @@
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 520.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -2731,7 +2733,7 @@
       "acquired": "2023-08-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2320.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -2740,7 +2742,7 @@
       "acquired": "2023-09-10T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10452.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.4,
       "value": null
      },
@@ -2749,7 +2751,7 @@
       "acquired": "2023-11-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5550.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.15,
       "value": null
      },
@@ -2758,7 +2760,7 @@
       "acquired": "2023-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7.5,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.0002,
       "value": null
      },
@@ -2767,7 +2769,7 @@
       "acquired": "2024-03-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12600.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.2,
       "value": null
      },
@@ -2776,7 +2778,7 @@
       "acquired": "2024-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 195.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -2785,7 +2787,7 @@
       "acquired": "2024-04-01T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 4548.03,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.06983,
       "value": null
      },
@@ -2794,7 +2796,7 @@
       "acquired": "2024-06-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1957.8,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.03012,
       "value": null
      },
@@ -2803,7 +2805,7 @@
       "acquired": "2024-06-30T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 188.1,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -2812,7 +2814,7 @@
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1486.47,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.024725,
       "value": null
      },
@@ -2821,7 +2823,7 @@
       "acquired": "2024-07-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 900.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -2830,7 +2832,7 @@
       "acquired": "2024-09-15T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7200.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.12,
       "value": null
      },
@@ -2839,7 +2841,7 @@
       "acquired": "2024-10-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2092.18,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.0348,
       "value": null
      },
@@ -2848,7 +2850,7 @@
       "acquired": "2024-10-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7527.02,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.1252,
       "value": null
      },
@@ -2857,7 +2859,7 @@
       "acquired": "2024-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 14.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.00015,
       "value": null
      },
@@ -2866,7 +2868,7 @@
       "acquired": "2024-12-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 35070.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.35,
       "value": null
      },
@@ -2875,7 +2877,7 @@
       "acquired": "2024-12-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 8000.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -2884,7 +2886,7 @@
       "acquired": "2025-02-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 15030.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.15,
       "value": null
      },
@@ -2893,7 +2895,7 @@
       "acquired": "2025-02-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 168.8,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -2902,7 +2904,7 @@
       "acquired": "2025-03-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10500.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -2911,7 +2913,7 @@
       "acquired": "2025-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 210.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -2920,7 +2922,7 @@
       "acquired": "2025-05-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5500.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.05,
       "value": null
      },
@@ -2929,7 +2931,7 @@
       "acquired": "2025-05-15T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13228.8,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.12,
       "value": null
      },
@@ -2938,7 +2940,7 @@
       "acquired": "2025-07-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 3450.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.03,
       "value": null
      },
@@ -2947,7 +2949,7 @@
       "acquired": "2025-08-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12024.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -2956,7 +2958,7 @@
       "acquired": "2025-08-25T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 450.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.01,
       "value": null
      },
@@ -2965,7 +2967,7 @@
       "acquired": "2025-11-01T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5600.0,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.04,
       "value": null
      },
@@ -2974,7 +2976,7 @@
       "acquired": "2025-11-15T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 11222.4,
-      "description": "No BTC price for 2025-12-31: not priced",
+      "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -3119,6 +3121,7 @@
      }
     ],
     "period": "2025-01-01 to 2025-12-31",
+    "priced_values": [],
     "rebates": [
      {
       "amount": 0.04,
@@ -3987,7 +3990,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 8269.53,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.359545,
       "value": null
      },
@@ -3996,7 +3999,7 @@
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 459.54,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01998,
       "value": null
      },
@@ -4005,7 +4008,7 @@
       "acquired": "2023-03-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13365.77,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.57986,
       "value": null
      },
@@ -4014,7 +4017,7 @@
       "acquired": "2023-04-10T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2800.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -4023,7 +4026,7 @@
       "acquired": "2023-05-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 53.6,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -4032,7 +4035,7 @@
       "acquired": "2023-05-20T16:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1350.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.05,
       "value": null
      },
@@ -4041,7 +4044,7 @@
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 520.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -4050,7 +4053,7 @@
       "acquired": "2023-08-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 2320.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -4059,7 +4062,7 @@
       "acquired": "2023-09-10T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10452.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.4,
       "value": null
      },
@@ -4068,7 +4071,7 @@
       "acquired": "2023-11-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5550.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.15,
       "value": null
      },
@@ -4077,7 +4080,7 @@
       "acquired": "2023-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7.5,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.0002,
       "value": null
      },
@@ -4086,7 +4089,7 @@
       "acquired": "2024-03-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12600.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.2,
       "value": null
      },
@@ -4095,7 +4098,7 @@
       "acquired": "2024-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 195.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -4104,7 +4107,7 @@
       "acquired": "2024-04-01T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 4548.03,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.06983,
       "value": null
      },
@@ -4113,7 +4116,7 @@
       "acquired": "2024-06-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1957.8,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.03012,
       "value": null
      },
@@ -4122,7 +4125,7 @@
       "acquired": "2024-06-30T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 188.1,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.003,
       "value": null
      },
@@ -4131,7 +4134,7 @@
       "acquired": "2024-07-01T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1486.47,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.024725,
       "value": null
      },
@@ -4140,7 +4143,7 @@
       "acquired": "2024-07-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 900.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.02,
       "value": null
      },
@@ -4149,7 +4152,7 @@
       "acquired": "2024-09-15T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7200.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.12,
       "value": null
      },
@@ -4158,7 +4161,7 @@
       "acquired": "2024-10-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 7527.02,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.1252,
       "value": null
      },
@@ -4167,7 +4170,7 @@
       "acquired": "2024-11-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 14.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.00015,
       "value": null
      },
@@ -4176,7 +4179,7 @@
       "acquired": "2024-12-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 8000.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -4185,7 +4188,7 @@
       "acquired": "2025-02-28T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 168.8,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -4194,7 +4197,7 @@
       "acquired": "2025-03-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 10500.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -4203,7 +4206,7 @@
       "acquired": "2025-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 210.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -4212,7 +4215,7 @@
       "acquired": "2025-05-01T09:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5495.6,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.04996,
       "value": null
      },
@@ -4221,7 +4224,7 @@
       "acquired": "2025-05-15T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13228.8,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.12,
       "value": null
      },
@@ -4230,7 +4233,7 @@
       "acquired": "2025-07-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 3450.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.03,
       "value": null
      },
@@ -4239,7 +4242,7 @@
       "acquired": "2025-08-15T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 12024.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.1,
       "value": null
      },
@@ -4248,7 +4251,7 @@
       "acquired": "2025-08-25T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 450.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01,
       "value": null
      },
@@ -4257,7 +4260,7 @@
       "acquired": "2025-11-01T10:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 5600.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.04,
       "value": null
      },
@@ -4266,7 +4269,7 @@
       "acquired": "2025-11-15T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 11222.4,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.08,
       "value": null
      },
@@ -4275,7 +4278,7 @@
       "acquired": "2026-02-01T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1050.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01,
       "value": null
      },
@@ -4284,7 +4287,7 @@
       "acquired": "2026-03-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 11229.39,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.07997,
       "value": null
      },
@@ -4293,7 +4296,7 @@
       "acquired": "2026-04-10T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 4140.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.03,
       "value": null
      },
@@ -4302,7 +4305,7 @@
       "acquired": "2026-05-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 300.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.005,
       "value": null
      },
@@ -4311,7 +4314,7 @@
       "acquired": "2026-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1425.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01,
       "value": null
      },
@@ -4320,7 +4323,7 @@
       "acquired": "2026-06-20T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 142.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.001,
       "value": null
      },
@@ -4329,7 +4332,7 @@
       "acquired": "2026-07-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 290.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.002,
       "value": null
      },
@@ -4338,7 +4341,7 @@
       "acquired": "2026-08-25T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 14.8,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.0001,
       "value": null
      },
@@ -4347,7 +4350,7 @@
       "acquired": "2026-09-12T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1482.0,
-      "description": "No BTC price for 2026-12-31: not priced",
+      "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01,
       "value": null
      },
@@ -4468,6 +4471,7 @@
      }
     ],
     "period": "2026-01-01 to 2026-12-31",
+    "priced_values": [],
     "rebates": [
      {
       "amount": 0.0001,

@@ -459,6 +459,10 @@ class _TaxReport:
                              "of their own; a network fee paid with them is a disposal (section 2).")
         if not self.gifts:
             return story + [self.nothing("gifts, donations or lost coins")]
+        if any((g.get("type") or "").lower() == "donation" for g in self.gifts):
+            story.append(self.text(
+                "A deduction for donated bitcoin over $5,000 needs a qualified appraisal (IRS digital asset FAQ, "
+                "Q78): the values here don't replace it.", self.styles.note))
         rows = [self.header("Date", "Kind", "BTC", "Fair market value", numbers_from=2)]
         for g in self.gifts:
             fmv = g.get("fmv_usd")
@@ -667,12 +671,38 @@ class _TaxReport:
             "oldest bitcoin held in that account. Trading between BTC and USD is a taxable event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
             "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
-            "USD values are the ones entered with each transaction. A value left blank comes from the BTC "
-            "price when its hour began (UTC), or that day's 00:00 UTC price where no hourly price was had "
-            "(an inheritance: its date of death's).",
+            "USD values are the ones entered with each transaction. When one was left blank, BitcoinTX filled "
+            "it in from the U.S. dollar price of bitcoin when the transaction's hour began (UTC): Bitstamp's "
+            "hourly opening price, downloaded by BitcoinTX and checked against fingerprints published with it, "
+            "or your own Mempool server's record of that hour. Where it had no hourly price (before 2013, or "
+            "none on this install), it used that day's 00:00 UTC price; an inheritance is valued at its date of "
+            "death's 00:00 UTC price. The values it filled in, and the price each used, are listed below.",
+            "IRS rules measure fair market value at the date and time of each transaction (Treas. Reg. "
+            "§1.1001-7(b)(3)); an hourly price approximates it. The IRS has not approved any price source or "
+            "method: you are responsible for showing your values are accurate. A value from your own records "
+            "is better evidence: the dollar amount an exchange credited for a reward, or the value of what you "
+            "bought with bitcoin you spent.",
+            "Holdings are valued at the price when the tax year began and ended (midnight in the tax "
+            "timezone): the hour's price, or that day's 00:00 UTC price where there's none.",
             f"All dates are shown as MM/DD/YYYY (the IRS format) in the tax timezone ({self.tz_name}).",
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
             "This report is prepared from your own records: check it with a tax professional before you file.",
         )
-        return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes)]
+        return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes),
+                *self.priced_values()]
+
+    def priced_values(self) -> list:
+        """The year's values filled in from the BTC price, and which price (#144)."""
+        rows = self.data.get("priced_values", [])
+        story = self.subheading("Values from the BTC price")
+        if not rows:
+            return story + [self.text(f"None: every USD value of {self.year}'s transactions was entered with it.",
+                                      self.styles.normal)]
+        table = [self.header("Date", "Transaction", "Value", "Price used", "USD", numbers_from=4)]
+        table += [[self.text(self.date(r["date"])), self.text(r["transaction"]), self.text(r["value"]),
+                   self.text(r["priced_at"]), self.number(fmt_usd(r["usd"]))] for r in rows]
+        return story + [self.text("Every other USD value of the year's transactions was entered with it. A lot's "
+                                  "cost basis from an earlier year is listed in that year's report.",
+                                  self.styles.note),
+                        Spacer(1, 6), data_table(table, [0.9, 1.5, 1.4, 2.2, 1.0])]

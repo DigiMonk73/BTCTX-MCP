@@ -187,8 +187,11 @@ So derived values must be recomputable from the Transaction row alone.
   moment is recorded in `transactions.price_moment` ("hour" or "day"; none
   when every value is typed). A value priced before hourly prices stays at
   the day until an edit prices it again or the owner applies Ledger
-  Review's check (#144); a recalculation never re-prices. Year-end holdings
-  still use the day's price. Nothing is asked until the owner picks a
+  Review's check (#144); a recalculation never re-prices. Holdings at a
+  tax year's start and end are valued at `price_at` of that bound (the
+  hour the tax year ends, in the tax timezone), and the Complete Tax
+  Report lists the year's priced values with the price each used.
+  Nothing is asked until the owner picks a
   price source (`services/outbound.py`: off / public / own mempool,
   optional fallback),
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price

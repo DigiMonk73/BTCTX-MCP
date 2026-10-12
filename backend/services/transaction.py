@@ -1225,17 +1225,6 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     return True
 
 
-def get_btc_price(timestamp: datetime, db: Session) -> Decimal:
-    """
-    The BTC price in USD for the timestamp's UTC day, from the local price
-    history: the year-end holdings' values (every other valuation is at the
-    hour, _price_at). It used to fall back to the live price when the day's
-    lookup failed, which valued past fees and spends at today's price; now a
-    missing price is a 422 (services/price_history.py).
-    """
-    return price_history.daily_price(db, timestamp)
-
-
 def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     """
     Splits source lots for an internal BTC transfer from one BTC account to another,
