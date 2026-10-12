@@ -73,7 +73,9 @@ All notable changes to BitcoinTX are documented in this file.
   and discourage storing its data. Past prices now come from Bitstamp's
   whole daily history (if that download fails, it's tried again later),
   then the latest days from Bitstamp, else Kraken; the live price from
-  Kraken, else Bitstamp. Prices already stored don't change. Settings, the
+  Kraken, else Bitstamp; a live price of 0, below 0 or not a number (a
+  mempool server answers -1 until it has one) is skipped instead of shown.
+  Prices already stored don't change. Settings, the
   READMEs and StartOS's Price Source & Privacy action list the sites asked.
 
 ### Documentation

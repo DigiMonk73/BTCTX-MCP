@@ -113,7 +113,7 @@ async def get_current_price() -> dict:
         cached = _price_cache
         if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
             return cached["value"]
-        price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
+        price = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"]))
         if price is None:
             price = await _first_public(
                 [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price")

@@ -421,10 +421,12 @@ Start from the `clean` snapshot.
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Reach public price sites over Tor**. Expect: a price on the Dashboard.
-  If this install hasn't downloaded the price history yet, also add an
-  Income deposit with no value: expect the log line "BTC price history from
-  public site bitstamp: N days" (Bitstamp, the only history site since
-  #161, answering over Tor).
+  Bitstamp is the price history's only site since #161 (and the live
+  price's fallback), and PRC-2 already downloaded the history without Tor,
+  so check Bitstamp through Tor directly: through the VM's Tor SOCKS port
+  (or Tor on your machine), `curl --socks5-hostname <tor host>:9050 -s
+  https://www.bitstamp.net/api/v2/ticker/btcusd/` and
+  `…/api/v2/ohlc/btcusd/?step=86400&limit=2` each return JSON, not a 403.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "Error": requests must fail
   rather than go out directly. Start Tor: the price is back.

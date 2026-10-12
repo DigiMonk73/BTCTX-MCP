@@ -519,9 +519,9 @@ def test_the_live_price_asks_kraken_first_then_bitstamp(auth_client, monkeypatch
 
 
 @pytest.mark.parametrize("kraken, bitstamp", [("0", "0"), ("-1", "Infinity"), ("NaN", "nan")])
-def test_a_live_price_of_zero_or_not_a_number_is_no_price(auth_client, monkeypatch, kraken, bitstamp):
-    """Review of #166: Bitstamp's "Infinity" made the route answer 500, and
-    Kraken's "0" showed $0.00. Neither is a price: the plain 502."""
+def test_a_live_price_that_isnt_positive_and_finite_is_no_price(auth_client, monkeypatch, kraken, bitstamp):
+    """Review of #166: a price of 0, below 0, NaN or infinite is never
+    shown (infinity would break the JSON answer); the plain 502."""
     def sites(request: httpx.Request) -> httpx.Response:
         if request.url.host == "api.kraken.com":
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": [kraken, "1"]}}})
@@ -533,6 +533,26 @@ def test_a_live_price_of_zero_or_not_a_number_is_no_price(auth_client, monkeypat
     with pytest.raises(HTTPException) as exc:
         asyncio.run(real_current_price())
     assert exc.value.status_code == 502
+
+
+def test_a_mempool_server_without_a_price_yet_leaves_it_to_the_fallback(auth_client, monkeypatch):
+    """Re-check of #166: a mempool server answers USD -1 until its first good
+    fetch (its price updater's empty prices). That's no price: the public
+    fallback answers, never a negative price."""
+    asked = []
+
+    def sites(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.host)
+        if request.url.host == "umbrel.local":
+            return httpx.Response(200, json={"time": 1, "USD": -1})
+        return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": {"c": ["61000.5", "1"]}}})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(sites))
+    auth_client.put("/api/settings/network", json={
+        **PUBLIC, "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True})
+    bitcoin._price_cache.update(settings=None)
+    assert asyncio.run(real_current_price()) == {"USD": 61000.5}
+    assert asked == ["umbrel.local", "api.kraken.com"]
 
 
 def test_the_block_height_is_asked_at_most_once_a_minute(auth_client, requests_seen):
