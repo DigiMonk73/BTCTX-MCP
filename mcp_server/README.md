@@ -34,7 +34,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
 | `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
 | `list_transactions` | Search by date range, type and account |
-| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired) |
+| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price (from the price source chosen in Settings → Privacy & Network), tax timezone |
 | `get_btc_price` | Historical daily or current BTC price |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |

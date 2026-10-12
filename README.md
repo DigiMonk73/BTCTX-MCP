@@ -23,7 +23,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 - **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   recalculates the whole ledger, so backdated entries come out right.
-- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis
+- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
+  a consolidation (Wallet to Wallet) records only its network fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
   tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
   says something different for a sale, record that on the transaction and the

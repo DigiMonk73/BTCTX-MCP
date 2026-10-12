@@ -41,6 +41,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.btc_price import BtcPriceDaily
 from backend.services import outbound
+from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,9 @@ CENT = Decimal("0.01")
 FIRST_PRICE_DAY = date(2011, 8, 18)
 BITSTAMP_BLOCK = 1000  # days per request
 
-BITSTAMP_OHLC_URL = "https://www.bitstamp.net/api/v2/ohlc/btcusd/"
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 MEMPOOL_HISTORY_PATH = "/api/v1/historical-price"
 DAY = 86400
-HOUR = 3600
 MEMPOOL_TOLERANCE = Decimal("0.02")  # a 00:00 price within 2% of 23:00 and 01:00
 RETRY_SECONDS = 600
 HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is done

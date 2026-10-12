@@ -141,7 +141,9 @@ So derived values must be recomputable from the Transaction row alone.
   proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and pro-rated basis. The fee is a disposal.
+  date and pro-rated basis. The fee is a disposal. A BTC account to itself
+  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
+  between pooled wallets, #159) needs a fee and records only it: no lot moves.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
@@ -163,6 +165,14 @@ So derived values must be recomputable from the Transaction row alone.
   dashboard's income, listed apart in the report (`rebates`) and on the
   dashboard (`rebates_received`, #129). Reward stays income (mining,
   staking, bonuses).
+- **Inherited** (source Inherited, #154): basis = value on the date of death
+  (IRC §1014), the deposit's required `acquired_at`, which also dates its lot;
+  valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed,
+  or that day's price, priced again when the date of death changes), never
+  income. Every disposal of its coins is long-term (§1223(9)) with INHERITED
+  in Form 8949 column (b): `bitcoin_lots.inherited`, kept through transfers.
+  Ledger Review doesn't compare its value with the day's price (an estate's
+  value can rightly differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
 - **Prices**: every past-day valuation goes through
@@ -184,6 +194,7 @@ So derived values must be recomputable from the Transaction row alone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date
   originally acquired (`acquired_at`) when given, else the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
+  Inherited coins are long-term whatever the dates (above).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -205,6 +216,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
+| `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
@@ -284,6 +296,7 @@ make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
+make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
@@ -313,7 +326,9 @@ Full steps, the package version and the signing/mirror secrets:
    `desktop/BitcoinTX.spec`, the image tag in
    `startos/startos/manifest/index.ts`, `startos/startos/versions/current.ts`
    and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
-   fails until they agree). Move the CHANGELOG's Unreleased section to the
+   fails until they agree), and run `make prices` (the hourly price
+   history's new hours; the release refuses one more than 14 days old).
+   Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
    when a new tax year's forms are added. The StartOS release notes
    (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
@@ -568,6 +583,60 @@ request merges" and the two sections after it.
 A branch that falls behind `develop` gets `develop` merged into it, never a
 rebase: a pushed branch is not rewritten, and the squash keeps `develop`
 clean anyway.
+
+## Big work: a main session and numbered sessions
+
+The owner's standard for big work (2026-10-12, first used for the stable
+release, #143): work that won't fit one session, has parts that can run
+at once, or needs the owner's decisions between steps (a release, a
+redesign, research then build). A single fix or a docs change stays in
+one session. Claude suggests this setup when a request is that big.
+
+- **The main session** talks it through with the owner, then writes the
+  plan down on GitHub, where every session and the owner can see it:
+  - an umbrella issue with the goal, the decisions and the order;
+  - an issue per session with its checklist (what "done" means, and the
+    "owner" points where it stops); a plan and its build may share one;
+  - on each, a comment "Kickoff prompt for this session" that stands on
+    its own: how to start, the rules that matter most, the job, and
+    what it waits for;
+  - on the umbrella, an index of the prompts: the order, and what each
+    session waits for.
+- **Starting one:** the desktop app's one-click card (`spawn_task`), or
+  the kickoff prompt pasted into a new session. Each title starts with
+  its number ("6 · Build hourly prices (#144)").
+- **Each session** first posts or refreshes its checklist on its issue,
+  ticks the boxes there as it goes, and writes its decisions there. It
+  carries on from its own issue, not from #41's "Next". After a
+  compaction it re-reads its issue and its open pull request before
+  anything else. It stops at the "owner" points. At its end it does what
+  "Ending a session" says, except that on #41 it adds only its own lines,
+  re-reading #41 just before it edits, since other sessions edit it too.
+  No plan mode by default: plan mode's plan stays in that session, while
+  the issue's checklist is seen by all.
+- **The main session** carries the owner's decisions to the sessions, on
+  their issues or by a message to one that's running. A "merge" is
+  quoted on its pull request, with the date, by the session the owner
+  said it to. The main session starts the next session when what it
+  waits for is done, and keeps #41's "Next", linking to the umbrella
+  issue instead of repeating its order.
+- **Running sessions at once:** only on separate parts. When two touch
+  the same files, the reference figures or a migration, the one that
+  merges second merges `develop` in, and checks the migration numbering
+  and the figures again.
+- **The main session's own handoff:** the main session (the "lead")
+  keeps a comment "Kickoff prompt for the lead session" on the umbrella
+  issue, edited in place after every change, never left as a snapshot:
+  its role and duties, how to start, and a short current state as
+  pointers (the running sessions and their open pull requests, what to
+  watch, decisions not yet on an issue). Session status stays in the
+  index, what waits on the owner on #41 and the `owner` issues, and
+  decisions on their issues. After a compaction, the main session
+  re-reads that comment and the index first. The owner keeps it as long
+  as it works well; when it grows too long, the owner starts a new main
+  session from that comment and archives the old one. A new main session
+  finds the running sessions in the session list and on the issues,
+  since sessions an earlier one started don't send it their end notices.
 
 ## Starting a session
 

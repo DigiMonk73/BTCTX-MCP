@@ -283,7 +283,8 @@ def test_settings_names_every_site_public_prices_may_contact():
     import re
 
     root = Path(__file__).resolve().parents[2]
-    code = "".join((root / "backend/services" / f).read_text() for f in ("bitcoin.py", "price_history.py"))
+    code = "".join((root / "backend/services" / f).read_text()
+                   for f in ("bitcoin.py", "price_history.py", "price_files.py"))
     hosts = set(re.findall(r'"https://([^/"]+)', code))
     names = {"api.kraken.com": "Kraken", "blockchain.info": "Blockchain.info",
              "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp"}

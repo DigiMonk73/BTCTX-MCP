@@ -37,6 +37,34 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
   return 0;
 }
 
+/** A transfer's currency: Bank's is USD, Wallet's BTC; the Exchange's is chosen. */
+export function transferCurrency(account?: AccountType, currency?: Currency): Currency | undefined {
+  if (account === "Bank") return "USD";
+  if (account === "Wallet") return "BTC";
+  return account === "Exchange" ? currency : undefined;
+}
+
+/**
+ * Where a Transfer from an account (in a currency) can go, the usual place
+ * first: the other account of that currency, or for a BTC account itself too
+ * (a consolidation, or a move between wallets BitcoinTX pools: only the fee
+ * is recorded, #159).
+ */
+export function transferDestinations(account?: AccountType, currency?: Currency): AccountType[] {
+  switch (`${account}/${transferCurrency(account, currency)}`) {
+    case "Bank/USD":
+      return ["Exchange"];
+    case "Wallet/BTC":
+      return ["Exchange", "Wallet"];
+    case "Exchange/USD":
+      return ["Bank"];
+    case "Exchange/BTC":
+      return ["Wallet", "Exchange"];
+    default:
+      return [];
+  }
+}
+
 /** The ledger's from and to accounts for what the form shows as one account. */
 export function mapDoubleEntryAccounts(data: TransactionFormData): IAccountMapping {
   switch (data.type) {
@@ -105,6 +133,15 @@ function commonFormData(tx: ITransaction): TransactionFormData {
   };
 }
 
+const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
+
+/** A saved deposit's source as the form lists it: a row saved before 1.1.0
+ * may say "inherited", which is Inherited (#154). */
+function depositSource(saved: string | null | undefined): DepositSource {
+  const wanted = (saved ?? "N/A").trim().toLowerCase();
+  return DEPOSIT_SOURCES.find((s) => s.toLowerCase() === wanted) ?? (saved as DepositSource);
+}
+
 /** Each type's own form fields, read back from a saved transaction. */
 const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
   Deposit: (tx) => {
@@ -113,7 +150,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: (tx.source ?? "N/A") as DepositSource,
+      source: depositSource(tx.source),
     };
   },
   Withdrawal: (tx) => {
@@ -236,11 +273,12 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
   return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
 }
 
-/** Deposit sources whose coins may have been acquired before the deposit. */
-const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift"];
+/** Deposit sources whose coins may have been acquired before the deposit
+ * (an inheritance: on the date of death, #154). */
+const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 
-/** Whether a deposit takes "Date originally acquired": My BTC or Gift into
- * Wallet or Exchange BTC. */
+/** Whether a deposit takes "Date originally acquired" (an inheritance's
+ * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
 export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
   const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
   return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");

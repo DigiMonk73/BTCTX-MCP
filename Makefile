@@ -18,7 +18,7 @@
 
 PY ?= python3
 
-.PHONY: sync-check hooks test test-fast smoke e2e preview site-shots reference-figures docker-smoke lint audit-deps lock check check-fast frontend-dist
+.PHONY: sync-check hooks test test-fast smoke e2e preview site-shots reference-figures prices docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -59,6 +59,12 @@ site-shots:
 # from the reference test ledger; the pull request shows the difference.
 reference-figures: frontend-dist
 	BTCTX_UPDATE_REFERENCE_FIGURES=1 $(PY) -m pytest -q backend/tests/test_seed_ledger.py -k reference_figures
+
+# Each release's bump pull request: add the hours since the last refresh to
+# the hourly price history's manifest (backend/assets/btc_prices/), checked
+# against Bitfinex and Kraken; refuses, writing nothing, on any mismatch.
+prices:
+	$(PY) scripts/price_history.py refresh
 
 docker-smoke:
 	scripts/docker_smoke.sh

@@ -4,6 +4,7 @@ import {
   dayIn,
   localDatetimeToIso,
   mapTransactionToFormData,
+  transferDestinations,
 } from "./transactionForm";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
@@ -99,6 +100,17 @@ describe("Withdrawal", () => {
   });
 });
 
+describe("transferDestinations", () => {
+  it("offers the other account of the currency first, and a BTC account itself (#159)", () => {
+    expect(transferDestinations("Bank")).toEqual(["Exchange"]);
+    expect(transferDestinations("Exchange", "USD")).toEqual(["Bank"]);
+    expect(transferDestinations("Wallet")).toEqual(["Exchange", "Wallet"]);
+    expect(transferDestinations("Exchange", "BTC")).toEqual(["Wallet", "Exchange"]);
+    expect(transferDestinations("Exchange", undefined)).toEqual([]);
+    expect(transferDestinations(undefined)).toEqual([]);
+  });
+});
+
 describe("Transfer", () => {
   it("amount is what left the source; the form shows amount minus fee as received", () => {
     const transfer = {
@@ -119,6 +131,27 @@ describe("Transfer", () => {
       fee_amount: 0.0001,
       fee_currency: "BTC",
       broker_reporting: null,
+    });
+  });
+
+  it("a consolidation (#159) comes back as one: the same account, its fee, what arrived", () => {
+    const consolidation = {
+      type: "Transfer" as TransactionType,
+      from_account_id: 2,
+      to_account_id: 2,
+      amount: 0.8,
+      fee_amount: 0.0001,
+      fee_currency: "BTC",
+    };
+    const form = mapTransactionToFormData(tx(consolidation));
+    expect(form).toMatchObject({ fromAccount: "Wallet", toAccount: "Wallet", amountFrom: 0.8 });
+    expect(form.amountTo).toBeCloseTo(0.7999, 8);
+    expect(buildTransactionPayload(form)).toMatchObject({
+      from_account_id: 2,
+      to_account_id: 2,
+      amount: 0.8,
+      fee_amount: 0.0001,
+      fee_currency: "BTC",
     });
   });
 });
@@ -210,6 +243,18 @@ describe("blank means not given (F1)", () => {
 });
 
 describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
+  it("an Inherited deposit's date of death comes back into the same field (#154)", () => {
+    const form = mapTransactionToFormData(tx({
+      type: "Deposit", from_account_id: 99, to_account_id: 4, amount: 0.02, cost_basis_usd: 2100,
+      fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01T18:00:00Z", // noon in Chicago
+    }), "America/Chicago");
+    expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", account: "Exchange" });
+    // A row saved before 1.1.0 as free text "inherited" reads back as Inherited
+    expect(mapTransactionToFormData(tx({ type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.01,
+      fee_currency: "BTC", source: "inherited" })).source).toBe("Inherited");
+    expect(buildTransactionPayload(form)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
+  });
+
   it("round-trips the date as a date alone (the server reads it as noon in the tax timezone)", () => {
     const body = buildTransactionPayload(mapTransactionToFormData(tx({
       type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
@@ -237,6 +282,7 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
       costBasisUSD: 10, acquiredDate: "2021-03-14", ...fields,
     } as TransactionFormData).acquired_at;
     expect(deposit({ source: "Gift" })).toBe("2021-03-14");
+    expect(deposit({ source: "Inherited" })).toBe("2021-03-14"); // its date of death (#154)
     expect(deposit({ source: "Income" })).toBeNull();
     expect(deposit({ source: "MyBTC", account: "Bank", currency: "USD" })).toBeNull();
     expect(deposit({ source: "MyBTC", acquiredDate: "" })).toBeNull();
