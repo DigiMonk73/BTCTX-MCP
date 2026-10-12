@@ -86,6 +86,18 @@ Deposit: External -> any account
     For all four, a basis left out is filled from the price when that hour
     began (UTC; that day's price where there's no hourly one); if no price
     is available the row is refused - then ask the user for the value.
+    Where prices come from is the user's choice: their own Mempool, public
+    price sites, or Nobody, made in BitcoinTX (Settings -> Privacy &
+    network) or, when the server sets it, in the server's settings
+    (StartOS's Price Source & Privacy action). A price's "source" is "mempool" for their own Mempool,
+    any other name a public site. The hourly history (2013 on) is
+    downloaded once from Bitstamp when the choice allows public sites
+    (public price sites, or their Mempool with public sites as its backup).
+    With Nobody, before a choice, while BitcoinTX waits for the user to
+    confirm it, or when the server's price settings aren't valid, there is
+    no price for a value it doesn't have: pass on BitcoinTX's own message
+    (it says where to change the choice), ask the user for the value, and
+    never offer to change the choice yourself (only the user can).
   USD deposits to Bank / Exchange USD: amount is USD, no source needed.
 Withdrawal: any account -> External
   BTC withdrawals need purpose:

@@ -287,15 +287,17 @@ def get_ledger_guide() -> str:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_portfolio() -> ToolResult:
-    """Current balance of every account, average cost basis per BTC, the live BTC price, and
-    the user's tax timezone (dates without a timezone are interpreted in it).
+    """Current balance of every account, average cost basis per BTC, the live BTC price and
+    where it came from (or, when there's none, BitcoinTX's reason in btc_price_unavailable),
+    and the user's tax timezone (dates without a timezone are interpreted in it).
     Useful to reconcile against what the user's cold wallet or exchange actually shows."""
     balances = await _call("GET", "/api/calculations/accounts/balances")
     avg = await _call("GET", "/api/calculations/average-cost-basis")
+    unavailable = None
     try:
         price = await _call("GET", "/api/bitcoin/price")
-    except ToolError:
-        price = None
+    except ToolError as exc:
+        price, unavailable = None, str(exc)  # why: Nobody, not chosen yet, no answer… (#145)
     tz = await _call("GET", "/api/settings/tax-timezone")
     return {
         "tax_timezone": tz.get("timezone"),
@@ -305,6 +307,8 @@ async def get_portfolio() -> ToolResult:
         ],
         "average_cost_basis": avg,
         "btc_price_usd": price.get("USD") if isinstance(price, dict) else None,
+        "btc_price_source": price.get("source") if isinstance(price, dict) else None,
+        **({"btc_price_unavailable": unavailable} if unavailable else {}),
     }
 
 
@@ -357,7 +361,8 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
     price when that hour began (UTC), or that day's 00:00 UTC price where it has no hourly
     one ("moment" says which). A date alone (YYYY-MM-DD) gives that UTC day's 00:00
     price; nothing gives the price right now. Use it to value income, spending, or gifts
-    when the user doesn't know the USD amount."""
+    when the user doesn't know the USD amount. "source" says where the price came from:
+    "mempool" is the user's own Mempool, any other name a public price site."""
     if date:
         data = await _call("GET", "/api/bitcoin/price/history", params=await _price_query(date))
     else:
@@ -365,6 +370,8 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
     result = {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
     if isinstance(data, dict) and data.get("moment"):
         result.update(moment=data["moment"], priced_at=data.get("at"))
+    if isinstance(data, dict) and data.get("source"):
+        result["source"] = data["source"]  # "mempool" (the user's own) or a public site's name (#145)
     return result
 
 

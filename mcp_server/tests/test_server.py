@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key
+from backend.services.bitcoin import get_current_price as _UNSTUBBED_CURRENT_PRICE  # the real one, before the stub
 from backend.services.tax_time import set_tax_timezone
 from backend.tests.conftest import init_test_db, stub_daily_prices
 from btctx_mcp import server
@@ -425,16 +426,29 @@ async def test_list_transactions_days_are_in_the_tax_timezone(mcp_client, backen
     assert (dec_31["total_matching"], jan_1["total_matching"]) == (1, 0)
 
 
+async def test_the_portfolio_says_why_there_is_no_live_price(mcp_client, monkeypatch):
+    """Review of #191: with Nobody (or not chosen yet), the AI gets BitcoinTX's reason, not two nulls."""
+    from backend.services import bitcoin, outbound
+
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    monkeypatch.setattr(bitcoin, "get_current_price", _UNSTUBBED_CURRENT_PRICE)  # the app's own refusal
+    portfolio = await call(mcp_client, "get_portfolio")
+    assert portfolio["btc_price_usd"] is None and portfolio["btc_price_source"] is None
+    assert "You chose Nobody for prices, so none is asked. To change that:" in portfolio["btc_price_unavailable"]
+
+
 async def test_portfolio_and_price(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     portfolio = await call(mcp_client, "get_portfolio")
     balances = {b["account"]: b["balance"] for b in portfolio["balances"]}
     assert balances["Wallet"] > 0
     assert portfolio["btc_price_usd"] == 60000.0
+    assert "btc_price_source" in portfolio  # where the live price came from, when known (#145)
+    assert "btc_price_unavailable" not in portfolio
     assert portfolio["tax_timezone"] == "UTC"
 
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15"})
-    assert price["usd"] == 50000.0
+    assert price["usd"] == 50000.0 and price["source"] == "stub"  # where the stored price came from
     # a transaction's time: the price BitcoinTX values it at (the day's here: no hourly prices in tests)
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15T21:05:00-05:00"})
     assert (price["usd"], price["moment"], price["priced_at"]) == (50000.0, "day", "2024-01-16T00:00:00Z")
