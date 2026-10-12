@@ -146,9 +146,11 @@ So derived values must be recomputable from the Transaction row alone.
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
-  (`proceeds_from_price`) like an income value: an edit of the amount, hour,
-  purpose or type prices them again, with the fee's value (one price for a
-  transaction's priced values); a typed one, never the form's echo, is kept.
+  (`proceeds_from_price`) like an income value: an edit of the amount or
+  hour (or a blank sent) prices them again; a change of purpose or type,
+  or a typed value (never the form's echo), makes them typed. A spend's
+  proceeds and fee value share one price: one priced again while the other
+  keeps the day's price takes the day's too (`_keeps_a_day_price`).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update

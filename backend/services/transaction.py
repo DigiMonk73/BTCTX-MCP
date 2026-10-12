@@ -9,6 +9,7 @@ so everything derived must follow from the saved transactions alone.
 """
 
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
 from collections import defaultdict
@@ -84,8 +85,11 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
-    _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
-    _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
+    # An import's values priced at the day: a value priced now takes the day
+    # too, so the transaction's priced values share one price
+    with _priced_at_the_day(db, tx_data.get("price_moment") == "day"):
+        _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
+        _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
     if tx_data.get("fee_usd_from_price") and tx_data.get("fee_usd") is not None:
         # A CSV re-import of a value once priced (not typed): kept as it
         # was, and still re-priced if the time or fee changes.
@@ -100,10 +104,18 @@ PRICE_MOMENTS = ("hour", "day")
 
 def _has_priced_value(data) -> bool:
     """Whether a transaction (or its input) holds a value that came from a
-    price: an income or rebate basis, a Spent's proceeds, a BTC fee's value."""
+    price: an income or rebate basis, a Spent's proceeds, a BTC fee's value.
+    A mark without its value (a deposit moved to Bank) isn't one."""
     get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
-    return bool(get("cost_basis_from_price") or get("proceeds_from_price")
+    return bool((get("cost_basis_from_price") and get("cost_basis_usd") is not None)
+                or (get("proceeds_from_price") and get("gross_proceeds_usd") is not None)
                 or (get("fee_usd") is not None and not get("fee_usd_manual")))
+
+
+def _note_moment(data: dict, moment: str) -> None:
+    """Record the moment a value was just priced at: the day wins, so a
+    transaction with any value at the day's price is listed by Ledger Review."""
+    data["price_moment"] = "day" if "day" in (data.get("price_moment"), moment) else moment
 
 
 def _price_moment(data) -> str | None:
@@ -210,9 +222,10 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
-    _check_edit(tx, tx_data, type_changed, db)
-    fee_repriced = _revalue_btc_fee(tx, tx_data, db)
-    _revalue_spent_proceeds(tx, tx_data, db, fee_repriced)
+    with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
+        _check_edit(tx, tx_data, type_changed, db)
+        _revalue_btc_fee(tx, tx_data, db)
+        _revalue_spent_proceeds(tx, tx_data, db)
     _apply_edit(tx, tx_data, type_changed)
     tx.price_moment = _price_moment(tx)
     tx.updated_at = datetime.now(timezone.utc)
@@ -326,7 +339,7 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
         tx_data["cost_basis_from_price"] = True
-        tx_data["price_moment"] = edited["price_moment"]
+        _note_moment(tx_data, edited["price_moment"])
 
 
 def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
@@ -365,54 +378,95 @@ def _hour_changed(tx: Transaction, tx_data: dict) -> bool:
     return False
 
 
-def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> bool:
+def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
     """A BTC fee's USD value: a typed one is kept; otherwise it is priced
     again when the fee or the hour changes (fee_usd sent as null clears a
-    typed one). Whether it was priced again."""
+    typed one)."""
     if "fee_usd" not in tx_data and (tx.fee_usd_manual or not _fee_inputs_changed(tx, tx_data)):
-        return False
+        return
     fee = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "fee_amount", "fee_currency", "timestamp")}
     fee["fee_usd"] = tx_data["fee_usd"] if "fee_usd" in tx_data else (
         tx.fee_usd if tx.fee_usd_manual else None)
     _value_btc_fee(fee, db, manual=fee["fee_usd"] is not None)
     tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
-    if "price_moment" not in fee:
-        return False
-    tx_data["price_moment"] = fee["price_moment"]
-    return True
+    if "price_moment" in fee:
+        _note_moment(tx_data, fee["price_moment"])
 
 
-def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session, fee_repriced: bool) -> None:
+def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
     A Spent's proceeds that came from a price, after an edit: a typed value
     is kept (the form sends back the value it shows: that isn't a typed
-    one); a blank or $0 one, or one whose amount, hour, purpose or type the
-    edit changes, is priced again at the hour, with its BTC fee's value: a
-    transaction's priced values share one price.
+    one), and a change of purpose or type makes them typed; a blank or $0
+    one, or one whose amount or hour the edit changes, is priced again.
     """
     if not tx.proceeds_from_price:
         return
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "amount", "timestamp")}
-    sent = tx_data.get("proceeds_usd", tx_data.get("gross_proceeds_usd"))
-    if not _is_spent(edited) or (sent is not None and Decimal(sent) > 0
-                                 and Decimal(sent).quantize(Decimal("0.01")) != Decimal(tx.gross_proceeds_usd or 0)):
+    if not _is_spent(edited) or _typed_proceeds(tx, tx_data):
         tx_data["proceeds_from_price"] = False
         return
-    blank = sent is not None and Decimal(sent) <= 0
-    if not (blank or fee_repriced or _spent_inputs_changed(tx, tx_data)):
+    if not (_cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)):
         return
     priced = _price_at(edited["timestamp"], db)
     tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = (priced.usd * Decimal(edited["amount"])).quantize(Decimal("0.01"))
-    tx_data["price_moment"] = priced.moment
-    if not fee_repriced and tx.fee_usd is not None and not tx.fee_usd_manual:
-        fee_btc = Decimal(tx_data.get("fee_amount", tx.fee_amount) or 0)
-        tx.fee_usd = (priced.usd * fee_btc).quantize(Decimal("0.01"))
+    _note_moment(tx_data, priced.moment)
+
+
+def _sent_proceeds(tx_data: dict):
+    """The proceeds an edit sends (the gross first: _apply_edit stores it first), or None."""
+    return tx_data["gross_proceeds_usd"] if "gross_proceeds_usd" in tx_data else tx_data.get("proceeds_usd")
+
+
+def _typed_proceeds(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit types a Spent's proceeds: a positive value that isn't the stored one sent back."""
+    sent = _sent_proceeds(tx_data)
+    return sent is not None and Decimal(sent) > 0 \
+        and Decimal(sent).quantize(Decimal("0.01")) != Decimal(tx.gross_proceeds_usd or 0)
+
+
+def _cleared_proceeds(tx_data: dict) -> bool:
+    """Whether the edit sends the proceeds blank (the form's null for an emptied field) or $0."""
+    sent = _sent_proceeds(tx_data)
+    return ("gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data) and (sent is None or Decimal(sent) <= 0)
 
 
 def _spent_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
     return _hour_changed(tx, tx_data)
+
+
+def _keeps_a_day_price(tx: Transaction, tx_data: dict) -> bool:
+    """
+    Whether an edit prices again one of a Spent's priced values (its
+    proceeds, its fee's value) while the other keeps the day's price: then
+    the one priced again takes the day's price too, so the transaction's
+    values share one price, and Ledger Review offers both at the hour.
+    """
+    if tx.price_moment != "day" or not tx.proceeds_from_price or tx.fee_usd is None or tx.fee_usd_manual:
+        return False
+    if not _is_spent({k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose")}) \
+            or _typed_proceeds(tx, tx_data) or tx_data.get("fee_usd") is not None:
+        return False  # one of them is typed now: the other is the only priced value left
+    proceeds = _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
+    fee = ("fee_usd" in tx_data) or _fee_inputs_changed(tx, tx_data)
+    return proceeds != fee
+
+
+@contextmanager
+def _priced_at_the_day(db: Session, at_the_day: bool):
+    """Within it, a value priced is priced at the day (_price_at)."""
+    before = db.info.get(DAY_PRICES)
+    db.info[DAY_PRICES] = at_the_day
+    try:
+        yield
+    finally:
+        db.info[DAY_PRICES] = before
+
+
+# Session.info key: price at the day, not the hour (_priced_at_the_day)
+DAY_PRICES = "btctx_price_at_the_day"
 
 
 # Written as given when the edit sends them, in this order.
@@ -526,7 +580,8 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     if tx.proceeds_usd is None:
         priced = _price_for(tx, "it has no Proceeds (USD) value", db)
         gross = (priced.usd * amount).quantize(Decimal("0.01"))
-        tx.proceeds_from_price, tx.price_moment = True, priced.moment
+        tx.proceeds_from_price = True
+        tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
@@ -986,7 +1041,7 @@ def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
         )
     data["fee_usd"] = (priced.usd * Decimal(data["fee_amount"])).quantize(Decimal("0.01"))
     data["fee_usd_manual"] = False
-    data["price_moment"] = priced.moment
+    _note_moment(data, priced.moment)
 
 
 def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
@@ -998,7 +1053,8 @@ def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
     if tx.fee_usd is None:
         priced = _price_for(tx, "its network fee has no USD value", db)
         tx.fee_usd = (priced.usd * fee_btc).quantize(Decimal("0.01"))
-        tx.fee_usd_manual, tx.price_moment = False, priced.moment
+        tx.fee_usd_manual = False
+        tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     return Decimal(tx.fee_usd)
 
 
@@ -1008,11 +1064,8 @@ def _price_for(tx: Transaction, missing: str, db: Session) -> hourly_prices.Pric
     without one, a 422 naming the transaction (a report fails on it, and the
     day alone doesn't say which entry to fix)."""
     try:
-        if tx.price_moment == "day":
-            day = price_history.utc_day(tx.timestamp)
-            return hourly_prices.Priced(price_history.daily_price(db, tx.timestamp), "day",
-                                        datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
-        return _price_at(tx.timestamp, db)
+        with _priced_at_the_day(db, tx.price_moment == "day"):
+            return _price_at(tx.timestamp, db)
     except HTTPException as e:
         day = tx.timestamp.date().isoformat() if tx.timestamp else "an unknown day"
         amount = format(Decimal(tx.amount or 0).normalize(), "f")
@@ -1025,9 +1078,14 @@ def _price_for(tx: Transaction, missing: str, db: Session) -> hourly_prices.Pric
 def _price_at(timestamp: datetime, db: Session) -> hourly_prices.Priced:
     """
     The BTC price that values `timestamp`: its UTC hour's opening price,
-    else its UTC day's, and which (services/hourly_prices.py). Never today's
-    live price. Raises 422 when no price is available.
+    else its UTC day's, and which (services/hourly_prices.py); the day's
+    within _priced_at_the_day. Never today's live price. Raises 422 when no
+    price is available.
     """
+    if db.info.get(DAY_PRICES):
+        day = price_history.utc_day(timestamp)
+        return hourly_prices.Priced(price_history.daily_price(db, timestamp), "day",
+                                    datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
     return hourly_prices.price_at(db, timestamp)
 
 
@@ -1071,7 +1129,7 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
             ),
         )
     tx_data["cost_basis_usd"] = (priced.usd * amount).quantize(Decimal("0.01"))
-    tx_data["price_moment"] = priced.moment
+    _note_moment(tx_data, priced.moment)
     return True
 
 
