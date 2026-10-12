@@ -22,3 +22,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
+
+/* Beside "BTC Price: waiting for you": the way to the card (#145) */
+.converter-action { color: var(--color-accent); font-size: var(--text-13); text-decoration: underline; }

@@ -7,7 +7,7 @@ import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { NO_TOTALS, accountTotals, waitingToConfirm, type AccountTotals, type LivePrice } from "../utils/dashboard";
+import { NO_TOTALS, accountTotals, waitingDetail, type AccountTotals, type LivePrice } from "../utils/dashboard";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
         if (axios.isAxiosError(err) && err.response?.status === 503) setPricesOff(true);
         const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
         if (typeof detail === "string") setPriceProblem(detail);
-        setPriceWaiting(waitingToConfirm(detail));
+        setPriceWaiting(waitingDetail(detail));
       })
       .finally(() => {
         setIsPriceLoading(false);

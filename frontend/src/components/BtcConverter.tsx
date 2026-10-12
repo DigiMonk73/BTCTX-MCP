@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { waitingToConfirm } from "../utils/dashboard";
+import { waitingDetail } from "../utils/dashboard";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
@@ -27,7 +27,7 @@ const BtcConverter: React.FC = () => {
     } catch (err) {
       // no price: 0; 503 is prices off (or not chosen yet) by choice
       if (axios.isAxiosError(err) && err.response?.status === 503) {
-        why = waitingToConfirm(err.response?.data?.detail) ? "waiting" : "off";
+        why = waitingDetail(err.response?.data?.detail) ? "waiting" : "off";
       }
     }
     if (ticket === priceTicket.current) {
@@ -240,7 +240,7 @@ const BtcConverter: React.FC = () => {
             {noPrice === "waiting" && btcPrice <= 0 && (
               <>
                 {" · "}
-                <Link to="/dashboard">Confirm</Link>
+                <Link className="converter-action" to="/dashboard">Confirm</Link>
               </>
             )}
           </p>

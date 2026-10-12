@@ -133,8 +133,10 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     await expect(card.getByLabel(/^Public price sites/)).toBeChecked();
     await expect(card.locator(".price-choice.chosen")).toContainText("Public price sitesYour current choice");
     await expect(card.getByRole("status")).toHaveText(/Waiting for you to confirm: nothing is contacted until you do\./);
-    await expect(page.locator(".btc-price-value")).toHaveText("Confirm your choice Confirm now");
+    await expect(page.locator(".btc-price-value")).toHaveText("Confirm your choice");
+    await expect(page.getByRole("link", { name: "Confirm now" })).toBeVisible();
     await expect(page.getByRole("complementary")).toContainText("BTC Price: waiting for you · Confirm");
+    await expect(page.getByRole("complementary").getByRole("link", { name: "Confirm" })).toBeVisible();
     await page.goto("/dashboard"); // after a restart of the page: still asked, still nothing sent
     await expect(card).toBeVisible();
     expect(outsideRequests(app)).toEqual([]);

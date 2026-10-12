@@ -26,7 +26,7 @@ export interface LivePrice {
 }
 
 /** Whether a price answer's reason is that the choice waits to be confirmed (the server's 503). */
-export function waitingToConfirm(detail: unknown): boolean {
+export function waitingDetail(detail: unknown): boolean {
   return typeof detail === "string" && detail.startsWith("Confirm where BitcoinTX gets newer prices");
 }
 
