@@ -103,8 +103,10 @@ def price_at(db: Session, when: datetime) -> Priced:
     return Priced(usd, "day", datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
 
 
-def hourly_price(db: Session, when: datetime) -> tuple[Decimal, str] | None:
-    """The opening price of `when`'s UTC hour and its source, or None when there's none."""
+def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:
+    """The opening price of `when`'s UTC hour and its source, or None when
+    there's none. wait=False (Ledger Review's many lookups): a year not
+    downloaded yet has none, though the download starts."""
     hour = hour_of(when)
     if not pf.year_start(pf.FIRST_YEAR) <= hour <= _current_hour():
         return None
@@ -118,7 +120,7 @@ def hourly_price(db: Session, when: datetime) -> tuple[Decimal, str] | None:
         return prices[hour], "bitstamp"
     files_end = lines[-1].last_hour if lines else None
     found, keep = _from_sources(db, hour, files_end)
-    if found is None and line is not None and start_download():
+    if found is None and line is not None and start_download() and wait:
         prices = _wait_for_year(line)  # before anything is written: no write lock held meanwhile
         found = (prices[hour], "bitstamp") if prices is not None else None
     _store(db, keep)

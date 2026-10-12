@@ -67,7 +67,7 @@ def pdf_text(client, year):
 def test_the_report_generates_with_price_lookups_off(auth_client, ledger, year):
     text = pdf_text(auth_client, year)
     assert "not priced" in text
-    assert f"No BTC price for {year}-12-31" in text
+    assert f"No BTC price for when {year} ended: not priced" in text
 
 
 def test_unpriced_holdings_are_not_priced_never_zero(auth_client, test_engine, ledger):
@@ -88,7 +88,8 @@ def test_nothing_held_on_jan_1_needs_no_price(auth_client, test_engine, ledger, 
     stub_daily_prices(monkeypatch, lambda day: asked.append(day))  # records, answers "no price"
     data = report(test_engine, 2023)
     assert data["start_of_year_balances"] == []
-    assert [d.isoformat() for d in asked] == ["2023-12-31"]  # only the year-end value was looked up
+    # only the year-end value was looked up: when 2023 ended (#144), not December 31's 00:00 UTC
+    assert [d.isoformat() for d in asked] == ["2024-01-01"]
 
 
 def test_with_a_price_the_holdings_are_valued(auth_client, test_engine, ledger, monkeypatch):

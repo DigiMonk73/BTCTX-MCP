@@ -187,6 +187,52 @@ All notable changes to BitcoinTX are documented in this file.
   the AI connector's `get_btc_price` takes a transaction's time and gives
   the price BitcoinTX values it at; its guide says the same. Update the
   connector (`btctx-mcp`) with this release.
+- **Ledger Review offers the hour's price for values priced at the day**
+  (#144, tax figures; the fourth of five pull requests). Its new check,
+  "Values priced at the day's price that the hour would change", lists, by
+  tax year, each transaction whose values BitcoinTX filled in at the day's
+  price (income or rebate values, Spent proceeds, network fee values) and
+  what its hour's price would make them; changes under $1.00 aren't listed
+  one by one but are in each year's totals. Nothing changes until you tick
+  some and apply them, or apply a whole year (Settings, or `python -m
+  backend.cli review --apply-hourly-prices YEAR`): a backup copy of the
+  database first (in `backups/`, its newest 5 kept apart from the update's
+  copies), then the values at the hour (the day's price where
+  there's no hourly price), marked so, and a recalculation. For a year
+  you've filed, leaving it as filed is recommended; whether to amend is a
+  question for a tax professional. Typed values and inheritances (valued
+  at the date of death's day) are never listed. It replaces "Transfer fees
+  valued far from that day's price" and its **Fix these** (`review
+  --fix-fee-prices`): such a fee is in this check, at its hour's price
+  (listed when it changes by $1.00 or more). The
+  check of income and rebate values now covers only the ones you typed,
+  compared with that hour's price.
+- **The Complete Tax Report states how values are priced, and values
+  holdings at the hour the tax year ends** (#144, tax figures; the last of
+  five pull requests).
+  - Its Notes say how a blank value is filled in: Bitstamp's hourly
+    opening price, downloaded by BitcoinTX and checked against published
+    fingerprints, or your own Mempool server's record; that day's price
+    where there's none; an inheritance at its date of death's. They also
+    say that the IRS measures value at the date and time of each
+    transaction (Treas. Reg. §1.1001-7(b)(3)) and approves no price source
+    or method, and that a value from your own records is better evidence.
+  - A new table, **Values from the BTC price**, lists each of the year's
+    values BitcoinTX filled in (income, rebate and inherited values, Spent
+    proceeds, network fee values) and the price each used: when its hour
+    began, that day's 00:00 UTC price, or the date of death's. Every other
+    such value was entered. (A gift's or donation's value isn't tracked
+    this way; the report says so.)
+  - **Holdings at the start and end of a tax year** are valued at the
+    price when it began and ended (midnight in the tax timezone: the
+    hour's price, else that day's), so one year's end and the next one's
+    start agree. Before, the year-end value used December 31's 00:00 UTC
+    price, hours before the year ended (29 hours in New York, 15 in
+    Tokyo). Holdings values are for information (no
+    IRS form takes them); a report made before the year ends leaves them
+    unpriced, as before.
+  - With a donation, the gifts section says a deduction over $5,000 needs
+    a qualified appraisal (IRS digital asset FAQ, Q78).
 - **The live price says where it came from and when** (#145, the price
   source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
   `kraken` or `bitstamp`) and `at`, so the screens can say when your

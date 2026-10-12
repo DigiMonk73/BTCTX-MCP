@@ -187,8 +187,11 @@ So derived values must be recomputable from the Transaction row alone.
   moment is recorded in `transactions.price_moment` ("hour" or "day"; none
   when every value is typed). A value priced before hourly prices stays at
   the day until an edit prices it again or the owner applies Ledger
-  Review's check (#144); a recalculation never re-prices. Year-end holdings
-  still use the day's price. Nothing is asked until the owner picks a
+  Review's check (#144); a recalculation never re-prices. Holdings at a
+  tax year's start and end are valued at `price_at` of that bound (the
+  hour the tax year ends, in the tax timezone), and the Complete Tax
+  Report lists the year's priced values with the price each used.
+  Nothing is asked until the owner picks a
   price source (`services/outbound.py`: off / public / own mempool,
   optional fallback),
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
@@ -235,7 +238,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/hourly_prices.py` | the price when an hour began (#144): stored hours (`btc_price_hourly`), the year files (verified download into `<data dir>/btc-prices/`), a mempool server's live hours, Bitstamp's fixed blocks after the files; else the day's price, marked as such |
 | `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
-| `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
+| `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |

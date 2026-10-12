@@ -43,6 +43,9 @@ BACKUP_DIRNAME = "backups"
 BACKUPS_KEPT = 5
 # Copies the AI key asked for (POST /api/backup/ai-copy), kept apart.
 AI_COPIES_KEPT = 3
+# Copies before Ledger Review's hourly check is applied (#144), kept apart:
+# applying one item at a time must not push out the pre-upgrade copy.
+REVIEW_COPIES_KEPT = 5
 # Tables without which a database can't be a BitcoinTX ledger at all.
 CORE_TABLES = {"users", "accounts", "transactions"}
 
@@ -112,7 +115,8 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
-    and pre-restore; "ai": asked for with the AI key) keeps its own newest
+    and pre-restore; "ai": asked for with the AI key; "review": before
+    Ledger Review's hourly check is applied) keeps its own newest
     `keep`, so one kind never pushes out the other.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME

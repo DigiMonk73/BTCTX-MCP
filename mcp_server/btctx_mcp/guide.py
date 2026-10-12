@@ -177,8 +177,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    change the proceeds, send the new gross as proceeds_usd, never the
    listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show
-   the user what it lists; let them decide what to change. Fee-value fixes
-   are made by the user in Settings -> Ledger Review. Call recalculate_ledger
+   the user what it lists; let them decide what to change. Moving values
+   priced at the day to their hour's price is done by the user in Settings
+   -> Ledger Review, never by you. Call recalculate_ledger
    only when the user asks for it.
 6. Before a large import or before deleting or changing many entries, offer
    backup_ledger (a copy of the database kept on the user's server).

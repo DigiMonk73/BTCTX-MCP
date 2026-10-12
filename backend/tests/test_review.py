@@ -105,8 +105,8 @@ def test_review_amounts_have_eight_decimals(auth_client, test_engine):
 
 
 def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
-    """A 50-satoshi transfer fee valued off the day's price reads
-    "Fee 0.00000050 BTC", never exponent form (#74)."""
+    """A transfer of 60 satoshis whose fee was valued off the day's price:
+    its amount reads 0.00000060, never exponent form (#74)."""
     auth_client.delete("/api/transactions/delete_all")
     post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
     try:
@@ -114,12 +114,12 @@ def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
                     amount="0.01", fee_amount="0", fee_currency="BTC", source="MyBTC",
                     cost_basis_usd="400").status_code == 200
         fee = post(type="Transfer", timestamp="2024-05-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
-                   amount="0.001", fee_amount="0.0000005", fee_currency="BTC").json()
+                   amount="0.0000006", fee_amount="0.0000005", fee_currency="BTC").json()
         with test_engine.begin() as con:  # valued at another price, as an older version could
-            con.execute(text("UPDATE transactions SET fee_usd = '1.00' WHERE id = :id"), {"id": fee["id"]})
+            con.execute(text("UPDATE transactions SET fee_usd = '2.00' WHERE id = :id"), {"id": fee["id"]})
         review = auth_client.get("/api/review").json()
-        item = next(c for c in review["checks"] if c["key"] == "fee_value_off")["items"][0]
-        assert item["issue"].startswith("Fee 0.00000050 BTC stored as $1.00"), item["issue"]
+        item = next(c for c in review["checks"] if c["key"] == "day_priced_values")["items"][0]
+        assert item["amount"] == "0.00000060" and item["change"].startswith("Fee value $2.00 -> "), item
     finally:
         auth_client.delete("/api/transactions/delete_all")
 
@@ -208,15 +208,16 @@ def fee_proceeds(test_engine, tx_id):
 def test_review_flags_live_priced_fees_and_off_income_values(auth_client, priced):
     live, typed, income = priced
     review = auth_client.get("/api/review").json()
-    assert ids(review, "fee_value_off") == [live]  # a typed value is the owner's
-    item = next(c for c in review["checks"] if c["key"] == "fee_value_off")["items"][0]
-    assert "$12.00 -> $10.00" in item["change"]
+    assert ids(review, "day_priced_values") == [live]  # a typed value is the owner's
+    item = next(c for c in review["checks"] if c["key"] == "day_priced_values")["items"][0]
+    # no hourly prices in tests: compared with the day's, as the old fee check did (F14)
+    assert item["change"] == "Fee value $12.00 -> $10.00." and item["moment"] == "day"
     assert ids(review, "income_value_off") == [income]
     assert review["no_price_for"] == []
 
 
-def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_client, test_engine, priced,
-                                                                      ai_key_headers):
+def test_applying_is_login_only_and_changes_only_values_priced_at_the_day(auth_client, test_engine, priced,
+                                                                         ai_key_headers):
     live, typed, income = priced
     from fastapi.testclient import TestClient
 
@@ -224,18 +225,19 @@ def test_fixing_fee_values_is_login_only_and_changes_only_flagged_rows(auth_clie
 
     anonymous = TestClient(app)
     assert anonymous.get("/api/review", headers=ai_key_headers).status_code == 200
-    r = anonymous.post("/api/review/fee-prices", json={"ids": [live]}, headers=ai_key_headers)
+    r = anonymous.post("/api/review/hourly-prices", json={"ids": [live]}, headers=ai_key_headers)
     assert r.status_code == 403
     assert str(fee_proceeds(test_engine, live)) == "12"
 
-    r = auth_client.post("/api/review/fee-prices", json={"ids": [live, typed, income]})
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [live, typed, income]})
     assert r.status_code == 200, r.text
-    assert r.json() == {"changed": [{"id": live, "old": "12.00", "new": "10.00"}], "recalculated": True}
+    assert r.json()["changed"] == [{"id": live, "moment": "day", "values": {"fee_usd": ["12.00", "10.00"]}}]
+    assert r.json()["recalculated"] is True
     txs = {t["id"]: t for t in auth_client.get("/api/transactions").json()}
     assert txs[live]["fee_usd"] == "10.00" and txs[typed]["fee_usd"] == "12.00"
     assert txs[income]["cost_basis_usd"] == "620.00"
     assert str(fee_proceeds(test_engine, live)) == "10"
-    assert ids(auth_client.get("/api/review").json(), "fee_value_off") == []
+    assert ids(auth_client.get("/api/review").json(), "day_priced_values") == []
 
 
 def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_client, test_engine):
