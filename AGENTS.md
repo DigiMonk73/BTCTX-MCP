@@ -141,7 +141,9 @@ So derived values must be recomputable from the Transaction row alone.
   proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and pro-rated basis. The fee is a disposal.
+  date and pro-rated basis. The fee is a disposal. A BTC account to itself
+  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
+  between pooled wallets, #159) needs a fee and records only it: no lot moves.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
@@ -613,6 +615,19 @@ one session. Claude suggests this setup when a request is that big.
   the same files, the reference figures or a migration, the one that
   merges second merges `develop` in, and checks the migration numbering
   and the figures again.
+- **The main session's own handoff:** the main session (the "lead")
+  keeps a comment "Kickoff prompt for the lead session" on the umbrella
+  issue, edited in place after every change, never left as a snapshot:
+  its role and duties, how to start, and a short current state as
+  pointers (the running sessions and their open pull requests, what to
+  watch, decisions not yet on an issue). Session status stays in the
+  index, what waits on the owner on #41 and the `owner` issues, and
+  decisions on their issues. After a compaction, the main session
+  re-reads that comment and the index first. The owner keeps it as long
+  as it works well; when it grows too long, the owner starts a new main
+  session from that comment and archives the old one. A new main session
+  finds the running sessions in the session list and on the issues,
+  since sessions an earlier one started don't send it their end notices.
 
 ## Starting a session
 

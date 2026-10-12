@@ -1,17 +1,77 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
+import { transferDestinations } from "../../utils/transactionForm";
 import FeeValueField from "./FeeValueField";
+
+// A BTC account sent to itself (#159): how the choice reads, and what it records
+const WITHIN_LABEL: Partial<Record<AccountType, string>> = {
+  Wallet: "Wallet: consolidate / move within the same wallet",
+  Exchange: "Exchange: move between exchanges BitcoinTX counts as one",
+};
+const WITHIN_HINT =
+  "Only the network fee is recorded: it's a disposal of your oldest coins at the fee's value (Form 8949, " +
+  "box I or L; C or F before 2025). Your coins, their dates and cost basis stay as they are.";
+// Between two exchanges BitcoinTX pools, it can't tell which one later sells
+const BETWEEN_EXCHANGES_HINT =
+  "A later sale at the exchange the coins moved to usually shows no basis on its 1099-DA: set that sale's " +
+  "Broker form to Proceeds only.";
+
+/** The destination: a choice when a BTC account can also send to itself (#159). */
+const ToAccountField: React.FC = () => {
+  const { register, watch } = useFormContext<TransactionFormData>();
+  const fromAccount = watch("fromAccount");
+  const fromCurrency = watch("fromCurrency");
+  const toAccount = watch("toAccount");
+  const destinations = transferDestinations(fromAccount, fromCurrency);
+  const within = fromCurrency === "BTC" && !!fromAccount && toAccount === fromAccount;
+  return (
+    <div className="field">
+      <label htmlFor="tx-to-account">To Account</label>
+      {destinations.length > 1 ? (
+        <select id="tx-to-account" className="input" {...register("toAccount", { deps: ["amountTo"] })}>
+          {destinations.map((account) => (
+            <option key={account} value={account}>
+              {account === fromAccount ? WITHIN_LABEL[account] : account}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id="tx-to-account"
+          type="text"
+          className="input"
+          {...register("toAccount")}
+          readOnly
+        />
+      )}
+      {within && <small className="field-hint">{WITHIN_HINT}</small>}
+      {within && fromAccount === "Exchange" && <small className="field-hint">{BETWEEN_EXCHANGES_HINT}</small>}
+      {!within && toAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
+    </div>
+  );
+};
 
 /**
  * A transfer between the user's accounts: the destination follows from the
- * source (useFieldAutofill), and a BTC transfer's fee is what was sent less
- * what arrived.
+ * source (useFieldAutofill; a BTC one can also be the same account, a
+ * consolidation), and a BTC transfer's fee is what was sent less what arrived.
  */
 const TransferFields: React.FC = () => {
-  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  const { register, watch, setValue, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
   const fromAccount = watch("fromAccount");
   const fromCurrency = watch("fromCurrency");
+  // Another source: its usual destination, not the old one. Set here, not left
+  // to useFieldAutofill: a destination select that mounts without a value
+  // takes its first option in the form's values without a re-render, and
+  // the form would show a destination it didn't know about
+  const newSource = {
+    deps: "amountTo" as const,  // a message about the old destination goes
+    onChange: () => {
+      const { fromAccount: account, fromCurrency: currency } = getValues();
+      setValue("toAccount", transferDestinations(account, currency)[0]);
+    },
+  };
   return (
     <>
       <div className="field">
@@ -19,7 +79,7 @@ const TransferFields: React.FC = () => {
         <select
           id="tx-from-account"
           className="input"
-          {...register("fromAccount", { required: true })}
+          {...register("fromAccount", { required: true, ...newSource })}
         >
           <option value="">Select From Account</option>
           <option value="Bank">Bank Account</option>
@@ -38,7 +98,7 @@ const TransferFields: React.FC = () => {
           <select
             id="tx-from-currency"
             className="input"
-            {...register("fromCurrency", { required: true })}
+            {...register("fromCurrency", { required: true, ...newSource })}
           >
             <option value="">Select Currency</option>
             <option value="USD">USD</option>
@@ -75,17 +135,7 @@ const TransferFields: React.FC = () => {
         )}
       </div>
 
-      <div className="field">
-        <label htmlFor="tx-to-account">To Account</label>
-        <input
-          id="tx-to-account"
-          type="text"
-          className="input"
-          {...register("toAccount")}
-          readOnly
-        />
-        {watch("toAccount") === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
-      </div>
+      <ToAccountField />
 
       <div className="field">
         <label htmlFor="tx-to-currency">To Currency</label>
@@ -106,12 +156,17 @@ const TransferFields: React.FC = () => {
           step="0.00000001"
           className="input"
           {...register("amountTo", {
-            required: true,
+            required: "Amount (To) is required",
             valueAsNumber: true,
+            // Within one account only the fee is recorded, so there must be one
+            validate: (v, values) =>
+              !(values.fromCurrency === "BTC" && values.toAccount === values.fromAccount) ||
+              (v ?? 0) < (values.amountFrom ?? 0) ||
+              "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).",
           })}
         />
         {errors.amountTo && (
-          <span className="field-error">Amount (To) is required</span>
+          <span className="field-error">{errors.amountTo.message || "Amount (To) is required"}</span>
         )}
       </div>
 

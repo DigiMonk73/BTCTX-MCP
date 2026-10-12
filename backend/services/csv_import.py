@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.services.transaction import (
-    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record, original_date_problem,
+    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, SAME_ACCOUNT_NEEDS_FEE, create_transaction_record,
+    original_date_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -528,7 +529,9 @@ _ACCOUNT_RULES = {
          "Transfer must have from_account as an internal account (not 'External')."),
         ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
          "Transfer must have to_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: f == t, "Transfer must have different from_account and to_account."),
+        # Only Wallet or Exchange BTC can send to itself: a consolidation (#159)
+        ("to_account", lambda f, t: f == t and f not in BTC_ACCOUNTS,
+         "Transfer must have different from_account and to_account."),
     ],
     "Buy": [
         ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD),
@@ -602,6 +605,8 @@ def _transfer_rules(row: _Row):
     expected = "BTC" if row.from_id in BTC_ACCOUNTS else "USD"
     if row.fee_currency and row.fee_currency != expected:
         yield _error(row.number, "fee_currency", f"A transfer from this account pays its fee in {expected}.")
+    if row.from_id == row.to_id and row.from_id in BTC_ACCOUNTS and not row.fee_amount:
+        yield _error(row.number, "fee_amount", SAME_ACCOUNT_NEEDS_FEE)
 
 
 _TYPE_RULES = {
@@ -694,6 +699,9 @@ TEMPLATE_ROWS = [
     ["2024-02-20T10:00:00Z", "Transfer", "0.2", "Exchange BTC", "Wallet",
      "", "", "0.0001", "BTC", "", "", "Move BTC to wallet; fee_usd is what the fee was worth (blank: that day's price)",
      "5.20"],
+    ["2024-02-25T10:00:00Z", "Transfer", "0.3", "Wallet", "Wallet",
+     "", "", "0.00005", "BTC", "", "",
+     "Consolidate the wallet's coins (UTXOs): only the network fee is recorded, as a small disposal", "2.60"],
     # Withdrawals: USD, then BTC for every purpose
     ["2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
      "", "", "", "", "", "", "USD withdrawal for expenses"],
