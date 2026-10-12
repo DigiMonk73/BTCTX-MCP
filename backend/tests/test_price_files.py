@@ -131,6 +131,8 @@ class Exchanges:
             self.hiccups -= 1
             return httpx.Response(429)
         current = int(self.now) // HOUR * HOUR
+        if host == "www.bitstamp.net" and getattr(self, "bitstamp_shape", None) == "changed":
+            return httpx.Response(200, json={"result": []})
         if host == "www.bitstamp.net":
             start = int(params["start"])
             rows = [{"timestamp": str(h), "open": str(self.bitstamp[h])}
@@ -141,6 +143,8 @@ class Exchanges:
             rows = [[h * 1000, float(self.bitfinex[h]), 0, 0, 0, 1] for h in range(lo, hi + HOUR, HOUR)
                     if h in self.bitfinex]
             return httpx.Response(200, json=rows)
+        if host == "api.kraken.com" and getattr(self, "kraken_shape", None) == "no pair":
+            return httpx.Response(200, json={"error": [], "result": {"last": current}})
         if host == "api.kraken.com":
             rows = [[h, str(self.kraken[h]), "0", "0", "0", "0", "0", 1]
                     for h in range(current - 719 * HOUR, current + HOUR, HOUR) if h in self.kraken]
@@ -213,6 +217,10 @@ def kraken_down(w):
     w.down.add("api.kraken.com")
 
 
+def kraken_without_a_pair(w):
+    w.kraken_shape = "no pair"
+
+
 def bitfinex_half_a_percent_higher(w):
     w.bitfinex = {h: p * D("1.006") for h, p in w.bitfinex.items()}
 
@@ -262,6 +270,7 @@ def test_refresh_accepts(world, monkeypatch, change):
     (bitfinex_down, "Bitfinex didn't answer"),
     (kraken_down, "Kraken didn't answer"),
     (bitfinex_half_a_percent_higher, "the median gap to Bitfinex"),
+    (kraken_without_a_pair, "Kraken didn't answer: Kraken's answer has no pair"),
 ])
 def test_refresh_refuses_and_writes_nothing(world, capsys, break_it, says):
     assert run(world, "refresh", now="2026-02-01T00:00Z") == 0
@@ -338,6 +347,8 @@ def _good_lines():
     (lambda lines: [lines[0], lines[1].__class__(2026, lines[1].first_hour, lines[1].last_hour, lines[1].hours,
                                                   "not-a-hash")], "sha256 isn't 64 hex digits"),
     (lambda lines: lines, "last_hour is in the future"),
+    (lambda lines: [lines[0], lines[1].__class__(2026, lines[1].first_hour, pf.year_end(2026) + HOUR,
+                                                  lines[1].hours + 1, lines[1].sha256)], "last_hour is outside the year"),
     (lambda lines: [], "the manifest has no years"),
 ])
 def test_verify_refuses_a_bad_manifest(world, capsys, spoil, says):
@@ -357,6 +368,21 @@ def test_check_sources_tells_an_outage_from_a_change(world, tmp_path):
     assert run(world, "check-sources", "--report", str(report), now="2026-04-01T00:00Z") == 1
     assert report.read_text().split("\n")[0] == (
         "Price history: Bitstamp's hourly prices no longer match the manifest")
+
+
+@pytest.mark.parametrize("change, title", [
+    (lambda w: w.down.add("www.bitstamp.net"), "Price history: the monthly check couldn't reach Bitstamp"),
+    (lambda w: w.bitstamp.pop(at("2025-06-01T00:00Z")), "Price history: Bitstamp's hourly prices no longer match the manifest"),
+    (lambda w: setattr(w, "bitstamp_shape", "changed"), "Price history: Bitstamp's hourly prices no longer match the manifest"),
+])
+def test_check_sources_says_what_happened(world, tmp_path, capsys, change, title):
+    """An outage, an hour gone, an answer of another shape: each named for what it is."""
+    assert run(world, "refresh", now="2026-03-15T00:00Z") == 0
+    report = tmp_path / "report.md"
+    change(world)
+    assert run(world, "check-sources", "--report", str(report), now="2026-04-01T00:00Z") == 1
+    assert report.read_text().split("\n")[0] == title
+    assert "2025: 2025" not in capsys.readouterr().err
 
 
 def test_check_sources_refuses_an_empty_manifest(world):

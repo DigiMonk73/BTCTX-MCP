@@ -17,8 +17,8 @@ downloading and using it with #144's later changes.
   years keep the day's 00:00 UTC price.
 - **Every hour has a price.** Bitstamp has a candle for every hour since
   2013, even one without a trade (242 of them, 107 during its halt of 5–9
-  January 2015): such an hour opens at the previous hour's close. A year
-  missing an hour is incomplete and isn't used.
+  January 2015): such an hour opens at the previous hour's close (241 of
+  the 242). A year missing an hour is incomplete and isn't used.
 
 ## What's here, and why not the prices themselves
 
