@@ -137,6 +137,7 @@ declare global {
     fee_usd?: string | number | null; // a BTC fee's stored USD value
     fee_usd_manual?: boolean;         // typed by the user
     acquired_at?: string | null;      // a My BTC / Gift deposit's date originally acquired
+    price_moment?: PriceMoment | null; // its priced values': the hour's price or the day's
   }
 
   /** A transaction with its amounts as numbers (parseTransaction). */
@@ -165,7 +166,12 @@ declare global {
     fee_usd?: number | null;
     fee_usd_manual?: boolean;
     acquired_at?: string | null;
+    price_moment?: PriceMoment | null;
   }
+
+  /** The moment a value BitcoinTX priced came from: the price when its hour
+   * began (UTC), or that day's 00:00 UTC price where there was no hourly one. */
+  type PriceMoment = "hour" | "day";
 
   type SortMode = "TIMESTAMP_DESC" | "CREATION_DESC";
 
@@ -184,7 +190,7 @@ declare global {
     fee_amount: number;
     fee_currency: Currency;
     cost_basis_usd: number | null; // null = not given (server fills an income basis)
-    proceeds_usd?: number | null;  // null = not given (Spent: that day's value)
+    proceeds_usd?: number | null;  // null = not given (Spent: that hour's value)
     fmv_usd?: number | null;
     source?: string;
     purpose?: string;
@@ -192,7 +198,7 @@ declare global {
     gross_proceeds_usd?: number;
     broker_reporting?: BrokerReporting | null;
     // A BTC fee's USD value: a number is kept as typed; null = go back to the
-    // day's price; left out = keep what's stored (or price a new fee).
+    // price (the hour's); left out = keep what's stored (or price a new fee).
     fee_usd?: number | null;
     // A My BTC / Gift deposit's date originally acquired (ISO 8601); null = the deposit's date
     acquired_at?: string | null;
@@ -248,10 +254,11 @@ declare global {
     grossProceedsUSD?: number;
     // Form 1099-DA override; "" = automatic
     brokerReporting?: BrokerReporting | "";
-    // A BTC fee's USD value, typed by the user; blank = that day's price
+    // A BTC fee's USD value, typed by the user; blank = that hour's price
     feeUSD?: number;
     feeUSDManual?: boolean; // the stored value was typed (clearing it sends null)
     feeUSDStored?: number;  // the stored value, shown as a hint
+    priceMoment?: PriceMoment | null; // the stored priced values' moment
     // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
     // An Inherited deposit's date of death (required)
     acquiredDate?: string;

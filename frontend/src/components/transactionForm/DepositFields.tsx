@@ -3,9 +3,13 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
 
-// Valued when acquired: the server fills a blank basis from that day's price
-// (an inheritance's: the date of death)
+// Valued when acquired: the server fills a blank basis from that hour's price
+// (an inheritance's: the date of death's day price, #173)
 const VALUED_SOURCES = ["Income", "Interest", "Reward", "Rebate", "Inherited"];
+// Where there's no hourly price (before 2013, or an own mempool server
+// without the public fallback, for hours before its record), the day's
+const BLANK_IS_PRICED =
+  "Leave blank to use the BTC price when that hour began (that day's, where there's no hourly price).";
 // What tells Reward (income) and Rebate (not income, #98) apart, and the
 // rules of an inheritance (#154)
 const SOURCE_HINTS: Record<string, string> = {
@@ -25,10 +29,10 @@ function basisHint(source: string | undefined, valued: boolean): string {
       "basis can't be more. Leave blank to use the date of death's BTC price.";
   }
   if (source === "Rebate") {
-    return "Its USD value when you received it (its cost basis, not income). Leave blank to use that day's BTC price.";
+    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED}`;
   }
   if (valued) {
-    return "Its USD value when you received it (also your income). Leave blank to use that day's BTC price.";
+    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED}`;
   }
   if (source === "Gift") {
     return "The giver's cost basis: what they paid for these coins (type 0 if unknown).";

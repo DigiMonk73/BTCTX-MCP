@@ -2,7 +2,7 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import BrokerReportingField from "./BrokerReportingField";
 
-/** A BTC withdrawal's proceeds (Spent: blank means that day's price), the
+/** A BTC withdrawal's proceeds (Spent: blank means that hour's price), the
  * broker form for a Spent one, the fair market value for the others. */
 const BtcWithdrawalValues: React.FC<{ notSold: boolean; onRefreshFmv: () => void }> = ({
   notSold,
@@ -26,7 +26,8 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean; onRefreshFmv: () => void
         />
         {spent && (proceeds == null || Number.isNaN(proceeds)) && (
           <small className="field-hint">
-            Leave blank to use that day's BTC price as the proceeds.
+            Leave blank to use the BTC price when that hour began as the proceeds (that day's, where
+            there's no hourly price).
           </small>
         )}
         {spent && (proceeds ?? 0) > 0 && (fee ?? 0) > 0 && (
