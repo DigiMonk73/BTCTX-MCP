@@ -436,8 +436,9 @@ def price_used(tx: Transaction, db: Session, years: dict | None = None) -> dict 
     API (#145): its hour or day, source and USD per BTC. Read from this
     install's table and files only, never asked for. Given only when a value
     it filled in is that price times its amount to the cent: a value priced
-    elsewhere (an import, another tax timezone since, a fee value filled in
-    by an old migration) names no price. None otherwise. `years`: a cache
+    elsewhere (an import, another tax timezone since) names no price. One
+    matching value names it for the transaction: a Spent's typed proceeds
+    beside a priced fee keep their own "typed" mark in the form. None otherwise. `years`: a cache
     of the year files for one request (a list of many transactions).
     """
     values = _priced_amounts(tx)

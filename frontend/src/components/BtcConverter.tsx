@@ -117,9 +117,10 @@ const BtcConverter: React.FC = () => {
   // Date mode: that day's price, or the hour's (#145). This BitcoinTX only: it
   // looks it up in its stored history, and no outside request names the day
   useEffect(() => {
-    if (mode !== "date" || !selectedDate) return;
+    if (mode !== "date") return; // the other modes' own requests keep their ticket
+    priceTicket.current += 1; // an answer for an earlier day or hour, or a cleared one, is dropped
+    if (!selectedDate) return;
 
-    priceTicket.current += 1; // an answer for an earlier day or hour is dropped
     setBtcPrice(0);
     setNoPrice("loading");
     const at = selectedHour === "" ? null : zonedHourToIso(selectedDate, Number(selectedHour), timezone);
