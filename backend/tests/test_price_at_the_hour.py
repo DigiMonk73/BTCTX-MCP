@@ -420,6 +420,20 @@ def test_a_file_without_the_moment_means_the_day(auth_client, monkeypatch):
     assert (tx["price_moment"], tx["fee_usd"]) == ("day", "3.00")
 
 
+def test_a_file_row_priced_at_the_day_fills_a_blank_income_value_at_the_day(auth_client, monkeypatch):
+    """Re-check of #173: an income value's own pricing (as an inheritance's,
+    at the day) mustn't end the file row's day pricing: the hour's price
+    marked "day" would be wrong."""
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    rows = ("date,type,amount,from_account,to_account,cost_basis_usd,source,fee_amount,fee_currency,"
+            "price_moment\n2026-04-01T15:20:00Z,Deposit,0.1,External,Wallet,,Reward,0,BTC,day\n")
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(rows.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    tx = auth_client.get("/api/transactions").json()[0]
+    assert (tx["cost_basis_usd"], tx["price_moment"]) == ("3000.00", "day")
+    assert CALLS == []
+
+
 def test_the_day_wins_when_a_transactions_values_differ():
     from backend.services.transaction import _note_moment
 

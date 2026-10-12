@@ -21,7 +21,7 @@ COLUMNS = [
     ["amount", "Yes", "BTC (up to 8 decimals), or USD for Bank/Exchange USD rows. Transfer: what left the account, fee included. Withdrawal: what the recipient got, fee on top"],
     ["from_account", "Yes", "Source account name"],
     ["to_account", "Yes", "Destination account name"],
-    ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward/Rebate blank = that hour's value; Inherited: its value on the date of death, blank = that hour's value"],
+    ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward/Rebate blank = that hour's value; Inherited: its value on the date of death, blank = that day's value"],
     ["proceeds_usd", "Conditional", "Sell: gross USD, before the fee (the fee is subtracted). Spent withdrawal: value received, before the network fee (the fee's value is subtracted); blank = that hour's value"],
     ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
     ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
