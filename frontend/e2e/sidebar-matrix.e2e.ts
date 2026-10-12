@@ -96,6 +96,9 @@ function sentOut(app: App, browser: string[]): OutsideRequest[] {
   return sent;
 }
 
+/** The hourly history's download: Bitstamp's hourly candles in fixed blocks (services/price_files.py). */
+const historyDownload = (r: OutsideRequest) =>
+  r.url.startsWith("https://www.bitstamp.net/api/v2/ohlc/btcusd/") && new URL(r.url).searchParams.get("step") === "3600";
 const origins = (sent: OutsideRequest[]) => [...new Set(sent.map((r) => new URL(r.url).origin))];
 const proxies = (sent: OutsideRequest[]) => [...new Set(sent.map((r) => r.proxy))];
 
@@ -249,7 +252,10 @@ test("own mempool server with the public backup: the backup isn't asked while it
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL, mempool_fallback: true });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
-  expect(origins(sentOut(app, browser))).toEqual([MEMPOOL]);
+  // Besides your Mempool, only the hourly history's one-time download, which the
+  // backup starts when saved (#145): Bitstamp's fixed hourly blocks, no date in them
+  const sent = sentOut(app, browser);
+  expect(origins(sent.filter((r) => !historyDownload(r)))).toEqual([MEMPOOL]);
 });
 
 test("own mempool server down, with the public backup: the prices from the public sites", async ({
@@ -258,7 +264,7 @@ test("own mempool server down, with the public backup: the prices from the publi
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
-  const sent = sentOut(app, browser);
+  const sent = sentOut(app, browser).filter((r) => !historyDownload(r));
   expect(origins(sent)[0]).toBe(MEMPOOL_DOWN); // asked first
   expect(origins(sent).length).toBeGreaterThan(1); // then the public sites
   expect(proxies(sent)).toEqual([null]);
