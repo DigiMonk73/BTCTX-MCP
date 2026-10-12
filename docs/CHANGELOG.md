@@ -4,6 +4,27 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Switching StartOS's Price Source & Privacy to "Choose in BitcoinTX"
+  no longer picks public price sites for you** (privacy, #134). While the
+  action sets the source (My Mempool, Public or Off), no choice is made in
+  the app, but prices get stored. After a switch to **Choose in
+  BitcoinTX**, BitcoinTX took those stored prices for an install from
+  before 1.1.0 (when public sites were on by default), saved **Public price
+  sites** as your choice and asked them for prices, without showing its
+  price question. The same happened when a command ran without the
+  server's settings: the package's **Set Login Credentials**, or
+  `python -m backend.cli` run by hand in the service.
+  - Affected: StartOS (and Docker installs that set `BTCTX_PRICE_SOURCE`),
+    1.2.0 to 1.2.7, only installs that stored prices while the server set
+    the source and had no choice made in the app.
+  - Now BitcoinTX records "not chosen yet" while the server sets the
+    source, so after the switch it asks you, whatever the action was set
+    to; and a command never makes a price choice. Installs from before
+    1.1.0 keep what they did.
+  - What to do: if you switched the action to Choose in BitcoinTX, open
+    **Settings → Privacy & Network** and check the choice is yours.
+
 ### Documentation
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the

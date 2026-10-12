@@ -695,6 +695,13 @@ Start from the `clean` snapshot.
   Expect: refused, or a service that won't start with "database schema is
   …" in its health check. Record which. Sideload the new one again and
   expect every figure intact.
+- **UPG-5** (#134) The source is still set by the action only (UPG-1), with
+  prices stored. Action **Price Source & Privacy**: **Choose in
+  BitcoinTX**. Once the service has restarted, expect the panel "Where
+  should BitcoinTX get Bitcoin prices?" on every page, and
+  `GET $API/settings/network` (logged in) to say `"price_source":
+  "unset"`, `"managed": false`. Public price sites saved by themselves is
+  a FAIL. Set the action back to **Public price sites**.
 
 ## Track C: the Mac app (only on a Mac)
 
