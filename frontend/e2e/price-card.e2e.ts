@@ -296,6 +296,10 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   await expect(confirm).toContainText("start9.local's certificate authority: start9 Local Root CA");
   await expect(confirm).toContainText(`SHA-256: ${SHA}`);
   await expect(confirm).toContainText("Only do this on your own home network.");
+  await expect(confirm.getByRole("button", { name: "Trust", exact: true })).toBeFocused(); // keyboard users follow
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(card.getByRole("button", { name: "Trust this server" })).toBeFocused();
+  await card.getByRole("button", { name: "Trust this server" }).click();
   await confirm.getByRole("button", { name: "Trust", exact: true }).click();
   await expect(card).toContainText("Trusted for your Mempool: start9 Local Root CA");
   await expect(card.getByRole("button", { name: "Trust this server" })).toHaveCount(0);

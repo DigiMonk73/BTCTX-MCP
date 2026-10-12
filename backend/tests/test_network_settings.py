@@ -476,6 +476,10 @@ def test_mempool_chosen_on_startos_before_it_is_installed(auth_client, server_en
 OWN_REQUESTS_ALLOWED = {"services/reports/draft_forms.py"}
 
 
+# #188: a raw connection (a TLS handshake) is an outside request too
+RAW_CONNECTIONS = ("open_connection", "create_connection", "wrap_socket", "wrap_bio", "start_tls")
+
+
 def test_no_other_module_makes_its_own_http_client():
     """Every outside request goes through services/outbound.py, so the
     settings above can't be bypassed. Review of #52: urllib.request
@@ -490,12 +494,11 @@ def test_no_other_module_makes_its_own_http_client():
             if isinstance(node, ast.Attribute) and node.attr in ("AsyncClient", "Client", "get", "post", "request") \
                     and isinstance(node.value, ast.Name) and node.value.id in ("httpx", "requests", "urllib"):
                 offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
-            # #188: a raw connection (a TLS handshake) is an outside request too
-            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and (
-                    (node.value.id == "asyncio" and node.attr in ("open_connection", "create_connection"))
-                    or (node.value.id == "socket" and node.attr in ("create_connection", "socket"))
-                    or (node.value.id == "ssl" and node.attr == "wrap_socket")):
-                offenders.append(f"{where}:{node.lineno} {node.value.id}.{node.attr}")
+            if isinstance(node, ast.Attribute) and (node.attr in RAW_CONNECTIONS or (
+                    node.attr == "socket" and isinstance(node.value, ast.Name) and node.value.id == "socket")):
+                offenders.append(f"{where}:{node.lineno} .{node.attr}")
+            if isinstance(node, ast.ImportFrom) and any(a.name in RAW_CONNECTIONS for a in node.names):
+                offenders.append(f"{where}:{node.lineno} imports {[a.name for a in node.names]}")
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + [getattr(node, "module", None) or ""]
                 if any(n.split(".")[0] in ("httpx", "requests", "aiohttp", "urllib3") or n.startswith("urllib.request")

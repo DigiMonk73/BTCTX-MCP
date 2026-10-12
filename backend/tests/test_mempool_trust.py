@@ -166,6 +166,8 @@ def test_a_server_that_doesnt_show_its_root_cant_be_trusted(auth_client, tmp_pat
 @pytest.mark.parametrize("url", [
     "https://mempool.example.com", "https://8.8.8.8", "https://172.32.0.1", "https://11.0.0.1",
     "http://umbrel.local", "https://abc.onion",
+    # review of #193: the resolver's reading, not a name's look
+    "https://134744072", "https://0x08080808", "https://0", "https://evil。com", "https://evil．com",
 ])
 def test_a_public_address_is_never_offered(auth_client, monkeypatch, url):
     """Never for a public internet name, so it can't get around a real certificate problem."""
@@ -182,7 +184,7 @@ def test_a_public_address_is_never_offered(auth_client, monkeypatch, url):
 
 @pytest.mark.parametrize("url", [
     "https://start9.local", "https://umbrel.lan:8443", "https://10.0.0.5", "https://172.16.1.1",
-    "https://172.31.255.1", "https://192.168.1.20:4080", "https://myserver",
+    "https://172.31.255.1", "https://192.168.1.20:4080", "https://myserver", "https://3232235777",
 ])
 def test_home_network_addresses_are_offered(url):
     assert mempool_trust.private_address(url) is True

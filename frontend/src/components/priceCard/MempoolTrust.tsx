@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import api from "../../api";
 import { useToast } from "../../contexts/useToast";
@@ -34,7 +34,16 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
   const toast = useToast();
   const [offer, setOffer] = useState<Offer | null>(null);
   const [busy, setBusy] = useState(false);
-  if (saved.managed !== true && saved.price_source !== "mempool") return null;
+  // Keyboard focus follows the step: to Trust when the details show, back on Cancel
+  const trustButton = useRef<HTMLButtonElement>(null);
+  const lookButton = useRef<HTMLButtonElement>(null);
+  const returning = useRef(false);
+  useEffect(() => {
+    if (offer) trustButton.current?.focus();
+    else if (returning.current) lookButton.current?.focus();
+    returning.current = false;
+  }, [offer]);
+  if (saved.price_source !== "mempool") return null;
 
   const run = async (work: () => Promise<void>, fallback: string) => {
     setBusy(true);
@@ -73,7 +82,7 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
   if (!offer) {
     return (
       <div className="price-trust">
-        <button type="button" className="btn btn-secondary btn-sm" onClick={look} disabled={busy}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={look} disabled={busy} ref={lookButton}>
           {busy ? "Looking…" : "Trust this server"}
         </button>
       </div>
@@ -87,10 +96,24 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
       <p className="price-help price-fingerprint">SHA-256: {offer.sha256}</p>
       <p className="price-help">Only do this on your own home network.</p>
       <div className="price-actions">
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => trust(offer.sha256)} disabled={busy}>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={() => trust(offer.sha256)}
+          disabled={busy}
+          ref={trustButton}
+        >
           {busy ? "Trusting…" : "Trust"}
         </button>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOffer(null)} disabled={busy}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            returning.current = true;
+            setOffer(null);
+          }}
+          disabled={busy}
+        >
           Cancel
         </button>
       </div>

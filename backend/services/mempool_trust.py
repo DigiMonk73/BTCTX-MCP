@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import socket
 import ssl
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -47,15 +48,28 @@ class Root:
 
 
 def private_address(url: str | None) -> bool:
-    """Whether a Mempool address is an https home-network one (the only kind offered)."""
+    """
+    Whether a Mempool address is an https home-network one (the only kind
+    offered). Judged on the host the connection will use: plain ASCII, the
+    same for urlparse and httpx (no Unicode dots: "evil。com" connects to
+    evil.com), and a number the resolver reads as an IPv4 address
+    ("134744072", "0x08080808" are 8.8.8.8) is that address, not a name.
+    """
     parsed = urlparse(url or "")
     host = (parsed.hostname or "").rstrip(".").lower()
-    if parsed.scheme != "https" or not host:
+    if parsed.scheme != "https" or not host or not host.isascii():
+        return False
+    if (outbound.connection_host(url) or "").rstrip(".").lower() != host:
         return False
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        return host.endswith(PRIVATE_SUFFIXES) or "." not in host
+        if "." in host:
+            return host.endswith(PRIVATE_SUFFIXES)
+        try:  # a one-word name, unless the resolver takes it for an address
+            ip = ipaddress.ip_address(socket.inet_aton(host))
+        except OSError:
+            return True
     return any(ip in network for network in PRIVATE_NETWORKS)
 
 
@@ -94,7 +108,7 @@ async def shown_root(url: str) -> Root:
             "This server doesn't show its root certificate, so it can't be trusted here."))
     root = root_of(ssl.DER_cert_to_PEM_cert(chain[-1]))
     try:
-        await _handshake(url, ssl.create_default_context(cadata=root.pem))
+        await _handshake(url, outbound.trusting(root.pem))
     except ssl.SSLError as exc:
         raise HTTPException(status_code=422, detail=(
             f"Even with its root certificate, the Mempool's certificate isn't valid for "

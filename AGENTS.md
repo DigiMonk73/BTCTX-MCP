@@ -306,7 +306,8 @@ So derived values must be recomputable from the Transaction row alone.
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
   switch settings, backup download/restore, CSV export, file imports (CSV,
-  River), delete-all, Ledger Review fixes, settings changes or debug.
+  River), delete-all, Ledger Review fixes, settings changes (the Mempool
+  certificate's trust, #188, included) or debug.
 
 ## Testing (see `docs/TESTING.md`)
 

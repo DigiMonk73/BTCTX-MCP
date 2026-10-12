@@ -326,7 +326,33 @@ def _trusted_root(db: Session, mempool_url: str | None) -> str | None:
         return None
     if not isinstance(stored, dict) or not mempool_url or stored.get("url") != mempool_url:
         return None
-    return stored.get("pem") or None
+    try:
+        trusting(stored.get("pem") or "")
+    except (ssl.SSLError, ValueError, TypeError):
+        return None  # not a certificate (a damaged row): trust nothing
+    return stored["pem"]
+
+
+def connection_host(url: str) -> str | None:
+    """The host httpx connects to for this address (#188: judged, not urlparse's)."""
+    try:
+        return httpx.URL(url).host
+    except httpx.InvalidURL:
+        return None
+
+
+def trusting(pem: str) -> ssl.SSLContext:
+    """
+    TLS that trusts this one root and nothing else (#188), the address still
+    checked. Python 3.13's strict X.509 checks are left off for it, as in
+    earlier versions: a home server's own authority may lack fields they
+    require (key usage), and the owner checked its fingerprint.
+    """
+    if not pem:
+        raise ValueError("no certificate")
+    context = ssl.create_default_context(cadata=pem)
+    context.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+    return context
 
 
 def trust_root(db: Session, mempool_url: str, pem: str) -> NetworkSettings:
@@ -458,7 +484,7 @@ def own_node_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
     if _transport is not None:
         return httpx.AsyncClient(timeout=timeout, transport=_transport)
     # A home server's root the owner trusts for this address: it alone (#188)
-    verify = ssl.create_default_context(cadata=_current.mempool_root) if _current.mempool_root else True
+    verify = trusting(_current.mempool_root) if _current.mempool_root else True
     return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None, verify=verify)
 
 
@@ -480,6 +506,10 @@ async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -
         return [c.public_bytes(_ssl.ENCODING_DER) for c in ssl_object._sslobj.get_unverified_chain()]
     finally:
         writer.close()
+        try:
+            await writer.wait_closed()
+        except (OSError, ssl.SSLError):
+            pass  # closed either way
 
 
 def _is_onion(url: str | None) -> bool:
