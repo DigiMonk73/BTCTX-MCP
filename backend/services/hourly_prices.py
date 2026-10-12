@@ -5,18 +5,20 @@ the moment (14:47:12 UTC is priced at 14:00 UTC, known as soon as the hour
 starts). The tax timezone never changes which hour.
 
 Lookup order (hourly_price):
-  1. btc_price_hourly: an hour this install priced from its source. Never
-     replaced, even when a later release's year files cover it.
+  1. btc_price_hourly: an hour this install priced from a source, or
+     Bitstamp's hours after the year files. Never replaced, even when a
+     later release's year files cover it.
   2. The year files (services/price_files.py): Bitstamp's hourly opens from
      2013 to the manifest's last hour, downloaded into <data dir>/btc-prices/
      and used only when a year gives the fingerprint this release ships.
   3. The chosen source:
      - the own mempool server's whole history (one request, shared with the
-       day lookups): only its live hourly rows (live_hours);
+       day lookups): only its live hourly rows (live_hours), and only the
+       hour asked is kept;
      - public sites, for hours after the year files: Bitstamp's hourly
        candles in fixed blocks of 1,000 hours from the hour after the
-       manifest's last, the same requests on every install of a release.
-     What it gives is stored (step 1).
+       manifest's last, the same requests on every install of a release;
+       every hour they give is kept.
   4. With public sites allowed, the year files' download, waiting a little
      for the year asked.
   Nothing: price_at() takes the day's 00:00 UTC price instead
@@ -26,7 +28,9 @@ The download asks for every year, newest first, in fixed blocks: nothing
 in it depends on a ledger. It runs in the background once public sites are
 the chosen source (at startup, or when the choice is saved), and when a
 lookup needs a year whose file isn't here and the own mempool server (if
-any) doesn't have the hour. No request ever names the hour asked.
+any) doesn't have the hour. Each request goes out with the choice as it is
+then: none once public sites aren't allowed, through the proxy set then.
+No request ever names the hour asked.
 """
 
 from __future__ import annotations
@@ -43,7 +47,6 @@ from decimal import Decimal
 from pathlib import Path
 
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
@@ -55,7 +58,6 @@ from backend.services import price_files as pf
 logger = logging.getLogger(__name__)
 
 HOUR = pf.HOUR
-CENT = Decimal("0.01")
 DATA_DIR = os.path.dirname(DATABASE_FILE)  # tests point this elsewhere
 FOLDER_NAME = "btc-prices"
 RETRY_SECONDS = price_history.RETRY_SECONDS
@@ -72,16 +74,6 @@ _changed = threading.Condition()  # notified as the download saves a year or end
 _state: dict = {}
 
 
-def reset_state() -> None:
-    """Forget downloads and cached years (tests)."""
-    with _years_lock:
-        _years.clear()
-    _state.update(thread=None, failed_at=-1e9, mismatched={}, public_at=-1e9)
-
-
-reset_state()
-
-
 @dataclass(frozen=True)
 class Priced:
     """A valuation's price: at the hour ("hour") or, failing that, the day ("day")."""
@@ -94,18 +86,6 @@ def hour_of(when: datetime) -> int:
     """The UTC hour whose opening price values `when` (a naive time is UTC), Unix seconds."""
     when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
     return int(when.timestamp()) // HOUR * HOUR
-
-
-def _utc(hour: int) -> datetime:
-    return datetime.fromtimestamp(hour, tz=timezone.utc)
-
-
-def _current_hour() -> int:
-    return int(time.time()) // HOUR * HOUR
-
-
-def folder() -> Path:
-    return Path(DATA_DIR) / FOLDER_NAME
 
 
 def price_at(db: Session, when: datetime) -> Priced:
@@ -132,12 +112,119 @@ def hourly_price(db: Session, when: datetime) -> tuple[Decimal, str] | None:
     lines = pf.read_manifest(pf.MANIFEST)
     line = next((y for y in lines if y.first_hour <= hour <= y.last_hour), None)
     prices = _year_prices(line) if line else None
-    if prices is None:
-        found = _from_sources(db, hour, lines[-1].last_hour if lines else hour - HOUR)
-        if found is not None or line is None or not start_download():
-            return found
-        prices = _wait_for_year(line)
-    return (prices[hour], "bitstamp") if prices is not None else None
+    if prices is not None:
+        return prices[hour], "bitstamp"
+    files_end = lines[-1].last_hour if lines else None
+    found, keep = _from_sources(db, hour, files_end)
+    if found is None and line is not None and start_download():
+        prices = _wait_for_year(line)  # before anything is written: no write lock held meanwhile
+        found = (prices[hour], "bitstamp") if prices is not None else None
+    _store(db, keep)
+    return found
+
+
+def start_download() -> bool:
+    """
+    Download, in the background, the year files that aren't here yet, when
+    the owner's choice allows public sites. True while a download runs.
+    """
+    if not outbound.current().public_allowed:
+        return False
+    with _changed:
+        if _state["running"]:
+            return True
+        if time.monotonic() - _state["failed_at"] < RETRY_SECONDS:
+            return False
+        missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
+        if not missing:
+            return False
+        _state["running"] = True
+        threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
+        return True
+
+
+def download_if_public() -> None:
+    """At startup and when the price choice is saved: public sites chosen,
+    so the hourly history comes in now (with a mempool server and its
+    fallback, only when a lookup needs it)."""
+    if outbound.current().price_source == "public":
+        start_download()
+
+
+async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict[int, tuple[Decimal, str]]:
+    """
+    What the chosen sources give while `hour` is missing. `hour` only
+    decides whether to ask the public sites (after the year files, and
+    only when the own mempool server doesn't have it): no request names
+    it. `stored`: the hours after the files already kept.
+    """
+    settings = outbound.current()
+    found: dict[int, tuple[Decimal, str]] = {}
+    if settings.own_node:
+        rows, _ = await price_history.own_node_rows()
+        price = live_hours(rows).get(hour)
+        if price is not None:
+            found[hour] = (price, "mempool")
+    if hour not in found and files_end is not None and hour > files_end and settings.public_allowed:
+        found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
+    return found
+
+
+def live_hours(rows: list[dict]) -> dict[int, Decimal]:
+    """
+    A mempool server's prices it recorded live, each hour: the rows at
+    exactly HH:00 from 31 days after its record turns hourly (its first run
+    fills the month before with later prices), whose rows an hour before and
+    after exist and agree within 2%. Older weekly and daily rows never match.
+    The answer for the last rows given is kept (they're asked at most every
+    10 minutes).
+    """
+    if rows is _live["rows"]:
+        return _live["hours"]
+    by_time: dict[int, Decimal] = {}
+    for row in rows:
+        try:
+            price = Decimal(str(row["USD"]))
+            t = int(row["time"])
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            continue
+        if price > 0 and t % HOUR == 0:
+            by_time[t] = price
+    start = next((t for t in sorted(by_time) if all(t + k * HOUR in by_time for k in range(1, 24))), None)
+    out = {}
+    if start is not None:
+        begin, limit = start + MEMPOOL_FILL_DAYS * 86400, price_history.MEMPOOL_TOLERANCE
+        for t, price in by_time.items():
+            before, after = by_time.get(t - HOUR), by_time.get(t + HOUR)
+            if t >= begin and before and after and abs(before - price) <= price * limit \
+                    and abs(after - price) <= price * limit:
+                out[t] = price.quantize(pf.CENT)
+    _live.update(rows=rows, hours=out)
+    return out
+
+
+def folder() -> Path:
+    return Path(DATA_DIR) / FOLDER_NAME
+
+
+def reset_state() -> None:
+    """Forget downloads and cached years (tests)."""
+    with _years_lock:
+        _years.clear()
+    _state.update(running=False, failed_at=-1e9, mismatched={}, public_at=-1e9)
+    _live.update(rows=None, hours={})
+
+
+_live: dict = {}
+reset_state()
+
+
+def _utc(hour: int) -> datetime:
+    return datetime.fromtimestamp(hour, tz=timezone.utc)
+
+
+def _current_hour() -> int:
+    return int(time.time()) // HOUR * HOUR
 
 
 # The year files
@@ -167,49 +254,38 @@ def _file_text(line: pf.YearLine) -> str | None:
     return text if pf.fingerprint(text) == line.sha256 else None
 
 
+def _from_sources(db: Session, hour: int, files_end: int | None):
+    """The chosen source's price for the hour (or None), and the hours to keep:
+    the one asked, and Bitstamp's after the files."""
+    stored = set()
+    if files_end is not None:
+        stored = {h for (h,) in db.query(BtcPriceHourly.hour).filter(BtcPriceHourly.hour > files_end)}
+    try:
+        found = price_history._run(find_hours(hour, files_end, stored))
+    except Exception as exc:
+        logger.warning("Hourly BTC price lookup failed: %s", exc)
+        found = {}
+    keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
+    return found.get(hour), keep
+
+
 def _wait_for_year(line: pf.YearLine) -> dict[int, Decimal] | None:
     deadline = time.monotonic() + WAIT_SECONDS
     with _changed:
         while True:
             prices = _year_prices(line)
             remaining = deadline - time.monotonic()
-            if prices is not None or remaining <= 0 or not _downloading():
+            if prices is not None or remaining <= 0 or not _state["running"]:
                 return prices
             _changed.wait(remaining)
 
 
-def _downloading() -> bool:
-    thread = _state["thread"]
-    return thread is not None and thread.is_alive()
-
-
-def start_download() -> bool:
-    """
-    Download, in the background, the year files that aren't here yet, when
-    the owner's choice allows public sites. True while a download runs.
-    """
-    if not outbound.current().public_allowed:
-        return False
-    with _changed:
-        if _downloading():
-            return True
-        if time.monotonic() - _state["failed_at"] < RETRY_SECONDS:
-            return False
-        missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
-        if not missing:
-            return False
-        thread = threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True)
-        _state["thread"] = thread
-        thread.start()
-        return True
-
-
-def download_if_public() -> None:
-    """At startup and when the price choice is saved: public sites chosen,
-    so the hourly history comes in now (with a mempool server and its
-    fallback, only when a lookup needs it)."""
-    if outbound.current().price_source == "public":
-        start_download()
+def _store(db: Session, prices: dict[int, tuple[Decimal, str]]) -> None:
+    rows = [{"hour": h, "usd": usd, "source": src} for h, (usd, src) in sorted(prices.items())]
+    for i in range(0, len(rows), STORE_CHUNK):
+        db.execute(sqlite_insert(BtcPriceHourly).values(rows[i:i + STORE_CHUNK]).on_conflict_do_nothing())
+    if rows:
+        db.flush()
 
 
 def _wanted(line: pf.YearLine) -> bool:
@@ -220,24 +296,39 @@ def _wanted(line: pf.YearLine) -> bool:
 def _download(lines: list[pf.YearLine]) -> None:
     try:
         asyncio.run(_download_years(lines))
+    except ChoiceChanged:
+        logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
         _state["failed_at"] = time.monotonic()
     finally:
         with _changed:
+            _state["running"] = False
             _changed.notify_all()
 
 
 async def _download_years(lines: list[pf.YearLine]) -> None:
     """Newest year first, each in its fixed blocks: the same requests on every install."""
     for line in sorted(lines, key=lambda y: -y.year):
-        if not outbound.current().public_allowed:  # the choice changed meanwhile
-            return
-        async with outbound.async_client(timeout=30.0) as client:
-            prices = await pf.download_year(client, line.year, line.last_hour, _pause)
+        prices = await pf.download_year(ChoiceClient(), line.year, line.last_hour, _pause)
         _save_year(line, prices)
         with _changed:
             _changed.notify_all()
+
+
+class ChoiceChanged(Exception):
+    """Public price sites are no longer allowed: nothing more is asked."""
+
+
+class ChoiceClient:
+    """Asks each request with the owner's choice as it is then: never once
+    public sites aren't allowed, and through the proxy (Tor) set then."""
+
+    async def get(self, url, **kwargs):
+        if not outbound.current().public_allowed:
+            raise ChoiceChanged
+        async with outbound.async_client(timeout=30.0) as client:
+            return await client.get(url, **kwargs)
 
 
 async def _pause() -> None:
@@ -263,89 +354,24 @@ def _save_year(line: pf.YearLine, prices: dict[int, Decimal]) -> None:
     logger.info("Hourly BTC prices for %d from Bitstamp: %d hours, checked", line.year, line.hours)
 
 
-# The chosen source, for an hour the year files don't give
-def _from_sources(db: Session, hour: int, files_end: int) -> tuple[Decimal, str] | None:
-    newest = db.query(func.max(BtcPriceHourly.hour)).filter(BtcPriceHourly.hour > files_end).scalar()
-    try:
-        found = price_history._run(find_hours(hour, files_end, newest or files_end))
-    except Exception as exc:
-        logger.warning("Hourly BTC price lookup failed: %s", exc)
-        found = {}
-    # Hours after the files are kept as they come; within them, only the
-    # hour asked (the files come first once they're here).
-    _store(db, {h: v for h, v in found.items() if h > files_end or h == hour})
-    return found.get(hour)
-
-
-async def find_hours(hour: int, files_end: int, stored_to: int) -> dict[int, tuple[Decimal, str]]:
-    """
-    What the chosen sources give while `hour` is missing. `hour` only
-    decides whether to ask the public sites: no request names it.
-    """
-    settings = outbound.current()
-    found: dict[int, tuple[Decimal, str]] = {}
-    if settings.own_node:
-        rows, _ = await price_history.own_node_rows()
-        found.update({h: (p, "mempool") for h, p in live_hours(rows).items()})
-    if hour not in found and hour > files_end and settings.public_allowed:
-        for h, p in (await _bitstamp_after(files_end, stored_to)).items():
-            found.setdefault(h, (p, "bitstamp"))
-    return found
-
-
-def live_hours(rows: list[dict]) -> dict[int, Decimal]:
-    """
-    A mempool server's prices it recorded live, each hour: the rows at
-    exactly HH:00 from 31 days after its record turns hourly (its first run
-    fills the month before with later prices), whose rows an hour before and
-    after exist and agree within 2%. Older weekly and daily rows never match.
-    """
-    by_time: dict[int, Decimal] = {}
-    for row in rows:
-        try:
-            price = Decimal(str(row["USD"]))
-            t = int(row["time"])
-        except (KeyError, TypeError, ValueError, ArithmeticError):
-            continue
-        if price > 0 and t % HOUR == 0:
-            by_time[t] = price
-    start = next((t for t in sorted(by_time) if all(t + k * HOUR in by_time for k in range(1, 24))), None)
-    if start is None:
-        return {}
-    begin, limit = start + MEMPOOL_FILL_DAYS * 86400, price_history.MEMPOOL_TOLERANCE
-    out = {}
-    for t, price in by_time.items():
-        before, after = by_time.get(t - HOUR), by_time.get(t + HOUR)
-        if t >= begin and before and after and abs(before - price) <= price * limit >= abs(after - price):
-            out[t] = price.quantize(CENT)
-    return out
-
-
-async def _bitstamp_after(files_end: int, stored_to: int) -> dict[int, Decimal]:
+# Bitstamp after the year files
+async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal]:
     """
     Bitstamp's hours after the year files, in fixed blocks from the hour
-    after them (skipping blocks already stored), at most every 10 minutes.
-    The current hour only once it has a trade: until then its open can change.
+    after them, skipping blocks whose every hour is kept already, at most
+    every 10 minutes. The current hour only once it has a trade: until
+    then its open can change.
     """
     if time.monotonic() - _state["public_at"] < RETRY_SECONDS:
         return {}
     _state["public_at"] = time.monotonic()
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
-    out: dict[int, Decimal] = {}
-    async with outbound.async_client() as client:
-        for start in range(files_end + HOUR, current + 1, size):
-            if start + size - HOUR <= stored_to:
-                continue
-            for row in await pf.bitstamp_candles(client, start):
-                h = int(row["timestamp"])
-                if h % HOUR == 0 and (h < current or (h == current and Decimal(str(row["volume"])) > 0)):
-                    out[h] = Decimal(str(row["open"])).quantize(CENT)
+    client, out = ChoiceClient(), {}
+    for start in range(files_end + HOUR, current + 1, size):
+        if all(h in stored for h in range(start, min(start + size, current), HOUR)):
+            continue
+        for row in await pf.bitstamp_candles(client, start):
+            h = int(row["timestamp"])
+            if h % HOUR == 0 and (h < current or (h == current and Decimal(str(row["volume"])) > 0)):
+                out[h] = Decimal(str(row["open"])).quantize(pf.CENT)
     return out
-
-
-def _store(db: Session, prices: dict[int, tuple[Decimal, str]]) -> None:
-    rows = [{"hour": h, "usd": usd, "source": src} for h, (usd, src) in sorted(prices.items())]
-    for i in range(0, len(rows), STORE_CHUNK):
-        db.execute(sqlite_insert(BtcPriceHourly).values(rows[i:i + STORE_CHUNK]).on_conflict_do_nothing())
-    if rows:
-        db.flush()

@@ -24,11 +24,13 @@ from backend.models.btc_price import BtcPriceHourly
 from backend.services import hourly_prices as hp
 from backend.services import outbound
 from backend.services import price_files as pf
+from backend.services import price_history
 from backend.tests.conftest import STUB_HISTORICAL_USD
 
 # The real functions, captured before the session fixture stubs them.
 from backend.services.hourly_prices import find_hours as real_find_hours
 from backend.services.hourly_prices import start_download as real_start_download
+from backend.services.price_history import find_prices as real_find_prices
 
 HOUR = pf.HOUR
 D = Decimal
@@ -62,6 +64,7 @@ class Sites:
         self.bitstamp = dict(prices)
         self.volume = {h: "1.5" for h in prices}
         self.mempool = None
+        self.bitstamp_down = False
         self.requests = []
         self.after_request = None
 
@@ -69,6 +72,8 @@ class Sites:
         self.requests.append(str(request.url))
         if self.after_request:
             self.after_request(self)
+        if request.url.host == "www.bitstamp.net" and self.bitstamp_down:
+            return httpx.Response(503)
         if request.url.host == "www.bitstamp.net":
             start = int(request.url.params["start"])
             rows = [{"timestamp": str(h), "open": str(self.bitstamp[h]), "volume": self.volume[h]}
@@ -117,9 +122,8 @@ def use(**settings):
 
 
 def finish_download():
-    thread = hp._state["thread"]
-    if thread is not None:
-        thread.join(10)
+    with hp._changed:
+        assert hp._changed.wait_for(lambda: not hp._state["running"], timeout=10)
 
 
 def year_blocks(year: int, last: int) -> list[int]:
@@ -199,12 +203,12 @@ def test_public_sites_chosen_start_the_download_a_mempool_server_with_its_fallba
         sites, monkeypatch, auth_client):
     started = []
     monkeypatch.setattr(hp, "start_download", lambda: started.append(1) or True)
-    auth_client.put("/api/settings/network", json={
+    r = auth_client.put("/api/settings/network", json={
         "price_source": "mempool", "mempool_url": NODE, "mempool_fallback": True, "proxy_url": None})
-    assert started == []
-    auth_client.put("/api/settings/network", json={
+    assert r.status_code == 200 and started == []
+    r = auth_client.put("/api/settings/network", json={
         "price_source": "public", "mempool_url": None, "mempool_fallback": False, "proxy_url": None})
-    assert started == [1]
+    assert r.status_code == 200 and started == [1]
 
 
 def test_a_stored_hour_wins_over_the_files(sites, db):
@@ -254,9 +258,9 @@ def test_a_mempool_server_gives_hours_after_the_files_and_the_asked_hour_within_
     sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
     within, after = at("2026-02-02T02:00Z"), at("2026-03-16T16:00Z")
     assert hp.hourly_price(db, utc("2026-02-02T02:10Z"))[1] == "mempool"
-    assert {row.hour for row in db.query(BtcPriceHourly)} == {within} | set(range(FILES_END + HOUR, NOW, HOUR))
     assert hp.hourly_price(db, utc("2026-03-16T16:10Z"))[1] == "mempool"
-    assert db.get(BtcPriceHourly, after) is not None
+    # only the hours used are kept: a later release's year files come first for the rest
+    assert {row.hour for row in db.query(BtcPriceHourly)} == {within, after}
     assert sites.requests == [NODE + "/api/v1/historical-price?currency=USD"]  # once; no Bitstamp
 
 
@@ -275,3 +279,98 @@ def test_no_hourly_price_before_the_first_year_and_none_for_a_future_hour(sites,
     with pytest.raises(HTTPException) as exc:
         hp.price_at(db, utc("2026-03-20T11:00Z"))
     assert exc.value.status_code == 422 and "future" in exc.value.detail
+
+
+def test_a_file_that_doesnt_give_its_fingerprint_is_never_read(sites, db):
+    """A tampered or corrupt file, or an older release's shorter one: not used, downloaded again."""
+    hp.start_download()
+    finish_download()
+    path = hp.folder() / "2025.csv"
+    path.write_text(path.read_text().replace(str(sites.prices[at("2025-06-01T13:00Z")]), "1.00", 1))
+    hp.reset_state()
+    sites.requests.clear()
+    h = at("2025-06-01T13:00Z")
+    assert hp.hourly_price(db, utc("2025-06-01T13:30Z")) == (sites.prices[h], "bitstamp")
+    finish_download()
+    assert sites.bitstamp_starts() == year_blocks(2025, pf.year_end(2025))  # that year again, only
+
+
+def test_a_stored_hour_is_never_replaced_by_a_source(sites, db):
+    hp.start_download()
+    finish_download()
+    h = at("2026-03-18T05:00Z")
+    db.add(BtcPriceHourly(hour=h, usd=D("1.00"), source="mempool"))
+    db.flush()
+    hp.hourly_price(db, utc("2026-03-19T05:00Z"))  # Bitstamp's block, which holds the stored hour too
+    assert db.get(BtcPriceHourly, h).usd == D("1.00")
+
+
+def test_while_the_mempool_server_answers_bitstamp_isnt_asked(sites, db):
+    use(price_source="mempool", mempool_url=NODE, mempool_fallback=True)
+    sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
+    assert hp.hourly_price(db, utc("2026-03-17T07:00Z"))[1] == "mempool"
+    assert hp.hourly_price(db, utc("2025-12-24T07:00Z"))[1] == "mempool"
+    assert sites.bitstamp_starts() == []
+
+
+def test_a_block_with_an_hour_missing_is_asked_again(sites, db, monkeypatch):
+    """With a mempool server and its fallback, an hour its record rejects is
+    filled from Bitstamp's block even when later hours are kept already."""
+    monkeypatch.setattr(pf, "BLOCK_HOURS", 24)
+    hp.start_download()
+    finish_download()
+    gap = at("2026-03-16T12:00Z")
+    for h in range(FILES_END + HOUR, NOW, HOUR):
+        if h != gap:
+            db.add(BtcPriceHourly(hour=h, usd=sites.prices[h], source="mempool"))
+    db.flush()
+    sites.requests.clear()
+    assert hp.hourly_price(db, utc("2026-03-16T12:30Z")) == (sites.prices[gap], "bitstamp")
+    assert sites.bitstamp_starts() == [at("2026-03-16T00:00Z")]  # only the block missing an hour
+
+
+def test_a_failed_download_waits_before_it_is_tried_again(sites, db):
+    sites.bitstamp_down = True
+    hp.start_download()
+    finish_download()
+    assert not hp.start_download() and hp._state["failed_at"] > 0
+    hp._state["failed_at"] -= hp.RETRY_SECONDS
+    assert hp.start_download()
+    finish_download()
+
+
+def test_many_hours_are_kept_in_chunks(sites, db, monkeypatch):
+    monkeypatch.setattr(hp, "STORE_CHUNK", 7)
+    hp.start_download()
+    finish_download()
+    hp.hourly_price(db, utc("2026-03-18T05:00Z"))
+    assert db.query(BtcPriceHourly).count() == (NOW - FILES_END) // HOUR  # to the current hour, traded
+
+
+def test_the_day_lookup_after_the_hour_lookup_gets_the_mempool_servers_day(sites, db, monkeypatch):
+    """Review of #169: the hour lookup used up the one request, and the day
+    fallback right after got nothing from the server."""
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
+    use(price_source="mempool", mempool_url=NODE)
+    first = at("2026-03-01T00:00Z")
+    sites.mempool = live_rows(first, NOW)  # hourly only from 1 March: its first 31 days aren't live hours
+    priced = hp.price_at(db, utc("2026-03-10T05:00Z"))
+    assert priced.moment == "day" and priced.usd == D(70000 + (at("2026-03-10T00:00Z") // HOUR) % 7)
+    assert len(sites.requests) == 1
+
+
+def test_the_download_stops_at_the_next_request_when_public_sites_stop_being_allowed(sites):
+    def switch_off_after_one_block(fake):
+        if len(fake.bitstamp_starts()) == 1:
+            use(price_source="off")
+
+    sites.after_request = switch_off_after_one_block
+    hp.start_download()
+    finish_download()
+    assert len(sites.bitstamp_starts()) == 1
+
+
+def test_without_a_manifest_no_public_site_is_asked(sites, db, tmp_path, monkeypatch):
+    monkeypatch.setattr(pf, "MANIFEST", tmp_path / "none.csv")
+    assert hp.price_at(db, utc("2026-03-18T05:00Z")).moment == "day"
+    assert sites.bitstamp_starts() == []

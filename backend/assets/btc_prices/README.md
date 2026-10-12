@@ -47,8 +47,8 @@ database), in the same fixed requests (1,000 hours from 1 January
 year only if its text gives the fingerprint here. That happens once public
 price sites are the chosen source (with your own mempool server and its
 fallback, only when a lookup needs an hour the server doesn't have), newest
-year first, through the proxy (Tor) when one is set, and stops if the
-choice changes. So every install holds exactly the same prices, and anyone
+year first, each request with the choice as it is then: through the proxy
+(Tor) set then, and none once public sites aren't allowed. So every install holds exactly the same prices, and anyone
 can check them. If permission comes,
 the year files are added here and the fingerprints stay the same.
 

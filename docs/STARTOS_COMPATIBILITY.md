@@ -43,9 +43,10 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        never on StartOS, whose login is set before the first start)
   ├── btc-prices/          the hourly BTC price history, one YYYY.csv per year
   │                        (about 3 MB), downloaded from Bitstamp once public price
-  │                        sites are allowed and kept only when it matches the
-  │                        fingerprints the release ships; can be deleted (it's
-  │                        downloaded again)
+  │                        sites are the source (with a mempool server and its
+  │                        fallback, when a lookup needs a year) and kept only when
+  │                        it matches the fingerprints the release ships; can be
+  │                        deleted (it's downloaded again)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or asked for with the AI key (mode 600;
                            only created when needed)
@@ -107,7 +108,8 @@ configured.
    database (`app_settings`, `btc_price_daily`, `btc_price_hourly`), not
    files. The exceptions: the price settings below, which the server may
    set instead, and the hourly price history's year files (`btc-prices/`,
-   above), which are re-downloadable and so not in a backup.
+   above): re-downloadable, so not in the app's own backup (StartOS's backup
+   of the volume holds them).
 6. A test install may also hold the IRS's draft forms, in
    `irs-draft-forms/` (docs/IRS_FORM_GENERATION.md, "Draft forms: the
    preview, and test installs"); a normal install never has that folder.

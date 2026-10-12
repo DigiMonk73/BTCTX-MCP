@@ -232,6 +232,7 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     """
     base = outbound.current().own_node
     if not base:
+        _state.update(mempool_base=None, mempool_rows=[])
         return [], False
     now = time.monotonic()
     if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
@@ -250,12 +251,12 @@ async def own_node_rows() -> tuple[list[dict], bool]:
 
 
 async def own_node_history() -> dict[date, tuple]:
-    """The own mempool server's 00:00 UTC prices (own_node_rows)."""
+    """The own mempool server's 00:00 UTC prices (own_node_rows): from its
+    answer just asked, or the one kept from an hour lookup a moment ago."""
     rows, fresh = await own_node_rows()
-    if not fresh:
-        return {}
     prices = midnight_prices(rows)
-    logger.info("Price history from your mempool server: %d days", len(prices))
+    if fresh:
+        logger.info("Price history from your mempool server: %d days", len(prices))
     return prices
 
 

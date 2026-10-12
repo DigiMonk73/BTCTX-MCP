@@ -176,7 +176,11 @@ So derived values must be recomputable from the Transaction row alone.
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
-  Stored days never change. Never today's live price, never $0: no price is
+  The same for the hourly prices (`services/hourly_prices.py`, #144): the
+  year files in fixed 1,000-hour blocks from 1 January, every year, newest
+  first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
+  blocks from the hour after the files; never the hour asked.
+  Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
