@@ -642,10 +642,33 @@ one session. Claude suggests this setup when a request is that big.
   said it to. The main session starts the next session when what it
   waits for is done, and keeps #41's "Next", linking to the umbrella
   issue instead of repeating its order.
-- **Running sessions at once:** only on separate parts. When two touch
-  the same files, the reference figures or a migration, the one that
-  merges second merges `develop` in, and checks the migration numbering
-  and the figures again.
+- **The footprint and merge plan** (owner, 2026-10-12): planned up front,
+  so conflicts are few and expected. On the umbrella issue the main
+  session lists, for each session:
+  - **its footprint:** the files and areas it expects to touch;
+  - **its hot spots, shared with other sessions:** `docs/CHANGELOG.md`,
+    `testdata/reference_ledger.json` and `reference_figures.json`,
+    `scripts/independent_figures.py`, migrations, `docs/AGENT-TESTS.md`,
+    the i18n dictionaries;
+  - **any migration numbers reserved for it** (for example 0011, then
+    0012 with `down_revision` 0011: Alembic can't load a parent that isn't
+    there, so the second is written on the current head until 0011 is on
+    `develop`, then re-pointed);
+  - **the merge order** between sessions.
+
+  A session whose footprint grows says so on its issue before it merges,
+  and the main session checks it against the others.
+- **Running sessions at once:** only when they share no hot spot other
+  than the CHANGELOG; sessions that share one run one after the other,
+  unless the plan names which merges second. The one that merges second
+  merges `develop` in (never a rebase), keeps both CHANGELOG entries,
+  merges the reference ledger's rows by hand, reruns
+  `make reference-figures` (never hand-merging the figures) and checks
+  that the diff shows only the two sessions' intended moves, and checks
+  the migration numbering.
+- **Stacking within a session:** at most two pull requests on the same
+  files; merge the first before starting a third, since each squash makes
+  the next one conflict.
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:
