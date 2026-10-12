@@ -145,8 +145,8 @@ All notable changes to BitcoinTX are documented in this file.
   Mempool's backup answered instead. The price messages use the new words:
   "Nobody" for the choice once called Off, "not chosen yet", "your
   Mempool" and "the backup (public price sites)", and they say where to
-  change a choice the server sets: StartOS's Price Source & Privacy action,
-  or the server's `BTCTX_PRICE_SOURCE` setting (new `BTCTX_HOST=startos`;
+  change a choice the server sets (StartOS's Price Source & Privacy action
+  once the package passes the new `BTCTX_HOST=startos`;
   `GET /api/settings/network` adds `host` and `invalid`). Invalid server
   settings say so instead of "Price lookups are off".
 

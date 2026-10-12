@@ -43,6 +43,8 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from backend.services.desktop import is_desktop
+
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 10.0
@@ -56,7 +58,9 @@ ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
 SETTINGS_PAGE = "Settings → Privacy & network"
 SET_IN_STARTOS = "StartOS's Price Source & Privacy action"
-SET_BY_DOCKER = f"this server's {ENV_SOURCE} setting"
+# A server that doesn't say what it is may be StartOS before its package
+# passes BTCTX_HOST: words that fit both
+SET_BY_SERVER = "the server's price settings (on StartOS: the Price Source & Privacy action)"
 # Where the app runs: StartOS's package sets BTCTX_HOST=startos; the Mac
 # app is known by its launcher's BTCTX_DESKTOP; anything else is a server.
 ENV_HOST, HOSTS = "BTCTX_HOST", ("mac", "server", "startos")
@@ -95,8 +99,6 @@ def current() -> NetworkSettings:
 def host() -> str:
     """Where BitcoinTX runs: "mac", "startos" or "server" (Docker, source).
     Only the words change with it: where a server-set choice is changed."""
-    from backend.services.desktop import is_desktop
-
     named = os.environ.get(ENV_HOST, "").strip().lower()
     if named in HOSTS:
         return named
@@ -111,7 +113,7 @@ def where_to_change() -> str:
     """Where the owner changes the price choice in use."""
     if not _current.managed:
         return SETTINGS_PAGE
-    return SET_IN_STARTOS if host() == "startos" else SET_BY_DOCKER
+    return SET_IN_STARTOS if host() == "startos" else SET_BY_SERVER
 
 
 def _get(db: Session, key: str) -> str | None:
@@ -306,14 +308,14 @@ def refuse_public() -> HTTPException:
     where = where_to_change()
     if s.price_source == "mempool":
         if not s.mempool_url:  # only a server's setting: StartOS while Mempool isn't installed
-            missing, fix = (("Mempool isn't installed on this server yet", "Install and start Mempool")
-                            if host() == "startos" else (f"{ENV_MEMPOOL} isn't set", f"Set {ENV_MEMPOOL}"))
             return HTTPException(status_code=502, detail=(
-                f"{missing}, and the backup (public price sites) is off. {fix}, or change the choice in {where}."))
+                "Mempool isn't available, and the backup (public price sites) is off. Install and start "
+                f"Mempool, or change the choice in {where}."))
         return HTTPException(status_code=502, detail=(
             f"Your Mempool didn't answer, and the backup (public price sites) is off. Change that in {where}."))
     if s.invalid:
-        detail = f"This server's price settings aren't valid, so nothing is asked. Fix them in {where}."
+        detail = ("This server's price settings aren't valid, so nothing is asked. "
+                  + (f"Fix them in {where}." if host() == "startos" else "Fix its BTCTX_ settings: the log says which."))
     elif s.price_source == "off":
         detail = f"You chose Nobody for prices, so none is asked ({where})."
     else:

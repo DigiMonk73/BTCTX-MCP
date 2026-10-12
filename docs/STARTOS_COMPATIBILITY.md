@@ -136,11 +136,12 @@ start upgrades a pre-1.1.0 install).
 An invalid value turns price lookups off (an error in the log says which;
 `GET /api/settings/network` says `"invalid": true`).
 
-`BTCTX_HOST` (`startos`; from 1.3.0) says where BitcoinTX runs. It changes
-only words: where a server-set price choice is changed ("StartOS's Price
-Source & Privacy action" rather than "this server's BTCTX_PRICE_SOURCE
-setting"). Without it the Mac app is `mac` (its launcher's `BTCTX_DESKTOP`)
-and anything else `server`; `GET /api/settings/network` gives it as `host`.
+`BTCTX_HOST` (`startos`; new in the stable candidate, #145) says where
+BitcoinTX runs. It changes only words: where a server-set price choice is
+changed ("StartOS's Price Source & Privacy action" rather than words that
+fit any server). Without it the Mac app is `mac` (its launcher's
+`BTCTX_DESKTOP`) and anything else `server`; `GET /api/settings/network`
+gives it as `host`.
 
 The StartOS package sets them from its Price Source & Privacy action, with
 Mempool's and Tor's bridge addresses (`startos/startos/priceSource.ts`; a test

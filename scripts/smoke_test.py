@@ -115,7 +115,7 @@ def stub_prices() -> None:
         if not allowed():
             raise outbound.refuse_public()
         source = "mempool" if outbound.current().own_node else "kraken"
-        return {"USD": float(CURRENT_PRICE), "source": source, "at": bitcoin._now()}
+        return {"USD": float(CURRENT_PRICE), "source": source, "at": bitcoin.now_iso()}
 
     async def block_height():
         if not allowed():
