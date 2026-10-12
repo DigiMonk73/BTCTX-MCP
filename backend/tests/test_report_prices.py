@@ -167,12 +167,14 @@ def test_each_value_from_a_price_names_where_the_price_came_from(auth_client, te
     with sessionmaker(bind=test_engine)() as db:
         db.add(BtcPriceHourly(hour=hour, usd=Decimal("50000"), source="mempool"))
         db.commit()
-    post(auth_client, type="Deposit", timestamp="2025-03-01T14:47:00Z", from_account_id=EXTERNAL,
-         to_account_id=EXCHANGE_BTC, amount="0.1", fee_amount="0", fee_currency="BTC", source="Reward")
-    rows = report(test_engine, 2025)["priced_values"]
-    assert rows[0]["priced_at"] == "When its hour began (2025-03-01 14:00 UTC), your Mempool"
-    with test_engine.begin() as conn:
-        conn.execute(text("DELETE FROM btc_price_hourly WHERE hour = :h"), {"h": hour})
+    try:
+        post(auth_client, type="Deposit", timestamp="2025-03-01T14:47:00Z", from_account_id=EXTERNAL,
+             to_account_id=EXCHANGE_BTC, amount="0.1", fee_amount="0", fee_currency="BTC", source="Reward")
+        rows = report(test_engine, 2025)["priced_values"]
+        assert rows[0]["priced_at"] == "When its hour began (2025-03-01 14:00 UTC), your Mempool"
+    finally:
+        with test_engine.begin() as conn:
+            conn.execute(text("DELETE FROM btc_price_hourly WHERE hour = :h"), {"h": hour})
 
 
 def test_the_report_reads_the_year_files_once(auth_client, test_engine, clean, monkeypatch):
