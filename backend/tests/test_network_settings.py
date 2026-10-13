@@ -346,7 +346,7 @@ def test_the_proxy_carries_public_requests_and_skips_a_local_mempool(auth_client
         async def __aexit__(self, *a):
             return False
 
-        async def get(self, url, *a, **k):
+        def stream(self, method, url, *a, **k):  # outbound.BoundedClient reads each answer as a stream
             made[-1]["url"] = url
             raise httpx.ConnectError("offline in tests")
 

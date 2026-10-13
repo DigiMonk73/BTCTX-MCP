@@ -30,6 +30,11 @@ With a choice made in the app, the server may lend its Tor
 (BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Decide in BitcoinTX instead): it is
 the proxy then, locked on, and an invalid one asks nobody (server_tor).
 
+Every request ends in bounded time and size (BoundedClient): httpx's
+timeouts limit each wait, not the whole request, so the whole of it gets a
+deadline (WAITS times its timeout), and an answer over MAX_ANSWER_BYTES is
+refused. Either is a failed request, handled as any other.
+
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
 install-draft-forms` (services/reports/draft_forms.py) fetches the IRS's
@@ -38,10 +43,13 @@ draft forms from irs.gov when run on a test install.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import logging
 import os
 import ssl
+import zlib
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -54,7 +62,20 @@ from backend.services.desktop import is_desktop
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT = 10.0
+# Seconds for each wait within a request: connecting, sending, the next part
+# of the answer. The biggest answers (the own Mempool's whole history,
+# Bitstamp's hourly blocks) get HISTORY_TIMEOUT.
+TIMEOUT, HISTORY_TIMEOUT = 10.0, 30.0
+# A whole request, from connecting to its answer's last byte, may take its
+# timeout once for each of those three waits: all that a server answering at
+# once could need within them, through a slow Tor circuit too. An answer
+# still arriving after that is cut off (BoundedClient).
+WAITS = 3
+# The most an answer may be, decoded (a compressed one counts in full). The
+# largest real one is the own Mempool's whole USD history, ~32 bytes an hour
+# it recorded: about 1 MiB for three years, 4.3 MiB even for every hour since
+# 2010, growing 0.27 MiB a year. A block of Bitstamp's 1,000 candles is ~140 KiB.
+MAX_ANSWER_BYTES = 16 * 1024 * 1024
 SOURCE_KEY, FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY = (
     "price_source", "mempool_fallback", "mempool_url", "proxy_url")
 OLD_LIVE_KEY = "live_data"  # before v1.1.0: "on"/"off"
@@ -465,31 +486,145 @@ def require_public() -> None:
 
 def unreachable(exc: Exception) -> bool:
     """Whether a request never got an answer: no connection (a proxy down,
-    e.g. Tor stopped), a proxy refusal or a timeout."""
+    e.g. Tor stopped), a proxy refusal or a timeout (AnswerTooSlow too)."""
     return isinstance(exc, httpx.TransportError)
 
 
-def async_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
-    """A client for public sites: through the proxy when one is set."""
+def async_client(timeout: float | None = None) -> BoundedClient:
+    """A client for public sites: through the proxy when one is set.
+    `timeout`: each wait's limit, TIMEOUT unless given."""
+    timeout = timeout or TIMEOUT
     if _transport is not None:
-        return httpx.AsyncClient(timeout=timeout, transport=_transport)
-    return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url)
+        client = httpx.AsyncClient(timeout=timeout, transport=_transport)
+    else:
+        client = httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url)
+    return BoundedClient(client, WAITS * timeout)
 
 
-def own_node_client(timeout: float = TIMEOUT) -> httpx.AsyncClient:
+def own_node_client(timeout: float | None = None) -> BoundedClient:
     """
     A client for the owner's mempool server: direct (it's on their network
-    or their StartOS), except an .onion, which needs the proxy.
+    or their StartOS), except an .onion, which needs the proxy. `timeout`:
+    each wait's limit, TIMEOUT unless given.
     """
+    timeout = timeout or TIMEOUT
     onion = _is_onion(_current.mempool_url)
     if onion and not _current.proxy_url:
         # Never directly: the system's DNS resolver would see the .onion name.
         raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
     if _transport is not None:
-        return httpx.AsyncClient(timeout=timeout, transport=_transport)
-    # A home server's root the owner trusts for this address: it alone (#188)
-    verify = trusting(_current.mempool_root) if _current.mempool_root else True
-    return httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None, verify=verify)
+        client = httpx.AsyncClient(timeout=timeout, transport=_transport)
+    else:
+        # A home server's root the owner trusts for this address: it alone (#188)
+        verify = trusting(_current.mempool_root) if _current.mempool_root else True
+        client = httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None, verify=verify)
+    return BoundedClient(client, WAITS * timeout)
+
+
+class AnswerTooSlow(httpx.TimeoutException):
+    """No whole answer by the request's deadline: a timeout (unreachable())."""
+
+
+class AnswerTooLarge(httpx.HTTPError):
+    """An answer over MAX_ANSWER_BYTES, refused before it is read whole."""
+
+
+class BoundedClient:
+    """
+    An httpx client whose every GET ends by `deadline` seconds after it
+    starts, connecting and the whole answer included, and refuses an answer
+    over MAX_ANSWER_BYTES (AnswerTooSlow, AnswerTooLarge): httpx's own
+    timeouts limit each wait, so an answer arriving in small parts, each
+    within them, would otherwise keep a request open with no end.
+    """
+
+    def __init__(self, client: httpx.AsyncClient, deadline: float):
+        self._client, self.deadline = client, deadline
+
+    async def __aenter__(self) -> BoundedClient:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info) -> None:
+        await self._client.__aexit__(*exc_info)
+
+    async def get(self, url: str, **kwargs) -> httpx.Response:
+        try:
+            return await asyncio.wait_for(self._whole_answer(url, kwargs), self.deadline)
+        except asyncio.TimeoutError:
+            raise AnswerTooSlow(f"no whole answer within {self.deadline:g} seconds") from None
+
+    async def _whole_answer(self, url: str, kwargs: dict) -> httpx.Response:
+        async with self._client.stream("GET", url, **kwargs) as response:
+            body = await _bounded_body(response)
+        # The body is decoded: the encoding and length the server sent don't fit it
+        headers = [(k, v) for k, v in response.headers.multi_items() if k not in ("content-encoding", "content-length")]
+        return httpx.Response(response.status_code, headers=headers, content=bytes(body.data), request=response.request)
+
+
+async def _bounded_body(response: httpx.Response) -> _Body:
+    """The answer's body, decoded here a bounded step at a time from its raw
+    parts: httpx would decode a whole part (and a stacked encoding) before
+    any check."""
+    if response.is_stream_consumed:  # built whole (a test transport): httpx decoded it already
+        body = _Body(None)
+        body.add(response.content)
+        return body
+    body = _Body(response.headers.get("content-encoding"))
+    async with contextlib.aclosing(response.aiter_raw()) as parts:  # as they arrive
+        async for part in parts:
+            body.add(part)
+    body.finish()
+    return body
+
+
+class _Body:
+    """
+    An answer's body, decoded as it arrives and never past MAX_ANSWER_BYTES
+    (AnswerTooLarge), however small the encoded parts. Plain, gzip or
+    deflate, as httpx asks for; any other or stacked encoding is refused.
+    """
+
+    def __init__(self, encoding: str | None):
+        name = (encoding or "identity").strip().lower()
+        if name in ("gzip", "x-gzip", "deflate"):
+            self._decoder = zlib.decompressobj(zlib.MAX_WBITS | 32)  # a gzip or zlib header
+        elif name == "identity":
+            self._decoder = None
+        else:
+            raise httpx.DecodingError(f"an answer encoded as {name!r}")
+        self._raw_deflate_allowed = name == "deflate"  # as httpx: deflate may come without its header
+        self._fed = False
+        self.data = bytearray()
+
+    def add(self, part: bytes) -> None:
+        if self._decoder is None:
+            self._keep(part)
+            return
+        room = MAX_ANSWER_BYTES + 1 - len(self.data)
+        try:
+            out = self._decoder.decompress(part, room)
+        except zlib.error as e:
+            if not (self._raw_deflate_allowed and not self._fed):
+                raise httpx.DecodingError(f"an answer that doesn't decode: {e}") from e
+            self._decoder = zlib.decompressobj(-zlib.MAX_WBITS)
+            out = self._decoder.decompress(part, room)
+        self._fed = self._fed or bool(part)
+        self._keep(out)
+        if self._decoder.unconsumed_tail:  # more than the room left
+            raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
+
+    def finish(self) -> None:
+        if self._decoder is None:
+            return
+        self._keep(self._decoder.flush())  # at most the decoder's window: the input is all consumed
+        if self._fed and not self._decoder.eof:
+            raise httpx.DecodingError("an answer cut short")
+
+    def _keep(self, data: bytes) -> None:
+        self.data += data
+        if len(self.data) > MAX_ANSWER_BYTES:
+            raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
 
 
 async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -> list[bytes]:
@@ -498,8 +633,6 @@ async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -
     handshake alone: no HTTP request (#188, services/mempool_trust.py). Only
     for a home-network address, so direct, like own_node_client.
     """
-    import asyncio
-
     _, writer = await asyncio.open_connection(host, port, ssl=context, server_hostname=host)
     try:
         ssl_object = writer.get_extra_info("ssl_object")
