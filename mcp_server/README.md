@@ -40,7 +40,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |
-| `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (the newest 3 are kept, one a minute). Restoring one is up to you |
+| `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (one a minute). Restoring one is up to you |
 
 There is deliberately no bulk delete.
 
@@ -274,6 +274,11 @@ you to approve each tool call unless you tell it not to.
 - There is no bulk delete, and every write is visible in BitcoinTX. Before a
   large import, have the AI run `backup_ledger` or take a backup yourself
   (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
+- Before the key's first deletion in an hour, BitcoinTX makes a copy of the
+  database itself (`backups/…-ai-before-deleting-…db`). Of the AI copies it
+  keeps the newest 3, the oldest from the last week and the newest made
+  before deleting, so copies made afterwards never replace those from
+  before.
 
 ## Disclaimer
 

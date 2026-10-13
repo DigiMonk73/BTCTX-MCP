@@ -311,6 +311,11 @@ So derived values must be recomputable from the Transaction row alone.
   switch settings, backup download/restore, CSV export, file imports (CSV,
   River), delete-all, Ledger Review fixes, settings changes (the Mempool
   certificate's trust, #188, included) or debug.
+- Before the AI key's first deletion in an hour an AI copy is made
+  (`backups/…-ai-before-deleting-…db`; no copy, no deletion), never for the
+  owner's. The AI copies keep the newest 3, the oldest of the last week and
+  the newest made before deleting (`migrate._ai_copies_held`), so copies
+  made after the key's deletions never push out the ledger from before them.
 
 ## Testing (see `docs/TESTING.md`)
 
