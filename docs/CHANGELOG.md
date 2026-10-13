@@ -93,8 +93,8 @@ All notable changes to BitcoinTX are documented in this file.
   If any step fails, the restore stops: your ledger and settings stay as
   they were, no temporary file is left, and the page says why in plain words
   (a wrong password, a damaged file) instead of "Failed to restore backup."
-  Before, an error while keeping those settings was only logged, and the
-  backup's settings could stay in use.
+  One restore runs at a time. Before, an error while keeping those settings
+  was only logged, and the backup's settings could stay in use.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and

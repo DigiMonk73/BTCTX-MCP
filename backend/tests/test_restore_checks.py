@@ -393,8 +393,66 @@ def test_a_failure_at_the_last_steps_leaves_no_temporary_file(live, tmp_path, mo
     r = _restore(live.client, blob)
 
     assert r.status_code == 400, r.text
-    assert r.json()["detail"] == "Restore failed: No space left on device"
+    assert r.json()["detail"] == ("Restore failed: This backup couldn't be restored: BitcoinTX couldn't write "
+                                  "to its data folder. Your database is unchanged.")  # never the server's paths
     _assert_nothing_changed(live, before, in_memory, copy_made=step == "swap")
+
+
+# #209's re-check
+def test_text_in_a_number_column_is_refused(live, tmp_path):
+    """Copied as it is, it would fail every later read of the transactions."""
+    _assert_refused(live, ["UPDATE transactions SET amount = 'abc'"],
+                    "Restore failed: This backup can't be restored: its transactions rows don't fit "
+                    "BitcoinTX's database.", tmp_path)
+
+
+def test_a_row_without_its_id_is_refused(live, tmp_path):
+    """A table defined without its primary key can hold a row with no id,
+    which SQLite would quietly give a new one."""
+    _assert_refused(live, ["CREATE TABLE t AS SELECT * FROM transactions", "DROP TABLE transactions",
+                           "ALTER TABLE t RENAME TO transactions", "UPDATE transactions SET id = NULL"],
+                    "Restore failed: This backup can't be restored: its transactions rows don't fit "
+                    "BitcoinTX's database.", tmp_path)
+
+
+def test_a_newer_backups_revision_isnt_repeated(live, tmp_path):
+    _assert_refused(live, ["UPDATE alembic_version SET version_num = 'X\nanother line'"],
+                    "Restore failed: " + backup.NEWER, tmp_path)
+
+
+def test_two_revisions_answer_in_plain_words(live, tmp_path):
+    _assert_refused(live, ["INSERT INTO alembic_version VALUES ('0009')"],
+                    "Restore failed: " + backup.DAMAGED, tmp_path)
+
+
+def test_one_restore_at_a_time(live, tmp_path):
+    before = _stored(live.engine)
+    in_memory = outbound.as_dict()
+    blob, _ = _backup(tmp_path)
+    assert backup._restoring.acquire(blocking=False)  # another restore is running
+    try:
+        r = _restore(live.client, blob)
+    finally:
+        backup._restoring.release()
+    assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.BUSY
+    _assert_nothing_changed(live, before, in_memory)
+    assert _restore(live.client, blob).status_code == 200  # once it's done
+
+
+def test_files_a_restore_cut_short_left_are_removed_before_the_next(live, tmp_path, monkeypatch):
+    """SQLite would apply a write-ahead log left beside the temporary file
+    to the next one of the same name."""
+    for suffix in (".restoring-wal", ".restoring-shm", ".rebuilding-journal"):
+        live.path.with_name(live.path.name + suffix).write_bytes(b"left by a restore cut short")
+    seen, write = [], backup._write_owner_only
+
+    def written(path, data):
+        seen.append(sorted(side.name for side in path.parent.glob(path.name + "-*")))
+        write(path, data)
+
+    monkeypatch.setattr(backup, "_write_owner_only", written)
+    assert _restore(live.client, _backup(tmp_path)[0]).status_code == 200
+    assert seen == [[], []]
 
 
 def test_no_write_ahead_log_stays_beside_the_live_database(live, tmp_path):

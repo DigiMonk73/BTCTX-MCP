@@ -11,6 +11,7 @@ import re
 import sqlite3
 import struct
 import tempfile
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
@@ -67,6 +68,14 @@ DAMAGED = "This file isn't a BitcoinTX backup, or it's damaged."
 NOT_UPGRADED = "This backup can't be restored: its database couldn't be brought up to this version of BitcoinTX."
 DOESNT_FIT = "This backup can't be restored: its {table} rows don't fit BitcoinTX's database."
 ONE_LOGIN = "This backup can't be restored: it holds more than one login, and BitcoinTX has one."
+NEWER = ("This backup can't be restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, "
+         "or restore a backup made with this version.")
+BUSY = "Another restore is running: wait for it to finish, then try again."
+NOT_WRITTEN = ("This backup couldn't be restored: BitcoinTX couldn't write to its data folder. "
+               "Your database is unchanged.")
+# One restore at a time (one process serves the app): two at once would share
+# the temporary files below
+_restoring = threading.Lock()
 
 
 def _derive_key(password: str, salt: bytes, iterations: int = LEGACY_ITERATIONS, length: int = KEY_LENGTH) -> bytes:
@@ -218,21 +227,24 @@ def restore_backup(
     decrypted = decrypt_backup(encrypted_file.read_bytes(), password)
     if not decrypted.startswith(SQLITE_HEADER):
         raise ValueError("This file isn't a BitcoinTX backup (no database inside).")
+    if not _restoring.acquire(blocking=False):
+        raise ValueError(BUSY)
 
     staging = db_path.with_name(db_path.name + ".restoring")  # the backup's database
     rebuilt = db_path.with_name(db_path.name + ".rebuilding")  # the one that goes live
     try:
+        # A restore cut short (the app quit) may have left a write-ahead log
+        # here, which SQLite would apply to the next file of the same name
+        _remove_database(staging)
+        _remove_database(rebuilt)
         _write_owner_only(staging, decrypted)
         _write_owner_only(rebuilt, b"")
         result = _rebuild(staging, rebuilt, carry_over)
-        if db_path.exists():
-            kept = backup_sqlite(db_path, "restore")
-            logger.info(f"Database being replaced was saved to: {kept}")
-        engine.dispose()
-        os.replace(rebuilt, db_path)
+        _swap(rebuilt, db_path, engine, backup_sqlite)
     finally:
         _remove_database(staging)
         _remove_database(rebuilt)
+        _restoring.release()
     # What SQLite kept beside the database it replaced: opened next to the
     # new one, a write-ahead log or rollback journal would be applied to it.
     _remove_side_files(db_path)
@@ -240,6 +252,20 @@ def restore_backup(
 
     logger.info(f"Database restored from: {encrypted_file} (schema {result.from_revision or 'unversioned'} -> {result.to_revision})")
     return result
+
+
+def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite) -> None:
+    """Keep a copy of the live database in backups/, then put the new one in
+    its place. A file error answers in plain words, never the server's paths."""
+    try:
+        if db_path.exists():
+            kept = backup_sqlite(db_path, "restore")
+            logger.info(f"Database being replaced was saved to: {kept}")
+        engine.dispose()
+        os.replace(rebuilt, db_path)
+    except OSError as e:
+        logger.warning("Restore stopped: couldn't write the database files (%s)", e.strerror or type(e).__name__)
+        raise ValueError(NOT_WRITTEN) from e
 
 
 def _write_owner_only(path: Path, data: bytes) -> None:
@@ -274,11 +300,20 @@ def _rebuild(staging: Path, rebuilt: Path, carry_over: Callable[[Session], None]
             new.dispose()
         return result
     except MigrationError as e:
+        message = _not_upgraded(e)
         logger.warning("Restore refused: the backup's database couldn't be upgraded (%s)",
-                       _reason(e.__cause__) if e.__cause__ else e)
-        raise ValueError(_not_upgraded(e)) from e
+                       _reason(e.__cause__) if e.__cause__ else message)
+        raise ValueError(message) from e
     except SQLAlchemyError as e:
         logger.warning("Restore refused: the backup's database couldn't be read (%s)", _reason(e))
+        raise ValueError(DAMAGED) from e
+    except OSError as e:
+        logger.warning("Restore stopped: couldn't write the database files (%s)", e.strerror or type(e).__name__)
+        raise ValueError(NOT_WRITTEN) from e
+    except ValueError:
+        raise
+    except Exception as e:  # e.g. alembic's own words on a stamp it can't read
+        logger.warning("Restore refused: the backup's database couldn't be read (%s)", type(e).__name__)
         raise ValueError(DAMAGED) from e
 
 
@@ -347,12 +382,38 @@ def _copy_table(conn, table: str) -> None:
         what = f"the table {table}" if not present else f"{table}.{missing[0]}"
         raise ValueError(f"This backup can't be restored: its database lacks {what}, which BitcoinTX needs.")
     names = ", ".join(_quoted(column) for column in columns)
+    if _rows_without_a_key(conn, table):
+        raise ValueError(DOESNT_FIT.format(table=table))
     try:
         conn.exec_driver_sql(
             f"INSERT INTO main.{_quoted(table)} ({names}) SELECT {names} FROM staged.{_quoted(table)}")
     except IntegrityError as e:
         logger.warning("Restore refused: the backup's %s rows don't fit (%s)", table, _reason(e))
         raise ValueError(DOESNT_FIT.format(table=table)) from e
+    if _text_in_a_number_column(conn, table):
+        raise ValueError(DOESNT_FIT.format(table=table))
+
+
+# Declared types whose values the app reads as numbers (SQLAlchemy's Integer,
+# Numeric, Boolean): a text there (copied as it is) fails every later read
+NUMBER_TYPES = ("INTEGER", "NUMERIC", "BOOLEAN", "DECIMAL", "REAL", "FLOAT")
+
+
+def _rows_without_a_key(conn, table: str) -> bool:
+    """Whether a row has no primary key (SQLite would quietly give it one)."""
+    keys = [row[1] for row in conn.exec_driver_sql(f"PRAGMA main.table_info({_quoted(table)})") if row[5]]
+    where = " OR ".join(f"{_quoted(key)} IS NULL" for key in keys)
+    return bool(keys) and conn.exec_driver_sql(
+        f"SELECT EXISTS (SELECT 1 FROM staged.{_quoted(table)} WHERE {where})").scalar()
+
+
+def _text_in_a_number_column(conn, table: str) -> bool:
+    """Whether a copied number column holds something that isn't a number."""
+    numbers = [row[1] for row in conn.exec_driver_sql(f"PRAGMA main.table_info({_quoted(table)})")
+               if row[2].upper().startswith(NUMBER_TYPES)]
+    where = " OR ".join(f"typeof({_quoted(column)}) NOT IN ('integer', 'real', 'null')" for column in numbers)
+    return bool(numbers) and conn.exec_driver_sql(
+        f"SELECT EXISTS (SELECT 1 FROM main.{_quoted(table)} WHERE {where})").scalar()
 
 
 def _quoted(name: str) -> str:
@@ -369,8 +430,9 @@ def _require_one_login(new) -> None:
 
 def _reason(error: BaseException) -> str:
     """SQLite's own words for an error, for the log: never the statement or
-    its values."""
-    return str(error.orig) if isinstance(error, DBAPIError) else type(error).__name__
+    its values, and on one line (they may hold the backup's names)."""
+    words = str(error.orig) if isinstance(error, DBAPIError) else type(error).__name__
+    return " ".join(words.split())[:200]
 
 
 def _not_upgraded(e) -> str:
@@ -379,6 +441,8 @@ def _not_upgraded(e) -> str:
     instead."""
     if e.__cause__ is not None:
         return NOT_UPGRADED
+    if "written by a newer version" in str(e):  # its text names the backup's revision
+        return NEWER
     return f"This backup can't be restored: {e}"
 
 
