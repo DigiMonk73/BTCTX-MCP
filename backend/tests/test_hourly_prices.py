@@ -240,6 +240,21 @@ def test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored(s
     assert sites.requests == []  # stored, and asked at most every 10 minutes
 
 
+def test_a_bitstamp_hour_with_no_positive_number_for_its_open_is_not_kept(sites, db):
+    hp.start_download()
+    finish_download()
+    sites.requests.clear()
+    sites.volume[NOW] = "0"
+    bad = [at("2026-03-18T05:00Z"), at("2026-03-18T06:00Z"), at("2026-03-18T07:00Z")]
+    for h, junk in zip(bad, ["0", "-3", "NaN"]):
+        sites.bitstamp[h] = junk
+    for h in bad:
+        result = hp.hourly_price(db, utc("2026-03-18T05:20Z") + timedelta(hours=bad.index(h)))
+        assert result is None or (result[0] > 0 and result[1] != "bitstamp")
+    stored = {row.hour for row in db.query(BtcPriceHourly)}
+    assert not stored & set(bad)
+
+
 def live_rows(first_live: int, until: int, spike: int | None = None) -> list[dict]:
     """A mempool server's history: weekly rows, then hourly from `first_live`."""
     rows = [{"time": t, "USD": 30000} for t in range(first_live - 400 * 86400, first_live, 7 * 86400)]

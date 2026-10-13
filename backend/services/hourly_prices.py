@@ -458,5 +458,8 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
         for row in await pf.bitstamp_candles(client, start):
             h = int(row["timestamp"])
             if h % HOUR == 0 and (h < current or (h == current and Decimal(str(row["volume"])) > 0)):
-                out[h] = Decimal(str(row["open"])).quantize(pf.CENT)
+                # A 0, negative or non-numeric open is no price: the hour is left out, so the day's price is used.
+                price = Decimal(str(row["open"]))
+                if price.is_finite() and price > 0:
+                    out[h] = price.quantize(pf.CENT)
     return out
