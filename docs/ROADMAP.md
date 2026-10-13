@@ -30,8 +30,8 @@ users see and how values are made.
       one price card (your own Mempool, public sites, or nobody, optionally
       through Tor), a status line, confirm once after the update, and each
       value's source shown; StartOS asks at install. Waiting on the owner:
-      six small pieces of the plan not built (#208) and the landing page's
-      words (#145).
+      the landing page's words (#145). Six small pieces of the plan come in
+      the next release (#208, under "Soon").
 - [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
       #150; the owner agreed 2026-10-12):
   - [x] a spend's network fee comes off its proceeds (#157, done in #162);
@@ -43,6 +43,15 @@ users see and how values are made.
 
 ## Soon
 
+- [ ] **The price redesign's six small pieces** (#208; the next release,
+      the owner's choice, 2026-10-13): "Recommended" beside "Chosen" in the
+      app when StartOS set your own Mempool; a blank value's hint, the Gift
+      form's Refresh and the sidebar's Auto price say where the price comes
+      from; the sidebar asks "Is Tor running?" when Tor fails; and the AI
+      connector says the hour and source of a value it filled.
+- [ ] **StartOS keeps only whether a login was set, not the password**
+      (#212; the next release, the owner's choice, 2026-10-13), with a
+      package migration that drops the stored value.
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
       forms are filed (early 2027): the user types the form's proceeds and
       cost for that sale, and Form 8949 shows them with the IRS's code and
