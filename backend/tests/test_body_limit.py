@@ -99,7 +99,8 @@ def test_a_restore_near_its_own_limit_is_still_taken(auth_client, monkeypatch):
     the 5 MB limit doesn't apply to it."""
     restored = []
     monkeypatch.setattr(backup, "MAX_RESTORE_BYTES", 8 * MB)
-    monkeypatch.setattr(backup, "restore_backup", lambda password, path: restored.append(path.stat().st_size))
+    monkeypatch.setattr(backup, "restore_backup",
+                        lambda password, path, **kept: restored.append(path.stat().st_size))
     file = b"b" * (8 * MB - 1)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", file)})
     assert r.status_code == 200, r.text
