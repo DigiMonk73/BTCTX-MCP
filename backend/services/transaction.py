@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
+from backend.schemas.transaction import validate_btc_decimal, validate_usd_decimal
 from backend.services import hourly_prices, price_history
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -1546,6 +1547,21 @@ INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_a
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 
+# The API's rule for each money field (schemas/transaction.py), checked here
+# too: the imports build their rows without the API's schema, and a value
+# the database can't hold would be saved, then fail every listing. The
+# amount and the fee take the BTC rule whatever their account (their
+# columns hold 8 decimals); _check_amount adds cents in a USD account.
+_MONEY_RULES = {
+    "amount": validate_btc_decimal,
+    "fee_amount": validate_btc_decimal,
+    "cost_basis_usd": validate_usd_decimal,
+    "proceeds_usd": validate_usd_decimal,
+    "gross_proceeds_usd": validate_usd_decimal,
+    "fmv_usd": validate_usd_decimal,
+    "fee_usd": validate_usd_decimal,
+}
+
 
 def _canonical(value, choices) -> str | None:
     """The listed spelling of a case-insensitive match, else None."""
@@ -1571,6 +1587,7 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
     tx_type = _checked_type(data)
     _check_timestamp(data)
     from_acct, to_acct = _checked_accounts(data, db)
+    _check_money_limits(data)
     _check_amount(data, tx_type, from_acct, to_acct)
     fee = Decimal(data.get("fee_amount") or 0)
     _check_not_negative(data, fee)
@@ -1616,6 +1633,19 @@ def _checked_accounts(data: dict, db: Session) -> tuple[Account | None, Account 
     from_acct = db.get(Account, data["from_account_id"]) if data.get("from_account_id") else None
     to_acct = db.get(Account, data["to_account_id"]) if data.get("to_account_id") else None
     return from_acct, to_acct
+
+
+def _check_money_limits(data: dict) -> None:
+    """Every money field given is a finite number within its rule."""
+    for key, rule in _MONEY_RULES.items():
+        if data.get(key) is None:
+            continue
+        try:
+            rule(Decimal(data[key]))
+        except InvalidOperation:
+            _bad(f"{key} is not a number.")
+        except ValueError as problem:
+            _bad(f"{key}: {problem}")
 
 
 def _check_amount(data: dict, tx_type: str, from_acct: Account | None, to_acct: Account | None) -> None:

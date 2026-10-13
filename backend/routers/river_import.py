@@ -25,7 +25,7 @@ from backend.schemas.river_import import (
 )
 from backend.schemas.csv_import import CSVParseError
 from backend.services import hourly_prices
-from backend.services.csv_import import _validate_row, execute_import
+from backend.services.csv_import import _validate_row, execute_import, number_text
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -219,8 +219,10 @@ def execute_river_import(
 
 
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
-    """Each row checked by the CSV import's row check; 400 listing the first
-    five errors when any row has one."""
+    """Each row checked by the CSV import's row check, then a Transfer's
+    amount given its BTC fee (BitcoinTX's meaning), once both are known to
+    be numbers within their limits; 400 listing the first five errors when
+    any row has one."""
     tx_datas = []
     all_errors: list[str] = []
     for i, row in enumerate(rows, start=1):
@@ -228,6 +230,7 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
+            tx_data["amount"] = ledger_amount(row.type, tx_data["amount"], row.fee_amount, row.fee_currency)
             tx_datas.append(tx_data)
     if all_errors:
         detail = "Rows have errors: " + "; ".join(all_errors[:5])
@@ -238,20 +241,17 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
 
 
 def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
-    """A row as the CSV import reads it: text, a Transfer's amount with its
-    BTC fee (BitcoinTX's meaning)."""
+    """A row as the CSV import reads it: text, River's own amounts."""
     ts = row.date
     return {
         "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": row.type,
-        "amount": format(
-            ledger_amount(row.type, row.amount, row.fee_amount, row.fee_currency), "f"
-        ),
+        "amount": number_text(row.amount),
         "from_account": row.from_account,
         "to_account": row.to_account,
-        "cost_basis_usd": format(row.cost_basis_usd, "f") if row.cost_basis_usd is not None else "",
-        "proceeds_usd": format(row.proceeds_usd, "f") if row.proceeds_usd is not None else "",
-        "fee_amount": format(row.fee_amount, "f") if row.fee_amount is not None else "",
+        "cost_basis_usd": number_text(row.cost_basis_usd),
+        "proceeds_usd": number_text(row.proceeds_usd),
+        "fee_amount": number_text(row.fee_amount),
         "fee_currency": row.fee_currency or "",
         "source": row.source or "",
         "purpose": row.purpose or "",
