@@ -44,10 +44,12 @@ draft forms from irs.gov when run on a test install.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import ssl
+import zlib
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -553,14 +555,65 @@ class BoundedClient:
 
     async def _whole_answer(self, url: str, kwargs: dict) -> httpx.Response:
         async with self._client.stream("GET", url, **kwargs) as response:
-            body = bytearray()
-            async for chunk in response.aiter_bytes():
-                body += chunk
-                if len(body) > MAX_ANSWER_BYTES:
-                    raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
+            body = await _bounded_body(response)
         # The body is decoded: the encoding and length the server sent don't fit it
         headers = [(k, v) for k, v in response.headers.multi_items() if k not in ("content-encoding", "content-length")]
-        return httpx.Response(response.status_code, headers=headers, content=bytes(body), request=response.request)
+        return httpx.Response(response.status_code, headers=headers, content=bytes(body.data), request=response.request)
+
+
+async def _bounded_body(response: httpx.Response) -> _Body:
+    """The answer's body, decoded here a bounded step at a time from its raw
+    parts: httpx would decode a whole part (and a stacked encoding) before
+    any check."""
+    if response.is_stream_consumed:  # built whole (a test transport): httpx decoded it already
+        body = _Body(None)
+        body.add(response.content)
+        return body
+    body = _Body(response.headers.get("content-encoding"))
+    async with contextlib.aclosing(response.aiter_raw()) as parts:  # as they arrive
+        async for part in parts:
+            body.add(part)
+    body.finish()
+    return body
+
+
+class _Body:
+    """
+    An answer's body, decoded as it arrives and never past MAX_ANSWER_BYTES
+    (AnswerTooLarge), however small the encoded parts. Plain, gzip or
+    deflate, as httpx asks for; any other or stacked encoding is refused.
+    """
+
+    def __init__(self, encoding: str | None):
+        name = (encoding or "identity").strip().lower()
+        if name in ("gzip", "x-gzip", "deflate"):
+            self._decoder = zlib.decompressobj(zlib.MAX_WBITS | 32)  # a gzip or zlib header
+        elif name == "identity":
+            self._decoder = None
+        else:
+            raise httpx.DecodingError(f"an answer encoded as {name!r}")
+        self.data = bytearray()
+
+    def add(self, part: bytes) -> None:
+        if self._decoder is None:
+            self._keep(part)
+            return
+        room = MAX_ANSWER_BYTES + 1 - len(self.data)
+        try:
+            self._keep(self._decoder.decompress(part, room))
+        except zlib.error as e:
+            raise httpx.DecodingError(f"an answer that doesn't decode: {e}") from e
+        if self._decoder.unconsumed_tail:  # more than the room left
+            raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
+
+    def finish(self) -> None:
+        if self._decoder is not None:
+            self._keep(self._decoder.flush())  # at most the decoder's window: the input is all consumed
+
+    def _keep(self, data: bytes) -> None:
+        self.data += data
+        if len(self.data) > MAX_ANSWER_BYTES:
+            raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
 
 
 async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -> list[bytes]:

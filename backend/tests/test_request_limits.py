@@ -237,3 +237,55 @@ def test_the_largest_real_answer_comes_in_whole(monkeypatch):
         lambda request: httpx.Response(200, headers={"Content-Encoding": "gzip"}, content=gzip.compress(body))))
     use(price_source="mempool", mempool_url=NODE)
     assert asyncio.run(price_history.own_node_rows()) == (rows, True)
+
+
+# #220's review: compressed answers decoded a bounded step at a time
+class Parts(httpx.AsyncByteStream):
+    """An answer that arrives as these raw parts (not read whole first)."""
+
+    def __init__(self, *parts: bytes):
+        self.parts = parts
+
+    async def __aiter__(self):
+        for part in self.parts:
+            yield part
+
+
+def ask_with(monkeypatch, headers, *parts):
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(
+        lambda request: httpx.Response(200, headers=headers, stream=Parts(*parts))))
+
+    async def ask():
+        async with outbound.async_client() as client:
+            return await client.get(bitcoin.KRAKEN_TICKER_URL)
+
+    return asyncio.run(ask())
+
+
+def test_a_stacked_or_unknown_encoding_is_refused(monkeypatch):
+    twice = gzip.compress(gzip.compress(b'{"result": {}}'))
+    for encoding in ("gzip, gzip", "br", "zstd"):
+        with pytest.raises(httpx.DecodingError):
+            ask_with(monkeypatch, {"Content-Encoding": encoding}, twice)
+
+
+def test_a_small_compressed_answer_never_decodes_past_the_limit_in_memory(monkeypatch):
+    import tracemalloc
+
+    monkeypatch.setattr(outbound, "MAX_ANSWER_BYTES", 64 * 1024)
+    packed = gzip.compress(b" " * (64 * 1024 * 1024))  # 64 MiB once decoded, one raw part
+    tracemalloc.start()
+    try:
+        with pytest.raises(outbound.AnswerTooLarge):
+            ask_with(monkeypatch, {"Content-Encoding": "gzip"}, packed)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 8 * 1024 * 1024, peak
+
+
+def test_a_streamed_gzip_answer_still_decodes(monkeypatch):
+    body = b'{"error": [], "result": {"XXBTZUSD": {"c": ["65000.0", "1"]}}}'
+    packed = gzip.compress(body)
+    r = ask_with(monkeypatch, {"Content-Encoding": "gzip"}, packed[:10], packed[10:])
+    assert r.status_code == 200 and r.json()["result"]["XXBTZUSD"]["c"][0] == "65000.0"
