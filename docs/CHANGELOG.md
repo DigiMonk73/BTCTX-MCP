@@ -81,6 +81,16 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **Logging out ends the session everywhere** (#151). Each login now opens
+  a session of its own on the server. Logging out ends it at once, for any
+  copy of that browser's cookie too; before, a copy kept working until 14
+  days after the login. Your other browsers stay logged in. A password
+  change (Settings, or StartOS's Set Login Credentials) or an account reset
+  still logs every other browser out, and an in-app restore keeps the
+  sessions that were open (when the backup's account has the same id;
+  otherwise every browser logs in again) and the browser that restored
+  logs in again. **After this update, everyone logs in once
+  more.** The unused `GET /api/users/protected` is gone.
 - **The Mac app gives the AI connector a new key each time it starts**
   (#151). The key in `mcp.json` stayed the same across restarts; now each
   start writes a new one, and a key from an earlier run stops working. The

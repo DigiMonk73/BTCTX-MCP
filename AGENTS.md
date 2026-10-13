@@ -258,7 +258,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
 | `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
-| `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
+| `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
@@ -279,9 +279,20 @@ So derived values must be recomputable from the Transaction row alone.
   default key anywhere.
 - The debug router, `DELETE /api/transactions/delete_all` and
   `PUT /api/settings/tax-timezone` are login-only (never the AI key); tests
-  use the first two, the MCP server must not expose bulk delete. Sessions carry a stamp of the password hash
-  (`backend/session_auth.py`): changing the password or resetting the account
-  ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
+  use the first two, the MCP server must not expose bulk delete. API docs
+  (`/docs`, `/openapi.json`) only with DEBUG.
+- Sessions (`backend/session_auth.py`): each login gets a random session id,
+  carried in the cookie; the server keeps the hashes of the open ones in
+  `app_settings` (the newest 20). A session not on that list is logged out
+  (401), so logout ends that cookie and every copy of it while other
+  browsers stay logged in. Sessions also carry a stamp of the password hash:
+  changing the password (Settings or `cli set-password`) or resetting the
+  account empties the list and ends every other session. A restore keeps
+  the other browsers' sessions open before it (only while the restored
+  account has the same id), never the backup's list; the restoring browser
+  logs in again. A route that reads `request.session` itself
+  relies on its router's `get_current_user` having cleared an ended session
+  first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
   New passwords need 12+ characters; a change needs the current password.

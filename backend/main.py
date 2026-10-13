@@ -47,7 +47,7 @@ def cors_origins(raw: str | None) -> list[str]:
 ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 from backend.database import init_db, get_db, SessionLocal
-from backend.session_auth import require_login, session_user_id, start_session
+from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
 
@@ -200,8 +200,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     (Authorization: Bearer <key>, backend/services/ai_key.py) on the routes
     it may use. A valid key anywhere else is 403.
     """
-    # Session auth (browser/frontend); a session from before a password
-    # change is cleared (backend/session_auth.py)
+    # Session auth (browser/frontend); a session that ended (logout, a
+    # password change) is cleared (backend/session_auth.py)
     user_id = session_user_id(request, db)
     if user_id:
         return user_id
@@ -296,14 +296,14 @@ def login(
         raise HTTPException(status_code=403, detail=first_run.DEFAULT_LOGIN_REFUSED)
 
     login_throttle.succeeded(request)
-    start_session(request, user)
+    start_session(request, user, db)
     return {"detail": f"Logged in as {user.username}"}
 
 
 @app.post("/api/logout")
-def logout(request: Request, response: Response):
-    """End the session."""
-    request.session.clear()
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    """End the session: this cookie, and any copy of it, stops working."""
+    end_session(request, db)
     return {"detail": "Logged out successfully"}
 
 # Health check (public: used by StartOS and container probes)

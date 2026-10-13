@@ -34,6 +34,7 @@ from backend.database import get_db, seed_defaults
 from backend.main import app
 from backend.migrate import alembic_config, upgrade_database
 from backend.models.user import User
+from backend import session_auth
 from backend.routers import backup as backup_router
 from backend.schemas.transaction import TransactionCreate
 from backend.services import ai_key, backup, outbound
@@ -99,7 +100,9 @@ def live(tmp_path, auth_client, monkeypatch):
     Session = sessionmaker(bind=engine)
     with Session() as db:
         outbound.load(db)
-        carried = {**outbound.snapshot(db), **ai_key.snapshot(db)}
+        # The restore also keeps the other browsers' sessions; here only the
+        # restoring browser's was open, and it ends (#221)
+        carried = {**outbound.snapshot(db), **ai_key.snapshot(db), session_auth.OPEN_SESSIONS: "[]"}
 
     def override():
         db = Session()
@@ -240,7 +243,9 @@ def test_an_ordinary_backup_restores_and_keeps_this_installs_settings(live, tmp_
 
     assert r.status_code == 200, r.text
     after = _stored(live.engine)
-    assert after["settings"] == before["settings"]  # the AI key and switch, the price settings
+    # The AI key and switch, the price settings; the open sessions but the
+    # restoring browser's, which logs in again (#221)
+    assert after["settings"] == {**before["settings"], session_auth.OPEN_SESSIONS: "[]"}
     assert after["users"] == before["users"]
     assert _amounts(live.engine) == [2.0]  # the backup's ledger
     assert _schema(live.path) == fresh_schema

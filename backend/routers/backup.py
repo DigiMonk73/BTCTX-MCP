@@ -26,6 +26,7 @@ from backend.models.app_setting import AppSetting
 from backend.models.transaction import Transaction
 from backend.models.user import User
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
@@ -103,10 +104,16 @@ NOT_KEPT = (
 )
 
 
-def _in_use(db: Session) -> dict:
+def _in_use(db: Session, request: Request) -> dict:
     """What a restore keeps from this install: the login, the AI key and
-    switch, and the price settings."""
-    return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db)}
+    switch, the price settings, and the sessions open in other browsers
+    (this one logs in again: the restored database may have other user ids).
+    The backup's own list of sessions never comes back, so a session that
+    ended since it was made stays ended."""
+    own = session_auth.session_hash(request)
+    sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
+    return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
+            "sessions": sessions}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -126,6 +133,7 @@ def _write_kept(kept: dict, restored: Session) -> None:
         outbound.carry_over(restored, kept["prices"])
         ai_key.carry_over(restored, kept["ai"])
         _keep_login(restored, kept["login"])
+        session_auth.put_open_sessions(restored, kept["sessions"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
         as_written = restored.query(User).count() == 1 and _as_stored(restored, kept) == kept
@@ -152,7 +160,8 @@ def _as_stored(db: Session, kept: dict) -> dict:
     as rows, not through snapshot(), which takes a missing price source for
     "unset": a restore that lost it would pass the check."""
     login = _login_in_use(db) if kept["login"] is not None else None
-    return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"])}
+    return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
+            "sessions": session_auth.open_sessions(db)}
 
 
 def _rows(db: Session, keys) -> dict:
@@ -200,7 +209,7 @@ def restore_encrypted_backup(
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
-    kept = _in_use(db)
+    kept = _in_use(db, request)
     db.close()  # this request holds no connection to the database being replaced
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
