@@ -81,6 +81,27 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **Before the AI key's first change in an hour, BitcoinTX keeps a copy of
+  the database** (#151). An edit or a deletion with the AI key (the
+  connector's `update_transaction` and `delete_transaction`) first makes a
+  copy in the `backups` folder with the AI's other copies
+  (`…-ai-before-changing-…db`); if it can't be made, the change is
+  refused. Of the AI copies BitcoinTX now keeps the newest 3, the oldest
+  from the last week and the newest made before a change, so copies made
+  afterwards never replace the ledger from before the AI's changes. Your
+  own edits and deletions make no copy.
+- **The AI connector's imports are kept short** (#151). With the AI key,
+  `preview_transactions` and `add_transactions` take at most 500 rows a
+  call, and fewer rows dated before your latest entry, since each of those
+  recalculates the whole ledger: the error says how many to send. A long
+  one kept BitcoinTX busy, so a save of yours meanwhile (turning AI access
+  off too) could fail with "database is locked"; now one takes about 2 s
+  at most and your save waits for it. Your own CSV and River imports are
+  unchanged.
+- **Every request is limited to 5 MB** (#151). BitcoinTX refuses a larger
+  request before reading it, the login and Create account pages included.
+  A file keeps its own limit: a backup to restore up to 1 GiB, a CSV or
+  River file up to 5 MB.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and
