@@ -9,9 +9,10 @@ landscape table in the complete tax report's look (pdf_layout.py): dates
 in the tax timezone, each type with its source or purpose.
 """
 
+import csv
 import logging
 from decimal import Decimal
-from io import BytesIO
+from io import BytesIO, StringIO
 
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
@@ -178,21 +179,19 @@ def _get_account_name(accounts: dict, account_id: int) -> str:
 
 
 def _generate_csv(rows: list[dict], year: int) -> str:
-    lines = [",".join(COLUMNS)]
+    """
+    The header and a line per row. The csv module quotes a cell holding a
+    comma, a quote or a line break, so every cell stays in its own row; a
+    text cell can't start a spreadsheet formula (safe_text.csv_text), and
+    numbers stay numbers. No line break follows the last row.
+    """
+    output = StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(COLUMNS)
     for row in rows:
-        # Text cells can't start a spreadsheet formula; numbers stay numbers
-        cells = [_escape_csv(row[col] if col in NUMBER_COLUMNS else csv_text(row[col])) for col in COLUMNS]
-        lines.append(",".join(cells))
+        writer.writerow(row[col] if col in NUMBER_COLUMNS else csv_text(row[col]) for col in COLUMNS)
     logger.debug(f"Generated Transaction History CSV for {year}, {len(rows)} rows.")
-    return "\n".join(lines)
-
-
-def _escape_csv(value: str) -> str:
-    """Quoted, with its quotes doubled, when it holds a comma or a quote."""
-    if not value:
-        return ""
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"' if ("," in value or '"' in value) else escaped
+    return output.getvalue().removesuffix("\n")
 
 
 def _generate_pdf(rows: list[dict], year: int, tz_name: str) -> bytes:

@@ -9,9 +9,11 @@ Ledger text on its way into the PDF and CSV reports.
   no host, so markup that slipped through still fetches nothing; the reports
   use no images, links or font files of their own. This module must be
   imported before ReportLab opens anything: it reads these settings once.
-- CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or CR)
-  as a formula. csv_text() puts a ' in front of such a text value. Numbers
-  never go through it, so a loss stays -120.00.
+- CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
+  line break) as a formula. csv_text() puts a ' in front of such a text
+  value. Numbers never go through it, so a loss stays -120.00. The files are
+  written with the csv module, which quotes a cell holding a line break, so
+  the text after one stays in its cell.
 
 The IRS forms are filled by pypdf (pdf_form_filler.py), not ReportLab.
 """
@@ -25,7 +27,7 @@ from reportlab import rl_config
 rl_config.trustedSchemes = []
 rl_config.trustedHosts = []
 
-FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 
 def pdf_text(value) -> str:

@@ -7,7 +7,9 @@ Form 8949 box of 2024, 2025 and 2026); and it refuses a ledger that isn't
 empty and the Mac app's address.
 """
 
+import csv
 import importlib.util
+import io
 import json
 import os
 from collections import defaultdict
@@ -204,6 +206,24 @@ def test_every_box_in_any_tax_timezone(seeded, tz):
     finally:
         c.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
     assert boxes == {2024: set("ABCDEF"), 2025: set("GHIJKL"), 2026: set("GHIJKL")}
+
+
+def test_the_history_csv_writes_ordinary_text_as_it_is(seeded):
+    """Each year's transaction history CSV of the reference ledger is the
+    plain file a spreadsheet or a diff expects: a line per row and none after
+    the last, every cell as it is, quoted only when it holds a comma or a
+    quote."""
+    c, _, _ = seeded
+
+    def cell(value: str) -> str:
+        return '"' + value.replace('"', '""') + '"' if "," in value or '"' in value else value
+
+    for year in YEARS:
+        r = c.get("/api/reports/simple_transaction_history", params={"year": year, "format": "csv"})
+        assert r.status_code == 200, r.text
+        rows = list(csv.reader(io.StringIO(r.text)))
+        assert len(rows) > 10, year
+        assert r.text == "\n".join(",".join(cell(value) for value in row) for row in rows), year
 
 
 def test_a_ledger_with_transactions_is_refused(seeded):

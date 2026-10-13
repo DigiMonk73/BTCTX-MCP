@@ -9,6 +9,7 @@ so everything derived must follow from the saved transactions alone.
 """
 
 import logging
+import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
@@ -1538,11 +1539,14 @@ USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXC
 TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
 WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")
 DEPOSIT_SOURCES = ("MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate", "N/A")
+FEE_CURRENCIES = ("USD", "BTC")
 GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
 INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
+FEE_CURRENCY_UNKNOWN = "fee_currency must be USD or BTC."
+TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or other control character."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 
@@ -1642,9 +1646,11 @@ def _check_not_negative(data: dict, fee: Decimal) -> None:
 
 def _check_fee_currency(data: dict, tx_type: str, fee: Decimal, from_acct: Account | None,
                         to_acct: Account | None) -> None:
-    """A withdrawal's fee is in the currency of the account it leaves, a
-    deposit's in that of the account it reaches."""
+    """A fee is in USD or BTC: a withdrawal's in the currency of the account
+    it leaves, a deposit's in that of the account it reaches."""
     fee_cur = (data.get("fee_currency") or "").upper()
+    if fee_cur and fee_cur not in FEE_CURRENCIES:
+        _bad(FEE_CURRENCY_UNKNOWN)
     if fee > 0 and tx_type in ("Withdrawal", "Deposit"):
         acct = from_acct if tx_type == "Withdrawal" else to_acct
         if acct is not None and fee_cur and fee_cur != acct.currency:
@@ -1662,8 +1668,9 @@ def _check_sell_proceeds(data: dict, fee: Decimal) -> None:
 
 
 def _set_canonical_spellings(data: dict) -> None:
-    """A purpose or source in the listed spelling ("gift" is Gift); either
-    one too long is refused."""
+    """A purpose or source in the listed spelling ("gift" is Gift). Either
+    one too long is refused, and so is other text that isn't a single line:
+    it is kept as written, and the CSV files and reports show it in one cell."""
     for key, choices in (("purpose", WITHDRAWAL_PURPOSES), ("source", DEPOSIT_SOURCES)):
         value = data.get(key)
         if value is not None and len(str(value)) > MAX_TEXT:
@@ -1671,6 +1678,14 @@ def _set_canonical_spellings(data: dict) -> None:
         canonical = _canonical(value, choices)
         if canonical:
             data[key] = canonical
+        elif value is not None and has_control_character(value):
+            _bad(TEXT_ON_ONE_LINE.format(key))
+
+
+def has_control_character(value) -> bool:
+    """Whether the text holds a control character (a line break, a tab, any
+    other C0 or C1 control) or a line or paragraph separator."""
+    return any(unicodedata.category(char) in ("Cc", "Zl", "Zp") for char in str(value))
 
 
 def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_acct: Account | None,

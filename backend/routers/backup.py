@@ -261,7 +261,7 @@ def _export_row(txn: Transaction) -> dict[str, str]:
         "cost_basis_typed": _basis_typed(txn),
         "acquired_at": txn.acquired_at.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.acquired_at else "",
         "proceeds_typed": _proceeds_typed(txn),
-        "price_moment": txn.price_moment or "",
+        "price_moment": csv_text(txn.price_moment),
     }
 
 
