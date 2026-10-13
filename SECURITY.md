@@ -41,6 +41,15 @@ Only the latest release gets security fixes. On StartOS, that's the newest
 BitcoinTX package Start9 publishes (each release goes to Start9's Community
 Beta registry first). Updating is the fix for every older version.
 
+## Checking a download
+
+Each release lists the SHA-256 of its files (the macOS `.dmg` and `.zip`,
+`btctx.s9pk`) in `SHA256SUMS`, and GitHub keeps a signed build provenance
+attestation of each, made by the release workflow. The README's
+[Install](README.md#install) section shows how to check a file with them. A
+file that fails either check isn't the one the release published: don't
+open or install it.
+
 ## Scope
 
 In scope: everything in this repository.

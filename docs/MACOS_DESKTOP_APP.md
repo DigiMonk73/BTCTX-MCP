@@ -10,6 +10,24 @@ Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
 (unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
+## Checking a download
+
+The app isn't signed by Apple, so macOS can't say who made it; the release
+can. Its `SHA256SUMS` holds the SHA-256 of each file, and GitHub keeps a
+signed build provenance attestation of each, made by the release workflow.
+Save `SHA256SUMS` next to the `.dmg` (or `.zip`) and, in that folder, before
+opening the app:
+
+```bash
+shasum -a 256 -c --ignore-missing SHA256SUMS                       # BitcoinTX-macOS.dmg: OK
+gh attestation verify BitcoinTX-macOS.dmg -R DigiMonk73/BTCTX-MCP  # with the GitHub CLI
+```
+
+The first says the file is the one the release lists (`--ignore-missing`
+leaves out the release's other files, the ones you didn't download); the
+second, that GitHub built it from this repository. If either fails, don't
+open it: download it again from the release page.
+
 ## How it works
 
 ```
@@ -209,11 +227,15 @@ zipped `.app` as a build artifact.
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
 the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
 drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
-are unsigned and not notarized.
+are unsigned and not notarized. Before it creates the release, the release
+job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with
+them) and attests the three (`actions/attest-build-provenance`); see
+"Checking a download" above.
 
 ## Troubleshooting
 
-**App won't open (Gatekeeper).** The app is unsigned. The first time,
+**App won't open (Gatekeeper).** The app is unsigned: check the download
+first ("Checking a download" above). The first time,
 right-click (Control-click) it in Applications and choose **Open**. On macOS 15
 or later that no longer offers Open: try to open it once, then go to
 **System Settings → Privacy & Security** and click **Open Anyway**. Or clear

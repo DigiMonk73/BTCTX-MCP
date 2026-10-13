@@ -89,6 +89,14 @@ for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
 Every [release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) has
 a macOS app, a StartOS package and a Docker image.
 
+To check a file you downloaded from a release, save that release's
+`SHA256SUMS` in the same folder and run
+`shasum -a 256 -c --ignore-missing SHA256SUMS` there (on Linux,
+`sha256sum -c --ignore-missing SHA256SUMS`): your file should say `OK`.
+With the [GitHub CLI](https://cli.github.com),
+`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP` also checks that
+GitHub built it from this repository.
+
 ### macOS app
 
 Download `BitcoinTX-macOS.dmg` from the latest release and drag BitcoinTX to
