@@ -174,7 +174,8 @@ The 10 required checks gate every merge, and Claude reads the release notes
 first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
 - **The Mac app.** Its build and launch check runs on each pull request,
-  but it is not a required check, so auto-merge does not wait for it. An update to `backend/` or `desktop/` requirements, or to
+  but it is not a required check, so auto-merge does not wait for it.
+  An update to `backend/` or `desktop/` requirements, or to
   the GitHub Actions (the Mac job uses them too), merges only after that
   run has passed on the pull request's head commit. Claude checks it:
   `gh pr checks <number>` (the "macOS app build + launch check" job). Turn

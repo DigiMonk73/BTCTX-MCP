@@ -16,7 +16,9 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Only a pull request's older run is cancelled: a push to develop or main is
+  # each merged commit's only run, and releases take their downloads from it.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
