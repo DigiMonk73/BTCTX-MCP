@@ -5,7 +5,9 @@ The routes anyone can reach that check a password or code:
 - Login throttling (backend/services/login_throttle.py): after 5 failures
   a client waits 1 s, 2 s, 4 s... (429 + Retry-After), at most 5 minutes;
   30 failures a minute across all clients make everyone wait. Login,
-  reset-account and a password change share it.
+  reset-account and a password change share it. A browser that got one of
+  them right holds a device cookie and is a client of its own: behind a
+  proxy, where everyone has one address, others' failures don't stop it.
 - New passwords are at least 12 characters (older, shorter ones still log
   in); a password change needs the current password.
 - setup-status runs bcrypt once per set of credentials, not on every call.
@@ -18,14 +20,15 @@ The routes anyone can reach that check a password or code:
 import ast
 import os
 import stat
+import time
 from pathlib import Path
-from types import SimpleNamespace
 
 import bcrypt
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 
+from backend import secret_key
 from backend.main import app
 from backend.models.user import User
 from backend.services import first_run, login_throttle
@@ -101,16 +104,11 @@ def test_many_failures_from_many_addresses_make_everyone_wait(fresh_app, clock):
     assert anon("10.2.0.1").post("/api/login", json=good()).status_code == 200
 
 
-def test_a_client_is_forgotten_after_an_hour(clock):
-    req = SimpleNamespace(client=SimpleNamespace(host="10.3.0.1"))
-    for _ in range(7):
-        login_throttle.failed(req)
-    with pytest.raises(HTTPException):
-        login_throttle.check(req)
+def test_a_client_is_forgotten_after_an_hour(fresh_app, clock):
+    me = anon("10.3.0.1")
+    assert fail_login(me, 7) == [401] * 5 + [429] * 2
     clock[0] += login_throttle.FORGET_AFTER + 1
-    login_throttle.check(req)  # no wait, and a fresh count
-    login_throttle.failed(req)
-    login_throttle.check(req)
+    assert fail_login(me, 5) == [401] * 5  # a fresh count: five free failures again
 
 
 def test_reset_account_current_password_is_throttled(fresh_app, clock):
@@ -126,6 +124,219 @@ def test_reset_account_current_password_is_throttled(fresh_app, clock):
     assert anon().post("/api/users/reset-account", json=right).status_code == 429
     clock[0] += 1.01
     assert anon().post("/api/users/reset-account", json=right).status_code == 200
+
+
+# A known browser (device cookie, #151). Behind StartOS's proxy, or one in
+# front of Docker, every request has the proxy's address.
+PROXY = "10.9.0.1"
+OWNER = {"username": "me", "password": "owners-password-1"}
+DEVICE = "btc_device"
+
+
+def set_owner_login(fresh_app, password: str = OWNER["password"]) -> None:
+    """The account as the owner set it (no setup code), with a quick hash so a
+    test can log in many times; also what Set Login Credentials does."""
+    db = fresh_app()
+    user = db.query(User).first()
+    user.username = OWNER["username"]
+    user.password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=4)).decode()
+    db.commit()
+    db.close()
+
+
+def known_browser(host: str = PROXY) -> TestClient:
+    """A browser that has logged in (and so holds a device cookie)."""
+    browser = anon(host)
+    r = browser.post("/api/login", json=OWNER)
+    assert r.status_code == 200, r.text
+    return browser
+
+
+def with_cookie(value: str, host: str = PROXY) -> TestClient:
+    return TestClient(app, client=(host, 50000), cookies={DEVICE: value})
+
+
+def device_cookie_set(r) -> str | None:
+    """The Set-Cookie header a response gives the device cookie, if any."""
+    found = [h for h in r.headers.get_list("set-cookie") if h.startswith(DEVICE + "=")]
+    return found[0] if found else None
+
+
+def wait_at(host: str = PROXY) -> None:
+    """Five failures from the address: a client counted by it now waits."""
+    assert fail_login(anon(host), 5) == [401] * 5
+    assert anon(host).post("/api/login", json=OWNER).status_code == 429
+
+
+def test_others_failing_all_hour_from_the_proxys_address_never_stop_a_known_browser(fresh_app, clock):
+    """Someone at the proxy's address fails a login each time Retry-After
+    runs out, for an hour; the owner's browser, which logged in before, logs
+    in every 30 seconds from the same address and gets in every time. The
+    other's tries are slowed as before."""
+    set_owner_login(fresh_app)
+    owner, other = known_browser(), anon(PROXY)
+    t_other, t_owner, end = clock[0], clock[0] + 7, clock[0] + 3600
+    logins, other_codes = [], []
+    while t_owner < end:
+        if t_other <= t_owner:
+            clock[0] = t_other
+            r = other.post("/api/login", json=NOBODY)
+            other_codes.append(r.status_code)
+            if r.status_code == 429:
+                t_other += int(r.headers["Retry-After"])
+        else:
+            clock[0] = t_owner
+            logins.append(owner.post("/api/login", json=OWNER).status_code)
+            t_owner += 30
+    assert logins == [200] * 120
+    assert set(other_codes) == {401, 429} and other_codes.count(401) < 30
+
+
+def test_a_known_browser_logs_in_while_failures_from_many_addresses_stop_everyone(fresh_app, clock):
+    set_owner_login(fresh_app)
+    owner = known_browser("10.9.0.2")
+    for i in range(login_throttle.GLOBAL_MAX):
+        assert fail_login(anon(f"10.1.0.{i}"), 1) == [401]
+    assert anon("10.2.0.1").post("/api/login", json=OWNER).status_code == 429  # anyone else waits
+    assert owner.post("/api/login", json=OWNER).status_code == 200
+
+
+def test_a_known_browsers_own_failures_slow_it_as_any_clients(fresh_app, clock):
+    """So a copied cookie can't try passwords without limit; and its
+    failures count neither for its address nor across clients."""
+    set_owner_login(fresh_app)
+    owner = known_browser()
+    assert fail_login(owner, 5) == [401] * 5
+    r = owner.post("/api/login", json=OWNER)  # even the right password waits
+    assert r.status_code == 429 and r.headers["Retry-After"] == "1"
+    waits = []
+    for _ in range(12):
+        clock[0] += 1000
+        r = owner.post("/api/login", json=NOBODY)
+        assert r.status_code == 401
+        r = owner.post("/api/login", json=NOBODY)
+        assert r.status_code == 429
+        waits.append(int(r.headers["Retry-After"]))
+    assert waits == [2, 4, 8, 16, 32, 64, 128, 256, 300, 300, 300, 300]
+
+    assert anon(PROXY).post("/api/login", json=OWNER).status_code == 200  # its address doesn't wait
+    for i in range(login_throttle.GLOBAL_MAX - 5):
+        assert fail_login(anon(f"10.1.0.{i}"), 1) == [401]
+    assert fail_login(known_browser("10.9.0.3"), 5) == [401] * 5  # a known browser's, not counted
+    assert anon("10.2.0.1").post("/api/login", json=OWNER).status_code == 200
+
+
+def test_a_browser_without_the_cookie_is_counted_by_its_address(fresh_app, clock):
+    set_owner_login(fresh_app)
+    owner = known_browser()
+    wait_at(PROXY)  # a new browser at the proxy's address waits, as before
+    assert anon("10.9.0.4").post("/api/login", json=OWNER).status_code == 200  # another address doesn't
+    assert owner.post("/api/login", json=OWNER).status_code == 200
+
+
+def test_only_a_cookie_this_install_signed_for_the_current_password_counts(fresh_app, clock, monkeypatch):
+    """Anything else counts as no cookie: a changed one, another install's
+    (another secret key), one older than a year, the session cookie's
+    value, or one given before the password changed (in the app, or by
+    StartOS's Set Login Credentials)."""
+    set_owner_login(fresh_app)
+    genuine = known_browser().cookies.get(DEVICE)
+    assert genuine, "the login gave no device cookie"
+    with monkeypatch.context() as mp:
+        mp.setattr(secret_key, "app_secret_key", lambda: "another-install-" + "k" * 40)
+        other_install = known_browser().cookies.get(DEVICE)
+    with monkeypatch.context() as mp:
+        over_a_year_ago = int(time.time()) - login_throttle.DEVICE_MAX_AGE - 60
+        mp.setattr(TimestampSigner, "get_timestamp", lambda self: over_a_year_ago)
+        expired = known_browser().cookies.get(DEVICE)
+    session = known_browser().cookies.get("btc_session_id")
+    changed = ("A" if genuine[0] != "A" else "B") + genuine[1:]  # another id, the same signature
+
+    wait_at(PROXY)
+    for cookie in (changed, other_install, expired, session, "garbage", genuine + "x", genuine.split(".")[0]):
+        assert with_cookie(cookie).post("/api/login", json=OWNER).status_code == 429, cookie
+    assert with_cookie(genuine).post("/api/login", json=OWNER).status_code == 200
+
+    set_owner_login(fresh_app, "a-new-password-2")  # the proxy's address still waits
+    new_login = dict(OWNER, password="a-new-password-2")
+    assert with_cookie(genuine).post("/api/login", json=new_login).status_code == 429
+    elsewhere = anon("10.9.0.5")
+    assert elsewhere.post("/api/login", json=new_login).status_code == 200
+    assert with_cookie(elsewhere.cookies.get(DEVICE)).post("/api/login", json=new_login).status_code == 200
+
+
+def test_the_cookie_is_given_on_a_right_password_or_code_only(fresh_app, clock):
+    """Login, reset-account and a password change; a new one each time; never
+    on a failure. Each one counts as known afterwards."""
+    code = first_run.ensure_code()
+    me = anon(PROXY)
+    for body in (BAD, NOBODY, {"username": "admin", "password": "password"},
+                 dict(good(), setup_code="WRNG-WRNG-WRNG")):
+        r = me.post("/api/login", json=body)
+        assert r.status_code in (401, 403) and device_cookie_set(r) is None, r.text
+    r = me.post("/api/users/reset-account", json=dict(CLAIM, setup_code="AAAA-AAAA-AAAA"))
+    assert r.status_code == 403 and device_cookie_set(r) is None
+    clock[0] += 1.01  # the fifth failure's wait
+    r = me.post("/api/users/reset-account", json=dict(CLAIM, username="Admin", setup_code=code))
+    assert r.status_code == 400 and device_cookie_set(r) is None
+    r = me.post("/api/users/reset-account", json=dict(CLAIM, setup_code=code))
+    assert r.status_code == 200 and device_cookie_set(r) is not None
+    after_reset = me.cookies.get(DEVICE)
+
+    login = {"username": CLAIM["username"], "password": CLAIM["password"]}
+    r = me.post("/api/login", json=login)
+    assert r.status_code == 200
+    given = device_cookie_set(r)
+    assert given and me.cookies.get(DEVICE) != after_reset  # a new one each time
+    assert "httponly" in given.lower() and "samesite=lax" in given.lower() and "path=/" in given.lower()
+    assert f"max-age={login_throttle.DEVICE_MAX_AGE}" in given.lower()
+
+    change = {"password": "a-new-password-2", "current_password": "guess"}
+    r = me.patch("/api/users/1", json=change)
+    assert r.status_code == 403 and device_cookie_set(r) is None
+    r = me.patch("/api/users/1", json=dict(change, current_password=CLAIM["password"]))
+    assert r.status_code == 200 and device_cookie_set(r) is not None
+    after_change = me.cookies.get(DEVICE)
+
+    wait_at(PROXY)
+    r = anon(PROXY).post("/api/login", json=dict(login, password="a-new-password-2"))
+    assert r.status_code == 429 and device_cookie_set(r) is None
+    assert with_cookie(after_reset).post("/api/login", json=login).status_code == 429  # the old password's
+    r = with_cookie(after_change).post("/api/login", json=dict(login, password="a-new-password-2"))
+    assert r.status_code == 200
+
+
+def test_logging_out_keeps_the_device_cookie(fresh_app, clock):
+    """It says this browser logged in before, not that it is logged in."""
+    set_owner_login(fresh_app)
+    owner = known_browser()
+    r = owner.post("/api/logout")
+    assert r.status_code == 200 and device_cookie_set(r) is None
+    assert owner.get("/api/protected").status_code == 401
+    wait_at(PROXY)
+    assert owner.post("/api/login", json=OWNER).status_code == 200
+
+
+def test_the_device_cookie_is_secure_over_https_only(fresh_app, monkeypatch):
+    """StartOS's proxy says the request came over HTTPS; the Mac app
+    (127.0.0.1) and Docker on a LAN serve plain HTTP."""
+    set_owner_login(fresh_app)
+    over_https = device_cookie_set(anon().post("/api/login", json=OWNER, headers={"X-Forwarded-Proto": "https"}))
+    assert over_https and "; Secure" in over_https
+    over_http = device_cookie_set(anon().post("/api/login", json=OWNER))
+    assert over_http and "secure" not in over_http.lower()
+    monkeypatch.setenv("BTCTX_DESKTOP", "1")
+    mac = device_cookie_set(anon("127.0.0.1").post("/api/login", json=OWNER, headers=MAC_APP_HOST))
+    assert mac and "secure" not in mac.lower()
+
+
+def test_known_browsers_are_counted_within_the_same_bound_as_addresses(fresh_app, clock, monkeypatch):
+    set_owner_login(fresh_app)
+    monkeypatch.setattr(login_throttle, "MAX_CLIENTS", 4)
+    for i in range(6):
+        assert fail_login(known_browser(), 1) == [401]
+        assert fail_login(anon(f"10.6.0.{i}"), 1) == [401]
+        assert len(login_throttle._clients) <= 4
 
 
 # ---------------------------------------------------------------------------

@@ -88,6 +88,18 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **A browser that logged in before isn't kept waiting by others' failed
+  logins** (#151). After repeated wrong passwords BitcoinTX makes the next
+  tries wait. Behind StartOS's proxy, or a proxy in front of Docker, every
+  browser has the proxy's address, so anyone's wrong passwords made the
+  owner wait too, even with the right one. Now a browser that has logged in
+  (or set the password) gets a cookie that marks it as known (`btc_device`,
+  for a year; Secure over HTTPS): its tries are counted on their own, so
+  others' failures, from one address or many, no longer stop it. Its own
+  wrong passwords still slow it as before, and a browser without the cookie
+  is counted by its address as before. Logging out keeps the cookie; a new
+  password (in Settings or with StartOS's Set Login Credentials) makes
+  earlier ones count as none until that browser logs in again.
 - **A value too large to store is refused everywhere** (#151). The API
   refused most amounts and USD values with more digits than the database
   holds (not one the database rounds up, or a tiny exponent, saved as 0),
