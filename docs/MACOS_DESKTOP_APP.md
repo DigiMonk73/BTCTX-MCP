@@ -10,6 +10,26 @@ Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
 (unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
+## Checking a download
+
+The app isn't signed by Apple, so macOS can't say who made it; the release
+can. Its `SHA256SUMS` holds the SHA-256 of each file, and GitHub keeps a
+signed build provenance attestation of each, made by the release workflow.
+Save `SHA256SUMS` next to the `.dmg` and, in that folder, before opening
+the app (check the `.dmg`: Safari unzips a downloaded `.zip` by itself):
+
+```bash
+shasum -a 256 -c --ignore-missing SHA256SUMS   # BitcoinTX-macOS.dmg: OK
+gh attestation verify BitcoinTX-macOS.dmg -R DigiMonk73/BTCTX-MCP \
+  --signer-workflow DigiMonk73/BTCTX-MCP/.github/workflows/release.yml
+```
+
+The first says the file is the one the release lists (`--ignore-missing`
+leaves out the release's other files, the ones you didn't download); the
+second (the GitHub CLI, signed in) that this repository's release workflow
+built it. If either reports a mismatch, don't open it: download it again
+from the release page.
+
 ## How it works
 
 ```
@@ -228,8 +248,10 @@ At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
 (0600, in a 0700 folder): the app's URL, port, pid, version and the **AI
 key** (`backend/services/ai_key.py`). The MCP server reads it and sends the
 key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
-database (`app_settings`); the key stays the same across restarts and after a
-restore. It's accepted only from 127.0.0.1, only while AI access is on (off
+database (`app_settings`). Every start writes a new key, so a key lasts one
+run of the app; an AI app left open across a restart carries on by itself,
+since the MCP server rereads the file when its key is refused. A restore
+keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
 tools use (`AI_KEY_ROUTES`; login, backup/restore, imports, delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
@@ -246,11 +268,15 @@ zipped `.app` as a build artifact.
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
 the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
 drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
-are unsigned and not notarized.
+are unsigned and not notarized. Before it creates the release, the release
+job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with
+them) and attests the three (`actions/attest-build-provenance`); see
+"Checking a download" above.
 
 ## Troubleshooting
 
-**App won't open (Gatekeeper).** The app is unsigned. The first time,
+**App won't open (Gatekeeper).** The app is unsigned: check the download
+first ("Checking a download" above). The first time,
 right-click (Control-click) it in Applications and choose **Open**. On macOS 15
 or later that no longer offers Open: try to open it once, then go to
 **System Settings → Privacy & Security** and click **Open Anyway**. Or clear

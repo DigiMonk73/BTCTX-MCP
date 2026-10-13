@@ -7,16 +7,19 @@ The Docker/StartOS key is tested in backend/tests/test_ai_key.py.
 import json
 import os
 import stat
+import sys
 
 import httpx
 import pytest
 from mcp import Client
+from sqlalchemy.orm import sessionmaker
 
+from backend import main as backend_main
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key, first_run
 from btctx_mcp import server
-from btctx_mcp.client import BtctxClient, BtctxError
+from btctx_mcp.client import BtctxClient, BtctxError, _pid_alive
 from test_server import backend_db, call  # noqa: F401  (fixture)
 
 pytestmark = pytest.mark.anyio
@@ -40,6 +43,34 @@ def desktop(monkeypatch, tmp_path, backend_db):  # noqa: F811
         ai_key.sync(db)
         ai_key.set_access(db, True)  # the owner turned it on in Settings
     return key_file
+
+
+@pytest.fixture
+def restart(monkeypatch, backend_db):  # noqa: F811
+    """BitcoinTX quits and starts again: its startup step for the key file."""
+    monkeypatch.setattr(backend_main, "SessionLocal", sessionmaker(bind=backend_db))
+    return backend_main._sync_ai_key_file
+
+
+class _Recorder(httpx.AsyncBaseTransport):
+    """The app on this computer, keeping each request's path and key and the answer's status."""
+
+    def __init__(self):
+        self._app = httpx.ASGITransport(app=app, client=("127.0.0.1", 50000))
+        self.calls = []
+
+    async def handle_async_request(self, request):
+        response = await self._app.handle_async_request(request)
+        self.calls.append((request.url.path, request.headers.get("authorization"), response.status_code))
+        return response
+
+
+def _pid_1_is_another_users():
+    """pid 1 (launchd on a Mac, init on Linux) belongs to root, unless the
+    tests run as root or in a container whose first process is theirs."""
+    if sys.platform == "win32" or os.geteuid() == 0:
+        return False
+    return not os.path.exists("/proc/1") or os.stat("/proc/1").st_uid != os.geteuid()
 
 
 class _db:
@@ -104,11 +135,56 @@ async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, 
         assert (await h.get("/api/transactions", headers=token)).status_code == 200
 
 
-async def test_key_stays_the_same_across_restarts(desktop):
-    before = _token(desktop)
+async def test_two_starts_give_different_keys(desktop, restart):
+    first = _token(desktop)
+    restart()
+    second = _token(desktop)
+    assert second != first and len(second) >= 43
+    assert stat.S_IMODE(os.stat(desktop).st_mode) == 0o600
+    with _db() as db:  # only the new key's hash is stored; the switch stays on
+        assert ai_key._get(db, ai_key.HASH_KEY) == ai_key._hash(second)
+        assert ai_key.access_on(db)
+
+
+async def test_a_key_from_a_previous_start_is_refused(desktop, restart):
+    old = _token(desktop)
+    restart()
+    async with _http() as h:
+        r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})
+        assert r.status_code == 401 and "replaced or revoked" in r.json()["detail"]
+        new = {"Authorization": f"Bearer {_token(desktop)}"}
+        assert (await h.get("/api/transactions", headers=new)).status_code == 200
+
+
+async def test_an_ai_session_carries_on_across_a_restart(desktop, restart):
+    """The AI app stays open while BitcoinTX quits and starts again. Its next
+    call is refused with the old key; the connector rereads the key file and
+    sends the call again with the new key. The owner does nothing."""
+    old = _token(desktop)
+    seen = _Recorder()
+    btctx = BtctxClient(key_file=desktop, transport=seen)
+    try:
+        assert await btctx.get("/api/transactions") == []
+        restart()
+        seen.calls.clear()
+        assert await btctx.get("/api/transactions") == []
+        keys = [(key, status) for path, key, status in seen.calls if path == "/api/transactions"]
+        assert keys == [(f"Bearer {old}", 401), (f"Bearer {_token(desktop)}", 200)]
+        # Finding the app again sends no key, not even the one just refused
+        assert [key for path, key, _ in seen.calls if path == "/api/health"] == [None]
+    finally:
+        await btctx.aclose()
+
+
+async def test_a_restore_leaves_the_key_file_alone(desktop):
+    """After a restore the key the connector holds is still this install's:
+    refreshing after it must not write a new one (ai_key.sync does)."""
+    from backend.routers import backup as backup_router
+
+    before = desktop.read_text()
     with _db() as db:
-        ai_key.sync(db)
-    assert _token(desktop) == before
+        backup_router._refresh_after_restore(db)
+    assert desktop.read_text() == before
 
 
 async def test_mcp_tools_work_with_no_password(desktop):
@@ -179,10 +255,12 @@ async def test_access_switch_and_login_only_actions(desktop):
 
 async def test_restored_database_keeps_the_key_the_mcp_has(desktop):
     token = _token(desktop)
-    with _db() as db:  # a restored backup carries another install's hash
-        ai_key._set(db, ai_key.HASH_KEY, "0" * 64)
+    with _db() as db:
+        before = ai_key.snapshot(db)
+        ai_key._set(db, ai_key.HASH_KEY, "0" * 64)  # a restored backup carries another install's hash
         db.commit()
-        ai_key.sync(db)
+        ai_key.carry_over(db, before)
+        db.commit()  # the restore commits what carry_over wrote, then checks it
     assert _token(desktop) == token
     async with _http() as h:
         r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {token}"})
@@ -200,6 +278,25 @@ async def test_clear_errors_when_the_app_isnt_found(tmp_path):
     with pytest.raises(BtctxError, match="no longer running"):
         await btctx.get("/api/transactions")
     await btctx.aclose()
+
+
+@pytest.mark.skipif(not _pid_1_is_another_users(), reason="needs pid 1 to be another user's process")
+async def test_a_key_file_whose_pid_is_another_users_process_is_not_used(tmp_path):
+    """Only this user's BitcoinTX counts: a pid that now belongs to another
+    user's process (pid 1, owned by root) means the app isn't running, and the
+    connector sends nothing."""
+    assert _pid_alive(1) is False
+    key_file = tmp_path / "mcp.json"
+    key_file.write_text(json.dumps({"url": "http://127.0.0.1:8765", "pid": 1, "token": "x" * 43}))
+    sent = []
+    btctx = BtctxClient(
+        key_file=key_file,
+        transport=httpx.MockTransport(lambda request: sent.append(request) or httpx.Response(200, json=[])),
+    )
+    with pytest.raises(BtctxError, match="no longer running"):
+        await btctx.get("/api/transactions")
+    await btctx.aclose()
+    assert sent == []
 
 
 def test_setup_guide_puts_no_password_in_a_mac_config():

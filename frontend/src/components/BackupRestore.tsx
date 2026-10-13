@@ -1,6 +1,7 @@
 import React from "react";
 import api from "../api";
 import { downloadMessage } from "../utils/desktopDownload";
+import { extractErrorMessage } from "../utils/apiError";
 
 /** Settings' Backup & Restore section: the CSV export, the encrypted backup
  * and its restore. */
@@ -74,8 +75,10 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
       setTimeout(() => {
         window.location.href = "/login";
       }, 2000);
-    } catch {
-      setMessage("Failed to restore backup.");
+    } catch (error) {
+      // The server says why (a wrong password, not a BitcoinTX backup, or a
+      // restore that stopped and left the database as it was)
+      setMessage(extractErrorMessage(error) || "Failed to restore backup.");
     } finally {
       setLoading(false);
     }
