@@ -194,7 +194,9 @@ All notable changes to BitcoinTX are documented in this file.
   AI connector reads the file again when its key is refused (every
   released connector does), so an AI app left open carries on with nothing
   to set up again. The connector also counts only a BitcoinTX run by your
-  own Mac account.
+  own Mac account. If the new key's file can't be written, the key from
+  before stays in use, so the connector is never left with a key that no
+  longer works.
 - **A restore brings back a backup's data, and keeps this install's login,
   AI key and price settings, or restores nothing** (#201, #151). An in-app
   restore now builds a new database with BitcoinTX's own migrations, as a

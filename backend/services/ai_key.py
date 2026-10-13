@@ -153,8 +153,8 @@ def revoke(db: Session) -> None:
 
 
 # Mac mode: the key lives in the owner-only key file
-def _write_file(path: Path, token: str) -> None:
-    """Atomically write the key file, owner-only (0600) in an owner-only dir."""
+def _prepare_file(path: Path, token: str) -> str:
+    """The key file's next version, written beside it owner-only (0600) in an owner-only dir; its path."""
     from backend.version import app_version
 
     info = desktop_info()
@@ -172,19 +172,34 @@ def _write_file(path: Path, token: str) -> None:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w") as f:
             json.dump(data, f, indent=2)
-        os.replace(tmp, path)
     except BaseException:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+        os.remove(tmp)
         raise
+    return tmp
 
 
 def _write_new_key(db: Session, path: Path) -> None:
-    """Record a new key's hash (the old key stops working), then write the file."""
+    """
+    A new key, in its file and as the stored hash, or neither: the file is
+    written first and put in place once the hash is committed, and a step
+    that fails puts the old hash back. A hash whose key no file holds would
+    refuse the connector for the whole run (the app starts anyway).
+    """
     token = _new_token()
-    _set(db, HASH_KEY, _hash(token))
-    db.commit()
-    _write_file(path, token)
+    tmp = _prepare_file(path, token)
+    before = _get(db, HASH_KEY)
+    try:
+        _set(db, HASH_KEY, _hash(token))
+        db.commit()
+        os.replace(tmp, path)
+    except BaseException:
+        db.rollback()
+        _set(db, HASH_KEY, before)
+        db.commit()
+        raise
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def sync(db: Session) -> None:

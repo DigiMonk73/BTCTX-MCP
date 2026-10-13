@@ -221,6 +221,28 @@ async def test_reset_key_locks_out_old_copies_but_not_the_mcp(desktop):
         await btctx.aclose()
 
 
+def _boom(*args, **kwargs):
+    raise OSError("disk full")
+
+
+@pytest.mark.parametrize("step", ["mkstemp", "replace"])
+async def test_a_key_file_that_cant_be_written_leaves_the_old_key_working(desktop, restart, monkeypatch, step):
+    """A start or a reset whose key file can't be written (before or after
+    the new hash is committed) keeps the old key and its file together, so
+    the connector isn't refused for the whole run."""
+    old = _token(desktop)
+    with monkeypatch.context() as m:
+        m.setattr(ai_key.tempfile if step == "mkstemp" else ai_key.os, step, _boom)
+        restart()  # logged; the app starts anyway
+        with _db() as db, pytest.raises(OSError):
+            ai_key.rotate(db)
+    assert _token(desktop) == old and not list(desktop.parent.glob(".mcp-*"))
+    with _db() as db:
+        assert ai_key._get(db, ai_key.HASH_KEY) == ai_key._hash(old)
+    async with _http() as h:
+        assert (await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})).status_code == 200
+
+
 async def test_key_refused_from_another_computer(desktop):
     async with _http("192.168.1.50") as h:
         r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {_token(desktop)}"})
