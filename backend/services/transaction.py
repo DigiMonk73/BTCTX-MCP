@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
-from backend.schemas.transaction import validate_btc_decimal, validate_usd_decimal
+from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
 from backend.services import hourly_prices, price_history
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -1548,18 +1548,19 @@ DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOS
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 
 # The API's rule for each money field (schemas/transaction.py), checked here
-# too: the imports build their rows without the API's schema, and a value
-# the database can't hold would be saved, then fail every listing. The
-# amount and the fee take the BTC rule whatever their account (their
-# columns hold 8 decimals); _check_amount adds cents in a USD account.
+# too, on the value and on the value as stored: the imports build their rows
+# without the API's schema, and a value the database can't give back within
+# the rule would be saved, then fail every listing. The amount and the fee
+# take the BTC rule whatever their account (their columns hold 8 decimals);
+# _check_amount adds cents in a USD account.
 _MONEY_RULES = {
-    "amount": validate_btc_decimal,
-    "fee_amount": validate_btc_decimal,
-    "cost_basis_usd": validate_usd_decimal,
-    "proceeds_usd": validate_usd_decimal,
-    "gross_proceeds_usd": validate_usd_decimal,
-    "fmv_usd": validate_usd_decimal,
-    "fee_usd": validate_usd_decimal,
+    "amount": validate_btc_storable,
+    "fee_amount": validate_btc_storable,
+    "cost_basis_usd": validate_usd_storable,
+    "proceeds_usd": validate_usd_storable,
+    "gross_proceeds_usd": validate_usd_storable,
+    "fmv_usd": validate_usd_storable,
+    "fee_usd": validate_usd_storable,
 }
 
 
@@ -1636,7 +1637,8 @@ def _checked_accounts(data: dict, db: Session) -> tuple[Account | None, Account 
 
 
 def _check_money_limits(data: dict) -> None:
-    """Every money field given is a finite number within its rule."""
+    """Every money field given is a finite number within its rule, as given
+    and as the database will store it."""
     for key, rule in _MONEY_RULES.items():
         if data.get(key) is None:
             continue

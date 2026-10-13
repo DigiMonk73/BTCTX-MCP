@@ -24,6 +24,8 @@ from backend.tests.conftest import stub_daily_prices
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
 DATE = "2024-01-02T12:00:00Z"
+ROUNDS_UP_USD = "9999999999999999.99"  # stored, 10000000000000000.00
+ROUNDS_UP_AMOUNT = "9999999999.99999999"  # stored, 10000000000.00000000
 READS = ("/api/transactions", "/api/calculations/average-cost-basis", "/api/reports/complete_tax_report?year=2024")
 
 
@@ -73,6 +75,8 @@ def spend(**fields):
     ([mybtc_deposit("1000"), spend(fee_amount="1e11")], "fee_amount"),
     ([usd_deposit("1e999999999")], "amount"),
     ([usd_deposit("1E-999999999")], "amount"),
+    ([mybtc_deposit(ROUNDS_UP_USD)], "cost_basis_usd"),
+    ([usd_deposit(ROUNDS_UP_AMOUNT)], "amount"),
 ])
 def test_the_ai_keys_import_refuses_a_value_too_large(auth_client, ai, rows, field):
     """With the AI key, a USD deposit of 1e20 and a basis of 1e30 were saved
@@ -89,10 +93,13 @@ def test_the_ai_keys_import_refuses_a_value_too_large(auth_client, ai, rows, fie
     assert any(field in error for error in result["errors"]), result
 
 
-# The largest USD value that is stored as it was given and lists. SQLite
-# keeps the money columns as 64-bit floats: from 9999999999999999 up, a
-# value is stored as 10^16, which the read refuses.
-LARGEST_USD = "9999999999999998"
+# The largest values the database gives back within their rule, so they
+# save and list. SQLite keeps the money columns as 64-bit floats, read back
+# with the column's places: LARGEST_USD comes back as 9999999999999998.00,
+# LARGEST_AMOUNT as 9999999999.99999809. One cent or one satoshi more
+# (ROUNDS_UP_*) comes back as 10^16 or 10^10, past the rule, and is refused.
+LARGEST_USD = "9999999999999998.99"
+LARGEST_AMOUNT = "9999999999.99999904"
 
 
 def test_the_largest_values_still_save_and_list(auth_client, ai):
@@ -105,7 +112,7 @@ def test_the_largest_values_still_save_and_list(auth_client, ai):
         {"date": "2024-03-02T12:00:00Z", "type": "Transfer", "amount": "1", "from_account": "Wallet",
          "to_account": "Exchange BTC"},
         {"date": "2024-03-03T12:00:00Z", "type": "Sell", "amount": "1", "from_account": "Exchange BTC",
-         "to_account": "Exchange USD", "proceeds_usd": LARGEST_USD, "fee_amount": "9999999999.99",
+         "to_account": "Exchange USD", "proceeds_usd": LARGEST_USD, "fee_amount": LARGEST_AMOUNT,
          "fee_currency": "USD"},
     ]
     rows = [{k: v for k, v in row.items() if v is not None} for row in rows]
@@ -124,6 +131,8 @@ CSV_HEADER = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_u
     ("2024-01-02,Deposit,1E-999999999,External,Bank,,,,,,", "amount"),
     ("2024-01-02,Deposit,0.1,External,Wallet,1e20,,,,MyBTC,", "cost_basis_usd"),
     ("2024-01-02,Transfer,0.1,Wallet,Exchange BTC,,,1e11,BTC,,", "fee_amount"),
+    (f"2024-01-02,Deposit,0.1,External,Wallet,{ROUNDS_UP_USD},,,,MyBTC,", "cost_basis_usd"),
+    (f"2024-01-02,Deposit,{ROUNDS_UP_AMOUNT},External,Bank,,,,,,", "amount"),
 ])
 def test_a_csv_value_too_large_is_a_row_error_naming_its_column(auth_client, row, column):
     """A CSV amount of 1e999 passed the preview and the import, was stored
@@ -196,6 +205,21 @@ def test_the_api_refuses_any_amount_out_of_its_limits(auth_client, amount, why):
     r = auth_client.post("/api/transactions", json=api_deposit(amount=amount))
     assert r.status_code == 422 and why in r.text, r.text
     assert auth_client.get("/api/transactions").json() == []
+
+
+@pytest.mark.parametrize("body, field", [
+    (api_deposit(to_account_id=WALLET, amount="0.1", source="MyBTC", cost_basis_usd=ROUNDS_UP_USD), "cost_basis_usd"),
+    (api_deposit(amount=ROUNDS_UP_AMOUNT), "amount"),
+    ({"type": "Buy", "timestamp": DATE, "from_account_id": BANK, "to_account_id": EXCH_BTC, "amount": "0.1",
+      "cost_basis_usd": "1000", "fee_amount": ROUNDS_UP_AMOUNT, "fee_currency": "USD"}, "fee_amount"),
+])
+def test_the_api_refuses_a_value_the_database_would_round_up(auth_client, body, field):
+    """Within the schema's limits as typed, but stored as 10^16 (or 10^10),
+    which the read refuses: saved, the whole list failed."""
+    r = auth_client.post("/api/transactions", json=body)
+    assert r.status_code == 422 and f"{field}: " in r.text and "too large" in r.text, r.text
+    assert auth_client.get("/api/transactions").json() == []
+    every_read_works(auth_client)
 
 
 @pytest.mark.parametrize("field, value", [("fee_usd", "1e20"), ("amount", "1e999999999"), ("cost_basis_usd", "1e30")])

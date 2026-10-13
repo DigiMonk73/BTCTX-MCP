@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.schemas.transaction import (
-    BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_decimal, validate_usd_decimal,
+    BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_storable, validate_usd_storable,
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
@@ -488,11 +488,11 @@ def _parse_date(date_str: str, tz=timezone.utc) -> datetime | None:
 
 
 # A number column takes the API's rule (schemas/transaction.py) for its
-# decimal places: a BTC column's or a USD column's, each no larger than the
-# database holds (a larger value would be saved, then fail every listing).
+# decimal places: a BTC column's or a USD column's, on the value and on the
+# value as stored (a larger one would be saved, then fail every listing).
 _NUMBER_RULES = {
-    BTC_PLACES: (validate_btc_decimal, BTC_DIGITS),
-    USD_PLACES: (validate_usd_decimal, USD_DIGITS),
+    BTC_PLACES: (validate_btc_storable, BTC_DIGITS),
+    USD_PLACES: (validate_usd_storable, USD_DIGITS),
 }
 
 
@@ -500,8 +500,8 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     """
     The number, or None when it's empty or breaks the rule of a column with
     `max_decimals` places: not a finite number, more decimal places, or more
-    digits before the point. Places are counted on the number, so "1E-9"
-    doesn't pass as 0 decimals.
+    digits before the point, as given or as stored. Places are counted on
+    the number, so "1E-9" doesn't pass as 0 decimals.
     """
     if not value:
         return None
@@ -515,7 +515,7 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
 def number_limits(max_decimals: int) -> str:
     """The rule of a column with `max_decimals` places, as its messages say it."""
     _rule, digits = _NUMBER_RULES[max_decimals]
-    return f"{max_decimals} decimal places and {digits} digits before the decimal point"
+    return f"{max_decimals} decimal places and {digits} digits before the decimal point once stored"
 
 
 def number_text(value: Decimal | None) -> str:

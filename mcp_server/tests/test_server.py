@@ -279,7 +279,7 @@ async def test_the_largest_values_pass_the_connector(mcp_client):
                "to_account": "Bank"}
     assert (await call(mcp_client, "preview_transactions", {"transactions": [deposit]}))["ok"] is True
     gift = {"date": "2024-01-15", "type": "Deposit", "amount": "0.1", "from_account": "External",
-            "to_account": "Wallet", "source": "Gift", "cost_basis_usd": "9999999999999998"}
+            "to_account": "Wallet", "source": "Gift", "cost_basis_usd": "9999999999999998.99"}
     assert (await call(mcp_client, "preview_transactions", {"transactions": [gift]}))["ok"] is True
 
 

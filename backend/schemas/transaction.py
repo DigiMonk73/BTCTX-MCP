@@ -77,6 +77,32 @@ def validate_usd_decimal(value: Decimal) -> Decimal:
     return value
 
 
+def as_stored(value: Decimal, places: int) -> Decimal:
+    """
+    The value as the database gives it back: SQLite keeps a Numeric column
+    as a 64-bit float, and SQLAlchemy reads it back as that float written
+    with the column's places ("%.2f"). 9999999999999999.99 comes back as
+    10000000000000000.00.
+    """
+    return Decimal(f"{float(value):.{places}f}")
+
+
+def validate_btc_storable(value: Decimal) -> Decimal:
+    """validate_btc_decimal on the value, then on the value as stored: one
+    that rounds up past the rule there would be saved, then fail every
+    listing."""
+    validate_btc_decimal(value)
+    validate_btc_decimal(as_stored(value, BTC_PLACES))
+    return value
+
+
+def validate_usd_storable(value: Decimal) -> Decimal:
+    """validate_usd_decimal on the value, then on the value as stored."""
+    validate_usd_decimal(value)
+    validate_usd_decimal(as_stored(value, USD_PLACES))
+    return value
+
+
 def _date_alone(value):
     """A date with no time ("2021-03-14") stays a date: the service reads it
     as noon in the tax timezone, as every date alone is read. Parsed as a
