@@ -479,6 +479,7 @@ All notable changes to BitcoinTX are documented in this file.
   five languages; the README and instructions say the same.
 
 ### Development
+- **CI runs once per change** (owner, 2026-10-13): on each pull request (which tests the branch merged with its base) and each push to `develop` or `main`, no longer again for the same commit's branch push. Each pull request's merge waits for one run instead of two, and a fluke in the second can't block it. The macOS app build now runs on pull requests too (not a required check). A flaky WebKit reload in the price matrix is #231.
 - **Two privacy tests see more** (the stable candidate's privacy audit,
   #151). The test that every site public prices may contact is named in
   Settings, and is never Coinbase or CoinGecko, read only the three price

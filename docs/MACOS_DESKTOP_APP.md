@@ -259,7 +259,7 @@ running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md
 
 ## CI
 
-On every branch push (or manually from the Actions tab), `.github/workflows/ci.yml`
+On every pull request, every push to `develop` or `main`, or manually from the Actions tab, `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest`, launches the bundled binary,
 checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the

@@ -7,7 +7,7 @@ in advance. Point the agent at this file and give it the inputs under
 [Setup](#setup).
 
 CI already tests the tax engine, every form, every transaction type and
-the whole UI on every push (see below). This walk tests what CI can't
+the whole UI on every pull request (see below). This walk tests what CI can't
 reach: the `.s9pk` on a real StartOS, TLS through StartOS's proxy, the
 actions and tasks, backups, updating from the last release, real price
 sources and a real MCP client. It touches every feature once, with exact

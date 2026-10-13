@@ -173,14 +173,13 @@ merge into `develop`. Nothing reaches `main` before a release.
 The 10 required checks gate every merge, and Claude reads the release notes
 first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
-- **The Mac app.** Its build and launch check runs on each branch push, not
-  on pull requests, so it is not a required check and auto-merge does not
-  wait for it. An update to `backend/` or `desktop/` requirements, or to
+- **The Mac app.** Its build and launch check runs on each pull request,
+  but it is not a required check, so auto-merge does not wait for it.
+  An update to `backend/` or `desktop/` requirements, or to
   the GitHub Actions (the Mac job uses them too), merges only after that
   run has passed on the pull request's head commit. Claude checks it:
-  `gh run list -b <branch> -e push -w ci.yml -L 1 --json databaseId,headSha`,
-  then `gh run view <id> --json jobs` (the "macOS app build + launch check"
-  job). Turn on auto-merge only once it is green.
+  `gh pr checks <number>` (the "macOS app build + launch check" job). Turn
+  on auto-merge only once it is green.
 - **Figures and forms.** An update to a package marked High in "Current
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
