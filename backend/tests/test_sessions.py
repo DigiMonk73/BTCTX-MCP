@@ -23,7 +23,7 @@ from sqlalchemy import text
 from backend import session_auth
 from backend.main import SECRET_KEY, app
 from backend.models.user import User
-from backend.tests.conftest import default_login
+from backend.tests.conftest import keep_in_use, default_login
 
 LOGIN = {"username": "me", "password": "my-own-password-1"}
 COOKIE = "btc_session_id"
@@ -181,16 +181,17 @@ def test_a_restore_keeps_the_sessions_open_before_it(auth_client, test_engine, m
     from backend.routers import backup
 
     other, gone = logged_in(default_login()), logged_in(default_login())
-    copy = copy_of(gone)
+    copy, own_copy = copy_of(gone), copy_of(auth_client)
     with test_engine.connect() as conn:
         in_backup = conn.execute(text("SELECT value FROM app_settings WHERE key = :k"),
                                  {"k": session_auth.OPEN_SESSIONS}).scalar()
     assert gone.post("/api/logout").status_code == 200
 
-    def restore_old_backup(password, path):  # the backup's database: gone was open then
+    def restore_old_backup(password, path, carry_over=None):  # the backup's database: gone was open then
         with test_engine.begin() as conn:
             conn.execute(text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, :v)"),
                          {"k": session_auth.OPEN_SESSIONS, "v": in_backup})
+        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
@@ -198,5 +199,20 @@ def test_a_restore_keeps_the_sessions_open_before_it(auth_client, test_engine, m
     assert status(copy) == 401
     assert status(other) == 200
     assert status(auth_client) == 401
+    assert status(own_copy) == 401  # the restoring browser's session ended, every copy too
     assert auth_client.post("/api/login", json=default_login()).status_code == 200
     other.post("/api/logout")
+
+
+def test_logout_works_in_the_browser_even_when_the_database_is_busy(monkeypatch):
+    """#221's review: logout answered 500 and the button did nothing."""
+    from sqlalchemy.exc import OperationalError
+
+    browser = logged_in(default_login())
+
+    def busy(db, change):
+        raise OperationalError("UPDATE app_settings", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(session_auth, "_change_open_sessions", busy)
+    assert browser.post("/api/logout").status_code == 200
+    assert status(browser) == 401  # this browser is logged out

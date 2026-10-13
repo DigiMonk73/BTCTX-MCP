@@ -17,16 +17,20 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import threading
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.models.app_setting import AppSetting
 from backend.models.user import User
+
+logger = logging.getLogger(__name__)
 
 STAMP_KEY = "cred"
 SESSION_ID_KEY = "sid"
@@ -60,9 +64,14 @@ def end_session(request: Request, db: Session) -> None:
     """Log this browser out: its session stops working, a copy of the
     cookie included."""
     ended = _id_hash(request.session.get(SESSION_ID_KEY))
-    if ended:
-        _change_open_sessions(db, lambda hashes: [h for h in hashes if h != ended])
-    request.session.clear()
+    try:
+        if ended:
+            _change_open_sessions(db, lambda hashes: [h for h in hashes if h != ended])
+    except SQLAlchemyError:  # a busy database: this browser is logged out all the same
+        db.rollback()
+        logger.warning("Logged out, but the session couldn't be ended on the server (a copy works until it expires)")
+    finally:
+        request.session.clear()
 
 
 def end_all_sessions(db: Session) -> None:
@@ -82,10 +91,22 @@ def open_sessions(db: Session) -> list[str]:
     return [h for h in hashes if isinstance(h, str)] if isinstance(hashes, list) else []
 
 
-def carry_over(db: Session, before: list[str]) -> None:
-    """After a restore, the sessions open before it stay open, and only
-    those: the backup's list never brings back a session that ended."""
-    _change_open_sessions(db, lambda _hashes: before)
+def put_open_sessions(db: Session, hashes: list[str]) -> None:
+    """Write the open sessions into a restored database before it goes live
+    (routers/backup.py, which commits and reads them back): not the live
+    list, so no lock."""
+    value = json.dumps(hashes[-MAX_OPEN_SESSIONS:])
+    row = db.get(AppSetting, OPEN_SESSIONS)
+    if row is None:
+        db.add(AppSetting(key=OPEN_SESSIONS, value=value))
+    else:
+        row.value = value
+    db.flush()
+
+
+def session_hash(request: Request) -> str | None:
+    """This browser's session, as the list holds it."""
+    return _id_hash(request.session.get(SESSION_ID_KEY))
 
 
 def session_user_id(request: Request, db: Session) -> int | None:
