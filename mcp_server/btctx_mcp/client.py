@@ -81,10 +81,8 @@ def _pid_alive(pid: Any) -> bool:
         return True  # can't check cheaply; the health check decides
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):  # gone, or another user's: not this user's BitcoinTX
         return False
-    except PermissionError:
-        return True
     return True
 
 
@@ -217,7 +215,7 @@ class BtctxClient:
             await self._connect()
             r = await self._http.request(method, path, **kwargs)
         if r.status_code == 401 and self.uses_key_file:
-            await self._connect()  # the key was reset: read the file again
+            await self._connect()  # a new key (the app restarted, or Reset key): read the file again
             r = await self._http.request(method, path, **kwargs)
         return r
 
