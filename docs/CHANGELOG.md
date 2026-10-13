@@ -5,6 +5,13 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Check a download** (#203). Each release now has `SHA256SUMS`, the
+  SHA-256 of the macOS `.dmg` and `.zip` and of `btctx.s9pk`, and GitHub
+  keeps a signed build provenance attestation of each, made by the release
+  workflow. With the file and `SHA256SUMS` in one folder,
+  `shasum -a 256 -c --ignore-missing SHA256SUMS` should say OK; with the
+  GitHub CLI, `gh attestation verify <file> -R DigiMonk73/BTCTX-MCP` also
+  checks that GitHub built it from this repository (README, "Install").
 - **Trust this server: your own Mempool at a home server's https address**
   (#188, follow-up to #178). A StartOS server's home-network address (and
   other home servers') has a certificate from that server's own authority,
