@@ -46,12 +46,21 @@ export async function claimDefaultLogin(username: string, password: string, setu
   }
 }
 
+/** How long the window may take to read the code before the sign-in form is offered instead. */
+export const WINDOW_CODE_WAIT_MS = 5000;
+
 /** The setup code the Mac app's window reads, or null when it can't (no
- * file, a page that isn't the app's, or an error). */
-export async function windowSetupCode(windowApi: PyWebViewAPI | null): Promise<string | null> {
-  try {
-    return (await windowApi?.setup_code?.()) || null;
-  } catch {
-    return null;
-  }
+ * file, a page that isn't the app's, an error, or no answer in time). */
+export async function windowSetupCode(
+  windowApi: PyWebViewAPI | null, waitMs = WINDOW_CODE_WAIT_MS,
+): Promise<string | null> {
+  const read = (async () => {
+    try {
+      return (await windowApi?.setup_code?.()) || null;
+    } catch {
+      return null;
+    }
+  })();
+  const late = new Promise<null>((resolve) => setTimeout(() => resolve(null), waitMs));
+  return Promise.race([read, late]);
 }

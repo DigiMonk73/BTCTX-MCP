@@ -128,7 +128,7 @@ def prepare(db: Session) -> None:
 def _where_the_code_is() -> str:
     if is_desktop():
         return (f"It is in {CODE_FILENAME} in the Mac app's data folder "
-                "(~/Library/Application Support/BitcoinTX); the app's own window fills it in.")
+                "(~/Library/Application Support/BitcoinTX); the app's own window normally fills it in.")
     return f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
 
 

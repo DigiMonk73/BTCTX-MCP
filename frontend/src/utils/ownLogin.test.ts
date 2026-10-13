@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ownLoginProblem } from "./ownLogin";
+import { ownLoginProblem, windowSetupCode } from "./ownLogin";
 
 const GOOD = "own-password-1";
 
@@ -25,5 +25,20 @@ describe("ownLoginProblem", () => {
 
   it("refuses two passwords that differ", () => {
     expect(ownLoginProblem("owner", GOOD, GOOD + " ")).toBe("The two passwords don't match.");
+  });
+});
+
+describe("windowSetupCode", () => {
+  const api = (setup_code: () => Promise<string | null>) => ({ setup_code }) as unknown as PyWebViewAPI;
+
+  it("gives the window's code", async () => {
+    expect(await windowSetupCode(api(async () => "ABCD-EFGH-JKMN"))).toBe("ABCD-EFGH-JKMN");
+  });
+
+  it("gives null when the window has none, fails, or doesn't answer in time", async () => {
+    expect(await windowSetupCode(api(async () => ""))).toBeNull();
+    expect(await windowSetupCode(api(async () => { throw new Error("no window"); }))).toBeNull();
+    expect(await windowSetupCode(api(() => new Promise(() => undefined)), 20)).toBeNull();
+    expect(await windowSetupCode(null)).toBeNull();
   });
 });
