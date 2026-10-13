@@ -81,6 +81,21 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **A wrong setup code or an over-long password gets the usual answer, not
+  a server error** (#200, #205). A setup code typed with some letters
+  outside A–Z and 0–9 (À, for example) made the login, Create account and
+  Settings' password change answer with a server error (500), and so did a
+  password over 72 bytes there. Neither can ever be right, so nothing was
+  exposed; now they're refused like any wrong code or password, and count
+  toward the wait after repeated failures. A new password over 72 bytes is
+  refused with "at most 72 characters (fewer with accented letters or
+  symbols)"; before, Create account with such a password deleted the
+  transactions (as it warns it will) and then failed, keeping the old
+  login.
+- **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
+  addressed to any other name is refused, and the app's server no longer
+  takes a client's address from an `X-Forwarded-For` header. Nothing changes
+  in the app's own window or for the AI connector, which use 127.0.0.1.
 - **An https Mempool whose certificate isn't trusted now says so** (#178).
   A Mempool address with a private certificate (StartOS's home-network
   address for Mempool, for example) can't be used, and BitcoinTX said

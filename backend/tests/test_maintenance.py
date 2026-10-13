@@ -230,7 +230,7 @@ def test_cli_set_password_if_default_replaces_only_the_default_login(tmp_path, r
     [
         (["set-password"], "", "No password given"),
         (["set-password", "--password-stdin"], "\n", "No password given"),
-        (["set-password", "--password-stdin"], "x" * 73, "72 bytes"),
+        (["set-password", "--password-stdin"], "x" * 73, "at most 72 characters"),
         (["set-password", "--password-stdin"], "elevenchars", "at least 12 characters"),
         (["set-password", "--username", " ", "--password-stdin"], "long-enough-pw", "username can't be empty"),
     ],
