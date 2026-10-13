@@ -88,6 +88,15 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **CSV files keep every transaction on its own row** (#151). A line
+  break in a stored text stays inside its cell in the transaction history
+  CSV, and the CSV export's price moment can't start a spreadsheet formula.
+  A purpose or source typed as text must be one line (no line break, tab
+  or other control character), and a fee currency must be USD or BTC,
+  through the API and every import; a row that already holds such text
+  keeps it through an edit that leaves it alone. A text cell that only
+  looks plain (spaces or a full-width sign before `=`) gets a `'` in front
+  too.
 - **Before the AI key's first change in an hour, BitcoinTX keeps a copy of
   the database** (#151). An edit or a deletion with the AI key (the
   connector's `update_transaction` and `delete_transaction`) first makes a

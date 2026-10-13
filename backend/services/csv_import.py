@@ -21,7 +21,9 @@ from backend.schemas.transaction import (
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
+    FEE_CURRENCIES, TEXT_ON_ONE_LINE,
     create_transaction_record,
+    has_control_character,
     original_date_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
@@ -323,7 +325,8 @@ def _optional_amounts(row: dict[str, str], row_number: int) -> dict[str, Decimal
 
 def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, str | None]:
     """The text columns; fee_usd_typed, cost_basis_typed, broker_reporting
-    and fee_currency must be one of their values."""
+    and fee_currency must be one of their values, and a source or purpose
+    (saved as written) one line of text."""
     options = {
         "fee_currency": row.get("fee_currency", "").strip().upper() or None,
         "source": row.get("source", "").strip() or None,
@@ -355,10 +358,13 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
             row_number, "broker_reporting",
             f"broker_reporting can only be set on a Sell or Withdrawal, not a {tx_type}.",
         ))
-    if options["fee_currency"] and options["fee_currency"] not in ("USD", "BTC"):
+    if options["fee_currency"] and options["fee_currency"] not in FEE_CURRENCIES:
         raise _Rejected(_error(
             row_number, "fee_currency", f"Invalid fee currency '{options['fee_currency']}'. Must be USD or BTC.",
         ))
+    for column in ("source", "purpose"):
+        if options[column] and has_control_character(options[column]):
+            raise _Rejected(_error(row_number, column, TEXT_ON_ONE_LINE.format(column)))
     return options
 
 
