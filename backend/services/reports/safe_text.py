@@ -20,6 +20,7 @@ The IRS forms are filled by pypdf (pdf_form_filler.py), not ReportLab.
 
 from __future__ import annotations
 
+import unicodedata
 from xml.sax.saxutils import escape
 
 from reportlab import rl_config
@@ -36,6 +37,8 @@ def pdf_text(value) -> str:
 
 
 def csv_text(value) -> str:
-    """A text cell a spreadsheet won't run as a formula."""
+    """A text cell a spreadsheet won't run as a formula: also one that only
+    looks plain, with spaces or a full-width sign before it."""
     text = "" if value is None else str(value)
-    return "'" + text if text.startswith(FORMULA_START) else text
+    looks = unicodedata.normalize("NFKC", text).lstrip()
+    return "'" + text if text.startswith(FORMULA_START) or looks.startswith(FORMULA_START[:4]) else text

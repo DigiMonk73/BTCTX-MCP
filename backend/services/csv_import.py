@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from backend.models.transaction import Transaction
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    TEXT_ON_ONE_LINE,
+    FEE_CURRENCIES, TEXT_ON_ONE_LINE,
     create_transaction_record,
     has_control_character,
     original_date_problem,
@@ -355,7 +355,7 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
             row_number, "broker_reporting",
             f"broker_reporting can only be set on a Sell or Withdrawal, not a {tx_type}.",
         ))
-    if options["fee_currency"] and options["fee_currency"] not in ("USD", "BTC"):
+    if options["fee_currency"] and options["fee_currency"] not in FEE_CURRENCIES:
         raise _Rejected(_error(
             row_number, "fee_currency", f"Invalid fee currency '{options['fee_currency']}'. Must be USD or BTC.",
         ))

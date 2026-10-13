@@ -344,7 +344,10 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
-    _validate_transaction(merged, db, check_source=check_source)
+    # Text an edit leaves as stored stays as it is (rows saved before the
+    # one-line rule load and edit; the form sends them back unchanged)
+    kept_text = frozenset(k for k in ("purpose", "source") if tx_data.get(k, getattr(tx, k)) == getattr(tx, k))
+    _validate_transaction(merged, db, check_source=check_source, kept_text=kept_text)
     if _fill_fee_currency(merged, db):  # e.g. a fee_amount sent on its own
         tx_data["fee_currency"] = merged["fee_currency"]
     for key in ("type", "purpose", "source", "timestamp", "acquired_at"):  # canonical spellings, whole seconds
@@ -1563,7 +1566,8 @@ def _bad(detail: str):
     raise HTTPException(status_code=422, detail=detail)
 
 
-def _validate_transaction(data: dict, db: Session, check_source: bool = True) -> None:
+def _validate_transaction(data: dict, db: Session, check_source: bool = True,
+                          kept_text: frozenset = frozenset()) -> None:
     """
     Reject input the ledger would record wrongly, with a clear message; set
     canonical spellings in `data`. Used on create, and on update with the
@@ -1581,7 +1585,7 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True) ->
     _check_fee_currency(data, tx_type, fee, from_acct, to_acct)
     if tx_type == "Sell":
         _check_sell_proceeds(data, fee)
-    _set_canonical_spellings(data)
+    _set_canonical_spellings(data, kept_text)
     _check_type_requirements(data, tx_type, check_source, from_acct, to_acct)
     _check_original_date(data, tx_type, to_acct, db)
 
@@ -1667,10 +1671,11 @@ def _check_sell_proceeds(data: dict, fee: Decimal) -> None:
         _bad("The sell's fee is more than its proceeds.")
 
 
-def _set_canonical_spellings(data: dict) -> None:
+def _set_canonical_spellings(data: dict, kept_text: frozenset = frozenset()) -> None:
     """A purpose or source in the listed spelling ("gift" is Gift). Either
     one too long is refused, and so is other text that isn't a single line:
-    it is kept as written, and the CSV files and reports show it in one cell."""
+    it is kept as written, and the CSV files and reports show it in one cell.
+    `kept_text`: the ones an edit leaves as stored, not checked for that."""
     for key, choices in (("purpose", WITHDRAWAL_PURPOSES), ("source", DEPOSIT_SOURCES)):
         value = data.get(key)
         if value is not None and len(str(value)) > MAX_TEXT:
@@ -1678,7 +1683,7 @@ def _set_canonical_spellings(data: dict) -> None:
         canonical = _canonical(value, choices)
         if canonical:
             data[key] = canonical
-        elif value is not None and has_control_character(value):
+        elif value is not None and key not in kept_text and has_control_character(value):
             _bad(TEXT_ON_ONE_LINE.format(key))
 
 

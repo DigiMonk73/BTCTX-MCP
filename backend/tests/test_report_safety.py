@@ -167,6 +167,9 @@ def test_reportlab_trusts_no_url_even_for_unescaped_markup(listener):
     ("=HYPERLINK(\"http://x\")", "'=HYPERLINK(\"http://x\")"),
     ("+1", "'+1"), ("-1", "'-1"), ("@SUM(A1)", "'@SUM(A1)"), ("\tx", "'\tx"), ("\rx", "'\rx"), ("\nx", "'\nx"),
     ("MyBTC", "MyBTC"), ("", ""), (None, ""),
+    # Look-alikes: spaces or a full-width sign before it (#229's review)
+    (" =1+1", "' =1+1"), ("\uff1d1+1", "'\uff1d1+1"), ("\u3000=1+1", "'\u3000=1+1"), ("\xa0=1+1", "'\xa0=1+1"),
+    ("rent, March", "rent, March"),
 ])
 def test_csv_text(value, expected):
     assert csv_text(value) == expected
@@ -385,3 +388,28 @@ def test_csv_import_flags_an_unknown_deposit_source():
            "fee_currency": "", "source": "Coinbase", "purpose": "", "notes": ""}
     tx_data, _preview, errors, _warnings = _validate_row(row, 2)
     assert tx_data is None and [e.column for e in errors] == ["source"]
+
+
+def test_a_lone_carriage_return_stays_in_its_cell_too(test_engine):
+    """Python 3.10's csv writer quoted only for its own line ending's
+    characters, so a lone CR split a row there (#229's review; CI runs 3.10)."""
+    cash_out = usd_withdrawal()
+    store(test_engine, cash_out["id"], purpose="rent\r=1+1")
+    r = CLIENT.get("/api/reports/simple_transaction_history", params={"year": 2024, "format": "csv"})
+    assert r.status_code == 200, r.text
+    header, *rows = parsed_rows(r.text)
+    assert all(len(row) == len(header) for row in rows)
+    assert dict(zip(header, rows[-1]))["description"] == "rent\r=1+1"
+
+
+def test_a_row_stored_with_multi_line_text_can_still_be_edited(test_engine):
+    """The form sends the stored purpose back unchanged: an edit that leaves
+    it alone works; one that sets new multi-line text is refused (#229's review)."""
+    cash_out = usd_withdrawal()
+    store(test_engine, cash_out["id"], purpose="rent\nMarch")
+    r = CLIENT.put(f"/api/transactions/{cash_out['id']}", json={"amount": "41", "purpose": "rent\nMarch"})
+    assert r.status_code == 200, r.text
+    assert r.json()["purpose"] == "rent\nMarch"
+    assert CLIENT.put(f"/api/transactions/{cash_out['id']}", json={"amount": "42"}).status_code == 200
+    r = CLIENT.put(f"/api/transactions/{cash_out['id']}", json={"purpose": "other\nline"})
+    assert r.status_code == 422 and "one line" in r.text

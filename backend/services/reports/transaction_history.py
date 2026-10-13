@@ -185,13 +185,21 @@ def _generate_csv(rows: list[dict], year: int) -> str:
     text cell can't start a spreadsheet formula (safe_text.csv_text), and
     numbers stay numbers. No line break follows the last row.
     """
-    output = StringIO()
-    writer = csv.writer(output, lineterminator="\n")
-    writer.writerow(COLUMNS)
+    lines = [_csv_line(COLUMNS)]
     for row in rows:
-        writer.writerow(row[col] if col in NUMBER_COLUMNS else csv_text(row[col]) for col in COLUMNS)
+        lines.append(_csv_line(row[col] if col in NUMBER_COLUMNS else csv_text(row[col]) for col in COLUMNS))
     logger.debug(f"Generated Transaction History CSV for {year}, {len(rows)} rows.")
-    return output.getvalue().removesuffix("\n")
+    return "\n".join(lines)
+
+
+def _csv_line(cells) -> str:
+    """One CSV line, without its ending. Written with "\r\n" so the csv
+    module quotes a cell holding either character on every Python version
+    (3.10 quotes only for the line ending's own characters), then joined
+    with "\n" as the file always was."""
+    output = StringIO()
+    csv.writer(output, lineterminator="\r\n").writerow(cells)
+    return output.getvalue().removesuffix("\r\n")
 
 
 def _generate_pdf(rows: list[dict], year: int, tz_name: str) -> bytes:
