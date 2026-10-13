@@ -224,14 +224,14 @@ def snapshot(db: Session) -> dict:
 
 def carry_over(db: Session, before: dict) -> None:
     """
-    After a restore, put back the key hash and switch from before it: an old
-    backup must never bring back a key that was since replaced or revoked, or
-    turn access back on.
+    Write the key hash and switch from before a restore into the restored
+    database, before it replaces the live one: an old backup must never
+    bring back a key that was since replaced or revoked, or turn access back
+    on. The restore commits and checks them; the Mac app's key file is
+    rewritten (sync) once the restored database is live.
     """
     for key, value in before.items():
         _set(db, key, value)
-    db.commit()
-    sync(db)
 
 
 # Checking a request
