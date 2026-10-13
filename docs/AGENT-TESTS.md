@@ -719,13 +719,16 @@ Set `KEY` to the key from AI-3, and use
   The second session's next action lands on the login page. Log in as
   `tester`. Nothing in StartOS shows a password again: Set Login
   Credentials only makes a new one.
-- **SEC-9** Last in Track A's security checks, because it makes you wait:
-  without a cookie jar, send wrong passwords to `$API/login` in quick
-  succession, at most eight. Expect: from the sixth or seventh on, HTTP 429
-  with a `Retry-After` header and "Too many failed attempts. Try again in N
+- **SEC-9** Last in Track A's security checks, because it makes you wait.
+  First log in with the current login (SEC-8's `tester` /
+  `tester-password-1`) into a fresh jar (`-c jar9`): SEC-8's password
+  change made SEC-4's `btc_device` count as none. Then, without a cookie
+  jar, send wrong passwords to `$API/login` in quick succession, at most
+  eight. Expect: from the sixth or seventh on, HTTP 429 with a
+  `Retry-After` header and "Too many failed attempts. Try again in N
   second(s).". At once, the correct login without a jar: expect 429 too
-  (every request comes from StartOS's proxy, one address). With SEC-4's
-  jar (`-b jar`, its `btc_device` cookie): expect 200 at once (a browser
+  (every request comes from StartOS's proxy, one address). With the fresh
+  jar (`-b jar9`, its `btc_device` cookie): expect 200 at once (a browser
   that logged in before isn't stopped by others' failures). After waiting
   that long, the correct login without a jar works.
 
