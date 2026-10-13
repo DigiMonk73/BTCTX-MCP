@@ -24,17 +24,34 @@ class TxType(str, Enum):
     SELL = "Sell"
 
 
+# What the database's columns hold, as decimal places and digits before the
+# point: BTC values and every amount (whatever its account) Numeric(18, 8),
+# USD values Numeric(18, 2). The imports and the connector take the same.
+BTC_PLACES, BTC_DIGITS = 8, 10
+USD_PLACES, USD_DIGITS = 2, 16
+
+
 def _decimal_places(value: Decimal) -> int:
-    """Decimal places of the value itself, whatever its notation ("1E-9" has 9)."""
+    """
+    Decimal places of the value itself, whatever its notation ("1E-9" has 9,
+    "1.50" has 1). Read from its digits, not normalize(), which rounds to the
+    decimal context: it would find no places in 1E-999999999 and fail with an
+    error of its own on 1E+999999999.
+    """
     if not value.is_finite():
         raise ValueError("Amount must be a finite number.")
-    exponent = value.normalize().as_tuple().exponent
-    return -exponent if exponent < 0 else 0
+    if not value:
+        return 0
+    _sign, digits, exponent = value.as_tuple()
+    coefficient = "".join(map(str, digits))
+    trailing_zeros = len(coefficient) - len(coefficient.rstrip("0"))
+    return max(0, -(exponent + trailing_zeros))
 
 
 def _integer_digits(value: Decimal) -> int:
-    whole = abs(value).to_integral_value(rounding="ROUND_DOWN")
-    return len(str(int(whole))) if whole else 1
+    """Digits before the point, read from the exponent: written out, a value
+    such as 1E+999998 takes seconds."""
+    return max(value.adjusted() + 1, 1) if value else 1
 
 
 def validate_btc_decimal(value: Decimal) -> Decimal:
@@ -44,19 +61,45 @@ def validate_btc_decimal(value: Decimal) -> Decimal:
     then break every listing). Checked on the number, not its text, so
     exponent notation ("1E-9") can't slip through.
     """
-    if _decimal_places(value) > 8:
-        raise ValueError("BTC amount cannot exceed 8 decimal places.")
-    if _integer_digits(value) > 10:
+    if _decimal_places(value) > BTC_PLACES:
+        raise ValueError(f"BTC amount cannot exceed {BTC_PLACES} decimal places.")
+    if _integer_digits(value) > BTC_DIGITS:
         raise ValueError("Amount is too large.")
     return value
 
 
 def validate_usd_decimal(value: Decimal) -> Decimal:
     """At most 2 decimal places (cents) and 16 integer digits."""
-    if _decimal_places(value) > 2:
-        raise ValueError("USD amount cannot exceed 2 decimal places.")
-    if _integer_digits(value) > 16:
+    if _decimal_places(value) > USD_PLACES:
+        raise ValueError(f"USD amount cannot exceed {USD_PLACES} decimal places.")
+    if _integer_digits(value) > USD_DIGITS:
         raise ValueError("USD amount is too large.")
+    return value
+
+
+def as_stored(value: Decimal, places: int) -> Decimal:
+    """
+    The value as the database gives it back: SQLite keeps a Numeric column
+    as a 64-bit float, and SQLAlchemy reads it back as that float written
+    with the column's places ("%.2f"). 9999999999999999.99 comes back as
+    10000000000000000.00.
+    """
+    return Decimal(f"{float(value):.{places}f}")
+
+
+def validate_btc_storable(value: Decimal) -> Decimal:
+    """validate_btc_decimal on the value, then on the value as stored: one
+    that rounds up past the rule there would be saved, then fail every
+    listing."""
+    validate_btc_decimal(value)
+    validate_btc_decimal(as_stored(value, BTC_PLACES))
+    return value
+
+
+def validate_usd_storable(value: Decimal) -> Decimal:
+    """validate_usd_decimal on the value, then on the value as stored."""
+    validate_usd_decimal(value)
+    validate_usd_decimal(as_stored(value, USD_PLACES))
     return value
 
 
@@ -288,6 +331,26 @@ class TransactionRead(TransactionBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    # A stored transaction is shown as it is. The limits above are for what
+    # is entered: a figure the ledger derives from entered values (a sale's
+    # basis over its lots) or one stored before they applied must never
+    # stop the list. These replace TransactionBase's checks of the same name.
+    @field_validator("amount")
+    def validate_amount(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("fee_amount")
+    def validate_fee_amount(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
+    def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("gross_proceeds_usd")
+    def validate_gross_proceeds_usd(cls, v: Decimal | None) -> Decimal | None:
+        return v
 
 
 class LedgerEntryBase(BaseModel):

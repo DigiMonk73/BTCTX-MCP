@@ -20,12 +20,12 @@ CODE = "ABCD-EFGH-JKMN"
 
 
 def test_a_setup_code_with_non_ascii_letters_is_just_wrong(monkeypatch):
-    monkeypatch.setattr(first_run, "_read_code", lambda: "ABCD-EFGH-JKMN")
+    monkeypatch.setattr(first_run, "read_code", lambda: "ABCD-EFGH-JKMN")
     assert first_run.check_code("ÀÀÀÀ-ÀÀÀÀ-ÀÀÀÀ") is False
 
 
 def test_the_matching_setup_code_still_passes(monkeypatch):
-    monkeypatch.setattr(first_run, "_read_code", lambda: "ABCD-EFGH-JKMN")
+    monkeypatch.setattr(first_run, "read_code", lambda: "ABCD-EFGH-JKMN")
     assert first_run.check_code("abcd-efgh-jkmn") is True
 
 
@@ -40,7 +40,7 @@ def test_a_correct_password_still_verifies():
 
 
 def test_through_the_routes_they_are_refused_and_counted(fresh_app, monkeypatch):
-    monkeypatch.setattr(first_run, "_read_code", lambda: CODE)
+    monkeypatch.setattr(first_run, "read_code", lambda: CODE)
     client, failures = TestClient(app, client=("testclient", 50000)), []
     tries = [
         ("/api/users/reset-account", {"username": "owner", "password": "y" * 14, "setup_code": "ÀÀÀÀ-ÀÀÀÀ-ÀÀÀÀ"}, 403),
@@ -55,7 +55,7 @@ def test_through_the_routes_they_are_refused_and_counted(fresh_app, monkeypatch)
 
 
 def test_a_new_password_over_72_bytes_is_refused_not_a_server_error(fresh_app, monkeypatch):
-    monkeypatch.setattr(first_run, "_read_code", lambda: CODE)
+    monkeypatch.setattr(first_run, "read_code", lambda: CODE)
     client = TestClient(app)
     for password in ("y" * 73, "é" * 37):  # 73 and 74 bytes
         r = client.post("/api/users/reset-account", json={"username": "owner", "password": password, "setup_code": CODE})
