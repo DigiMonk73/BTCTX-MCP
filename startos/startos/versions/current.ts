@@ -46,6 +46,10 @@ export const current = VersionInfo.of({
 - **Consolidations.** A transfer within the same wallet (or between exchanges BitcoinTX counts as one) records only its network fee, a disposal of your oldest coins.
 - **Trust this server.** With Decide in BitcoinTX instead, a Mempool on another home server at its https address can be trusted from the price card.
 
+**Known limitation**
+
+- **Through Tor, Bitstamp currently refuses BitcoinTX's requests.** With Public price sites and Use Tor, the one-time hourly download and older daily prices don't arrive; nothing is sent without Tor instead, and no value becomes $0. Kraken still gives the live price and recent days. For older values: download the history once with Public price sites without Tor (once downloaded and checked, it stays, with Tor or not), use My Mempool on this server, or type them. A fix is planned.
+
 **Security and smaller fixes**
 
 - From a security review: logging out ends that session for every copy of its cookie (if the database is busy at that moment, a copy lasts until it expires); other people's failed logins no longer slow down a browser that has logged in before; a restore brings back a backup's data and keeps this install's login, AI key and price settings, or changes nothing; every request has limits on size and time; an edit or deletion by the AI connector keeps a backup copy first, and its imports are kept short. The details are published once this version is available.
@@ -83,6 +87,10 @@ export const current = VersionInfo.of({
 - **Bitcoin heredado.** Un nuevo origen de depósito, Inherited: su coste base es su valor en la fecha del fallecimiento, y toda venta de esas monedas es a largo plazo, marcada INHERITED en el Form 8949.
 - **Consolidaciones.** Una transferencia dentro del mismo monedero (o entre exchanges que BitcoinTX cuenta como uno) registra solo su comisión de red, como disposición de tus monedas más antiguas.
 - **Trust this server.** Con Decidir en BitcoinTX en su lugar, un Mempool en otro servidor doméstico con dirección https puede marcarse como de confianza desde la tarjeta de precios.
+
+**Limitación conocida**
+
+- **Por Tor, Bitstamp rechaza ahora las peticiones de BitcoinTX.** Con Sitios públicos de precios y Tor, la descarga única de precios por hora y los precios diarios antiguos no llegan; nunca se envía nada sin Tor en su lugar, y ningún valor pasa a ser 0 $. Kraken sigue dando el precio en vivo y los días recientes. Para valores antiguos: descarga el historial una vez con Sitios públicos de precios sin Tor (una vez descargado y comprobado, se queda, con Tor o sin él), usa Mi Mempool en este servidor o escríbelos. Hay una corrección prevista.
 
 **Seguridad y correcciones menores**
 
@@ -122,6 +130,10 @@ export const current = VersionInfo.of({
 - **Konsolidierungen.** Ein Transfer innerhalb derselben Wallet (oder zwischen Börsen, die BitcoinTX als eine zählt) erfasst nur seine Netzwerkgebühr, als Veräußerung deiner ältesten Coins.
 - **Trust this server.** Mit Stattdessen in BitcoinTX entscheiden kann ein Mempool auf einem anderen Heimserver mit https-Adresse über die Kurskarte als vertrauenswürdig markiert werden.
 
+**Bekannte Einschränkung**
+
+- **Über Tor lehnt Bitstamp die Anfragen von BitcoinTX derzeit ab.** Mit Öffentliche Preisseiten und Tor kommen der einmalige Download der Stundenkurse und ältere Tageskurse nicht an; stattdessen wird nie etwas ohne Tor gesendet, und kein Wert wird 0 $. Kraken liefert weiter den Live-Kurs und die letzten Tage. Für ältere Werte: Lade den Verlauf einmal mit Öffentliche Preisseiten ohne Tor herunter (einmal heruntergeladen und geprüft, bleibt er, mit Tor oder ohne), nutze Mein Mempool auf diesem Server, oder gib sie ein. Eine Korrektur ist geplant.
+
 **Sicherheit und kleinere Korrekturen**
 
 - Aus einer Sicherheitsprüfung: Abmelden beendet diese Sitzung für jede Kopie ihres Cookies (ist die Datenbank in dem Moment beschäftigt, gilt eine Kopie bis zu ihrem Ablauf); fehlgeschlagene Anmeldungen anderer bremsen einen Browser nicht mehr, der sich schon einmal angemeldet hat; eine Wiederherstellung bringt die Daten einer Sicherung zurück und behält Anmeldung, KI-Schlüssel und Kurseinstellungen dieser Installation, oder ändert nichts; jede Anfrage hat Grenzen für Größe und Zeit; eine Änderung oder Löschung durch den KI-Connector legt vorher eine Sicherungskopie an, und seine Importe bleiben kurz. Die Einzelheiten werden veröffentlicht, sobald diese Version verfügbar ist.
@@ -160,6 +172,10 @@ export const current = VersionInfo.of({
 - **Konsolidacje.** Transfer w obrębie tego samego portfela (lub między giełdami, które BitcoinTX liczy jako jedną) zapisuje tylko opłatę sieciową, jako zbycie Twoich najstarszych monet.
 - **Trust this server.** Przy Zamiast tego zdecyduj w BitcoinTX Mempool na innym serwerze domowym pod adresem https można oznaczyć jako zaufany na karcie cen.
 
+**Znane ograniczenie**
+
+- **Przez Tor Bitstamp obecnie odrzuca zapytania BitcoinTX.** Przy Publiczne serwisy cenowe i Torze jednorazowe pobranie cen godzinowych i starsze ceny dzienne nie docierają; nic nie jest wtedy wysyłane bez Tora, a żadna wartość nie staje się 0 $. Kraken nadal podaje bieżącą cenę i ostatnie dni. Dla starszych wartości: pobierz historię raz z Publiczne serwisy cenowe bez Tora (raz pobrana i sprawdzona, zostaje, z Torem lub bez), użyj Mój Mempool na tym serwerze albo wpisz je. Poprawka jest planowana.
+
 **Bezpieczeństwo i mniejsze poprawki**
 
 - Z przeglądu bezpieczeństwa: wylogowanie kończy tę sesję dla każdej kopii jej ciasteczka (jeśli baza danych jest w tej chwili zajęta, kopia działa do wygaśnięcia); nieudane logowania innych osób nie spowalniają już przeglądarki, która logowała się wcześniej; przywracanie przywraca dane z kopii i zachowuje logowanie, klucz AI i ustawienia cen tej instalacji albo niczego nie zmienia; każde zapytanie ma limity rozmiaru i czasu; edycja lub usunięcie przez łącznik AI najpierw zapisuje kopię zapasową, a jego importy są krótkie. Szczegóły zostaną opublikowane, gdy ta wersja będzie dostępna.
@@ -197,6 +213,10 @@ export const current = VersionInfo.of({
 - **Bitcoins hérités.** Une nouvelle source de dépôt, Inherited : son coût d’acquisition est sa valeur à la date du décès, et toute vente de ces bitcoins est à long terme, marquée INHERITED sur le Form 8949.
 - **Consolidations.** Un transfert au sein du même portefeuille (ou entre plateformes que BitcoinTX compte comme une seule) n’enregistre que ses frais de réseau, une cession de vos bitcoins les plus anciens.
 - **Trust this server.** Avec Décider plutôt dans BitcoinTX, un Mempool sur un autre serveur domestique à une adresse https peut être approuvé depuis la carte de prix.
+
+**Limite connue**
+
+- **Via Tor, Bitstamp refuse actuellement les requêtes de BitcoinTX.** Avec Sites publics de prix et Tor, le téléchargement unique des prix horaires et les prix journaliers anciens n’arrivent pas ; rien n’est alors envoyé sans Tor, et aucune valeur ne devient 0 $. Kraken donne toujours le prix en direct et les jours récents. Pour les valeurs anciennes : téléchargez l’historique une fois avec Sites publics de prix sans Tor (une fois téléchargé et vérifié, il reste, avec ou sans Tor), utilisez Mon Mempool sur ce serveur, ou saisissez-les. Une correction est prévue.
 
 **Sécurité et corrections mineures**
 
