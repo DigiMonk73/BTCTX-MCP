@@ -107,8 +107,8 @@ class BodyLimitMiddleware:
 
 def _is_live(scope: Scope, session: dict) -> bool | None:
     """Whether the session is still open, asked of the app's own database
-    (get_db, or a test's override of it); None when it can't answer (busy,
-    or mid-restore), which the owner is told."""
+    (get_db, or a test's override of it); None when it can't answer (a busy
+    database), which the owner is told."""
     from backend.database import get_db
     from backend.session_auth import session_is_live
 

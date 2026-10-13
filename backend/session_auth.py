@@ -6,7 +6,8 @@ the server keeps the hashes of the open sessions' ids in app_settings (the
 newest MAX_OPEN_SESSIONS). Logging out removes the id, so that cookie, and
 any copy of it, stops working at once (unless the database is too busy to
 write it then: the browser is logged out, and a copy lasts until it expires),
-while the owner's other browsers stay logged in. The session also carries a stamp derived from the password hash.
+while the owner's other browsers stay logged in. The session also carries a
+stamp derived from the password hash.
 A password change or account reset empties the list and changes the stamp,
 so every session ends. A session that isn't open, or whose stamp no longer
 matches, is cleared and counts as logged out (so does a cookie made before
