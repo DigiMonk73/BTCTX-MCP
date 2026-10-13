@@ -434,3 +434,31 @@ def test_a_copy_a_stopped_server_left_unfinished_is_removed_later(db_file):
     backup_sqlite(path, "upgrade")
     assert not stale.exists() and fresh.exists()  # another copy may be writing that one
     assert backup_copies(path) and all(not p.name.startswith(".") for p in backup_copies(path))
+
+
+
+def test_the_first_change_of_a_utc_day_makes_its_copy_even_after_a_late_one(ledger, monkeypatch):
+    """#228's re-check: a change at 00:10 UTC, less than an hour after a
+    23:30 copy, made none, so the day's first copy came after it."""
+    from backend.routers import transaction as tx_router
+
+    path, ids, owner, ai = ledger
+    midnight = (int(time.time()) // DAY + 1) * DAY
+    monkeypatch.setattr(tx_router, "_now", lambda: midnight - 30 * 60)
+    assert ai.delete(f"/api/transactions/{ids[0]}").status_code == 204
+    [late] = made_before_changing(path)
+    os.utime(late, (midnight - 30 * 60, midnight - 30 * 60))  # 23:30 UTC
+    monkeypatch.setattr(tx_router, "_now", lambda: midnight + 10 * 60)  # 00:10 the next day
+    assert ai.delete(f"/api/transactions/{ids[1]}").status_code == 204
+    assert len(made_before_changing(path)) == 2
+
+
+def test_a_stopped_copys_journal_is_removed_too(tmp_path):
+    from backend.migrate import PARTIAL, _remove_unfinished
+
+    left = [tmp_path / f"{PARTIAL}x.db", tmp_path / f"{PARTIAL}x.db-journal"]
+    for f in left:
+        f.write_bytes(b"x")
+        os.utime(f, (time.time() - 7200, time.time() - 7200))
+    _remove_unfinished(tmp_path)
+    assert not any(f.exists() for f in left)

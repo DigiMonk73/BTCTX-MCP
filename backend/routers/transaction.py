@@ -11,7 +11,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from backend.schemas.transaction import (
     TransactionCreate,
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["transactions"])
 
 AI_CHANGE_COPY_EVERY = 3600  # seconds
+_now = time.time  # tests move the clock
 # One copy at a time (BitcoinTX runs one server process): a change that
 # comes while the copy is being written waits for it, then finds it.
 _ai_change_copy = threading.Lock()
@@ -147,6 +148,15 @@ def delete_transaction(transaction_id: int, request: Request, db: Session = Depe
     return
 
 
+def _made_this_hour_today(made: float) -> bool:
+    """A copy less than an hour old, made on today's UTC day: a change just
+    after midnight still gets the new day's first copy (the one
+    migrate._ai_copies_held keeps for the week)."""
+    now = _now()
+    today = datetime.fromtimestamp(now, timezone.utc).date()
+    return now - made < AI_CHANGE_COPY_EVERY and datetime.fromtimestamp(made, timezone.utc).date() == today
+
+
 def _copy_before_ai_changes(db: Session, refused: str) -> None:
     """
     An AI copy before the AI key's first change in an hour (an edit or a
@@ -159,7 +169,7 @@ def _copy_before_ai_changes(db: Session, refused: str) -> None:
         return
     with _ai_change_copy:
         newest = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
-        if newest and time.time() - newest[0].stat().st_mtime < AI_CHANGE_COPY_EVERY:
+        if newest and _made_this_hour_today(newest[0].stat().st_mtime):
             return
         try:
             dest = backup_sqlite(db_path, AI_CHANGE_LABEL, kind="ai", keep=AI_COPIES_KEPT)

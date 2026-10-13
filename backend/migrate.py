@@ -153,8 +153,9 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
 
 
 def _remove_unfinished(dest_dir: Path) -> None:
-    """Copies a stopped server left unfinished (none is written for an hour)."""
-    for partial in dest_dir.glob(f"{PARTIAL}*.db"):
+    """Copies a stopped server left unfinished, with their journals (none is
+    written for an hour)."""
+    for partial in dest_dir.glob(f"{PARTIAL}*"):
         try:
             if time.time() - partial.stat().st_mtime > 3600:
                 partial.unlink()
