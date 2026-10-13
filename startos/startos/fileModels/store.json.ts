@@ -5,8 +5,9 @@ const shape = z.looseObject({
   // The password Set Login Credentials generated. BitcoinTX owns the live
   // credential: a password changed in the app is not reflected here.
   adminPassword: z.string().optional().catch(undefined),
-  // Set when updating from before 0.8.0, whose calculation fixes only reach
-  // existing transactions after a recalculation; cleared by Recalculate Ledger.
+  // Set by an update whose calculation fixes only reach existing transactions
+  // after a recalculation (from before 0.8.0, and to 1.2.8:0); cleared by
+  // Recalculate Ledger.
   recalculateLedger: z.boolean().optional().catch(undefined),
   // Set when updating from before 1.2.0: replace a login still on the app's
   // default (admin / password) once, then cleared (init/defaultLogin.ts).

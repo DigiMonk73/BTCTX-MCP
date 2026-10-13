@@ -8,38 +8,23 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
-Registry, then maintenance only. The plan and its checklist are #143; the
-candidate is the release that carries #134's fix and the work below: 1.2.8
-at the least, 1.3.0 as the price screens and the hourly prices change what
-users see and how values are made.
+Registry, then maintenance only. The plan and its checklist are #143. The
+version plan (owner, 2026-10-13): 1.2.8 carries #134's fix, hourly prices,
+the price redesign and the security review's fixes; 1.2.9 is polish; then
+one more thorough test round, and 1.3.0, the stable version, gets the 14
+days on Community Beta and the promotion request.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
-      blocking item, then 14 days on Community Beta, then the promotion
-      request (the owner's OK).
+      blocking item, then 14 days on Community Beta (1.3.0), then the
+      promotion request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
-- [x] **Hourly BTC prices** (#144): each value from a price is priced at
-      the opening of its UTC hour, the day's price where no hour is known.
-      Bitstamp's hourly history is downloaded once, in the same fixed
-      requests on every install, when the choice allows public sites, and
-      checked against fingerprints the release ships (one file per year);
-      newer hours come from your own Mempool or Bitstamp. Shipping the
-      history inside the app waits for Bitstamp's answer. Saved values
-      change only when the owner applies them (Ledger Review).
 - [ ] **Price sources: one clear, simple choice everywhere** (#145): built:
       one price card (your own Mempool, public sites, or nobody, optionally
       through Tor), a status line, confirm once after the update, and each
       value's source shown; StartOS asks at install. Waiting on the owner:
       the landing page's words (#145). Six small pieces of the plan come in
       the next release (#208, under "Soon").
-- [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
-      #150; the owner agreed 2026-10-12):
-  - [x] a spend's network fee comes off its proceeds (#157, done in #162);
-  - [x] "Consolidate / move within the same wallet", which records only the
-        network fee (#159);
-  - [x] an Inherited deposit source: the value at death (usually) as cost,
-        always long-term, "INHERITED" on Form 8949 (#154); rules and wording
-        approved by the owner before building.
 
 ## Soon
 
