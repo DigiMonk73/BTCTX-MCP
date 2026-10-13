@@ -90,7 +90,7 @@ def _prepare_first_run() -> None:
 
 
 def _sync_ai_key_file() -> None:
-    """Mac app: write mcp.json (the AI key) for this run."""
+    """Mac app: write mcp.json, with a new AI key, for this run."""
     if ai_key.mode() != "mac":
         return
     db = SessionLocal()

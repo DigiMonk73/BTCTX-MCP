@@ -7,15 +7,16 @@ change the password, restore, import files or delete everything.
 - Two ways of handing it over (mode()):
   - "mac": the Mac app's launcher sets BTCTX_MCP_FILE (with BTCTX_DESKTOP).
     BitcoinTX writes the key to that owner-only file (mcp.json, with the URL,
-    port and pid), where the connector on the same Mac finds it. The key
-    stays the same across restarts; "Reset key" writes a new one. Accepted
-    only from 127.0.0.1/::1.
+    port and pid), where the connector on the same Mac finds it. Every start
+    writes a new key, so a key lasts one run of the app; "Reset key" writes
+    another. The connector rereads the file when its key is refused, so
+    nothing needs setting up again. Accepted only from 127.0.0.1/::1.
   - "server" (Docker, StartOS, anything else): the owner creates the key in
     Settings and pastes it into the AI app; BitcoinTX shows it once. "New
     key" replaces it, "Revoke" deletes it.
 - Only its SHA-256 is stored, in app_settings (the names `mcp_key_sha256` and
-  `mcp_access` are kept from v1.0.2 so Mac installs keep their key and
-  switch). One key at a time: a new one stops the old one at once.
+  `mcp_access` are kept from v1.0.2 so Mac installs keep their switch). One
+  key at a time: a new one stops the old one at once.
 - Accepted only while AI access is on (off until the owner turns it on in
   Settings), and only on the routes in AI_KEY_ROUTES: what the MCP tools use.
   Anything else answers 403, so a route added later is closed to the key
@@ -152,14 +153,6 @@ def revoke(db: Session) -> None:
 
 
 # Mac mode: the key lives in the owner-only key file
-def _read_file_token(path: Path) -> str | None:
-    try:
-        token = json.loads(path.read_text()).get("token")
-    except (OSError, ValueError, AttributeError):
-        return None
-    return token if isinstance(token, str) and len(token) >= 32 else None
-
-
 def _write_file(path: Path, token: str) -> None:
     """Atomically write the key file, owner-only (0600) in an owner-only dir."""
     from backend.version import app_version
@@ -186,23 +179,25 @@ def _write_file(path: Path, token: str) -> None:
         raise
 
 
-def sync(db: Session) -> None:
-    """
-    Mac app, at startup and after a restore: keep the key the file already
-    has (so nothing needs setting up again), or make one; record its hash;
-    rewrite the file with this run's port and pid.
-    """
-    path = key_file()
-    if path is None:
-        return
-    token = _read_file_token(path)
-    if token is None:
-        token = _new_token()
-        logger.info("AI key created")
-    if _get(db, HASH_KEY) != _hash(token):
-        _set(db, HASH_KEY, _hash(token))
+def _write_new_key(db: Session, path: Path) -> None:
+    """Record a new key's hash (the old key stops working), then write the file."""
+    token = _new_token()
+    _set(db, HASH_KEY, _hash(token))
     db.commit()
     _write_file(path, token)
+
+
+def sync(db: Session) -> None:
+    """
+    Mac app, at every start: the file with this run's port and pid and a new
+    key. A key lasts one run, so one kept from an earlier run never works
+    again; the connector rereads the file when its key is refused
+    (btctx_mcp/client.py), so an AI app left open carries on by itself.
+    """
+    path = key_file()
+    if path is not None:
+        _write_new_key(db, path)
+        logger.info("AI key created")
 
 
 def rotate(db: Session) -> None:
@@ -210,10 +205,7 @@ def rotate(db: Session) -> None:
     path = key_file()
     if path is None:
         raise RuntimeError("The key file exists only in the Mac app")
-    token = _new_token()
-    _set(db, HASH_KEY, _hash(token))
-    db.commit()
-    _write_file(path, token)
+    _write_new_key(db, path)
     logger.info("AI key reset")
 
 
@@ -227,8 +219,8 @@ def carry_over(db: Session, before: dict) -> None:
     Write the key hash and switch from before a restore into the restored
     database, before it replaces the live one: an old backup must never
     bring back a key that was since replaced or revoked, or turn access back
-    on. The restore commits and checks them; the Mac app's key file is
-    rewritten (sync) once the restored database is live.
+    on. The restore commits and checks them. In the Mac app the key file
+    isn't touched: the key the connector holds keeps working.
     """
     for key, value in before.items():
         _set(db, key, value)

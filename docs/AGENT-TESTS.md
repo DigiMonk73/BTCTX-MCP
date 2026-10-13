@@ -879,7 +879,9 @@ point, leave it alone, touch nothing in it, and record that.
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
   banner. Opening it again while it's open brings the window forward, with
-  no second copy.
+  no second copy. With the MCP Inspector (or an AI app) left open across the
+  quit and reopen, its next call still works: `mcp.json` has a new key and
+  the connector picks it up by itself.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
 - **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
   Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
