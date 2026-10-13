@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 MAX_BODY_BYTES = 5 * 1024 * 1024
+BUSY = "BitcoinTX is busy: try again in a moment."
 # The multipart form around an uploaded file: its boundaries, headers and
 # the other fields (the restore's password).
 FORM_ROOM = 64 * 1024
@@ -58,6 +59,9 @@ class BodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
         limit = await self._limit(scope)
+        if limit is None:
+            await JSONResponse({"detail": BUSY}, status_code=503)(scope, receive, send)
+            return
         if _content_length(scope) > limit:
             await JSONResponse({"detail": too_large(limit)}, status_code=413)(scope, receive, send)
             return
@@ -73,14 +77,19 @@ class BodyLimitMiddleware:
 
         await self.app(scope, counted, send)
 
-    async def _limit(self, scope: Scope) -> int:
+    async def _limit(self, scope: Scope) -> int | None:
+        """This request's limit; None when the database is too busy to say
+        whether its session is open."""
         file_limit = self.file_limits.get(scope["path"].rstrip("/"))
         if file_limit is None:
             return MAX_BODY_BYTES
         session = self._session(scope)
-        if session is None or not await to_thread.run_sync(_is_live, scope, session):
+        if session is None:
             return MAX_BODY_BYTES
-        return file_limit
+        live = await to_thread.run_sync(_is_live, scope, session)
+        if live is None:
+            return None
+        return file_limit if live else MAX_BODY_BYTES
 
     def _session(self, scope: Scope) -> dict | None:
         """The session cookie's contents if it is the app's, unexpired, with a
@@ -96,10 +105,10 @@ class BodyLimitMiddleware:
         return session if isinstance(session, dict) and session.get("user_id") else None
 
 
-def _is_live(scope: Scope, session: dict) -> bool:
+def _is_live(scope: Scope, session: dict) -> bool | None:
     """Whether the session is still open, asked of the app's own database
-    (get_db, or a test's override of it). A busy database counts as no: the
-    owner is told the file is too large, and can try again."""
+    (get_db, or a test's override of it); None when it can't answer (busy,
+    or mid-restore), which the owner is told."""
     from backend.database import get_db
     from backend.session_auth import session_is_live
 
@@ -108,7 +117,7 @@ def _is_live(scope: Scope, session: dict) -> bool:
     try:
         return session_is_live(session, db)
     except SQLAlchemyError:
-        return False
+        return None
     finally:
         sessions.close()
 

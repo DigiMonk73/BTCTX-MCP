@@ -167,3 +167,18 @@ def test_a_csv_import_keeps_its_own_limit_and_words(auth_client):
     r = auth_client.post("/api/import/preview", files={"file": ("big.csv", at_limit + b"x", "text/csv")})
     assert r.status_code == 400 and r.json()["detail"] == "File too large. Maximum size is 5MB."
 
+
+def test_a_busy_database_answers_busy_not_too_large(auth_client, monkeypatch):
+    """Whether a login's session is still open can't be read: the owner is
+    told BitcoinTX is busy (503), not that the file is too large."""
+    from sqlalchemy.exc import OperationalError
+
+    from backend import session_auth
+
+    def busy(*args):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(session_auth, "session_is_live", busy)
+    login = auth_client.cookies.get(SESSION_COOKIE)
+    status, read, answer = send("/api/backup/restore", [b" " * MB] * 6, length=6 * MB, cookie=login)
+    assert (status, read) == (503, 0) and answer["json"]["detail"] == "BitcoinTX is busy: try again in a moment."

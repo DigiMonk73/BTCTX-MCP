@@ -120,8 +120,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Every request is limited to 5 MB** (#151). BitcoinTX refuses a larger
   request before reading it, the login and Create account pages included.
   A file keeps its own limit: a backup to restore up to 1 GiB, a CSV or
-  River file up to 5 MB, only for a session still open (a copy of a cookie
-  after its logout or a password change gets 5 MB).
+  River file up to 5 MB. That larger allowance is only for a session still
+  open; anyone else, a copy of a cookie after its logout or a password
+  change included, gets 5 MB.
 - **Every price request ends in bounded time and size** (#151). A request
   to a price source (your own Mempool or a public price site) had a time
   limit for each wait but none for the whole request, and no limit on the
