@@ -311,7 +311,8 @@ So derived values must be recomputable from the Transaction row alone.
   formula.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
-  app: the key is in the owner-only `mcp.json` and works only from localhost.
+  app: the key is in the owner-only `mcp.json`, a new one at every start (the
+  connector reads the file again on a 401), and works only from localhost.
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never

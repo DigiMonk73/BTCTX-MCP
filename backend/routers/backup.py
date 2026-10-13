@@ -172,14 +172,14 @@ def _rows(db: Session, keys) -> dict:
 def _refresh_after_restore(db: Session) -> None:
     """
     The restored database is live, with this install's settings in it: read
-    the price settings into memory, rewrite the Mac app's key file (the key
-    the connector holds keeps working) and make or remove the first-run
-    setup code. An error is only logged: the restored database already
-    holds this install's settings, and what's in memory and on disk was
-    made from those same settings before the restore.
+    the price settings into memory and make or remove the first-run setup
+    code. The Mac app's key file isn't touched (ai_key.sync would write a new
+    key): the key the connector holds is this install's and keeps working.
+    An error is only logged: the restored database already holds this
+    install's settings, and what's in memory and on disk was made from those
+    same settings before the restore.
     """
-    steps = ((outbound.load, "the price settings"), (ai_key.sync, "the AI key file"),
-             (first_run.prepare, "the first-run setup code"))
+    steps = ((outbound.load, "the price settings"), (first_run.prepare, "the first-run setup code"))
     for step, what in steps:
         db.close()  # a fresh connection sees the restored file
         try:
