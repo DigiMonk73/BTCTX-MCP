@@ -86,6 +86,10 @@ All notable changes to BitcoinTX are documented in this file.
   whatever Bitstamp's candle said, so an open of 0 or below valued a blank
   value in that hour at $0 or less, and one that wasn't a number made the
   lookup fail. Now such an hour has no price, and the day's price is used.
+- **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
+  addressed to any other name is refused, and the app's server no longer
+  takes a client's address from an `X-Forwarded-For` header. Nothing changes
+  in the app's own window or for the AI connector, which use 127.0.0.1.
 - **An https Mempool whose certificate isn't trusted now says so** (#178).
   A Mempool address with a private certificate (StartOS's home-network
   address for Mempool, for example) can't be used, and BitcoinTX said

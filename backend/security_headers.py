@@ -22,6 +22,10 @@ or none for a request the user made); otherwise the Origin header must name
 this server (Host or X-Forwarded-Host, and https when the request came over
 HTTPS). Requests with neither header are not from a web page (the AI
 connector, the CLI, curl, tests) and carry no browser cookie to abuse.
+
+LocalAddressOnlyMiddleware: the Mac app answers only requests addressed to
+127.0.0.1, localhost or [::1] (421 otherwise), the names its window and the
+AI connector use.
 """
 
 from __future__ import annotations
@@ -146,6 +150,30 @@ class CrossSiteGuardMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http" and scope["method"] not in SAFE_METHODS and self._refuse(scope):
             response = JSONResponse({"detail": CROSS_SITE_REFUSED}, status_code=403)
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+LOCAL_NAMES = {"127.0.0.1", "localhost", "[::1]"}
+NOT_LOCAL_REFUSED = "Refused: the Mac app answers only at 127.0.0.1 or localhost."
+
+
+def _host_name(host: str) -> str:
+    """A Host header's name in lower case, without a numeric port ("[::1]:8765"
+    is "[::1]"); anything else after the name is kept, so it matches nothing."""
+    host = host.strip().lower()
+    name, colon, port = host.rpartition(":")
+    return name if colon and port.isdigit() else host
+
+
+class LocalAddressOnlyMiddleware:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and is_desktop() and _host_name(_header(scope, b"host") or "") not in LOCAL_NAMES:
+            response = JSONResponse({"detail": NOT_LOCAL_REFUSED}, status_code=421)
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)
