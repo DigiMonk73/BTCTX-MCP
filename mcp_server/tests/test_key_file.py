@@ -221,6 +221,52 @@ async def test_reset_key_locks_out_old_copies_but_not_the_mcp(desktop):
         await btctx.aclose()
 
 
+def _boom(*args, **kwargs):
+    raise OSError("disk full")
+
+
+def _failing(m, step):
+    """The key file's write fails at `step`: before the hash is committed, or after."""
+    m.setattr(ai_key.tempfile if step == "mkstemp" else ai_key.os, step, _boom)
+
+
+@pytest.mark.parametrize("step", ["mkstemp", "replace"])
+async def test_a_start_whose_key_file_cant_be_written_has_no_key(desktop, restart, monkeypatch, step):
+    """The file left is the earlier run's (its pid gone, so the connector
+    refuses it): this run has no key, and the earlier run's key doesn't
+    work again. A reset in Settings makes one."""
+    old = _token(desktop)
+    with monkeypatch.context() as m:
+        _failing(m, step)
+        restart()  # logged; the app starts anyway
+    assert _token(desktop) == old and not list(desktop.parent.glob(".mcp-*"))
+    with _db() as db:
+        assert ai_key._get(db, ai_key.HASH_KEY) is None
+    async with _http() as h:
+        assert (await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})).status_code == 401
+    with _db() as db:
+        ai_key.rotate(db)
+    assert _token(desktop) != old
+
+
+@pytest.mark.parametrize("step", ["mkstemp", "replace", "commit"])
+async def test_a_reset_whose_key_file_cant_be_written_keeps_the_key(desktop, monkeypatch, step):
+    """The file and the hash stay the same pair, so the connector carries on."""
+    old = _token(desktop)
+    with _db() as db, monkeypatch.context() as m:
+        if step == "commit":
+            m.setattr(db, "commit", _boom)
+        else:
+            _failing(m, step)
+        with pytest.raises(OSError):
+            ai_key.rotate(db)
+    assert _token(desktop) == old and not list(desktop.parent.glob(".mcp-*"))
+    with _db() as db:
+        assert ai_key._get(db, ai_key.HASH_KEY) == ai_key._hash(old)
+    async with _http() as h:
+        assert (await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})).status_code == 200
+
+
 async def test_key_refused_from_another_computer(desktop):
     async with _http("192.168.1.50") as h:
         r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {_token(desktop)}"})
