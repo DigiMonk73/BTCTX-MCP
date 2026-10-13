@@ -7,9 +7,7 @@ Run from the repo root:
 """
 
 import json
-import os
 import re
-import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -37,10 +35,11 @@ def anyio_backend():
 
 
 @pytest.fixture
-def backend_db(monkeypatch):
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
+def backend_db(monkeypatch, tmp_path):
+    # In a folder of its own: the AI copies made before the key's deletions
+    # go to its backups folder, removed with it.
+    path = tmp_path / "btctx.db"
+    engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     init_test_db(engine)
     Session = sessionmaker(bind=engine)
 
@@ -61,7 +60,6 @@ def backend_db(monkeypatch):
     yield engine
     app.dependency_overrides.clear()
     engine.dispose()
-    os.unlink(tmp.name)
 
 
 def make_ai_key(engine) -> str:
@@ -236,6 +234,58 @@ async def test_income_deposit_autofills_basis(mcp_client):
 async def test_schema_rejects_unknown_account(mcp_client):
     bad = dict(BUY, to_account="Coldcard")
     await call(mcp_client, "preview_transactions", {"transactions": [bad]}, expect_error=True)
+
+
+class RecordingTransport(httpx.ASGITransport):
+    """The app's transport, noting the path of every request sent."""
+
+    def __init__(self, app):
+        super().__init__(app=app)
+        self.paths: list[str] = []
+
+    async def handle_async_request(self, request):
+        self.paths.append(request.url.path)
+        return await super().handle_async_request(request)
+
+
+@pytest.mark.parametrize("tool, args", [
+    ("add_transactions", {"transactions": [dict(BUY, amount="1e20")]}),
+    ("add_transactions", {"transactions": [dict(BUY, cost_basis_usd="1e16")]}),
+    ("preview_transactions", {"transactions": [dict(BUY, fee_amount="1e10")]}),
+    ("add_transactions", {"transactions": [dict(TO_COLD, fee_usd="1e30")]}),
+    ("update_transaction", {"transaction_id": 1, "proceeds_usd": "1e20"}),
+    ("update_transaction", {"transaction_id": 1, "amount": "1e999999999"}),
+])
+async def test_a_value_too_large_is_refused_before_any_request(backend_db, tool, args):
+    """A value over BitcoinTX's limits is a clear error from the connector
+    itself: nothing is asked of BitcoinTX."""
+    transport = RecordingTransport(app)
+    btctx = BtctxClient(base_url="http://testserver", ai_key=make_ai_key(backend_db), transport=transport)
+    server.set_client(btctx)
+    try:
+        async with Client(server.mcp) as client:
+            text = await call(client, tool, args, expect_error=True)
+        assert "should be less than" in text, text
+        assert transport.paths == []
+    finally:
+        server.set_client(None)
+        await btctx.aclose()
+
+
+async def test_the_largest_values_pass_the_connector(mcp_client):
+    deposit = {"date": "2024-01-15", "type": "Deposit", "amount": "9999999999.99", "from_account": "External",
+               "to_account": "Bank"}
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [deposit]}))["ok"] is True
+    gift = {"date": "2024-01-15", "type": "Deposit", "amount": "0.1", "from_account": "External",
+            "to_account": "Wallet", "source": "Gift", "cost_basis_usd": "9999999999999998.99"}
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [gift]}))["ok"] is True
+
+
+async def test_the_connectors_limits_are_bitcointxs():
+    from backend.schemas.transaction import BTC_DIGITS, USD_DIGITS
+
+    assert server.AMOUNT_LIMIT == Decimal(10) ** BTC_DIGITS
+    assert server.USD_LIMIT == Decimal(10) ** USD_DIGITS
 
 
 async def test_ledger_rejection_is_reported_as_tool_error(mcp_client):
@@ -493,3 +543,18 @@ async def test_update_transaction_sets_and_clears_the_date_originally_acquired(m
     assert updated["acquired_at"].startswith("2022-01-05T18:00:00")
     cleared = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "none"})
     assert "acquired_at" not in cleared
+
+
+async def test_the_row_limit_reaches_the_ai(mcp_client):
+    """The tool's description names the AI key's row limit, and a call over
+    it comes back as BitcoinTX's error, saying what to do."""
+    from backend.routers.entry_import import AI_MAX_ROWS
+
+    tools = {t.name: t for t in (await mcp_client.list_tools()).tools}
+    assert f"At most {AI_MAX_ROWS} rows a call" in tools["preview_transactions"].description
+    rows = [dict(BUY, date=f"2024-01-{1 + i // 24:02d}T{i % 24:02d}:00:00Z") for i in range(AI_MAX_ROWS + 1)]
+    for tool in ("preview_transactions", "add_transactions"):
+        error = await call(mcp_client, tool, {"transactions": rows}, expect_error=True)
+        assert f"BitcoinTX returned 400: Too many transactions. Maximum is {AI_MAX_ROWS} rows per request " \
+               "with the AI key: send them in smaller groups, oldest first." in error, error
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0

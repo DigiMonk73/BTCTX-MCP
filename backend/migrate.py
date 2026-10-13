@@ -23,6 +23,8 @@ import datetime
 import logging
 import os
 import sqlite3
+import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,11 +43,20 @@ BASELINE = "0001"
 BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
-# Copies the AI key asked for (POST /api/backup/ai-copy), kept apart.
+# Copies the AI key asked for (POST /api/backup/ai-copy), or made before its
+# first change in an hour (PUT or DELETE /api/transactions/{id}, label
+# AI_CHANGE_LABEL), kept apart: the newest 3, and for AI_DAYS_HELD days the
+# oldest of them and the first made before a change each day
+# (_ai_copies_held), so for a week they hold the ledger from before each
+# day's changes, however many copies are made after them. At most 11.
 AI_COPIES_KEPT = 3
+AI_DAYS_HELD = 7  # UTC days: today and the 6 before it
+AI_CHANGE_LABEL = "before-changing"
 # Copies before Ledger Review's hourly check is applied (#144), kept apart:
 # applying one item at a time must not push out the pre-upgrade copy.
 REVIEW_COPIES_KEPT = 5
+# A copy being written: a name no listing of copies matches.
+PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
 CORE_TABLES = {"users", "accounts", "transactions"}
 
@@ -115,18 +126,44 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
-    and pre-restore; "ai": asked for with the AI key; "review": before
-    Ledger Review's hourly check is applied) keeps its own newest
-    `keep`, so one kind never pushes out the other.
+    and pre-restore; "ai": asked for with the AI key, or made before its
+    changes; "review": before Ledger Review's hourly check is applied)
+    keeps its own newest `keep` (and "ai" more: prune_backups), so one kind
+    never pushes out the other.
+
+    It is written under a name no listing matches and renamed once
+    complete: a copy that fails (a full disk) leaves nothing that looks
+    like a copy, which a check for a recent copy would take for one.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     dest_dir.mkdir(mode=0o700, exist_ok=True)
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    dest = dest_dir / f"{db_path.stem}-{kind}-{label}-{stamp}.db"
-    n = 1
-    while dest.exists():
-        n += 1
-        dest = dest_dir / f"{db_path.stem}-{kind}-{label}-{stamp}-{n}.db"
+    _remove_unfinished(dest_dir)
+    fd, name = tempfile.mkstemp(dir=dest_dir, prefix=PARTIAL, suffix=".db")  # mode 600
+    os.close(fd)
+    partial = Path(name)
+    try:
+        _copy_sqlite(db_path, partial)
+        dest = _free_name(dest_dir, f"{db_path.stem}-{kind}-{label}")
+        os.replace(partial, dest)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    prune_backups(db_path, keep, kind)
+    return dest
+
+
+def _remove_unfinished(dest_dir: Path) -> None:
+    """Copies a stopped server left unfinished, with their journals (none is
+    written for an hour)."""
+    for partial in dest_dir.glob(f"{PARTIAL}*"):
+        try:
+            if time.time() - partial.stat().st_mtime > 3600:
+                partial.unlink()
+        except OSError as e:
+            logger.warning("Couldn't remove an unfinished database copy %s: %s", partial, e)
+
+
+def _copy_sqlite(db_path: Path, dest: Path) -> None:
     src = sqlite3.connect(str(db_path))
     dst = sqlite3.connect(str(dest))
     try:
@@ -134,16 +171,26 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     finally:
         dst.close()
         src.close()
-    os.chmod(dest, 0o600)
-    prune_backups(db_path, keep, kind)
+
+
+def _free_name(dest_dir: Path, name: str) -> Path:
+    """<name>-<time>.db in dest_dir, or with -2, -3... when that is taken."""
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = dest_dir / f"{name}-{stamp}.db"
+    n = 1
+    while dest.exists():
+        n += 1
+        dest = dest_dir / f"{name}-{stamp}-{n}.db"
     return dest
 
 
-def backup_copies(db_path: Path, kind: str = "before") -> list[Path]:
-    """This database's copies of one kind in <dir>/backups/, newest first."""
+def backup_copies(db_path: Path, kind: str = "before", label: str | None = None) -> list[Path]:
+    """This database's copies of one kind (and label, when given) in
+    <dir>/backups/, newest first."""
     dest_dir = db_path.parent / BACKUP_DIRNAME
+    pattern = f"{db_path.stem}-{kind}-{label}-*.db" if label else f"{db_path.stem}-{kind}-*.db"
     return sorted(
-        dest_dir.glob(f"{db_path.stem}-{kind}-*.db"),
+        dest_dir.glob(pattern),
         key=lambda p: (p.stat().st_mtime_ns, p.name),
         reverse=True,
     )
@@ -151,14 +198,17 @@ def backup_copies(db_path: Path, kind: str = "before") -> list[Path]:
 
 def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> list[Path]:
     """
-    Keep the newest `keep` copies of one kind in <dir>/backups/ and delete
-    older ones. Only files this module wrote (<stem>-<kind>-*.db) are
-    touched. Returns the deleted paths.
+    Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
+    copies more: _ai_copies_held) and delete the others. Only files this
+    module wrote (<stem>-<kind>-*.db) are touched. Returns the deleted paths.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
+    held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
     removed = []
     for old in copies[keep:]:
+        if old in held:
+            continue
         try:
             old.unlink()
             removed.append(old)
@@ -167,6 +217,28 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before")
     if removed:
         logger.info("Removed %d old database copies from %s", len(removed), dest_dir)
     return removed
+
+
+def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
+    """
+    The AI copies (newest first) kept beyond the newest AI_COPIES_KEPT, from
+    the last AI_DAYS_HELD UTC days: the oldest (the ledger from before those
+    days' changes) and the first made before a change each day (the ledger
+    from before that day's changes, with what the owner entered the days
+    before).
+    """
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    since = today - datetime.timedelta(days=AI_DAYS_HELD - 1)
+    recent = [p for p in copies if _utc_day(p) >= since]
+    first_each_day: dict[datetime.date, Path] = {}
+    for p in reversed(recent):
+        if p.name.startswith(f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-"):
+            first_each_day.setdefault(_utc_day(p), p)
+    return set(recent[-1:]) | set(first_each_day.values())
+
+
+def _utc_day(copy: Path) -> datetime.date:
+    return datetime.datetime.fromtimestamp(copy.stat().st_mtime, datetime.timezone.utc).date()
 
 
 # Adopting databases created before migrations existed

@@ -44,7 +44,8 @@ desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: anothe
   (this session only) or Quit.
 - Data: `~/Library/Application Support/BitcoinTX/`: `btctx.db`, the
   per-install session key `.btctx_secret_key`, `mcp.json` (the AI
-  key) and `backups/`. `BTCTX_DESKTOP_DATA_DIR` puts them (and the log, in
+  key), `backups/`, and `setup-code.txt` while the login is still
+  `admin` / `password` (the window asks for your own at the first start). `BTCTX_DESKTOP_DATA_DIR` puts them (and the log, in
   `logs/`) in another folder, for testing (`run-test-build.sh`).
 - Log: `~/Library/Logs/BitcoinTX/BitcoinTX.log`.
 - MCP server: needs no settings with the installed app; it reads `mcp.json`. Turn on **Settings →
@@ -67,6 +68,7 @@ desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: anothe
 | File | Purpose |
 |------|---------|
 | `entrypoint.py` | Launcher: sets data paths, starts Uvicorn, opens the pywebview window |
+| `desktop_api.py` | What the window's page can ask of the app (`window.pywebview.api`): the native Save dialog, the first-run setup code |
 | `desktop_ports.py` | Fixed-port binding, retry and the port-busy dialog |
 | `desktop_paths.py` | The data and log folders (`BTCTX_DESKTOP_DATA_DIR` for a test run), and the name the app shows ("BitcoinTX Test" on a test run) |
 | `run-test-build.sh` | Runs a build on a test folder and port 8766, never the real ledger |

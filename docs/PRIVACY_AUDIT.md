@@ -39,7 +39,7 @@ minor, and some things that are only documented.
 | 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
 | 3b | Encrypted backup file | **fixed** (owner: hidden, typed twice, no minimum) | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |
 | 3c | Temporary plain copy while backing up | **fixed** | a plain SQLite snapshot in the system temp folder (0700, deleted after); the restore's staging file is chmod'ed after writing | yes |
-| 3d | Plain copies in `<data>/backups/` | **documented in Settings** | up to 5 pre-upgrade/pre-restore + 3 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
+| 3d | Plain copies in `<data>/backups/` | **documented in Settings** | up to 5 pre-upgrade/pre-restore + 11 AI copies, unencrypted, outlive deleted entries; in the docs, not the app | |
 | 3e | Deleted rows stay in the SQLite file | **fixed** (secure_delete) | no `secure_delete`, no VACUUM | |
 | 3f | File permissions | no leak | database, secret key, setup code, `mcp.json`: 0600 | VM (`/data` listing) |
 | 3g | Docker `/data` is `chmod 777` | **fixed** (700) | cosmetic in a root-only container | |

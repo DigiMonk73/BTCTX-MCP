@@ -28,11 +28,10 @@ frontend_dist = os.environ.get(
     os.path.join(os.path.dirname(__file__), "../frontend/dist")
 )
 
-from backend.database import DATABASE_FILE
-from backend.secret_key import load_secret_key
+from backend.secret_key import app_secret_key
 
 # Signs the session cookie. Never a value from this repo — see secret_key.py
-SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
+SECRET_KEY = app_secret_key()
 
 
 def cors_origins(raw: str | None) -> list[str]:
@@ -47,7 +46,7 @@ def cors_origins(raw: str | None) -> list[str]:
 ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 from backend.database import init_db, get_db, SessionLocal
-from backend.session_auth import require_login, session_user_id, start_session
+from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
 
@@ -90,7 +89,7 @@ def _prepare_first_run() -> None:
 
 
 def _sync_ai_key_file() -> None:
-    """Mac app: write mcp.json (the AI key) for this run."""
+    """Mac app: write mcp.json, with a new AI key, for this run."""
     if ai_key.mode() != "mac":
         return
     db = SessionLocal()
@@ -131,10 +130,14 @@ app = FastAPI(
     openapi_url="/openapi.json" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
 
+SESSION_COOKIE = "btc_session_id"
+SESSION_MAX_AGE = 14 * 24 * 3600  # Starlette's default, given to the body limit too
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    session_cookie="btc_session_id",
+    session_cookie=SESSION_COOKIE,
+    max_age=SESSION_MAX_AGE,
     same_site="lax",
     # Secure is added per request when it came over HTTPS (StartOS's proxy):
     # backend/security_headers.py. A fixed https_only would break the plain
@@ -147,8 +150,27 @@ app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
 # The Mac app answers only at 127.0.0.1 or localhost (421 otherwise): a page
 # whose own name points there (DNS rebinding) is refused.
 app.add_middleware(LocalAddressOnlyMiddleware)
-# Outside those, so it also sees the session cookie: CSP, no-referrer, nosniff,
-# no framing, Secure cookie over HTTPS.
+# Before all of those: a body over its limit is refused before anything
+# reads it (body_limit.py). A route taking a file takes a logged-in owner's
+# file up to its own limit.
+from backend.body_limit import BodyLimitMiddleware
+from backend.routers.backup import MAX_RESTORE_BYTES
+from backend.routers.csv_import import MAX_FILE_SIZE
+
+app.add_middleware(
+    BodyLimitMiddleware,
+    file_limits={
+        "/api/backup/restore": MAX_RESTORE_BYTES,
+        "/api/import/preview": MAX_FILE_SIZE,
+        "/api/import/execute": MAX_FILE_SIZE,
+        "/api/import/river/preview": MAX_FILE_SIZE,
+    },
+    secret_key=SECRET_KEY,
+    session_cookie=SESSION_COOKIE,
+    max_age=SESSION_MAX_AGE,
+)
+# Outside those, so it also sees the session cookie and the 413: CSP,
+# no-referrer, nosniff, no framing, Secure cookie over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
 if ALLOWED_ORIGINS:
@@ -200,8 +222,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     (Authorization: Bearer <key>, backend/services/ai_key.py) on the routes
     it may use. A valid key anywhere else is 403.
     """
-    # Session auth (browser/frontend); a session from before a password
-    # change is cleared (backend/session_auth.py)
+    # Session auth (browser/frontend); a session that ended (logout, a
+    # password change) is cleared (backend/session_auth.py)
     user_id = session_user_id(request, db)
     if user_id:
         return user_id
@@ -280,30 +302,35 @@ def login(
     """
     Start a session for a correct username and password.
     Repeated failures are answered 429 for a while (login_throttle.py).
-    The default admin/password login also needs the setup code (Docker and
-    source installs before they're claimed; first_run.py): anyone who can
-    reach a fresh install knows that login.
+    The default admin/password login also needs the setup code (every
+    install before it's claimed, the Mac app's too; first_run.py): anyone
+    who can reach a fresh install knows that login.
     """
-    login_throttle.check(request)
+    login_throttle.check(request, db)
     user = get_user_by_username(login_req.username, db)
     # For security, don't reveal which part is invalid
     if not user or not user.verify_password(login_req.password):
         login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
-    if first_run.needs_code(user) and not first_run.check_code(login_req.setup_code):
+    if first_run.is_default_account(user) and not first_run.check_code(login_req.setup_code):
         login_throttle.failed(request)
-        raise HTTPException(status_code=403, detail=first_run.DEFAULT_LOGIN_REFUSED)
+        raise HTTPException(status_code=403, detail=first_run.default_login_refused())
 
     login_throttle.succeeded(request)
-    start_session(request, user)
+    start_session(request, user, db)
+    login_throttle.remember_device(response, user)
     return {"detail": f"Logged in as {user.username}"}
 
 
 @app.post("/api/logout")
-def logout(request: Request, response: Response):
-    """End the session."""
-    request.session.clear()
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    """End the session: this cookie, and any copy of it, stops working."""
+    end_session(request, db)
+    # The device cookie (login_throttle.py) stays: it says this browser
+    # logged in before, not that it is logged in, and opens nothing by
+    # itself. Without it, the next login would wait behind everyone else's
+    # failed tries from the same address (a proxy's).
     return {"detail": "Logged out successfully"}
 
 # Health check (public: used by StartOS and container probes)

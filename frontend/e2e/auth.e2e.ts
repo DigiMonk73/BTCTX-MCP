@@ -1,4 +1,5 @@
-import { test, expect, USER, PASSWORD, claimAccount, loginViaUi, setupCode } from "./fixtures";
+import { request as playwrightRequest, type Page } from "@playwright/test";
+import { test, expect, USER, PASSWORD, claimAccount, loginViaUi, setupCode, type App } from "./fixtures";
 
 test("Create account shows only until the default login is claimed", async ({ page, app }) => {
   // Afterwards /register resets the account (every transaction deleted).
@@ -173,4 +174,112 @@ test("an install still on the default login logs in with the setup code and keep
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
   expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(1);
+});
+
+test.describe("the Mac app", () => {
+  test.use({ appMode: "mac" });
+
+  /** The window's API as desktop/desktop_api.py gives it: window.pywebview
+   * may be there before the page's own code runs, but pywebview fills in its
+   * methods only after the page loads, then fires "pywebviewready". */
+  async function asTheAppWindow(page: Page, code: string | undefined, withSetupCode = true) {
+    await page.addInitScript(([c, has]) => {
+      const api: Record<string, unknown> = {};
+      Object.assign(window, { pywebview: { api } });
+      window.addEventListener("load", () => setTimeout(() => {
+        api.is_desktop = async () => true;
+        if (has) api.setup_code = async () => c ?? null;
+        window.dispatchEvent(new Event("pywebviewready"));
+      }, 300));
+    }, [code, withSetupCode] as const);
+  }
+
+  /** An older Mac install never taken off admin/password, with a transaction. */
+  async function ledgerOnTheDefaultLogin(page: Page, app: App) {
+    const r = await page.request.post("/api/login", {
+      data: { username: "admin", password: "password", setup_code: setupCode(app) },
+    });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    const tx = await page.request.post("/api/transactions", {
+      data: {
+        type: "Deposit", timestamp: "2024-01-02T12:00:00Z", from_account_id: 99, to_account_id: 1,
+        amount: "1000", fee_amount: "0", fee_currency: "USD",
+      },
+    });
+    expect(tx.ok()).toBeTruthy();
+    await page.request.post("/api/logout");
+  }
+
+  test("its window has the owner choose a username and password, and keeps the ledger", async ({ page, app }, info) => {
+    await ledgerOnTheDefaultLogin(page, app);
+    await asTheAppWindow(page, setupCode(app));
+
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Choose your username and password" })).toBeVisible();
+    await expect(page.getByLabel("Setup Code")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Create account" })).toHaveCount(0);
+    await expect(page.getByText("your transactions are kept")).toBeVisible();
+
+    // Checked before anything is sent
+    await page.getByLabel("New Username").fill(USER);
+    await page.getByLabel("New Password", { exact: true }).fill(PASSWORD);
+    await page.getByLabel("Repeat New Password").fill(PASSWORD + "x");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("alert")).toHaveText("The two passwords don't match.");
+    expect(setupCode(app)).toBeDefined();
+
+    await page.getByLabel("Repeat New Password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+
+    // The ledger is kept; the code is used up; the default login no longer works, the new one does
+    expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(1);
+    expect(setupCode(app)).toBeUndefined();
+    const other = await playwrightRequest.newContext({ baseURL: app.url });
+    expect((await other.post("/api/login", { data: { username: "admin", password: "password" } })).status()).toBe(401);
+    expect((await other.post("/api/login", { data: { username: USER, password: PASSWORD } })).status()).toBe(200);
+    await other.dispose();
+    // As a first login does: the computer's timezone for tax dates
+    const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
+    expect(tz.timezone).toBe(info.project.use.timezoneId);
+  });
+
+  test("a window that can't read its setup code offers the sign-in form with the typed code", async ({ page, app }) => {
+    await asTheAppWindow(page, undefined);  // setup_code() gives nothing
+    await page.goto("/login");
+    await expect(page.getByRole("alert")).toContainText("couldn't read its setup code");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password", { exact: true }).fill("password");
+    await page.getByLabel("Setup Code").fill(setupCode(app)!);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  });
+
+  test("in a browser, without the window, the default login needs the typed setup code", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.getByLabel("Setup Code")).toBeVisible();
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password", { exact: true }).fill("password");
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByRole("alert")).toContainText("enter the setup code");
+    await expect(page.getByRole("alert")).toContainText("Application Support/BitcoinTX");
+    await expect(page).toHaveURL(/\/login$/);
+    const claim = await page.request.post("/api/users/reset-account", { data: { username: USER, password: PASSWORD } });
+    expect(claim.status()).toBe(403);
+    expect((await (await page.request.get("/api/users/setup-status")).json()).is_default).toBe(true);
+  });
+
+  test("a window that can't supply the code offers the typed field and says where it is", async ({ page, app }) => {
+    await asTheAppWindow(page, setupCode(app), false);
+    await page.goto("/login");
+    await expect(page.getByText("setup-code.txt in BitcoinTX's data folder")).toBeVisible();
+    await expect(page.getByText("set your own username and password in Settings")).toBeVisible();
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password", { exact: true }).fill("password");
+    await page.getByLabel("Setup Code").fill(setupCode(app)!);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  });
 });

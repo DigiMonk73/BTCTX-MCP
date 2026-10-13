@@ -42,14 +42,15 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        the default login (mode 600; deleted once claimed;
   │                        never on StartOS, whose login is set before the first start)
   ├── btc-prices/          the hourly BTC price history, one YYYY.csv per year
-  │                        (about 3 MB), downloaded from Bitstamp once public price
-  │                        sites are the source (with a mempool server and its
-  │                        fallback, when a lookup needs a year) and kept only when
-  │                        it matches the fingerprints the release ships; can be
-  │                        deleted (it's downloaded again)
+  │                        (about 3 MB), downloaded from Bitstamp once, at start or
+  │                        when the choice is saved, if the choice allows public
+  │                        price sites (public sites, or a mempool server with its
+  │                        fallback), and kept only when it matches the fingerprints
+  │                        the release ships; can be deleted (it's downloaded again)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or Ledger Review's hourly prices are
-                           applied, or asked for with the AI key (mode 600;
+                           applied, or the AI key's first change in an
+                           hour, or asked for with the AI key (mode 600;
                            only created when needed)
 ```
 

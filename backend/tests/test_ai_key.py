@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from backend.tests.conftest import default_login
+from backend.tests.conftest import default_login, keep_in_use
 from backend.main import app
 from backend.migrate import backup_copies, backup_sqlite
 from backend.services import ai_key
@@ -206,16 +206,17 @@ def db_file(tmp_path):
 
 
 def test_ai_copies_keep_three_and_never_evict_pre_upgrade_copies(db_file, monkeypatch):
+    """The newest 3 stay, and the oldest of the last week (test_ai_copies.py)."""
     from backend.routers import backup
 
     path, session = db_file
     upgrade = [backup_sqlite(path, "upgrade") for _ in range(2)]
     monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
-    made = [backup.ai_copy(db=session)["file"] for _ in range(4)]
+    made = [backup.ai_copy(db=session)["file"] for _ in range(5)]
     kept = [p.name for p in backup_copies(path, "ai")]
-    assert len(kept) == 3 and made[0] not in kept and set(made[1:]) == set(kept)
+    assert len(kept) == 4 and made[1] not in kept and set(made[2:]) | {made[0]} == set(kept)
     assert all(p.exists() for p in upgrade)
-    assert json.dumps(made).count("-ai-backup-") == 4
+    assert json.dumps(made).count("-ai-backup-") == 5
 
 
 def test_one_ai_copy_a_minute(db_file):
@@ -241,12 +242,13 @@ def test_restoring_an_old_backup_does_not_bring_back_a_revoked_key(
     auth_client.delete("/api/settings/ai-key")  # the key leaked: revoked, access off
     auth_client.put("/api/settings/ai-access", json={"on": False})
 
-    def restore_old_backup(password, path):  # a backup from before: old key, access on
+    def restore_old_backup(password, path, carry_over):  # a backup from before: old key, access on
         with test_engine.begin() as conn:
             conn.execute(
                 text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, :v)"),
                 [{"k": ai_key.HASH_KEY, "v": leaked_hash}, {"k": ai_key.ACCESS_KEY, "v": "on"}],
             )
+        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})

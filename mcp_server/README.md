@@ -33,14 +33,14 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 |------|--------------|
 | `get_ledger_guide` | How to map real-world events onto BitcoinTX accounts, types and tax fields |
 | `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
-| `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
+| `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list |
 | `list_transactions` | Search by date range, type and account |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |
-| `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (the newest 3 are kept, one a minute). Restoring one is up to you |
+| `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (one a minute). Restoring one is up to you |
 
 There is deliberately no bulk delete.
 
@@ -148,9 +148,9 @@ pip install ./mcp_server        # or from a clone of the repo
 it starts (owner-only): its address and the AI key, never your password.
 Turn on **Settings → Connect an AI Assistant → Let AI assistants use
 BitcoinTX** first (off by default), and keep BitcoinTX open while you use
-the AI. The same section turns access off again or resets the key (the
-server picks up a new key by itself). `BTCTX_MCP_FILE` points at another
-file.
+the AI. The same section turns access off again or resets the key. The app
+also writes a new key each time it starts; either way the server picks up
+the new key by itself. `BTCTX_MCP_FILE` points at another file.
 
 **Docker, StartOS, or from source:** in BitcoinTX, **Settings → Connect an
 AI Assistant**, turn on **Let AI assistants use BitcoinTX** and click
@@ -263,8 +263,8 @@ you to approve each tool call unless you tell it not to.
   download a backup, export or import files, delete everything, apply Ledger
   Review fixes, change settings, or open reports.
 - Mac app: the key sits in `mcp.json`, readable only by you, and works only
-  from this computer. Settings → Connect an AI Assistant turns access off or
-  resets the key.
+  from this computer and only until BitcoinTX quits (each start writes a new
+  one). Settings → Connect an AI Assistant turns access off or resets the key.
 - Docker/StartOS: the key sits in your AI app's configuration on your
   computer; anyone who can read that file can do what the key allows. Revoke
   it or make a new one in Settings → Connect an AI Assistant. BitcoinTX stores
@@ -274,6 +274,12 @@ you to approve each tool call unless you tell it not to.
 - There is no bulk delete, and every write is visible in BitcoinTX. Before a
   large import, have the AI run `backup_ledger` or take a backup yourself
   (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
+- Before the key's first change in an hour (an edit or a deletion),
+  BitcoinTX makes a copy of the database itself
+  (`backups/…-ai-before-changing-…db`). Of the AI copies it keeps the newest
+  3 and, for a week, the oldest and the first copy of each day made before
+  the AI changed anything that day (UTC days), so copies made afterwards
+  never replace those from before.
 
 ## Disclaimer
 

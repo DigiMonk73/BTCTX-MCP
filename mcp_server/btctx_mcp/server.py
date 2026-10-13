@@ -25,7 +25,7 @@ import inspect
 import logging
 from datetime import datetime, time, timezone, tzinfo
 from decimal import Decimal
-from typing import Any, Dict, Literal  # noqa: UP035 (ToolResult)
+from typing import Annotated, Any, Dict, Literal  # noqa: UP035 (ToolResult)
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mcp.server.mcpserver import MCPServer
@@ -54,12 +54,20 @@ ACCOUNT_IDS: dict[str, int] = {
 }
 ACCOUNT_NAMES: dict[int, str] = {v: k for k, v in ACCOUNT_IDS.items()}
 
+# The largest values BitcoinTX takes (backend/schemas/transaction.py, what
+# its database holds): 10 digits before the point for an amount or a fee,
+# 16 for a USD value. One over them is refused here, before any request.
+AMOUNT_LIMIT = Decimal(10) ** 10
+USD_LIMIT = Decimal(10) ** 16
+AmountValue = Annotated[Decimal, Field(lt=AMOUNT_LIMIT)]
+UsdValue = Annotated[Decimal, Field(lt=USD_LIMIT)]
+
 
 class TransactionInput(BaseModel):
     """One transaction to preview or add. See the ledger guide for which fields each type needs."""
     date: str = Field(description="ISO 8601, e.g. 2024-03-05T14:30:00Z, or 2024-03-05 if the time is unknown.")
     type: TxTypeName
-    amount: Decimal = Field(
+    amount: AmountValue = Field(
         gt=0,
         description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
                     "Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
@@ -68,18 +76,18 @@ class TransactionInput(BaseModel):
     )
     from_account: AccountName
     to_account: AccountName
-    cost_basis_usd: Decimal | None = Field(
+    cost_basis_usd: UsdValue | None = Field(
         default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate, "
                                   "and for Inherited from the date of death).")
-    proceeds_usd: Decimal | None = Field(
+    proceeds_usd: UsdValue | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
-    fee_amount: Decimal | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
+    fee_amount: AmountValue | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
     fee_currency: Literal["BTC", "USD"] | None = None
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
     purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")
-    fmv_usd: Decimal | None = Field(
+    fmv_usd: UsdValue | None = Field(
         default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
-    fee_usd: Decimal | None = Field(
+    fee_usd: UsdValue | None = Field(
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
                                   "price when its hour began is stored).")
     acquired_at: str | None = Field(
@@ -400,7 +408,9 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
     flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,
     balances afterward). NOTHING is saved. Always call this and show the user the result
-    before add_transactions."""
+    before add_transactions. At most 500 rows a call, and fewer dated before the ledger's
+    latest entry (each recalculates the whole ledger; the error says how many): split a long
+    list by date, oldest first, and preview and add each part before the next."""
     return await _call("POST", "/api/import/entries/preview", json={"rows": _rows(transactions)})
 
 
@@ -410,7 +420,8 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
     the user's confirmation. Rows exactly matching an existing transaction are skipped; rows
-    previewed as possible_duplicate ARE saved, so drop any the user rejected."""
+    previewed as possible_duplicate ARE saved, so drop any the user rejected. The same row
+    limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
 
 
@@ -421,17 +432,17 @@ async def update_transaction(
     transaction_id: int,
     date: str | None = None,
     type: TxTypeName | None = None,
-    amount: Decimal | None = None,
+    amount: AmountValue | None = None,
     from_account: AccountName | None = None,
     to_account: AccountName | None = None,
-    cost_basis_usd: Decimal | None = None,
-    proceeds_usd: Decimal | None = None,
-    fee_amount: Decimal | None = None,
+    cost_basis_usd: UsdValue | None = None,
+    proceeds_usd: UsdValue | None = None,
+    fee_amount: AmountValue | None = None,
     fee_currency: Literal["BTC", "USD"] | None = None,
     source: DepositSource | None = None,
     purpose: WithdrawalPurpose | None = None,
-    fmv_usd: Decimal | None = None,
-    fee_usd: Decimal | None = None,
+    fmv_usd: UsdValue | None = None,
+    fee_usd: UsdValue | None = None,
     broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
     acquired_at: str | None = None,
 ) -> ToolResult:
@@ -486,7 +497,10 @@ async def update_transaction(
 
 
 def _text(value: Decimal | None) -> str | None:
-    return None if value is None else format(value, "f")
+    """The number as it is written (1E-8 for a satoshi): written out, one
+    far out of range such as 1E-999999 has a million digits. BitcoinTX
+    reads either."""
+    return None if value is None else str(value)
 
 
 async def _price_query(date: str) -> dict[str, str]:
@@ -554,8 +568,10 @@ async def recalculate_ledger() -> ToolResult:
 async def backup_ledger() -> ToolResult:
     """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
     backups folder), as a safety net. Offer it before a large import or before deleting or
-    changing many entries. BitcoinTX keeps the newest 3 such copies and makes at most one a
-    minute; only the file name comes back. Restoring a copy is done by the user, not by you."""
+    changing many entries. BitcoinTX keeps the newest 3 copies (and for a week the oldest, and
+    the first copy of each day it made before you changed anything that day) and makes at most
+    one a minute; only the file name comes back. Restoring a copy is done by the user, not by
+    you."""
     return await _call("POST", "/api/backup/ai-copy")
 
 

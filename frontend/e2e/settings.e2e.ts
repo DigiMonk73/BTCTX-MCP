@@ -118,7 +118,7 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("wrong");
   await page.getByRole("button", { name: "Restore" }).click();
-  await expect(page.getByText("Failed to restore backup.")).toBeVisible();
+  await expect(page.getByText(/Restore failed: .*Wrong password\?/)).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
 
   await page.getByLabel("Backup file").setInputFiles(backup);

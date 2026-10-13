@@ -16,6 +16,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
+from backend.schemas.transaction import (
+    BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_storable, validate_usd_storable,
+)
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
     FEE_CURRENCIES, TEXT_ON_ONE_LINE,
@@ -281,11 +284,11 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     amount_str = row.get("amount", "").strip()
     if not amount_str:
         raise _Rejected(_error(row_number, "amount", "Amount is required."))
-    amount = _parse_decimal(amount_str, 8)
+    amount = _parse_decimal(amount_str, BTC_PLACES)
     if amount is None:
         raise _Rejected(_error(
             row_number, "amount",
-            f"Invalid amount '{amount_str}'. Must be a positive number with up to 8 decimal places.",
+            f"Invalid amount '{amount_str}'. Must be a positive number with up to {number_limits(BTC_PLACES)}.",
         ))
     if amount <= 0:
         raise _Rejected(_error(row_number, "amount", "Amount must be positive."))
@@ -312,8 +315,8 @@ def _optional_amounts(row: dict[str, str], row_number: int) -> dict[str, Decimal
     errors: list[CSVParseError] = []
     amounts = {
         column: _optional_decimal(row, column, places, row_number, errors)
-        for column, places in (("cost_basis_usd", 2), ("proceeds_usd", 2), ("fee_amount", 8), ("fee_usd", 2),
-                               ("fmv_usd", 2))
+        for column, places in (("cost_basis_usd", USD_PLACES), ("proceeds_usd", USD_PLACES), ("fee_amount", BTC_PLACES),
+                               ("fee_usd", USD_PLACES), ("fmv_usd", USD_PLACES))
     }
     if errors:
         raise _Rejected(*errors)
@@ -490,27 +493,50 @@ def _parse_date(date_str: str, tz=timezone.utc) -> datetime | None:
     return None
 
 
+# A number column takes the API's rule (schemas/transaction.py) for its
+# decimal places: a BTC column's or a USD column's, on the value and on the
+# value as stored (a larger one would be saved, then fail every listing).
+_NUMBER_RULES = {
+    BTC_PLACES: (validate_btc_storable, BTC_DIGITS),
+    USD_PLACES: (validate_usd_storable, USD_DIGITS),
+}
+
+
 def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     """
-    The number, or None when it's empty, isn't a finite number or has more
-    decimal places. Places are counted on the number, so "1E-9" doesn't
-    pass as 0 decimals.
+    The number, or None when it's empty or breaks the rule of a column with
+    `max_decimals` places: not a finite number, more decimal places, or more
+    digits before the point, as given or as stored. Places are counted on
+    the number, so "1E-9" doesn't pass as 0 decimals.
     """
     if not value:
         return None
-
-    value = value.replace(",", "")  # thousands separators
-
+    rule, _digits = _NUMBER_RULES[max_decimals]
     try:
-        d = Decimal(value)
-    except InvalidOperation:
+        number = rule(Decimal(value.replace(",", "")))  # without thousands separators
+    except (InvalidOperation, ValueError):
         return None
-    if not d.is_finite():
-        return None
-    exponent = d.normalize().as_tuple().exponent
-    if exponent < 0 and -exponent > max_decimals:
-        return None
-    return d
+    # A zero with an exponent past the column's places ("0E-999999999")
+    # would be written out in full; "0.00" stays as typed
+    if number == 0 and not -max_decimals <= number.as_tuple().exponent <= 0:
+        return Decimal(0)
+    return number
+
+
+def number_limits(max_decimals: int) -> str:
+    """The rule of a column with `max_decimals` places, as its messages say it."""
+    _rule, digits = _NUMBER_RULES[max_decimals]
+    return f"{max_decimals} decimal places and {digits} digits before the decimal point"
+
+
+def number_text(value: Decimal | None) -> str:
+    """
+    A number as the row check reads it, for the imports that start from
+    numbers (River's rows, the JSON entry import): its own text, blank for
+    None. It stays short however far out of range the value is (written out,
+    1E+999999 has a million digits), and the check then refuses it.
+    """
+    return str(value) if value is not None else ""
 
 
 def _optional_decimal(
@@ -527,7 +553,7 @@ def _optional_decimal(
     value = _parse_decimal(raw, max_decimals)
     if value is None:
         errors.append(_error(
-            row_number, column, f"Invalid {column} '{raw}': a number with at most {max_decimals} decimal places.",
+            row_number, column, f"Invalid {column} '{raw}': a number with at most {number_limits(max_decimals)}.",
         ))
     elif value < 0:
         errors.append(_error(row_number, column, f"{column} can't be negative."))

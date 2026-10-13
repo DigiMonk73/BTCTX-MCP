@@ -39,7 +39,8 @@ from backend.schemas.entry_import import (
 from backend.services import hourly_prices
 from backend.services.tax_time import local_noon_utc
 from backend.services.calculation import get_all_account_balances
-from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row
+from backend.schemas.transaction import USD_PLACES
+from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_NEW,
@@ -131,12 +132,12 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
         str_row = {
             "date": _normalize_date(row.date, tz),
             "type": row.type or "",
-            "amount": _dec_str(row.amount),
+            "amount": number_text(row.amount),
             "from_account": row.from_account or "",
             "to_account": row.to_account or "",
-            "cost_basis_usd": _dec_str(row.cost_basis_usd),
-            "proceeds_usd": _dec_str(row.proceeds_usd),
-            "fee_amount": _dec_str(row.fee_amount),
+            "cost_basis_usd": number_text(row.cost_basis_usd),
+            "proceeds_usd": number_text(row.proceeds_usd),
+            "fee_amount": number_text(row.fee_amount),
             "fee_currency": row.fee_currency or "",
             "source": row.source or "",
             "purpose": row.purpose or "",
@@ -147,16 +148,16 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
         error_msgs = [e.message for e in errors]
 
         if tx_data is not None and row.fee_usd is not None:
-            fee_usd = _parse_decimal(_dec_str(row.fee_usd), 2)
+            fee_usd = _parse_decimal(number_text(row.fee_usd), USD_PLACES)
             if fee_usd is None or fee_usd < 0:
-                error_msgs.append("fee_usd must be a USD amount with at most 2 decimals.")
+                error_msgs.append(f"fee_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
             else:
                 tx_data["fee_usd"] = fee_usd
 
         if tx_data is not None and row.fmv_usd is not None:
-            fmv = _parse_decimal(_dec_str(row.fmv_usd), 2)
+            fmv = _parse_decimal(number_text(row.fmv_usd), USD_PLACES)
             if fmv is None:
-                error_msgs.append("fmv_usd must be a USD amount with at most 2 decimals.")
+                error_msgs.append(f"fmv_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
             else:
                 tx_data["fmv_usd"] = fmv
 
