@@ -24,6 +24,7 @@ from backend import session_auth
 from backend.main import SECRET_KEY, app
 from backend.models.user import User
 from backend.tests.conftest import keep_in_use, default_login
+from backend.tests.test_body_limit import MB, send
 
 LOGIN = {"username": "me", "password": "my-own-password-1"}
 COOKIE = "btc_session_id"
@@ -229,3 +230,21 @@ def test_a_login_during_a_long_write_answers_busy_not_a_server_error(monkeypatch
     monkeypatch.setattr(session_auth, "_change_open_sessions", busy)
     r = TestClient(app).post("/api/login", json=default_login())
     assert r.status_code == 503 and "busy" in r.json()["detail"]
+
+
+@pytest.mark.parametrize("end", ["logout", "password change"])
+def test_a_session_that_ended_gets_no_file_allowance(own_login, end):
+    """A copy of a cookie whose session ended is no login for the larger
+    upload allowance either (backend/body_limit.py): 5 MB, refused before a
+    byte is read, as the restore's own login check would answer."""
+    me = logged_in()
+    copy = me.cookies[COOKIE]
+    assert send("/api/backup/restore", [b"--"], length=6 * MB, cookie=copy)[0] != 413
+    if end == "logout":
+        assert me.post("/api/logout").status_code == 200
+    else:
+        r = me.patch("/api/users/1", json={"password": "a-new-password-2", "current_password": LOGIN["password"]})
+        assert r.status_code == 200, r.text
+    for path in ("/api/backup/restore", "/api/import/preview"):
+        status, read, answer = send(path, [b" " * MB] * 6, length=6 * MB, cookie=copy)
+        assert (status, read) == (413, 0), (path, status, read, answer["json"])

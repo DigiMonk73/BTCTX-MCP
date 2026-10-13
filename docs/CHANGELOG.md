@@ -120,7 +120,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **Every request is limited to 5 MB** (#151). BitcoinTX refuses a larger
   request before reading it, the login and Create account pages included.
   A file keeps its own limit: a backup to restore up to 1 GiB, a CSV or
-  River file up to 5 MB.
+  River file up to 5 MB, only for a session still open (a copy of a cookie
+  after its logout or a password change gets 5 MB).
 - **Every price request ends in bounded time and size** (#151). A request
   to a price source (your own Mempool or a public price site) had a time
   limit for each wait but none for the whole request, and no limit on the
@@ -178,10 +179,12 @@ All notable changes to BitcoinTX are documented in this file.
   ever answered such a price; none is known. **What to do:** nothing,
   unless you ever saw a value "from the price" at $0.00: a day already
   stored at $0.00 stays, so type that value.
-- **Logging out ends the session everywhere** (#151). Each login now opens
+- **Logging out ends the session, for every copy of its cookie** (#151). Each login now opens
   a session of its own on the server. Logging out ends it at once, for any
   copy of that browser's cookie too; before, a copy kept working until 14
-  days after the login. Your other browsers stay logged in. A password
+  days after the login. (If the database is busy at that moment, the browser
+  is logged out all the same, the log says the session couldn't be ended,
+  and a copy works until it expires.) Your other browsers stay logged in. A password
   change (Settings, or StartOS's Set Login Credentials) or an account reset
   still logs every other browser out, and an in-app restore keeps the
   sessions that were open (when the backup's account has the same id;

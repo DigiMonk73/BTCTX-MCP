@@ -471,6 +471,19 @@ def test_one_restore_at_a_time(live, tmp_path):
     assert _restore(live.client, blob).status_code == 200  # once it's done
 
 
+def test_a_restore_holds_its_lock_until_the_side_files_are_gone(live, tmp_path, monkeypatch):
+    """A next restore can't start while this one still removes the files
+    SQLite kept beside the database it replaced."""
+    removing = []
+    real = backup._remove_side_files
+    monkeypatch.setattr(backup, "_remove_side_files",
+                        lambda path: removing.append(backup._restoring.locked()) or real(path))
+    blob, _ = _backup(tmp_path)
+    assert _restore(live.client, blob).status_code == 200
+    assert removing and all(removing)
+    assert not backup._restoring.locked()
+
+
 def test_files_a_restore_cut_short_left_are_removed_before_the_next(live, tmp_path, monkeypatch):
     """SQLite would apply a write-ahead log left beside the temporary file
     to the next one of the same name."""

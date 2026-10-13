@@ -9,8 +9,9 @@ chunks as soon as the bytes that came pass it.
 The limit is MAX_BODY_BYTES. A route taking a file (main.py lists them)
 takes that file's own limit, with FORM_ROOM for the form around it, and
 still checks the file itself; the larger allowance is for a logged-in
-owner's file, so only a request with a validly signed, unexpired session
-cookie holding a user_id gets it (the cookie SessionMiddleware writes).
+owner's file, so only a request whose session cookie is validly signed and
+unexpired (as SessionMiddleware writes it) and names a session still open
+(session_auth.session_is_live, as the route's own login check asks) gets it.
 """
 
 from __future__ import annotations
@@ -20,7 +21,9 @@ import json
 from base64 import b64decode
 
 import itsdangerous
+from anyio import to_thread
 from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.requests import cookie_parser
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -54,7 +57,7 @@ class BodyLimitMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        limit = self._limit(scope)
+        limit = await self._limit(scope)
         if _content_length(scope) > limit:
             await JSONResponse({"detail": too_large(limit)}, status_code=413)(scope, receive, send)
             return
@@ -70,24 +73,44 @@ class BodyLimitMiddleware:
 
         await self.app(scope, counted, send)
 
-    def _limit(self, scope: Scope) -> int:
+    async def _limit(self, scope: Scope) -> int:
         file_limit = self.file_limits.get(scope["path"].rstrip("/"))
-        if file_limit is None or not self._logged_in(scope):
+        if file_limit is None:
+            return MAX_BODY_BYTES
+        session = self._session(scope)
+        if session is None or not await to_thread.run_sync(_is_live, scope, session):
             return MAX_BODY_BYTES
         return file_limit
 
-    def _logged_in(self, scope: Scope) -> bool:
-        """Whether the session cookie is the app's, unexpired, with a user_id
-        (as SessionMiddleware reads it)."""
+    def _session(self, scope: Scope) -> dict | None:
+        """The session cookie's contents if it is the app's, unexpired, with a
+        user_id (as SessionMiddleware reads it)."""
         cookie = cookie_parser(_header(scope, b"cookie")).get(self.session_cookie)
         if not cookie:
-            return False
+            return None
         try:
             data = self.signer.unsign(cookie.encode(), max_age=self.max_age)
             session = json.loads(b64decode(data))
         except (itsdangerous.BadSignature, binascii.Error, ValueError):
-            return False
-        return isinstance(session, dict) and bool(session.get("user_id"))
+            return None
+        return session if isinstance(session, dict) and session.get("user_id") else None
+
+
+def _is_live(scope: Scope, session: dict) -> bool:
+    """Whether the session is still open, asked of the app's own database
+    (get_db, or a test's override of it). A busy database counts as no: the
+    owner is told the file is too large, and can try again."""
+    from backend.database import get_db
+    from backend.session_auth import session_is_live
+
+    sessions = scope["app"].dependency_overrides.get(get_db, get_db)()
+    db = next(sessions)
+    try:
+        return session_is_live(session, db)
+    except SQLAlchemyError:
+        return False
+    finally:
+        sessions.close()
 
 
 def _header(scope: Scope, name: bytes) -> str:

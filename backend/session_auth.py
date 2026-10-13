@@ -118,11 +118,18 @@ def session_user_id(request: Request, db: Session) -> int | None:
     user_id = request.session.get("user_id")
     if not user_id:
         return None
-    user = db.get(User, user_id)
-    if user is None or not _stamp_matches(request, user) or not _is_open(request, db):
+    if not session_is_live(request.session, db):
         request.session.clear()
         return None
     return user_id
+
+
+def session_is_live(session: dict, db: Session) -> bool:
+    """Whether a cookie's session is an open one, made with its user's
+    current password (body_limit.py asks it too, before a route runs)."""
+    user_id = session.get("user_id")
+    user = db.get(User, user_id) if isinstance(user_id, int) else None
+    return user is not None and _stamp_matches(session, user) and _is_open(session, db)
 
 
 def require_login(request: Request, db: Session, status: int = 401) -> int:
@@ -132,13 +139,13 @@ def require_login(request: Request, db: Session, status: int = 401) -> int:
     return user_id
 
 
-def _stamp_matches(request: Request, user: User) -> bool:
-    stamp = request.session.get(STAMP_KEY)
+def _stamp_matches(session: dict, user: User) -> bool:
+    stamp = session.get(STAMP_KEY)
     return isinstance(stamp, str) and hmac.compare_digest(stamp, credential_stamp(user))
 
 
-def _is_open(request: Request, db: Session) -> bool:
-    session_hash = _id_hash(request.session.get(SESSION_ID_KEY))
+def _is_open(session: dict, db: Session) -> bool:
+    session_hash = _id_hash(session.get(SESSION_ID_KEY))
     return session_hash is not None and session_hash in open_sessions(db)
 
 
