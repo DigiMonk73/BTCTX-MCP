@@ -81,6 +81,16 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **A restore keeps this install's login, AI key and price settings, or
+  restores nothing** (#201). An in-app restore now writes your current
+  login, AI key and its switch, and price settings into the backup's
+  database before it replaces your ledger, and checks they're there. If
+  they can't be kept, the restore stops: your ledger and settings stay as
+  they were, and the page says so. Before, an error there was only logged,
+  and the backup's settings could stay in use. A restore also takes only a
+  database of the kind BitcoinTX makes, and the page now shows why a
+  restore failed (a wrong password, for example) instead of "Failed to
+  restore backup."
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
