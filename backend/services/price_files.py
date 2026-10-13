@@ -103,6 +103,20 @@ def usd(price: Decimal) -> str:
     return f"{price.quantize(CENT, rounding=ROUND_HALF_UP):f}"
 
 
+def usable_price(value) -> Decimal | None:
+    """
+    A site's price to the cent, or None when it's no price: not a number,
+    not finite, or under one cent once rounded (never $0, AGENTS.md). Every
+    price a site gives passes here before it's kept (#198).
+    """
+    try:
+        price = Decimal(str(value))
+        cents = price.quantize(CENT) if price.is_finite() else None
+    except ArithmeticError:  # not a number, or too large to round
+        return None
+    return cents if cents is not None and cents > 0 else None
+
+
 # A year's text and fingerprint
 def year_text(prices: dict[int, Decimal], year: int, last_hour: int) -> str:
     """The year file from 1 January 00:00 to `last_hour`; IncompleteYear if an hour is missing."""

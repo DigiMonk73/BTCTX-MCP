@@ -81,11 +81,17 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
-- **An hour Bitstamp gives at no price is never kept** (#198, tax figures,
-  never in a release). An hour newer than the hourly price files was kept
-  whatever Bitstamp's candle said, so an open of 0 or below valued a blank
-  value in that hour at $0 or less, and one that wasn't a number made the
-  lookup fail. Now such an hour has no price, and the day's price is used.
+- **A price a site gives under one cent, or as no number, is never kept**
+  (#206, #198, tax figures). A day's price from Bitstamp or Kraken was
+  checked above zero before it was rounded to the cent, so an answer of
+  $0.004 was stored as $0.00, and a value left blank that day (an income
+  deposit's value at receipt, an unpriced spend's proceeds, a BTC fee's
+  value) was saved at $0.00. The hours after the hourly price files (not in
+  a release yet) kept 0, below 0 and no number too. Now such a day or hour
+  has no price: a value from it takes the day's price, or asks you to type
+  one, never $0, and one odd answer no longer costs the site's other days
+  or hours. **Affected:** 1.1.0 to 1.2.7, only if Bitstamp or Kraken ever
+  answered such a price; none is known. **What to do:** nothing.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
