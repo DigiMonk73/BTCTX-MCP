@@ -81,10 +81,11 @@ def _pid_alive(pid: Any) -> bool:
         return True  # can't check cheaply; the health check decides
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
+        # Gone, or not ours to signal (another user's process, or this
+        # connector runs where it may not signal others): not this user's
+        # BitcoinTX as far as we can tell, so its key isn't sent
         return False
-    except PermissionError:
-        return True
     return True
 
 
@@ -147,6 +148,8 @@ class BtctxClient:
 
     async def _use_key_file(self) -> None:
         """Point the client at the running Mac app, or explain what's missing."""
+        # No key goes out until the file names a BitcoinTX that answers
+        self._http.headers.pop("Authorization", None)
         path = self._key_file
         looked = [
             "BTCTX_AI_KEY: not set (only needed for Docker or StartOS)",
@@ -217,7 +220,7 @@ class BtctxClient:
             await self._connect()
             r = await self._http.request(method, path, **kwargs)
         if r.status_code == 401 and self.uses_key_file:
-            await self._connect()  # the key was reset: read the file again
+            await self._connect()  # a new key (the app restarted, or Reset key): read the file again
             r = await self._http.request(method, path, **kwargs)
         return r
 

@@ -81,6 +81,62 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **A price a site gives under one cent, or as no number, is never kept**
+  (#206, #198, tax figures). A day's price from a public site or your own
+  Mempool was checked above zero before it was rounded to the cent, so an
+  answer of $0.004 was stored as $0.00, and a value left blank that day
+  (an income deposit's value at receipt, an unpriced spend's proceeds, a
+  BTC fee's value) was saved at $0.00. The hours after the hourly price
+  files (not in a release yet) kept 0, below 0 and no number too. Now such
+  a day or hour has no price: a value from it takes the day's price, or
+  asks you to type one, never $0, and one odd price no longer costs the
+  site's other days or hours. **Affected:** 0.9.2 to 1.2.7, only if a
+  price site (Bitstamp, Kraken, Coinbase before #161) or your own Mempool
+  ever answered such a price; none is known. **What to do:** nothing,
+  unless you ever saw a value "from the price" at $0.00: a day already
+  stored at $0.00 stays, so type that value.
+- **Logging out ends the session everywhere** (#151). Each login now opens
+  a session of its own on the server. Logging out ends it at once, for any
+  copy of that browser's cookie too; before, a copy kept working until 14
+  days after the login. Your other browsers stay logged in. A password
+  change (Settings, or StartOS's Set Login Credentials) or an account reset
+  still logs every other browser out, and an in-app restore keeps the
+  sessions that were open (when the backup's account has the same id;
+  otherwise every browser logs in again) and the browser that restored
+  logs in again. **After this update, everyone logs in once
+  more.** The unused `GET /api/users/protected` is gone.
+- **The Mac app gives the AI connector a new key each time it starts**
+  (#151). The key in `mcp.json` stayed the same across restarts; now each
+  start writes a new one, and a key from an earlier run stops working. The
+  AI connector reads the file again when its key is refused (every
+  released connector does), so an AI app left open carries on with nothing
+  to set up again. The connector also counts only a BitcoinTX run by your
+  own Mac account.
+- **A restore brings back a backup's data, and keeps this install's login,
+  AI key and price settings, or restores nothing** (#201, #151). An in-app
+  restore now builds a new database with BitcoinTX's own migrations, as a
+  fresh install does, and copies into it only the rows of BitcoinTX's own
+  tables and columns from the backup (upgraded first); anything else in the
+  backup's database stays behind, and a backup holding database objects
+  BitcoinTX doesn't make, more than one login, or rows that don't fit is
+  refused. Your current login, AI key and its switch, and price settings are
+  written into the new database and checked before it replaces your ledger.
+  If any step fails, the restore stops: your ledger and settings stay as
+  they were, no temporary file is left, and the page says why in plain words
+  (a wrong password, a damaged file) instead of "Failed to restore backup."
+  One restore runs at a time. Before, an error while keeping those settings
+  was only logged, and the backup's settings could stay in use.
+- **A wrong setup code or an over-long password gets the usual answer, not
+  a server error** (#200, #205). A setup code typed with some letters
+  outside A–Z and 0–9 (À, for example) made the login, Create account and
+  Settings' password change answer with a server error (500), and so did a
+  password over 72 bytes there. Neither can ever be right, so nothing was
+  exposed; now they're refused like any wrong code or password, and count
+  toward the wait after repeated failures. A new password over 72 bytes is
+  refused with "at most 72 characters (fewer with accented letters or
+  symbols)"; before, Create account with such a password deleted the
+  transactions (as it warns it will) and then failed, keeping the old
+  login.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes

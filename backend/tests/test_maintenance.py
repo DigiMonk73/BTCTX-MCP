@@ -225,12 +225,28 @@ def test_cli_set_password_if_default_replaces_only_the_default_login(tmp_path, r
     assert can_login(db, "admin", "generated-at-update-1")
 
 
+def test_cli_set_password_ends_every_session(tmp_path, restore_overrides):
+    """StartOS's Set Login Credentials, or a Docker admin: like a password
+    change in Settings, every browser logs in again (session_auth.py)."""
+    from backend.session_auth import OPEN_SESSIONS
+
+    db = tmp_path / "btctx.db"
+    init_db(engine_for(db))
+    browser = client_on(db)
+    body = {"username": "admin", "password": "password", "setup_code": first_run.ensure_code()}
+    assert browser.post("/api/login", json=body).status_code == 200
+    r = cli(db, "set-password", "--password-stdin", stdin="a-new-password-123\n")
+    assert r.returncode == 0, r.stderr
+    assert browser.get("/api/transactions").status_code == 401
+    assert q(db, f"SELECT value FROM app_settings WHERE key = '{OPEN_SESSIONS}'") == [("[]",)]
+
+
 @pytest.mark.parametrize(
     "args, stdin, message",
     [
         (["set-password"], "", "No password given"),
         (["set-password", "--password-stdin"], "\n", "No password given"),
-        (["set-password", "--password-stdin"], "x" * 73, "72 bytes"),
+        (["set-password", "--password-stdin"], "x" * 73, "at most 72 characters"),
         (["set-password", "--password-stdin"], "elevenchars", "at least 12 characters"),
         (["set-password", "--username", " ", "--password-stdin"], "long-enough-pw", "username can't be empty"),
     ],

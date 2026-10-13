@@ -36,10 +36,11 @@ class User(Base):
 
     def verify_password(self, password: str) -> bool:
         """Whether `password` matches the stored hash."""
-        return bcrypt.checkpw(
-            password.encode('utf-8'),
-            self.password_hash.encode('utf-8')
-        )
+        encoded = password.encode('utf-8')
+        # bcrypt only reads 72 bytes and raises for more; a longer password never matches.
+        if len(encoded) > 72:
+            return False
+        return bcrypt.checkpw(encoded, self.password_hash.encode('utf-8'))
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username={self.username})>"

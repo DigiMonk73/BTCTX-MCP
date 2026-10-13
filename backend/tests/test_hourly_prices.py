@@ -240,6 +240,36 @@ def test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored(s
     assert sites.requests == []  # stored, and asked at most every 10 minutes
 
 
+def test_an_hour_bitstamp_gives_at_no_price_is_never_kept(sites, db):
+    """Session 8's review (#151): an hour after the files that Bitstamp gave
+    at 0, below 0, under a cent or as no number was kept, and a kept hour is
+    never replaced, so a value left blank in that hour was saved at $0 or
+    less (AGENTS.md: never $0). Such an hour has no price: the day's is
+    used. An open that doesn't parse cost the whole block (#199's review)."""
+    hp.start_download()
+    finish_download()
+    bad = {"2026-03-18T05:00Z": "0", "2026-03-18T06:00Z": "-5", "2026-03-18T07:00Z": "NaN",
+           "2026-03-18T09:00Z": "0.004", "2026-03-18T10:00Z": "abc", "2026-03-18T11:00Z": "",
+           "2026-03-18T12:00Z": "Infinity"}
+    for label, open_ in bad.items():
+        sites.bitstamp[at(label)] = open_
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
+    stored = {row.hour for row in db.query(BtcPriceHourly)}
+    assert not stored & {at(label) for label in bad}
+    assert {at("2026-03-18T08:00Z"), at("2026-03-18T13:00Z")} <= stored  # the hours around them still are
+    for label in bad:
+        priced = hp.price_at(db, utc(label))
+        assert priced.moment == "day" and priced.usd > 0
+
+
+def test_a_current_hour_whose_volume_doesnt_parse_costs_no_other_hour(sites, db):
+    hp.start_download()
+    finish_download()
+    sites.volume[NOW] = "abc"
+    assert hp.hourly_price(db, utc("2026-03-19T23:30Z"))[0] == sites.prices[at("2026-03-19T23:00Z")]
+    assert NOW not in {row.hour for row in db.query(BtcPriceHourly)}
+
+
 def live_rows(first_live: int, until: int, spike: int | None = None) -> list[dict]:
     """A mempool server's history: weekly rows, then hourly from `first_live`."""
     rows = [{"time": t, "USD": 30000} for t in range(first_live - 400 * 86400, first_live, 7 * 86400)]
@@ -255,6 +285,15 @@ def test_a_mempool_servers_live_hours_skip_its_first_month_and_any_odd_hour():
     assert min(hours) == first + 31 * 86400 and max(hours) == at("2026-02-28T23:00Z")
     assert spike not in hours and spike - HOUR not in hours and spike + 2 * HOUR in hours
     assert hp.live_hours([{"time": t, "USD": 1} for t in range(first, first + 30 * 86400, 86400)]) == {}
+
+
+def test_a_mempool_servers_row_that_is_no_price_costs_no_other_hour():
+    """#199's review: a row that wasn't a number lost every hour."""
+    first, odd = at("2026-01-01T00:00Z"), at("2026-02-15T12:00Z")
+    rows = live_rows(first, at("2026-03-01T00:00Z"))
+    next(row for row in rows if row["time"] == odd)["USD"] = "NaN"
+    hours = hp.live_hours(rows)
+    assert odd not in hours and at("2026-02-20T12:00Z") in hours and all(p > 0 for p in hours.values())
 
 
 def test_a_mempool_server_gives_hours_after_the_files_and_the_asked_hour_within_them(sites, db):

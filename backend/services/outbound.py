@@ -269,16 +269,17 @@ def snapshot(db: Session) -> dict:
     return kept
 
 
-def carry_over(db: Session, before: dict) -> NetworkSettings:
+def carry_over(db: Session, before: dict) -> None:
     """
-    After a restore, put back the price settings from before it (owner
-    decision 2026-09-29): a backup from before a switch to Tor or Off must
-    not ask the public sites directly again. As for the AI key and login.
+    Write the price settings from before a restore into the restored
+    database, before it replaces the live one (owner decision 2026-09-29): a
+    backup from before a switch to Tor or Off must not ask the public sites
+    directly again. As for the AI key and login. The restore commits and
+    checks them; nothing in memory changes until load() reads the live
+    database.
     """
     for key, value in before.items():
         _set(db, key, value)
-    db.commit()
-    return load(db)
 
 
 def load(db: Session, upgrade: bool = True) -> NetworkSettings:
