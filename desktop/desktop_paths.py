@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 
 DATA_DIR_ENV = "BTCTX_DESKTOP_DATA_DIR"
+APP_NAME = "BitcoinTX"
+TEST_APP_NAME = "BitcoinTX Test"
 
 
 def data_dir_override() -> Path | None:
@@ -22,6 +24,15 @@ def data_dir_override() -> Path | None:
     mcp.json and the log would follow the current directory."""
     value = os.environ.get(DATA_DIR_ENV, "").strip()
     return Path(value).expanduser().resolve() if value else None
+
+
+def app_name() -> str:
+    """What the app calls itself in its window and its messages: "BitcoinTX
+    Test" on a test run (a throwaway data folder, as desktop/run-test-build.sh
+    sets), so its window and messages can't be taken for the installed
+    app's. The menu bar and the Dock still say BitcoinTX: they come from
+    the bundle."""
+    return TEST_APP_NAME if data_dir_override() is not None else APP_NAME
 
 
 def data_dir() -> Path:

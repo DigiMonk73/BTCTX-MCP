@@ -23,7 +23,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 - **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   recalculates the whole ledger, so backdated entries come out right.
-- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis
+- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
+  a consolidation (Wallet to Wallet) records only its network fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
   tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
   says something different for a sale, record that on the transaction and the
@@ -39,16 +40,25 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   your computer ([below](#connect-an-ai-mcp)).
 - **Ledger Review** (Settings): a read-only list of saved entries worth a
   second look, including every figure a recalculation would change
-- **Your own node for prices**: point BitcoinTX at your own mempool server
-  (Settings → Privacy & Network) and the live price, block height and past
-  prices come from it; no public site is contacted. A fresh install contacts
-  nothing until you choose where prices come from (your mempool, public price
-  sites, or off)
-- **Past prices that don't give away your dates**: they're stored locally.
-  From public sites, the whole daily history comes in one download that's
-  the same for every install, then only "the latest days": no request ever
-  names one of your dates. A VPN or a Tor proxy hides your IP address from
-  the sites
+- **Your own node for prices**: point BitcoinTX at your own Mempool
+  (Settings → Privacy & Network) and the live price, block height and newer
+  prices come from it; no public site is contacted. Your Mempool has hourly
+  prices only from when it began recording. A home server's https address
+  (a StartOS server's `.local` one from the Mac app, or its LAN IP address)
+  works too: the card offers **Trust this server** for its own certificate,
+  for that address only. A fresh install
+  contacts nothing until you choose where prices come from (your own
+  Mempool, public price sites, or Nobody)
+- **Prices at the hour, without giving away your dates**: BitcoinTX values
+  a transaction at the price when its hour began, from its own stored
+  history. When your choice allows public price sites, that hourly history
+  (2013 on) comes in one download from Bitstamp. The download is the same
+  for every install and checked against fingerprints that come with
+  BitcoinTX. After that, only the newest hours come, in fixed blocks, so no
+  request ever names one of your dates. Where no hour is known, the day's
+  price is used. BitcoinTX records one price per hour, so it won't always
+  match a chart of one exchange at another moment. A VPN or Tor hides your
+  IP address from the sites
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
@@ -159,8 +169,9 @@ needs no code (it only listens on your Mac). On StartOS this screen never
 appears: run the **Set Login Credentials** action, which creates the login
 (`admin` and a random password) and shows it once.
 
-After that, BitcoinTX asks where to get Bitcoin prices (your own mempool
-server, public price sites, or off); nothing is contacted before you choose.
+After that, BitcoinTX asks "Where should BitcoinTX get Bitcoin prices?"
+(your own Mempool, public price sites, or Nobody); nothing is contacted
+before you choose.
 
 ## Connect an AI (MCP)
 
@@ -244,7 +255,8 @@ to do.
 
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
 period are calculated differently; from before v0.9.2, withdrawal fees and
-Lost withdrawals are. Either way, stored gains can change. The
+Lost withdrawals are; from v0.9.2 to v1.2.7, a spend's network fee is (it now
+comes off the spend's proceeds). Either way, stored gains can change. The
 [CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
 release.
 
@@ -276,7 +288,7 @@ conventions: [AGENTS.md](AGENTS.md).
 | Frontend | React + TypeScript + Vite |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | PDFs | pypdf (IRS form filling), ReportLab (reports) |
-| BTC prices | Your mempool server, or public sites: past days from one download of the whole daily history (Bitstamp, else Coinbase), then the latest days (Bitstamp, Kraken or Coinbase); live price from Kraken or CoinGecko |
+| BTC prices | Your Mempool, or public sites: the hourly history (2013 on) in one download from Bitstamp, checked against fingerprints shipped with BitcoinTX, then newer hours from Bitstamp in fixed blocks; where no hour is known, the day's price (Bitstamp's daily history, then the latest days from Bitstamp, else Kraken); live price from Kraken, else Bitstamp |
 | Block height | Your mempool server, or Blockchain.info, Blockstream, mempool.space |
 | AI | MCP server (Python `mcp` SDK, stdio) |
 

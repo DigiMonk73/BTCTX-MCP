@@ -29,6 +29,7 @@ class RiverProposalOut(BaseModel):
     type_choices: list[str] = []
     funding_choices: list[str] = []
     basis_autofilled: bool = False
+    price_moment: str | None = None  # the autofilled basis's price: "hour" or "day"
     status: str  # "new" | "matched" | "discrepancy"
     matched_tx_id: int | None = None
     discrepancy: str | None = None
@@ -61,9 +62,11 @@ class RiverExecuteRow(BaseModel):
     fee_currency: str | None = None
     source: str | None = None
     purpose: str | None = None
-    # "no": cost_basis_usd is the preview's value from that day's price, kept
-    # as it was (an edit of the deposit then prices it again, #76)
+    # "no": cost_basis_usd is the preview's value from the price, kept as it
+    # was (an edit of the deposit then prices it again, #76), at the moment
+    # price_moment says ("hour" or "day")
     cost_basis_typed: str | None = None
+    price_moment: str | None = None
 
 
 class RiverExecuteRequest(BaseModel):

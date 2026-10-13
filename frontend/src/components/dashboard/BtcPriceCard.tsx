@@ -1,15 +1,44 @@
 import React from "react";
 import { Blocks } from "lucide-react";
-import type { LivePrice } from "../../utils/dashboard";
+import { Link } from "react-router-dom";
+import { noPriceWords, priceSourceWords, type LivePrice } from "../../utils/dashboard";
+import { clock } from "../../utils/priceStatus";
 import { formatUsd } from "../../utils/format";
 
 interface BtcPriceCardProps {
   price: LivePrice;
   blockHeight: number | null;
+  /** The tax timezone, for the time the price arrived. */
+  timezone: string;
 }
 
-/** Today's BTC price, or why there is none, and the block height. */
-const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight }) => (
+/** Under the price: where it came from and when, or why there's none and what to do (#145). */
+const PriceWhy: React.FC<{ price: LivePrice; timezone: string }> = ({ price, timezone }) => {
+  if (price.loading) return null;
+  if (price.value !== null) {
+    const from = priceSourceWords(price.source, price.throughTor);
+    if (!from) return null;
+    return <p className="btc-price-why">{price.at ? `${from} · ${clock(price.at, timezone)}` : from}</p>;
+  }
+  if (price.waiting || price.unchosen) {
+    return (
+      <p className="btc-price-why">
+        {price.waiting ? "Nothing is asked until you confirm. " : "Nothing is asked until you choose. "}
+        <a href="#price-card-title">{price.waiting ? "Confirm now" : "Choose a source"}</a>
+      </p>
+    );
+  }
+  if (price.off) return <p className="btc-price-why">You chose Nobody: no live price.</p>;
+  if (price.invalid) return <p className="btc-price-why">{price.problem}</p>;
+  return (
+    <p className="btc-price-why">
+      {price.problem ?? "The price source didn't answer."} <Link to="/settings">Change the price source</Link>
+    </p>
+  );
+};
+
+/** Today's BTC price with where it came from and when, or why there is none, and the block height. */
+const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight, timezone }) => (
   <div className="card btc-price-container">
     <div className="btc-price-header">
       <h3 className="card-title">Current Bitcoin Price</h3>
@@ -31,15 +60,12 @@ const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight }) => (
       {price.loading ? (
         <span className="btc-price-value">Loading...</span>
       ) : price.value !== null ? (
-        <span className="btc-price-value">
-          {formatUsd(price.value)}
-        </span>
-      ) : price.off ? (
-        <span className="btc-price-value" title={price.problem || "Settings → Privacy & network"}>Prices off</span>
+        <span className="btc-price-value">{formatUsd(price.value)}</span>
       ) : (
-        <span className="btc-price-value" title={price.problem}>Error</span>
+        <span className="btc-price-value">{noPriceWords(price)}</span>
       )}
     </div>
+    <PriceWhy price={price} timezone={timezone} />
 
     {blockHeight !== null && (
       <div className="btc-block-height">

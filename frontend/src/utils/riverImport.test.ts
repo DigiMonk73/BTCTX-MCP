@@ -66,6 +66,7 @@ describe("importRow", () => {
       from_account: "Exchange BTC", to_account: "Wallet",
       cost_basis_usd: null, proceeds_usd: null,
       fee_amount: "0.00000600", fee_currency: "BTC", source: null, purpose: null, cost_basis_typed: null,
+      price_moment: null,
     });
   });
 
@@ -81,9 +82,13 @@ describe("importRow", () => {
     const withdrawal = { ...toEditableRow(proposal({ type: "Withdrawal" })), purpose: "Gift" };
     expect(importRow(withdrawal)).toMatchObject({ source: null, purpose: "Gift" });
   });
-  it("marks a basis left at the preview's day value as not typed (#76)", () => {
-    const priced = toEditableRow(proposal({ type: "Deposit", source: "Interest", cost_basis_usd: "2.10", basis_autofilled: true }));
-    expect(importRow(priced)).toMatchObject({ cost_basis_usd: "2.10", cost_basis_typed: "no" });
-    expect(importRow({ ...priced, costBasisUsd: "3.00" })).toMatchObject({ cost_basis_usd: "3.00", cost_basis_typed: null });
+  it("marks a basis left at the preview's priced value as not typed (#76), with its price's moment", () => {
+    const priced = toEditableRow(proposal({
+      type: "Deposit", source: "Interest", cost_basis_usd: "2.10", basis_autofilled: true, price_moment: "hour",
+    }));
+    expect(importRow(priced)).toMatchObject({ cost_basis_usd: "2.10", cost_basis_typed: "no", price_moment: "hour" });
+    expect(importRow({ ...priced, costBasisUsd: "3.00" })).toMatchObject({
+      cost_basis_usd: "3.00", cost_basis_typed: null, price_moment: null,
+    });
   });
 });

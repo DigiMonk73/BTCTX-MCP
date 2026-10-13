@@ -17,7 +17,9 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.services.transaction import (
-    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, create_transaction_record, original_date_problem,
+    DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
+    create_transaction_record,
+    original_date_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -30,7 +32,7 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BTC_ACCOUNTS,
-    INCOME_SOURCES,
+    INHERITED_SOURCE,
     VALUED_AT_RECEIPT,
 )
 
@@ -43,20 +45,24 @@ REQUIRED_COLUMNS = {
 
 # Every column, in order. The template, the import and the CSV export
 # (routers/backup.py) all use this list, so an export always imports back to
-# the same ledger. The last five came later and are optional (older files
-# import as before): a BTC fee's USD value (blank: fee x that day's price), a
-# gift's, donation's or lost BTC's fair market value, the Broker form
+# the same ledger. The last ones came later and are optional (older files
+# import as before): a BTC fee's USD value (blank: fee x that hour's price),
+# a gift's, donation's or lost BTC's fair market value, the Broker form
 # override (none / proceeds / basis; blank: automatic), whether that fee
-# value was typed (yes, or blank) or priced from the day (no: kept, but
-# priced again if the date or fee is edited), the same for an income
-# deposit's cost basis (no: priced again if its amount, day or account is
-# edited), and a My BTC or Gift deposit's date originally acquired (blank:
-# the deposit's date).
+# value was typed (yes, or blank) or priced (no: kept, but priced again if
+# the time or fee is edited), the same for an income deposit's cost basis
+# (no: priced again if its amount, hour or account is edited), a My BTC or
+# Gift deposit's date originally acquired (blank: the deposit's date), or an
+# Inherited deposit's date of death (required), the same "typed" for a
+# Spent's proceeds, and the moment the priced values'
+# price was for (hour, day; blank with a priced value: day, as every value
+# priced before hourly prices was).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
     "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed", "acquired_at",
+    "proceeds_typed", "price_moment",
 ]
 
 # Withdrawal purposes that aren't a sale; only these carry an FMV
@@ -175,6 +181,8 @@ class _Row:
     fee_usd_typed: str
     cost_basis_typed: str
     acquired_at: datetime | None = None
+    proceeds_typed: str = ""
+    price_moment: str | None = None
 
 
 def _validate_row(
@@ -231,7 +239,8 @@ def _check_original_date(row: _Row, tz) -> None:
 
 
 def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
-    """A My BTC or Gift deposit's date originally acquired, read like `date`."""
+    """A My BTC or Gift deposit's date originally acquired, or an Inherited
+    deposit's date of death, read like `date`."""
     text = (row.get("acquired_at") or "").strip()
     if not text:
         return None
@@ -320,12 +329,18 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
         "broker_reporting": row.get("broker_reporting", "").strip().lower() or None,
         "fee_usd_typed": (row.get("fee_usd_typed") or "").strip().lower(),
         "cost_basis_typed": (row.get("cost_basis_typed") or "").strip().lower(),
+        "proceeds_typed": (row.get("proceeds_typed") or "").strip().lower(),
+        "price_moment": (row.get("price_moment") or "").strip().lower() or None,
     }
-    for column in ("fee_usd_typed", "cost_basis_typed"):
+    for column in ("fee_usd_typed", "cost_basis_typed", "proceeds_typed"):
         if options[column] not in ("", "yes", "no"):
             raise _Rejected(_error(
                 row_number, column, f"Invalid {column} '{options[column]}'. Must be yes, no or blank.",
             ))
+    if options["price_moment"] not in (None, "hour", "day"):
+        raise _Rejected(_error(
+            row_number, "price_moment", f"Invalid price_moment '{options['price_moment']}'. Must be hour, day or blank.",
+        ))
     broker_reporting = options["broker_reporting"]
     if broker_reporting and broker_reporting not in BROKER_REPORTING_VALUES:
         raise _Rejected(_error(
@@ -365,6 +380,8 @@ def _transaction_data(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any
         tx_data["broker_reporting"] = row.broker_reporting
     if row.acquired_at:
         tx_data["acquired_at"] = row.acquired_at
+    if row.price_moment:
+        tx_data["price_moment"] = row.price_moment
     return tx_data
 
 
@@ -372,7 +389,7 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     if row.cost_basis_usd is not None:
         fields["cost_basis_usd"] = row.cost_basis_usd
-        if row.cost_basis_typed == "no":  # an income value priced from the day (kept only on income)
+        if row.cost_basis_typed == "no":  # an income value priced (kept only on income)
             fields["cost_basis_from_price"] = True
     if row.proceeds_usd is not None:
         fields["proceeds_usd"] = row.proceeds_usd
@@ -381,6 +398,8 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
             # scorched-earth recalculation re-derives net proceeds from the
             # already-net stored value and subtracts the USD fee again.
             fields["gross_proceeds_usd"] = row.proceeds_usd
+        if row.proceeds_typed == "no":  # a Spent's proceeds priced (kept only on a Spent)
+            fields["proceeds_from_price"] = True
     if row.fee_amount is not None:  # a 0 too: an export's zero fee comes back as it was saved
         fields["fee_amount"] = row.fee_amount
         fields["fee_currency"] = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
@@ -528,7 +547,9 @@ _ACCOUNT_RULES = {
          "Transfer must have from_account as an internal account (not 'External')."),
         ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
          "Transfer must have to_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: f == t, "Transfer must have different from_account and to_account."),
+        # Only Wallet or Exchange BTC can send to itself: a consolidation (#159)
+        ("to_account", lambda f, t: f == t and f not in BTC_ACCOUNTS,
+         "Transfer must have different from_account and to_account."),
     ],
     "Buy": [
         ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD),
@@ -566,17 +587,27 @@ def _trade_rules(row: _Row):
         yield _error(row.number, "fee_currency", f"{row.tx_type} fee must be in USD.")
 
 
+# What a blank value in a deposit valued when acquired becomes, by source
+_VALUED_AS = {
+    INHERITED_SOURCE: "the BTC price on the date of death in acquired_at (its cost basis, not income)",
+    "rebate": "that hour's BTC price (its market value at receipt, a rebate, not income)",
+}
+
+
 def _deposit_rules(row: _Row):
     source = row.source
     into_btc = row.to_id in BTC_ACCOUNTS
     if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
         yield _error(row.number, "source", DEPOSIT_SOURCE_UNKNOWN)
-    elif not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
-        also = "which is also the income" if source.lower() in INCOME_SOURCES else "a rebate, not income"
+        return
+    if into_btc and (source or "").lower() == INHERITED_SOURCE and row.acquired_at is None:
+        yield _error(row.number, "acquired_at", INHERITED_NEEDS_DATE)
+    if not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
+        valued_as = _VALUED_AS.get(source.lower(),
+                                   "that hour's BTC price (its market value at receipt, which is also the income)")
         yield _warning(
             row.number, "cost_basis_usd",
-            f"No cost_basis_usd for this {source} deposit. It will be valued at "
-            f"that day's BTC price (its market value at receipt, {also}).",
+            f"No cost_basis_usd for this {source} deposit. It will be valued at {valued_as}.",
         )
     elif row.cost_basis_usd is None and into_btc:
         # A blank basis would make the whole value gain when it's sold.
@@ -602,6 +633,8 @@ def _transfer_rules(row: _Row):
     expected = "BTC" if row.from_id in BTC_ACCOUNTS else "USD"
     if row.fee_currency and row.fee_currency != expected:
         yield _error(row.number, "fee_currency", f"A transfer from this account pays its fee in {expected}.")
+    if row.from_id == row.to_id and row.from_id in BTC_ACCOUNTS and not row.fee_amount:
+        yield _error(row.number, "fee_amount", SAME_ACCOUNT_NEEDS_FEE)
 
 
 _TYPE_RULES = {
@@ -684,6 +717,10 @@ TEMPLATE_ROWS = [
      "500.00", "", "", "", "Reward", "", "Mining or staking reward"],
     ["2024-01-31T10:00:00Z", "Deposit", "0.02", "External", "Wallet",
      "1000.00", "", "", "", "", "", "BTC deposit with no specific source"],
+    ["2024-01-31T12:00:00Z", "Deposit", "0.01", "External", "Wallet",
+     "420.00", "", "", "", "Inherited", "",
+     "Inherited BTC: cost_basis_usd is its value on the date of death (acquired_at); always long-term",
+     "", "", "", "", "", "2023-12-05"],
     # To the exchange, a sale, and the proceeds back to the bank
     ["2024-02-01T10:00:00Z", "Transfer", "0.5", "Wallet", "Exchange BTC",
      "", "", "0.0001", "BTC", "", "", "Move BTC to exchange for trading", "4.30"],
@@ -692,8 +729,11 @@ TEMPLATE_ROWS = [
     ["2024-02-15T10:00:00Z", "Transfer", "15000.00", "Exchange USD", "Bank",
      "", "", "", "", "", "", "Move profits back to bank"],
     ["2024-02-20T10:00:00Z", "Transfer", "0.2", "Exchange BTC", "Wallet",
-     "", "", "0.0001", "BTC", "", "", "Move BTC to wallet; fee_usd is what the fee was worth (blank: that day's price)",
+     "", "", "0.0001", "BTC", "", "", "Move BTC to wallet; fee_usd is what the fee was worth (blank: that hour's price)",
      "5.20"],
+    ["2024-02-25T10:00:00Z", "Transfer", "0.3", "Wallet", "Wallet",
+     "", "", "0.00005", "BTC", "", "",
+     "Consolidate the wallet's coins (UTXOs): only the network fee is recorded, as a small disposal", "2.60"],
     # Withdrawals: USD, then BTC for every purpose
     ["2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
      "", "", "", "", "", "", "USD withdrawal for expenses"],

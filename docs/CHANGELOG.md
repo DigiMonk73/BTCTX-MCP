@@ -4,12 +4,419 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Trust this server: your own Mempool at a home server's https address**
+  (#188, follow-up to #178). A StartOS server's home-network address (and
+  other home servers') has a certificate from that server's own authority,
+  which BitcoinTX couldn't use. When that's why your Mempool can't be used,
+  the price card now offers **Trust this server**: it shows the server, its
+  root certificate's name and SHA-256 fingerprint, and "Only do this on your
+  own home network." Once trusted, BitcoinTX checks that Mempool against
+  that root alone, for that address only; never for public price sites.
+  Offered only for home-network addresses (`.local`, `.lan`, a one-word
+  name, 10.x, 172.16–31.x, 192.168.x), never a public internet name.
+  **Forget this server's certificate** undoes it, and so does changing the
+  Mempool's address. An in-app restore keeps this install's choice, like
+  the price source. Login only, never the AI key.
+- **A consolidation's network fee can be recorded** (tax figures, #159).
+  When you consolidate the coins (UTXOs) in your wallet, or move bitcoin
+  between two of your wallets that BitcoinTX counts as one, the network
+  fee is a disposal of the coins that paid it (IRS digital-asset FAQ, Q81
+  and Q97), but there was nowhere to record it: a transfer to the same
+  account was refused. Now the Transfer form's To Account offers **Wallet:
+  consolidate / move within the same wallet** (and, from the exchange,
+  **Exchange: move between exchanges BitcoinTX counts as one**). Enter what
+  left (fee included) and what arrived, as for any transfer. Only the fee
+  is recorded: a disposal of your oldest coins at the fee's value, on Form
+  8949 in box I or L (C or F before 2025), never broker-reported. Your
+  coins, their dates and cost basis stay as they are. The CSV import and
+  export, the AI connector and its guide take it too; the list shows it as
+  a Consolidation (Between exchanges for the exchange). No existing figure
+  changes: only entries you add create new fee rows. If you left a past
+  consolidation's fee out, you can add it now: it is checked against what
+  the wallet held on its date. After a move between two exchanges, a sale
+  at the one the coins moved to usually shows no basis on its 1099-DA: set
+  that sale's Broker form to Proceeds only, as the form's hint says.
+- **Inherited bitcoin can be recorded** (tax figures, #154). A deposit's
+  Source now has **Inherited**, which follows the rules for property
+  inherited from someone who died, different from a gift's:
+  - its cost basis is its value on the **date of death** (IRC §1014),
+    which the deposit must have (the form's **Date of death**; `acquired_at`
+    in a CSV or the AI connector). Leave the value blank to use that day's
+    BTC price (the date as entered, in any tax timezone, #177), or type
+    it: the value on the estate's alternate valuation date if it chose
+    one; and if the estate's Form 8971, Schedule A, gives
+    a value marked as having increased the estate tax, your basis can't be
+    more (IRC §1014(f));
+  - every sale or spend of these coins is **long-term** however soon it
+    comes (IRC §1223(9)), with **INHERITED** in Form 8949's column (b), as
+    the form's instructions ask. The rule follows the coins when you move
+    them between the wallet and the exchange;
+  - it isn't income. The form explains the rules where Inherited is
+    chosen, and the Complete Tax Report adds a note in a year with such a
+    sale.
+
+  Before, the choice was My BTC or Gift, and either could print wrong
+  figures: a sale within a year of the death came out short-term, or a
+  Gift's basis was the person's own cost. **What to do:** if you recorded
+  inherited bitcoin that way, edit the deposit: Source **Inherited**, the
+  date of death (the edit must give it), and its value that day. A
+  deposit saved before 1.1.0 (when the source was free text) as
+  "inherited" follows these rules too from the next recalculation; Ledger
+  Review lists any without a date of death, which an edit then asks for.
+  The update adds one column to the database's lots (rebuilt at every
+  recalculation), after its usual backup copy.
+
+- **The hourly price lookup and its verified download** (#144, the second
+  of five pull requests; nothing is valued at the hour yet). With public
+  price sites chosen, BitcoinTX downloads Bitstamp's hourly prices from
+  2013 once, in the background, into `btc-prices/` next to the database
+  (about 3 MB): every year in the same fixed requests on every install,
+  newest first, through Tor when it's set, and keeps a year only if it
+  gives the fingerprint the release ships. With your own mempool server
+  and its fallback, it's downloaded only when a lookup needs an hour the
+  server doesn't have. Hours after the history come from the server's
+  hourly record (only the hours it recorded live) or from Bitstamp, and
+  are kept (a new table, `btc_price_hourly`; nothing else in the database
+  changes). No request names a transaction's hour.
+
+### Fixed
+- **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
+  addressed to any other name is refused, and the app's server no longer
+  takes a client's address from an `X-Forwarded-For` header. Nothing changes
+  in the app's own window or for the AI connector, which use 127.0.0.1.
+- **An https Mempool whose certificate isn't trusted now says so** (#178).
+  A Mempool address with a private certificate (StartOS's home-network
+  address for Mempool, for example) can't be used, and BitcoinTX said
+  nothing: with *Fall back to public price sites* on, the public sites
+  answered silently while Settings still said your node did. The status
+  line now names the reason, and says when the public sites answered
+  instead. Use the Mempool's http:// or .onion address, or on StartOS
+  *My Mempool on this server*.
+- **A spend's network fee no longer counts twice in its gain** (tax
+  figures, #157). When bitcoin was spent (a Withdrawal, purpose Spent) with
+  a BTC network fee, the spend's proceeds were the full value received, and
+  the fee was also its own small disposal at its value: the gain came out
+  too high by the fee's value. The fee paid to make a spend is a cost of
+  it (Treas. Reg. §1.1001-7(b)(2)(ii)(A) and its Example 4, a fee paid out of
+  the coins sent; the IRS digital-asset FAQ, Q63), so it now comes off the spend's proceeds, as a
+  Sell's fee always has; the fee's own row stays (Q97). Example: 0.08 BTC
+  spent for $8,800 with an $8.80 fee now has proceeds of $8,791.20, and
+  with the fee's row the spend realizes $8,800, not $8,808.80. Applied to
+  every year (the owner's decision: before 2025 no rule is written for
+  bitcoin, and the general rule that a sale's costs reduce what it brought
+  points the same way). Gifts, donations, losses and transfers are
+  unchanged: their fee is a disposal, not a cost of a sale.
+  **Affected:** versions 0.9.2 to 1.2.7, spends that paid a BTC fee, every
+  tax year; each overstated the gain by its fee's value (usually a few
+  dollars), so reports showed slightly more tax, never less. **What to
+  do:** after updating, Ledger Review lists each spend whose figures
+  change, old and new; then run Recalculate Ledger (Settings), or add or
+  edit any transaction, which recalculates too. Returns already filed
+  overstated the gain by these fees; whether to amend over a few dollars is
+  for you or your tax professional to decide.
+- **The AI connector lists a Sell's or spend's gross proceeds** (#157):
+  `list_transactions` shows `gross_proceeds_usd`, what was entered (or the
+  day's value), beside `proceeds_usd`, which is after the fee, and the
+  guide tells the AI to edit with the gross. Copying the listed after-fee
+  value into an edit took the fee off a second time. Update the connector
+  (`btctx-mcp`) with this release.
+- **An edit can no longer save a negative fee value.** A new transaction
+  and a CSV import refused one, but an edit with the AI connector's edit
+  tool or the API took it (the form wasn't affected). Such a row now
+  refuses other edits until its fee value is set again.
+- **Switching StartOS's Price Source & Privacy to "Choose in BitcoinTX"
+  no longer picks public price sites for you** (privacy, #134). While the
+  action sets the source (My Mempool, Public or Off), no choice is made in
+  the app, but prices get stored. After a switch to **Choose in
+  BitcoinTX**, BitcoinTX took those stored prices for an install from
+  before 1.1.0 (when public sites were on by default), saved **Public price
+  sites** as your choice and asked them for prices, without showing its
+  price question. A command run without the server's settings saved the
+  same choice, ready for a later switch: the package's **Set Login
+  Credentials** (Reset Login Credentials before 1.2.4:1), or
+  `python -m backend.cli` run by hand in the service.
+  - Affected: StartOS (and Docker installs that set `BTCTX_PRICE_SOURCE`),
+    1.2.0 to 1.2.7, only installs that stored prices while the server set
+    the source and had no choice made in the app.
+  - Now BitcoinTX records "not chosen yet" while the server sets the
+    source, so after a switch it asks you, whatever the action was set to;
+    and a command never makes a price choice. Installs from before 1.1.0
+    keep what they did, except one that never changed its price settings
+    and first starts 1.2.8 with the source set by the server: it asks once.
+  - What this fix alone couldn't cover (an install whose first start is
+    already without the server's source, and a Public choice this bug
+    already saved, which looks like your own) is covered by the next
+    entry: after this update, BitcoinTX asks once to confirm a price
+    choice saved before it, and asks nobody until you do (#145).
+
+### Changed
+- **After this update, BitcoinTX asks once to confirm where it gets
+  prices** (#145, the owner's request; privacy), unless StartOS or the
+  server sets them. A price choice saved before this release has no record
+  of when or how it was made, so BitcoinTX can't tell your own *Public*
+  choice from one the #134 bug saved by itself. The Dashboard shows
+  "Please confirm where BitcoinTX gets prices", with your current choice
+  selected: press **Confirm**, or pick another. Until then nothing is asked
+  of anyone (not even your own Mempool); prices BitcoinTX already has still
+  work. From now on each choice records when it was made and where (the
+  first-run question or Settings), which Settings shows; the record is kept
+  through an in-app restore. A choice StartOS sets is never asked here; if
+  you switch StartOS's action to *Choose in BitcoinTX*, a choice in the app
+  without a record is asked then (closing #155's last gap).
+- **Public price sites: Coinbase and CoinGecko are no longer asked**
+  (#161, the owner's decision). Coinbase's market data terms keep its data
+  for personal or research use and say it "may not be used to build an
+  application intended for use by end users"; CoinGecko's ask for a credit
+  and discourage storing its data. Past prices now come from Bitstamp's
+  whole daily history (if that download fails, it's tried again later),
+  then the latest days from Bitstamp, else Kraken; the live price from
+  Kraken, else Bitstamp; a live price of 0, below 0 or not a number (a
+  mempool server answers -1 until it has one) is skipped instead of shown.
+  Prices already stored don't change. Settings, the
+  READMEs and StartOS's Price Source & Privacy action list the sites asked.
+- **Values BitcoinTX fills in from the BTC price now use the price when the
+  transaction's hour began** (#144, tax figures; the third of five pull
+  requests). That's an income or rebate deposit's value left blank, a
+  Spent withdrawal's proceeds left blank, a BTC network fee's value, and
+  what the AI connector's and River imports fill in. IRS rules value bitcoin
+  at the date and time of each transaction (Treas. Reg. §1.1001-7(b)(3));
+  the day's midnight (UTC) price used so far could be hours from it (on
+  2025–2026 prices, about 1% off on average, the hour about 0.24%). The
+  price is Bitstamp's opening price for the UTC hour (the hourly history
+  above) or, for later hours, your mempool server's hourly record or
+  Bitstamp's latest hours; where there's none (before 2013, or no source
+  answering), that day's 00:00 UTC price as before. An inheritance's value
+  (#154) stays at its date of death's day price: a date has no hour. Each
+  transaction now records which moment its priced values came from
+  (`price_moment`: hour or day), and a Spent's proceeds from the price are
+  marked like an income value's, so an edit of its amount or hour prices
+  them again.
+  - **Nothing already saved changes.** Values priced before this release
+    stay at the day's price, marked "day". An edit that changes what a
+    priced value depends on (its amount, account, type, or now its hour
+    rather than its day) prices it again, at the hour; on a spend whose
+    other priced value (its proceeds, or its network fee's value) keeps the
+    day's price, at the day, so a transaction's values share one price
+    (Ledger Review offers both at the hour). A recalculation never
+    re-prices anything. A value you typed is never touched.
+  - An entry dated today whose hour hasn't begun (a date alone means noon
+    in the tax timezone) takes that day's price, marked "day"; a later
+    day has no price, as before.
+  - The CSV export carries the marks (two new columns, `proceeds_typed`
+    and `price_moment`); an older file imports as before, its priced
+    values counted as priced at the day.
+- **The form and the AI connector say "the price when that hour began"**
+  (#144). The form's hints for a blank income value, Spent proceeds and a
+  fee's value say so, a stored fee value says which price it came from,
+  and a gift's, donation's or lost bitcoin's **Refresh** fills its value at that hour's
+  price (it asked for the day's). The price API takes a time
+  (`/api/bitcoin/price/history?at=…`, answering which price it used), and
+  the AI connector's `get_btc_price` takes a transaction's time and gives
+  the price BitcoinTX values it at; its guide says the same. Update the
+  connector (`btctx-mcp`) with this release.
+- **Ledger Review offers the hour's price for values priced at the day**
+  (#144, tax figures; the fourth of five pull requests). Its new check,
+  "Values priced at the day's price that the hour would change", lists, by
+  tax year, each transaction whose values BitcoinTX filled in at the day's
+  price (income or rebate values, Spent proceeds, network fee values) and
+  what its hour's price would make them; changes under $1.00 aren't listed
+  one by one but are in each year's totals. Nothing changes until you tick
+  some and apply them, or apply a whole year (Settings, or `python -m
+  backend.cli review --apply-hourly-prices YEAR`): a backup copy of the
+  database first (in `backups/`, its newest 5 kept apart from the update's
+  copies), then the values at the hour (the day's price where
+  there's no hourly price), marked so, and a recalculation. For a year
+  you've filed, leaving it as filed is recommended; whether to amend is a
+  question for a tax professional. Typed values and inheritances (valued
+  at the date of death's day) are never listed. It replaces "Transfer fees
+  valued far from that day's price" and its **Fix these** (`review
+  --fix-fee-prices`): such a fee is in this check, at its hour's price
+  (listed when it changes by $1.00 or more). The
+  check of income and rebate values now covers only the ones you typed,
+  compared with that hour's price.
+- **The Complete Tax Report states how values are priced, and values
+  holdings at the hour the tax year ends** (#144, tax figures; the last of
+  five pull requests).
+  - Its Notes say how a blank value is filled in: Bitstamp's hourly
+    opening price, downloaded by BitcoinTX and checked against published
+    fingerprints, or your own Mempool server's record; that day's price
+    where there's none; an inheritance at its date of death's. They also
+    say that the IRS measures value at the date and time of each
+    transaction (Treas. Reg. §1.1001-7(b)(3)) and approves no price source
+    or method, and that a value from your own records is better evidence.
+  - A new table, **Values from the BTC price**, lists each of the year's
+    values BitcoinTX filled in (income, rebate and inherited values, Spent
+    proceeds, network fee values) and the price each used: when its hour
+    began, that day's 00:00 UTC price, or the date of death's. Every other
+    such value was entered. (A gift's or donation's value isn't tracked
+    this way; the report says so.)
+  - **Holdings at the start and end of a tax year** are valued at the
+    price when it began and ended (midnight in the tax timezone: the
+    hour's price, else that day's), so one year's end and the next one's
+    start agree. Before, the year-end value used December 31's 00:00 UTC
+    price, hours before the year ended (29 hours in New York, 15 in
+    Tokyo). Holdings values are for information (no
+    IRS form takes them); a report made before the year ends leaves them
+    unpriced, as before.
+  - With a donation, the gifts section says a deduction over $5,000 needs
+    a qualified appraisal (IRS digital asset FAQ, Q78).
+- **The live price says where it came from and when** (#145, the price
+  source redesign): `GET /api/bitcoin/price` adds `source` (`mempool`,
+  `kraken` or `bitstamp`) and `at`, so the screens can say when your
+  Mempool's backup answered instead. The price messages use the new words:
+  "Nobody" for the choice once called Off, "not chosen yet", "your
+  Mempool" and "the backup (public price sites)", and they say where to
+  change a choice the server sets (StartOS's Price Source & Privacy action
+  once the package passes the new `BTCTX_HOST=startos`;
+  `GET /api/settings/network` adds `host` and `invalid`). Invalid server
+  settings say so instead of "Price lookups are off".
+- **The tax report and the AI connector say where each price came from**
+  (#145). The Complete Tax Report's list of values filled in from the BTC
+  price names the source of each price ("When its hour began (2025-03-01
+  14:00 UTC), Bitstamp", or "your Mempool"); no figure changes. The AI
+  connector's `get_btc_price` and `get_portfolio` give the price's
+  `source` ("mempool" for your own Mempool, otherwise the public site), and
+  when there's no live price, `get_portfolio` gives BitcoinTX's reason
+  (`btc_price_unavailable`). Its guide explains the price choices (your
+  Mempool, public price sites, Nobody), that only you change them (in
+  Settings, or where the server sets them: StartOS's Price Source & Privacy
+  action), and that it asks you for a value BitcoinTX has no price for.
+- **Where prices show, in the redesign's words** (#145). The Dashboard's
+  Current Bitcoin Price says where the price came from and when ("From
+  your Mempool · 2:02 pm", "From public price sites (Kraken)"), or why
+  there's none and what to do: "Offline" (you chose Nobody), "Not chosen
+  yet" or "Confirm your choice" (with a link to the card), "No answer" (the
+  reason, and a link to change the source). The sidebar converter says
+  "offline", "not chosen yet" or "no answer" instead of "Prices off" and
+  "No price", with **Type a price** (Manual) or a link to the card, and its
+  Date mode gains an hour, in your tax timezone, looked up in BitcoinTX's
+  own history. When you edit a transaction, a value BitcoinTX filled in
+  says which price it came from ("From the price: $50,083.00 at 14:00 UTC,
+  Mar 1, 2024 · Bitstamp"), and one you typed says "Typed". The API gives
+  each transaction's `price_used` and each past price's `source`; neither
+  asks anything.
+- **The price card says where the hourly history is** (#145): before a
+  choice, that it's downloaded once from Bitstamp when you choose public
+  price sites (or your Mempool with its backup), each year checked against
+  a fingerprint that comes with BitcoinTX; then its progress, year by year;
+  then "downloaded and checked", from when it works offline whatever you
+  choose. With *Nobody*, or your Mempool alone, the card says what that
+  means for older values. Your Mempool with its backup now downloads the
+  history when you save, instead of when a value first needs it. And a
+  server can lend its Tor to a choice made in the app (new
+  `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Choose in BitcoinTX*):
+  Settings shows "Through Tor: Tor on this server", locked on.
+- **One price card, the same everywhere** (#145): where BitcoinTX gets
+  Bitcoin prices is now one card with three choices, *My own Mempool* (with
+  *If it can't answer, ask public price sites*), *Public price sites*
+  (Bitstamp and Kraken, optionally *Through Tor*) and *Nobody*. It's the
+  first-run question, now on the Dashboard only, and Settings › Privacy &
+  network, read-only when StartOS or the server sets it. Choosing no
+  longer reloads the page. A status line says where newer prices come
+  from now and when the last one arrived, or why there's none (new
+  `GET /api/bitcoin/price/status`, login only, which asks nothing itself).
+
 ### Documentation
+- **The README and the AI connector's README in the redesign's words** (#145):
+  who BitcoinTX asks for newer prices (your Mempool, public price sites,
+  Nobody), prices at the hour from the one-time, fingerprint-checked
+  Bitstamp download, and that one price per hour won't always match a chart
+  of one exchange at another moment.
 - **The README's screenshots are 1.2.7's** (#141), the same as the landing
   page's: the Dashboard's Rebates line, a rebate in Transactions, and the
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
+### StartOS package
+- **Price Source & Privacy, in the redesign's words** (#145). The action asks
+  who BitcoinTX asks for newer prices: **My Mempool on this server**
+  ("recommended: installed" once Mempool is), **Public price sites**,
+  **Nobody** or **Decide in BitcoinTX instead**, with **Use Tor** and **If
+  Mempool can't answer, ask public price sites**. A new install doesn't
+  start until a choice is made (any of the four, Nobody included: Start9's
+  "critical" task, as for the login). After an update or a restore of an
+  install that was never asked and has no choice made in the action, an
+  "important" task asks once, without stopping the service. **Use Tor**
+  with *Decide in BitcoinTX instead* now lends StartOS's Tor to the app's
+  own choice. The package passes
+  `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
+  five languages; the README and instructions say the same.
+
 ### Development
+- **Two privacy tests see more** (the stable candidate's privacy audit,
+  #151). The test that every site public prices may contact is named in
+  Settings, and is never Coinbase or CoinGecko, read only the three price
+  modules: it now reads every backend module (the IRS's draft forms, the
+  one admin's command, from `draft_forms.py` only), and no string may name
+  either site at all. And a new test checks the screens call only the API
+  they were served from: the Mac app's window has no browser policy to stop
+  a request to another site, so the screens' code may name no other site
+  but links, an example address and SVG's namespace, each only in the file
+  that names it today.
+- **Big work runs as a main session and numbered sessions** (AGENTS.md,
+  "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
+  stable release (#143): one session plans with the owner. The plan goes
+  on GitHub: an umbrella issue, an issue per session with its checklist,
+  and a kickoff prompt on each. Each session works through its checklist
+  and records its decisions on its issue. Small changes stay in one
+  session. The main session keeps a handoff for itself on the umbrella
+  issue, current after every change, so a new one can take over. The plan
+  lists each session's footprint, its shared hot spots, any reserved
+  migration numbers and the merge order, so conflicts are few and
+  expected.
+- **The hourly price history's record and tools** (#144, the first of five
+  pull requests; nothing in the app uses them yet).
+  `backend/assets/btc_prices/MANIFEST.csv` holds, for each year from 2013,
+  the SHA-256 fingerprint of a plain-text file of Bitstamp's hourly opening
+  prices (one row per UTC hour), so every install that downloads them will
+  hold exactly the same prices. `make prices` (`scripts/price_history.py
+  refresh`, in each release's bump pull request) adds the new hours and
+  refuses, writing nothing, on a missing hour, a changed past price, or a
+  disagreement with Bitfinex or Kraken (no hour over 2% apart, a median gap
+  of 0.5% at most, and the hours must line up better than shifted by an
+  hour: limits measured on 2023–2026). The release workflow checks it
+  again, and a monthly workflow opens an issue if Bitstamp stops giving a
+  year's fingerprint or stops answering. Closed years are pinned by
+  a test. The folder's README explains it all in plain words.
+- **The reference ledger's figures, checked by a second calculation**
+  (#150). `scripts/independent_figures.py` recomputes every Form 8949 row,
+  Schedule D line, box total, gains summary, income and rebate figure, gift
+  and year-end lot of the reference test ledger from the rules (FIFO per
+  account, fees, transfers, dates originally acquired, the holding period,
+  the boxes), importing nothing of the app, and a test fails on any
+  difference from the app's saved figures. For 2023 to 2026 there is none,
+  to the cent; the printed 2024 and 2025 forms carry the same figures. Three
+  rounding conventions are shared with the app on purpose (the script says
+  which). With the usual half-up rounding instead of the app's half-down,
+  the exact half-cent ties #100 covers move a cent: 2024 one row, 2025
+  four, 2026 two (one by a cent of proceeds), and one year-end lot a year.
+- **The sidebar's converter and calculator, tested under every price
+  source** (#147). A new click-through file, `e2e/sidebar-matrix.e2e.ts`,
+  uses Auto, Date and Manual and the calculator in each state the app has:
+  not chosen yet (then picked in the first-run question), off, public
+  sites, public sites through Tor (running and stopped), the own mempool
+  server (answering and down), with the public backup (the mempool server
+  answering and down), and set by the server (StartOS); the Mac app's mode
+  repeats the first-run question and off. Auto shows the live price or a
+  plain message, never $0.00; Date that day's price (each past day has its
+  own, so a lookup of the wrong day shows) or a plain message; Manual works
+  from a typed price throughout; the calculator carries on across mode
+  switches and stays put. The prices come from a fake internet
+  (`fake_internet` in `scripts/smoke_test.py`, the `fakeInternet` fixture
+  option) instead of stubbed functions, so the app's own choice of source,
+  backup and proxy runs (a request it never makes gets no price), and each
+  test checks what the server sent out: nothing before a choice or while
+  off, only to the chosen source (every public request through Tor when
+  it's set), and nothing naming the day, in any form from the day before to
+  the day after; the browser asks nobody but BitcoinTX, from its first
+  request. Chromium (Chicago and Tokyo) and WebKit.
+- **A Mac test build calls itself "BitcoinTX Test"** (#142) in its window
+  title and its messages ("BitcoinTX Test is already open", a busy port),
+  whenever it runs on a throwaway data folder (`desktop/run-test-build.sh`).
+  During the 1.2.7 release tests the owner saw the test copy's "already
+  open" message, took it for their own app's, and quit the real one: now
+  its window and messages can't be taken for the installed app's (the menu
+  bar and the Dock still say BitcoinTX: they come from the bundle).
 - **One reference test ledger, and its figures can't move unnoticed**
   (#139, closes #122). The full test ledger was rebuilt from code in
   `scripts/seed_ledger.py` each time, and had no Rebate source and no date

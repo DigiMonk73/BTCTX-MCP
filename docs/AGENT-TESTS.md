@@ -70,7 +70,7 @@ the published files are the ones you tested.
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
   BAK-5). Finish StartOS setup, then snapshot it as `clean`. Tracks A and B
   each start from `clean`.
-- **Optional services on the VM:** Tor (PRC-3). Mempool (PRC-4) needs a
+- **Optional services on the VM:** Tor (PRC-3, PRC-3b). Mempool (PRC-4) needs a
   synced Bitcoin node, so skip it unless the VM has one.
 - **Your browser runs in `America/New_York`.** The transaction form reads
   times in the browser's timezone, and the expected figures assume New York.
@@ -132,7 +132,7 @@ listed at its default.
 | 11 | 2025-01-10 12:00 | Buy | `Bank (auto-buy)`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
 | 12 | 2025-04-01 12:00 | Sell | Amount BTC `0.05`, Gross Proceeds (USD) `4000` | … Realized Gain: −$1,000.00 |
 | 13 | 2025-05-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.1`, Purpose `Spent`, Proceeds (USD) `9000` | … Realized Gain: +$6,700.00 |
-| 14 | 2025-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$770.00 |
+| 14 | 2025-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$765.00 (the $5 fee comes off the proceeds, #157) |
 
 What each row does: #4 moves lot A's BTC to the Wallet, and its fee is a
 disposal. #6 is 04:30 UTC on Jan 1, 2024, but counts in 2023 because the tax
@@ -145,14 +145,14 @@ it's long-term. #14's fee is its own disposal.
 |---|---|
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
-| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,072.70 · Long-Term Losses $0.00 · Net Long-Term +$11,072.70 · Total Net Capital Gains +$19,438.10 |
+| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
-| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 1000.00 · 230.00 · 770.00` |
-| Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10005.00 / 2532.30 / 7472.70 |
-| Complete Tax Report 2023 (no IRS forms for 2023 in the app) | 1. Summary › Capital gains and losses: Short-term 4 disposals, Proceeds $13,400.00, Cost basis $11,834.60, Net gain $1,565.40; Long-term 0, all $0.00 (the cover's Net capital gain is the same $1,565.40). 2. Capital gains and losses lists, as Proceeds / Cost basis / Gain: 06/01/2023 0.0002 BTC ($10.00 / $4.60 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($400.00 / $230.00 / $170.00). 5. Holdings at year end, lot by lot: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, "Average cost: $23,404.12 per BTC"; each Market value = quantity × the Dec 31 price the report states |
-| Complete Tax Report 2025, 6. Using these forms | "This year's boxes: H and L", "Schedule D: lines 2 and 10"; the Bitcoin-only figures: line 7 ($1,000.00), line 15 $7,472.70, line 16 $6,472.70, "Line 16 isn't a loss, so line 21 doesn't apply." |
+| Form 8949 2025 | Part I, box H: `0.05000000 BTC · 01/10/2025 · 04/01/2025 · 4000.00 · 5000.00 · (1000.00)`. Part II, box L, three rows: `0.10000000 BTC · 02/01/2023 · 05/01/2025 · 9000.00 · 2300.00 · 6700.00`, `0.00010000 BTC · 02/01/2023 · 06/01/2025 · 5.00 · 2.30 · 2.70`, `0.01000000 BTC · 02/01/2023 · 06/01/2025 · 995.00 · 230.00 · 765.00` |
+| Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10000.00 / 2532.30 / 7467.70 |
+| Complete Tax Report 2023 (no IRS forms for 2023 in the app) | 1. Summary › Capital gains and losses: Short-term 4 disposals, Proceeds $13,400.00, Cost basis $11,834.60, Net gain $1,565.40; Long-term 0, all $0.00 (the cover's Net capital gain is the same $1,565.40). 2. Capital gains and losses lists, as Proceeds / Cost basis / Gain: 06/01/2023 0.0002 BTC ($10.00 / $4.60 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($400.00 / $230.00 / $170.00). 5. Holdings at year end, lot by lot: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, "Average cost: $23,404.12 per BTC"; each Market value = quantity × the price the report states, "the price at the hour the tax year ended (2024-01-01 05:00 UTC)" (midnight in New York; "…'s 00:00 UTC price" where there was no hourly price) |
+| Complete Tax Report 2025, 6. Using these forms | "This year's boxes: H and L", "Schedule D: lines 2 and 10"; the Bitcoin-only figures: line 7 ($1,000.00), line 15 $7,467.70, line 16 $6,467.70, "Line 16 isn't a loss, so line 21 doesn't apply." |
 | Complete Tax Report 2024 | 1. Summary › Bitcoin holdings, January 1, 2024: 0.98980000 BTC, Avg cost per BTC $23,404.12 (the same BTC as the 2023 report's year end). Summary › Income: Income $1,000.00, Total $1,000.00. 3. Income: 05/01/2024 Income 0.02000000 BTC $1,000.00. 4. Gifts, donations and lost coins: 06/01/2024 Gift 0.10000000 BTC, Fair market value "not given". 5. Holdings at year end, lot by lot: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
 | Transaction History CSV | 2023: 6 rows (the Dec 31 spend is in it, stamped `2024-01-01T04:30:00+00:00`) · 2024: 4 rows · 2025: 4 rows |
 
@@ -224,14 +224,15 @@ Start from the `clean` snapshot.
 
 - **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload). Expect: it
   installs, and the service page shows version `X.Y.Z`.
-- **INS-2** Expect two tasks: **Set Login Credentials** (critical) and
-  **Price Source & Privacy** (important).
+- **INS-2** Expect two critical tasks: **Set Login Credentials** and
+  **Price Source & Privacy** ("Choose who BitcoinTX asks for newer Bitcoin
+  prices, or nobody"). The service can't be started until both have run.
 - **INS-3** Run **Set Login Credentials** (the service is still stopped).
   Expect: no warning (there is no login to replace yet), then title "Login
   Credentials", username `admin`, a 24-character password, and a message
   that it is shown only now. The critical task clears. Record the password.
-- **INS-4** Run **Price Source & Privacy**. Choose **Choose in BitcoinTX
-  (Settings > Privacy & Network)** and leave both toggles off. Expect: "Price
+- **INS-4** Run **Price Source & Privacy**. Choose **Decide in BitcoinTX
+  instead** and leave both toggles off. Expect: "Price
   Source Saved"; the task clears.
 - **INS-5** Start the service. Expect: the health check **Web Interface**
   reads "BitcoinTX is ready" within a minute. The service log has no
@@ -252,10 +253,13 @@ Start from the `clean` snapshot.
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
   Settings > Tax Timezone reads "Current: America/New_York": the first login
   adopts the browser's timezone.
-- **AUTH-4** Expect the panel "Where should BitcoinTX get Bitcoin prices?"
-  on every page. Choose **Off**, then **Use this**. Expect: the page
-  reloads and the panel is gone. Settings > Privacy & Network shows Price
-  source **Off**, with the fields editable and no "Set by your server" note.
+- **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
+  other pages), nothing chosen, its status line "Not chosen yet: nothing is
+  contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
+  the card is gone. Settings > Privacy & Network shows the card with
+  **Nobody** chosen, editable, "Fully offline: nothing is contacted.",
+  "You chose this on … in the first-run question.", and no "Set in
+  StartOS" banner.
 - **AUTH-4b** Settings > **About BitcoinTX**. Expect, in order: the
   warning "Important: one wallet, one exchange." with its notice (one
   self-custody wallet and one exchange account; since 2025 the IRS figures
@@ -267,7 +271,7 @@ Start from the `clean` snapshot.
   to log out?", then the login page. Opening `$URL/dashboard` redirects to
   login. Log back in.
 
-### GLD: the golden ledger through the UI (price source Off)
+### GLD: the golden ledger through the UI (price source Nobody)
 
 - **GLD-1** Enter the 14 golden transactions. Expect: each toast as in
   the table.
@@ -277,8 +281,10 @@ Start from the `clean` snapshot.
   pages. The group **Dec 31, 2023** holds #6 as "Withdrawal · Wallet",
   "11:30 PM · Spent", "Gain +$170.00 · +73.91% · Short-term".
 - **GLD-3** Dashboard. Expect: the Portfolio, Realized and Income & Fees
-  figures above. Current Bitcoin Price reads "Prices off". Total Fees reads
-  "N/A" (label "Total Fees in USD").
+  figures above. Current Bitcoin Price reads "Offline", with "You chose
+  Nobody: no live price." under it; Unrealized Gains/Losses reads
+  "Offline"; the sidebar reads "BTC Price: offline" with **Type a price**.
+  Total Fees reads "N/A" (label "Total Fees in USD").
 - **GLD-4** Without prices, try to add each of these, all dated 2025-07-01
   12:00. Expect each to be refused, with the transaction count still 14:
   - Deposit to `Bitcoin Wallet`, Amount `0.001`, Source
@@ -330,7 +336,7 @@ Start from the `clean` snapshot.
   panel. Expect: "Discard changes?". **Go back** keeps the panel; **Discard
   changes** closes it with nothing saved.
 
-### RPT: reports (price source Off)
+### RPT: reports (price source Nobody)
 
 - **RPT-1** Reports. Expect the **Tax year** list to hold the ledger's
   years (2023–2025) and the current year. Select **IRS Reports**: 2023
@@ -354,12 +360,17 @@ Start from the `clean` snapshot.
   Then Transaction History 2023 with Format **PDF**: expect
   `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
   "Page 1 of N" at the foot of each page.
-- **RPT-5** Complete Tax Report 2023 and 2024, with Off and no stored
+- **RPT-5** Complete Tax Report 2023 and 2024, with Nobody and no stored
   prices. Expect: both generate. Every holdings value (Beginning of Year
   and End of Year) reads "not priced", with the note "No BTC price for
-  YYYY-12-31: not priced" (and for 2024 "No BTC price is stored for
+  when YYYY ended: not priced" (and for 2024 "No BTC price is stored for
   2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
-  figure is as in the expected-figures table. Each report has section 6,
+  figure is as in the expected-figures table. Section 7, "Notes", says how
+  a blank value is priced (Bitstamp's hourly opening price, or your
+  Mempool server's) and that the IRS approves no price source, and ends
+  with "Values from the BTC price": "None of YYYY's income, rebate,
+  inherited, spend or network fee values: each was entered with its
+  transaction" (every golden value is typed). Each report has section 6,
   "Using these forms" (before 7, "Notes"), for the preparer, with the
   one-wallet line and the disclaimer. RPT-6 checks the values once
   prices are on.
@@ -378,7 +389,7 @@ Start from the `clean` snapshot.
     03/03/2024.
   - 2025 lines unchanged, dates one day later (for example 01/11/2025 →
     04/02/2025).
-  - Dashboard Total Net Capital Gains still +$19,438.10.
+  - Dashboard Total Net Capital Gains still +$19,433.10.
 - **TZ-2** Set it back to `America/New_York`. Expect: every golden figure
   is back.
 
@@ -394,45 +405,135 @@ Start from the `clean` snapshot.
 
 ### PRC: price sources
 
-- **PRC-1** While Off: the service log has no lines starting "BTC price
+- **PRC-1** While Nobody: the service log has no lines starting "BTC price
   history from" or "Price history from your mempool server".
 - **PRC-2** Action **Price Source & Privacy**: choose **Public price
   sites**, with Tor off. Expect: "Price Source Saved" and a service restart.
   Then:
-  - Settings > Privacy & Network reads "Set by your server: on StartOS,
-    change them with the Price Source & Privacy action on BitcoinTX's
-    service page." with the inputs disabled and no Save button.
+  - Settings > Privacy & Network reads "Set in StartOS. To change it:
+    BitcoinTX › Actions › Price Source & Privacy.", with **Public price
+    sites** marked "✓ Chosen", no choices to click and no Save button. Its
+    status line reads "Newer prices from public price sites. Last price …"
+    once the Dashboard has shown a price.
   - Dashboard: a price above $0 and "Block Height: N" with N > 900,000.
     Unrealized Gains/Losses and Total Fees (approx) match the formulas in
     the expected-figures table.
   - The service log has a line "BTC price history from public site …: N
     days".
-  - Repeat the first GLD-4 deposit (Income, blank basis). Expect: saved
-    with Cost Basis = 0.001 × that day's price, where the Sats Converter's
-    **Date** mode shows the price for 2025-07-01. Delete it.
+  - The hourly price history downloads in the background after the choice
+    above (about a minute). Logged in, ask
+    `GET $API/bitcoin/price/history?at=2025-07-01T16:00:00Z` (12:00 New
+    York, GLD-4's time) every 30 seconds until it answers `"moment":
+    "hour"`; it's within a few percent of the Sats Converter's **Date** mode
+    price for 2025-07-01. If after five minutes it still says `"day"` and
+    the service log has "Hourly BTC prices for 2025 from Bitstamp aren't
+    used", that's by design (Bitstamp's data no longer gives the shipped
+    fingerprint): use the `"day"` answer below, and note it.
+  - Then repeat the first GLD-4 deposit (Income, blank basis). Expect:
+    saved with Cost Basis = 0.001 × that price and `price_moment` equal to
+    the answer's `moment`. Delete it.
   - The Complete Tax Report now values the holdings (RPT-6).
   - Ledger Review > **Check again**. Expect exactly one item: "Income and
-    rebate deposits valued far from that day's price: 1", which is #9. Its
-    $1,000.00 is made up, so this is correct. Any other item is a FAIL.
+    rebate values you typed, far from that hour's price: 1", which is #9.
+    Its $1,000.00 is made up, so this is correct. Every golden value is
+    typed, so "Values priced at the day's price that the hour would
+    change" is absent. Any other item is a FAIL.
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
   dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
-  **Reach public price sites over Tor**. Expect: a price on the Dashboard.
+  **Use Tor**. Expect: a price on the Dashboard.
+  Bitstamp is the price history's only site since #161 (and the live
+  price's fallback), and PRC-2 already downloaded the history without Tor,
+  so check Bitstamp through Tor directly, with Tor on your machine (the
+  VM's Tor isn't reachable from it; Bitstamp sees a Tor exit either way):
+  `curl -s --socks5-hostname 127.0.0.1:9050
+  'https://www.bitstamp.net/api/v2/ticker/btcusd/'` and the same with
+  `'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=2'` each
+  return JSON, not a 403.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "Error": requests must fail
   rather than go out directly. Start Tor: the price is back.
+- **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
+  hourly price history's one-time download over real Tor (#144). It was
+  only tested with stubs and a direct download while it was built.
+  - With the service running (no download runs after PRC-2), remove the
+    hourly files: `start-cli package attach btctx -n btctx -- rm -rf
+    /data/btc-prices` (they're downloaded again). Restart the service, with
+    **Public price sites** and **Use Tor** still
+    set.
+  - Expect in the service log, newest year first, one line per year:
+    "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Each year
+    takes up to a minute.
+  - After two or three such lines, stop Tor. Within about 30 seconds expect
+    "Hourly BTC prices: the download from Bitstamp failed: …". After that
+    line, **no "checked" line may appear until Tor is started and the
+    service restarted**: a request must fail rather than go out directly
+    (as PRC-3's "Error"); one then is a blocker FAIL. (A "checked" line
+    just before the failed line can be a year that finished as Tor
+    stopped.)
+  - Start Tor, then restart the service. Expect the download to resume:
+    "checked" lines only for the years not yet checked (a year already
+    saved is never downloaded again; one cut off part-way is downloaded
+    whole), down to 2013.
+  - When it ends, `/data/btc-prices` holds a `YYYY.csv` for each line of
+    `backend/assets/btc_prices/MANIFEST.csv` of the tested commit, except
+    a year logged as "aren't used", and no `.partial` file. Each file's
+    SHA-256 (`sha256sum` in the service) equals its line's `sha256`, which
+    the app already checked: a difference is a blocker FAIL. A line "Hourly
+    BTC prices for YYYY from Bitstamp aren't used" means Bitstamp's data no
+    longer gives that year's fingerprint: note it (as in PRC-2); it isn't
+    the download's fault.
+  - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
+    answers `"moment": "hour"`.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
   Expect: a price and block height, and the log line "Price history from
   your mempool server: N days". Without Mempool installed, StartOS shows
   the dependency as missing and the price error says to install and start
   Mempool.
-- **PRC-5** Action: **Choose in BitcoinTX**. Expect: Settings > Privacy &
-  Network is editable again and shows the app's own choice (**Off**, from
-  AUTH-4). Choose **My mempool server** with the address blank and save.
-  Expect it refused: "Enter your mempool server's address to use it."
+- **PRC-4b** (needs internet, not Mempool) The app's own-mempool path,
+  with a public Mempool instance, since the VM can't run Mempool (it needs
+  a synced node). Checked 2026-10-12: BitcoinTX's own code gets the price,
+  the block height and 939 days of history from it.
+  - Action **Price Source & Privacy**: **Decide in BitcoinTX instead**. Then
+    Settings > Privacy & Network: **My own Mempool**, address
+    `https://mempool.emzy.de` (mempool.space refuses the lab's address),
+    **If it can't answer, ask public price sites** off. Save.
+  - Expect: the Dashboard shows a price and a block height. Logged in,
+    `GET $API/bitcoin/price/history?at=<an hour after the last_hour of the
+    tested commit's MANIFEST.csv, e.g. today's 00:00 UTC>` answers a price
+    with `"moment": "hour"`, from the server's recorded hours (`"day"`:
+    note it).
+  - **Nothing goes to public sites without the fallback:** save the address
+    `https://mempool.invalid` (still fallback off). Expect
+    `GET $API/bitcoin/price` to answer 502, "Your mempool server didn't
+    answer, and falling back to public price sites is off. …", and the
+    Dashboard's price to read "Error": BitcoinTX asked no public site
+    instead. A price shown instead is a blocker FAIL. Then save
+    `https://mempool.emzy.de` again.
+  - StartOS's **My Mempool on this server** (the internal connection to
+    the Mempool service) can't be tested here: the owner checks it on
+    their own server during the soak (#143, section 5). The Mac app's own
+    check is MAC-7.
+  - Afterwards choose **Off** in Settings > Privacy & Network, clear the
+    address, and save: PRC-5 expects the app's own choice to be Off (from
+    AUTH-4) and a blank address.
+- **PRC-5** Action: **Decide in BitcoinTX instead**. Expect: Settings > Privacy &
+  Network is editable again and shows the app's own choice (**Nobody**, from
+  AUTH-4). Choose **My own Mempool** and leave the address blank. Expect
+  **Save** off, with "Enter your Mempool's address." beside it.
+- **PRC-5b** (#145) Still with **Decide in BitcoinTX instead**: in the app choose
+  **My own Mempool** (address `https://mempool.emzy.de`), tick **If it
+  can't answer, ask public price sites**, and save. PRC-2 already
+  downloaded the hourly history, so expect the card's first line "Hourly
+  prices, 2013 to …: downloaded and checked." (a year PRC-2 recorded as
+  not matching shows "Bitstamp's prices for YYYY didn't match…": record
+  which). Choose **Nobody**: the line keeps "downloaded and checked". The
+  download's progress line ("Downloading the hourly history from Bitstamp:
+  N of M years, each checked.") is seen during PRC-2, right after its
+  save: note it there if the card is open.
 - **PRC-6** Set the action back to **Public price sites** for the rest of
   Track A.
 
@@ -695,6 +796,37 @@ Start from the `clean` snapshot.
   Expect: refused, or a service that won't start with "database schema is
   …" in its health check. Record which. Sideload the new one again and
   expect every figure intact.
+- **UPG-5** (#134) The source is still set by the action only (UPG-1). No
+  `backend.cli` may have been run by hand in Track B before this step: under
+  the previous release that saves a choice. Logged in,
+  `GET $API/bitcoin/price/history?date=2024-12-31`: expect a USD value, so a
+  price is stored. Action **Price Source & Privacy**: **Decide in
+  BitcoinTX instead**. Once the service has restarted, expect the card "Bitcoin
+  prices" on the Dashboard, nothing chosen, and
+  `GET $API/settings/network` (logged in) to say `"price_source":
+  "unset"`, `"managed": false`. Public price sites saved by themselves is
+  a FAIL. Set the action back to **Public price sites**.
+- **UPG-6** (#145, confirm once) A pass of its own, after UPG-5: restore
+  the VM's `clean` snapshot, sideload the previous release (1.2.7) and set
+  its login as in UPG-1. Under 1.2.7: action **Choose in BitcoinTX**, then
+  in the app Settings > Privacy & Network choose **Public price sites** and
+  save. Sideload the candidate and log in. Expect on the Dashboard the card "Please confirm where
+  BitcoinTX gets prices", **Public price sites** selected with "Your
+  current choice", its status line "Waiting for you to confirm: nothing is
+  contacted until you do.", Current Bitcoin Price "Confirm your choice",
+  and the sidebar "waiting for you". The service log has no new line
+  starting "BTC price history from", "Latest BTC prices from" or "Hourly
+  BTC prices" before you confirm. Press **Confirm**: the card goes away without a reload and a
+  price appears. Restart the service: not asked again. Settings shows
+  "You chose this on … in the first-run question." Set the action back to
+  **Public price sites**.
+- **UPG-7** (#145, the package asks once) A pass of its own: restore the
+  VM's `clean` snapshot, sideload the previous release (1.2.7), set its
+  login as in UPG-1, start it, and never run **Price Source & Privacy**.
+  Sideload the candidate. Expect one task, **Price Source & Privacy**,
+  important (not critical): "Prices are now hourly. Check who BitcoinTX
+  asks for newer ones." The service keeps running. Dismiss the task in
+  StartOS, then restart the service and the server: it doesn't come back.
 
 ## Track C: the Mac app (only on a Mac)
 
@@ -717,9 +849,9 @@ tool's shell may not keep variables. The script uses the same test folder
 and port 8766 on every launch. Then read 8766 for 8765 and DATA for
 `~/Library/Application Support/BitcoinTX/` below. The script's first launch
 replaces all of MAC-1 (no dmg, no drag, no `open`): expect the app window
-and no port banner. In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
+and no port banner; the window's title is "BitcoinTX Test". In MAC-4 give the connector `-e BTCTX_MCP_FILE=DATA/mcp.json`
 after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a second
-launch shows "BitcoinTX is already open" without bringing a window forward,
+launch shows "BitcoinTX Test is already open" without bringing a window forward,
 and starts no second copy on 8766. If the installed app appears at any
 point, leave it alone, touch nothing in it, and record that.
 
@@ -749,6 +881,14 @@ point, leave it alone, touch nothing in it, and record that.
   banner. Opening it again while it's open brings the window forward, with
   no second copy.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
+- **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
+  Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
+  save. Expect the Dashboard's price and block height. Then the Sats
+  Converter's **Date** mode on a past day. Expect a price, and in
+  `DATA/logs/run-test-build.out` "Price history from your mempool server:
+  N days" with N in the hundreds (only if no daily price was stored yet:
+  this build has asked no public site). Set it back to **Off** and clear
+  the address.
 
 ## REF: the reference ledger and the landing page's pictures (every run)
 

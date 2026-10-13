@@ -14,12 +14,14 @@ Checks:
 - lost_with_loss (F2): a Lost withdrawal whose stored gain isn't $0. Lost
   now counts like a gift ($0 gain); Recalculate Ledger removes the old loss.
 - deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
-  (source MyBTC, Gift, N/A...) with a $0 or blank cost basis. Its whole value
+  (source MyBTC, Gift, Inherited, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
-- fee_value_off (F14): a transfer's BTC fee whose stored USD value is more
-  than 5% away from fee x that day's price: most likely valued at the live
-  price when the day's lookup failed. apply_fee_prices() fixes the ones the
-  owner picks (login only), then recalculates.
+- day_priced_values (#144): values BitcoinTX priced at the day's price
+  before hourly prices that the price of their hour would change, by tax
+  year (services/hourly_review.py); the owner applies them by item or by
+  year (login only), after a backup copy. It took over the fee check (F14:
+  a transfer's fee valued far from the day's price, most likely at the live
+  price): where there's no hourly price, a value is compared with the day's.
 - original_date_missing (#91, a reminder since #128): a My BTC or Gift
   deposit into a BTC account with no date originally acquired: its holding
   period starts at the deposit. It isn't an error (no sale counts as
@@ -28,15 +30,22 @@ Checks:
   nothing fills it. After the 1.2.6 upgrade every older such deposit is
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
+- inherited_without_date (#154): an Inherited deposit into a BTC account
+  with no date of death. New ones must have it; a deposit saved before
+  1.1.0, when the source was free text, may say "inherited" without one. Its
+  coins follow the inheritance rules (long-term, INHERITED in column (b))
+  from the next recalculation, but it is valued and sorted by the deposit's
+  date, and an edit asks for the date of death.
 - income_without_value (#77): an income or rebate deposit (#98) with a $0
   or blank basis: for income, no income is reported for it; either way its
   whole value becomes gain when it's sold. The rules forbid it (a blank is
-  valued at the day's price); older versions and some edits (#76) left such
-  rows. Shown with that day's value when the price is known.
-- income_value_off (F42): an income or rebate deposit whose basis is more
-  than 5% away from amount x that day's price. Before v0.9.2 a lookup for a date
-  more than about two years back could return another day's price. Only
-  the owner knows whether a typed value is right, so nothing fixes these.
+  valued at the hour's price); older versions and some edits (#76) left such
+  rows. Shown with that hour's value (else that day's) when the price is known.
+- income_value_off (F42): an income or rebate deposit whose typed basis is
+  more than 5% away from amount x that hour's price (else that day's).
+  Before v0.9.2 a lookup for a date more than about two years back could
+  return another day's price. Only the owner knows whether a typed value is
+  right, so nothing fixes these; a value from a price is day_priced_values'.
 
 - recalc_changes: every transaction whose stored figures Recalculate Ledger
   would change (proceeds, basis, gain), old -> new. Found by running the
@@ -46,13 +55,15 @@ Checks:
   Any add, edit or delete recalculates everything too.
 
 The price checks read the local price history (and fill it from the
-network if a day is missing). A day with no price is counted in
+network if a day is missing; an hourly year not downloaded yet isn't
+waited for: the day's price stands in). A day with no price is counted in
 no_price_for: F42 passes over its row, income_without_value lists it
-without the day's value. Any other failure of the lookup is an error.
+without the value. Any other failure of the lookup is an error.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -60,9 +71,10 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
 from backend.models.transaction import LotDisposal, Transaction
-from backend.services import price_history
+from backend.services import hourly_prices, price_history
+from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
 from backend.services.tax_time import as_utc, get_tax_timezone
 
@@ -74,9 +86,15 @@ CHECKS: dict[str, tuple] = {
         "Back up first, then run Recalculate Ledger (Settings) when you agree. Adding, editing or "
         "deleting any transaction also recalculates everything.",
     ),
+    "day_priced_values": (
+        "Values priced at the day's price that the hour would change",
+        "Tick the ones to change, or a whole year, and apply them (Settings, or `python -m backend.cli review "
+        "--apply-hourly-prices YEAR`): a backup copy is made first, then each is priced at the hour and the "
+        "ledger is recalculated. A value you typed is never listed.",
+    ),
     "zero_proceeds_spend": (
         "Spent withdrawals saved with $0 proceeds",
-        "If you didn't really get $0, edit the proceeds (or clear them to use the day's price).",
+        "If you didn't really get $0, edit the proceeds (or clear them to use that hour's price).",
     ),
     "lost_with_loss": (
         "Lost withdrawals still carrying a loss",
@@ -86,20 +104,21 @@ CHECKS: dict[str, tuple] = {
         "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
         "If you know what the BTC cost (for a gift, the giver's cost basis), edit the deposit's cost basis.",
     ),
-    "fee_value_off": (
-        "Transfer fees valued far from that day's price (probably at the live price)",
-        "Fix these (Settings, or `python -m backend.cli review --fix-fee-prices`) sets each to the day's "
-        "price and recalculates.",
+    "inherited_without_date": (
+        "Inherited deposits without a date of death",
+        "Edit each one: enter the date of death, and check the Cost Basis is the value that day. Until then it "
+        "is dated by the deposit. Its coins are long-term, with INHERITED on Form 8949, from the next "
+        "recalculation: Recalculate Ledger (Settings), or editing it or any other transaction.",
     ),
     "income_without_value": (
         "Income and rebate deposits with a $0 or blank value",
-        "Edit each one: clear its Cost Basis (USD) to use that day's price, or type its value when you "
+        "Edit each one: clear its Cost Basis (USD) to use that hour's price, or type its value when you "
         "received it.",
     ),
     "income_value_off": (
-        "Income and rebate deposits valued far from that day's price",
+        "Income and rebate values you typed, far from that hour's price",
         "If the value didn't come from your records, edit the deposit's cost basis "
-        "(or clear it to use the day's price).",
+        "(or clear it to use that hour's price).",
     ),
     "original_date_missing": (
         "Reminder: My BTC and Gift deposits counted from their deposit date",
@@ -115,7 +134,7 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "If these are really income, interest, rewards or rebates, change their Source instead: then no "
         "date is needed. Income, Interest and Reward (mining, staking, bonuses) are income; Rebate (card or "
         "shopping sats-back) isn't. Then check the Cost Basis is their value on the day received (clear it "
-        "to use that day's price): for income, that value is also the income reported. Before 1.2.6 there "
+        "to use that hour's price): for income, that value is also the income reported. Before 1.2.6 there "
         "was no Rebate source, so card sats-back may have been saved as My BTC to keep it out of income.",
         "Otherwise these aren't errors. These deposits have two dates: the deposit date, when the "
         "coins reached you, and the date originally acquired, when they were first owned. The second sets "
@@ -134,6 +153,35 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "giver).",
     ),
 }
+
+# The deposits whose value is checked against the day's price: income and
+# rebates. An inheritance's value can rightly differ from it (the estate's
+# Form 8971, or its alternate valuation date six months on, #154), so it is
+# checked like My BTC and Gift: only for a $0 or blank basis.
+DAY_VALUED = VALUED_AT_RECEIPT - {INHERITED_SOURCE}
+# Deposits with a date originally acquired the reminder is about: an
+# Inherited one must have its date of death (#154), so it's never missing
+DATED_FROM_DEPOSIT = ORIGINAL_DATE_SOURCES - {INHERITED_SOURCE}
+
+# Explanations shown once for a whole group: the reminders', and the hourly check's
+EXPLANATIONS: dict[str, tuple[str, ...]] = {
+    **REMINDERS,
+    "day_priced_values": (
+        "Before this version, a value BitcoinTX filled in itself (income or a rebate left blank, a spend's "
+        "proceeds left blank, a network fee's value) used that day's midnight (UTC) price. IRS rules value "
+        "bitcoin at the date and time of each transaction (Treas. Reg. §1.1001-7(b)(3)); the price when "
+        "the transaction's hour began is closer. Nothing changes until you apply it.",
+        "A year you haven't filed yet: using the hour is recommended. A year you've already filed: changing "
+        "it changes figures on a filed return (for income, the income reported and that coin's basis), and "
+        "whether to amend is a question for a tax professional; leaving it as filed is recommended.",
+        "Changes under $1.00 aren't listed one by one; each year's totals include them, and applying a "
+        "year applies them too. Where there's no hourly price (before 2013), the day's price is used: a "
+        "value listed then was not at it (an older version could value a fee at the live price).",
+    ),
+}
+LISTED_FROM = Decimal("1.00")
+# What each priced value is called in an item (income: also the income reported)
+VALUE_NAMES = {"gross_proceeds_usd": "Proceeds", "fee_usd": "Fee value"}
 
 TOLERANCE = Decimal("0.05")
 CENT = Decimal("0.01")
@@ -157,11 +205,15 @@ def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
     }
 
 
-def _day_price(db: Session, t: Transaction, missing: list[int]):
-    """The day's price, or None (and the id in `missing`) when there is none.
-    Any other failure is raised: a shorter list would look like nothing to fix."""
+def _market_price(db: Session, t: Transaction, missing: list[int]):
+    """(price, "that hour's" or "that day's"): its hour's price, else its
+    day's; None (and the id in `missing`) when there is none. Any other
+    failure is raised: a shorter list would look like nothing to fix."""
+    found = hourly_prices.hourly_price(db, t.timestamp, wait=False)
+    if found is not None:
+        return found[0], "that hour's"
     try:
-        return price_history.daily_price(db, t.timestamp)
+        return price_history.daily_price(db, t.timestamp), "that day's"
     except HTTPException:
         missing.append(t.id)
         return None
@@ -169,43 +221,6 @@ def _day_price(db: Session, t: Transaction, missing: list[int]):
 
 def _off(stored, expected: Decimal) -> bool:
     return expected > 0 and abs(Decimal(stored) - expected) > expected * TOLERANCE
-
-
-def fee_price_changes(db: Session, ids=None) -> list[dict[str, Any]]:
-    """Transfers whose stored (not typed) fee value is off the day's price: {id, old, new}."""
-    q = db.query(Transaction).filter(Transaction.type == "Transfer", Transaction.fee_usd.isnot(None),
-                                     Transaction.fee_usd_manual.is_(False))
-    if ids is not None:
-        q = q.filter(Transaction.id.in_(list(ids)))
-    changes = []
-    for t in q.order_by(Transaction.timestamp, Transaction.id).all():
-        if (t.fee_currency or "").upper() != "BTC" or not t.fee_amount:
-            continue
-        try:
-            price = price_history.daily_price(db, t.timestamp)
-        except HTTPException:  # no price for that day: nothing to compare
-            continue
-        expected = (price * Decimal(t.fee_amount)).quantize(CENT)
-        if _off(t.fee_usd, expected):
-            changes.append({"id": t.id, "old": Decimal(t.fee_usd), "new": expected, "price": price})
-    return changes
-
-
-def apply_fee_prices(db: Session, ids) -> list[dict[str, Any]]:
-    """
-    Set the picked transfers' fee values to the day's price and recalculate.
-    Only rows the review flags change; typed values never do. Commits.
-    """
-    from backend.services.transaction import recalculate_all_transactions
-
-    changes = fee_price_changes(db, ids)
-    for change in changes:
-        tx = db.get(Transaction, change["id"])
-        tx.fee_usd = change["new"]
-    if changes:
-        recalculate_all_transactions(db)
-    db.commit()
-    return changes
 
 
 def _is_zero_or_blank(value) -> bool:
@@ -269,16 +284,19 @@ def build_review(db: Session) -> dict[str, Any]:
         for key, item in _row_issues(t, tz):
             found[key].append(item)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
-    found["fee_value_off"] = _fee_value_items(db, tz)
+    found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
     found["income_without_value"] = _income_without_value_items(db, rows, tz, missing)
     found["income_value_off"] = _income_value_items(db, rows, tz, missing)
 
     checks = [
         {"key": key, "kind": "reminder" if key in REMINDERS else "check", "title": title, "action": action,
-         "explanation": list(REMINDERS.get(key, ())), "count": len(found[key]), "items": found[key]}
+         "explanation": list(EXPLANATIONS.get(key, ())), "count": len(found[key]), "items": found[key]}
         for key, (title, action) in CHECKS.items()
     ]
+    # Counted: every transaction the hour would change, the unlisted ones under $1.00 too
+    hourly = next(c for c in checks if c["key"] == "day_priced_values")
+    hourly.update(years=years, count=sum(y["count"] for y in years))
     return {
         "read_only": True,
         "timezone": tz.key,
@@ -307,10 +325,13 @@ def _row_issues(t: Transaction, tz):
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() in ORIGINAL_DATE_SOURCES and t.acquired_at is None:
+            and (t.source or "").lower() in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() not in VALUED_AT_RECEIPT and _is_zero_or_blank(t.cost_basis_usd):
+            and (t.source or "").lower() == INHERITED_SOURCE and t.acquired_at is None:
+        yield "inherited_without_date", _item(t, tz, "No date of death.", "")
+    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
+            and (t.source or "").lower() not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(
             t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
             "A basis you enter lowers the gain when this BTC is sold by the same amount.",
@@ -335,22 +356,51 @@ def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
     return items
 
 
-def _fee_value_items(db: Session, tz) -> list[dict[str, Any]]:
-    items = []
-    for change in fee_price_changes(db):
+def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The values priced at the day that the hour would change: the items
+    (a change of $1.00 or more) and each tax year's totals (all of them)."""
+    items, years = [], {}
+    for change in hourly_changes(db):
         t = db.get(Transaction, change["id"])
-        items.append(_item(
-            t, tz, f"Fee {btc_text(t.fee_amount)} BTC stored as ${_money(change['old'])}; at that day's price "
-                   f"(${_money(change['price'])}) it is ${_money(change['new'])}.",
-            f"Fee value ${_money(change['old'])} -> ${_money(change['new'])}; the fee's gain changes by "
-            f"${_money(change['new'] - change['old'])}.",
-        ))
-    return items
+        year = years.setdefault(change["tax_year"], {
+            "year": change["tax_year"], "count": 0, "listed": 0, "ids": [],
+            "income": Decimal(0), "basis": Decimal(0), "proceeds": Decimal(0), "fees": Decimal(0)})
+        year["count"] += 1
+        year["ids"].append(t.id)
+        for field, (old, new) in change["values"].items():
+            key = {"cost_basis_usd": "basis", "gross_proceeds_usd": "proceeds", "fee_usd": "fees"}[field]
+            year[key] += new - old
+            if field == "cost_basis_usd" and _is_income(t):
+                year["income"] += new - old
+        if max(abs(new - old) for old, new in change["values"].values()) >= LISTED_FROM:
+            year["listed"] += 1
+            items.append(_day_priced_item(t, tz, change))
+    for year in years.values():
+        for key in ("income", "basis", "proceeds", "fees"):
+            year[key] = _money(year[key])
+    return items, [years[y] for y in sorted(years)]
+
+
+def _day_priced_item(t: Transaction, tz, change: dict[str, Any]) -> dict[str, Any]:
+    when = datetime.fromtimestamp(change["at"], tz=timezone.utc).strftime("%H:00 UTC")
+    at = f"the price when its hour began ({when})"
+    if change["moment"] == "hour":
+        issue = f"Valued at the day's 00:00 UTC price; at {at}, ${_money(change['price'])}:"
+    else:
+        issue = f"Not at that day's 00:00 UTC price, ${_money(change['price'])} (no hourly price here):"
+    parts = []
+    for field, (old, new) in change["values"].items():
+        name = VALUE_NAMES.get(field) or ("Income and basis" if _is_income(t) else "Basis")
+        parts.append(f"{name} ${_money(old)} -> ${_money(new)}")
+    item = _item(t, tz, issue, "; ".join(parts) + ".")
+    item.update(year=change["tax_year"], moment=change["moment"],
+                values={f: [_money(old), _money(new)] for f, (old, new) in change["values"].items()})
+    return item
 
 
 def _is_valued_deposit(t: Transaction) -> bool:
     """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in VALUED_AT_RECEIPT
+    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in DAY_VALUED
 
 
 def _is_income(t: Transaction) -> bool:
@@ -370,32 +420,35 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
             ": no income is reported for it" if income else ": its whole value becomes gain when it's sold")
         becomes = "the income and its cost basis" if income else "its cost basis"
         figure = "Basis (and the income reported)" if income else "Basis"
-        price = _day_price(db, t, missing)
-        if price is None:
+        market = _market_price(db, t, missing)
+        if market is None:
             issue += " (no price stored for that day)."
             change = f"Its value when you received it becomes {becomes}."
         else:
+            price, which = market
             expected = (price * Decimal(t.amount)).quantize(CENT)
-            issue += f"; at that day's price (${_money(price)}) it is ${_money(expected)}."
+            issue += f"; at {which} price (${_money(price)}) it is ${_money(expected)}."
             change = f"{figure} $0.00 -> ${_money(expected)} if you clear it."
         items.append(_item(t, tz, issue, change))
     return items
 
 
 def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
-    """Income and rebate deposits whose basis is off the day's price; the
-    ids of those with no price go to `missing`."""
+    """Income and rebate deposits whose typed basis is off the market price
+    (a value from a price is day_priced_values'); the ids of those with no
+    price go to `missing`."""
     items = []
     for t in rows:
-        if not (_is_valued_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)):
+        if not (_is_valued_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)) or t.cost_basis_from_price:
             continue
-        price = _day_price(db, t, missing)
-        if price is None:
+        market = _market_price(db, t, missing)
+        if market is None:
             continue
+        price, which = market
         expected = (price * Decimal(t.amount)).quantize(CENT)
         if _off(t.cost_basis_usd, expected):
             items.append(_item(
-                t, tz, f"Basis ${_money(t.cost_basis_usd)}; at that day's price (${_money(price)}) "
+                t, tz, f"Basis ${_money(t.cost_basis_usd)}; at {which} price (${_money(price)}) "
                        f"it is ${_money(expected)}.",
                 f"{'Basis (and the income reported)' if _is_income(t) else 'Basis'} "
                 f"${_money(t.cost_basis_usd)} -> ${_money(expected)} if you change it.",
@@ -412,7 +465,23 @@ def format_text(review: dict[str, Any]) -> str:
             detail = item["source"] if item["type"] == "Deposit" else item["purpose"]
             lines.append(f"  #{item['id']}  {item['date']}  {item['type']} ({detail})  {item['amount']} BTC  "
                          f"{item['issue']}")
-        if check["items"]:
+        lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
+        if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
             lines.append(f"  -> {check['action']}")
     return "\n".join(lines) + "\n"
+
+
+def year_line(year: dict[str, Any]) -> str:
+    """The hourly check's line for one tax year: how many change, and its totals' change."""
+    unlisted = year["count"] - year["listed"]
+    moved = ", ".join(f"{name} {_signed(year[key])}" for key, name in (
+        ("income", "income"), ("basis", "basis"), ("proceeds", "proceeds before fees"), ("fees", "fee values"))
+        if Decimal(year[key]) != 0) or "no net change"
+    return (f"{year['year']}: {year['count']} transaction(s)"
+            + (f", {unlisted} by less than $1.00 each (not listed)" if unlisted else "") + f"; totals: {moved}")
+
+
+def _signed(amount: str) -> str:
+    """"+$1000.10" or "-$3.00"."""
+    return f"-${amount[1:]}" if amount.startswith("-") else f"+${amount}"

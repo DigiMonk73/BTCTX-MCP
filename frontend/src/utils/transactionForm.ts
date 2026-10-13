@@ -7,6 +7,17 @@ export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
 }
 
+/** Where a form value's FMV Refresh asks for the price: for a moment past,
+ * the price the server values that moment at (its hour's, as for every value
+ * it fills); for one not yet come, the live price. */
+export function fmvPriceRequest(
+  localDatetime: string,
+  now = new Date(),
+): { url: string; params?: { at: string } } {
+  const at = localDatetimeToIso(localDatetime);
+  return new Date(at) < now ? { url: "/bitcoin/price/history", params: { at } } : { url: "/bitcoin/price" };
+}
+
 /**
  * The inverse of localDatetimeToIso: a moment as this computer's wall-clock
  * time for a "datetime-local" input (e.g. "2026-07-31T15:16:07"), seconds
@@ -35,6 +46,34 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
     return currency === "BTC" ? EXCHANGE_BTC_ID : EXCHANGE_USD_ID;
   }
   return 0;
+}
+
+/** A transfer's currency: Bank's is USD, Wallet's BTC; the Exchange's is chosen. */
+export function transferCurrency(account?: AccountType, currency?: Currency): Currency | undefined {
+  if (account === "Bank") return "USD";
+  if (account === "Wallet") return "BTC";
+  return account === "Exchange" ? currency : undefined;
+}
+
+/**
+ * Where a Transfer from an account (in a currency) can go, the usual place
+ * first: the other account of that currency, or for a BTC account itself too
+ * (a consolidation, or a move between wallets BitcoinTX pools: only the fee
+ * is recorded, #159).
+ */
+export function transferDestinations(account?: AccountType, currency?: Currency): AccountType[] {
+  switch (`${account}/${transferCurrency(account, currency)}`) {
+    case "Bank/USD":
+      return ["Exchange"];
+    case "Wallet/BTC":
+      return ["Exchange", "Wallet"];
+    case "Exchange/USD":
+      return ["Bank"];
+    case "Exchange/BTC":
+      return ["Wallet", "Exchange"];
+    default:
+      return [];
+  }
 }
 
 /** The ledger's from and to accounts for what the form shows as one account. */
@@ -102,7 +141,29 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,
     feeUSDManual: tx.fee_usd_manual ?? false,
     feeUSDStored: tx.fee_usd ?? undefined,
+    priceMoment: tx.price_moment ?? null,
+    ...valueOrigins(tx),
   };
+}
+
+/** Where the saved values came from, for the form's "From the price" / "Typed" (#145). */
+function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
+  return {
+    costBasisFromPrice: tx.cost_basis_from_price ?? false,
+    proceedsFromPrice: tx.proceeds_from_price ?? false,
+    costBasisStored: tx.cost_basis_usd,
+    proceedsStored: tx.gross_proceeds_usd ?? tx.proceeds_usd,
+    priceUsed: tx.price_used ?? null,
+  };
+}
+
+const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
+
+/** A saved deposit's source as the form lists it: a row saved before 1.1.0
+ * may say "inherited", which is Inherited (#154). */
+function depositSource(saved: string | null | undefined): DepositSource {
+  const wanted = (saved ?? "N/A").trim().toLowerCase();
+  return DEPOSIT_SOURCES.find((s) => s.toLowerCase() === wanted) ?? (saved as DepositSource);
 }
 
 /** Each type's own form fields, read back from a saved transaction. */
@@ -113,7 +174,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: (tx.source ?? "N/A") as DepositSource,
+      source: depositSource(tx.source),
     };
   },
   Withdrawal: (tx) => {
@@ -183,7 +244,7 @@ interface TypePayload {
   source?: string;
   purpose?: string;
   // null = not given: the server fills what it can (an income deposit's
-  // basis, a Spent withdrawal's proceeds, a gift's FMV) from that day's price.
+  // basis, a Spent withdrawal's proceeds, a gift's FMV) from that hour's price.
   cost_basis_usd: number | null;
   proceeds_usd?: number | null;
   fmv_usd?: number | null;
@@ -236,11 +297,12 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
   return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
 }
 
-/** Deposit sources whose coins may have been acquired before the deposit. */
-const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift"];
+/** Deposit sources whose coins may have been acquired before the deposit
+ * (an inheritance: on the date of death, #154). */
+const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 
-/** Whether a deposit takes "Date originally acquired": My BTC or Gift into
- * Wallet or Exchange BTC. */
+/** Whether a deposit takes "Date originally acquired" (an inheritance's
+ * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
 export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
   const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
   return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
@@ -255,7 +317,7 @@ function acquiredAt(data: TransactionFormData): string | null {
 
 /**
  * A BTC fee's USD value (transfers and BTC withdrawals): typed -> kept;
- * cleared after being typed -> null (back to the day's price); otherwise
+ * cleared after being typed -> null (back to the hour's price); otherwise
  * undefined, left out, so a stored value is kept and a new fee is priced by
  * the server.
  */

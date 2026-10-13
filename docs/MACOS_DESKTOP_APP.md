@@ -40,7 +40,11 @@ BitcoinTX.app
   exits instead of starting a second backend.
 - **Log file:** `~/Library/Logs/BitcoinTX/BitcoinTX.log` (rotating, 1 MB × 3),
   including every port decision and its errno.
-- **Localhost only:** the server binds to `127.0.0.1`, never to the network.
+- **Localhost only:** the server binds to `127.0.0.1`, never to the network,
+  and answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]`
+  (421 for any other `Host`: `backend/security_headers.py`,
+  `LocalAddressOnlyMiddleware`). Uvicorn runs with `proxy_headers=False`, so
+  a client's own `X-Forwarded-For` never passes for its address.
 - **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
   method to JavaScript via pywebview's `js_api`. The frontend
   (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
@@ -55,7 +59,7 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
-| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), and those the AI connector's `backup_ledger` asks for (newest 3 kept) |
+| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and those the AI connector's `backup_ledger` asks for (newest 3 kept) |
 
 A new app version upgrades the database schema on first launch (after copying
 it into `backups/`). Opening an older app version on a database a newer one
@@ -131,9 +135,15 @@ too.
   prints the folder) is in **the MCP server's own environment**: the MCP
   Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
   not reach the server: the Inspector passes it only through `-e`.
-- **A second launch** on the same port says "BitcoinTX is already open" but
-  doesn't bring a window forward: AppleScript would find the installed app
-  by name.
+- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run:
+  the window title and its messages (a second launch, a busy port) say
+  so. The menu bar, the Dock and the page inside the window still say
+  BitcoinTX (the first two come from the bundle), and an older build run
+  with `--app` says BitcoinTX everywhere. Whatever a message says during a
+  test run, act only on the test copy, and leave the installed app alone.
+- **A second launch** on the same port says "BitcoinTX Test is already
+  open" but doesn't bring a window forward: AppleScript would find the
+  installed app by name.
 
 ### Manual build
 

@@ -20,8 +20,9 @@ settings.
 **What the AI's model sees:** everything the tools return (transactions,
 balances, gains, the review list) and everything you paste into the chat.
 The MCP server itself sends nothing anywhere else. When a preview fills in a
-value, BitcoinTX asks only the price source you chose in Settings → Privacy &
-Network (your own mempool server, public price sites, or nothing), and no
+value, BitcoinTX uses its own stored hourly prices, or asks only the source
+you chose (in Settings → Privacy & Network, or on StartOS in the Price Source
+& Privacy action: your own Mempool, public price sites, or Nobody), and no
 request names a transaction date. Your AI app sends the conversation to its
 model. With a cloud AI that is the provider's servers;
 see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model).
@@ -34,11 +35,11 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
 | `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped |
 | `list_transactions` | Search by date range, type and account |
-| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired) |
-| `get_portfolio` | Account balances, average cost basis, live BTC price (from the price source chosen in Settings → Privacy & Network), tax timezone |
-| `get_btc_price` | Historical daily or current BTC price |
+| `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
+| `get_portfolio` | Account balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
+| `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
-| `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; fee-value fixes are made in Settings |
+| `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |
 | `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (the newest 3 are kept, one a minute). Restoring one is up to you |
 
 There is deliberately no bulk delete.
@@ -85,8 +86,9 @@ on the model behind your AI app, not on this server:
   handled under its privacy terms. Your AI key is not sent: it stays in the
   configuration on your computer.
 - **Local model:** what the AI reads stays on your machine. BitcoinTX itself
-  asks only the price source you chose (your own mempool server or public
-  price sites; Settings → Privacy & Network). Use an app that runs MCP
+  asks only the price source you chose (your own Mempool or public price
+  sites, or Nobody; Settings → Privacy & Network, or StartOS's Price Source &
+  Privacy action). Use an app that runs MCP
   servers with a model on your own machine, for example
   [LM Studio](https://lmstudio.ai/docs/app/mcp) (0.3.17 or later) or
   [Goose](https://goose-docs.ai/) with [Ollama](https://ollama.com/).

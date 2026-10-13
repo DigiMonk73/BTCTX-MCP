@@ -294,16 +294,43 @@ def test_cli_uses_the_price_settings(tmp_path, monkeypatch):
     con.executemany("INSERT INTO app_settings (key, value) VALUES (?, ?)",
                     [("price_source", "mempool"), ("mempool_url", "http://umbrel.local:3006")])
     con.commit()
-    con.close()
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(database, "init_db", lambda: init_db(engine))
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings())
+    # A choice from before the card kept a record waits for the owner (#145, 2.9): nobody is asked
+    assert backend_cli.main(["migrate"]) == 0
+    assert outbound.current().waiting and outbound.current().own_node is None
+    con.execute("INSERT INTO app_settings (key, value) VALUES ('price_choice_at', '2026-10-14T20:12:00Z')")
+    con.commit()
+    con.close()
     assert backend_cli.main(["migrate"]) == 0
     assert outbound.current().own_node == "http://umbrel.local:3006"
 
     monkeypatch.setenv("BTCTX_PRICE_SOURCE", "off")  # set by StartOS: it wins here too
     assert backend_cli.main(["recalculate"]) == 0
     assert outbound.current() == outbound.NetworkSettings(price_source="off", managed=True)
+
+
+@pytest.mark.parametrize("args, stdin", [
+    (["review"], ""),  # run by hand in the service's shell (start-cli package attach)
+    (["set-password", "--password-stdin"], "a-new-password-123\n"),  # StartOS's Set Login Credentials
+], ids=["hand-run", "set-login-credentials"])
+def test_a_command_never_makes_a_price_choice(tmp_path, monkeypatch, args, stdin):
+    """#134: on StartOS these run without the server's price variables. They
+    took prices stored under the server's source for a pre-1.1.0 install's
+    public choice and saved it, so a later switch to Decide in BitcoinTX instead asked
+    public sites at once. A command uses a choice already made, or the
+    server's: only the app's start upgrades a pre-1.1.0 install."""
+    monkeypatch.delenv("BTCTX_PRICE_SOURCE", raising=False)
+    db = tmp_path / "btctx.db"
+    init_db(engine_for(db))
+    con = sqlite3.connect(str(db))
+    con.execute("INSERT INTO btc_price_daily (day, usd, source) VALUES ('2024-01-01', 42000, 'bitstamp')")
+    con.commit()
+    con.close()
+    r = cli(db, *args, stdin=stdin)
+    assert r.returncode == 0, r.stderr
+    assert q(db, "SELECT key, value FROM app_settings WHERE key IN ('price_source', 'mempool_fallback')") == []
 
 
 def test_cli_review_lists_zero_proceeds_spends_and_lost(tmp_path, monkeypatch, capsys):

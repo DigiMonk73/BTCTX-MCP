@@ -153,7 +153,9 @@ only if it is disposed after the one-year anniversary** of acquisition.
 Selling on the anniversary itself is short-term. A Feb 29 acquisition's
 anniversary is Feb 28. The value is stored on each LotDisposal when the ledger
 is recalculated, and the form reads the stored value. SHORT rows go to Part I,
-LONG rows to Part II.
+LONG rows to Part II. Inherited coins (`bitcoin_lots.inherited`, an Inherited
+deposit's lot and the lots a transfer moves from it, #154) are LONG whatever
+their dates (IRC §1223(9); `lot_holding_period()`).
 
 ## Form 1099-DA boxes
 
@@ -231,7 +233,7 @@ topmostSubform[0].Page{p}[0].{table}[0].Row{r}[0].f{p}_{n}[0]
 | Col | Offset | Value |
 |---|---|---|
 | (a) | 0 | the BTC amount with all eight decimals, `"0.00000005 BTC"` (`calculation.btc_text()`; never exponent form) |
-| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone): the lot's, which for a My BTC or Gift deposit is its date originally acquired when given |
+| (b) | 1 | date acquired, MM/DD/YYYY (tax timezone): the lot's, which for a My BTC or Gift deposit is its date originally acquired when given; `INHERITED` for inherited coins, as the instructions ask (`form_8949.acquired_text()`) |
 | (c) | 2 | date sold, MM/DD/YYYY (tax timezone) |
 | (d) | 3 | proceeds, 2 decimals |
 | (e) | 4 | cost basis, 2 decimals |

@@ -44,7 +44,7 @@ ToolResult = Dict[str, Any]  # noqa: UP006
 
 AccountName = Literal["Bank", "Wallet", "Exchange USD", "Exchange BTC", "External"]
 TxTypeName = Literal["Buy", "Sell", "Deposit", "Withdrawal", "Transfer"]
-DepositSource = Literal["MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate"]
+DepositSource = Literal["MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"]
 WithdrawalPurpose = Literal["Spent", "Gift", "Donation", "Lost"]
 
 # Fixed account ids seeded by the app (backend/constants.py)
@@ -62,13 +62,15 @@ class TransactionInput(BaseModel):
     amount: Decimal = Field(
         gt=0,
         description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
-                    "Transfer: total that left the source INCLUDING the network fee. "
+                    "Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
+                    "a consolidation: only the fee is recorded). "
                     "Withdrawal: what the recipient got; the network fee is on top.",
     )
     from_account: AccountName
     to_account: AccountName
     cost_basis_usd: Decimal | None = Field(
-        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate).")
+        default=None, description="Buy: USD spent excluding fee. Deposit: basis (auto-filled for Income/Interest/Reward/Rebate, "
+                                  "and for Inherited from the date of death).")
     proceeds_usd: Decimal | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
     fee_amount: Decimal | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
@@ -78,12 +80,13 @@ class TransactionInput(BaseModel):
     fmv_usd: Decimal | None = Field(
         default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
     fee_usd: Decimal | None = Field(
-        default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x that "
-                                  "day's price is stored).")
+        default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
+                                  "price when its hour began is stored).")
     acquired_at: str | None = Field(
         default=None, description="MyBTC/Gift deposits into Wallet or Exchange BTC: when the coins were originally "
                                   "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
-                                  "Form 8949's date acquired use it; omitted, the deposit's date.")
+                                  "Form 8949's date acquired use it; omitted, the deposit's date. Inherited "
+                                  "deposits: the date of death (required).")
 
 
 _client: BtctxClient | None = None
@@ -250,11 +253,13 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
         "to": ACCOUNT_NAMES.get(tx.get("to_account_id"), tx.get("to_account_id")),
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
-                "proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
+                "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
                 "broker_reporting", "acquired_at"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
+    if "proceeds_usd" not in out:  # e.g. a spend changed into a gift keeps its old gross
+        out.pop("gross_proceeds_usd", None)
     return out
 
 
@@ -265,7 +270,7 @@ mcp = MCPServer(
     instructions=LEDGER_GUIDE,
 )
 # The SDK logs at INFO to stderr, which AI apps keep in log files; httpx's
-# request lines (…/price/history?date=…) would name the ledger's dates there.
+# request lines (…/price/history?date=… or ?at=…) would name the ledger's dates there.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -282,15 +287,17 @@ def get_ledger_guide() -> str:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_portfolio() -> ToolResult:
-    """Current balance of every account, average cost basis per BTC, the live BTC price, and
-    the user's tax timezone (dates without a timezone are interpreted in it).
+    """Current balance of every account, average cost basis per BTC, the live BTC price and
+    where it came from (or, when there's none, BitcoinTX's reason in btc_price_unavailable),
+    and the user's tax timezone (dates without a timezone are interpreted in it).
     Useful to reconcile against what the user's cold wallet or exchange actually shows."""
     balances = await _call("GET", "/api/calculations/accounts/balances")
     avg = await _call("GET", "/api/calculations/average-cost-basis")
+    unavailable = None
     try:
         price = await _call("GET", "/api/bitcoin/price")
-    except ToolError:
-        price = None
+    except ToolError as exc:
+        price, unavailable = None, str(exc)  # why: Nobody, not chosen yet, no answer… (#145)
     tz = await _call("GET", "/api/settings/tax-timezone")
     return {
         "tax_timezone": tz.get("timezone"),
@@ -300,6 +307,8 @@ async def get_portfolio() -> ToolResult:
         ],
         "average_cost_basis": avg,
         "btc_price_usd": price.get("USD") if isinstance(price, dict) else None,
+        "btc_price_source": price.get("source") if isinstance(price, dict) else None,
+        **({"btc_price_unavailable": unavailable} if unavailable else {}),
     }
 
 
@@ -346,17 +355,24 @@ async def list_transactions(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=True))
 @with_version_notice
 async def get_btc_price(date: str | None = None) -> ToolResult:
-    """BTC price in USD for a date (YYYY-MM-DD): the daily price at 00:00 UTC that day,
-    or right now if no date is given. For a transaction, pass the UTC date of its time
-    (a 9 pm US Central sale on Jul 31 is Aug 1 UTC): that day's price is the nearest
-    daily price before it, and it's the one BitcoinTX uses when it values income or
-    spending. Use it to value income, spending, or gifts when the user doesn't know
-    the USD amount."""
+    """BTC price in USD. For a transaction, pass its date and time as you would to
+    add_transactions (e.g. 2025-07-31T21:05:00, in the tax timezone unless an offset is
+    given): you get the price BitcoinTX itself uses for income, spending and fees, the
+    price when that hour began (UTC), or that day's 00:00 UTC price where it has no hourly
+    one ("moment" says which). A date alone (YYYY-MM-DD) gives that UTC day's 00:00
+    price; nothing gives the price right now. Use it to value income, spending, or gifts
+    when the user doesn't know the USD amount. "source" says where the price came from:
+    "mempool" is the user's own Mempool, any other name a public price site."""
     if date:
-        data = await _call("GET", "/api/bitcoin/price/history", params={"date": date})
+        data = await _call("GET", "/api/bitcoin/price/history", params=await _price_query(date))
     else:
         data = await _call("GET", "/api/bitcoin/price")
-    return {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
+    result = {"date": date or "now", "usd": data.get("USD") if isinstance(data, dict) else data}
+    if isinstance(data, dict) and data.get("moment"):
+        result.update(moment=data["moment"], priced_at=data.get("at"))
+    if isinstance(data, dict) and data.get("source"):
+        result["source"] = data["source"]  # "mempool" (the user's own) or a public site's name (#145)
+    return result
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -365,8 +381,11 @@ async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change; Spent withdrawals saved with $0 proceeds; Lost withdrawals still
     carrying a loss; BTC deposits, not income or a rebate, with a $0 or blank cost basis;
-    transfer fees valued far from that day's price; income or rebate deposits with a $0 or
-    blank value, or valued far from that day's price). Each item has its id, date, what looks
+    values BitcoinTX priced at the day's price that the price of their hour would change,
+    by tax year, which only the owner can apply, in Settings (they change figures, and a
+    year already filed is a question for a tax professional); Inherited deposits without a
+    date of death; income or rebate deposits with a $0 or blank value, or with a typed value
+    far from that hour's price). Each item has its id, date, what looks
     odd and what would change; `total` counts these. Last, a reminder (kind "reminder", not in
     `total`, not an error): My BTC and Gift deposits without a date originally acquired,
     with one explanation for the group; pass it on in short and suggest changing the Source
@@ -425,12 +444,17 @@ async def update_transaction(
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
-    An Income/Interest/Reward/Rebate deposit's value that came from that day's price is priced
-    again when you change its amount, date or account, or move it there from another source (a
-    switch among those four keeps it; sending back the value it already has doesn't make it
-    typed); a value the user typed is kept.
+    An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
+    (at the hour) when you change its amount, the time's hour or the account, or move it there
+    from another source (a switch among those four keeps it; sending back the value it already
+    has doesn't make it typed); a Spent's proceeds that came from the price, when you change
+    its amount or the time's hour, or send them blank (a change of purpose makes them typed).
+    A value the user typed is kept.
+    An Inherited deposit's is priced at its date of death (acquired_at), and again when that
+    changes.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
-    date; "none" clears it (the holding period then starts at the deposit)."""
+    date; "none" clears it (the holding period then starts at the deposit). For an Inherited
+    deposit it is the date of death, which it must keep."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)
@@ -463,6 +487,18 @@ async def update_transaction(
 
 def _text(value: Decimal | None) -> str | None:
     return None if value is None else format(value, "f")
+
+
+async def _price_query(date: str) -> dict[str, str]:
+    """A date alone asks for that UTC day's price; a date and time, read as
+    add_transactions reads it (the tax timezone unless an offset is given),
+    for the price of its moment."""
+    parsed = _parse_date_text(date.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{date}'.")
+    if parsed[1]:
+        return {"date": parsed[0].date().isoformat()}
+    return {"at": _in_utc(parsed, await _tax_zone(), time(12)).isoformat()}
 
 
 async def _timestamp_from(date: str) -> str:

@@ -42,6 +42,11 @@ Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull r
    - `dockerTag` in `startos/startos/manifest/index.ts`:
      `ghcr.io/digimonk73/btctx-mcp:v<VERSION>`
    - the package version (next section)
+
+   In the same pull request, run `make prices` (online): it adds the hourly
+   price history's new hours to `backend/assets/btc_prices/MANIFEST.csv`,
+   cross-checked against a second exchange (that folder's README). The
+   release refuses a history that ends more than 14 days before it.
 2. Move the `## [Unreleased]` section of `docs/CHANGELOG.md` to
    `## [vX.Y.Z] - <date> - <summary>`, and remove the ticked items from
    `docs/ROADMAP.md` (the CHANGELOG has them now).

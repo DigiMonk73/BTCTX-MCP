@@ -43,7 +43,7 @@ USER, PASSWORD = "seed-user", "seed-password-123"
 BOXES_2026 = {
     "01/15/2026": {"K"}, "02/02/2026": {"J"}, "02/09/2026": {"H"}, "03/16/2026": {"I"},
     "05/04/2026": {"G"}, "06/01/2026": {"I"}, "07/01/2026": {"L"}, "08/03/2026": {"G"},
-    "09/01/2026": {"L"}, "09/05/2026": {"L"}, "09/10/2026": {"L"},
+    "08/28/2026": {"I"}, "09/01/2026": {"L"}, "09/02/2026": {"K"}, "09/05/2026": {"L"}, "09/10/2026": {"L"},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own
@@ -60,6 +60,7 @@ ROUTES = {
     ("Buy", 1, 4), ("Buy", 3, 4), ("Sell", 4, 3),
     *(("Deposit", 99, a) for a in (1, 2, 3, 4)), *(("Withdrawal", a, 99) for a in (1, 2, 3, 4)),
     ("Transfer", 1, 3), ("Transfer", 3, 1), ("Transfer", 2, 4), ("Transfer", 4, 2),
+    ("Transfer", 2, 2), ("Transfer", 4, 4),  # consolidations (#159)
 }
 
 
@@ -68,6 +69,8 @@ def _kind(t: Transaction) -> str:
         return f"Deposit {t.source}"
     if t.type == "Withdrawal":
         return f"Withdrawal {t.purpose or 'cash'}"
+    if t.type == "Transfer" and t.from_account_id == t.to_account_id:
+        return "Consolidation"
     if t.type == "Transfer":
         return {1: "Transfer cash", 2: "Transfer to the exchange", 4: "Transfer from the exchange"}.get(
             t.from_account_id, f"Transfer from account {t.from_account_id}")

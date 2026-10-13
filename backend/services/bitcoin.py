@@ -10,17 +10,20 @@ ever naming a date.
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from fastapi import HTTPException
 
-from backend.services import outbound
+from backend.services import outbound, price_status
 
 logger = logging.getLogger(__name__)
 
-COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
 KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker?pair=XBTUSD"
+BITSTAMP_TICKER_URL = "https://www.bitstamp.net/api/v2/ticker/btcusd/"
 
 BLOCKCHAIN_INFO_HEIGHT_URL = "https://blockchain.info/q/getblockcount"
 BLOCKSTREAM_HEIGHT_URL = "https://blockstream.info/api/blocks/tip/height"
@@ -44,24 +47,40 @@ def _one_at_a_time() -> asyncio.Lock:
     return _price_lock["lock"]
 
 
-async def _from_own_node(path: str, parse: Callable):
-    """Ask the owner's mempool server when it's the chosen source; None if it fails."""
-    base = outbound.current().own_node
+async def _from_own_node(path: str, parse: Callable, record: bool = False):
+    """Ask the owner's mempool server when it's the chosen source; None if it
+    fails. `record`: the live price's attempt, which the status line reports
+    (services/price_status.py); the block height's isn't, so a Mempool that
+    gives the height but no price is never reported as the price's source."""
+    settings = outbound.current()
+    base = settings.own_node
     if not base:
+        if record and settings.price_source == "mempool" and settings.asking:  # no address: Mempool not installed
+            price_status.failed(price_status.MEMPOOL_MISSING)
         return None
     try:
         async with outbound.own_node_client() as client:
             resp = await client.get(base + path)
             resp.raise_for_status()
-            return parse(resp)
+            value = parse(resp)
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
+        if record:
+            price_status.mempool_failed(exc)
         return None
+    if value is None:
+        logger.warning("Own mempool server %s%s answered without a price (yet)", base, path)
+    if record and value is None:
+        price_status.failed(price_status.MEMPOOL_NO_ANSWER)
+    elif record:
+        price_status.answered("mempool")
+    return value
 
 
-async def _first_public(urls_and_parsers, what: str):
-    """The first public site that answers, or 502 (naming the proxy when
-    none could even be reached through it, e.g. Tor stopped)."""
+async def _first_public(urls_and_parsers, what: str, record: bool = False) -> tuple:
+    """The first public site's answer and the site's name ("kraken"), or
+    502 (naming the proxy when none could even be reached through it, e.g.
+    Tor stopped)."""
     outbound.require_public()
     unreached = 0
     async with outbound.async_client() as client:
@@ -71,20 +90,41 @@ async def _first_public(urls_and_parsers, what: str):
                 if resp.status_code == 200:
                     value = parse(resp)
                     if value is not None:
-                        return value
+                        if record:
+                            price_status.answered(_site(url))
+                        return value, _site(url)
             except Exception as exc:
                 unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
-    if outbound.current().proxy_url and unreached == len(urls_and_parsers):
+    through_proxy = outbound.current().proxy_url and unreached == len(urls_and_parsers)
+    if record:
+        price_status.failed(price_status.TOR_NO_ANSWER if through_proxy else price_status.PUBLIC_NO_ANSWER)
+    if through_proxy:
         raise HTTPException(status_code=502, detail=(
             f"No public site answered for the {what}: none could be reached through the proxy for "
             "public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)"))
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
 
 
-def _coingecko_price(resp) -> dict | None:
-    price = resp.json()["bitcoin"]["usd"]
-    return {"USD": float(price)} if price else None
+# A public site's short name, as the live price's "source" gives it
+SITES = {"api.kraken.com": "kraken", "www.bitstamp.net": "bitstamp", "blockchain.info": "blockchain.info",
+         "blockstream.info": "blockstream", "mempool.space": "mempool.space"}
+
+
+def _site(url: str) -> str:
+    """A public site's short name: https://api.kraken.com/... is "kraken"."""
+    host = urlparse(url).hostname or ""
+    return SITES.get(host, host)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _usd(value) -> dict | None:
+    """A site's price, unless it's no price at all (0, negative, NaN, infinite)."""
+    price = float(value)
+    return {"USD": price} if math.isfinite(price) and price > 0 else None
 
 
 def _kraken_price(resp) -> dict | None:
@@ -92,24 +132,34 @@ def _kraken_price(resp) -> dict | None:
     if data.get("error"):
         return None
     pair = next(iter(data["result"]))
-    return {"USD": float(data["result"][pair]["c"][0])}  # last trade
+    return _usd(data["result"][pair]["c"][0])  # last trade
+
+
+def _bitstamp_price(resp) -> dict | None:
+    return _usd(resp.json()["last"])  # last trade
 
 
 async def get_current_price() -> dict:
     """
-    The current BTC price in USD: the own mempool server, or Kraken then
-    CoinGecko (which refuses VPN and Tor users, so it's only the fallback).
-    503 when prices are off or not chosen, 502 when the chosen source fails.
+    The current BTC price in USD, with where it came from ("mempool",
+    "kraken" or "bitstamp") and when it arrived ("at", UTC): the own
+    mempool server, or Kraken, else Bitstamp (the sites the price history
+    already asks). CoinGecko is never asked: its terms ask for a credit and
+    discourage storing its data (#161). 503 when the owner chose Nobody or
+    hasn't chosen, 502 when the chosen source fails.
     """
     settings = outbound.current()
     async with _one_at_a_time():
         cached = _price_cache
         if cached["settings"] == settings and time.monotonic() - cached["at"] < PRICE_CACHE_SECONDS:
             return cached["value"]
-        price = await _from_own_node("/api/v1/prices", lambda r: {"USD": float(r.json()["USD"])})
+        price = await _from_own_node("/api/v1/prices", lambda r: _usd(r.json()["USD"]), record=True)
+        source = "mempool"
         if price is None:
-            price = await _first_public(
-                [(KRAKEN_TICKER_URL, _kraken_price), (COINGECKO_PRICE_URL, _coingecko_price)], "BTC price")
+            price, source = await _first_public(
+                [(KRAKEN_TICKER_URL, _kraken_price), (BITSTAMP_TICKER_URL, _bitstamp_price)], "BTC price",
+                record=True)
+        price = {**price, "source": source, "at": now_iso()}
         _price_cache.update(settings=settings, at=time.monotonic(), value=price)
         return price
 
@@ -130,7 +180,7 @@ async def get_block_height() -> dict:
         return cached["value"]
     height = await _from_own_node("/api/blocks/tip/height", _height)
     if height is None:
-        height = await _first_public(
+        height, _ = await _first_public(
             [(BLOCKCHAIN_INFO_HEIGHT_URL, _height), (BLOCKSTREAM_HEIGHT_URL, _height), (MEMPOOL_HEIGHT_URL, _height)],
             "block height",
         )

@@ -9,7 +9,7 @@ interface BasisCellProps {
 }
 
 /** The cost basis, editable on a deposit and marked "est." while it is
- * still the value filled from the day's price. */
+ * still the value filled from the price. */
 const BasisCell: React.FC<BasisCellProps> = ({ row, editable, loading, onChange }) => {
   const p = row.proposal;
   return (

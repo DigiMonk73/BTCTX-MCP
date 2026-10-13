@@ -24,7 +24,7 @@ from backend.schemas.river_import import (
     RiverProposalOut,
 )
 from backend.schemas.csv_import import CSVParseError
-from backend.services import price_history
+from backend.services import hourly_prices
 from backend.services.csv_import import _validate_row, execute_import
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
@@ -47,36 +47,37 @@ def _autofill_fmv_basis(
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
-    proposals (Interest/Income) using the historical daily BTC price.
-    Degrades gracefully: on lookup failure the basis stays blank and a
-    warning tells the user to fill it in.
+    proposals (Interest/Income) at the BTC price of their hour (else their
+    day: services/hourly_prices.py). Degrades gracefully: on lookup failure
+    the basis stays blank and a warning tells the user to fill it in.
     """
-    price_cache: dict[str, Decimal | None] = {}
+    price_cache: dict[int, hourly_prices.Priced | None] = {}
 
     for proposal in proposals:
         if proposal.type != "Deposit" or proposal.cost_basis_usd is not None:
             continue
-        date_str = proposal.timestamp.strftime("%Y-%m-%d")
-        if date_str not in price_cache:
+        hour = hourly_prices.hour_of(proposal.timestamp)
+        if hour not in price_cache:
             try:
-                price_cache[date_str] = price_history.daily_price(db, proposal.timestamp)
+                price_cache[hour] = hourly_prices.price_at(db, proposal.timestamp)
             except Exception as exc:
-                price_cache[date_str] = None
-                # The day (a transaction's date) only in the DEBUG log
+                price_cache[hour] = None
+                # The time (a transaction's) only in the DEBUG log
                 logger.warning("FMV lookup failed (%s)", type(exc).__name__)
-                logger.debug("FMV lookup failed for %s: %s", date_str, exc)
+                logger.debug("FMV lookup failed for %s: %s", proposal.timestamp, exc)
                 warnings.append(CSVParseError(
                     row_number=proposal.row_number, column="cost_basis_usd",
                     severity="warning",
                     message=(
-                        f"Could not fetch the BTC price for {date_str}; "
+                        f"Could not fetch the BTC price for {proposal.timestamp:%Y-%m-%d %H:00} UTC; "
                         "enter the USD value of this deposit manually."
                     ),
                 ))
-        price = price_cache[date_str]
-        if price is not None:
-            proposal.cost_basis_usd = (price * proposal.amount).quantize(Decimal("0.01"))
+        priced = price_cache[hour]
+        if priced is not None:
+            proposal.cost_basis_usd = (priced.usd * proposal.amount).quantize(Decimal("0.01"))
             proposal.basis_autofilled = True
+            proposal.price_moment = priced.moment
 
 
 def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
@@ -97,6 +98,7 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
         type_choices=p.type_choices,
         funding_choices=p.funding_choices,
         basis_autofilled=p.basis_autofilled,
+        price_moment=p.price_moment,
         status=p.status,
         matched_tx_id=p.matched_tx_id,
         discrepancy=p.discrepancy,
@@ -255,6 +257,7 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
         "purpose": row.purpose or "",
         "notes": "",
         "cost_basis_typed": row.cost_basis_typed or "",
+        "price_moment": (row.price_moment or "") if row.cost_basis_typed == "no" else "",
     }
 
 

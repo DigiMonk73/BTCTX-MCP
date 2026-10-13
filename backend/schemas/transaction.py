@@ -90,7 +90,7 @@ class TransactionBase(BaseModel):
     )
     fee_currency: str | None = None
 
-    source: str | None = None  # a Deposit's: MyBTC, Gift, Income, Interest, Reward, Rebate or N/A
+    source: str | None = None  # a Deposit's: MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate or N/A
     purpose: str | None = None  # a Withdrawal's: Spent, Gift, Donation, Lost
     acquired_at: datetime | date | None = Field(
         default=None,
@@ -98,7 +98,8 @@ class TransactionBase(BaseModel):
             "My BTC or Gift deposit into a BTC account only: when the coins were "
             "originally acquired (by the giver, for a gift). A date alone means noon "
             "in the tax timezone. The holding period and Form 8949 column (b) use it. "
-            "Omit or null: the deposit's own date."
+            "Omit or null: the deposit's own date. An Inherited deposit's is the date "
+            "of death, and required."
         ),
     )
     broker_reporting: BrokerReporting | None = Field(
@@ -133,7 +134,7 @@ class TransactionBase(BaseModel):
         default=None,
         description=(
             "USD value of a transfer's or withdrawal's BTC fee. Leave out to use "
-            "fee x that day's price; a value you give is kept."
+            "fee x that hour's price; a value you give is kept."
         ),
     )
     realized_gain_usd: Decimal | None = Field(
@@ -209,14 +210,14 @@ class TransactionUpdate(BaseModel):
 
     source: str | None = None
     purpose: str | None = None
-    acquired_at: datetime | date | None = None  # My BTC / Gift deposits; null: the deposit's date
+    acquired_at: datetime | date | None = None  # My BTC / Gift deposits (null: the deposit's date); Inherited: the date of death
     broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
 
     cost_basis_usd: Decimal | None = None
     proceeds_usd: Decimal | None = None
     gross_proceeds_usd: Decimal | None = None
     fmv_usd: Decimal | None = None
-    fee_usd: Decimal | None = None  # send null to go back to the day's price
+    fee_usd: Decimal | None = None  # send null to go back to the hour's price
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
 
@@ -262,6 +263,16 @@ class TransactionUpdate(BaseModel):
         return v
 
 
+class PriceUsed(BaseModel):
+    """The price a transaction's filled-in values came from (#145): its UTC
+    hour's (or day's) start, "hour" or "day", where it came from, and the USD
+    per BTC. Read from the stored price at display time; nothing is saved."""
+    at: str
+    moment: str
+    source: str
+    usd_per_btc: Decimal
+
+
 class TransactionRead(TransactionBase):
     """
     Schema for reading transactions from the database.
@@ -269,7 +280,10 @@ class TransactionRead(TransactionBase):
     """
     id: int
     fee_usd_manual: bool = False  # fee_usd was typed by the user
-    cost_basis_from_price: bool = False  # an income or rebate deposit's value came from that day's price
+    cost_basis_from_price: bool = False  # an income or rebate deposit's value came from a price
+    proceeds_from_price: bool = False  # a Spent's proceeds came from a price
+    price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
+    price_used: PriceUsed | None = None  # that price, when this install has it (never asked for)
     created_at: datetime
     updated_at: datetime
 

@@ -9,6 +9,7 @@ so everything derived must follow from the saved transactions alone.
 """
 
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
 from collections import defaultdict
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
-from backend.services import price_history
+from backend.services import hourly_prices, price_history
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
     ACCOUNT_WALLET,
@@ -27,10 +28,13 @@ from backend.constants import (
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
+    BTC_ACCOUNTS,
+    INHERITED_SOURCE,
     ORIGINAL_DATE_SOURCES,
     VALUED_AT_RECEIPT,
 )
 
+CENT = Decimal("0.01")
 logger = logging.getLogger(__name__)
 
 
@@ -65,8 +69,14 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     _maybe_verify_balance_for_internal(new_tx, db)
     if new_tx.type == "Transfer":
         _default_btc_transfer_fee(new_tx, db)
-    _post_lots(new_tx, tx_data, db)
-    _recalculate_if_backdated(new_tx, db)
+    if _is_backdated(new_tx, db):
+        # Every lot is rebuilt in date order, which also checks the new entry
+        # against the account as it was on its date. Checked first against
+        # today's lots, a past consolidation (#159) was refused once coins
+        # had left the account later, though only its fee leaves it.
+        _recalculate_with(new_tx, db)
+    else:
+        _post_lots(new_tx, tx_data, db)
 
     if auto_commit:
         db.commit()
@@ -84,16 +94,61 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
-    _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
-    _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
+    # An import's values priced at the day (a file without the moment means
+    # the day): a value priced now takes the day too, so the transaction's
+    # priced values share one price
+    imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
+        or tx_data.get("fee_usd_from_price")
+    at_the_day = tx_data.get("price_moment") == "day" or (imported and not tx_data.get("price_moment"))
+    with _priced_at_the_day(db, bool(at_the_day)):
+        _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
+        _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
     if tx_data.get("fee_usd_from_price") and tx_data.get("fee_usd") is not None:
-        # A CSV re-import of a value once priced from the day (not typed):
-        # kept as it was, and still re-priced if the date or fee changes.
+        # A CSV re-import of a value once priced (not typed): kept as it
+        # was, and still re-priced if the time or fee changes.
         tx_data["fee_usd_manual"] = False
+    tx_data["proceeds_from_price"] = bool(tx_data.get("proceeds_from_price")) and _is_spent(tx_data) \
+        and tx_data.get("gross_proceeds_usd") is not None
+    tx_data["price_moment"] = _price_moment(tx_data)
+
+
+PRICE_MOMENTS = ("hour", "day")
+
+
+def _has_priced_value(data) -> bool:
+    """Whether a transaction (or its input) holds a value that came from a
+    price: an income or rebate basis, a Spent's proceeds, a BTC fee's value.
+    A mark without its value (a deposit moved to Bank) isn't one."""
+    get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
+    return bool((get("cost_basis_from_price") and get("cost_basis_usd") is not None)
+                or (get("proceeds_from_price") and get("gross_proceeds_usd") is not None)
+                or (get("fee_usd") is not None and not get("fee_usd_manual")))
+
+
+def _note_moment(data: dict, moment: str) -> None:
+    """Record the moment a value was just priced at: the day wins, so a
+    transaction with any value at the day's price is listed by Ledger Review."""
+    data["price_moment"] = "day" if "day" in (data.get("price_moment"), moment) else moment
+
+
+def _price_moment(data) -> str | None:
+    """The moment of its priced values' price: the one they were just priced
+    at, or one an import says; "day" for an import that doesn't say (every
+    value priced before hourly prices was priced at the day); None when
+    every value is typed."""
+    if not _has_priced_value(data):
+        return None
+    moment = data.get("price_moment") if isinstance(data, dict) else data.price_moment
+    return moment if moment in PRICE_MOMENTS else "day"
+
+
+def _is_spent(data: dict) -> bool:
+    kind = getattr(data.get("type"), "value", data.get("type"))
+    return kind == "Withdrawal" and (data.get("purpose") or "").lower() == "spent"
 
 
 def _mark_income_value(tx_data: dict, priced: bool, db: Session) -> None:
-    """cost_basis_from_price: the value was just priced from the day, or an
+    """cost_basis_from_price: the value was just priced, or an
     import says it once was (a CSV re-import, the AI's autofill), on an
     income or rebate deposit into a BTC account. Anything else is typed."""
     tx_data["cost_basis_from_price"] = priced or (
@@ -122,6 +177,8 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
         fee_usd_manual=tx_data.get("fee_usd_manual", False),
         cost_basis_from_price=tx_data.get("cost_basis_from_price", False),
         acquired_at=tx_data.get("acquired_at"),
+        price_moment=tx_data.get("price_moment"),
+        proceeds_from_price=tx_data.get("proceeds_from_price", False),
         created_at=now_utc,
         updated_at=now_utc
     )
@@ -130,9 +187,25 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
     return new_tx
 
 
-def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
-    """A transaction dated before the latest one changes which lots the
-    later ones used: recalculate everything, in time order."""
+def _recalculate_with(new_tx: Transaction, db: Session) -> None:
+    """The whole ledger again, in date order, with a new past entry. Short of
+    BTC, the message names the entry that runs short, which may be a later
+    one: it says so (as a delete does)."""
+    try:
+        recalculate_all_transactions(db)
+    except HTTPException as e:
+        if e.status_code != 400:
+            raise
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not saved: with it, the account would lack BTC on its date or later. {e.detail}",
+        ) from e
+
+
+def _is_backdated(new_tx: Transaction, db: Session) -> bool:
+    """Whether a new transaction is dated before the latest one: it changes
+    which lots the later ones used, so everything is recalculated, in time
+    order."""
     latest_other_tx = (
         db.query(Transaction)
         .filter(Transaction.id != new_tx.id)
@@ -145,12 +218,13 @@ def _recalculate_if_backdated(new_tx: Transaction, db: Session) -> None:
             f"[Backdated Create] New tx {new_tx.id} at {new_tx.timestamp} is earlier than "
             f"existing tx {latest_other_tx.id} at {latest_other_tx.timestamp}. Triggering recalculation."
         )
-        recalculate_all_transactions(db)
+        return True
+    return False
 
 
 _VALIDATED_FIELDS = (
     "type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
-    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "source", "purpose", "acquired_at",
+    "cost_basis_usd", "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "source", "purpose", "acquired_at",
 )
 
 # What each type takes as input. A Sell's or Withdrawal's cost basis (and a
@@ -177,10 +251,14 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
+    _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
-    _check_edit(tx, tx_data, type_changed, db)
-    _revalue_btc_fee(tx, tx_data, db)
+    with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
+        _check_edit(tx, tx_data, type_changed, db)
+        _revalue_btc_fee(tx, tx_data, db)
+        _revalue_spent_proceeds(tx, tx_data, db)
     _apply_edit(tx, tx_data, type_changed)
+    tx.price_moment = _price_moment(tx)
     tx.updated_at = datetime.now(timezone.utc)
     db.flush()
 
@@ -219,10 +297,33 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     return type_changed
 
 
+def _check_inherited_date_sent(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """
+    A BTC deposit's source changed to or from Inherited must say its date in
+    the same edit (#154): a date of death and a date originally acquired
+    aren't the same date, and the stored one would silently become the other
+    (a Gift entered with the person's purchase date, then made Inherited, was
+    priced and sorted by that purchase date). A row that takes no date after
+    the edit (a dollar deposit, an income source) has none to carry over.
+    """
+    if "source" not in tx_data or "acquired_at" in tx_data:
+        return
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "source", "to_account_id")}
+    to_acct = db.get(Account, edited["to_account_id"]) if edited["to_account_id"] else None
+    if not _takes_original_date(getattr(edited["type"], "value", edited["type"]), edited["source"], to_acct):
+        return
+    was, becomes = _is_inherited({"source": tx.source}), _is_inherited(tx_data)
+    if becomes and not was:
+        _bad("Changing a deposit's source to Inherited needs its date of death (acquired_at) in the same edit.")
+    if was and not becomes and tx.acquired_at is not None:
+        _bad("Changing an Inherited deposit to My BTC or Gift needs its date originally acquired (acquired_at, "
+             "or null for the deposit's date) in the same edit.")
+
+
 def _drop_original_date_if_not_allowed(tx: Transaction, tx_data: dict, db: Session) -> None:
-    """An edit that makes the row something other than a My BTC or Gift
-    deposit into a BTC account drops its date originally acquired (unless it
-    sends one, which the checks then refuse)."""
+    """An edit that makes the row something other than a My BTC, Gift or
+    Inherited deposit into a BTC account drops its date originally acquired
+    (unless it sends one, which the checks then refuse)."""
     if tx.acquired_at is None or "acquired_at" in tx_data:
         return
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "source", "to_account_id")}
@@ -250,22 +351,25 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
             tx_data[key] = merged.get(key)
     if any(k in tx_data for k in ("type", "from_account_id", "to_account_id")):
         _enforce_transaction_type_rules(merged, db)
-    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id")):
+    if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id",
+                                  "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
 
 
-# What an income or rebate deposit's value depends on: the day's price x the
-# amount, and whether it is one into a BTC account at all.
-_INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp")
+# What an income, rebate or inherited deposit's value depends on: the price
+# x the amount (the hour's when received; an inheritance's, the day's of the
+# date of death in acquired_at), and whether it is one into a BTC account.
+_INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp", "acquired_at")
 
 
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
     An income or rebate deposit's value after an edit (#76). A typed one is
-    kept. One that came from the day's price, or a blank or $0 one (the form
-    sends 0 for a blank), is valued again at the day's price when the edit
-    changes what it depends on: the account, amount or day, or a source not
+    kept. One that came from a price, or a blank or $0 one (the form sends 0
+    for a blank), is valued again at the hour's price (an inheritance: its
+    date of death's day price) when the edit changes what it depends on:
+    the account, amount or hour (date of death), or a source not
     valued at receipt becoming one (_income_inputs_changed). A type change
     makes the row's figure its own, typed.
     """
@@ -287,11 +391,12 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     if _typed_basis(tx, tx_data):
         tx_data["cost_basis_from_price"] = False
         return
-    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data):
+    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db):
         edited["cost_basis_usd"] = None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
         tx_data["cost_basis_from_price"] = True
+        _note_moment(tx_data, edited["price_moment"])
 
 
 def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
@@ -305,12 +410,13 @@ def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
                 and sent == Decimal(tx.cost_basis_usd).quantize(Decimal("0.01")))
 
 
-def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
-    """Whether the edit changes an input of the day's value: the account,
-    amount, UTC day (the price's day) or type, or a source that wasn't
-    valued at receipt. Between two sources that are (Reward to Rebate, the
-    fix #98 asks of users) the value can't change, so it isn't priced again
-    and needs no price."""
+def _income_inputs_changed(tx: Transaction, tx_data: dict, db: Session) -> bool:
+    """Whether the edit changes an input of the priced value: the account,
+    amount, the price's moment (the deposit's UTC hour, or an
+    inheritance's date of death: _valuation_point) or type, or a source
+    that wasn't valued at receipt. Between two sources that are (Reward to
+    Rebate, the fix #98 asks of users) the value can't change, so it isn't
+    priced again and needs no price."""
     for key in ("type", "to_account_id"):
         if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
             return True
@@ -319,14 +425,69 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
         return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
+    tz = get_tax_timezone(db)
+    return _valuation_point(tx_data, tx, tz) != _valuation_point({}, tx, tz)
+
+
+def price_used(tx: Transaction, db: Session, years: dict | None = None) -> dict | None:
+    """
+    The stored price a transaction's filled-in values came from (an income
+    or rebate value, Spent proceeds, a BTC fee's value), for the form and the
+    API (#145): its hour or day, source and USD per BTC. Read from this
+    install's table and files only, never asked for. Given only when a value
+    it filled in is that price times its amount to the cent: a value priced
+    elsewhere (an import, another tax timezone since) names no price. One
+    matching value names it for the transaction: a Spent's typed proceeds
+    beside a priced fee keep their own "typed" mark in the form. None otherwise. `years`: a cache
+    of the year files for one request (a list of many transactions).
+    """
+    values = _priced_amounts(tx)
+    if not values or tx.price_moment not in ("hour", "day") or tx.timestamp is None:
+        return None
+    when = tx.timestamp
+    if _is_inherited({"source": tx.source}) and tx.acquired_at is not None:
+        when = date_of_death(tx.acquired_at, db)  # a date: its day's price (#154, #177)
+    found = hourly_prices.stored_price_at(db, when, tx.price_moment, years)
+    if found is None or not any(abs(found.usd * btc - usd) <= CENT for usd, btc in values):
+        return None
+    return {"at": found.at.isoformat().replace("+00:00", "Z"), "moment": found.moment,
+            "source": found.source, "usd_per_btc": found.usd}
+
+
+def _priced_amounts(tx: Transaction) -> list[tuple[Decimal, Decimal]]:
+    """(USD value, BTC it values) for each value BitcoinTX filled in from a price."""
+    out = []
+    if tx.cost_basis_from_price and tx.cost_basis_usd is not None:
+        out.append((Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
+        out.append((Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
+    if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
+        out.append((Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
+    return out
+
+
+def _valuation_point(edited: dict, tx: Transaction, tz):
+    """When a valued deposit is priced, after the edit `edited`: an
+    inheritance on its date of death (date_of_death), anything else at its
+    UTC hour."""
+    if _is_inherited({"source": edited.get("source", tx.source)}):
+        moment = edited.get("acquired_at", tx.acquired_at) or edited.get("timestamp", tx.timestamp)
+        return local_date(moment, tz) if moment is not None else None
+    moment = edited.get("timestamp", tx.timestamp)
+    return hourly_prices.hour_of(moment) if moment is not None else None
+
+
+def _hour_changed(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit moves the transaction to another UTC hour: the hour
+    whose price values it."""
     if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
-        return price_history.utc_day(tx_data["timestamp"]) != price_history.utc_day(tx.timestamp)
+        return hourly_prices.hour_of(tx_data["timestamp"]) != hourly_prices.hour_of(tx.timestamp)
     return False
 
 
 def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
     """A BTC fee's USD value: a typed one is kept; otherwise it is priced
-    again when the fee or the date changes (fee_usd sent as null clears a
+    again when the fee or the hour changes (fee_usd sent as null clears a
     typed one)."""
     if "fee_usd" not in tx_data and (tx.fee_usd_manual or not _fee_inputs_changed(tx, tx_data)):
         return
@@ -335,6 +496,98 @@ def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
         tx.fee_usd if tx.fee_usd_manual else None)
     _value_btc_fee(fee, db, manual=fee["fee_usd"] is not None)
     tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
+    if "price_moment" in fee:
+        _note_moment(tx_data, fee["price_moment"])
+
+
+def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """
+    A Spent's proceeds that came from a price, after an edit: a typed value
+    is kept (the form sends back the value it shows: that isn't a typed
+    one), and a change of purpose or type makes them typed; a blank or $0
+    one, or one whose amount or hour the edit changes, is priced again.
+    """
+    if not tx.proceeds_from_price:
+        return
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "amount", "timestamp")}
+    if not _is_spent(edited) or _typed_proceeds(tx, tx_data):
+        tx_data["proceeds_from_price"] = False
+        return
+    if not (_cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)):
+        return
+    priced = _price_at(edited["timestamp"], db)
+    tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = (priced.usd * Decimal(edited["amount"])).quantize(Decimal("0.01"))
+    _note_moment(tx_data, priced.moment)
+
+
+def _sent_proceeds(tx_data: dict):
+    """The proceeds an edit sends (the gross first: _apply_edit stores it first), or None."""
+    return tx_data["gross_proceeds_usd"] if "gross_proceeds_usd" in tx_data else tx_data.get("proceeds_usd")
+
+
+def _typed_proceeds(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit types a Spent's proceeds: a positive value that isn't the stored one sent back."""
+    sent = _sent_proceeds(tx_data)
+    return sent is not None and Decimal(sent) > 0 \
+        and Decimal(sent).quantize(Decimal("0.01")) != Decimal(tx.gross_proceeds_usd or 0)
+
+
+def _cleared_proceeds(tx_data: dict) -> bool:
+    """Whether the edit sends the proceeds blank (the form's null for an emptied field) or $0."""
+    sent = _sent_proceeds(tx_data)
+    return ("gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data) and (sent is None or Decimal(sent) <= 0)
+
+
+def _spent_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
+    if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
+        return True
+    return _hour_changed(tx, tx_data)
+
+
+def _keeps_a_day_price(tx: Transaction, tx_data: dict) -> bool:
+    """
+    Whether an edit prices one of a Spent's values (its proceeds, its fee's
+    value: priced again, or priced now) while the other keeps the day's
+    price: then the one priced takes the day's price too, so the
+    transaction's values share one price, and Ledger Review offers both at
+    the hour.
+    """
+    if tx.price_moment != "day":
+        return False
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "fee_amount", "fee_currency")}
+    edited["type"] = getattr(edited["type"], "value", edited["type"])
+    if not (_is_spent(edited) and tx.proceeds_from_price and tx.gross_proceeds_usd is not None) \
+            or _typed_proceeds(tx, tx_data):
+        return False
+    proceeds_priced = _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
+    fee = _fee_after_edit(tx, tx_data, edited)
+    return (proceeds_priced and fee == "kept") or (fee == "priced" and not proceeds_priced)
+
+
+def _fee_after_edit(tx: Transaction, tx_data: dict, edited: dict) -> str | None:
+    """A BTC fee's value after an edit: "kept" (priced, untouched), "priced"
+    (by the edit: a new fee, new fee inputs, a typed value cleared), or None
+    (no BTC fee, or a typed value)."""
+    if not _has_btc_fee(edited) or tx_data.get("fee_usd") is not None:
+        return None
+    if "fee_usd" in tx_data or tx.fee_usd is None or _fee_inputs_changed(tx, tx_data):
+        return "priced"
+    return None if tx.fee_usd_manual else "kept"
+
+
+@contextmanager
+def _priced_at_the_day(db: Session, at_the_day: bool):
+    """Within it, a value priced is priced at the day (_price_at)."""
+    before = db.info.get(DAY_PRICES)
+    db.info[DAY_PRICES] = at_the_day
+    try:
+        yield
+    finally:
+        db.info[DAY_PRICES] = before
+
+
+# Session.info key: price at the day, not the hour (_priced_at_the_day)
+DAY_PRICES = "btctx_price_at_the_day"
 
 
 # Written as given when the edit sends them, in this order.
@@ -353,7 +606,8 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
         tx.broker_reporting = tx_data["broker_reporting"]
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
-    for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd", "acquired_at"):
+    for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd", "acquired_at",
+                "price_moment", "proceeds_from_price"):
         if key in tx_data:
             setattr(tx, key, tx_data[key])
     if "gross_proceeds_usd" in tx_data:
@@ -406,6 +660,12 @@ def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> s
     return "LONG" if local_date(disposed, tz) > anniversary else "SHORT"
 
 
+def lot_holding_period(lot: BitcoinLot, disposed: datetime, tz=timezone.utc) -> str:
+    """A disposal's term from its lot: inherited coins are long-term however
+    soon they're sold (IRC §1223(9), #154); others by holding_period()."""
+    return "LONG" if lot.inherited else holding_period(lot.acquired_date, disposed, tz)
+
+
 # Types whose proceeds are derived (net of fees) from the user's gross input
 GROSS_PROCEEDS_TYPES = ("Sell", "Withdrawal")
 
@@ -429,7 +689,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     Gross USD proceeds for a BTC Withdrawal, recorded on the transaction so
     recalculation always starts from the same number.
       - Spent with no proceeds given (River/CSV imports): FMV of the amount at
-        the day's price, fetched once.
+        the hour's price, fetched once, and marked as priced.
       - Rows saved before the gross was recorded: their proceeds_usd is net of
         the BTC fee offset versions before 0.9.2 applied; undo it once. The
         gross is what was received for the amount spent (the fee is its own
@@ -445,7 +705,10 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         # network fee's (its own disposal), never a gross to recover.
         return Decimal("0")
     if tx.proceeds_usd is None:
-        gross = (_price_for(tx, "it has no Proceeds (USD) value", db) * amount).quantize(Decimal("0.01"))
+        priced = _price_for(tx, "it has no Proceeds (USD) value", db)
+        gross = (priced.usd * amount).quantize(Decimal("0.01"))
+        tx.proceeds_from_price = True
+        tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
@@ -642,11 +905,13 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     new_lot = BitcoinLot(
         created_txn_id=tx.id,
         # Coins already owned (My BTC) or a gift with the giver's basis keep
-        # their holding period from when they were first acquired (#91)
+        # their holding period from when they were first acquired (#91);
+        # inherited coins are dated by the date of death (#154)
         acquired_date=tx.acquired_at or tx.timestamp,
         total_btc=btc_amount,
         remaining_btc=btc_amount,
         cost_basis_usd=cost_basis,
+        inherited=tx.type == "Deposit" and _is_inherited({"source": tx.source}),
     )
     db.add(new_lot)
     db.flush()
@@ -655,8 +920,8 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
 def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     """
     For a Sell/Withdrawal from a BTC account, do FIFO disposal of partial lots.
-    - The proceeds are for the amount sold or spent: a Sell's net proceeds,
-      a Spent withdrawal's full proceeds (no fee cut).
+    - The proceeds are for the amount sold or spent, net of its fee: a Sell's
+      net proceeds, a Spent withdrawal's gross less its BTC fee's value.
     - Gift/Donation/Lost => the amount carries no proceeds and no gain.
     - A withdrawal's BTC network fee is its own disposal (like a transfer's),
       at the fee's stored USD value, taxable whatever the purpose. It uses the
@@ -680,6 +945,8 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
+    if tx.type == "Withdrawal" and (tx.purpose or "").lower() == "spent":
+        total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
     for lot in _open_lots(tx.from_account_id, db):
@@ -717,6 +984,20 @@ def _amount_proceeds(tx: Transaction, tx_data: dict, btc_outflow: Decimal, db: S
         return Decimal("0")
 
 
+def _spend_net_of_fee(gross: Decimal, fee_usd: Decimal) -> tuple[Decimal, Decimal]:
+    """
+    A spend's proceeds and its fee disposal's. The fee paid to make the spend
+    is a cost of it, so it comes off what the spend brought in (Treas. Reg.
+    §1.1001-7(b)(2)(ii)(A) and its Example 4, IRS digital-asset FAQ Q63;
+    #157), while the coins that paid it are disposed of at its value (Q97).
+    Together they realize the gross. A fee worth more than the gross takes
+    only the gross, so no proceeds go below zero. Always from the gross: the
+    net again, less the fee, would shrink with every recalculation.
+    """
+    fee_proceeds = min(fee_usd, gross)
+    return gross - fee_proceeds, fee_proceeds
+
+
 def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
     """The account's lots with BTC left, oldest first."""
     return (
@@ -736,7 +1017,8 @@ class _FifoDisposal:
     A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
     fee's part before the amount's, each with its share of the proceeds.
     The last part of each takes what is left, so the parts add up exactly
-    to fee_usd and to the proceeds.
+    to the fee's value (fee_usd; a spend's at most its gross) and to the
+    proceeds.
     """
 
     def __init__(self, tx: Transaction, amount_btc: Decimal, total_proceeds: Decimal, not_a_sale: bool,
@@ -781,7 +1063,7 @@ class _FifoDisposal:
             disposal_basis_usd=basis,
             proceeds_usd_for_that_portion=proceeds,
             realized_gain_usd=Decimal("0.0") if gain_zero else proceeds - basis,
-            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, self.tz),
+            holding_period=lot_holding_period(lot, self.tx.timestamp, self.tz),
             is_fee=is_fee,
         ))
         lot.remaining_btc -= qty
@@ -790,8 +1072,9 @@ class _FifoDisposal:
 def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     """
     Summarize partial-lot disposals (Sell/Withdrawal). Overwrite
-    tx.cost_basis_usd, tx.proceeds_usd, tx.realized_gain_usd, holding_period
-    based on the earliest acquisition date among those partial-lot disposals.
+    tx.cost_basis_usd, tx.proceeds_usd, tx.realized_gain_usd, and
+    holding_period: LONG when any part is (the earliest lot's, as before
+    inherited coins, #154, which are long-term whatever their date).
     The figures are for the amount sold or spent; a network fee's disposal
     is left out, as for a transfer (its value is tx.fee_usd, its gain is on
     Form 8949 and in the gain totals).
@@ -808,16 +1091,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     total_basis = Decimal("0.0")
     total_gain = Decimal("0.0")
     total_proceeds = Decimal("0.0")
-    earliest_date = None
 
     for disp in disposals:
         total_basis += (disp.disposal_basis_usd or Decimal("0"))
         total_gain += (disp.realized_gain_usd or Decimal("0"))
         total_proceeds += (disp.proceeds_usd_for_that_portion or Decimal("0"))
-
-        lot = disp.lot  # Eager loaded, no additional query
-        if lot and (earliest_date is None or lot.acquired_date < earliest_date):
-            earliest_date = lot.acquired_date
 
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
@@ -826,13 +1104,12 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0:
+    elif total_proceeds > 0 or tx.type == "Withdrawal":
+        # A spend whose fee took all it brought in has 0 (#157), not the gross
         tx.proceeds_usd = total_proceeds
 
-    if earliest_date:
-        tx.holding_period = holding_period(earliest_date, tx.timestamp, get_tax_timezone(db))
-    else:
-        tx.holding_period = None
+    # Each part's own term, worked out when it was disposed of (lot_holding_period)
+    tx.holding_period = "LONG" if any(d.holding_period == "LONG" for d in disposals) else "SHORT"
 
     db.flush()
 
@@ -853,19 +1130,13 @@ def _fee_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     Whether an edit really changes what a fee's value depends on. The form
     sends every field on each edit; an unchanged fee keeps its stored value.
     """
-    def utc(ts):
-        return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-
     if "type" in tx_data and getattr(tx_data["type"], "value", tx_data["type"]) != tx.type:
         return True
     if "fee_currency" in tx_data and (tx_data["fee_currency"] or "").upper() != (tx.fee_currency or "").upper():
         return True
     if "fee_amount" in tx_data and Decimal(tx_data["fee_amount"] or 0) != Decimal(tx.fee_amount or 0):
         return True
-    if "timestamp" in tx_data and tx_data["timestamp"] is not None and tx.timestamp is not None:
-        return utc(tx_data["timestamp"]).astimezone(timezone.utc).date() != \
-            utc(tx.timestamp).astimezone(timezone.utc).date()
-    return False
+    return _hour_changed(tx, tx_data)
 
 
 def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
@@ -873,7 +1144,8 @@ def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
     Set data["fee_usd"] / data["fee_usd_manual"]: the USD value of a
     transfer's or withdrawal's BTC fee, stored with the transaction so
     recalculation never prices it again. A typed value (manual) is kept;
-    otherwise fee x that day's price. No BTC fee: no value.
+    otherwise fee x the hour's price, its moment in data["price_moment"].
+    No BTC fee: no value.
     """
     if not _has_btc_fee(data):
         data["fee_usd"], data["fee_usd_manual"] = None, False
@@ -884,14 +1156,15 @@ def _value_btc_fee(data: dict, db: Session, manual: bool) -> None:
         return
     ts = data.get("timestamp") or datetime.now(timezone.utc)
     try:
-        price = get_btc_price(ts, db)
+        priced = _price_at(ts, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
             detail=f"{e.detail} For the network fee, type its USD value in Fee value (USD) (fee_usd in an import).",
         )
-    data["fee_usd"] = (price * Decimal(data["fee_amount"])).quantize(Decimal("0.01"))
+    data["fee_usd"] = (priced.usd * Decimal(data["fee_amount"])).quantize(Decimal("0.01"))
     data["fee_usd_manual"] = False
+    _note_moment(data, priced.moment)
 
 
 def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
@@ -901,18 +1174,21 @@ def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
     the value kept, so later recalculations don't price it again.
     """
     if tx.fee_usd is None:
-        price = _price_for(tx, "its network fee has no USD value", db)
-        tx.fee_usd = (price * fee_btc).quantize(Decimal("0.01"))
+        priced = _price_for(tx, "its network fee has no USD value", db)
+        tx.fee_usd = (priced.usd * fee_btc).quantize(Decimal("0.01"))
         tx.fee_usd_manual = False
+        tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     return Decimal(tx.fee_usd)
 
 
-def _price_for(tx: Transaction, missing: str, db: Session) -> Decimal:
-    """The day's price for a stored transaction's missing value; without one,
-    a 422 naming the transaction (a report fails on it, and the day alone
-    doesn't say which entry to fix)."""
+def _price_for(tx: Transaction, missing: str, db: Session) -> hourly_prices.Priced:
+    """The price for a stored transaction's missing value: at the moment its
+    other priced values have (so they share one price), else at the hour;
+    without one, a 422 naming the transaction (a report fails on it, and the
+    day alone doesn't say which entry to fix)."""
     try:
-        return get_btc_price(tx.timestamp, db)
+        with _priced_at_the_day(db, tx.price_moment == "day"):
+            return _price_at(tx.timestamp, db)
     except HTTPException as e:
         day = tx.timestamp.date().isoformat() if tx.timestamp else "an unknown day"
         amount = format(Decimal(tx.amount or 0).normalize(), "f")
@@ -922,20 +1198,50 @@ def _price_for(tx: Transaction, missing: str, db: Session) -> Decimal:
         ) from e
 
 
-def get_historical_btc_price(timestamp: datetime, db: Session) -> Decimal:
+def _price_at(timestamp: datetime, db: Session) -> hourly_prices.Priced:
     """
-    The day's BTC price in USD for the timestamp's UTC date, from the local
-    price history (services/price_history.py). Never today's live price.
-    Raises 422 when no price is available.
+    The BTC price that values `timestamp`: its UTC hour's opening price,
+    else its UTC day's, and which (services/hourly_prices.py); the day's
+    within _priced_at_the_day. Never today's live price. Raises 422 when no
+    price is available.
     """
-    return price_history.daily_price(db, timestamp)
+    if db.info.get(DAY_PRICES):
+        day = price_history.utc_day(timestamp)
+        return hourly_prices.Priced(price_history.daily_price(db, timestamp), "day",
+                                    datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
+    return hourly_prices.price_at(db, timestamp)
+
+
+def date_of_death(moment: datetime, db: Session):
+    """
+    An inheritance's date of death (#154): a calendar date, the one the
+    owner entered, which acquired_at holds as noon in the tax timezone (or
+    a time a file gave). So its date in the tax timezone, never its UTC
+    day: more than 12 hours ahead of UTC (UTC+13, +14) noon is the day
+    before in UTC, 12 hours behind (UTC-12) the day after, and a file's
+    time near midnight can be another day in UTC too (#177).
+    """
+    return local_date(moment, get_tax_timezone(db))
+
+
+def date_of_death_price(db: Session, moment: datetime) -> hourly_prices.Priced:
+    """An inheritance's price: the date of death has no hour, so that date's
+    00:00 UTC price (price_history.daily_price), marked "day". 422 when
+    there's none."""
+    day = date_of_death(moment, db)
+    return hourly_prices.Priced(price_history.daily_price(db, day), "day",
+                                datetime(day.year, day.month, day.day, tzinfo=timezone.utc))
 
 
 def _valued_at_receipt(tx_data: dict, db: Session) -> bool:
-    """A deposit with source Income, Interest, Reward or Rebate into a BTC account."""
+    """A deposit with source Income, Interest, Reward, Rebate or Inherited into a BTC account."""
     if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in VALUED_AT_RECEIPT:
         return False
     return _into_btc(tx_data, db)
+
+
+def _is_inherited(tx_data: dict) -> bool:
+    return str(tx_data.get("source") or "").strip().lower() == INHERITED_SOURCE
 
 
 def _into_btc(tx_data: dict, db: Session) -> bool:
@@ -948,9 +1254,12 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     An income or rebate deposit (source Income, Interest, Reward or Rebate
     into a BTC account) has a cost basis equal to its market value at
     receipt, which for income is also the income on the tax report (a rebate
-    is never income, #98). Entered without one (blank, or the form's 0),
-    value it at the day's BTC price instead of saving $0; refuse to save when
-    no price is available. Returns True when it filled cost_basis_usd.
+    is never income, #98); an inherited one, its value on the date of death
+    (IRC §1014; never income, #154). Entered without one (blank, or the
+    form's 0), value it at the hour's BTC price (an inheritance: the date of
+    death's day price; its moment in tx_data["price_moment"]) instead of
+    saving $0; refuse to save when no price is available. Returns True when
+    it filled cost_basis_usd.
     """
     if not _valued_at_receipt(tx_data, db) or Decimal(tx_data.get("cost_basis_usd") or 0) > 0:
         return False
@@ -958,35 +1267,29 @@ def _value_at_receipt(tx_data: dict, db: Session) -> bool:
     if amount <= 0:
         return False
 
-    timestamp = tx_data.get("timestamp") or datetime.now(timezone.utc)
+    # When it was acquired: the day received, or an inheritance's date of
+    # death (#154; only those deposits of the four have an acquired_at)
+    moment = tx_data.get("acquired_at") or tx_data.get("timestamp") or datetime.now(timezone.utc)
+    when = "on the date of death" if _is_inherited(tx_data) else "at receipt"
     try:
-        price = get_historical_btc_price(timestamp, db)
+        priced = date_of_death_price(db, moment) if _is_inherited(tx_data) else _price_at(moment, db)
     except HTTPException as e:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"{e.detail} Enter this {tx_data['source']} deposit's USD value "
-                "at receipt as its cost basis."
-            ),
+            detail=f"{e.detail} Enter this {tx_data['source']} deposit's USD value {when} as its cost basis.",
         )
-    tx_data["cost_basis_usd"] = (price * amount).quantize(Decimal("0.01"))
+    tx_data["cost_basis_usd"] = (priced.usd * amount).quantize(Decimal("0.01"))
+    _note_moment(tx_data, priced.moment)
     return True
-
-
-def get_btc_price(timestamp: datetime, db: Session) -> Decimal:
-    """
-    The BTC price in USD for the timestamp's UTC day, from the local price
-    history. It used to fall back to the live price when the day's lookup
-    failed, which valued past fees and spends at today's price; now a
-    missing price is a 422 (services/price_history.py).
-    """
-    return price_history.daily_price(db, timestamp)
 
 
 def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     """
     Splits source lots for an internal BTC transfer from one BTC account to another,
     disposing the fee portion and carrying forward the remainder as a new partial-lot.
+    A move within one account (a UTXO consolidation, or between two wallets
+    BitcoinTX pools, #159) disposes of the fee only: the coins that moved stay
+    in their lots, with their dates and basis.
     """
     from_acct = db.get(Account, tx.from_account_id)
     to_acct = db.get(Account, tx.to_account_id)
@@ -1008,26 +1311,26 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     if btc_outflow <= 0:
         return
 
-    move = _LotMove(tx, btc_outflow, fee_btc, db)
-    for lot in _open_lots(tx.from_account_id, db):
-        if move.remaining_outflow <= 0:
-            break
-        if lot.remaining_btc <= 0:
-            continue
-        move.take_from(lot)
+    lots = _open_lots(tx.from_account_id, db)
+    if tx.from_account_id == tx.to_account_id:
+        btc_outflow = _fee_leaving_account(lots, btc_outflow, fee_btc)
 
-    if move.remaining_fee > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Not enough BTC to cover fee {fee_btc}"
-        )
-    if move.remaining_outflow > 0:
+    move = _LotMove(tx, btc_outflow, fee_btc, db)
+    move.take_all(lots)
+    move.add_destination_lots()
+    db.flush()
+
+
+def _fee_leaving_account(lots: list[BitcoinLot], btc_outflow: Decimal, fee_btc: Decimal) -> Decimal:
+    """A move within one account (#159): the coins sent must be there, as for
+    any transfer, and only the fee leaves the account (IRS digital-asset FAQ
+    Q81, Q97). What leaves it."""
+    if sum(lot.remaining_btc for lot in lots) < btc_outflow:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to transfer {btc_outflow} (including fee {fee_btc})"
         )
-    move.add_destination_lots()
-    db.flush()
+    return fee_btc
 
 
 class _LotMove:
@@ -1041,11 +1344,29 @@ class _LotMove:
     """
 
     def __init__(self, tx: Transaction, btc_outflow: Decimal, fee_btc: Decimal, db: Session):
-        self.tx, self.fee_btc, self.db = tx, fee_btc, db
+        self.tx, self.btc_outflow, self.fee_btc, self.db = tx, btc_outflow, fee_btc, db
         self.remaining_outflow = btc_outflow
         self.remaining_fee = fee_btc
         self.fee_proceeds_so_far = Decimal("0")
-        self.to_destination: list[tuple[Decimal, Decimal, datetime]] = []
+        self.to_destination: list[tuple[Decimal, Decimal, datetime, bool]] = []
+
+    def take_all(self, lots: list[BitcoinLot]) -> None:
+        """The whole outflow from `lots`, oldest first; too little BTC is a 400."""
+        for lot in lots:
+            if self.remaining_outflow <= 0:
+                break
+            if lot.remaining_btc > 0:
+                self.take_from(lot)
+        if self.remaining_fee > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough BTC to cover fee {self.fee_btc}"
+            )
+        if self.remaining_outflow > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough BTC to transfer {self.btc_outflow} (including fee {self.fee_btc})"
+            )
 
     def take_from(self, lot: BitcoinLot) -> None:
         btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
@@ -1061,7 +1382,7 @@ class _LotMove:
         if portion_for_fee > 0:
             self.dispose_fee(lot, portion_for_fee, cost_per_btc)
         if portion_for_dest > 0:
-            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date))
+            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date, lot.inherited))
 
     def dispose_fee(self, lot: BitcoinLot, portion: Decimal, cost_per_btc: Decimal) -> None:
         disposal_basis = (cost_per_btc * portion).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
@@ -1079,13 +1400,13 @@ class _LotMove:
             disposal_basis_usd=disposal_basis,
             proceeds_usd_for_that_portion=proceeds_for_fee,
             realized_gain_usd=proceeds_for_fee - disposal_basis,
-            holding_period=holding_period(lot.acquired_date, self.tx.timestamp, get_tax_timezone(self.db)),
+            holding_period=lot_holding_period(lot, self.tx.timestamp, get_tax_timezone(self.db)),
             is_fee=True,
         ))
         self.remaining_fee -= portion
 
     def add_destination_lots(self) -> None:
-        for amt_btc, cost_per_btc, acquired_date in self.to_destination:
+        for amt_btc, cost_per_btc, acquired_date, inherited in self.to_destination:
             if acquired_date.tzinfo is None:
                 acquired_date = acquired_date.replace(tzinfo=timezone.utc)
             cost_portion = (cost_per_btc * amt_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
@@ -1094,7 +1415,8 @@ class _LotMove:
                 acquired_date=acquired_date,
                 total_btc=amt_btc,
                 remaining_btc=amt_btc,
-                cost_basis_usd=cost_portion
+                cost_basis_usd=cost_portion,
+                inherited=inherited,  # inherited coins stay inherited (#154)
             ))
 
 
@@ -1215,12 +1537,14 @@ def _enforce_broker_reporting(tx_type, value) -> None:
 USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXCHANGE_BTC, ACCOUNT_EXTERNAL}
 TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
 WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")
-DEPOSIT_SOURCES = ("MyBTC", "Gift", "Income", "Interest", "Reward", "Rebate", "N/A")
+DEPOSIT_SOURCES = ("MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate", "N/A")
 GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
+SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 
 
 def _canonical(value, choices) -> str | None:
@@ -1362,9 +1686,15 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
         if data.get("purpose") not in WITHDRAWAL_PURPOSES:
             _bad("A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
 
+    # Inherited coins are valued, and sorted first in, first out, by the date
+    # of death (#154): without it, the deposit's date would stand in silently
+    if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
+            and _is_inherited(data) and data.get("acquired_at") is None:
+        _bad(INHERITED_NEEDS_DATE)
+
     # A BTC deposit that isn't income or a rebate (MyBTC, Gift, N/A...) needs
     # its cost basis stated: a blank one would make its whole value gain when
-    # it's sold. Income and rebates are valued at the day's price instead
+    # it's sold. Income and rebates are valued at the hour's price instead
     # (_value_at_receipt).
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
             and (data.get("source") or "").lower() not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
@@ -1373,23 +1703,26 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:
     return tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
-        and (source or "").lower() in ORIGINAL_DATE_SOURCES
+        and str(source or "").strip().lower() in ORIGINAL_DATE_SOURCES
 
 
 def original_date_problem(tx_type: str | None, source: str | None, into_btc: bool, acquired: datetime,
                           deposit: datetime, tz) -> str | None:
     """
     Why a date originally acquired can't go on this row, or None. Only on a
-    My BTC or Gift deposit into a BTC account, after Bitcoin began, and no
-    later than the deposit's day: compared as days in the tax timezone, so
-    coins first acquired the morning of a deposit made at noon are allowed.
+    My BTC, Gift or Inherited deposit (its date of death) into a BTC account,
+    after Bitcoin began, and no later than the deposit's day: compared as
+    days in the tax timezone, so coins first acquired the morning of a
+    deposit made at noon are allowed.
     """
     if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
-        return "A date originally acquired is only for a My BTC or Gift deposit into Wallet or Exchange BTC."
+        return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
+                "death, into Wallet or Exchange BTC.")
+    what = "The date of death" if _is_inherited({"source": source}) else "The date originally acquired"
     if as_utc(acquired) < GENESIS:
-        return "The date originally acquired is before Bitcoin existed (3 January 2009)."
+        return f"{what} is before Bitcoin existed (3 January 2009)."
     if local_date(acquired, tz) > local_date(deposit, tz):
-        return "The date originally acquired can't be after the deposit's date."
+        return f"{what} can't be after the deposit's date."
     return None
 
 
@@ -1445,7 +1778,8 @@ def _fill_stored_fee_currency(tx: Transaction, db: Session) -> None:
 def _enforce_fee_rules(tx_data: dict, db: Session):
     """
     Validate fee usage by transaction type:
-      - Transfer => fee must match from_acct currency
+      - Transfer => fee must match from_acct currency; a move within one
+        account (#159) records only its fee, so it needs one
       - Buy/Sell => fee must be USD
       - Deposit/Withdrawal => no special fee rule
     """
@@ -1453,6 +1787,9 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
     from_id = tx_data.get("from_account_id")
     fee_amt = Decimal(tx_data.get("fee_amount") or 0)
     fee_cur = (tx_data.get("fee_currency") or "").upper()  # filled by _fill_fee_currency
+
+    if tx_type == "Transfer" and from_id == tx_data.get("to_account_id") and fee_amt <= 0:
+        raise HTTPException(status_code=400, detail=SAME_ACCOUNT_NEEDS_FEE)
 
     # If there's no fee, skip checks
     if fee_amt <= 0:
@@ -1501,7 +1838,8 @@ _TYPE_ACCOUNT_RULES = {
     "Transfer": [
         (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL,
          "Transfer => both from/to must be internal."),
-        (lambda f, t: f == t, "Transfer => from and to must be different accounts."),
+        # Only a BTC account can send to itself: a consolidation (#159)
+        (lambda f, t: f == t and f not in BTC_ACCOUNTS, "Transfer => from and to must be different accounts."),
     ],
     "Buy": [
         (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), "Buy => from must be Bank or Exchange USD."),
@@ -1518,8 +1856,9 @@ def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     """
     The accounts each type allows: a Deposit from External to one of the
     user's accounts, a Withdrawal the other way, a Transfer between two of
-    them in the same currency, a Buy from Bank or Exchange USD to Exchange
-    BTC, a Sell from Exchange BTC to Exchange USD.
+    them in the same currency (or from a BTC account to itself: a
+    consolidation, #159), a Buy from Bank or Exchange USD to Exchange BTC, a
+    Sell from Exchange BTC to Exchange USD.
     """
     tx_type = tx_data.get("type")
     from_id = tx_data.get("from_account_id")

@@ -165,7 +165,7 @@ def _realized_gains(disposals: list[LotDisposal]) -> dict[str, Decimal]:
 
 
 def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
-    """What Sells brought in, and what Spent withdrawals paid for."""
+    """What Sells and Spent withdrawals brought in, after their fees."""
     totals = {"sell": Decimal("0.0"), "spent": Decimal("0.0")}
     for tx in transactions:
         if tx.proceeds_usd is None:

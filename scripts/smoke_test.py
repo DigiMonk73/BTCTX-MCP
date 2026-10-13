@@ -25,6 +25,8 @@ creates transactions.
 from __future__ import annotations
 
 import argparse
+import calendar
+import json
 import os
 import shutil
 import socket
@@ -32,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -42,6 +45,8 @@ PASSED: list[str] = []
 SKIPPED: list[str] = []
 # The account the own-server run claims (a new password needs 12+ characters)
 SMOKE_USER, SMOKE_PASSWORD = "smoke-user", "smoke-password-123"
+# What the own server's price sources give (frontend/e2e/fixtures.ts expects them)
+CURRENT_PRICE, PAST_PRICE, BLOCK_HEIGHT = 60000, 50000, 900000
 
 
 class SmokeFailure(Exception):
@@ -64,49 +69,170 @@ def skip(name: str, why: str) -> None:
 def serve(port: int, db_path: str) -> None:
     """Child-process entry: run the app with deterministic offline prices.
 
-    Also used by the Playwright suite (frontend/e2e) to serve the app.
+    Also used by the Playwright suite (frontend/e2e) to serve the app. With
+    BTCTX_SMOKE_OUTSIDE_LOG set, the prices come from a fake internet
+    instead of stubs (fake_internet), and its requests go to that file.
     """
     os.environ["DATABASE_FILE"] = db_path
     sys.path.insert(0, str(ROOT))
 
-    from decimal import Decimal
-
-    import backend.services.bitcoin as bitcoin
-    import backend.services.price_history as price_history
     from backend.services import outbound
 
-    # Fixed prices, but only from a source the settings allow (as for real).
-    def allowed() -> bool:
-        return outbound.current().public_allowed or outbound.current().own_node is not None
-
-    async def find_prices(day, full):
-        return ({day: (Decimal("50000.00"), "stub")} if allowed() else {}), False
-
-    async def current():
-        if not allowed():
-            raise outbound.refuse_public()
-        return {"USD": 60000.0}
-
-    async def block_height():
-        if not allowed():
-            raise outbound.refuse_public()
-        return {"height": 900000}
-
-    price_history.find_prices = find_prices
-    bitcoin.get_current_price = current
-    bitcoin.get_block_height = block_height
+    outside_log = os.environ.get("BTCTX_SMOKE_OUTSIDE_LOG")
+    if outside_log:
+        fake_internet(outside_log)
+    else:
+        stub_prices()
 
     # The owner already chose public price sites (a fresh install asks first),
-    # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset.
-    if os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public") != "unset":
+    # unless a test wants to see that question: BTCTX_SMOKE_PRICE_SOURCE=unset;
+    # or "unconfirmed": public, stored by an older release with no record of
+    # the choice, so the app asks once to confirm it (#145, 2.9).
+    chosen = os.environ.get("BTCTX_SMOKE_PRICE_SOURCE", "public")
+    if chosen != "unset":
         from backend.database import SessionLocal, init_db
 
         init_db()
         with SessionLocal() as db:
-            outbound.save(db, "public", None, False, None)
+            if chosen.startswith("unconfirmed"):  # "unconfirmed", "-off" or "-mempool"
+                stored = {"unconfirmed": "public"}.get(chosen, chosen.removeprefix("unconfirmed-"))
+                outbound._set(db, outbound.SOURCE_KEY, stored)
+                if stored == "mempool":
+                    outbound._set(db, outbound.MEMPOOL_KEY, "http://umbrel.local:3006")
+                db.commit()
+            else:
+                outbound.save(db, "public", None, False, None)
 
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=port, log_level="warning")
+
+
+def stub_prices() -> None:
+    """Replace the price lookups with fixed prices, but only from a source
+    the settings allow (as for real)."""
+    import backend.services.bitcoin as bitcoin
+    import backend.services.hourly_prices as hourly_prices
+    import backend.services.price_history as price_history
+    from backend.services import outbound, price_status
+
+    def allowed() -> bool:
+        return outbound.current().public_allowed or outbound.current().own_node is not None
+
+    async def find_prices(day, full):
+        return ({day: (Decimal(f"{PAST_PRICE}.00"), "stub")} if allowed() else {}), False
+
+    async def current():
+        if not allowed():
+            raise outbound.refuse_public()
+        source = "mempool" if outbound.current().own_node else "kraken"
+        price_status.answered(source)  # as the real lookup records it for the status line
+        return {"USD": float(CURRENT_PRICE), "source": source, "at": bitcoin.now_iso()}
+
+    async def block_height():
+        if not allowed():
+            raise outbound.refuse_public()
+        return {"height": BLOCK_HEIGHT}
+
+    async def no_hours(hour, files_end, stored):
+        return {}
+
+    price_history.find_prices = find_prices
+    bitcoin.get_current_price = current
+    bitcoin.get_block_height = block_height
+    # No hourly prices and no download of the year files: valuations at the
+    # hour take the stubbed day's price.
+    hourly_prices.find_hours = no_hours
+    hourly_prices.start_download = lambda: False
+
+
+def fake_internet(log_path: str) -> None:
+    """
+    Answer the app's requests to outside services from a fake internet, so
+    its own choice of source, fallback and proxy runs (the e2e sidebar
+    matrix). Every price site and mempool server gives the live price and
+    block height of the stubs, and each past day its own price
+    (fake_past_price), except that a host under .invalid (RFC 2606: it never
+    resolves) doesn't answer: a mempool server that's down, or a proxy
+    that's stopped. A request the app's code never makes gets a 404, so it
+    can't produce a price. Each request goes to `log_path` as a JSON line:
+    its URL and the proxy it was sent through.
+    """
+    class FakeInternetClient(httpx.AsyncClient):
+        def __init__(self, *, proxy: str | None = None, **kwargs):
+            def answer(request: httpx.Request) -> httpx.Response:
+                with open(log_path, "a") as log:
+                    log.write(json.dumps({"url": str(request.url), "proxy": proxy}) + "\n")
+                if any(host.endswith(".invalid") for host in (request.url.host, httpx.URL(proxy or "").host)):
+                    raise httpx.ConnectError("no answer (fake internet)", request=request)
+                return _fake_answer(request)
+
+            super().__init__(transport=httpx.MockTransport(answer), **kwargs)
+
+    # services/outbound.py builds every client for outside services (a
+    # backend test checks), and nothing else in this process makes one.
+    httpx.AsyncClient = FakeInternetClient
+
+
+def fake_past_price(midnight: int) -> int:
+    """
+    The fake internet's price for the UTC day starting at `midnight` (Unix
+    seconds): $50,000 plus the day's number mod 100, so a lookup of the day
+    before or after shows (frontend/e2e/fixtures.ts, fakePastPrice).
+    """
+    return PAST_PRICE + (midnight // 86400) % 100
+
+
+def _fake_answer(request: httpx.Request) -> httpx.Response:
+    """What a price site or a mempool server would say (fake_internet)."""
+    import backend.services.bitcoin as bitcoin
+    import backend.services.price_history as price_history
+
+    url, path, params = str(request.url), request.url.path, request.url.params
+    if path.endswith("/api/v1/prices") and not params:  # a mempool server's live price
+        return httpx.Response(200, json={"time": int(time.time()), "USD": CURRENT_PRICE})
+    if path.endswith(price_history.MEMPOOL_HISTORY_PATH) and dict(params) == {"currency": "USD"}:
+        return httpx.Response(200, json={"prices": _mempool_rows(price_history.FIRST_PRICE_DAY)})
+    if (path.endswith("/api/blocks/tip/height") and not params) or url == bitcoin.BLOCKCHAIN_INFO_HEIGHT_URL:
+        return httpx.Response(200, text=str(BLOCK_HEIGHT))
+    tickers = {bitcoin.KRAKEN_TICKER_URL: {"error": [], "result": {"XXBTZUSD": {"c": [str(CURRENT_PRICE), "1"]}}},
+               bitcoin.BITSTAMP_TICKER_URL: {"last": str(CURRENT_PRICE)}}
+    if url in tickers:
+        return httpx.Response(200, json=tickers[url])
+    if url.startswith(price_history.BITSTAMP_OHLC_URL) and _is_bitstamp_block(params):
+        return httpx.Response(200, json={"data": {"ohlc": _bitstamp_rows(params)}})
+    return httpx.Response(404)
+
+
+def _mempool_rows(first: date) -> list[dict]:
+    """A mempool server's hourly record: every day's 00:00 UTC, with the
+    23:00 and 01:00 rows around it (the same price, as mempool's 2% check
+    wants)."""
+    hour, day = 3600, 86400
+    today = int(time.time()) // day * day
+    midnights = range(calendar.timegm(first.timetuple()), today + 1, day)
+    return [{"time": t + offset, "USD": fake_past_price(t)} for t in midnights for offset in (-hour, 0, hour)]
+
+
+def _is_bitstamp_block(params: httpx.QueryParams) -> bool:
+    """Whether it's one of the fixed blocks price_history asks Bitstamp for:
+    the latest days, or a block of days from a block start."""
+    import backend.services.price_history as price_history
+
+    day, size = price_history.DAY, price_history.BITSTAMP_BLOCK
+    if set(params) - {"step", "limit", "start"} or params.get("step") != str(day) or params.get("limit") != str(size):
+        return False
+    first = calendar.timegm(price_history.FIRST_PRICE_DAY.timetuple())
+    return "start" not in params or (int(params["start"]) - first) % (size * day) == 0
+
+
+def _bitstamp_rows(params: httpx.QueryParams) -> list[dict]:
+    """Bitstamp's daily candles: `limit` days from `start`, or the latest ones."""
+    day = 86400
+    today = int(time.time()) // day * day
+    limit = int(params["limit"])
+    start = int(params["start"]) if "start" in params else today - (limit - 1) * day
+    end = min(start + (limit - 1) * day, today)
+    return [{"timestamp": str(t), "open": str(fake_past_price(t))} for t in range(start, end + 1, day)]
 
 
 def free_port() -> int:

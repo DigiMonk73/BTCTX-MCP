@@ -48,7 +48,7 @@ ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import require_login, session_user_id, start_session
-from backend.security_headers import CrossSiteGuardMiddleware, SecurityHeadersMiddleware
+from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
 
 
@@ -63,6 +63,17 @@ def _load_network_settings() -> None:
         logger.exception("Could not read the network settings; using the defaults")
     finally:
         db.close()
+
+
+def _download_hourly_prices() -> None:
+    """A choice that allows public sites (public, or your Mempool with its
+    backup): the hourly price history comes in, in the background (hourly_prices.py)."""
+    from backend.services import hourly_prices
+
+    try:
+        hourly_prices.download_if_public()
+    except Exception:
+        logger.exception("Could not start the hourly price download")
 
 
 def _prepare_first_run() -> None:
@@ -94,11 +105,13 @@ def _sync_ai_key_file() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """At startup: migrate the schema and seed the defaults, then the setup
-    code, the network settings and (Mac app) the AI key file."""
+    code, the network settings, (Mac app) the AI key file, and with public
+    price sites chosen the hourly price history's download."""
     init_db()
     _prepare_first_run()
     _load_network_settings()
     _sync_ai_key_file()
+    _download_hourly_prices()
     yield
 
 app = FastAPI(
@@ -131,6 +144,9 @@ app.add_middleware(
 # A POST, PUT, PATCH or DELETE sent by another site's page (or another app on
 # the same host) with the owner's cookie is refused (403).
 app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
+# The Mac app answers only at 127.0.0.1 or localhost (421 otherwise): a page
+# whose own name points there (DNS rebinding) is refused.
+app.add_middleware(LocalAddressOnlyMiddleware)
 # Outside those, so it also sees the session cookie: CSP, no-referrer, nosniff,
 # no framing, Secure cookie over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)

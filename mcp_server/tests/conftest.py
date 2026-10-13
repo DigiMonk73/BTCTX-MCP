@@ -20,7 +20,22 @@ def same_version_as_the_app(monkeypatch):
 @pytest.fixture(autouse=True)
 def public_price_source(monkeypatch):
     """The owner chose public price sites (a fresh install has no source yet)."""
-    from backend.services import outbound, price_history
+    from backend.services import hourly_prices, outbound, price_history
 
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="public"))
     price_history.reset_state()
+    hourly_prices.reset_state()
+
+
+@pytest.fixture(autouse=True)
+def no_hourly_prices(monkeypatch, tmp_path):
+    """No hourly price from a source and no download of the year files: a
+    value is priced at the stubbed day's price (services/hourly_prices.py)."""
+    from backend.services import hourly_prices
+
+    async def no_hours(hour, files_end, stored):
+        return {}
+
+    monkeypatch.setattr(hourly_prices, "find_hours", no_hours)
+    monkeypatch.setattr(hourly_prices, "start_download", lambda: False)
+    monkeypatch.setattr(hourly_prices, "DATA_DIR", str(tmp_path))

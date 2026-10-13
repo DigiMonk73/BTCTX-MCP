@@ -134,21 +134,31 @@ So derived values must be recomputable from the Transaction row alone.
 - **Withdrawal fee**: a BTC network fee on a withdrawal is on top of `amount`
   and is its own disposal (`lot_disposals.is_fee`, oldest BTC first) at
   `fee_usd`, taxable even for Gift/Donation/Lost and never broker-reported.
-  A Spent's proceeds are for `amount`, with no fee cut. The transaction's
-  own proceeds/basis/gain are the amount's (fee disposals left out).
+  A Spent's fee is a cost of the spend (Treas. Reg. §1.1001-7(b)(2)(ii)(A),
+  #157, all years): its proceeds are the gross for `amount` less `fee_usd`,
+  so the spend and its fee together realize the gross (a fee worth more
+  than the gross takes only the gross). The transaction's own
+  proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and pro-rated basis. The fee is a disposal.
+  date and pro-rated basis. The fee is a disposal. A BTC account to itself
+  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
+  between pooled wallets, #159) needs a fee and records only it: no lot moves.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
-  Unpriced "Spent" withdrawals get FMV proceeds.
+  Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
+  (`proceeds_from_price`) like an income value: an edit of the amount or
+  hour (or a blank sent) prices them again; a change of purpose or type,
+  or a typed value (never the form's echo), makes them typed. A spend's
+  proceeds and fee value share one price: one priced again while the other
+  keeps the day's price takes the day's too (`_keeps_a_day_price`).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
-  or 0 basis is filled from the daily price on create/update
+  or 0 basis is filled from the hour's price on create/update
   (`_value_at_receipt`); no price → 422, never $0. A value from the price
   is marked (`cost_basis_from_price`) and priced again when an edit changes
-  the account, amount, UTC day or type, or moves it from a source not valued
+  the account, amount, UTC hour or type, or moves it from a source not valued
   at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
   (`_revalue_income_deposit`). Income (report, dashboard) counts only
@@ -160,18 +170,44 @@ So derived values must be recomputable from the Transaction row alone.
   dashboard's income, listed apart in the report (`rebates`) and on the
   dashboard (`rebates_received`, #129). Reward stays income (mining,
   staking, bonuses).
+- **Inherited** (source Inherited, #154): basis = value on the date of death
+  (IRC §1014), the deposit's required `acquired_at`, which also dates its lot;
+  valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed, or
+  that day's price, priced again when the date of death changes; the date is
+  the one entered: `acquired_at`'s date in the tax timezone, not its UTC day,
+  `transaction.date_of_death`, #177), never income. Every disposal of its
+  coins is long-term (§1223(9)) with INHERITED in Form 8949 column (b):
+  `bitcoin_lots.inherited`, kept through transfers. Ledger Review doesn't
+  compare its value with the day's price (an estate's value can rightly
+  differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
-- **Prices**: every past-day valuation goes through
-  `services/price_history.daily_price` (table `btc_price_daily`, the UTC day's
-  00:00 price). Nothing is asked until the owner picks a price source
-  (`services/outbound.py`: off / public / own mempool, optional fallback),
+- **Prices**: every valuation goes through `services/hourly_prices.price_at`
+  (#144): the opening price of the moment's UTC hour (the tax timezone never
+  changes the hour), else the UTC day's 00:00 price
+  (`services/price_history.daily_price`, table `btc_price_daily`); the
+  moment is recorded in `transactions.price_moment` ("hour" or "day"; none
+  when every value is typed). A value priced before hourly prices stays at
+  the day until an edit prices it again or the owner applies Ledger
+  Review's check (#144); a recalculation never re-prices. Holdings at a
+  tax year's start and end are valued at `price_at` of that bound (the
+  hour the tax year ends, in the tax timezone), and the Complete Tax
+  Report lists the year's priced values with the price each used.
+  Nothing is asked until the owner picks a
+  price source (`services/outbound.py`: off / public / own mempool,
+  optional fallback),
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
-  Source & Privacy action), which Settings then shows read-only.
+  Source & Privacy action), which Settings then shows read-only. From
+  1.2.8, prices stored while the server sets it never count as a choice
+  (it stores `unset`), and a CLI command never makes one (#134).
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
-  Stored days never change. Never today's live price, never $0: no price is
+  The same for the hourly prices (`services/hourly_prices.py`, #144): the
+  year files in fixed 1,000-hour blocks from 1 January, every year, newest
+  first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
+  blocks from the hour after the files; never the hour asked.
+  Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
 - **Holding period**: long-term only when disposed *after* the one-year
@@ -179,6 +215,7 @@ So derived values must be recomputable from the Transaction row alone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date
   originally acquired (`acquired_at`) when given, else the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
+  Inherited coins are long-term whatever the dates (above).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -200,8 +237,11 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
+| `backend/services/hourly_prices.py` | the price when an hour began (#144): stored hours (`btc_price_hourly`), the year files (verified download into `<data dir>/btc-prices/`), a mempool server's live hours, Bitstamp's fixed blocks after the files; else the day's price, marked as such |
+| `backend/services/price_files.py`, `scripts/price_history.py`, `backend/assets/btc_prices/` | the hourly price history (#144): Bitstamp's hourly opens from 2013, one fingerprint per year in `MANIFEST.csv` (closed years pinned by `test_price_files.py`); `make prices` refreshes it, cross-checked against Bitfinex and Kraken |
+| `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
-| `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`) and the explicit fee-value fix |
+| `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
@@ -217,7 +257,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
 | `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
@@ -226,6 +266,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
 | `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
+| `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, income, rebates, gifts, year-end lots) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
 | `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
@@ -250,7 +291,10 @@ So derived values must be recomputable from the Transaction row alone.
   log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
-  `CORS_ALLOW_ORIGINS` is set.
+  `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
+  to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
+  `security_headers.LocalAddressOnlyMiddleware`), and its server never takes
+  a client's address from `X-Forwarded-For` (`desktop/entrypoint.py`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
   ReportLab, which may fetch nothing remote); CSV text cells can't start a
   formula.
@@ -265,7 +309,8 @@ So derived values must be recomputable from the Transaction row alone.
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
   switch settings, backup download/restore, CSV export, file imports (CSV,
-  River), delete-all, Ledger Review fixes, settings changes or debug.
+  River), delete-all, Ledger Review fixes, settings changes (the Mempool
+  certificate's trust, #188, included) or debug.
 
 ## Testing (see `docs/TESTING.md`)
 
@@ -278,6 +323,7 @@ make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
+make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 ```
@@ -307,7 +353,9 @@ Full steps, the package version and the signing/mirror secrets:
    `desktop/BitcoinTX.spec`, the image tag in
    `startos/startos/manifest/index.ts`, `startos/startos/versions/current.ts`
    and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
-   fails until they agree). Move the CHANGELOG's Unreleased section to the
+   fails until they agree), and run `make prices` (the hourly price
+   history's new hours; the release refuses one more than 14 days old).
+   Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
    when a new tax year's forms are added. The StartOS release notes
    (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
@@ -562,6 +610,83 @@ request merges" and the two sections after it.
 A branch that falls behind `develop` gets `develop` merged into it, never a
 rebase: a pushed branch is not rewritten, and the squash keeps `develop`
 clean anyway.
+
+## Big work: a main session and numbered sessions
+
+The owner's standard for big work (2026-10-12, first used for the stable
+release, #143): work that won't fit one session, has parts that can run
+at once, or needs the owner's decisions between steps (a release, a
+redesign, research then build). A single fix or a docs change stays in
+one session. Claude suggests this setup when a request is that big.
+
+- **The main session** talks it through with the owner, then writes the
+  plan down on GitHub, where every session and the owner can see it:
+  - an umbrella issue with the goal, the decisions and the order;
+  - an issue per session with its checklist (what "done" means, and the
+    "owner" points where it stops); a plan and its build may share one;
+  - on each, a comment "Kickoff prompt for this session" that stands on
+    its own: how to start, the rules that matter most, the job, and
+    what it waits for;
+  - on the umbrella, an index of the prompts: the order, and what each
+    session waits for.
+- **Starting one:** the desktop app's one-click card (`spawn_task`), or
+  the kickoff prompt pasted into a new session. Each title starts with
+  its number ("6 · Build hourly prices (#144)").
+- **Each session** first posts or refreshes its checklist on its issue,
+  ticks the boxes there as it goes, and writes its decisions there. It
+  carries on from its own issue, not from #41's "Next". After a
+  compaction it re-reads its issue and its open pull request before
+  anything else. It stops at the "owner" points. At its end it does what
+  "Ending a session" says, except that on #41 it adds only its own lines,
+  re-reading #41 just before it edits, since other sessions edit it too.
+  No plan mode by default: plan mode's plan stays in that session, while
+  the issue's checklist is seen by all.
+- **The main session** carries the owner's decisions to the sessions, on
+  their issues or by a message to one that's running. A "merge" is
+  quoted on its pull request, with the date, by the session the owner
+  said it to. The main session starts the next session when what it
+  waits for is done, and keeps #41's "Next", linking to the umbrella
+  issue instead of repeating its order.
+- **The footprint and merge plan** (owner, 2026-10-12): planned up front,
+  so conflicts are few and expected. On the umbrella issue the main
+  session lists, for each session:
+  - **its footprint:** the files and areas it expects to touch;
+  - **its hot spots, shared with other sessions:** `docs/CHANGELOG.md`,
+    `testdata/reference_ledger.json` and `reference_figures.json`,
+    `scripts/independent_figures.py`, migrations, `docs/AGENT-TESTS.md`,
+    the i18n dictionaries;
+  - **any migration numbers reserved for it** (for example 0011, then
+    0012 with `down_revision` 0011: Alembic can't load a parent that isn't
+    there, so the second is written on the current head until 0011 is on
+    `develop`, then re-pointed);
+  - **the merge order** between sessions.
+
+  A session whose footprint grows says so on its issue before it merges,
+  and the main session checks it against the others.
+- **Running sessions at once:** only when they share no hot spot other
+  than the CHANGELOG; sessions that share one run one after the other,
+  unless the plan names which merges second. The one that merges second
+  merges `develop` in (never a rebase), keeps both CHANGELOG entries,
+  merges the reference ledger's rows by hand, reruns
+  `make reference-figures` (never hand-merging the figures) and checks
+  that the diff shows only the two sessions' intended moves, and checks
+  the migration numbering.
+- **Stacking within a session:** at most two pull requests on the same
+  files; merge the first before starting a third, since each squash makes
+  the next one conflict.
+- **The main session's own handoff:** the main session (the "lead")
+  keeps a comment "Kickoff prompt for the lead session" on the umbrella
+  issue, edited in place after every change, never left as a snapshot:
+  its role and duties, how to start, and a short current state as
+  pointers (the running sessions and their open pull requests, what to
+  watch, decisions not yet on an issue). Session status stays in the
+  index, what waits on the owner on #41 and the `owner` issues, and
+  decisions on their issues. After a compaction, the main session
+  re-reads that comment and the index first. The owner keeps it as long
+  as it works well; when it grows too long, the owner starts a new main
+  session from that comment and archives the old one. A new main session
+  finds the running sessions in the session list and on the issues,
+  since sessions an earlier one started don't send it their end notices.
 
 ## Starting a session
 

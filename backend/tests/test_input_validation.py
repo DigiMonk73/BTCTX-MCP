@@ -60,6 +60,16 @@ def test_zero_negative_and_missing_amounts(auth_client):
         rejected(post(auth_client, **{**deposit(), "amount": amount}), "more than 0")
 
 
+def test_an_edit_cant_store_a_negative_fee_value(auth_client):
+    """An edit's fee_usd went unchecked (creating and CSV import refused it):
+    a spend whose fee is a cost of it (#157) then reported more proceeds
+    than it brought in, and its fee a negative row."""
+    r = post(auth_client, type="Withdrawal", from_account_id=EXCH_BTC, to_account_id=EXTERNAL, amount="0.01",
+             fee_amount="0.0001", fee_currency="BTC", purpose="Spent", proceeds_usd="600")
+    assert r.status_code == 200, r.text
+    rejected(auth_client.put(f"/api/transactions/{r.json()['id']}", json={"fee_usd": "-1"}), "can't be negative")
+
+
 def test_negative_money_fields(auth_client):
     rejected(post(auth_client, type="Deposit", from_account_id=EXTERNAL, to_account_id=WALLET, amount="0.1",
                   fee_currency="BTC", source="MyBTC", cost_basis_usd="-500"), "can't be negative")

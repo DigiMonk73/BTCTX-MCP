@@ -16,9 +16,26 @@
 .auto-price-row { display: flex; align-items: center; }
 .date-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
 .date-label-row .btc-price { font-size: var(--text-13); white-space: nowrap; }
+/* The day and its hour on one line, so Date mode is as tall as the others (#145) */
+.date-input-row { display: flex; gap: 6px; }
+.date-input-row input { flex: 1; min-width: 0; }
+.date-hour { flex: 0 0 auto; width: auto; }
 .btc-price {
   margin: 0;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
+}
+
+/* Beside "BTC Price: offline": the way forward, on the same line (#145) */
+.auto-price-row { gap: var(--space-2); flex-wrap: wrap; }
+.converter-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: var(--text-13);
+  text-decoration: underline;
+  cursor: pointer;
 }

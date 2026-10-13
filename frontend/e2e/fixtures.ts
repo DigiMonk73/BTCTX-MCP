@@ -1,6 +1,7 @@
 // Shared fixtures: every test gets its own backend on a fresh temp database
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
+// Those prices are stubbed, or with `fakeInternet` come from a fake internet.
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -69,6 +70,31 @@ async function startApp(
   }
   proc.kill();
   throw new Error(`server did not start:\n${log.join("")}`);
+}
+
+/** Where the server logs its requests to outside services (fakeInternet). */
+const OUTSIDE_LOG = "outside-requests.jsonl";
+
+export interface OutsideRequest {
+  url: string;
+  /** The proxy it was sent through, or null for a direct request. */
+  proxy: string | null;
+}
+
+/**
+ * A past day's price from the fake internet (fakeInternet): $50,000 plus the
+ * day's number mod 100, so the day before or after shows a different figure
+ * (smoke_test.py, fake_past_price). `day` is YYYY-MM-DD.
+ */
+export function fakePastPrice(day: string): number {
+  return HISTORICAL_PRICE + (Date.parse(`${day}T00:00:00Z`) / 86_400_000) % 100;
+}
+
+/** What the server sent to outside services so far (with fakeInternet), oldest first. */
+export function outsideRequests(app: App): OutsideRequest[] {
+  const file = path.join(app.dir, OUTSIDE_LOG);
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
 }
 
 /**
@@ -141,9 +167,20 @@ type Fixtures = {
   appMode: "server" | "mac";
   /**
    * "unset": a fresh install that hasn't chosen a price source yet.
+   * "unconfirmed": public, stored by an older release with no record of the choice (asked once, #145);
+   *   "unconfirmed-off" and "unconfirmed-mempool" (http://umbrel.local:3006) the same for Nobody and a Mempool.
    * "startos": set by the server, as StartOS's Price Source & Privacy action does.
+   * "invalid": set by a server whose settings aren't valid (nothing is asked).
    */
-  priceSource: "public" | "unset" | "startos";
+  priceSource: "public" | "unset" | "unconfirmed" | "unconfirmed-off" | "unconfirmed-mempool" | "startos" | "invalid";
+  /**
+   * true: the prices come from a fake internet instead of stubs
+   * (smoke_test.py, fake_internet), so the app's own choice of source,
+   * fallback and proxy runs; outsideRequests() lists what it sent out.
+   */
+  fakeInternet: boolean;
+  /** true: StartOS lends its Tor to the app's own choice (BTCTX_TOR_PROXY_URL, #145). */
+  serverTor: boolean;
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -152,12 +189,20 @@ type Fixtures = {
 export const test = base.extend<Fixtures>({
   appMode: ["server", { option: true }],
   priceSource: ["public", { option: true }],
-  app: async ({ appMode, priceSource }, use, testInfo) => {
+  fakeInternet: [false, { option: true }],
+  serverTor: [false, { option: true }],
+  app: async ({ appMode, priceSource, fakeInternet, serverTor }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
-      ...(priceSource === "unset" ? { BTCTX_SMOKE_PRICE_SOURCE: "unset" } : {}),
+      ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
+      ...(priceSource === "unset" || priceSource.startsWith("unconfirmed") ? { BTCTX_SMOKE_PRICE_SOURCE: priceSource } : {}),
+      ...(priceSource === "invalid" ? { BTCTX_PRICE_SOURCE: "coingecko" } : {}),
+      ...(serverTor ? { BTCTX_HOST: "startos", BTCTX_TOR_PROXY_URL: "socks5h://10.0.3.1:9050" } : {}),
       ...(priceSource === "startos"
-        ? { BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off" }
+        ? {
+            BTCTX_PRICE_SOURCE: "mempool", BTCTX_MEMPOOL_URL: "http://10.0.3.1:32768", BTCTX_MEMPOOL_FALLBACK: "off",
+            BTCTX_HOST: "startos",
+          }
         : {}),
     }));
     await use(app);

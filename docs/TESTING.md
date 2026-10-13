@@ -137,8 +137,28 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 - Figures are read as numbers (`figure()`, `parseFigure()` in
   `e2e/fixtures.ts`), so thousands separators or a Unicode minus don't break
   them.
-- The `tokyo` project reruns the create, edit and list specs in UTC+9; the
-  `webkit` project (the Mac app's engine) runs with `E2E_WEBKIT=1` in CI.
+- The `tokyo` project reruns the create, edit, list and sidebar-matrix specs
+  in UTC+9. The `webkit` project (the Mac app's engine) runs only with
+  `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
+  `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
+  `npx playwright install webkit`).
+- **Playwright's WebKit crashes ("Page crashed") at the next navigation
+  after any reload of a signed-in page** (a second reload, or a `goto`),
+  with or without the price card. Real Safari and Chrome reload normally,
+  and the Mac app has no reload shortcut (#149). So a WebKit test reloads a
+  signed-in page at most once (`settings.e2e.ts`, the first-run test, does
+  its reload before choosing only in Chromium).
+- `test.use({ fakeInternet: true })` swaps the stubbed prices for a fake
+  internet (`fake_internet` in `scripts/smoke_test.py`): the app's own
+  choice of price source, fallback and proxy runs; each past day has its
+  own price (`fakePastPrice()`: $50,000 plus the day's number mod 100), so
+  a lookup of the wrong day shows; a host under `.invalid` never answers (a
+  mempool server that's down, Tor stopped); a request the app's code never
+  makes gets a 404; and `outsideRequests(app)` lists every request the
+  server sent out, with its proxy. `e2e/sidebar-matrix.e2e.ts` uses it to
+  run the sidebar's converter and calculator under every price-source
+  state, checking that nothing is asked before a choice or while off and
+  that no request names the day.
 - A `test.fail()` marks a known bug the test describes correctly (see
   `docs/HARDENING_FINDINGS.md`); remove it with the fix.
 - Cloud sessions have Chromium preinstalled (`PLAYWRIGHT_BROWSERS_PATH`); never
@@ -166,9 +186,9 @@ each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the
 ledger has one), it uses every account route the app offers,
 every report has entries in each part (every Form 8949 box of 2024, 2025
-and 2026, in any tax timezone), and My BTC and Gift deposits carry a date
-originally acquired. Every USD value a price lookup would fill is given, so
-it loads with the price source Off. Each row's `why` says what it is for.
+and 2026, in any tax timezone), My BTC and Gift deposits carry a date
+originally acquired, and inherited coins are sold within a year of the death. Every USD value a price lookup would fill is given, so
+it loads with the price source Nobody. Each row's `why` says what it is for.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
 
@@ -200,6 +220,21 @@ make reference-figures      # rewrites testdata/reference_figures.json
 
 and the pull request shows the difference; a change in tax figures waits
 for the owner's "merge".
+
+**A second calculation checks them.** `scripts/independent_figures.py`
+recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box
+totals, the gains summary, income, rebates, gifts, year-end lots) from the
+IRS's and the ledger's documented rules, importing nothing of the app
+(#150). `backend/tests/test_independent_figures.py` fails on any difference
+in those from `reference_figures.json`, so a change meant to move figures
+also changes the rule it follows there, or it was a bug. Three rounding
+conventions are shared on purpose (the script's docstring): with the app's
+half-down rounding of an exact half cent there's no difference; with the
+usual half-up the script shows the few one-cent ties (#100):
+
+```bash
+python scripts/independent_figures.py --compare --years 2023 2024 2025 2026 [--rounding half-down]
+```
 
 **Each release's database is kept** in the test lab
 (`~/code/btctx-vm-lab/ledgers/reference-vX.Y.Z.db`, with its figures in

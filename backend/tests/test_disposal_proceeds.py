@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.transaction import Transaction
+from backend.tests.conftest import stub_prices_at
 
 CLIENT: TestClient = None
 ENGINE = None
@@ -30,9 +31,7 @@ def _set_client(auth_client, test_engine):
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     PRICE["value"] = Decimal("100000")
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price", lambda timestamp, db: PRICE["value"]
-    )
+    stub_prices_at(monkeypatch, lambda when: PRICE["value"])
 
 
 @pytest.fixture(autouse=True)
@@ -82,15 +81,18 @@ SPENT = dict(type="Withdrawal", timestamp="2024-06-01T00:00:00Z",
              from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL,
              amount="0.01", fee_amount="0.0001", fee_currency="BTC",
              purpose="Spent", proceeds_usd="1000.00")
-# Since v0.9.2 the network fee is its own disposal (owner decision, F24):
-#   spend: 0.01 BTC, proceeds 1,000.00 (no fee cut), basis 0.01 x 20,000 = 200.00
+# The network fee is its own disposal (v0.9.2, F24) and a cost of the spend
+# (#157), so it comes off the spend's proceeds:
 #   fee:   0.0001 BTC, proceeds 0.0001 x 100,000 = 10.00, basis 2.00
+#   spend: 0.01 BTC, proceeds 1,000.00 - 10.00 = 990.00, basis 0.01 x 20,000
+#          = 200.00; with the fee they realize the 1,000.00 received
 #   the transaction's own figures are the spend's (as for a transfer, the fee
-#   is its fee_usd, and its 8.00 gain is on Form 8949): proceeds 1,000.00,
-#   gain 800.00.
-# (Before: 1,000 spread over 0.0101 BTC minus the fee at the spend's own
-# price, 990.10 proceeds and a 788.10 gain.)
-SPENT_PROCEEDS, SPENT_GAIN = Decimal("1000.00"), Decimal("800.00")
+#   is its fee_usd, and its 8.00 gain is on Form 8949): proceeds 990.00,
+#   gain 790.00.
+# (0.9.2 to 1.2.7: 1,000.00 proceeds and an 800.00 gain, the fee counted
+# twice. Before 0.9.2: 1,000 spread over 0.0101 BTC minus the fee at the
+# spend's own price, 990.10 proceeds and a 788.10 gain.)
+SPENT_PROCEEDS, SPENT_GAIN = Decimal("990.00"), Decimal("790.00")
 
 
 class TestSpentWithdrawals:
@@ -111,7 +113,7 @@ class TestSpentWithdrawals:
         forget_gross(tx["id"], "990.10")  # old data: proceeds_usd net of the fee offset, no gross
         force_recalc()
         after = get(tx["id"])
-        assert Decimal(after["proceeds_usd"]) == SPENT_PROCEEDS  # 990.10 x 0.0101 / 0.01
+        assert Decimal(after["proceeds_usd"]) == SPENT_PROCEEDS  # gross 990.10 x 0.0101 / 0.01, less the fee
         assert Decimal(after["gross_proceeds_usd"]) == Decimal("1000.00")
 
     def test_missing_proceeds_valued_at_market_once(self):
@@ -150,7 +152,7 @@ class TestSpentWithdrawals:
         assert r.status_code == 200, r.text
         after = r.json()
         assert Decimal(after["gross_proceeds_usd"]) == Decimal("2000.00")
-        assert Decimal(after["proceeds_usd"]) == Decimal("2000.00")  # no fee cut
+        assert Decimal(after["proceeds_usd"]) == Decimal("1990.00")  # the new gross less the fee, once
 
     def test_a_spend_changed_into_a_gift_has_no_proceeds(self):
         """Bug hunt 2026-09-29: a Spent withdrawal edited into a Gift (the form

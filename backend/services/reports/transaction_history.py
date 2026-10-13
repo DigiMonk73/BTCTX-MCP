@@ -2,8 +2,9 @@
 The transaction history of one tax year, as CSV or PDF: every Deposit,
 Withdrawal, Transfer, Buy and Sell in time order, with its accounts,
 amounts, fee, USD values and gain as stored (BTC to 8 decimal places, USD
-to 2). In the CSV an income or rebate deposit shows as its source (Income,
-Reward, Interest, Rebate), a Sell or Withdrawal as "Sell/Withdrawal". The PDF is a
+to 2). In the CSV an income, rebate or inherited deposit shows as its source
+(Income, Reward, Interest, Rebate, Inherited), a Sell or Withdrawal as
+"Sell/Withdrawal". The PDF is a
 landscape table in the complete tax report's look (pdf_layout.py): dates
 in the tax timezone, each type with its source or purpose.
 """
@@ -36,8 +37,10 @@ COLUMNS = (
 NUMBER_COLUMNS = {"amount", "fee_amount", "cost_basis_usd", "proceeds_usd", "realized_gain_usd"}
 
 TYPES = ["Deposit", "Withdrawal", "Transfer", "Buy", "Sell"]
-# The deposits labelled by their source (a rebate is shown so, never as income)
-SOURCE_LABELS = {"income": "Income", "reward": "Reward", "interest": "Interest", "rebate": "Rebate"}
+# The deposits labelled by their source (a rebate or an inheritance is shown
+# so, never as income)
+SOURCE_LABELS = {"income": "Income", "reward": "Reward", "interest": "Interest", "rebate": "Rebate",
+                 "inherited": "Inherited"}
 
 # The PDF's columns: heading, the row's cell, width in inches (9.5 in all)
 PDF_COLUMNS = (

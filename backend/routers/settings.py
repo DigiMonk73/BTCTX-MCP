@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import ai_key, outbound
+from backend.services import ai_key, hourly_prices, mempool_trust, outbound
 from backend.services.desktop import desktop_info
 from backend.services.tax_time import get_tax_timezone_name, set_tax_timezone
 from backend.services.transaction import recalculate_all_transactions
@@ -140,6 +140,9 @@ class NetworkSettingsIn(BaseModel):
     mempool_url: str | None = Field(default=None, max_length=300)
     mempool_fallback: bool = False
     proxy_url: str | None = Field(default=None, max_length=300)
+    # Where the choice was made, for its record (#145, 2.9): the first-run
+    # question on the Dashboard, or Settings
+    via: Literal["first-run", "settings"] = "settings"
 
 
 @router.get("/network")
@@ -150,5 +153,44 @@ def get_network_settings():
 @router.put("/network")
 def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Session = Depends(get_db)):
     _require_login(request)
-    outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url)
+    outbound.save(db, payload.price_source, payload.mempool_url, payload.mempool_fallback, payload.proxy_url,
+                  payload.via)
+    hourly_prices.download_if_public()
+    return outbound.as_dict()
+
+
+# A home server's certificate for your own Mempool (#188, services/mempool_trust.py):
+# login only, never the AI key; only for the Mempool in use, at a home-network address.
+class TrustedRootIn(BaseModel):
+    sha256: str = Field(max_length=200)  # the fingerprint the owner was shown
+
+
+def _mempool_in_use() -> str:
+    url = outbound.current().own_node
+    if not url:
+        raise HTTPException(status_code=409, detail=(
+            "A certificate can be trusted only for your own Mempool, while it's the price source in use."))
+    return url
+
+
+@router.get("/network/mempool-certificate")
+async def get_mempool_certificate(request: Request):
+    """The Mempool's root certificate, as shown to the owner before trusting it (asks the Mempool only)."""
+    _require_login(request)
+    return await mempool_trust.offer(_mempool_in_use())
+
+
+@router.put("/network/mempool-certificate")
+async def trust_mempool_certificate(payload: TrustedRootIn, request: Request, db: Session = Depends(get_db)):
+    _require_login(request)
+    url = _mempool_in_use()
+    root = await mempool_trust.trusted(url, payload.sha256)
+    outbound.trust_root(db, url, root.pem)
+    return outbound.as_dict()
+
+
+@router.delete("/network/mempool-certificate")
+def forget_mempool_certificate(request: Request, db: Session = Depends(get_db)):
+    _require_login(request)
+    outbound.forget_root(db)
     return outbound.as_dict()

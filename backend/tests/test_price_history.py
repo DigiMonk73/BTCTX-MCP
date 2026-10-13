@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import outbound
-from backend.tests.conftest import stub_daily_prices
+from backend.tests.conftest import stub_daily_prices, stub_prices_at
 
 # The real function, captured before the session fixture stubs it.
 from backend.services.price_history import find_prices as real_find_prices
@@ -49,10 +49,11 @@ def midnight(d: date) -> int:
 
 
 class FakeSources:
-    """Bitstamp/Coinbase/Kraken (and a mempool server) answering from tables of days."""
+    """Bitstamp/Kraken (and a mempool server) answering from tables of days.
+    Any other site is down (503), and every request is recorded."""
 
     def __init__(self):
-        self.bitstamp = self.coinbase = self.kraken = self.mempool = None
+        self.bitstamp = self.kraken = self.mempool = None
         self.requests = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -67,13 +68,6 @@ class FakeSources:
                 rows = self.bitstamp[-limit:]
             ohlc = [{"timestamp": str(midnight(d)), "open": str(p)} for d, p in rows]
             return httpx.Response(200, json={"data": {"pair": "BTC/USD", "ohlc": ohlc}})
-        if "coinbase" in host and self.coinbase is not None:
-            if "start" in params:
-                lo, hi = (date.fromisoformat(params[k][:10]) for k in ("start", "end"))
-                rows = [(d, p) for d, p in self.coinbase if lo <= d <= hi]
-            else:
-                rows = self.coinbase[-300:]
-            return httpx.Response(200, json=[[midnight(d), 1, 2, p, 3, 4] for d, p in rows])
         if "kraken" in host and self.kraken is not None:
             rows = [[midnight(d), str(p), "0", "0", "0", "0", "0", 1] for d, p in self.kraken[-720:]]
             return httpx.Response(200, json={"error": [], "result": {"XXBTZUSD": rows, "last": 0}})
@@ -152,15 +146,41 @@ def test_a_new_day_later_asks_only_for_the_latest_days(sources, db):
     assert len(sources.requests) == 1
 
 
-def test_coinbase_blocks_when_bitstamp_is_down(sources, db):
-    sources.coinbase = candles(price_history.COINBASE_FIRST_DAY,
-                               (TODAY - price_history.COINBASE_FIRST_DAY).days + 1, price=lambda d: 23456)
+def hosts(sources) -> list[str]:
+    return [httpx.URL(u).host for u in sources.requests]
+
+
+def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_later(sources, db):
+    """#161 (owner, 2026-10-12): only Bitstamp is asked for the history
+    (Coinbase's terms forbid building an end-user app on its data)."""
     day = date(2023, 2, 1)
-    assert price_history.daily_price(db, day) == D("23456.00")
+    with pytest.raises(HTTPException) as exc:
+        price_history.daily_price(db, day)
+    assert exc.value.status_code == 422
+    assert hosts(sources) == ["www.bitstamp.net"]  # the first block failed: nothing else
+    with pytest.raises(HTTPException):
+        price_history.daily_price(db, day)  # within RETRY_SECONDS: not asked again
+    assert len(sources.requests) == 1
+    price_history._state["full_failed_at"] -= price_history.RETRY_SECONDS
+    sources.bitstamp = all_days()
+    assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
+    assert set(hosts(sources)) == {"www.bitstamp.net"} and price_history._history_complete(db)
+
+
+def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
+    """#161: Kraken is the only fallback for the latest days."""
+    price_history._mark_history_complete(db)
+    day = TODAY - timedelta(days=2)
+    with pytest.raises(HTTPException) as exc:  # both down: no third site
+        price_history.daily_price(db, day)
+    assert exc.value.status_code == 422
+    assert hosts(sources) == ["www.bitstamp.net", "api.kraken.com"]
+    price_history._state["latest_failed_at"] -= price_history.RETRY_SECONDS
+    sources.requests.clear()
+    sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
+    assert price_history.daily_price(db, day) == D("64000.00")
+    assert hosts(sources) == ["www.bitstamp.net", "api.kraken.com"]
     assert not sources.names_a_day(day)
-    coinbase = [u for u in sources.requests if "coinbase" in u]
-    assert len(coinbase) == len(price_history._blocks(price_history.COINBASE_FIRST_DAY, 300))
-    assert not price_history._history_complete(db)  # Bitstamp is tried again later
 
 
 def test_timestamps_use_their_utc_day(sources, db):
@@ -285,12 +305,15 @@ def test_no_price_messages_speak_to_the_form_as_well_as_the_api(sources, auth_cl
     assert r.status_code == 422 and "edit that transaction" not in detail and "Proceeds (USD)" in detail
 
 
-def test_the_refresh_button_and_the_server_use_the_same_price(auth_client):
+def test_the_refresh_button_and_the_server_use_the_same_price(auth_client, monkeypatch):
     """F3: the form's FMV Refresh and the server's income valuation read the
-    same stored price for the same UTC day."""
+    same price for the same moment: since #144, its hour's (Refresh asks
+    `at`, fmvPriceRequest), each hour here its own."""
+    stub_prices_at(monkeypatch, lambda when: 60000 + when.hour)
     auth_client.delete("/api/transactions/delete_all")
     try:
-        refresh = auth_client.get("/api/bitcoin/price/history", params={"date": "2024-05-01"}).json()["USD"]
+        refresh = auth_client.get("/api/bitcoin/price/history", params={"at": "2024-05-01T12:00:00.000Z"}).json()["USD"]
+        assert refresh == 60012.0
         r = auth_client.post("/api/transactions", json=dict(
             type="Deposit", timestamp="2024-05-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
             amount="0.5", source="Income", fee_amount="0", fee_currency="BTC"))
@@ -391,13 +414,13 @@ def test_a_fee_value_is_money(auth_client, funded):
 def test_an_edit_that_leaves_the_fee_alone_keeps_its_stored_value(auth_client, test_engine, funded):
     """The form sends every field on each edit: a stored value (e.g. one
     kept from before v0.9.2) must not be priced again unless the fee, its
-    currency, the type or the day changes."""
+    currency, the type or the hour changes."""
     tx = transfer(auth_client)
     with test_engine.begin() as con:
         con.execute(text("UPDATE transactions SET fee_usd = '11.11' WHERE id = :id"), {"id": tx["id"]})
     full = {k: tx[k] for k in ("type", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency")}
     r = auth_client.put(f"/api/transactions/{tx['id']}",
-                        json={**full, "amount": "0.11", "timestamp": "2024-05-01T18:00:00Z"})  # same UTC day
+                        json={**full, "amount": "0.11", "timestamp": "2024-05-01T12:40:00Z"})  # same UTC hour
     assert r.status_code == 200 and r.json()["fee_usd"] == "11.11"
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={**full, "fee_amount": "0.0004"})
     assert r.json()["fee_usd"] == "20.00"

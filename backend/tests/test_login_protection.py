@@ -14,8 +14,10 @@ The routes anyone can reach that check a password or code:
   server's log or data folder.
 """
 
+import ast
 import os
 import stat
+from pathlib import Path
 from types import SimpleNamespace
 
 import bcrypt
@@ -27,7 +29,7 @@ from backend.main import app
 from backend.models.user import User
 from backend.services import first_run, login_throttle
 
-from backend.tests.conftest import default_login
+from backend.tests.conftest import MAC_APP_HOST, default_login
 
 
 def good() -> dict:
@@ -277,8 +279,46 @@ def test_the_mac_app_needs_no_code(fresh_app, monkeypatch):
     first_run.prepare(db)
     db.close()
     assert not os.path.exists(first_run.code_path())
-    assert anon().get("/api/users/setup-status").json()["setup_code_required"] is False
-    assert anon().post("/api/users/reset-account", json=CLAIM).status_code == 200
+    assert anon().get("/api/users/setup-status", headers=MAC_APP_HOST).json()["setup_code_required"] is False
+    assert anon().post("/api/users/reset-account", json=CLAIM, headers=MAC_APP_HOST).status_code == 200
+
+
+REBINDING_PAGE = {"Host": "attacker.example:8765", "Origin": "http://attacker.example:8765",
+                  "Sec-Fetch-Site": "same-origin"}
+
+
+def test_the_mac_app_answers_only_at_its_own_address(fresh_app, monkeypatch):
+    """In Mac mode the backend answers only requests addressed to 127.0.0.1,
+    localhost or [::1] (#151), the page and every route alike."""
+    monkeypatch.setenv("BTCTX_DESKTOP", "1")
+    default = {"username": "admin", "password": "password"}
+    assert anon().post("/api/login", json=default, headers=REBINDING_PAGE).status_code == 421
+    assert anon().post("/api/users/reset-account", json=CLAIM, headers=REBINDING_PAGE).status_code == 421
+    assert anon().get("/api/users/setup-status", headers=REBINDING_PAGE).status_code == 421
+    refused = anon().get("/", headers=REBINDING_PAGE)
+    assert refused.status_code == 421 and refused.headers["x-content-type-options"] == "nosniff"
+    for name in ("attacker.example", "127.0.0.1.attacker.example", "localhost.attacker.example:8765",
+                 "localhost.:8765", "127.0.0.2:8765", "[::2]:8765", "", "127.0.0.1:8765.attacker.example",
+                 "[::1].attacker.example", "localhost:abc"):
+        assert anon().get("/api/health", headers={"Host": name}).status_code == 421, name
+    for name in ("127.0.0.1:8765", "localhost:8765", "[::1]:8765", "LOCALHOST:8765", "127.0.0.1"):
+        assert anon().get("/api/health", headers={"Host": name}).status_code == 200, name
+
+
+def test_a_server_answers_at_any_name(fresh_app, monkeypatch):
+    """Docker and StartOS are reached at names of the owner's choosing."""
+    monkeypatch.delenv("BTCTX_DESKTOP", raising=False)
+    assert anon().get("/api/health", headers={"Host": "bitcointx.home.example:8443"}).status_code == 200
+
+
+def test_the_mac_app_never_takes_a_client_address_from_x_forwarded_for():
+    """The Mac app's server takes a client's address from the connection,
+    never from X-Forwarded-For (#151): its uvicorn.Config says so."""
+    launcher = ast.parse((Path(__file__).resolve().parents[2] / "desktop" / "entrypoint.py").read_text())
+    config = next(node for node in ast.walk(launcher) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Attribute) and node.func.attr == "Config")
+    settings = {k.arg: k.value.value for k in config.keywords if isinstance(k.value, ast.Constant)}
+    assert settings.get("proxy_headers") is False
 
 
 def test_an_account_without_the_default_login_involves_no_code(fresh_app):
@@ -310,5 +350,5 @@ def test_the_default_login_needs_the_code(fresh_app):
 
 def test_the_mac_app_logs_in_with_the_default_login_without_a_code(fresh_app, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
-    r = anon().post("/api/login", json={"username": "admin", "password": "password"})
+    r = anon().post("/api/login", json={"username": "admin", "password": "password"}, headers=MAC_APP_HOST)
     assert r.status_code == 200

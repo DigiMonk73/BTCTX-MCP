@@ -30,8 +30,8 @@ transactions. Tax correctness matters more than speed.
   https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange). Then
   record it in Wallet, or Exchange BTC / Exchange USD, never External. A
   move between the wallet and the exchange is a Transfer; a move between two
-  wallets (or two exchanges) stays in one account and isn't a Transfer: ask
-  the user.
+  of the user's wallets (or two exchanges) stays in one account: a Transfer
+  from Wallet to Wallet (or Exchange BTC to Exchange BTC), below.
 
 ## Transaction types
 Buy: Bank or Exchange USD -> Exchange BTC
@@ -60,6 +60,21 @@ Deposit: External -> any account
     MyBTC and Gift deposits REQUIRE cost_basis_usd; the ledger refuses
     them without one. If the user truly doesn't know it, 0 is allowed, but
     say that all of it becomes gain when sold, and let them choose.
+    Inherited = inherited from someone who died. acquired_at = the date of
+               death (REQUIRED: ask). cost_basis_usd = their value on that
+               date, or on the estate's alternate valuation date if it
+               chose one (left out: the date of death's price); if the
+               estate's Form 8971, Schedule A, gives a value marked as
+               having increased the estate tax, the basis can't be more:
+               use it. Always long-term, with INHERITED in Form 8949's
+               column (b). Never record an inheritance as a Gift: the rules
+               differ. When
+               changing a deposit's source to or from Inherited, send
+               acquired_at in the same update. Suggest the user's tax
+               preparer if they owned the coins jointly with the person who
+               died (only part may be inherited), or gave them to that
+               person within a year before the death (the basis may be the
+               user's own, IRC §1014(e)).
     Income   = paid in BTC for work/goods.
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.
@@ -68,32 +83,54 @@ Deposit: External -> any account
     Rebate   = bitcoin back for spending: a rewards card's sats-back,
                shopping cash-back. Generally a rebate on the purchase, not
                income; its value at receipt is its basis. Never Reward.
-    For all four, a basis left out is filled from that day's price; if no
-    price is available the row is refused - then ask the user for the value.
+    For all four, a basis left out is filled from the price when that hour
+    began (UTC; that day's price where there's no hourly one); if no price
+    is available the row is refused - then ask the user for the value.
+    Where prices come from is the user's choice: their own Mempool, public
+    price sites, or Nobody, made in BitcoinTX (Settings -> Privacy &
+    network) or, when the server sets it, in the server's settings
+    (StartOS's Price Source & Privacy action). A price's "source" is "mempool" for their own Mempool,
+    any other name a public site. The hourly history (2013 on) is
+    downloaded once from Bitstamp when the choice allows public sites
+    (public price sites, or their Mempool with public sites as its backup).
+    With Nobody, before a choice, while BitcoinTX waits for the user to
+    confirm it, or when the server's price settings aren't valid, there is
+    no price for a value it doesn't have: pass on BitcoinTX's own message
+    (it says where to change the choice), ask the user for the value, and
+    never offer to change the choice yourself (only the user can).
   USD deposits to Bank / Exchange USD: amount is USD, no source needed.
 Withdrawal: any account -> External
   BTC withdrawals need purpose:
     Spent    = paid a merchant or sold P2P for cash. proceeds_usd = value
-               received (auto-filled from the day's price if omitted).
+               received (auto-filled from that hour's price if omitted).
     Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
     Donation = gave to a charity (not a sale; fmv_usd auto-filled).
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
                Form 8949, like Gift and Donation).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
-  was received for amount; the fee is recorded as its own small disposal.
-  That fee disposal is taxable for every purpose, Gift, Donation and Lost
-  included, even though the withdrawal itself isn't.
+  was received for amount, before the fee: BitcoinTX takes the fee's value
+  off it (a cost of the spend, as for a Sell) and records the fee as its
+  own small disposal at that value. That fee disposal is taxable for every
+  purpose, Gift, Donation and Lost included, even though the withdrawal
+  itself isn't.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination
   receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
   fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
-  A BTC fee's USD value is stored as fee x that day's price; pass fee_usd
+  A BTC fee's USD value is stored as fee x that hour's price; pass fee_usd
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
+  Wallet -> Wallet (or Exchange BTC -> Exchange BTC): a UTXO consolidation,
+  or a move between two of the user's wallets (exchanges) that BitcoinTX
+  pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
+  required. Only the fee is recorded, as a small disposal of the oldest
+  coins; the rest keep their lots, dates and basis. After a move between
+  two exchanges, a sale at the other one usually has no basis on its
+  1099-DA: set that Sell's broker_reporting to "proceeds".
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
@@ -112,6 +149,8 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   Exchange BTC -> Wallet.
 - Sending from cold storage back to the exchange to sell -> Transfer
   Wallet -> Exchange BTC, then a Sell.
+- Consolidating UTXOs, or sending to another wallet of the user's ->
+  Transfer Wallet -> Wallet with its network fee.
 - A send to an address: ask whether it is the user's own wallet (Transfer) or
   someone else (Withdrawal + purpose) - never guess this.
 - Paid in BTC -> Deposit/Income. Exchange interest paid in BTC ->
@@ -119,6 +158,7 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   deposit to Exchange USD, which BitcoinTX doesn't count as income: the user
   reports it from the bank's or exchange's own tax form.
 - Card or shopping sats-back -> Deposit/Rebate (not Reward).
+- Bitcoin from someone's estate or will -> Deposit/Inherited (not Gift).
 
 ## Broker forms (Form 1099-DA / 1099-B)
 By default the app assumes: exchange Sells are on a 1099-DA with proceeds only
@@ -144,9 +184,14 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    (minus anything they rejected). The write is all-or-nothing.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
+   A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
+   gross_proceeds_usd is before it (entered, or that hour's value). To
+   change the proceeds, send the new gross as proceeds_usd, never the
+   listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show
-   the user what it lists; let them decide what to change. Fee-value fixes
-   are made by the user in Settings -> Ledger Review. Call recalculate_ledger
+   the user what it lists; let them decide what to change. Moving values
+   priced at the day to their hour's price is done by the user in Settings
+   -> Ledger Review, never by you. Call recalculate_ledger
    only when the user asks for it.
 6. Before a large import or before deleting or changing many entries, offer
    backup_ledger (a copy of the database kept on the user's server).

@@ -1,9 +1,10 @@
 """
 F24 (owner decision 2026-09-26): a withdrawal's BTC network fee is its own
-disposal at the fee's stored USD value, like a transfer's. A spend's
-proceeds are what was received for the amount spent, with no fee cut; a
-gift's, donation's or lost withdrawal's fee is taxable even though the gift
-itself isn't; a fee is never on a broker form.
+disposal at the fee's stored USD value, like a transfer's. A gift's,
+donation's or lost withdrawal's fee is taxable even though the gift itself
+isn't; a fee is never on a broker form. #157 (owner decision 2026-10-11): a
+spend's fee is a cost of the spend, so it comes off what the spend brought
+in, and the two together realize what was received.
 """
 
 from decimal import Decimal
@@ -111,6 +112,52 @@ def test_one_satoshi_more_than_held_is_refused(auth_client, ledger):
 def test_a_spends_fee_is_its_own_row_and_never_broker_reported(auth_client, test_engine, ledger):
     withdraw(auth_client, purpose="Spent", proceeds_usd="1000", broker_reporting="basis")
     assert rows(test_engine) == [
-        ("0.00010000 BTC", "5.00", "2.00", "3.00", "I"),         # the fee: not on the 1099-DA
-        ("0.01000000 BTC", "1000.00", "200.00", "800.00", "G"),  # the spend, as the broker reported it
+        ("0.00010000 BTC", "5.00", "2.00", "3.00", "I"),        # the fee: not on the 1099-DA
+        ("0.01000000 BTC", "995.00", "200.00", "795.00", "G"),  # the spend, as the broker reported it
     ]
+
+
+def test_a_spends_fee_comes_off_what_it_brought_in(auth_client, test_engine, ledger):
+    """#157: the fee paid to make a spend is a cost of it (Treas. Reg.
+    §1.1001-7(b)(2)(ii)(A), Example 4). Up to 1.2.7 the spend kept the full
+    $1,000 and the fee's row added $5 more: $1,005 realized for $1,000."""
+    tx = withdraw(auth_client, purpose="Spent", proceeds_usd="1000")
+    assert (D(tx["gross_proceeds_usd"]), D(tx["proceeds_usd"]), D(tx["realized_gain_usd"])) == (
+        D("1000.00"), D("995.00"), D("795.00"))
+    forms = rows(test_engine)
+    assert sum(D(r[1]) for r in forms) == D("1000.00")  # the spend and its fee realize what was received
+    assert sum(D(r[3]) for r in forms) == D("798.00")   # 1,000 less the basis of all that left (202)
+
+
+def test_a_spends_net_follows_its_fee_value_and_never_shrinks(auth_client, ledger):
+    """Always from the gross: a typed fee value moves the net once, and
+    recalculations or other edits never take the fee off again."""
+    tx = withdraw(auth_client, purpose="Spent", proceeds_usd="1000", fee_usd="7")
+    assert D(tx["proceeds_usd"]) == D("993.00")
+    for _ in range(2):
+        assert auth_client.post("/api/transactions/recalculate").status_code == 200
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"timestamp": "2025-06-02T12:00:00Z"})
+    assert r.status_code == 200, r.text
+    after = auth_client.get(f"/api/transactions/{tx['id']}").json()
+    assert (D(after["gross_proceeds_usd"]), D(after["proceeds_usd"])) == (D("1000.00"), D("993.00"))
+
+
+def test_a_fee_worth_more_than_the_spend_takes_only_what_it_brought(auth_client, test_engine, ledger):
+    """A $3 spend with a $5 fee realized $3 in all: no row goes below zero,
+    and the spend's own proceeds are $0, not the $3 typed."""
+    tx = withdraw(auth_client, purpose="Spent", proceeds_usd="3")
+    assert (D(tx["proceeds_usd"]), D(tx["realized_gain_usd"])) == (D("0.00"), D("-200.00"))
+    assert rows(test_engine) == [
+        ("0.00010000 BTC", "3.00", "2.00", "1.00", "I"),
+        ("0.01000000 BTC", "0.00", "200.00", "-200.00", "I"),
+    ]
+
+
+def test_a_spend_without_its_proceeds_is_valued_then_netted(auth_client, ledger):
+    """A spend saved without proceeds (River, CSV) is worth the amount at the
+    day's price; its fee comes off that too."""
+    body = dict(type="Withdrawal", timestamp="2025-06-01T12:00:00Z", from_account_id=EXCH_BTC,
+                to_account_id=EXTERNAL, amount="0.01", fee_amount="0.0001", fee_currency="BTC", purpose="Spent")
+    r = auth_client.post("/api/transactions", json=body)
+    assert r.status_code == 200, r.text
+    assert (D(r.json()["gross_proceeds_usd"]), D(r.json()["proceeds_usd"])) == (D("500.00"), D("495.00"))

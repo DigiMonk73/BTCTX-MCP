@@ -17,7 +17,7 @@ from typing import Dict, List
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.tests.conftest import stub_daily_prices
+from backend.tests.conftest import stub_daily_prices, stub_prices_at
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -37,13 +37,9 @@ def _set_client(auth_client):
 
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
-    """Tests must never hit price APIs: stub historical FMV lookups and the
-    live price used for transfer-fee/withdrawal valuation."""
+    """Tests must never hit price APIs: every value comes from the stubbed
+    day's price (no hourly prices in tests)."""
     stub_daily_prices(monkeypatch, lambda day: 100000.0)
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price",
-        lambda timestamp, db: Decimal("100000"),
-    )
 
 
 RIVER_HEADER = (
@@ -257,6 +253,7 @@ class TestPreview:
         # 0.00002 BTC * $100,000 stub price = $2.00
         assert Decimal(interest["cost_basis_usd"]) == Decimal("2.00")
         assert interest["basis_autofilled"] is True
+        assert interest["price_moment"] == "day"  # no hourly prices in tests: the day's
 
     def test_existing_tx_marked_matched(self):
         delete_all_transactions()
@@ -508,3 +505,35 @@ def test_a_sell_fee_without_a_fee_currency_is_in_usd():
     sell = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Sell")
     assert Decimal(str(sell["proceeds_usd"])) == Decimal("500.00")  # River's Received Amount
     delete_all_transactions()
+
+
+def test_an_autofilled_basis_left_as_it_was_keeps_its_mark_and_moment():
+    """What the preview filled from the price, imported unchanged (the page
+    sends cost_basis_typed "no" and the price's moment): a priced value, so
+    an edit prices it again and Ledger Review knows its moment (#144)."""
+    delete_all_transactions()
+    data = preview(SYNTHETIC_ROWS)
+    new = [p for p in data["proposals"] if p["status"] == "new"]
+    rows = proposals_to_execute_rows(data)
+    for p, row in zip(new, rows):
+        if p["basis_autofilled"]:
+            row.update(cost_basis_typed="no", price_moment=p["price_moment"])
+    execute(rows)
+    interest = next(t for t in CLIENT.get("/api/transactions").json() if t["source"] == "Interest")
+    assert interest["cost_basis_from_price"] is True and interest["price_moment"] == "day"
+
+
+def test_an_autofilled_basis_at_the_hour_keeps_that_moment(monkeypatch):
+    """The preview's moment travels through the page and back (#144)."""
+    stub_prices_at(monkeypatch, lambda when: 100000)
+    delete_all_transactions()
+    data = preview(SYNTHETIC_ROWS)
+    new = [p for p in data["proposals"] if p["status"] == "new"]
+    rows = proposals_to_execute_rows(data)
+    for p, row in zip(new, rows):
+        if p["basis_autofilled"]:
+            assert p["price_moment"] == "hour"
+            row.update(cost_basis_typed="no", price_moment=p["price_moment"])
+    execute(rows)
+    interest = next(t for t in CLIENT.get("/api/transactions").json() if t["source"] == "Interest")
+    assert interest["price_moment"] == "hour"

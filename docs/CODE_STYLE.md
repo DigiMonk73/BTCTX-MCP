@@ -68,13 +68,14 @@ its own commit, with its own test.
 What the tests depend on, beyond the public functions (a refactor that
 moves these breaks or silently weakens a test):
 
-- **Names tests replace** (monkeypatch): `backend.services.transaction.get_btc_price`
-  (every price lookup in the ledger engine goes through that module name,
-  which is why `transaction.py` stays one file), and the routers'
-  `parse_csv_file`, `execute_import` and `annotate_duplicates`. Those
-  handlers keep calling the module names and stay plain `def` (a test
-  checks imports don't block the server). `get_historical_btc_price` and
-  `get_btc_price` look alike but both stay: tests replace only one.
+- **Names tests replace** (monkeypatch): `hourly_prices.price_at` (every
+  valuation and the report's holdings go through that module name:
+  `conftest.stub_prices_at`), `price_history.find_prices` (the stored day's
+  price: `conftest.stub_daily_prices`), and the routers' `parse_csv_file`,
+  `execute_import` and `annotate_duplicates`. Callers keep calling the
+  module names (`hourly_prices.price_at(...)`, never a name imported from
+  it), and those handlers stay plain `def` (a test checks imports don't
+  block the server).
 - **Private names tests import**: `csv_import._validate_row`,
   `form_8949._determine_box`, `routers.backup._copy_at_most`,
   `transaction.holding_period`.

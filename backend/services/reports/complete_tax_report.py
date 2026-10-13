@@ -32,6 +32,7 @@ from backend.services.reports.pdf_layout import (
     ACCENT, ACCENT_SOFT, DISCLAIMER, FONT, FOOTER_NOTE, INK, RULE, ReportStyles, data_table, draw_footer_note,
     draw_running_header, numbered_canvas,
 )
+from backend.services.reports.form_8949 import INHERITED
 from backend.services.reports.safe_text import pdf_text
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,11 @@ def generate_comprehensive_tax_report(report_dict: dict[str, Any]) -> bytes:
     logger.info(f"Generated comprehensive tax report for {report.year}")
     return buffer.getvalue()
 
+
+# Gift and donation values aren't marked when filled in from a price (the AI
+# connector fills a blank one; the form's Refresh fills the field to edit)
+GIFT_VALUES_NOTE = ("A gift's or donation's value (section 4) isn't tracked this way: one the AI connector filled "
+                    "in uses the price when the transaction's hour began (that day's where there's none).")
 
 class _ReportDocument(BaseDocTemplate):
     """Letter pages: the cover without the running header, the rest with it;
@@ -279,8 +285,8 @@ class _TaxReport:
             ("Cost basis method", "First in, first out (FIFO), for each account"),
             ("Tax timezone", f"{self.tz_name}: it decides each transaction's tax year, the dates shown "
                              "and the holding period"),
-            ("Prices", "USD values as entered with each transaction; a value left blank comes from that "
-                       "day's stored daily BTC price"),
+            ("Prices", "USD values as entered; one left blank: the BTC price when its hour began (UTC), "
+                       "else that day's"),
             ("Generated", f"{self.data.get('report_date', '')} UTC"),
         )
         made = self.made_before_year_end()
@@ -405,7 +411,8 @@ class _TaxReport:
         rows.append([self.total_label(), "", "", "", "", *self.numbers(
             fmt_btc(sum(d.get("amount", 0.0) for d in self.disposals)), fmt_usd(t["proceeds"]),
             fmt_usd(t["basis"]), fmt_gain(t["gain"]), bold=True)])
-        return story + [data_table(rows, [0.72, 0.72, 0.82, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
+        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee"
+        return story + [data_table(rows, [0.72, 0.75, 0.79, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
 
     def disposal_row(self, d: dict) -> list:
         return [
@@ -457,6 +464,10 @@ class _TaxReport:
                              "of their own; a network fee paid with them is a disposal (section 2).")
         if not self.gifts:
             return story + [self.nothing("gifts, donations or lost coins")]
+        if any((g.get("type") or "").lower() == "donation" for g in self.gifts):
+            story.append(self.text(
+                "A deduction for donated bitcoin over $5,000 needs a qualified appraisal (IRS digital asset FAQ, "
+                "Q78): the values here don't replace it.", self.styles.note))
         rows = [self.header("Date", "Kind", "BTC", "Fair market value", numbers_from=2)]
         for g in self.gifts:
             fmv = g.get("fmv_usd")
@@ -631,6 +642,13 @@ class _TaxReport:
         # Only in a year with rebates (#98), so the page stays one page otherwise
         rebates = ["Rebates (bitcoin back for spending, listed in section 3) aren't counted as income; their "
                    "value when received is their cost basis."] if self.rebates else []
+        # Only in a year with a disposal of inherited coins (#154)
+        inherited = ["Inherited bitcoin (deposits with source Inherited) is long-term whenever it's sold (IRC "
+                     "§1223(9)), with INHERITED in Form 8949's column (b). Its cost basis is its value on the date "
+                     "of death, or on the estate's alternate valuation date if it chose one (IRC §1014(a)). If the "
+                     "estate reported a value to you on Form 8971, Schedule A, as having increased the estate tax, "
+                     "the basis can't be more than that value (IRC §1014(f))."] \
+            if any(d.get("date_acquired") == INHERITED for d in self.disposals) else []
         return [
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
@@ -643,6 +661,7 @@ class _TaxReport:
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
             *rebates,
+            *inherited,
             DISCLAIMER,
         ]
 
@@ -656,12 +675,44 @@ class _TaxReport:
             "Capital gains use the first in, first out (FIFO) method within each account: a disposal uses the "
             "oldest bitcoin held in that account. Trading between BTC and USD is a taxable event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
-            "anniversary of its acquisition); otherwise it is short-term.",
-            "USD values are the ones entered with each transaction. A value left blank comes from that day's "
-            "stored daily BTC price.",
+            "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
+            "USD values are the ones entered with each transaction. When one was left blank, BitcoinTX filled "
+            "it in from the U.S. dollar price of bitcoin when the transaction's hour began (UTC): Bitstamp's "
+            "hourly opening price, downloaded by BitcoinTX and checked against fingerprints published with it, "
+            "or your own Mempool server's record of that hour. Where it had no hourly price (before 2013, or "
+            "none on this install), and for a value filled in before hourly prices, it used that day's 00:00 "
+            "UTC price; an inheritance is valued at its date of death's 00:00 UTC price. The income, rebate, "
+            "inherited, spend and network fee values it filled in, and the price each used, are listed below.",
+            "IRS rules measure fair market value at the date and time of each transaction (Treas. Reg. "
+            "§1.1001-7(b)(3)); an hourly price approximates it. The IRS has not approved any price source or "
+            "method: you are responsible for showing your values are accurate. A value from your own records "
+            "is better evidence: the dollar amount an exchange credited for a reward, or the value of what you "
+            "bought with bitcoin you spent.",
+            "Holdings are valued at the price when the tax year began and ended (midnight in the tax "
+            "timezone): the hour's price, or that day's 00:00 UTC price where there's none.",
             f"All dates are shown as MM/DD/YYYY (the IRS format) in the tax timezone ({self.tz_name}).",
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
             "This report is prepared from your own records: check it with a tax professional before you file.",
         )
-        return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes)]
+        return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes),
+                *self.priced_values()]
+
+    def priced_values(self) -> list:
+        """The year's values filled in from the BTC price, and which price (#144)."""
+        rows = self.data.get("priced_values", [])
+        story = self.subheading("Values from the BTC price")
+        if not rows:
+            return story + [self.text(f"None of {self.year}'s income, rebate, inherited, spend or network fee "
+                                      "values: each was entered with its transaction.", self.styles.normal),
+                            *([self.text(GIFT_VALUES_NOTE, self.styles.note)] if self.gifts else [])]
+        table = [self.header("Date", "Transaction", "Value", "Price used", "USD", numbers_from=4)]
+        table += [[self.text(self.date(r["date"])), self.text(r["transaction"]), self.text(r["value"]),
+                   self.text(r["priced_at"]), self.number(fmt_usd(r["usd"]))] for r in rows]
+        return story + [self.text(self.priced_values_note(), self.styles.note),
+                        Spacer(1, 6), data_table(table, [0.85, 1.35, 1.35, 2.55, 0.9])]
+
+    def priced_values_note(self) -> str:
+        return ("Every other income, rebate, inherited, spend and network fee value of the year was entered with "
+                "its transaction. A lot's cost basis from an earlier year is listed in that year's report."
+                + (f" {GIFT_VALUES_NOTE}" if self.gifts else ""))

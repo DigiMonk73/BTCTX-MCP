@@ -47,14 +47,15 @@ Tax timezone America/New_York. Historical BTC price stubbed at $50,000
           2023), basis 2,300.00, gain 6,700.00, long-term. Self-custody:
           box L, Schedule D line 10.
   Jun  1  Spend 0.01 BTC from the Wallet for $1,000 with a 0.0001 BTC network
-          fee on top. The fee is its own disposal (F24), from lot W first:
+          fee on top. The fee is its own disposal (F24), from lot W first,
+          and a cost of the spend, taken off its proceeds (#157):
           - fee:   0.0001 BTC, proceeds 0.0001 x 50,000 = 5.00, basis
                    0.0001 x 23,000 = 2.30, gain 2.70;
-          - spend: 0.01 BTC, proceeds 1,000.00 (no fee cut), basis 230.00,
-                   gain 770.00.
-          Both long-term, box L.
-  Line 10: 9,000 + 1,000 + 5 = 10,005.00; 2,300 + 230 + 2.30 = 2,532.30;
-          gain 7,472.70.
+          - spend: 0.01 BTC, proceeds 1,000.00 - 5.00 = 995.00, basis
+                   230.00, gain 765.00.
+          Both long-term, box L; together they realize the 1,000.00.
+  Line 10: 9,000 + 995 + 5 = 10,000.00; 2,300 + 230 + 2.30 = 2,532.30;
+          gain 7,467.70.
 """
 
 from decimal import Decimal
@@ -134,9 +135,9 @@ EXPECTED = {
         "long_term": [
             row("0.10000000 BTC", "02/01/2023", "05/01/2025", "9000.00", "2300.00", "6700.00", "LONG", "L"),
             row("0.00010000 BTC", "02/01/2023", "06/01/2025", "5.00", "2.30", "2.70", "LONG", "L"),
-            row("0.01000000 BTC", "02/01/2023", "06/01/2025", "1000.00", "230.00", "770.00", "LONG", "L"),
+            row("0.01000000 BTC", "02/01/2023", "06/01/2025", "995.00", "230.00", "765.00", "LONG", "L"),
         ],
-        "lines": {"2": totals("4000.00", "5000.00", "-1000.00"), "10": totals("10005.00", "2532.30", "7472.70")},
+        "lines": {"2": totals("4000.00", "5000.00", "-1000.00"), "10": totals("10000.00", "2532.30", "7467.70")},
     },
 }
 

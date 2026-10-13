@@ -80,9 +80,20 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     fee_usd: rawTx.fee_usd == null ? null : parseDecimal(rawTx.fee_usd),
     fee_usd_manual: rawTx.fee_usd_manual ?? false,
     acquired_at: rawTx.acquired_at ?? null,
+    price_moment: rawTx.price_moment ?? null,
+    ...pricedFrom(rawTx),
     fee_currency: rawTx.fee_currency ?? undefined,
     created_at: rawTx.created_at ?? undefined,
     updated_at: rawTx.updated_at ?? undefined,
+  };
+}
+
+/** Which saved values BitcoinTX filled in, and the stored price they came from (#145). */
+function pricedFrom(rawTx: ITransactionRaw) {
+  return {
+    cost_basis_from_price: rawTx.cost_basis_from_price ?? false,
+    proceeds_from_price: rawTx.proceeds_from_price ?? false,
+    price_used: rawTx.price_used ?? null,
   };
 }
 

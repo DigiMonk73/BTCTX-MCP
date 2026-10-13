@@ -33,6 +33,16 @@ def test_test_data_folder_keeps_data_and_log_out_of_home(monkeypatch, tmp_path):
     assert list(home.iterdir()) == []
 
 
+def test_a_test_run_calls_itself_bitcointx_test(monkeypatch, tmp_path):
+    """Its window and messages say "BitcoinTX Test", so nothing it shows is
+    taken for the installed app's (the owner once quit the real app after
+    a test copy's message)."""
+    monkeypatch.delenv(desktop_paths.DATA_DIR_ENV, raising=False)
+    assert desktop_paths.app_name() == "BitcoinTX"
+    monkeypatch.setenv(desktop_paths.DATA_DIR_ENV, str(tmp_path))
+    assert desktop_paths.app_name() == "BitcoinTX Test"
+
+
 def test_blank_override_means_the_default(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv(desktop_paths.DATA_DIR_ENV, "  ")
@@ -57,6 +67,7 @@ def test_entrypoint_takes_its_folders_from_desktop_paths():
     assert "Application Support" not in source
     assert "app_support = data_dir()" in source
     assert "bring_forward=data_dir_override() is None" in source
+    assert "title=app_name()" in source  # "BitcoinTX Test" on a test run (#142)
 
 
 SCRIPT = Path(__file__).resolve().parents[2] / "desktop" / "run-test-build.sh"

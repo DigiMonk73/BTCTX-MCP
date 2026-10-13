@@ -1,6 +1,7 @@
 """
 Complete tax report data: year-end holdings are a snapshot at the end of the
-tax year (later activity excluded), valued at the Dec 31 BTC price, and the
+tax year (later activity excluded), valued at the price when the tax year
+ended (#144), and the
 asset summary is the year's real gains — no placeholder numbers.
 """
 
@@ -46,7 +47,8 @@ def test_year_end_snapshot_price_and_asset_summary(auth_client, test_engine):
     btc_rows = [r for r in data["end_of_year_balances"] if r["asset"].startswith("BTC")]
     held = sum(r["quantity"] for r in btc_rows)
     assert held == 0.8, f"12/31/2024 holdings should ignore the 2025 sale, got {held}"
-    assert all("2024-12-31" in r["description"] for r in btc_rows)
+    # At the price when the tax year ended (#144): 2025-01-01 00:00 UTC here
+    assert all("2025-01-01" in r["description"] for r in btc_rows), btc_rows[0]["description"]
     assert abs(sum(r["value"] for r in btc_rows) - 0.8 * STUB_HISTORICAL_USD) < 0.01
     assert "94153" not in str(data["end_of_year_balances"])
 

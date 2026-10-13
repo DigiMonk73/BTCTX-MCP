@@ -1,7 +1,8 @@
 """
-Ledger review's fee check (review.fee_price_changes) passes over a transfer
-only when there is no price for its day. Any other failure of the lookup is
-an error, not a shorter list that looks like "nothing to fix".
+Ledger review's check of values priced at the day (hourly_review) passes
+over a transaction only when there is no price for its day. Any other
+failure of the lookup is an error, not a shorter list that looks like
+"nothing to fix".
 """
 
 import pytest
@@ -17,7 +18,7 @@ def test_a_day_without_a_price_is_passed_over(auth_client, priced, monkeypatch):
     monkeypatch.setattr(price_history, "daily_price", no_price)
     r = auth_client.get("/api/review")
     assert r.status_code == 200, r.text
-    assert ids(r.json(), "fee_value_off") == []
+    assert ids(r.json(), "day_priced_values") == []
 
 
 def test_any_other_lookup_failure_is_an_error(auth_client, priced, monkeypatch):  # noqa: F811

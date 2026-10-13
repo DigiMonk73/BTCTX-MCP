@@ -56,9 +56,16 @@ INCOME_SOURCES = frozenset({"income", "interest", "reward"})
 # analogy with Rev. Rul. 76-96: the IRS has no ruling on bitcoin back for spending).
 # Its value at receipt is its cost basis; it is never income.
 REBATE_SOURCE = "rebate"
-# Deposit sources valued at receipt: left blank, the value (the cost basis)
-# is that day's price x the amount (lowercase)
-VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE}
+# Inherited bitcoin (#154): its cost basis is its value on the date of death
+# (IRC §1014), and every disposal of it is long-term (§1223(9)), with
+# INHERITED in Form 8949 column (b). The date of death is the deposit's
+# acquired_at, which it must have.
+INHERITED_SOURCE = "inherited"
+# Deposit sources valued when acquired: left blank, the value (the cost
+# basis) is that hour's price x the amount: when received, or for an
+# inheritance on the date of death (lowercase)
+VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE, INHERITED_SOURCE}
 # Deposit sources whose coins can have been acquired before the deposit (a
-# date originally acquired, #91): the user's own, or a gift with the giver's basis
-ORIGINAL_DATE_SOURCES = frozenset({"mybtc", "gift"})
+# date originally acquired, #91): the user's own, a gift with the giver's
+# basis, or an inheritance (the date of death)
+ORIGINAL_DATE_SOURCES = frozenset({"mybtc", "gift", INHERITED_SOURCE})

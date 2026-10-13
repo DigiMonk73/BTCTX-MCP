@@ -3,13 +3,17 @@ Privacy and browser-security headers (backend/security_headers.py) and the
 fonts bundled with the frontend (no font CDN).
 """
 
-from backend.tests.conftest import default_login
+import ast
+import re
+
+from backend.tests.conftest import MAC_APP_HOST, default_login
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.security_headers import CSP
+from backend.tests.test_network_settings import OWN_REQUESTS_ALLOWED
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -26,7 +30,8 @@ def test_every_response_says_no_referrer_nosniff_no_framing(auth_client):
 
 def test_no_csp_in_the_mac_app(auth_client, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
-    r = auth_client.get("/api/health")
+    r = auth_client.get("/api/health", headers=MAC_APP_HOST)
+    assert r.status_code == 200
     assert "content-security-policy" not in r.headers
     assert r.headers["referrer-policy"] == "no-referrer"
 
@@ -101,6 +106,39 @@ def test_fonts_are_bundled_not_fetched_from_google():
     assert "fonts.googleapis.com" not in index and "fonts.gstatic.com" not in index
     main = (REPO / "frontend" / "src" / "main.tsx").read_text()
     assert '@fontsource/inter/latin-400.css' in main and '@fontsource/outfit/latin-600.css' in main
+
+
+# A web address's host: with a scheme (http, https, ws, wss), or without one
+# ("//host", which the page's own scheme completes) after a quote or bracket,
+# so a "// comment" isn't one
+WEB_HOST = re.compile(r"""(?:\b(?:https?|wss?):|["'`(])//([a-z0-9-]+(?:\.[a-z0-9-]+)+)""", re.IGNORECASE)
+
+# The sites the screens may name, and the only files that may name each: links
+# the owner clicks (this repository, uv's docs), the Mempool field's example
+# address, and SVG's namespace (a name, never fetched)
+SCREEN_HOSTS = {
+    "github.com": {"src/components/ConnectAiSetting.tsx", "src/utils/aiSetup.ts"},
+    "docs.astral.sh": {"src/components/ConnectAiSetting.tsx"},
+    "umbrel.local": {"src/utils/priceSource.ts"},
+    "www.w3.org": {"public/icon.svg", "src/assets/logo.svg", "src/components/dashboard/BtcPriceCard.tsx"},
+}
+
+
+def test_the_screens_ask_only_the_server_they_came_from():
+    """Privacy audit #151 (session 8): the Mac app's window has no CSP
+    (test_no_csp_in_the_mac_app) to stop a request to another site, so the
+    code must make none. The screens call the API they were served from (a
+    relative address), and name no other site but links, an example address
+    and SVG's namespace, each only where it is today."""
+    assert "const API_BASE_URL = '/api';" in (REPO / "frontend/src/config.ts").read_text()
+    front = REPO / "frontend"
+    named: dict[str, set[str]] = {}
+    for path in [front / "index.html", *(front / "public").rglob("*"), *(front / "src").rglob("*")]:
+        if path.is_file() and ".test." not in path.name:
+            for host in WEB_HOST.findall(path.read_text(errors="ignore")):
+                named.setdefault(host.lower(), set()).add(path.relative_to(front).as_posix())
+    unexpected = {host: files - SCREEN_HOSTS.get(host, set()) for host, files in named.items()}
+    assert {host: files for host, files in unexpected.items() if files} == {}
 
 
 # ---------------------------------------------------------------------------
@@ -276,19 +314,43 @@ def test_a_restore_never_writes_the_decrypted_ledger_readable_by_others(tmp_path
     assert all(m == 0o600 for m in modes), [oct(m) for m in modes]
 
 
+def _code_strings(path: Path) -> list[str]:
+    """A module's strings, not its docstrings, which only describe."""
+    tree = ast.parse(path.read_text())
+    docstrings = {id(node.body[0].value) for node in ast.walk(tree)
+                  if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                  and node.body and isinstance(node.body[0], ast.Expr)
+                  and isinstance(node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str)}
+    return [node.value for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings]
+
+
 def test_settings_names_every_site_public_prices_may_contact():
     """Privacy audit 2026-09-29 (1e), owner decision: mempool.space and
     Coinbase were contacted but never named, and the help didn't say the
-    sites can tell when BitcoinTX is open."""
-    import re
-
+    sites can tell when BitcoinTX is open. Session 8's audit (#151): every
+    backend module is read, not only the price modules, so a site added to
+    any of them is caught (the Mac app's launcher and the AI connector name
+    only this BitcoinTX). The IRS's draft forms are the one admin's command,
+    test_network_settings's OWN_REQUESTS_ALLOWED."""
     root = Path(__file__).resolve().parents[2]
-    code = "".join((root / "backend/services" / f).read_text() for f in ("bitcoin.py", "price_history.py"))
-    hosts = set(re.findall(r'"https://([^/"]+)', code))
-    names = {"api.kraken.com": "Kraken", "api.coingecko.com": "CoinGecko", "blockchain.info": "Blockchain.info",
-             "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp",
-             "api.exchange.coinbase.com": "Coinbase"}
-    assert hosts <= set(names), f"a new site: name it in Settings and here: {hosts - set(names)}"
+    backend = root / "backend"
+    found: dict[str, set[str]] = {}
+    for path in backend.rglob("*.py"):
+        where = path.relative_to(backend)
+        if "tests" in where.parts:
+            continue
+        for text in _code_strings(path):
+            # #161 (owner, 2026-10-12): never asked again, for their terms; not
+            # even by an address built from parts
+            assert not re.search("coinbase|coingecko", text, re.IGNORECASE), where
+            for host in WEB_HOST.findall(text):
+                found.setdefault(host.lower(), set()).add(where.as_posix())
+    assert found.pop("www.irs.gov", set()) <= OWN_REQUESTS_ALLOWED
+    hosts = set(found)
+    names = {"api.kraken.com": "Kraken", "blockchain.info": "Blockchain.info",
+             "blockstream.info": "Blockstream", "mempool.space": "mempool.space", "www.bitstamp.net": "Bitstamp"}
+    assert hosts <= set(names), f"a new site: name it in Settings and here: { {h: found[h] for h in hosts - set(names)} }"
     help_text = (root / "frontend/src/utils/priceSource.ts").read_text()
     public = help_text[help_text.index('value: "public"'):help_text.index('value: "off"')]
     assert [names[h] for h in sorted(hosts) if names[h] not in public] == []

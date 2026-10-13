@@ -29,11 +29,11 @@ class EntryRow(BaseModel):
     source: str | None = None
     purpose: str | None = None
     fmv_usd: Decimal | None = None
-    fee_usd: Decimal | None = None  # a BTC fee's USD value; omitted = fee x that day's price
+    fee_usd: Decimal | None = None  # a BTC fee's USD value; omitted = fee x that hour's price
     acquired_at: str | None = Field(
         default=None,
         description="My BTC or Gift deposit: when the coins were originally acquired (by the giver, for a gift), "
-                    "read like date. Omitted: the deposit's date.",
+                    "read like date. Omitted: the deposit's date. Inherited deposit: the date of death (required).",
     )
 
 

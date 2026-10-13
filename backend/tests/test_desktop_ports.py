@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.tests.conftest import MAC_APP_HOST
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_ports  # noqa: E402
 from desktop_ports import OTHER_PORT, QUIT, RETRY, bind_port, choose_socket, running_instance  # noqa: E402
@@ -156,10 +158,10 @@ def test_desktop_info_endpoint(auth_client, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     monkeypatch.setenv("BTCTX_DESKTOP_PREFERRED_PORT", "8765")
     monkeypatch.setenv("BTCTX_DESKTOP_ACTUAL_PORT", "8765")
-    assert auth_client.get("/api/settings/desktop").json()["port_fallback"] is False
+    assert auth_client.get("/api/settings/desktop", headers=MAC_APP_HOST).json()["port_fallback"] is False
     monkeypatch.setenv("BTCTX_DESKTOP_ACTUAL_PORT", "50123")
     monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:50123")
-    assert auth_client.get("/api/settings/desktop").json() == {
+    assert auth_client.get("/api/settings/desktop", headers=MAC_APP_HOST).json() == {
         "desktop": True, "url": "http://127.0.0.1:50123", "port": 50123,
         "preferred_port": 8765, "port_fallback": True,
     }
@@ -176,3 +178,21 @@ def test_a_test_run_never_activates_bitcointx_by_name(monkeypatch, bring_forward
     desktop_ports.tell_already_running(8766, bring_forward=bring_forward)
     assert any("activate" in s for s in scripts) is activates
     assert any("already open" in s for s in scripts)
+
+
+@pytest.mark.parametrize("test_run, name", [(False, "BitcoinTX"), (True, "BitcoinTX Test")])
+def test_its_messages_name_the_copy_that_shows_them(monkeypatch, tmp_path, test_run, name):
+    """A test copy's "already open" and busy-port messages say BitcoinTX
+    Test, title and text, so they aren't mistaken for the installed app's."""
+    if test_run:
+        monkeypatch.setenv("BTCTX_DESKTOP_DATA_DIR", str(tmp_path))
+    else:
+        monkeypatch.delenv("BTCTX_DESKTOP_DATA_DIR", raising=False)
+    scripts = []
+    monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
+    monkeypatch.setattr(desktop_ports, "_osascript", lambda script: scripts.append(script) or "")
+    desktop_ports.tell_already_running(8766, bring_forward=False)
+    desktop_ports.ask_port_busy(8766)
+    already, busy = scripts
+    assert f'"{name} is already open." with title "{name}"' in already
+    assert busy.startswith(f'display dialog "{name} can\'t use port 8766') and f'with title "{name}"' in busy

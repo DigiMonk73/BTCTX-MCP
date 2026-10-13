@@ -30,11 +30,11 @@ minor, and some things that are only documented.
 | 1d | Timing seen by price sites | **documented** (Settings, StartOS); block height cached 60 s | they can tell when the app is open (price every 2 min while a page is visible) and when a recent entry is priced | |
 | 1e | Hosts named in Settings | **fixed** (all named, plus timing; test guards new hosts) | mempool.space, Coinbase and Kraken's history are contacted but never named | yes |
 | 1f | User-Agent `python-httpx/0.28.1` | no leak | the same for every install; don't add a version | |
-| 1g | socks5 vs socks5h, fail closed | no leak | the hostname goes to the proxy either way; no direct retry | VM (PRC-3) |
+| 1g | socks5 vs socks5h, fail closed | no leak | the hostname goes to the proxy either way; no direct retry | VM (PRC-3, PRC-3b) |
 | 1h | `.onion` mempool address with no proxy | **fixed** (was: leak) | accepted, then looked up through normal DNS | yes |
 | 1i | Clearnet mempool server bypasses Tor | documented only | Settings says only `.onion` uses the proxy | |
 | 1j | In-app restore brings back the backup's price settings | **fixed** (owner: keep the settings in use) | an old "public, no proxy" backup turns lookups on again, directly; the code does it on purpose (the AI key and login, by contrast, stay) | yes |
-| 1k | CoinGecko refuses VPN and Tor addresses | **fixed** (owner: Kraken first, CoinGecko fallback) | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
+| 1k | CoinGecko refuses VPN and Tor addresses | **fixed** (owner: Kraken first, CoinGecko fallback; CoinGecko dropped 2026-10-12, #161: Bitstamp is the fallback) | CloudFront 403 from a VPN IP and from Tor; every live price then costs two sites (CoinGecko, Kraken) | VM + curl |
 | 2 | Browser: CSP, headers, cookie, storage, links, Mac webview | no leak | strict CSP, no-referrer, HttpOnly cookie, no browser storage, only self-hosted fonts | VM (SEC-3, SEC-7) |
 | 3a | Service logs | **counts fixed**; httpx URLs remain (minor) | no secrets or dates, but per-year counts at INFO, whole rows at DEBUG, every outbound URL (httpx) | VM (log read) |
 | 3b | Encrypted backup file | **fixed** (owner: hidden, typed twice, no minimum) | good crypto (AES-256 + HMAC, PBKDF2 600k); the password is typed into a plain `prompt()`, shown, not confirmed, no minimum | yes |

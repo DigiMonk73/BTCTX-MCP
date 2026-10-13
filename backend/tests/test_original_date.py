@@ -134,7 +134,8 @@ def test_the_csv_export_and_import_carry_the_date(auth_client, test_engine):
     deposit(auth_client, acquired_at=TWO_YEARS_BEFORE)
     export = auth_client.get("/api/backup/csv")
     header, row = export.text.splitlines()[:2]
-    assert header.endswith(",acquired_at") and row.endswith(",2023-03-14T12:00:00Z")
+    column = header.split(",").index("acquired_at")
+    assert row.split(",")[column] == "2023-03-14T12:00:00Z"
     auth_client.delete("/api/transactions/delete_all")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
@@ -173,7 +174,9 @@ def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
     assert reminder["title"].startswith("Reminder:")
     assert [i["id"] for i in reminder["items"]] == [undated["id"]]
     assert reminder["explanation"][0].startswith("If these are really income, interest, rewards or rebates")
-    assert {c["kind"] for c in checks} == {"check"} and all(not c["explanation"] for c in checks)
+    assert {c["kind"] for c in checks} == {"check"}
+    # Only the hourly check (#144) explains itself, like a reminder
+    assert [c["key"] for c in checks if c["explanation"]] == ["day_priced_values"]
     assert review["total"] == 0 and review["reminders"] == 1
 
 
@@ -204,7 +207,8 @@ def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):
     con = sqlite3.connect(str(db))
     after = con.execute("SELECT * FROM transactions").fetchall()
     con.close()
-    assert [row[:-1] for row in after] == before and after[0][-1] is None
+    n = len(before[0])  # 0007's column comes next; later migrations add theirs after it
+    assert [row[:n] for row in after] == before and after[0][n] is None
 
 
 def test_coins_acquired_the_morning_of_the_deposit_are_allowed(auth_client):

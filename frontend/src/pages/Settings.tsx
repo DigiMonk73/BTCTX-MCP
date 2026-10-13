@@ -5,7 +5,7 @@ import BackupRestore from "../components/BackupRestore";
 import ConnectAiSetting from "../components/ConnectAiSetting";
 import DataManagement from "../components/DataManagement";
 import LedgerReview from "../components/LedgerReview";
-import NetworkSettings from "../components/NetworkSettings";
+import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import RiverImport from "../components/RiverImport";
 import "../styles/settings.css";
 
@@ -25,7 +25,10 @@ const Settings: React.FC = () => {
       <div className="card settings-container">
         <AccountSettings {...section} />
         <LedgerReview />
-        <NetworkSettings />
+        <div className="settings-section" role="region" aria-label="Privacy & network">
+          <h3 className="section-title">Privacy &amp; Network</h3>
+          <PriceSourceCard variant="settings" />
+        </div>
         <ConnectAiSetting />
         <DataManagement {...section} />
         <RiverImport />

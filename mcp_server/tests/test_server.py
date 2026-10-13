@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.database import get_db
 from backend.main import app
 from backend.services import ai_key
+from backend.services.bitcoin import get_current_price as _UNSTUBBED_CURRENT_PRICE  # the real one, before the stub
 from backend.services.tax_time import set_tax_timezone
 from backend.tests.conftest import init_test_db, stub_daily_prices
 from btctx_mcp import server
@@ -57,9 +58,6 @@ def backend_db(monkeypatch):
 
     stub_daily_prices(monkeypatch, lambda day: 50000.0)
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
-    monkeypatch.setattr(
-        "backend.services.transaction.get_btc_price", lambda timestamp, db: Decimal("50000")
-    )
     yield engine
     app.dependency_overrides.clear()
     engine.dispose()
@@ -195,6 +193,34 @@ async def test_preview_then_add_then_list(mcp_client):
 
     again = await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     assert again["imported_count"] == 0 and again["skipped_duplicates"] == 2
+
+
+async def test_a_listed_spend_shows_its_gross_beside_its_after_fee_proceeds(mcp_client):
+    """#157: a spend's proceeds_usd is after its network fee. Listed alone,
+    an AI copying it back into update_transaction took the fee off again;
+    the gross the user entered is listed beside it, and the guide says
+    which one to send."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    spend = {
+        "date": "2024-02-01T12:00:00Z", "type": "Withdrawal", "amount": "0.005",
+        "from_account": "Exchange BTC", "to_account": "External", "purpose": "Spent",
+        "proceeds_usd": "300.00", "fee_amount": "0.00001", "fee_currency": "BTC",
+    }
+    assert (await call(mcp_client, "add_transactions", {"transactions": [BUY, spend]}))["imported_count"] == 2
+    listed = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    # The fee: 0.00001 BTC x $50,000 = $0.50, off the $300 received
+    assert (Decimal(listed["gross_proceeds_usd"]), Decimal(listed["proceeds_usd"])) == (
+        Decimal("300.00"), Decimal("299.50"))
+    await call(mcp_client, "update_transaction",
+               {"transaction_id": listed["id"], "proceeds_usd": listed["gross_proceeds_usd"]})
+    again = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    assert Decimal(again["proceeds_usd"]) == Decimal("299.50")
+    assert "send the new gross as proceeds_usd" in " ".join(LEDGER_GUIDE.split())
+    # Changed into a gift, it has no proceeds: its old gross isn't listed as a value
+    await call(mcp_client, "update_transaction", {"transaction_id": listed["id"], "purpose": "Gift"})
+    gift = (await call(mcp_client, "list_transactions", {"type": "Withdrawal"}))["transactions"][0]
+    assert "proceeds_usd" not in gift and "gross_proceeds_usd" not in gift
 
 
 async def test_income_deposit_autofills_basis(mcp_client):
@@ -400,16 +426,43 @@ async def test_list_transactions_days_are_in_the_tax_timezone(mcp_client, backen
     assert (dec_31["total_matching"], jan_1["total_matching"]) == (1, 0)
 
 
+async def test_the_portfolio_says_why_there_is_no_live_price(mcp_client, monkeypatch):
+    """Review of #191: with Nobody (or not chosen yet), the AI gets BitcoinTX's reason, not two nulls."""
+    from backend.services import bitcoin, outbound
+
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    monkeypatch.setattr(bitcoin, "get_current_price", _UNSTUBBED_CURRENT_PRICE)  # the app's own refusal
+    portfolio = await call(mcp_client, "get_portfolio")
+    assert portfolio["btc_price_usd"] is None and portfolio["btc_price_source"] is None
+    assert "You chose Nobody for prices, so none is asked. To change that:" in portfolio["btc_price_unavailable"]
+
+
 async def test_portfolio_and_price(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     portfolio = await call(mcp_client, "get_portfolio")
     balances = {b["account"]: b["balance"] for b in portfolio["balances"]}
     assert balances["Wallet"] > 0
     assert portfolio["btc_price_usd"] == 60000.0
+    assert "btc_price_source" in portfolio  # where the live price came from, when known (#145)
+    assert "btc_price_unavailable" not in portfolio
     assert portfolio["tax_timezone"] == "UTC"
 
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15"})
-    assert price["usd"] == 50000.0
+    assert price["usd"] == 50000.0 and price["source"] == "stub"  # where the stored price came from
+    # a transaction's time: the price BitcoinTX values it at (the day's here: no hourly prices in tests)
+    price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15T21:05:00-05:00"})
+    assert (price["usd"], price["moment"], price["priced_at"]) == (50000.0, "day", "2024-01-16T00:00:00Z")
+
+
+async def test_a_time_without_an_offset_is_read_in_the_tax_timezone_as_add_transactions_reads_it(
+        mcp_client, backend_db):
+    """Review of #174: get_btc_price read it as UTC, add_transactions in the
+    tax timezone: 21:05 in Chicago is the next UTC day."""
+    tax_timezone(backend_db, "America/Chicago")
+    price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15T21:05:00"})
+    assert price["priced_at"] == "2024-01-16T00:00:00Z"
+    price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15 21:05:00"})  # a space, too
+    assert price["priced_at"] == "2024-01-16T00:00:00Z"
 
 
 async def test_wrong_key_is_a_clear_error(backend_db):

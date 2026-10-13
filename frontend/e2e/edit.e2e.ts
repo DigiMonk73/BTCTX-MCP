@@ -95,6 +95,22 @@ for (const c of CASES) {
   });
 }
 
+test("a Gift made Inherited asks for the date of death and the value again (#154)", async ({ authedPage: page }) => {
+  await createTx(page.request, {
+    type: "Deposit", timestamp: TS, from_account_id: 99, to_account_id: 2, amount: "0.01", fee_amount: "0",
+    fee_currency: "BTC", source: "Gift", cost_basis_usd: "50.00", acquired_at: "2015-01-01",
+  });
+  await openEdit(page, "Deposit");
+  await expect(page.getByLabel("Date originally acquired")).toHaveValue("2015-01-01");
+  await page.getByLabel("Source").selectOption("Inherited");
+  // The giver's purchase date isn't a date of death, nor their cost a value at death
+  await expect(page.getByLabel("Date of death")).toHaveValue("");
+  await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
+  await page.getByRole("button", { name: "Update Transaction" }).click();
+  await expect(page.getByText("Enter the date of death.")).toBeVisible();
+  expect((await listTx(page.request))[0]).toMatchObject({ source: "Gift", cost_basis_usd: "50.00" });
+});
+
 test("saving an edit without changes changes nothing", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   const created = await createTx(page.request, CASES[4].tx);
@@ -142,4 +158,22 @@ test("cancelling delete keeps the transaction", async ({ authedPage: page }) => 
   await openEdit(page, "Sell");
   await page.getByRole("button", { name: "Delete" }).click();
   expect(await listTx(page.request)).toHaveLength(3);
+});
+
+test("a saved value says where it came from: From the price, or Typed (#145)", async ({ authedPage: page }) => {
+  // An income deposit with its value left blank: BitcoinTX fills it in from the price
+  await createTx(page.request, {
+    type: "Deposit", timestamp: TS, from_account_id: 99, to_account_id: 2, amount: "0.1",
+    fee_amount: "0", fee_currency: "BTC", source: "Income",
+  });
+  await openEdit(page, "Deposit");
+  const basis = page.getByLabel("Cost Basis (USD)");
+  const origin = page.locator(".field-origin");
+  await expect(origin).toHaveText(/^From the price: \$[\d,]+\.\d\d, the day's price \(00:00 UTC\) on Jun 15, 2024 · .+\. Type a value to replace it\.$/);
+  await basis.fill("1234.56"); // being changed: the note goes
+  await expect(origin).toHaveCount(0);
+  await saveForm(page, "Update Transaction");
+
+  await openEdit(page, "Deposit");
+  await expect(page.locator(".field-origin")).toHaveText("Typed: you typed this value; it's kept as it is.");
 });
