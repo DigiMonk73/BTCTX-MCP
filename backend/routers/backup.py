@@ -118,8 +118,9 @@ def _write_kept(kept: dict, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
     the restored database before it replaces the live one, then read them
-    back from the file. An error, or a value that doesn't read back as
-    written, stops the restore with the live database untouched (#201).
+    back from the file, with its one login. An error, or a value that
+    doesn't read back as written, stops the restore with the live database
+    untouched (#201).
     """
     try:
         outbound.carry_over(restored, kept["prices"])
@@ -127,7 +128,7 @@ def _write_kept(kept: dict, restored: Session) -> None:
         _keep_login(restored, kept["login"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
-        as_written = _as_stored(restored, kept) == kept
+        as_written = restored.query(User).count() == 1 and _as_stored(restored, kept) == kept
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -189,8 +190,10 @@ def restore_encrypted_backup(
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and switch, and the price settings) stays: an old backup never
     brings back an old password, and on StartOS the password Set Login
-    Credentials gave stays right. They are written into the restored database
-    before it replaces the live one; if that fails, nothing is restored.
+    Credentials gave stays right. The restored database is rebuilt from
+    BitcoinTX's own migrations with only the backup's own data, and these are
+    written into it before it replaces the live one; if anything fails,
+    nothing is restored.
     Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
@@ -198,6 +201,7 @@ def restore_encrypted_backup(
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     kept = _in_use(db)
+    db.close()  # this request holds no connection to the database being replaced
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             temp_path = Path(temp_file.name)

@@ -81,16 +81,20 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
-- **A restore keeps this install's login, AI key and price settings, or
-  restores nothing** (#201). An in-app restore now writes your current
-  login, AI key and its switch, and price settings into the backup's
-  database before it replaces your ledger, and checks they're there. If
-  they can't be kept, the restore stops: your ledger and settings stay as
-  they were, and the page says so. Before, an error there was only logged,
-  and the backup's settings could stay in use. A restore also takes only a
-  database of the kind BitcoinTX makes, and the page now shows why a
-  restore failed (a wrong password, for example) instead of "Failed to
-  restore backup."
+- **A restore brings back a backup's data, and keeps this install's login,
+  AI key and price settings, or restores nothing** (#201, #151). An in-app
+  restore now builds a new database with BitcoinTX's own migrations, as a
+  fresh install does, and copies into it only the rows of BitcoinTX's own
+  tables and columns from the backup (upgraded first); anything else in the
+  backup's database stays behind, and a backup holding database objects
+  BitcoinTX doesn't make, more than one login, or rows that don't fit is
+  refused. Your current login, AI key and its switch, and price settings are
+  written into the new database and checked before it replaces your ledger.
+  If any step fails, the restore stops: your ledger and settings stay as
+  they were, no temporary file is left, and the page says why in plain words
+  (a wrong password, a damaged file) instead of "Failed to restore backup."
+  Before, an error while keeping those settings was only logged, and the
+  backup's settings could stay in use.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
