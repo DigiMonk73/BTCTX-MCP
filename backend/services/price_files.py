@@ -107,7 +107,8 @@ def usable_price(value) -> Decimal | None:
     """
     A site's price to the cent, or None when it's no price: not a number,
     not finite, or under one cent once rounded (never $0, AGENTS.md). Every
-    price a site gives passes here before it's kept (#198).
+    price a site gives passes here before it's kept (#198), except the year
+    files, which their fingerprints check.
     """
     try:
         price = Decimal(str(value))

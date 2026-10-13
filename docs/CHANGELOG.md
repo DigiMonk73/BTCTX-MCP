@@ -82,16 +82,19 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 - **A price a site gives under one cent, or as no number, is never kept**
-  (#206, #198, tax figures). A day's price from Bitstamp or Kraken was
-  checked above zero before it was rounded to the cent, so an answer of
-  $0.004 was stored as $0.00, and a value left blank that day (an income
-  deposit's value at receipt, an unpriced spend's proceeds, a BTC fee's
-  value) was saved at $0.00. The hours after the hourly price files (not in
-  a release yet) kept 0, below 0 and no number too. Now such a day or hour
-  has no price: a value from it takes the day's price, or asks you to type
-  one, never $0, and one odd answer no longer costs the site's other days
-  or hours. **Affected:** 1.1.0 to 1.2.7, only if Bitstamp or Kraken ever
-  answered such a price; none is known. **What to do:** nothing.
+  (#206, #198, tax figures). A day's price from a public site or your own
+  Mempool was checked above zero before it was rounded to the cent, so an
+  answer of $0.004 was stored as $0.00, and a value left blank that day
+  (an income deposit's value at receipt, an unpriced spend's proceeds, a
+  BTC fee's value) was saved at $0.00. The hours after the hourly price
+  files (not in a release yet) kept 0, below 0 and no number too. Now such
+  a day or hour has no price: a value from it takes the day's price, or
+  asks you to type one, never $0, and one odd price no longer costs the
+  site's other days or hours. **Affected:** 0.9.2 to 1.2.7, only if a
+  price site (Bitstamp, Kraken, Coinbase before #161) or your own Mempool
+  ever answered such a price; none is known. **What to do:** nothing,
+  unless you ever saw a value "from the price" at $0.00: a day already
+  stored at $0.00 stays, so type that value.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
