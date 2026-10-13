@@ -491,3 +491,18 @@ async def test_update_transaction_sets_and_clears_the_date_originally_acquired(m
     assert updated["acquired_at"].startswith("2022-01-05T18:00:00")
     cleared = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "none"})
     assert "acquired_at" not in cleared
+
+
+async def test_the_row_limit_reaches_the_ai(mcp_client):
+    """The tool's description names the AI key's row limit, and a call over
+    it comes back as BitcoinTX's error, saying what to do."""
+    from backend.routers.entry_import import AI_MAX_ROWS
+
+    tools = {t.name: t for t in (await mcp_client.list_tools()).tools}
+    assert f"At most {AI_MAX_ROWS} rows a call" in tools["preview_transactions"].description
+    rows = [dict(BUY, date=f"2024-01-{1 + i // 24:02d}T{i % 24:02d}:00:00Z") for i in range(AI_MAX_ROWS + 1)]
+    for tool in ("preview_transactions", "add_transactions"):
+        error = await call(mcp_client, tool, {"transactions": rows}, expect_error=True)
+        assert f"BitcoinTX returned 400: Too many transactions. Maximum is {AI_MAX_ROWS} rows per request " \
+               "with the AI key: send them in smaller groups, oldest first." in error, error
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0

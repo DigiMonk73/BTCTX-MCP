@@ -400,7 +400,9 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
     flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,
     balances afterward). NOTHING is saved. Always call this and show the user the result
-    before add_transactions."""
+    before add_transactions. At most 500 rows a call, and fewer dated before the ledger's
+    latest entry (each recalculates the whole ledger; the error says how many): split a long
+    list by date, oldest first, and preview and add each part before the next."""
     return await _call("POST", "/api/import/entries/preview", json={"rows": _rows(transactions)})
 
 
@@ -410,7 +412,8 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
     the user's confirmation. Rows exactly matching an existing transaction are skipped; rows
-    previewed as possible_duplicate ARE saved, so drop any the user rejected."""
+    previewed as possible_duplicate ARE saved, so drop any the user rejected. The same row
+    limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
 
 

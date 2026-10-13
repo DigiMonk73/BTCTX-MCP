@@ -316,6 +316,13 @@ So derived values must be recomputable from the Transaction row alone.
   owner's. The AI copies keep the newest 3, the oldest of the last week and
   the newest made before deleting (`migrate._ai_copies_held`), so copies
   made after the key's deletions never push out the ledger from before them.
+- The JSON entry import (`routers/entry_import.py`) holds SQLite's write
+  lock while it works, and the owner's saves wait only 5 s for it. With the
+  key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
+  before the ledger's latest entry, each replaying the whole ledger, at most
+  `AI_MAX_REPLAYED` (2,000) entries in all (one such row always), about 2 s.
+  A body over `MAX_BODY_BYTES` (5 MB) is refused before FastAPI reads it,
+  whoever sends it (FastAPI reads and parses a body before the login check).
 
 ## Testing (see `docs/TESTING.md`)
 
