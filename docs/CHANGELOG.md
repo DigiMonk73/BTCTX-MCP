@@ -490,6 +490,10 @@ All notable changes to BitcoinTX are documented in this file.
   own choice. The package passes
   `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
   five languages; the README and instructions say the same.
+- **Start9's 1.2.7:1, taken back** (`scripts/start9-pull.sh`): start-sdk
+  3.0.6, whose fix stops every process of the previous run when BitcoinTX
+  is restarted while still starting, and the action-result fields it
+  requires (`launchable: false`). Start9 published it on 2026-10-12.
 - **Package 1.2.8:0.** Release notes in five languages: what to do after
   updating (Ledger Review, then Recalculate Ledger; confirm the price
   choice; log in again; update the AI connector), the spend fee fix
