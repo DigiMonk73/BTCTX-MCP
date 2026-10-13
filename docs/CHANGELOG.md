@@ -81,6 +81,12 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **A wrong setup code or an over-long password gets the usual answer, not
+  a server error** (#200, #205). A setup code typed with letters outside
+  A–Z and 0–9 (À, for example) made the login and Create account answer
+  with a server error (500), and so did a login password over 72 bytes.
+  Neither can ever be right, so nothing was exposed; now they're refused
+  like any wrong code or password.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
