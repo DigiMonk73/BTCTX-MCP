@@ -81,6 +81,16 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **Every price request ends in bounded time and size** (#151). A request
+  to a price source (your own Mempool or a public price site) had a time
+  limit for each wait but none for the whole request, and no limit on the
+  answer's size, so a source answering very slowly could hold the live
+  price, or a save needing a past price, for as long as it kept answering.
+  Now each request has a limit for the whole of it (30 seconds; 90 for your
+  Mempool's whole price history and Bitstamp's hourly prices), and an
+  answer over 16 MB is refused. Either counts as the source not answering,
+  as before: the backup, "no price", or a retry later. A past-price lookup
+  now really ends at its 3-minute limit.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and
