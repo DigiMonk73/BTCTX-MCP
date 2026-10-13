@@ -96,7 +96,7 @@ def _sync_ai_key_file() -> None:
     try:
         ai_key.sync(db)
     except Exception:
-        logger.exception("Could not write the AI key file")
+        logger.exception("Could not write the AI key file: no AI key until Reset key in Settings, or the next start")
     finally:
         db.close()
 
