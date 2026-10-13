@@ -64,7 +64,9 @@ Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull r
    then builds the image (if `main` hasn't yet), the macOS `.dmg` and `.zip`
    and `btctx.s9pk`, creates the tag and one GitHub release with all three
    (titled `vX.Y.Z · StartOS package X.Y.Z:N`, the version StartOS and the
-   mirror show), publishes the AI connector to PyPI (`btctx-mcp==X.Y.Z`,
+   mirror show) and their `SHA256SUMS`, with a GitHub build provenance
+   attestation of each (`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP`),
+   publishes the AI connector to PyPI (`btctx-mcp==X.Y.Z`,
    not for `-N` revisions), and pushes `startos/` to BTCTX-StartOS's `main`
    (when `MIRROR_TOKEN` exists). There, Start9's **Tag and Release** workflow
    tags it `v<upstream>_<revision>` and creates the release with its own

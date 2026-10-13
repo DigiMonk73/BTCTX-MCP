@@ -403,8 +403,11 @@ Full steps, the package version and the signing/mirror secrets:
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
    set), publishes the AI connector to PyPI as `btctx-mcp==X.Y.Z` (trusted
    publishing, GitHub environment `pypi`, no token; skipped for `-N`
-   revisions), creates the tag and one GitHub release, and pushes `startos/`
-   to DigiMonk73/BTCTX-StartOS's `main` if the `MIRROR_TOKEN` secret is set.
+   revisions), creates the tag and one GitHub release (with `SHA256SUMS` of
+   its files and a GitHub build attestation of each: once it's out, check
+   one file with `gh attestation verify`, as the README shows), and pushes
+   `startos/` to DigiMonk73/BTCTX-StartOS's `main` if the `MIRROR_TOKEN`
+   secret is set.
    There, Start9's Tag and Release workflow tags it `v<upstream>_<revision>`
    and releases it (needs the mirror's `DEV_KEY` secret and
    `REFERENCE_REGISTRY` variable).
