@@ -332,6 +332,26 @@ class TransactionRead(TransactionBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    # A stored transaction is shown as it is. The limits above are for what
+    # is entered: a figure the ledger derives from entered values (a sale's
+    # basis over its lots) or one stored before they applied must never
+    # stop the list. These replace TransactionBase's checks of the same name.
+    @field_validator("amount")
+    def validate_amount(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("fee_amount")
+    def validate_fee_amount(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("cost_basis_usd", "proceeds_usd", "realized_gain_usd", "fmv_usd", "fee_usd")
+    def validate_usd_fields(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
+    @field_validator("gross_proceeds_usd")
+    def validate_gross_proceeds_usd(cls, v: Decimal | None) -> Decimal | None:
+        return v
+
 
 class LedgerEntryBase(BaseModel):
     """

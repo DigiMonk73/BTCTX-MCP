@@ -82,15 +82,18 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 - **A value too large to store is refused everywhere** (#151). The API
-  refused an amount or a USD value with more digits than the database
-  holds, but the CSV, River and JSON imports (the AI connector's) didn't:
+  refused most amounts and USD values with more digits than the database
+  holds (not one the database rounds up, or a tiny exponent, saved as 0),
+  and the CSV, River and JSON imports (the AI connector's) refused none:
   such a value was saved, and then the transaction list, the average cost
   and the tax report showed an error for the whole ledger. Every path now
   refuses it with a message naming the field (an amount or BTC value: at
   most 10 digits before the decimal point; a USD value: 16, as the database
   stores it), and the AI connector does before it asks BitcoinTX anything.
   An amount in a River file that isn't a number is now that row's error (a
-  fee was read as no fee). Values within the limits are saved as before.
+  fee was read as no fee). Values within the limits are saved as before,
+  and the transaction list shows every stored value as it is, including a
+  sale's basis the ledger sums past the limits.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and

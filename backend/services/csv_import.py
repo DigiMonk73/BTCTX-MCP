@@ -507,15 +507,17 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
         return None
     rule, _digits = _NUMBER_RULES[max_decimals]
     try:
-        return rule(Decimal(value.replace(",", "")))  # without thousands separators
+        number = rule(Decimal(value.replace(",", "")))  # without thousands separators
     except (InvalidOperation, ValueError):
         return None
+    # A zero keeps no exponent: "0E-999999999" would be written out in full
+    return Decimal(0) if number == 0 else number
 
 
 def number_limits(max_decimals: int) -> str:
     """The rule of a column with `max_decimals` places, as its messages say it."""
     _rule, digits = _NUMBER_RULES[max_decimals]
-    return f"{max_decimals} decimal places and {digits} digits before the decimal point once stored"
+    return f"{max_decimals} decimal places and {digits} digits before the decimal point"
 
 
 def number_text(value: Decimal | None) -> str:

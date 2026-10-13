@@ -276,3 +276,38 @@ def test_an_edit_is_checked_with_the_stored_values(auth_client, test_db):
         assert r.status_code == 200, r.text
     finally:
         test_db.rollback()
+
+
+# #217's review
+def test_a_basis_the_ledger_derives_past_the_limits_still_lists(auth_client):
+    """A sale's basis is its lots' basis plus their fees: each within the
+    limits as entered, the sum past them. The list shows it as it is."""
+    buy = {"type": "Buy", "timestamp": DATE, "from_account_id": 1, "to_account_id": 4, "amount": "1",
+           "cost_basis_usd": LARGEST_USD, "fee_amount": "9999999999", "fee_currency": "USD"}
+    sell = {"type": "Sell", "timestamp": "2024-03-01T12:00:00Z", "from_account_id": 4, "to_account_id": 3,
+            "amount": "1", "gross_proceeds_usd": "1", "fee_amount": "0", "fee_currency": "USD"}
+    assert auth_client.post("/api/transactions", json=buy).status_code == 200
+    r = auth_client.post("/api/transactions", json=sell)
+    assert r.status_code == 200, r.text
+    assert Decimal(r.json()["cost_basis_usd"]) > Decimal("1e16")
+    every_read_works(auth_client)
+
+
+def test_a_value_stored_before_the_limits_still_lists(auth_client, test_db):
+    from sqlalchemy import text
+
+    r = auth_client.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": DATE, "from_account_id": 99, "to_account_id": 1, "amount": "1000",
+        "fee_amount": "0", "fee_currency": "USD", "source": "N/A"})
+    tx_id = r.json()["id"]
+    test_db.execute(text("UPDATE transactions SET cost_basis_usd = 1e20 WHERE id = :i"), {"i": tx_id})
+    test_db.commit()
+    assert auth_client.get("/api/transactions").status_code == 200
+    assert auth_client.get(f"/api/transactions/{tx_id}").status_code == 200
+
+
+def test_a_zero_with_a_long_exponent_is_written_as_zero(ai):
+    """A zero passes every limit, and the preview wrote its exponent out in full."""
+    row = {**usd_deposit("1000"), "fee_amount": "0E-99999", "fee_currency": "USD"}
+    r = ai.post("/api/import/entries/preview", json={"rows": [row]})
+    assert r.status_code == 200 and len(r.content) < 10_000, len(r.content)
