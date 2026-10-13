@@ -225,16 +225,40 @@ def _boom(*args, **kwargs):
     raise OSError("disk full")
 
 
+def _failing(m, step):
+    """The key file's write fails at `step`: before the hash is committed, or after."""
+    m.setattr(ai_key.tempfile if step == "mkstemp" else ai_key.os, step, _boom)
+
+
 @pytest.mark.parametrize("step", ["mkstemp", "replace"])
-async def test_a_key_file_that_cant_be_written_leaves_the_old_key_working(desktop, restart, monkeypatch, step):
-    """A start or a reset whose key file can't be written (before or after
-    the new hash is committed) keeps the old key and its file together, so
-    the connector isn't refused for the whole run."""
+async def test_a_start_whose_key_file_cant_be_written_has_no_key(desktop, restart, monkeypatch, step):
+    """The file left is the earlier run's (its pid gone, so the connector
+    refuses it): this run has no key, and the earlier run's key doesn't
+    work again. A reset in Settings makes one."""
     old = _token(desktop)
     with monkeypatch.context() as m:
-        m.setattr(ai_key.tempfile if step == "mkstemp" else ai_key.os, step, _boom)
+        _failing(m, step)
         restart()  # logged; the app starts anyway
-        with _db() as db, pytest.raises(OSError):
+    assert _token(desktop) == old and not list(desktop.parent.glob(".mcp-*"))
+    with _db() as db:
+        assert ai_key._get(db, ai_key.HASH_KEY) is None
+    async with _http() as h:
+        assert (await h.get("/api/transactions", headers={"Authorization": f"Bearer {old}"})).status_code == 401
+    with _db() as db:
+        ai_key.rotate(db)
+    assert _token(desktop) != old
+
+
+@pytest.mark.parametrize("step", ["mkstemp", "replace", "commit"])
+async def test_a_reset_whose_key_file_cant_be_written_keeps_the_key(desktop, monkeypatch, step):
+    """The file and the hash stay the same pair, so the connector carries on."""
+    old = _token(desktop)
+    with _db() as db, monkeypatch.context() as m:
+        if step == "commit":
+            m.setattr(db, "commit", _boom)
+        else:
+            _failing(m, step)
+        with pytest.raises(OSError):
             ai_key.rotate(db)
     assert _token(desktop) == old and not list(desktop.parent.glob(".mcp-*"))
     with _db() as db:

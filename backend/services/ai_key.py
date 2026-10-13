@@ -35,6 +35,7 @@ import logging
 import os
 import secrets
 import tempfile
+import threading
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -153,6 +154,9 @@ def revoke(db: Session) -> None:
 
 
 # Mac mode: the key lives in the owner-only key file
+_writing = threading.Lock()  # one new key at a time
+
+
 def _prepare_file(path: Path, token: str) -> str:
     """The key file's next version, written beside it owner-only (0600) in an owner-only dir; its path."""
     from backend.version import app_version
@@ -169,8 +173,8 @@ def _prepare_file(path: Path, token: str) -> str:
     os.chmod(path.parent, 0o700)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".mcp-", suffix=".json")
     try:
-        os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w") as f:
+            os.fchmod(f.fileno(), 0o600)
             json.dump(data, f, indent=2)
     except BaseException:
         os.remove(tmp)
@@ -182,24 +186,26 @@ def _write_new_key(db: Session, path: Path) -> None:
     """
     A new key, in its file and as the stored hash, or neither: the file is
     written first and put in place once the hash is committed, and a step
-    that fails puts the old hash back. A hash whose key no file holds would
-    refuse the connector for the whole run (the app starts anyway).
+    that fails puts the old hash back (unless that commit fails too). A hash
+    whose key no file holds would refuse the connector until the next key.
+    One at a time, so two resets can't leave one's file with the other's hash.
     """
-    token = _new_token()
-    tmp = _prepare_file(path, token)
-    before = _get(db, HASH_KEY)
-    try:
-        _set(db, HASH_KEY, _hash(token))
-        db.commit()
-        os.replace(tmp, path)
-    except BaseException:
-        db.rollback()
-        _set(db, HASH_KEY, before)
-        db.commit()
-        raise
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
+    with _writing:
+        token = _new_token()
+        tmp = _prepare_file(path, token)
+        before = _get(db, HASH_KEY)
+        try:
+            _set(db, HASH_KEY, _hash(token))
+            db.commit()
+            os.replace(tmp, path)
+        except BaseException:
+            db.rollback()
+            _set(db, HASH_KEY, before)
+            db.commit()
+            raise
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
 
 
 def sync(db: Session) -> None:
@@ -210,9 +216,19 @@ def sync(db: Session) -> None:
     (btctx_mcp/client.py), so an AI app left open carries on by itself.
     """
     path = key_file()
-    if path is not None:
+    if path is None:
+        return
+    try:
         _write_new_key(db, path)
-        logger.info("AI key created")
+    except BaseException:
+        # The file left is an earlier run's, with its pid, which the
+        # connector refuses: this run has no key until a reset (Settings),
+        # rather than an earlier run's key working again.
+        db.rollback()
+        _set(db, HASH_KEY, None)
+        db.commit()
+        raise
+    logger.info("AI key created")
 
 
 def rotate(db: Session) -> None:
