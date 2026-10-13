@@ -237,7 +237,7 @@ From `backend/requirements.in`:
 | `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
 | `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
-| `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`; also used by the MCP server |
+| `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`, which reads each answer as a stream under a deadline and a size limit (`BoundedClient`: run `test_request_limits.py` after an update); also used by the MCP server |
 | `socksio` | 1.0.0 | Low | SOCKS proxy for httpx (Settings → Privacy & Network, e.g. Tor) |
 | `alembic` | 1.20.0 | Caution | Runs at every start (`backend/migrate.py`); after an update run `test_migrations.py` |
 | `requests` | 2.34.2 | Low | |

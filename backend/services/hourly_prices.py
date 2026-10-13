@@ -412,7 +412,7 @@ class ChoiceClient:
     async def get(self, url, **kwargs):
         if not outbound.current().public_allowed:
             raise ChoiceChanged
-        async with outbound.async_client(timeout=30.0) as client:
+        async with outbound.async_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             return await client.get(url, **kwargs)
 
 

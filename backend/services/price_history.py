@@ -55,6 +55,9 @@ MEMPOOL_HISTORY_PATH = "/api/v1/historical-price"
 DAY = 86400
 MEMPOOL_TOLERANCE = Decimal("0.02")  # a 00:00 price within 2% of 23:00 and 01:00
 RETRY_SECONDS = 600
+# The most a lookup from sync code may take (_run): each request in it has its
+# own deadline (outbound.BoundedClient); this bounds them all together
+LOOKUP_SECONDS = 180
 HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is done
 
 # When each download last ran (in memory: a restart may ask again, and every
@@ -223,7 +226,7 @@ async def own_node_rows() -> tuple[list[dict], bool]:
         return _state["mempool_rows"], False
     _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
     try:
-        async with outbound.own_node_client(timeout=30.0) as client:
+        async with outbound.own_node_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
             resp.raise_for_status()
             rows = resp.json()["prices"]
@@ -262,16 +265,26 @@ async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
 
 
 def _run(coro):
-    """Run a coroutine to completion from sync code, even inside an event loop's thread."""
+    """
+    Run a coroutine from sync code, even inside an event loop's thread, for
+    at most LOOKUP_SECONDS: then TimeoutError. The coroutine is cancelled at
+    that limit, so its thread ends too, and the caller never waits for it:
+    a worker thread waiting here is free again by then.
+    """
     def target():
         loop = asyncio.new_event_loop()
         try:
-            return loop.run_until_complete(coro)
+            return loop.run_until_complete(asyncio.wait_for(coro, LOOKUP_SECONDS))
         finally:
             loop.close()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(target).result(timeout=180)
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(target).result(timeout=LOOKUP_SECONDS)
+    except (asyncio.TimeoutError, concurrent.futures.TimeoutError):  # two classes in Python 3.10
+        raise TimeoutError(f"no prices within {LOOKUP_SECONDS} seconds") from None
+    finally:
+        pool.shutdown(wait=False)
 
 
 # Table
