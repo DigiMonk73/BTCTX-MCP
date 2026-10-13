@@ -10,9 +10,11 @@ import os
 import sqlite3
 import struct
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -57,6 +59,7 @@ MIN_ITERATIONS = 100_000
 MAX_ITERATIONS = 5_000_000
 _HEADER_LENGTH = len(MAGIC) + 1 + 4
 SQLITE_HEADER = b"SQLite format 3\x00"
+NOT_OURS = "This backup can't be restored: it holds database objects BitcoinTX doesn't make."
 
 
 def _derive_key(password: str, salt: bytes, iterations: int = LEGACY_ITERATIONS, length: int = KEY_LENGTH) -> bytes:
@@ -179,15 +182,23 @@ def make_backup(password: str, output_file: Path, db_path: Path | None = None) -
     logger.info(f"Backup created at: {output_file}")
 
 
-def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = None, engine=None):
+def restore_backup(
+    password: str,
+    encrypted_file: Path,
+    db_path: Path | None = None,
+    engine=None,
+    carry_over: Callable[[Session], None] | None = None,
+):
     """
     Replace the database with a decrypted backup, upgraded to the current
     schema. The live database is only touched once the backup has decrypted,
-    is a SQLite file and has migrated successfully; the database it replaces
-    is kept in <db dir>/backups/. Returns the MigrationResult of the backup.
+    is a SQLite file of BitcoinTX's kind (tables and indexes only), has
+    migrated successfully and `carry_over`, given a session on it, has written
+    what this install keeps into it: any error on the way deletes the staged
+    copy and leaves the live database as it was. The database it replaces is
+    kept in <db dir>/backups/. Returns the MigrationResult of the backup.
     """
-    from backend.migrate import MigrationError, backup_sqlite, upgrade_database
-    from backend.database import seed_defaults
+    from backend.migrate import backup_sqlite
 
     if engine is None:
         from backend.database import engine
@@ -204,18 +215,11 @@ def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = N
     os.fchmod(fd, 0o600)  # owner-only from the start, also over a leftover file
     with os.fdopen(fd, "wb") as f:
         f.write(decrypted)
-    staged = create_engine(f"sqlite:///{staging}", poolclass=NullPool)
     try:
-        result = upgrade_database(staged, backup=False)
-        seed_defaults(staged)
-    except MigrationError as e:
-        staging.unlink(missing_ok=True)
-        raise ValueError(f"This backup can't be restored: {e}") from e
+        result = _prepare_staged(staging, carry_over)
     except Exception:
         staging.unlink(missing_ok=True)
         raise
-    finally:
-        staged.dispose()
 
     if db_path.exists():
         kept = backup_sqlite(db_path, "restore")
@@ -226,3 +230,38 @@ def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = N
 
     logger.info(f"Database restored from: {encrypted_file} (schema {result.from_revision or 'unversioned'} -> {result.to_revision})")
     return result
+
+
+def _prepare_staged(staging: Path, carry_over: Callable[[Session], None] | None):
+    """Check, upgrade and seed the staged copy, then let `carry_over` write
+    into it; returns the MigrationResult."""
+    from backend.migrate import MigrationError, upgrade_database
+    from backend.database import seed_defaults
+
+    staged = create_engine(f"sqlite:///{staging}", poolclass=NullPool)
+    try:
+        _refuse_objects_not_ours(staged)
+        result = upgrade_database(staged, backup=False)
+        seed_defaults(staged)
+        if carry_over is not None:
+            with Session(staged) as session:
+                carry_over(session)
+        return result
+    except MigrationError as e:
+        raise ValueError(f"This backup can't be restored: {e}") from e
+    finally:
+        staged.dispose()
+
+
+def _refuse_objects_not_ours(staged) -> None:
+    """
+    Only BitcoinTX's kind of database is restored: tables and indexes, the
+    only objects its migrations make. A trigger or a view runs SQL that isn't
+    BitcoinTX's whenever the app reads or writes, and would stay in the live
+    database, so a backup holding one is refused before anything runs in it.
+    """
+    with staged.connect() as conn:
+        others = conn.exec_driver_sql(
+            "SELECT count(*) FROM sqlite_master WHERE type NOT IN ('table', 'index')").scalar()
+    if others:
+        raise ValueError(NOT_OURS)

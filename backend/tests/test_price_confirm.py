@@ -21,7 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
 from backend.services import bitcoin, hourly_prices, outbound, price_history
-from backend.tests.conftest import default_login
+from backend.tests.conftest import default_login, keep_in_use
 
 # The real functions, captured before the session fixture stubs them.
 from backend.services.bitcoin import get_current_price as real_current_price
@@ -218,8 +218,9 @@ def test_9_an_in_app_restore_keeps_the_current_record(auth_client, test_engine, 
     confirm(auth_client, price_source="public", via="settings")
     before = record(test_engine)
 
-    def restore_old_backup(password, path):  # an older backup: public, no record
+    def restore_old_backup(password, path, carry_over):  # an older backup: public, no record
         stored(test_engine, price_source="public")
+        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
