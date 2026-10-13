@@ -4,6 +4,8 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
+
 ### Added
 - **Check a download** (#203). Each release now has `SHA256SUMS`, the
   SHA-256 of the macOS `.dmg` and `.zip` and of `btctx.s9pk`, and GitHub
@@ -282,6 +284,14 @@ All notable changes to BitcoinTX are documented in this file.
     and a command never makes a price choice. Installs from before 1.1.0
     keep what they did, except one that never changed its price settings
     and first starts 1.2.8 with the source set by the server: it asks once.
+  - What could have been sent: requests from the server's address to
+    public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or
+    Coinbase) and the block height (Blockchain.info, Blockstream or
+    mempool.space). Never dates, amounts or anything from the ledger; over
+    Tor, not even the address. Every request the app can make is listed in
+    `docs/PRIVACY_AUDIT.md`.
+  - What to do: confirm or change the choice when BitcoinTX asks once
+    after the update (next entry), or check Settings › Privacy & Network.
   - What this fix alone couldn't cover (an install whose first start is
     already without the server's source, and a Public choice this bug
     already saved, which looks like your own) is covered by the next
@@ -477,6 +487,14 @@ All notable changes to BitcoinTX are documented in this file.
   own choice. The package passes
   `BTCTX_HOST=startos`, so the app's messages name this action. Texts in
   five languages; the README and instructions say the same.
+- **Package 1.2.8:0.** Release notes in five languages: what to do after
+  updating (Ledger Review, then Recalculate Ledger; confirm the price
+  choice; log in again; update the AI connector), the spend fee fix
+  (#157), what #134 could have sent and who could be affected, and what's
+  new. The update raises **Recalculate Ledger** once, an important task
+  that doesn't stop the service (the owner's choice, 2026-10-13), so
+  #157's corrected figures reach existing transactions; its text now says
+  to open Ledger Review first.
 
 ### Development
 - **CI runs once per change** (owner, 2026-10-13): on each pull request (which tests the branch merged with its base) and each push to `develop` or `main`, no longer again for the same commit's branch push. Each pull request's merge waits for one run instead of two, and a fluke in the second can't block it. The macOS app build now runs on pull requests too (not a required check). A flaky WebKit reload in the price matrix is #231.

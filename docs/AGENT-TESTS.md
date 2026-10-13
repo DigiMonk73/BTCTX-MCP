@@ -517,6 +517,22 @@ Start from the `clean` snapshot.
     the Mempool service) can't be tested here: the owner checks it on
     their own server during the soak (#143, section 5). The Mac app's own
     check is MAC-7.
+  - Then go on to PRC-4c.
+- **PRC-4c** (#188, #193) **Trust this server** against a real StartOS
+  certificate: the VM's own, from StartOS's own authority (an Ed25519
+  leaf), where the release before only had a test server with a private CA.
+  Still with **Decide in BitcoinTX instead**: in Settings > Privacy &
+  Network, **My own Mempool**, address `https://<the VM's LAN IP>` (the
+  VM's own StartOS address, by IP: a `.local` name doesn't resolve inside
+  the service), fallback off. Save.
+  - Expect the status line to say the Mempool's certificate isn't trusted,
+    and **Trust this server** to show the server's name, its root
+    certificate's name ("… Local Root CA") and a SHA-256 fingerprint.
+  - Press it. Expect the certificate check to pass: the status line now
+    says the address isn't a Mempool (StartOS answers 404 there), not a
+    certificate error. A certificate error after trusting is a FAIL.
+  - **Forget this server's certificate**: the certificate message comes
+    back.
   - Afterwards choose **Off** in Settings > Privacy & Network, clear the
     address, and save: PRC-5 expects the app's own choice to be Off (from
     AUTH-4) and a blank address.
@@ -797,7 +813,8 @@ Start from the `clean` snapshot.
   figures, and the output of `curl $API/health`.
 - **UPG-2** Sideload `btctx_x86_64.s9pk` over it. Expect: it updates in
   place, starts healthy, and `$API/health` shows `X.Y.Z` and its
-  schema. The same login works. Every UPG-1 figure is identical. The AI key
+  schema. The same login works; from 1.2.8, the browser shows the login
+  page once first (every session from before the update ends, #221). Every UPG-1 figure is identical. The AI key
   still works. Any tasks raised are only the ones this release's CHANGELOG
   entry announces. If StartOS refuses the update because the CI package's
   signing key differs from the release's, mark UPG BLOCKED and run it after
@@ -837,9 +854,10 @@ Start from the `clean` snapshot.
 - **UPG-7** (#145, the package asks once) A pass of its own: restore the
   VM's `clean` snapshot, sideload the previous release (1.2.7), set its
   login as in UPG-1, start it, and never run **Price Source & Privacy**.
-  Sideload the candidate. Expect one task, **Price Source & Privacy**,
+  Sideload the candidate. Expect the task **Price Source & Privacy**,
   important (not critical): "Prices are now hourly. Check who BitcoinTX
-  asks for newer ones." The service keeps running. Dismiss the task in
+  asks for newer ones.", and beside it 1.2.8's **Recalculate Ledger**
+  (important). The service keeps running. Dismiss the price task in
   StartOS, then restart the service and the server: it doesn't come back.
 - **UPG-8** (#143, a beta user may skip a release) A pass of its own:
   restore the VM's `clean` snapshot, sideload the published 1.2.5:0

@@ -75,7 +75,7 @@ One model, `store.json` on the `startos` volume. The package writes no app confi
 | Key                 | Meaning                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `adminPassword`     | The password Set Login Credentials last generated. Not updated when the user changes the password inside BitcoinTX. While it is unset, the critical Set Login Credentials task stays raised. |
-| `recalculateLedger` | `true` after an update from a version with the old gain calculations (transfer fees, sale proceeds, holding period), until Recalculate Ledger runs. |
+| `recalculateLedger` | `true` after an update from a version with old gain calculations (before 0.8.0: transfer fees, sale proceeds, holding period; before 1.2.8: a spend's network fee counted twice), until Recalculate Ledger runs. |
 | `priceSource`       | Absent: never chosen (the action preselects nothing). `unset`: Decide in BitcoinTX, the app's own card decides. `off` (Nobody), `public` or `mempool`: set by Price Source & Privacy and passed as `BTCTX_PRICE_SOURCE`. |
 | `mempoolFallback`   | With `mempool`: ask public sites when Mempool can't answer (`BTCTX_MEMPOOL_FALLBACK`). |
 | `useTor`            | Public sites through Tor's SOCKS proxy (`BTCTX_PROXY_URL`), when public sites may be asked; with `unset` (Decide in BitcoinTX), StartOS's Tor lent to the app's own choice (`BTCTX_TOR_PROXY_URL`, shown in the app as Tor on this server, locked on). Either way Tor becomes a dependency. |

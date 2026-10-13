@@ -1,17 +1,65 @@
-# Privacy and leak audit: BitcoinTX 1.2.1 (2026-09-29)
+# Privacy and leak audit
+
+## Every request BitcoinTX can make (1.2.8)
+
+The stable candidate's privacy audit (#151; develop 72ba76f, 2026-10-12,
+re-checked on 16bf055, 2026-10-13). It supersedes the 1.2.1 table below
+where they differ (Coinbase and CoinGecko are gone, hourly prices are
+new); the 1.2.1 audit stays as the record of its fixes. When a change
+touches what leaves the machine, check it against this table and update
+it.
+
+**Result: nothing goes out before the owner chooses, no request names a date or an hour, Tor carries every request to a public site whenever it's set, the download checks its fingerprints and never changes a stored price, and nothing goes to Coinbase or CoinGecko.** Each row is pinned by the tests named (all in `backend/tests/` unless said), and was also observed: Claude drove a real app (temp database) through the price paths under 13 choices with a recording fake internet (table at the end).
+
+**What every request to a public site reveals:** the server's IP address (unless Tor, or a VPN such as StartOS's Set Outbound Gateway), the time (that BitcoinTX is open, or that a price was needed just then), and a generic client (`python-httpx`, the same for every install). Never a ledger date, hour, amount or address.
+
+| # | Request | When it can happen | Tor | Tests |
+|---|---|---|---|---|
+| 1 | **Live price, your Mempool:** `GET <your Mempool>/api/v1/prices` | Your Mempool chosen (and confirmed), a page showing the price open (the sidebar every 2 minutes, the Dashboard); the server asks at most once a minute | Direct: it's on your network (the card says so); an `.onion` only through Tor | `test_network_settings`: `test_your_own_mempool_server_only`, `test_the_live_price_is_asked_once_a_minute`, `test_an_onion_mempool_address_needs_the_proxy`, `test_a_server_set_onion_without_a_proxy_is_never_asked`, `test_mempool_on_startos_through_the_bridge_address` |
+| 2 | **Live price, public:** `GET https://api.kraken.com/0/public/Ticker?pair=XBTUSD`, else `GET https://www.bitstamp.net/api/v2/ticker/btcusd/` | Public sites chosen, or your Mempool with its backup when it can't answer; as row 1 | Yes | `test_the_live_price_asks_kraken_first_then_bitstamp`, `test_the_dashboard_and_sidebar_asking_at_once_make_one_request`, `test_your_mempool_with_fallback_asks_the_public_sites_when_it_is_down`, `test_the_proxy_carries_public_requests_and_skips_a_local_mempool` |
+| 3 | **Block height:** `GET <your Mempool>/api/blocks/tip/height`; public: `blockchain.info/q/getblockcount`, else `blockstream.info/api/blocks/tip/height`, else `mempool.space/api/blocks/tip/height` | The Dashboard opens; at most once a minute | As rows 1 and 2 | `test_the_block_height_is_asked_at_most_once_a_minute`, `test_your_own_mempool_server_only` |
+| 4 | **Past prices, your Mempool:** `GET <your Mempool>/api/v1/historical-price?currency=USD` (its whole history, one request) | A value needs a day or hour that isn't stored; at most every 10 minutes, shared by day and hour lookups | As row 1 | `test_price_history`: `test_mempool_hourly_midnights_are_used_and_nothing_public_is_asked`; `test_hourly_prices`: `test_a_mempool_server_gives_hours_after_the_files_and_the_asked_hour_within_them`, `test_the_day_lookup_after_the_hour_lookup_gets_the_mempool_servers_day` |
+| 5 | **Daily history, public:** `GET https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=1000&start=<fixed block from 2011-08-18>` (6 requests today); then "the latest days": the same without `start`, else `https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1440` | The whole history once, when a value needs a day that isn't stored (retried after 10 minutes if a block fails); the latest days at most once a UTC day | Yes | `test_price_history`: `test_the_whole_history_comes_in_the_same_requests_whatever_the_day`, `test_a_new_day_later_asks_only_for_the_latest_days`, `test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else`, `test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_later`, `test_nothing_is_asked_until_a_source_is_chosen_or_when_off` |
+| 6 | **The hourly history's download (#144):** `GET https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=3600&limit=1000&start=<1 January 00:00 UTC + k × 1,000 hours>`, every year from 2013 to the manifest's last hour, newest year first (124 requests today, 0.2 s apart) | In the background once public sites are allowed (Public, or your Mempool with its backup): at start, when the choice is saved, and when a lookup needs a year that isn't here. Each request checks the choice as it is then: none once public sites aren't allowed, through the proxy set then. A year is kept only if it gives the fingerprint in `MANIFEST.csv`; a stored hour is never replaced | Yes (also on the VM over real Tor: release test PRC-3b) | `test_hourly_prices`: `test_the_year_files_come_in_fixed_blocks_newest_year_first_and_are_checked`, `test_a_year_that_doesnt_give_its_fingerprint_is_never_used`, `test_a_file_that_doesnt_give_its_fingerprint_is_never_read`, `test_nothing_is_downloaded_unless_public_sites_are_allowed`, `test_the_download_stops_when_public_sites_stop_being_allowed`, `test_the_download_stops_at_the_next_request_when_public_sites_stop_being_allowed`, `test_a_proxy_set_during_the_download_carries_the_next_request`, `test_a_stored_hour_wins_over_the_files`, `test_a_stored_hour_is_never_replaced_by_a_source`; `test_price_files`: `test_a_year_is_asked_in_the_same_fixed_blocks_on_every_install` |
+| 7 | **Hours after the year files:** the same URL, `start` = the hour after the manifest's last + k × 1,000 hours (the same for every install of a release) | A value needs an hour after the files that your Mempool (if any) doesn't have; at most every 10 minutes; blocks already stored are skipped; the current hour only once it has traded | Yes | `test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored`, `test_a_block_with_an_hour_missing_is_asked_again`, `test_while_the_mempool_server_answers_bitstamp_isnt_asked`, `test_the_current_hour_comes_from_bitstamp_once_it_has_traded` |
+| 8 | **"Trust this server" (#188):** a TLS handshake only (no HTTP request) with your Mempool's `https://` address | When you click Trust this server (to show its root and fingerprint) and when you confirm; only for a home-network address (`.local`, `.lan`, a one-word name, 10.x, 172.16–31.x, 192.168.x); login only | Direct (a home address) | `test_mempool_trust`: `test_a_home_servers_mempool_untrusted_then_trusted_then_forgotten`, `test_a_public_address_is_never_offered`, `test_only_for_your_own_mempool_in_use`, `test_never_with_the_ai_key`, `test_the_trusted_root_is_never_used_for_public_sites` |
+| 9 | **IRS draft forms:** `GET https://www.irs.gov/pub/irs-dft/f8949--dft.pdf` and `f1040sd--dft.pdf` | Only when someone runs `python -m backend.cli install-draft-forms` on a test install: no screen, route or AI tool reaches it | Direct (an admin's command, `outbound.py`'s one exception) | `test_draft_forms`: `test_off_by_default`, `test_cli_installs_checks_and_removes_the_drafts`; `test_network_settings`: `test_no_other_module_makes_its_own_http_client` |
+| 10 | **The screens:** only the server they came from (`/api`, relative) | Always | n/a | `test_privacy`: `test_the_screens_ask_only_the_server_they_came_from` (new, #196: the Mac app's window has no CSP, so the code must name no other site), `test_fonts_are_bundled_not_fetched_from_google`, `test_every_response_says_no_referrer_nosniff_no_framing` (browsers: `connect-src 'self'`). Links (this repository, uv's docs) open only when clicked |
+| 11 | **The AI connector:** only `BTCTX_URL` (your BitcoinTX), never a redirect, the key only to that address | While your AI app uses it | n/a | `mcp_server/tests/test_ai_key_client.py`: `test_a_redirect_is_a_clear_error_and_is_not_followed` |
+| 12 | **Nothing else** | | | `test_no_other_module_makes_its_own_http_client` (no backend module makes a client or a raw connection but `outbound.py`); `test_settings_names_every_site_public_prices_may_contact` (#196: every backend module's addresses are the five sites Settings names, never Coinbase or CoinGecko) |
+
+**Nothing before the owner chooses:** a fresh install has the source `unset` and asks nobody (`test_a_fresh_install_asks_nothing_until_the_owner_chooses`, `test_off_or_unchosen_asks_nobody`, `test_entries_made_before_choosing_never_turn_public_sites_on`); a stored choice with no record of when it was made sends nothing until the owner confirms it (`test_price_confirm.py`, the plan's 10 cases); invalid server settings, or an invalid server Tor, ask nobody (`test_invalid_server_settings_turn_lookups_off`, `test_a_bad_server_tor_asks_nobody_and_a_server_set_choice_ignores_it`); a command never makes a choice (#134, `test_10_a_command_and_the_ai_key_never_write_the_record`). On StartOS the price step is critical at install, before the service starts (release test INS-2), and the app asks nothing while it's unset anyway.
+
+**Outside BitcoinTX (for completeness):** StartOS's own screens show the Mempool and Tor dependency icons from GitHub (`startos/startos/dependencies.ts`, commit-pinned; Start9's dependency metadata, `dependencies.md`). Mempool's own exchange-rate requests are Mempool's (its own Tor setting; `instructions.md` says so). The AI app downloads the connector from PyPI (`uvx btctx-mcp==X.Y.Z`). The developer tools (`make prices`, the monthly and IRS watch workflows) run on GitHub or the developer's computer, never in an install.
+
+**Observed (a real app on a temp database, every outside request recorded):** start, save the choice, the status line, the live price twice, the block height, a price and an income deposit at three moments (2019, 2024, three days ago), a day in 2016, a spend, Ledger Review, the 2024 Complete Tax Report.
+
+| Choice | Requests | Where, and through what |
+|---|---|---|
+| Not chosen; Nobody; StartOS Nobody; StartOS invalid; StartOS "Decide in BitcoinTX" + Tor, nothing chosen | 0 | — |
+| Public | 132 | Kraken (live), Blockchain.info (height), Bitstamp 6 daily + 124 hourly blocks; direct |
+| Public + Tor; StartOS Public + Tor | 132 | the same, every one through Tor |
+| Your Mempool (no backup); StartOS My Mempool | 3 | your Mempool only: live price, height, whole history |
+| Your Mempool + backup (± Tor) | 133 | your Mempool 3, direct; Bitstamp 130 (through Tor when set) |
+| Your Mempool at an `.onion` + Tor | 3 | your Mempool, through Tor |
+
+In every run: every Bitstamp `start` was one of the fixed block starts, no request carried any of the ledger's dates or hours (as a date, a Unix time, its hour or its day), and none went to Coinbase or CoinGecko.
+
+Re-checked on develop 16bf055 (2026-10-13): every test named above exists, and their files pass (252 backend + 13 connector tests).
+
+## The 1.2.1 audit (2026-09-29)
 
 Every way data or metadata leaves the machine or sits on disk, with a
 verdict. Code read on `develop` (1.2.1 plus the VM-test fixes, 8858dd5);
 live checks on the StartOS VM. "Checked" means Claude re-read the code or
 saw it on the VM, not only the audit agent. The fixes shipped in **1.2.2**
 (`docs/CHANGELOG.md`, "Privacy"); the owner decided each one that changes
-what they see (recorded in the table). Keep this file as the record; when a
-change touches what leaves the machine, check it against the table.
+what they see (recorded in the table).
 
 Verdicts: **no leak** (verified) · **leak** (real, not documented) ·
 **documented only** (real, the app warns) · **fix proposed**.
 
-## The short answer
+### The short answer
 
 The core promise holds: **no request ever names a transaction date**,
 **nothing is contacted until the owner picks a price source** (and nothing
@@ -20,7 +68,7 @@ failed, none went direct), the browser talks only to the app itself, and
 secrets are never logged. What's left is smaller: five real leaks, all
 minor, and some things that are only documented.
 
-## Summary
+### Summary
 
 | # | Item | Verdict | One line | Checked |
 |---|---|---|---|---|
@@ -53,7 +101,7 @@ minor, and some things that are only documented.
 | 5b | Docker publishes plain HTTP on all interfaces | **fixed** (README: 127.0.0.1 + HTTPS note) | README uses `-p 8080:80` with no warning: password, cookie and ledger in clear on the LAN | yes |
 | 5c | `/api/health` version; `server: uvicorn` | **server header fixed**; health version kept (the Mac app and connector read it) | version fingerprinting from the LAN or Tor | VM (SEC-3) |
 
-## Details worth reading
+### Details worth reading
 
 - **1d Timing.** The live price is asked every 120 s while any page is
   visible (the sidebar converter), with a 60 s server cache; block height
@@ -86,7 +134,7 @@ minor, and some things that are only documented.
   code still protects a fresh install, but after that the login travels
   in clear to any LAN client.
 
-## Outcome (1.2.2)
+### Outcome (1.2.2)
 
 All eleven proposed fixes were made, smallest safe change each; the "fixed",
 "documented" and "warned" verdicts above are their results. Left as they
