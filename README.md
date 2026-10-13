@@ -93,9 +93,9 @@ To check a file you downloaded from a release, save that release's
 `SHA256SUMS` in the same folder and run
 `shasum -a 256 -c --ignore-missing SHA256SUMS` there (on Linux,
 `sha256sum -c --ignore-missing SHA256SUMS`): your file should say `OK`.
-With the [GitHub CLI](https://cli.github.com),
-`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP` also checks that
-GitHub built it from this repository.
+With the [GitHub CLI](https://cli.github.com), signed in,
+`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP --signer-workflow DigiMonk73/BTCTX-MCP/.github/workflows/release.yml`
+also checks that this repository's release workflow built it.
 
 ### macOS app
 

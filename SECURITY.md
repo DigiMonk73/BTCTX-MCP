@@ -47,8 +47,9 @@ Each release lists the SHA-256 of its files (the macOS `.dmg` and `.zip`,
 `btctx.s9pk`) in `SHA256SUMS`, and GitHub keeps a signed build provenance
 attestation of each, made by the release workflow. The README's
 [Install](README.md#install) section shows how to check a file with them. A
-file that fails either check isn't the one the release published: don't
-open or install it.
+file whose checksum or attestation doesn't match isn't the one the release
+published: don't open or install it. (A network or sign-in error in the
+GitHub CLI isn't a mismatch: try again.)
 
 ## Scope
 

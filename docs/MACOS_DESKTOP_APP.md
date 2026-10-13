@@ -15,18 +15,20 @@ Quick start for building: [desktop/README.md](../desktop/README.md).
 The app isn't signed by Apple, so macOS can't say who made it; the release
 can. Its `SHA256SUMS` holds the SHA-256 of each file, and GitHub keeps a
 signed build provenance attestation of each, made by the release workflow.
-Save `SHA256SUMS` next to the `.dmg` (or `.zip`) and, in that folder, before
-opening the app:
+Save `SHA256SUMS` next to the `.dmg` and, in that folder, before opening
+the app (check the `.dmg`: Safari unzips a downloaded `.zip` by itself):
 
 ```bash
-shasum -a 256 -c --ignore-missing SHA256SUMS                       # BitcoinTX-macOS.dmg: OK
-gh attestation verify BitcoinTX-macOS.dmg -R DigiMonk73/BTCTX-MCP  # with the GitHub CLI
+shasum -a 256 -c --ignore-missing SHA256SUMS   # BitcoinTX-macOS.dmg: OK
+gh attestation verify BitcoinTX-macOS.dmg -R DigiMonk73/BTCTX-MCP \
+  --signer-workflow DigiMonk73/BTCTX-MCP/.github/workflows/release.yml
 ```
 
 The first says the file is the one the release lists (`--ignore-missing`
 leaves out the release's other files, the ones you didn't download); the
-second, that GitHub built it from this repository. If either fails, don't
-open it: download it again from the release page.
+second (the GitHub CLI, signed in) that this repository's release workflow
+built it. If either reports a mismatch, don't open it: download it again
+from the release page.
 
 ## How it works
 
