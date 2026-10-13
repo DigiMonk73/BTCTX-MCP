@@ -291,7 +291,9 @@ So derived values must be recomputable from the Transaction row alone.
   log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
-  `CORS_ALLOW_ORIGINS` is set.
+  `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
+  to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise), and its server
+  never takes a client's address from `X-Forwarded-For`.
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
   ReportLab, which may fetch nothing remote); CSV text cells can't start a
   formula.

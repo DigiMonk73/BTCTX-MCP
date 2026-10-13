@@ -44,6 +44,9 @@ def _drop_git_repository_variables() -> None:
 _drop_git_repository_variables()
 
 LOGIN_CREDS = {"username": "admin", "password": "password"}
+# The address the Mac app's window and connector use: in Mac mode the backend
+# answers no other (security_headers.LocalAddressOnlyMiddleware)
+MAC_APP_HOST = {"Host": "127.0.0.1:8765"}
 
 
 def default_login() -> dict:
