@@ -81,6 +81,12 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **CSV files keep every transaction on its own row** (#151). A line
+  break in a stored text stays inside its cell in the transaction history
+  CSV, and the CSV export's price moment can't start a spreadsheet formula.
+  A purpose or source typed as text must be one line (no line break, tab
+  or other control character), and a fee currency must be USD or BTC,
+  through the API and every import.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and

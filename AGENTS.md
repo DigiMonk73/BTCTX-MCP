@@ -297,7 +297,9 @@ So derived values must be recomputable from the Transaction row alone.
   a client's address from `X-Forwarded-For` (`desktop/entrypoint.py`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
   ReportLab, which may fetch nothing remote); CSV text cells can't start a
-  formula.
+  formula, and the csv module writes every CSV, so a line break stays in its
+  cell; a purpose or source kept as written is one line, and a fee currency
+  is USD or BTC.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json` and works only from localhost.
