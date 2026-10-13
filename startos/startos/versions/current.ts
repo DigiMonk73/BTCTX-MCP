@@ -30,8 +30,8 @@ export const current = VersionInfo.of({
 
 **Privacy: a price choice made without asking (fixed)**
 
-- Who could be affected: in 1.2.0 to 1.2.7, owners who switched Price Source & Privacy to Decide in BitcoinTX instead (called Choose in BitcoinTX before) after it had been set to Off, Public price sites or My Mempool, or who ran Set Login Credentials or a hand-run command while it was set. BitcoinTX could then save Public price sites as your choice in the app without asking, and use it after a switch.
-- What could have been sent: requests from your server's address to public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or Coinbase) and the block height (Blockchain.info, Blockstream or mempool.space). Never dates, amounts or anything from your ledger. The action's Use Tor no longer applied after the switch: only a proxy set in BitcoinTX's own Settings hid your address.
+- Who could be affected: in 1.2.0 to 1.2.7, owners who switched Price Source & Privacy to Decide in BitcoinTX instead (called Choose in BitcoinTX before) after it had been set to Off, Public price sites or My Mempool, or who ran Set Login Credentials or a hand-run command while it was set, if BitcoinTX had stored prices meanwhile. It could then save Public price sites as your choice in the app without asking, and use it after a switch.
+- What could have been sent: requests from your server's address to public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or Coinbase) and the block height (Blockchain.info, Blockstream or mempool.space). Never dates, amounts or anything from your ledger. The action's Tor setting no longer applied after the switch: only a proxy set in BitcoinTX's own Settings hid your address.
 - What to do: confirm or change the choice when BitcoinTX asks once after this update (above), or check Settings > Privacy & Network.
 
 **New**
@@ -52,7 +52,7 @@ export const current = VersionInfo.of({
 
 **Qué hacer después de actualizar**
 
-- **Recalcular el libro contable.** Una tarea lo pide hasta que la ejecutes. Primero abre Settings > Ledger Review en BitcoinTX: muestra cada gasto cuyas cifras cambian, con las anteriores y las nuevas. Después ejecuta la acción de StartOS Recalcular el libro contable, o Settings > Recalculate Ledger en BitcoinTX.
+- **Recalcular el libro contable.** Una tarea lo pide hasta que ejecutes la acción. Primero abre Settings > Ledger Review en BitcoinTX: muestra cada gasto cuyas cifras cambian, con las anteriores y las nuevas. Después ejecuta la acción de StartOS Recalcular el libro contable, o Settings > Recalculate Ledger en BitcoinTX.
 - **Confirma de dónde vienen los precios.** Salvo que la acción Fuente de precios y privacidad lo fije, el Dashboard de BitcoinTX pide una vez que confirmes tu elección de precios, y no pregunta a nadie hasta que lo hagas. Si nunca elegiste nada en esa acción, una tarea lo pide una vez.
 - **Vuelve a iniciar sesión.** Después de esta actualización todos inician sesión una vez más.
 - **Actualiza tu conector de IA.** En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.8 y reinicia la aplicación. Ahora muestra los ingresos brutos de una venta o un gasto junto a la cifra tras la comisión; un conector anterior podía restar la comisión dos veces al editar uno.
@@ -63,7 +63,7 @@ export const current = VersionInfo.of({
 
 **Privacidad: una elección de precios hecha sin preguntar (corregido)**
 
-- A quién pudo afectar: en las versiones 1.2.0 a 1.2.7, a quienes cambiaron Fuente de precios y privacidad a Decidir en BitcoinTX en su lugar (antes Elegir en BitcoinTX) después de tenerla en Desactivado, Sitios públicos de precios o Mi Mempool, o ejecutaron Establecer credenciales de acceso o un comando a mano mientras estaba así. BitcoinTX podía entonces guardar Public price sites como tu elección en la aplicación sin preguntar y usarla tras el cambio.
+- A quién pudo afectar: en las versiones 1.2.0 a 1.2.7, a quienes cambiaron Fuente de precios y privacidad a Decidir en BitcoinTX en su lugar (antes Elegir en BitcoinTX) después de tenerla en Desactivado, Sitios públicos de precios o Mi Mempool, o ejecutaron Establecer credenciales de acceso o un comando a mano mientras estaba así, si BitcoinTX había guardado precios entretanto. Podía entonces guardar Public price sites como tu elección en la aplicación sin preguntar y usarla tras el cambio.
 - Qué pudo enviarse: peticiones desde la dirección de tu servidor a sitios públicos, para el precio del bitcoin (CoinGecko, Kraken, Bitstamp o Coinbase) y la altura de bloque (Blockchain.info, Blockstream o mempool.space). Nunca fechas, cantidades ni nada de tu libro contable. Tras el cambio, el Tor de la acción ya no se aplicaba: solo un proxy configurado en los propios Settings de BitcoinTX ocultaba tu dirección.
 - Qué hacer: confirma o cambia la elección cuando BitcoinTX lo pida una vez tras esta actualización (arriba), o revisa Settings > Privacy & Network.
 
@@ -96,7 +96,7 @@ export const current = VersionInfo.of({
 
 **Datenschutz: eine Kurswahl ohne Nachfrage (behoben)**
 
-- Wer betroffen sein konnte: in 1.2.0 bis 1.2.7, wer Kursquelle & Datenschutz auf Stattdessen in BitcoinTX entscheiden (früher In BitcoinTX wählen) umgestellt hat, nachdem sie auf Aus, Öffentliche Kursseiten oder Mein Mempool stand, oder wer Zugangsdaten festlegen oder einen Befehl von Hand ausgeführt hat, während sie so stand. BitcoinTX konnte dann ohne Nachfrage Public price sites als deine Wahl in der App speichern und nach der Umstellung verwenden.
+- Wer betroffen sein konnte: in 1.2.0 bis 1.2.7, wer Kursquelle & Datenschutz auf Stattdessen in BitcoinTX entscheiden (früher In BitcoinTX wählen) umgestellt hat, nachdem sie auf Aus, Öffentliche Kursseiten oder Mein Mempool stand, oder wer Zugangsdaten festlegen oder einen Befehl von Hand ausgeführt hat, während sie so stand, sofern BitcoinTX in der Zeit Kurse gespeichert hatte. BitcoinTX konnte dann ohne Nachfrage Public price sites als deine Wahl in der App speichern und nach der Umstellung verwenden.
 - Was gesendet worden sein kann: Anfragen von der Adresse deines Servers an öffentliche Seiten, nach dem Bitcoin-Kurs (CoinGecko, Kraken, Bitstamp oder Coinbase) und der Blockhöhe (Blockchain.info, Blockstream oder mempool.space). Nie Daten, Beträge oder etwas aus deinem Journal. Nach der Umstellung galt das Tor der Aktion nicht mehr: Nur ein Proxy in den eigenen Settings von BitcoinTX verbarg deine Adresse.
 - Was zu tun ist: Bestätige oder ändere die Wahl, wenn BitcoinTX nach diesem Update einmal fragt (oben), oder prüfe Settings > Privacy & Network.
 
@@ -129,8 +129,8 @@ export const current = VersionInfo.of({
 
 **Prywatność: wybór źródła cen bez pytania (naprawione)**
 
-- Kogo mogło to dotyczyć: w wersjach 1.2.0 do 1.2.7 tych, którzy przełączyli Źródło cen i prywatność na Zamiast tego zdecyduj w BitcoinTX (wcześniej Wybierz w BitcoinTX) po ustawieniu jej na Wyłączone, Publiczne serwisy z cenami lub Mój Mempool, albo uruchomili Ustaw dane logowania lub polecenie ręcznie przy takim ustawieniu. BitcoinTX mógł wtedy bez pytania zapisać Public price sites jako Twój wybór w aplikacji i użyć go po przełączeniu.
-- Co mogło zostać wysłane: zapytania z adresu Twojego serwera do publicznych serwisów o cenę bitcoina (CoinGecko, Kraken, Bitstamp lub Coinbase) i wysokość bloku (Blockchain.info, Blockstream lub mempool.space). Nigdy daty, kwoty ani nic z Twojej księgi. Po przełączeniu Tor z akcji przestawał działać: Twój adres ukrywało tylko proxy ustawione w samych Settings BitcoinTX.
+- Kogo mogło to dotyczyć: w wersjach 1.2.0 do 1.2.7 tych, którzy przełączyli Źródło cen i prywatność na Zamiast tego zdecyduj w BitcoinTX (wcześniej Wybierz w BitcoinTX) po ustawieniu jej na Wyłączone, Publiczne serwisy z cenami lub Mój Mempool, albo uruchomili Ustaw dane logowania lub polecenie ręcznie przy takim ustawieniu, jeśli BitcoinTX zapisał w tym czasie ceny. Mógł wtedy bez pytania zapisać Public price sites jako Twój wybór w aplikacji i użyć go po przełączeniu.
+- Co mogło zostać wysłane: zapytania z adresu Twojego serwera do publicznych serwisów o cenę bitcoina (CoinGecko, Kraken, Bitstamp lub Coinbase) i wysokość bloku (Blockchain.info, Blockstream lub mempool.space). Nigdy daty, kwoty ani nic z Twojej księgi. Po przełączeniu Tor z akcji już nie działał: Twój adres ukrywało tylko proxy ustawione w samych Settings BitcoinTX.
 - Co zrobić: potwierdź lub zmień wybór, gdy BitcoinTX raz o to zapyta po tej aktualizacji (wyżej), albo sprawdź Settings > Privacy & Network.
 
 **Nowości**
@@ -162,7 +162,7 @@ export const current = VersionInfo.of({
 
 **Confidentialité : un choix de prix fait sans demander (corrigé)**
 
-- Qui a pu être concerné : de la 1.2.0 à la 1.2.7, ceux qui ont passé Source des prix et confidentialité à Décider plutôt dans BitcoinTX (auparavant Choisir dans BitcoinTX) après l’avoir mise sur Désactivé, Sites publics de prix ou Mon Mempool, ou qui ont lancé Définir les identifiants ou une commande à la main pendant ce réglage. BitcoinTX pouvait alors enregistrer Public price sites comme votre choix dans l’application sans demander, et s’en servir après le changement.
+- Qui a pu être concerné : de la 1.2.0 à la 1.2.7, ceux qui ont passé Source des prix et confidentialité à Décider plutôt dans BitcoinTX (auparavant Choisir dans BitcoinTX) après l’avoir mise sur Désactivé, Sites publics de prix ou Mon Mempool, ou qui ont lancé Définir les identifiants ou une commande à la main pendant ce réglage, si BitcoinTX avait enregistré des prix entre-temps. Il pouvait alors enregistrer Public price sites comme votre choix dans l’application sans demander, et s’en servir après le changement.
 - Ce qui a pu être envoyé : des requêtes depuis l’adresse de votre serveur vers des sites publics, pour le prix du bitcoin (CoinGecko, Kraken, Bitstamp ou Coinbase) et la hauteur de bloc (Blockchain.info, Blockstream ou mempool.space). Jamais de dates, de montants ni rien de votre registre. Après le changement, le Tor de l’action ne s’appliquait plus : seul un proxy réglé dans les Settings de BitcoinTX lui-même masquait votre adresse.
 - Que faire : confirmez ou changez le choix quand BitcoinTX le demande une fois après cette mise à jour (ci-dessus), ou vérifiez Settings > Privacy & Network.
 

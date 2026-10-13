@@ -528,9 +528,11 @@ Start from the `clean` snapshot.
   - Expect the status line to say the Mempool's certificate isn't trusted,
     and **Trust this server** to show the server's name, its root
     certificate's name ("… Local Root CA") and a SHA-256 fingerprint.
-  - Press it. Expect the certificate check to pass: the status line now
-    says "Your Mempool didn't answer at HH:MM." (StartOS's address isn't a
-    Mempool), not the certificate message. The certificate message after
+  - Press it. Expect the certificate check to pass: the status line first
+    says "Newer prices will come from your Mempool.", then, within a minute
+    or two (after the next live-price request), "Your Mempool didn't answer
+    at HH:MM." (StartOS's address isn't a Mempool), not the certificate
+    message. The certificate message after
     trusting is a FAIL.
   - **Forget this server's certificate**: the certificate message comes
     back.

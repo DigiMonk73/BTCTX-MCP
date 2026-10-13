@@ -290,7 +290,8 @@ All notable changes to BitcoinTX are documented in this file.
     mempool.space). Never dates, amounts or anything from the ledger. The
     action's Use Tor didn't apply after the switch (the package passed its
     proxy only while the action set the source), so only a proxy set in
-    BitcoinTX's own Settings hid the address. Every request the app can make is listed in
+    BitcoinTX's own Settings hid the address (on Docker, also a standard
+    proxy variable such as `HTTPS_PROXY`). Every request the app can make is listed in
     `docs/PRIVACY_AUDIT.md`.
   - What to do: confirm or change the choice when BitcoinTX asks once
     after the update (next entry), or check Settings › Privacy & Network.
