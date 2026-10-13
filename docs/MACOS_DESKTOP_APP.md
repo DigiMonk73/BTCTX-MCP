@@ -195,8 +195,10 @@ At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
 (0600, in a 0700 folder): the app's URL, port, pid, version and the **AI
 key** (`backend/services/ai_key.py`). The MCP server reads it and sends the
 key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
-database (`app_settings`); the key stays the same across restarts and after a
-restore. It's accepted only from 127.0.0.1, only while AI access is on (off
+database (`app_settings`). Every start writes a new key, so a key lasts one
+run of the app; an AI app left open across a restart carries on by itself,
+since the MCP server rereads the file when its key is refused. A restore
+keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
 tools use (`AI_KEY_ROUTES`; login, backup/restore, imports, delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be

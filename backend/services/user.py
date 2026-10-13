@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 from backend.models.user import User
 from backend.schemas.user import UserCreate, UserUpdate
+from backend.session_auth import end_all_sessions
 
 
 def get_all_users(db: Session) -> list[User]:
@@ -42,6 +43,8 @@ def update_user(user_id: int, user_data: UserUpdate, db: Session) -> User | None
 
     if user_data.password:
         db_user.set_password(user_data.password)
+        # Every browser logs in again, in the same commit as the password
+        end_all_sessions(db)
 
     db.commit()
     db.refresh(db_user)

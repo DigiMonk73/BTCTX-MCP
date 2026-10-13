@@ -207,6 +207,19 @@ def init_test_db(engine):
     seed_defaults(engine)
 
 
+def keep_in_use(engine, carry_over):
+    """
+    For a test's stand-in for services.backup.restore_backup that changes the
+    test database as a backup's would: write what the install keeps into it
+    through the carry-over the restore route passes, as restore_backup does
+    to the restored database before it goes live.
+    """
+    from sqlalchemy.orm import Session
+
+    with Session(engine) as restored:
+        carry_over(restored)
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     """Create a temporary SQLite database for the entire test session."""
