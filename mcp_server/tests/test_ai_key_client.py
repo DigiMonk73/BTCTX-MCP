@@ -160,7 +160,7 @@ async def test_backup_ledger_returns_the_file_name(mcp_client, backend_db):  # n
     result = await call(mcp_client, "backup_ledger")
     copy = Path(backend_db.url.database).parent / "backups" / result["file"]
     try:
-        assert copy.exists() and result["kept"] == 3
+        assert copy.exists() and result["kept"] == 1  # the AI copies kept now: this one
         again = await call(mcp_client, "backup_ledger", expect_error=True)
         assert "less than a minute" in again
     finally:

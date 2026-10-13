@@ -341,6 +341,30 @@ So derived values must be recomputable from the Transaction row alone.
   switch settings, backup download/restore, CSV export, file imports (CSV,
   River), delete-all, Ledger Review fixes, settings changes (the Mempool
   certificate's trust, #188, included) or debug.
+- Before the AI key's first change in an hour (an edit or a deletion) an AI
+  copy is made (`backups/…-ai-before-changing-…db`; no copy, no change),
+  never for the owner's; it is written under a temporary name and renamed
+  once complete, one at a time, so a failed or unfinished copy never counts
+  as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and, for a
+  week (today and the 6 UTC days before), the oldest and the first copy of
+  each day made before the AI changed anything that day
+  (`migrate._ai_copies_held`): at most 11.
+- The JSON entry import (`routers/entry_import.py`) holds SQLite's write
+  lock while it works, and the owner's saves wait only 5 s for it. With the
+  key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
+  before the ledger's latest entry, each replaying the whole ledger, at most
+  `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
+- Every request body is limited before anything reads it
+  (`backend/body_limit.py`, just inside the security headers, before the
+  cross-site check, sessions and routers): FastAPI
+  reads and parses a body before the login check, login and Create account
+  included. Over 5 MB it's 413, at once from Content-Length or as soon as a
+  chunked body passes it. A route taking a file is listed in `main.py` with
+  its own file limit (plus room for the form) and keeps checking the file
+  itself: the restore 1 GiB, the CSV and River files 5 MB. That larger
+  allowance is for a logged-in owner's file: only a request whose session
+  cookie is validly signed, unexpired and holds a `user_id` gets it. A new
+  upload route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 

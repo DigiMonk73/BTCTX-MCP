@@ -233,6 +233,7 @@ def restore_encrypted_backup(
 
 
 AI_COPY_EVERY = 60  # seconds
+AI_COPY_LABEL = "backup"
 
 
 @router.post("/ai-copy")
@@ -240,19 +241,23 @@ def ai_copy(db: Session = Depends(get_db)):
     """
     A plain copy of the database in <database dir>/backups/, which the AI key
     may ask for (a safety net before a large change). Owner-only like the
-    database itself; the newest AI_COPIES_KEPT are kept, apart from the
-    pre-upgrade copies; one a minute. Only the file name comes back.
+    database itself; the newest AI_COPIES_KEPT AI copies are kept (and more:
+    migrate.prune_backups), apart from the pre-upgrade copies; one a minute.
+    Only the file name comes back, and how many AI copies are kept now.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
         raise HTTPException(status_code=400, detail="This database can't be copied to a file.")
-    newest = backup_copies(db_path, "ai")
+    # Only the copies asked for count: the one made before the key's
+    # changes never refuses the copy the AI asks for next.
+    newest = backup_copies(db_path, "ai", label=AI_COPY_LABEL)
     if newest and time.time() - newest[0].stat().st_mtime < AI_COPY_EVERY:
         raise HTTPException(status_code=429, detail="A backup was made less than a minute ago.")
-    dest = backup_sqlite(db_path, "backup", kind="ai", keep=AI_COPIES_KEPT)
+    dest = backup_sqlite(db_path, AI_COPY_LABEL, kind="ai", keep=AI_COPIES_KEPT)
     logger.info("AI backup copy made: %s", dest.name)
     created = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
-    return {"file": dest.name, "created": created.isoformat(timespec="seconds"), "kept": AI_COPIES_KEPT}
+    return {"file": dest.name, "created": created.isoformat(timespec="seconds"),
+            "kept": len(backup_copies(db_path, "ai"))}
 
 
 @router.get("/csv", response_class=PlainTextResponse)
