@@ -6,14 +6,16 @@ StartOS the password the package gave stopped working.
 """
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker
 
 from backend.models.user import User
+from backend.routers import backup
+from backend.services import outbound
 from backend.tests.conftest import default_login
 
 
 def test_restoring_an_old_backup_keeps_the_login_in_use(auth_client, test_engine, monkeypatch):
-    from backend.routers import backup
-
     old = User(username="old-owner", password_hash="")
     old.set_password("old-password-123")
 
@@ -34,8 +36,6 @@ def test_restoring_an_old_backup_keeps_the_login_in_use(auth_client, test_engine
 
 
 def _restore_a_backup_that_used_public_sites(auth_client, test_engine, monkeypatch):
-    from backend.routers import backup
-
     def restore_old_backup(password, path):  # the backup's database: public sites, direct, prices stored
         with test_engine.begin() as conn:
             for key in ("price_source", "mempool_fallback", "mempool_url", "proxy_url", "live_data"):
@@ -67,6 +67,36 @@ def test_a_restore_keeps_the_price_settings_in_use(auth_client, test_engine, mon
     off = {**tor, "price_source": "off", "proxy_url": None}
     assert auth_client.put("/api/settings/network", json=off).status_code == 200
     assert _restore_a_backup_that_used_public_sites(auth_client, test_engine, monkeypatch)["price_source"] == "off"
+
+
+def test_a_restore_that_cant_keep_the_price_settings_sets_nobody(auth_client, test_engine, monkeypatch, caplog):
+    """#201: an error carrying the price settings over was only logged, so the
+    restored database kept the backup's price source, proxy and trusted
+    Mempool certificate, used from the next start."""
+    def restore_old_backup(password, path):  # the backup's database: public sites, direct
+        with test_engine.begin() as conn:
+            conn.execute(text("DELETE FROM app_settings WHERE key = 'proxy_url'"))
+            conn.execute(text("UPDATE app_settings SET value = 'public' WHERE key = 'price_source'"))
+
+    def cannot_carry_over(db, before):
+        raise OperationalError("UPDATE app_settings", {}, Exception("database is locked"))
+
+    tor = {"price_source": "public", "mempool_url": None, "mempool_fallback": False,
+           "proxy_url": "socks5h://127.0.0.1:9050"}
+    assert auth_client.put("/api/settings/network", json=tor).status_code == 200
+    monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
+    monkeypatch.setattr(outbound, "carry_over", cannot_carry_over)
+    r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
+
+    assert r.status_code == 200, r.text
+    assert "prices are set to Nobody: choose a price source again in Settings" in r.json()["message"]
+    assert "Prices are set to Nobody" in caplog.text
+    assert outbound.current().price_source == "off"
+    with sessionmaker(bind=test_engine)() as db:
+        assert outbound.load(db).price_source == "off"  # what the next start reads
+    assert auth_client.post("/api/login", json=default_login()).status_code == 200
+    assert auth_client.get("/api/settings/network").json()["price_source"] == "off"
+    auth_client.put("/api/settings/network", json={**tor, "proxy_url": None})
 
 
 def test_a_restore_before_any_price_choice_leaves_it_unchosen(auth_client, test_engine, monkeypatch):

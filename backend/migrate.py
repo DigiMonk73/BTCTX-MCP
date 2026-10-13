@@ -23,6 +23,7 @@ import datetime
 import logging
 import os
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,8 +42,12 @@ BASELINE = "0001"
 BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
-# Copies the AI key asked for (POST /api/backup/ai-copy), kept apart.
+# Copies the AI key asked for (POST /api/backup/ai-copy) or made before its
+# deletions (DELETE /api/transactions/{id}), kept apart: the newest 3, and
+# the oldest of the last week, so copies an AI makes after its changes can't
+# push out every copy from before them.
 AI_COPIES_KEPT = 3
+AI_COPY_HELD = 7 * 24 * 3600  # seconds
 # Copies before Ledger Review's hourly check is applied (#144), kept apart:
 # applying one item at a time must not push out the pre-upgrade copy.
 REVIEW_COPIES_KEPT = 5
@@ -111,13 +116,16 @@ def sqlite_file(engine: Engine) -> Path | None:
 
 
 # Backups
-def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = BACKUPS_KEPT) -> Path:
+def backup_sqlite(
+    db_path: Path, label: str, kind: str = "before", keep: int = BACKUPS_KEPT, keep_oldest_since: float | None = None
+) -> Path:
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
-    and pre-restore; "ai": asked for with the AI key; "review": before
-    Ledger Review's hourly check is applied) keeps its own newest
-    `keep`, so one kind never pushes out the other.
+    and pre-restore; "ai": asked for with the AI key or made before its
+    deletions; "review": before Ledger Review's hourly check is applied)
+    keeps its own newest `keep` (see prune_backups), so one kind never
+    pushes out the other.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     dest_dir.mkdir(mode=0o700, exist_ok=True)
@@ -135,30 +143,46 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
         dst.close()
         src.close()
     os.chmod(dest, 0o600)
-    prune_backups(db_path, keep, kind)
+    prune_backups(db_path, keep, kind, keep_oldest_since)
     return dest
 
 
-def backup_copies(db_path: Path, kind: str = "before") -> list[Path]:
-    """This database's copies of one kind in <dir>/backups/, newest first."""
+def make_ai_copy(db_path: Path, label: str) -> Path:
+    """An "ai" copy: the newest AI_COPIES_KEPT stay, and so does the oldest
+    made in the last AI_COPY_HELD."""
+    return backup_sqlite(
+        db_path, label, kind="ai", keep=AI_COPIES_KEPT, keep_oldest_since=time.time() - AI_COPY_HELD
+    )
+
+
+def backup_copies(db_path: Path, kind: str = "before", label: str | None = None) -> list[Path]:
+    """This database's copies of one kind (and label, when given) in
+    <dir>/backups/, newest first."""
     dest_dir = db_path.parent / BACKUP_DIRNAME
+    name = f"{db_path.stem}-{kind}-{label}-*.db" if label else f"{db_path.stem}-{kind}-*.db"
     return sorted(
-        dest_dir.glob(f"{db_path.stem}-{kind}-*.db"),
+        dest_dir.glob(name),
         key=lambda p: (p.stat().st_mtime_ns, p.name),
         reverse=True,
     )
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> list[Path]:
+def prune_backups(
+    db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before", keep_oldest_since: float | None = None
+) -> list[Path]:
     """
-    Keep the newest `keep` copies of one kind in <dir>/backups/ and delete
-    older ones. Only files this module wrote (<stem>-<kind>-*.db) are
+    Keep the newest `keep` copies of one kind in <dir>/backups/, and the
+    oldest made since `keep_oldest_since` (a time.time()) when given; delete
+    the others. Only files this module wrote (<stem>-<kind>-*.db) are
     touched. Returns the deleted paths.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
+    held = _oldest_since(copies, keep_oldest_since)
     removed = []
     for old in copies[keep:]:
+        if old == held:
+            continue
         try:
             old.unlink()
             removed.append(old)
@@ -167,6 +191,14 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before")
     if removed:
         logger.info("Removed %d old database copies from %s", len(removed), dest_dir)
     return removed
+
+
+def _oldest_since(copies: list[Path], since: float | None) -> Path | None:
+    """The oldest of these copies (newest first) made at or after `since`."""
+    if since is None:
+        return None
+    recent = [p for p in copies if p.stat().st_mtime >= since]
+    return recent[-1] if recent else None
 
 
 # Adopting databases created before migrations existed

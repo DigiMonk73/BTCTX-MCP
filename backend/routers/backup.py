@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.models.user import User
-from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend.migrate import AI_COPIES_KEPT, backup_copies, make_ai_copy, sqlite_file
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
@@ -116,8 +116,9 @@ def restore_encrypted_backup(
     """
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and the price settings) stays: an old backup never brings back an old password, and
-    on StartOS the password Set Login Credentials gave stays right. Clears the session after restore
-    since the user_id may no longer be valid.
+    on StartOS the password Set Login Credentials gave stays right. Price settings that can't be
+    kept become Nobody, never the backup's, and the message says so. Clears the session after
+    restore since the user_id may no longer be valid.
     """
     _require_auth(request)
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
@@ -135,10 +136,7 @@ def restore_encrypted_backup(
         # The price settings in use stay (a backup from before a switch to
         # Tor or Off must not ask public sites directly again)...
         db.close()  # a fresh connection sees the restored file
-        try:
-            outbound.carry_over(db, price_settings)
-        except Exception:
-            logger.exception("Could not keep the price settings after restore")
+        prices_note = _keep_price_settings(db, price_settings)
         # ...and so do the AI key and switch, so an old backup can't bring
         # back a revoked key.
         db.close()
@@ -161,7 +159,8 @@ def restore_encrypted_backup(
         # Clear session - the restored database may have different user IDs
         request.session.clear()
 
-        return {"message": "✅ Database successfully restored. Log in again with your current username and password."}
+        return {"message": "✅ Database successfully restored. Log in again with your current username and password."
+                + prices_note}
     except HTTPException:
         raise
     except Exception as e:
@@ -171,7 +170,26 @@ def restore_encrypted_backup(
             os.remove(temp_path)
 
 
+def _keep_price_settings(db: Session, before: dict) -> str:
+    """
+    Put the price settings from before the restore back; "" when done. If
+    that fails, prices are set to Nobody rather than left to the backup's
+    choice (#201), and the sentence returned says so.
+    """
+    try:
+        outbound.carry_over(db, before)
+        return ""
+    except Exception:
+        logger.exception("Could not keep the price settings after restore")
+    db.rollback()
+    outbound.use_nobody(db)
+    logger.warning("Prices are set to Nobody: the price settings in use couldn't be kept after the restore")
+    return (" The price settings in use couldn't be kept, so prices are set to Nobody: "
+            f"choose a price source again in {outbound.where_to_change()}.")
+
+
 AI_COPY_EVERY = 60  # seconds
+AI_COPY_LABEL = "backup"
 
 
 @router.post("/ai-copy")
@@ -179,16 +197,19 @@ def ai_copy(db: Session = Depends(get_db)):
     """
     A plain copy of the database in <database dir>/backups/, which the AI key
     may ask for (a safety net before a large change). Owner-only like the
-    database itself; the newest AI_COPIES_KEPT are kept, apart from the
-    pre-upgrade copies; one a minute. Only the file name comes back.
+    database itself; the newest AI_COPIES_KEPT AI copies are kept, and the
+    oldest from the last week, apart from the pre-upgrade copies; one a
+    minute. Only the file name comes back.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
         raise HTTPException(status_code=400, detail="This database can't be copied to a file.")
-    newest = backup_copies(db_path, "ai")
+    # Only the copies asked for count: the one made before the key's
+    # deletions never refuses a copy the AI asks for next.
+    newest = backup_copies(db_path, "ai", label=AI_COPY_LABEL)
     if newest and time.time() - newest[0].stat().st_mtime < AI_COPY_EVERY:
         raise HTTPException(status_code=429, detail="A backup was made less than a minute ago.")
-    dest = backup_sqlite(db_path, "backup", kind="ai", keep=AI_COPIES_KEPT)
+    dest = make_ai_copy(db_path, AI_COPY_LABEL)
     logger.info("AI backup copy made: %s", dest.name)
     created = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
     return {"file": dest.name, "created": created.isoformat(timespec="seconds"), "kept": AI_COPIES_KEPT}

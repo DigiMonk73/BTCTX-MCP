@@ -4,6 +4,9 @@ the whole ledger (services/transaction.py does the work). Timestamps go out
 in UTC with a 'Z'.
 """
 
+import logging
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -15,8 +18,14 @@ from backend.schemas.transaction import (
 )
 from backend.services import transaction as tx_service
 from backend.database import get_db
+from backend.migrate import backup_copies, make_ai_copy, sqlite_file
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["transactions"])
+
+AI_DELETION_COPY_EVERY = 3600  # seconds
+AI_DELETION_LABEL = "before-deleting"
 
 
 def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
@@ -112,12 +121,32 @@ def delete_all_transactions_endpoint(request: Request, db: Session = Depends(get
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
+def delete_transaction(transaction_id: int, request: Request, db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
+    With the AI key, its first deletion in an hour comes after an AI copy of
+    the database (in the backups folder).
     """
+    if not request.session.get("user_id"):  # the AI key
+        _copy_before_ai_deletions(db)
     success = tx_service.delete_transaction_record(transaction_id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return
+
+
+def _copy_before_ai_deletions(db: Session) -> None:
+    """
+    An AI copy before the AI key's first deletion in an hour, so the AI
+    copies (migrate.make_ai_copy keeps the oldest of the week) always hold
+    the ledger from before an AI's deletions.
+    """
+    db_path = sqlite_file(db.get_bind())
+    if db_path is None:
+        return
+    newest = backup_copies(db_path, "ai", label=AI_DELETION_LABEL)
+    if newest and time.time() - newest[0].stat().st_mtime < AI_DELETION_COPY_EVERY:
+        return
+    dest = make_ai_copy(db_path, AI_DELETION_LABEL)
+    logger.info("AI backup copy made before deleting: %s", dest.name)

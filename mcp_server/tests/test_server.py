@@ -7,9 +7,7 @@ Run from the repo root:
 """
 
 import json
-import os
 import re
-import tempfile
 from decimal import Decimal
 from pathlib import Path
 
@@ -37,10 +35,11 @@ def anyio_backend():
 
 
 @pytest.fixture
-def backend_db(monkeypatch):
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
+def backend_db(monkeypatch, tmp_path):
+    # In a folder of its own: the AI copies made before the key's deletions
+    # go to its backups folder, removed with it.
+    path = tmp_path / "btctx.db"
+    engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     init_test_db(engine)
     Session = sessionmaker(bind=engine)
 
@@ -61,7 +60,6 @@ def backend_db(monkeypatch):
     yield engine
     app.dependency_overrides.clear()
     engine.dispose()
-    os.unlink(tmp.name)
 
 
 def make_ai_key(engine) -> str:

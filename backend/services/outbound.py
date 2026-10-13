@@ -48,6 +48,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.services.desktop import is_desktop
@@ -279,6 +280,25 @@ def carry_over(db: Session, before: dict) -> NetworkSettings:
         _set(db, key, value)
     db.commit()
     return load(db)
+
+
+def use_nobody(db: Session) -> NetworkSettings:
+    """
+    Nobody as the price source, at once and stored for the next start: when
+    a restore couldn't carry the settings in use over (#201), the restored
+    database's source, proxy and trusted certificate are the backup's, which
+    the owner didn't choose for this install. Only the source changes:
+    Nobody asks nothing, whatever the proxy or Mempool address.
+    """
+    global _current
+    _current = replace(_current, price_source="off")
+    try:
+        _set(db, SOURCE_KEY, "off")
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Could not store Nobody as the price source")
+    return _current
 
 
 def load(db: Session, upgrade: bool = True) -> NetworkSettings:

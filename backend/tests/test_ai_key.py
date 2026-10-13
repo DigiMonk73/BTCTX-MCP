@@ -206,16 +206,17 @@ def db_file(tmp_path):
 
 
 def test_ai_copies_keep_three_and_never_evict_pre_upgrade_copies(db_file, monkeypatch):
+    """The newest 3 stay, and the oldest of the last week (test_ai_copies.py)."""
     from backend.routers import backup
 
     path, session = db_file
     upgrade = [backup_sqlite(path, "upgrade") for _ in range(2)]
     monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
-    made = [backup.ai_copy(db=session)["file"] for _ in range(4)]
+    made = [backup.ai_copy(db=session)["file"] for _ in range(5)]
     kept = [p.name for p in backup_copies(path, "ai")]
-    assert len(kept) == 3 and made[0] not in kept and set(made[1:]) == set(kept)
+    assert len(kept) == 4 and made[1] not in kept and set(made[2:]) | {made[0]} == set(kept)
     assert all(p.exists() for p in upgrade)
-    assert json.dumps(made).count("-ai-backup-") == 4
+    assert json.dumps(made).count("-ai-backup-") == 5
 
 
 def test_one_ai_copy_a_minute(db_file):
