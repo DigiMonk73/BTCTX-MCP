@@ -89,6 +89,14 @@ for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
 Every [release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) has
 a macOS app, a StartOS package and a Docker image.
 
+To check a file you downloaded from a release, save that release's
+`SHA256SUMS` in the same folder and run
+`shasum -a 256 -c --ignore-missing SHA256SUMS` there (on Linux,
+`sha256sum -c --ignore-missing SHA256SUMS`): your file should say `OK`.
+With the [GitHub CLI](https://cli.github.com), signed in,
+`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP --signer-workflow DigiMonk73/BTCTX-MCP/.github/workflows/release.yml`
+also checks that this repository's release workflow built it.
+
 ### macOS app
 
 Download `BitcoinTX-macOS.dmg` from the latest release and drag BitcoinTX to
@@ -164,8 +172,10 @@ first: it's in the log (`docker logs <container>`) and in `setup-code.txt` in
 the data folder (`/data`), and it's deleted once you've set up the account.
 Until then, the default login doesn't work without it either (an older
 install still on admin/password: the login page asks for the code; then
-change the password in Settings, your data stays). The Mac app
-needs no code (it only listens on your Mac). On StartOS this screen never
+change the password in Settings, your data stays). The Mac app needs the
+code too, and its window fills it in: its first screen is **Choose your
+username and password**, and your transactions are kept (an older Mac
+install still on admin/password sees it too). On StartOS this screen never
 appears: run the **Set Login Credentials** action, which creates the login
 (`admin` and a random password) and shows it once.
 

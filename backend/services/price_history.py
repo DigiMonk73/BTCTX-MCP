@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.btc_price import BtcPriceDaily
 from backend.services import outbound
-from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR
+from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR, usable_price
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,9 @@ MEMPOOL_HISTORY_PATH = "/api/v1/historical-price"
 DAY = 86400
 MEMPOOL_TOLERANCE = Decimal("0.02")  # a 00:00 price within 2% of 23:00 and 01:00
 RETRY_SECONDS = 600
+# The most a lookup from sync code may take (_run): each request in it has its
+# own deadline (outbound.BoundedClient); this bounds them all together
+LOOKUP_SECONDS = 180
 HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is done
 
 # When each download last ran (in memory: a restart may ask again, and every
@@ -92,18 +95,19 @@ def _from_unix(ts) -> date:
 
 
 # Public sites: requests that never depend on which day is wanted
-async def _bitstamp(client, start: date | None = None) -> dict[date, Decimal]:
-    """1,000 daily opens from `start` (a fixed block start), or the latest 1,000."""
+async def _bitstamp(client, start: date | None = None) -> dict[date, str]:
+    """1,000 daily opens from `start` (a fixed block start), or the latest
+    1,000, as the site gives them (_kept checks each)."""
     params = {"step": DAY, "limit": BITSTAMP_BLOCK}
     if start is not None:
         params["start"] = _midnight(start)
     resp = await client.get(BITSTAMP_OHLC_URL, params=params)
     resp.raise_for_status()
-    return {_from_unix(row["timestamp"]): Decimal(str(row["open"])) for row in resp.json()["data"]["ohlc"]}
+    return {_from_unix(row["timestamp"]): str(row["open"]) for row in resp.json()["data"]["ohlc"]}
 
 
-async def _kraken_latest(client) -> dict[date, Decimal]:
-    """Kraken's latest 720 daily opens."""
+async def _kraken_latest(client) -> dict[date, str]:
+    """Kraken's latest 720 daily opens, as it gives them (_kept checks each)."""
     resp = await client.get(KRAKEN_OHLC_URL, params={"pair": "XBTUSD", "interval": 1440})
     resp.raise_for_status()
     data = resp.json()
@@ -111,7 +115,7 @@ async def _kraken_latest(client) -> dict[date, Decimal]:
         raise ValueError(str(data["error"]))
     pair = next(k for k in data["result"] if k != "last")
     # [time, open, high, low, close, vwap, volume, count]
-    return {_from_unix(row[0]): Decimal(str(row[1])) for row in data["result"][pair]}
+    return {_from_unix(row[0]): str(row[1]) for row in data["result"][pair]}
 
 
 def _blocks(first: date, size: int) -> list[date]:
@@ -123,9 +127,10 @@ def _blocks(first: date, size: int) -> list[date]:
     return starts
 
 
-def _kept(prices: dict[date, Decimal], source: str) -> dict[date, tuple]:
+def _kept(prices: dict[date, str], source: str) -> dict[date, tuple]:
     today = _today()
-    return {d: (p.quantize(CENT), source) for d, p in prices.items() if d <= today and p > 0}
+    cents = {d: usable_price(p) for d, p in prices.items() if d <= today}
+    return {d: (p, source) for d, p in cents.items() if p is not None}
 
 
 async def public_history(full: bool) -> tuple[dict[date, tuple], bool]:
@@ -144,18 +149,22 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     now = time.monotonic()
     if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
+    # Counted before it starts, so a lookup ended at its limit (_run) still
+    # waits RETRY_SECONDS before the next try; a success clears it (the
+    # caller may not keep what came, and then it's asked again)
+    _state["full_failed_at"] = now
     async with outbound.async_client() as client:
         got = await _bitstamp_blocks(client)
     if got:
+        _state["full_failed_at"] = -1e9
         logger.info("BTC price history from public site bitstamp: %d days", len(got))
         return _kept(got, "bitstamp"), True
-    _state["full_failed_at"] = now
     return {}, False
 
 
-async def _bitstamp_blocks(client) -> dict[date, Decimal]:
+async def _bitstamp_blocks(client) -> dict[date, str]:
     """Every block of Bitstamp's daily history, or nothing when one of them fails."""
-    got: dict[date, Decimal] = {}
+    got: dict[date, str] = {}
     try:
         for start in _blocks(FIRST_PRICE_DAY, BITSTAMP_BLOCK):
             got.update(await _bitstamp(client, start))
@@ -194,12 +203,14 @@ def midnight_prices(rows: list[dict]) -> dict[date, tuple]:
     by_time = {}
     for row in rows:
         try:
-            by_time[int(row["time"])] = Decimal(str(row["USD"]))
+            t, price = int(row["time"]), Decimal(str(row["USD"]))
         except (KeyError, TypeError, ValueError, ArithmeticError):
             continue
+        if usable_price(price) is not None:
+            by_time[t] = price
     out = {}
     for t, price in by_time.items():
-        if t % DAY or price <= 0:
+        if t % DAY:
             continue
         before, after = by_time.get(t - HOUR), by_time.get(t + HOUR)
         limit = price * MEMPOOL_TOLERANCE
@@ -223,7 +234,7 @@ async def own_node_rows() -> tuple[list[dict], bool]:
         return _state["mempool_rows"], False
     _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
     try:
-        async with outbound.own_node_client(timeout=30.0) as client:
+        async with outbound.own_node_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
             resp.raise_for_status()
             rows = resp.json()["prices"]
@@ -262,16 +273,26 @@ async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
 
 
 def _run(coro):
-    """Run a coroutine to completion from sync code, even inside an event loop's thread."""
+    """
+    Run a coroutine from sync code, even inside an event loop's thread, for
+    at most LOOKUP_SECONDS: then TimeoutError. The coroutine is cancelled at
+    that limit, so its thread ends too, and the caller never waits for it:
+    a worker thread waiting here is free again by then.
+    """
     def target():
         loop = asyncio.new_event_loop()
         try:
-            return loop.run_until_complete(coro)
+            return loop.run_until_complete(asyncio.wait_for(coro, LOOKUP_SECONDS))
         finally:
             loop.close()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(target).result(timeout=180)
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        return pool.submit(target).result(timeout=LOOKUP_SECONDS)
+    except (asyncio.TimeoutError, concurrent.futures.TimeoutError):  # two classes in Python 3.10
+        raise TimeoutError(f"no prices within {LOOKUP_SECONDS} seconds") from None
+    finally:
+        pool.shutdown(wait=False)
 
 
 # Table

@@ -148,9 +148,9 @@ pip install ./mcp_server        # or from a clone of the repo
 it starts (owner-only): its address and the AI key, never your password.
 Turn on **Settings → Connect an AI Assistant → Let AI assistants use
 BitcoinTX** first (off by default), and keep BitcoinTX open while you use
-the AI. The same section turns access off again or resets the key (the
-server picks up a new key by itself). `BTCTX_MCP_FILE` points at another
-file.
+the AI. The same section turns access off again or resets the key. The app
+also writes a new key each time it starts; either way the server picks up
+the new key by itself. `BTCTX_MCP_FILE` points at another file.
 
 **Docker, StartOS, or from source:** in BitcoinTX, **Settings → Connect an
 AI Assistant**, turn on **Let AI assistants use BitcoinTX** and click
@@ -263,8 +263,8 @@ you to approve each tool call unless you tell it not to.
   download a backup, export or import files, delete everything, apply Ledger
   Review fixes, change settings, or open reports.
 - Mac app: the key sits in `mcp.json`, readable only by you, and works only
-  from this computer. Settings → Connect an AI Assistant turns access off or
-  resets the key.
+  from this computer and only until BitcoinTX quits (each start writes a new
+  one). Settings → Connect an AI Assistant turns access off or resets the key.
 - Docker/StartOS: the key sits in your AI app's configuration on your
   computer; anyone who can read that file can do what the key allows. Revoke
   it or make a new one in Settings → Connect an AI Assistant. BitcoinTX stores

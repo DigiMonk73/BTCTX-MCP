@@ -10,6 +10,26 @@ Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
 (unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
+## Checking a download
+
+The app isn't signed by Apple, so macOS can't say who made it; the release
+can. Its `SHA256SUMS` holds the SHA-256 of each file, and GitHub keeps a
+signed build provenance attestation of each, made by the release workflow.
+Save `SHA256SUMS` next to the `.dmg` and, in that folder, before opening
+the app (check the `.dmg`: Safari unzips a downloaded `.zip` by itself):
+
+```bash
+shasum -a 256 -c --ignore-missing SHA256SUMS   # BitcoinTX-macOS.dmg: OK
+gh attestation verify BitcoinTX-macOS.dmg -R DigiMonk73/BTCTX-MCP \
+  --signer-workflow DigiMonk73/BTCTX-MCP/.github/workflows/release.yml
+```
+
+The first says the file is the one the release lists (`--ignore-missing`
+leaves out the release's other files, the ones you didn't download); the
+second (the GitHub CLI, signed in) that this repository's release workflow
+built it. If either reports a mismatch, don't open it: download it again
+from the release page.
+
 ## How it works
 
 ```
@@ -45,10 +65,41 @@ BitcoinTX.app
   (421 for any other `Host`: `backend/security_headers.py`,
   `LocalAddressOnlyMiddleware`). Uvicorn runs with `proxy_headers=False`, so
   a client's own `X-Forwarded-For` never passes for its address.
-- **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
-  method to JavaScript via pywebview's `js_api`. The frontend
-  (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
-  backup downloads, because WebKit in pywebview doesn't handle browser downloads.
+- **The window's API:** `entrypoint.py` gives the window `DesktopAPI`
+  (`desktop/desktop_api.py`) through pywebview's `js_api`, as
+  `window.pywebview.api`. Only the app's own window has it: a browser or
+  another program reaching `127.0.0.1` doesn't.
+  - `save_file()`: the native Save dialog. The frontend
+    (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
+    backup downloads, because WebKit in pywebview doesn't handle browser
+    downloads.
+  - `setup_code()`: the first-run setup code ("First start" below), only
+    while the window shows one of the app's own pages (pywebview gives the
+    API to whatever page its window shows).
+
+## First start
+
+A new install has the login every BitcoinTX starts with (`admin` /
+`password`). While the account has it, logging in with it and claiming it
+need the one-time **setup code**, as on Docker
+(`backend/services/first_run.py`), which only the Mac account that runs
+BitcoinTX can read:
+
+- The backend makes the code at startup and keeps it in `setup-code.txt` in
+  the data folder (mode 600, in the 0700 folder), and deletes it once the
+  login is changed. The Mac app never writes it to its log, which a
+  problem report may attach.
+- In the app's window, the Sign in page is replaced by **Choose your
+  username and password**: a username, and a new password (12 or more
+  characters) typed twice. The window supplies the code
+  (`DesktopAPI.setup_code()`), and the page logs in with the default login
+  and changes it to the chosen one (`PATCH /api/users/{id}`), so every
+  transaction is kept (`frontend/src/utils/ownLogin.ts`). Then it opens the
+  Dashboard, as a first login does. It appears whenever the login is still
+  the default one, an older install's included.
+- From a browser at `http://127.0.0.1:8765/`, `admin` / `password` is
+  refused without the code typed in (from `setup-code.txt` in the data
+  folder).
 
 ## Data and secrets
 
@@ -59,6 +110,7 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
+| `setup-code.txt` | The one-time first-run setup code, mode 600, only while the login is still `admin` / `password` ("First start") |
 | `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI connector's `backup_ledger` asks for, and one before the AI key's first change in an hour, an edit or a deletion (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
 A new app version upgrades the database schema on first launch (after copying
@@ -122,7 +174,8 @@ launch finds the same data. It uses only a folder that is empty or that it
 marked as its own (`.btctx-test-folder`), never the installed app's folder
 however it is spelled; `--fresh` is refused while a test run answers on
 8766. That folder holds everything the app would keep in Application
-Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
+Support (`btctx.db`, the session key, `mcp.json`, `setup-code.txt`,
+`backups/`) and its log
 (`logs/BitcoinTX.log`); the log line "Test data folder from
 BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The app also runs with
 `HOME=<folder>/home`: a build older than `BTCTX_DESKTOP_DATA_DIR` (every
@@ -195,8 +248,10 @@ At startup the backend writes `~/Library/Application Support/BitcoinTX/mcp.json`
 (0600, in a 0700 folder): the app's URL, port, pid, version and the **AI
 key** (`backend/services/ai_key.py`). The MCP server reads it and sends the
 key as `Authorization: Bearer …`. Only a SHA-256 of the key is in the
-database (`app_settings`); the key stays the same across restarts and after a
-restore. It's accepted only from 127.0.0.1, only while AI access is on (off
+database (`app_settings`). Every start writes a new key, so a key lasts one
+run of the app; an AI app left open across a restart carries on by itself,
+since the MCP server rereads the file when its key is refused. A restore
+keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
 tools use (`AI_KEY_ROUTES`; login, backup/restore, imports, delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
@@ -213,11 +268,15 @@ zipped `.app` as a build artifact.
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
 the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
 drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
-are unsigned and not notarized.
+are unsigned and not notarized. Before it creates the release, the release
+job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with
+them) and attests the three (`actions/attest-build-provenance`); see
+"Checking a download" above.
 
 ## Troubleshooting
 
-**App won't open (Gatekeeper).** The app is unsigned. The first time,
+**App won't open (Gatekeeper).** The app is unsigned: check the download
+first ("Checking a download" above). The first time,
 right-click (Control-click) it in Applications and choose **Open**. On macOS 15
 or later that no longer offers Open: try to open it once, then go to
 **System Settings → Privacy & Security** and click **Open Anyway**. Or clear

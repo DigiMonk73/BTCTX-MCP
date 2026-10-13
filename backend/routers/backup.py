@@ -12,17 +12,21 @@ import os
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import partial
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.models.app_setting import AppSetting
 from backend.models.transaction import Transaction
 from backend.models.user import User
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
@@ -92,18 +96,96 @@ def _copy_at_most(src, dst, limit: int) -> None:
         dst.write(chunk)
 
 
+# A restore that couldn't keep this install's settings in the restored
+# database stops before the live one is touched (#201).
+NOT_KEPT = (
+    "This install's login, AI key and price settings couldn't be kept in the restored backup, "
+    "so the restore stopped. Your database is unchanged."
+)
+
+
+def _in_use(db: Session, request: Request) -> dict:
+    """What a restore keeps from this install: the login, the AI key and
+    switch, the price settings, and the sessions open in other browsers
+    (this one logs in again: the restored database may have other user ids).
+    The backup's own list of sessions never comes back, so a session that
+    ended since it was made stays ended."""
+    own = session_auth.session_hash(request)
+    sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
+    return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
+            "sessions": sessions}
+
+
 def _login_in_use(db: Session) -> tuple | None:
     user = db.query(User).order_by(User.id).first()
     return (user.username, user.password_hash) if user else None
 
 
+def _write_kept(kept: dict, restored: Session) -> None:
+    """
+    Write this install's login, AI key and switch, and price settings into
+    the restored database before it replaces the live one, then read them
+    back from the file, with its one login. An error, or a value that
+    doesn't read back as written, stops the restore with the live database
+    untouched (#201).
+    """
+    try:
+        outbound.carry_over(restored, kept["prices"])
+        ai_key.carry_over(restored, kept["ai"])
+        _keep_login(restored, kept["login"])
+        session_auth.put_open_sessions(restored, kept["sessions"])
+        restored.commit()
+        restored.close()  # read back on a fresh connection, from the file
+        as_written = restored.query(User).count() == 1 and _as_stored(restored, kept) == kept
+    except SQLAlchemyError as e:
+        logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
+                     type(e).__name__)
+        raise ValueError(NOT_KEPT) from e
+    if not as_written:
+        logger.error("Restore stopped: this install's settings didn't read back as written in the restored database")
+        raise ValueError(NOT_KEPT)
+
+
 def _keep_login(db: Session, login: tuple | None) -> None:
-    """Put the login from before a restore back on the restored account."""
+    """Put the login from before a restore on the restored account."""
     user = db.query(User).order_by(User.id).first()
     if login is None or user is None:
         return
     user.username, user.password_hash = login
-    db.commit()
+    db.flush()
+
+
+def _as_stored(db: Session, kept: dict) -> dict:
+    """The same, as the restored database holds them. The settings are read
+    as rows, not through snapshot(), which takes a missing price source for
+    "unset": a restore that lost it would pass the check."""
+    login = _login_in_use(db) if kept["login"] is not None else None
+    return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
+            "sessions": session_auth.open_sessions(db)}
+
+
+def _rows(db: Session, keys) -> dict:
+    """These app_settings rows' values, None for a missing one."""
+    return {key: row.value if (row := db.get(AppSetting, key)) else None for key in keys}
+
+
+def _refresh_after_restore(db: Session) -> None:
+    """
+    The restored database is live, with this install's settings in it: read
+    the price settings into memory and make or remove the first-run setup
+    code. The Mac app's key file isn't touched (ai_key.sync would write a new
+    key): the key the connector holds is this install's and keeps working.
+    An error is only logged: the restored database already holds this
+    install's settings, and what's in memory and on disk was made from those
+    same settings before the restore.
+    """
+    steps = ((outbound.load, "the price settings"), (first_run.prepare, "the first-run setup code"))
+    for step, what in steps:
+        db.close()  # a fresh connection sees the restored file
+        try:
+            step(db)
+        except Exception:
+            logger.exception("Could not refresh %s after restore", what)
 
 
 @router.post("/restore")
@@ -115,48 +197,27 @@ def restore_encrypted_backup(
 ):
     """
     Restore the database from an encrypted backup file. The login in use (and
-    the AI key and the price settings) stays: an old backup never brings back an old password, and
-    on StartOS the password Set Login Credentials gave stays right. Clears the session after restore
-    since the user_id may no longer be valid.
+    the AI key and switch, and the price settings) stays: an old backup never
+    brings back an old password, and on StartOS the password Set Login
+    Credentials gave stays right. The restored database is rebuilt from
+    BitcoinTX's own migrations with only the backup's own data, and these are
+    written into it before it replaces the live one; if anything fails,
+    nothing is restored.
+    Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
-    ai_state = ai_key.snapshot(db)
-    price_settings = outbound.snapshot(db)
-    login = _login_in_use(db)
+    kept = _in_use(db, request)
+    db.close()  # this request holds no connection to the database being replaced
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             temp_path = Path(temp_file.name)
             _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
-        restore_backup(password, temp_path)
-        # The price settings in use stay (a backup from before a switch to
-        # Tor or Off must not ask public sites directly again)...
-        db.close()  # a fresh connection sees the restored file
-        try:
-            outbound.carry_over(db, price_settings)
-        except Exception:
-            logger.exception("Could not keep the price settings after restore")
-        # ...and so do the AI key and switch, so an old backup can't bring
-        # back a revoked key.
-        db.close()
-        try:
-            ai_key.carry_over(db, ai_state)
-        except Exception:
-            logger.exception("Could not keep the AI key after restore")
-        db.close()
-        try:
-            _keep_login(db, login)
-        except Exception:
-            logger.exception("Could not keep the login after restore")
-        # The restored login may be the default one (a setup code) or not
-        db.close()
-        try:
-            first_run.prepare(db)
-        except Exception:
-            logger.exception("Could not prepare the first-run setup code after restore")
+        restore_backup(password, temp_path, carry_over=partial(_write_kept, kept))
+        _refresh_after_restore(db)
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()

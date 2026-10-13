@@ -694,11 +694,18 @@ Set `KEY` to the key from AI-3, and use
   `curl --cacert ca.crt -si -c jar -X POST $API/login -H 'Content-Type: application/json' -d '{"username":"…","password":"…"}'`.
   Expect: `set-cookie: btc_session_id=…` with the attributes `HttpOnly`,
   `SameSite=lax` and `Secure`, in any letter case (StartOS serves over
-  HTTPS).
+  HTTPS); and `set-cookie: btc_device=…` (the login throttle's device
+  cookie) with `HttpOnly`, `SameSite=lax`, `Secure` and
+  `Max-Age=31536000`.
 - **SEC-5** With that cookie (`-b jar`), `POST $API/transactions/recalculate`:
   - with `-H 'Sec-Fetch-Site: cross-site'`: expect 403;
   - with `-H 'Origin: https://evil.example'`: expect 403;
   - with neither header: expect 200.
+
+  Then `POST $API/logout` with `-b jar` (no `-c`, so the jar keeps the
+  cookie) and `GET $API/transactions` with it again. Expect: 401 (logging
+  out ends that session, for every copy of its cookie), while the app in
+  the browser, a session of its own, stays logged in.
 - **SEC-6** `GET $API/users/setup-status`. Expect `setup_code_required`
   false.
 - **SEC-7** While using the app, record the browser's network requests
@@ -717,11 +724,18 @@ Set `KEY` to the key from AI-3, and use
   The second session's next action lands on the login page. Log in as
   `tester`. Nothing in StartOS shows a password again: Set Login
   Credentials only makes a new one.
-- **SEC-9** Last in Track A's security checks, because it makes you wait:
-  send wrong passwords to `$API/login` in quick succession, at most eight.
-  Expect: from the sixth or seventh on, HTTP 429 with a `Retry-After`
-  header and "Too many failed attempts. Try again in N second(s).". After
-  waiting that long, the correct login works.
+- **SEC-9** Last in Track A's security checks, because it makes you wait.
+  First log in with the current login (SEC-8's `tester` /
+  `tester-password-1`) into a fresh jar (`-c jar9`): SEC-8's password
+  change made SEC-4's `btc_device` count as none. Then, without a cookie
+  jar, send wrong passwords to `$API/login` in quick succession, at most
+  eight. Expect: from the sixth or seventh on, HTTP 429 with a
+  `Retry-After` header and "Too many failed attempts. Try again in N
+  second(s).". At once, the correct login without a jar: expect 429 too
+  (every request comes from StartOS's proxy, one address). With the fresh
+  jar (`-b jar9`, its `btc_device` cookie): expect 200 at once (a browser
+  that logged in before isn't stopped by others' failures). After waiting
+  that long, the correct login without a jar works.
 
 ### LCK: locked out
 
@@ -827,6 +841,13 @@ Start from the `clean` snapshot.
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones." The service keeps running. Dismiss the task in
   StartOS, then restart the service and the server: it doesn't come back.
+- **UPG-8** (#143, a beta user may skip a release) A pass of its own:
+  restore the VM's `clean` snapshot, sideload the published 1.2.5:0
+  (`btctx.s9pk` of the v1.2.5 GitHub release), set it up as in UPG-1 (its
+  action may name the choices differently), then sideload the candidate.
+  Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
+  recorded figure is identical, the login and the AI key still work. UPG-3's
+  exceptions are the CHANGELOG entries of 1.2.6, 1.2.7 and this release.
 
 ## Track C: the Mac app (only on a Mac)
 
@@ -862,13 +883,23 @@ point, leave it alone, touch nothing in it, and record that.
 - **MAC-2** `curl http://127.0.0.1:8765/api/health`. Expect: version
   `X.Y.Z`. `ls -l ~/Library/Application\ Support/BitcoinTX/` shows
   `btctx.db` and `mcp.json`, and `mcp.json` is `-rw-------`.
-- **MAC-3** On the Sign in page, click **Create account**. Expect "Register
-  account" with New Username and New Password, and no Setup Code or Current
-  Password field. Set username `mac-tester` and password
-  `mac-tester-pass-1`, confirm, log in, and run `golden_loader.py` with
-  `BTCTX_URL=http://127.0.0.1:8765` and those credentials. Expect: the
-  golden Dashboard figures. IRS Reports 2025 **Export** opens a save
-  dialog, then "Saved to: <path>", and the PDF matches the 2025 figures.
+- **MAC-3** First, from Terminal: `curl -s -X POST
+  http://127.0.0.1:8765/api/login -H 'content-type: application/json' -d
+  '{"username":"admin","password":"password"}'`. Expect 403 and "enter the
+  setup code" (the default login works only with the code; the window
+  supplies it). `ls -l` of the data folder shows `setup-code.txt` as
+  `-rw-------`, and the code itself is in no log: `grep -rc "$(cat
+  DATA/setup-code.txt)" DATA/logs` prints only zeros (the installed app:
+  `~/Library/Logs/BitcoinTX/`). In the window, expect **Choose your
+  username and password** (New Username, New Password, Repeat New
+  Password), no Sign in form, no Setup Code field and no Create account
+  link. Set username `mac-tester`
+  and password `mac-tester-pass-1` twice, click **Continue**. Expect the
+  Dashboard (the price question first), and `setup-code.txt` gone. Run
+  `golden_loader.py` with `BTCTX_URL=http://127.0.0.1:8765` and those
+  credentials. Expect: the golden Dashboard figures. IRS Reports 2025
+  **Export** opens a save dialog, then "Saved to: <path>", and the PDF
+  matches the 2025 figures.
 - **MAC-4** Settings > Connect an AI Assistant. Expect: **Reset key**
   instead of Create; the Setup prompt says no key or address is needed; and
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
@@ -879,7 +910,9 @@ point, leave it alone, touch nothing in it, and record that.
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
   banner. Opening it again while it's open brings the window forward, with
-  no second copy.
+  no second copy. With the MCP Inspector (or an AI app) left open across the
+  quit and reopen, its next call still works: `mcp.json` has a new key and
+  the connector picks it up by itself.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
 - **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
   Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
