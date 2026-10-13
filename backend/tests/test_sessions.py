@@ -216,3 +216,16 @@ def test_logout_works_in_the_browser_even_when_the_database_is_busy(monkeypatch)
     monkeypatch.setattr(session_auth, "_change_open_sessions", busy)
     assert browser.post("/api/logout").status_code == 200
     assert status(browser) == 401  # this browser is logged out
+
+
+def test_a_login_during_a_long_write_answers_busy_not_a_server_error(monkeypatch):
+    """#221's re-check: login writes the open sessions, so a write held
+    elsewhere past the busy timeout gave a 500."""
+    from sqlalchemy.exc import OperationalError
+
+    def busy(db, change):
+        raise OperationalError("UPDATE app_settings", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(session_auth, "_change_open_sessions", busy)
+    r = TestClient(app).post("/api/login", json=default_login())
+    assert r.status_code == 503 and "busy" in r.json()["detail"]

@@ -111,7 +111,7 @@ def _in_use(db: Session, request: Request) -> dict:
     The backup's own list of sessions never comes back, so a session that
     ended since it was made stays ended."""
     own = session_auth.session_hash(request)
-    sessions = [h for h in session_auth.open_sessions(db) if h != own]
+    sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
             "sessions": sessions}
 

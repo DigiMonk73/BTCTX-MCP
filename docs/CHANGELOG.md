@@ -87,7 +87,9 @@ All notable changes to BitcoinTX are documented in this file.
   days after the login. Your other browsers stay logged in. A password
   change (Settings, or StartOS's Set Login Credentials) or an account reset
   still logs every other browser out, and an in-app restore keeps the
-  sessions that were open. **After this update, everyone logs in once
+  sessions that were open (when the backup's account has the same id;
+  otherwise every browser logs in again) and the browser that restored
+  logs in again. **After this update, everyone logs in once
   more.** The unused `GET /api/users/protected` is gone.
 - **A restore brings back a backup's data, and keeps this install's login,
   AI key and price settings, or restores nothing** (#201, #151). An in-app

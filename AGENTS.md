@@ -288,7 +288,9 @@ So derived values must be recomputable from the Transaction row alone.
   browsers stay logged in. Sessions also carry a stamp of the password hash:
   changing the password (Settings or `cli set-password`) or resetting the
   account empties the list and ends every other session. A restore keeps
-  the sessions open before it. A route that reads `request.session` itself
+  the other browsers' sessions open before it (only while the restored
+  account has the same id), never the backup's list; the restoring browser
+  logs in again. A route that reads `request.session` itself
   relies on its router's `get_current_user` having cleared an ended session
   first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled

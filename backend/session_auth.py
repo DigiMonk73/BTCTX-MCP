@@ -55,7 +55,11 @@ def start_session(request: Request, user: User, db: Session) -> None:
     session_id = secrets.token_urlsafe(32)
     cookie = {"user_id": user.id, STAMP_KEY: credential_stamp(user), SESSION_ID_KEY: session_id}
     previous = _id_hash(request.session.get(SESSION_ID_KEY))
-    _change_open_sessions(db, lambda hashes: [h for h in hashes if h != previous] + [_id_hash(session_id)])
+    try:
+        _change_open_sessions(db, lambda hashes: [h for h in hashes if h != previous] + [_id_hash(session_id)])
+    except SQLAlchemyError as e:  # a long write elsewhere: a plain answer, not a server error
+        db.rollback()
+        raise HTTPException(status_code=503, detail="BitcoinTX is busy: try again in a moment.") from e
     request.session.clear()
     request.session.update(cookie)
 
