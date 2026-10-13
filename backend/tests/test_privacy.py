@@ -6,7 +6,7 @@ fonts bundled with the frontend (no font CDN).
 import ast
 import re
 
-from backend.tests.conftest import default_login
+from backend.tests.conftest import MAC_APP_HOST, default_login
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -30,7 +30,8 @@ def test_every_response_says_no_referrer_nosniff_no_framing(auth_client):
 
 def test_no_csp_in_the_mac_app(auth_client, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
-    r = auth_client.get("/api/health")
+    r = auth_client.get("/api/health", headers=MAC_APP_HOST)
+    assert r.status_code == 200
     assert "content-security-policy" not in r.headers
     assert r.headers["referrer-policy"] == "no-referrer"
 

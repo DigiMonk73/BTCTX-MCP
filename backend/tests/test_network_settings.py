@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import bitcoin, outbound
-from backend.tests.conftest import init_test_db
+from backend.tests.conftest import MAC_APP_HOST, init_test_db
 
 # The real functions, captured before the session fixture stubs them.
 from backend.services.bitcoin import get_block_height as real_block_height
@@ -617,7 +617,7 @@ def test_where_bitcointx_runs(auth_client, monkeypatch, env, host):
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     assert outbound.host() == host
-    assert auth_client.get("/api/settings/network").json()["host"] == host
+    assert auth_client.get("/api/settings/network", headers=MAC_APP_HOST).json()["host"] == host
 
 
 @pytest.mark.parametrize("host, where", [

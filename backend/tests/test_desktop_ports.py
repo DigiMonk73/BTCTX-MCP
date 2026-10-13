@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from backend.tests.conftest import MAC_APP_HOST
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_ports  # noqa: E402
 from desktop_ports import OTHER_PORT, QUIT, RETRY, bind_port, choose_socket, running_instance  # noqa: E402
@@ -156,10 +158,10 @@ def test_desktop_info_endpoint(auth_client, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     monkeypatch.setenv("BTCTX_DESKTOP_PREFERRED_PORT", "8765")
     monkeypatch.setenv("BTCTX_DESKTOP_ACTUAL_PORT", "8765")
-    assert auth_client.get("/api/settings/desktop").json()["port_fallback"] is False
+    assert auth_client.get("/api/settings/desktop", headers=MAC_APP_HOST).json()["port_fallback"] is False
     monkeypatch.setenv("BTCTX_DESKTOP_ACTUAL_PORT", "50123")
     monkeypatch.setenv("BTCTX_DESKTOP_URL", "http://127.0.0.1:50123")
-    assert auth_client.get("/api/settings/desktop").json() == {
+    assert auth_client.get("/api/settings/desktop", headers=MAC_APP_HOST).json() == {
         "desktop": True, "url": "http://127.0.0.1:50123", "port": 50123,
         "preferred_port": 8765, "port_fallback": True,
     }

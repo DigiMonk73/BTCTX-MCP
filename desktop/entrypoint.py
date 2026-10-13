@@ -170,7 +170,10 @@ def run_backend(sock: socket.socket):
     """Run the FastAPI backend with Uvicorn on an already-bound socket."""
     import uvicorn
 
-    config = uvicorn.Config("backend.main:app", log_level="warning", access_log=False, server_header=False)
+    # No proxy stands in front: a client's address is its connection's, never
+    # an X-Forwarded-For header's (the login throttle counts by address).
+    config = uvicorn.Config("backend.main:app", log_level="warning", access_log=False, server_header=False,
+                            proxy_headers=False)
     uvicorn.Server(config).run(sockets=[sock])
 
 

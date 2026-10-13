@@ -58,7 +58,11 @@ BitcoinTX.app
   exits instead of starting a second backend.
 - **Log file:** `~/Library/Logs/BitcoinTX/BitcoinTX.log` (rotating, 1 MB × 3),
   including every port decision and its errno.
-- **Localhost only:** the server binds to `127.0.0.1`, never to the network.
+- **Localhost only:** the server binds to `127.0.0.1`, never to the network,
+  and answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]`
+  (421 for any other `Host`: `backend/security_headers.py`,
+  `LocalAddressOnlyMiddleware`). Uvicorn runs with `proxy_headers=False`, so
+  a client's own `X-Forwarded-For` never passes for its address.
 - **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
   method to JavaScript via pywebview's `js_api`. The frontend
   (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
