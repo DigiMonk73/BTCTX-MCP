@@ -190,6 +190,7 @@ hidden_imports = [
     "backend.services.reports.pdf_layout",
 
     # Desktop entrypoint helpers (desktop/)
+    "desktop_api",
     "desktop_ports",
     "desktop_paths",
 

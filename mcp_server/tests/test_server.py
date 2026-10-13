@@ -238,6 +238,58 @@ async def test_schema_rejects_unknown_account(mcp_client):
     await call(mcp_client, "preview_transactions", {"transactions": [bad]}, expect_error=True)
 
 
+class RecordingTransport(httpx.ASGITransport):
+    """The app's transport, noting the path of every request sent."""
+
+    def __init__(self, app):
+        super().__init__(app=app)
+        self.paths: list[str] = []
+
+    async def handle_async_request(self, request):
+        self.paths.append(request.url.path)
+        return await super().handle_async_request(request)
+
+
+@pytest.mark.parametrize("tool, args", [
+    ("add_transactions", {"transactions": [dict(BUY, amount="1e20")]}),
+    ("add_transactions", {"transactions": [dict(BUY, cost_basis_usd="1e16")]}),
+    ("preview_transactions", {"transactions": [dict(BUY, fee_amount="1e10")]}),
+    ("add_transactions", {"transactions": [dict(TO_COLD, fee_usd="1e30")]}),
+    ("update_transaction", {"transaction_id": 1, "proceeds_usd": "1e20"}),
+    ("update_transaction", {"transaction_id": 1, "amount": "1e999999999"}),
+])
+async def test_a_value_too_large_is_refused_before_any_request(backend_db, tool, args):
+    """A value over BitcoinTX's limits is a clear error from the connector
+    itself: nothing is asked of BitcoinTX."""
+    transport = RecordingTransport(app)
+    btctx = BtctxClient(base_url="http://testserver", ai_key=make_ai_key(backend_db), transport=transport)
+    server.set_client(btctx)
+    try:
+        async with Client(server.mcp) as client:
+            text = await call(client, tool, args, expect_error=True)
+        assert "should be less than" in text, text
+        assert transport.paths == []
+    finally:
+        server.set_client(None)
+        await btctx.aclose()
+
+
+async def test_the_largest_values_pass_the_connector(mcp_client):
+    deposit = {"date": "2024-01-15", "type": "Deposit", "amount": "9999999999.99", "from_account": "External",
+               "to_account": "Bank"}
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [deposit]}))["ok"] is True
+    gift = {"date": "2024-01-15", "type": "Deposit", "amount": "0.1", "from_account": "External",
+            "to_account": "Wallet", "source": "Gift", "cost_basis_usd": "9999999999999998.99"}
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [gift]}))["ok"] is True
+
+
+async def test_the_connectors_limits_are_bitcointxs():
+    from backend.schemas.transaction import BTC_DIGITS, USD_DIGITS
+
+    assert server.AMOUNT_LIMIT == Decimal(10) ** BTC_DIGITS
+    assert server.USD_LIMIT == Decimal(10) ** USD_DIGITS
+
+
 async def test_ledger_rejection_is_reported_as_tool_error(mcp_client):
     overspend = dict(TO_COLD, amount="5")
     text = await call(

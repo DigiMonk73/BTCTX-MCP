@@ -21,7 +21,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  // Still the default admin/password login (Docker, source): changing it
+  // Still the default admin/password login (Docker, source, the Mac app): changing it
   // needs the first-run setup code, like Register.
   const [setupCode, setSetupCode] = useState("");
   const [codeRequired, setCodeRequired] = useState(false);

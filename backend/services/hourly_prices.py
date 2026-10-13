@@ -257,7 +257,7 @@ def live_hours(rows: list[dict]) -> dict[int, Decimal]:
             t = int(row["time"])
         except (KeyError, TypeError, ValueError, ArithmeticError):
             continue
-        if price > 0 and t % HOUR == 0:
+        if t % HOUR == 0 and pf.usable_price(price) is not None:
             by_time[t] = price
     start = next((t for t in sorted(by_time) if all(t + k * HOUR in by_time for k in range(1, 24))), None)
     out = {}
@@ -456,7 +456,23 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
         if all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR)):
             continue
         for row in await pf.bitstamp_candles(client, start):
-            h = int(row["timestamp"])
-            if h % HOUR == 0 and (h < current or (h == current and Decimal(str(row["volume"])) > 0)):
-                out[h] = Decimal(str(row["open"])).quantize(pf.CENT)
+            kept = _kept_open(row, current)
+            if kept:
+                out[kept[0]] = kept[1]
     return out
+
+
+def _kept_open(row: dict, current: int) -> tuple[int, Decimal] | None:
+    """
+    A Bitstamp candle's hour and open, or None: its open is no price
+    (pf.usable_price), its time isn't an hour, or it's the current hour
+    before its first trade. A candle that doesn't parse is skipped, so it
+    never costs the block's other hours.
+    """
+    try:
+        h = int(row["timestamp"])
+        traded = h < current or (h == current and Decimal(str(row["volume"])) > 0)
+        price = pf.usable_price(row["open"])
+    except (KeyError, TypeError, ValueError, ArithmeticError):
+        return None
+    return (h, price) if traded and h % HOUR == 0 and price is not None else None

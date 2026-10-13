@@ -1,5 +1,6 @@
 """
-The session-cookie signing key. Anyone who knows it can forge a login cookie,
+The key that signs the session cookie and the login throttle's device cookie
+(services/login_throttle.py). Anyone who knows it can forge a login cookie,
 so it must never be a value published in this repo.
 
 Order: SECRET_KEY env var (unless it's a known public default) -> a random
@@ -10,10 +11,13 @@ empty or too short to be one of ours is replaced with a new key (everyone
 logs in again).
 """
 
+import functools
 import logging
 import os
 import secrets
 import tempfile
+
+from backend.database import DATABASE_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +79,10 @@ def load_secret_key(data_dir: str) -> str:
         "(everyone has to log in again).", path
     )
     return new_key
+
+
+@functools.cache
+def app_secret_key() -> str:
+    """This install's key (next to DATABASE_FILE), read once, so both cookies
+    are signed with the same one."""
+    return load_secret_key(os.path.dirname(DATABASE_FILE))

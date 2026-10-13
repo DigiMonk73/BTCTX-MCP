@@ -233,7 +233,7 @@ So derived values must be recomputable from the Transaction row alone.
 |---|---|
 | `backend/main.py` | app, session middleware, router mounting, `get_current_user` |
 | `backend/migrate.py`, `backend/migrations/` | schema migrations run at startup, adoption of pre-migration DBs, pre-upgrade backups |
-| `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
+| `backend/secret_key.py` | per-install key in `.btctx_secret_key` that signs the session and device cookies (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
@@ -242,7 +242,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
-| `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
+| `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
@@ -257,8 +257,8 @@ So derived values must be recomputable from the Transaction row alone.
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
-| `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
+| `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
@@ -279,16 +279,37 @@ So derived values must be recomputable from the Transaction row alone.
   default key anywhere.
 - The debug router, `DELETE /api/transactions/delete_all` and
   `PUT /api/settings/tax-timezone` are login-only (never the AI key); tests
-  use the first two, the MCP server must not expose bulk delete. Sessions carry a stamp of the password hash
-  (`backend/session_auth.py`): changing the password or resetting the account
-  ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
+  use the first two, the MCP server must not expose bulk delete. API docs
+  (`/docs`, `/openapi.json`) only with DEBUG.
+- Sessions (`backend/session_auth.py`): each login gets a random session id,
+  carried in the cookie; the server keeps the hashes of the open ones in
+  `app_settings` (the newest 20). A session not on that list is logged out
+  (401), so logout ends that cookie and every copy of it while other
+  browsers stay logged in. Sessions also carry a stamp of the password hash:
+  changing the password (Settings or `cli set-password`) or resetting the
+  account empties the list and ends every other session. A restore keeps
+  the other browsers' sessions open before it (only while the restored
+  account has the same id), never the backup's list; the restoring browser
+  logs in again. A route that reads `request.session` itself
+  relies on its router's `get_current_user` having cleared an ended session
+  first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
+  A browser that got one of them right gets a device cookie (`btc_device`,
+  a year, signed with the secret key, bound to the current password) and is a
+  client of its own: other clients' failures, its address's count (behind
+  a proxy, everyone's) and the global cap don't stop it; its own failures
+  slow it. Logging out keeps it; a new password voids every earlier one.
   New passwords need 12+ characters; a change needs the current password.
-- While the account has the default login (Docker/source before it's
-  claimed), logging in with it and claiming it need the one-time setup code
-  (`services/first_run.py`, `<data dir>/setup-code.txt`, printed to the
-  log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
+- While the account has the default login (before it's claimed: Docker,
+  source and the Mac app alike), logging in with it and claiming it need
+  the one-time setup code (`services/first_run.py`,
+  `<data dir>/setup-code.txt`, 0600). A server prints it to the log; the Mac
+  app never logs it: its window reads the file (`desktop/desktop_api.py`,
+  `setup_code()`, only for the app's own pages) and its login page has the
+  owner choose a username and password, keeping the ledger (PATCH, never
+  reset-account: `frontend/src/utils/ownLogin.ts`). StartOS never has the
+  default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
   `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
@@ -300,11 +321,20 @@ So derived values must be recomputable from the Transaction row alone.
   formula.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
-  app: the key is in the owner-only `mcp.json` and works only from localhost.
+  app: the key is in the owner-only `mcp.json`, a new one at every start (the
+  connector reads the file again on a 401), and works only from localhost.
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). It works only while AI access is on (off by default) and only on
+  brings back a backup's password or its price source). An in-app restore
+  takes a backup's data, never its database: a backup holding anything but
+  ordinary tables and indexes is refused, and the database that goes live is
+  made by BitcoinTX's own migrations with only the rows of its own tables
+  and columns copied in, one login, and these settings written and read back
+  before it replaces the live one; any failure leaves the live database as
+  it was and answers in plain words, never SQL
+  (`services/backup.restore_backup`, `routers/backup._write_kept`).
+  It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
@@ -383,8 +413,11 @@ Full steps, the package version and the signing/mirror secrets:
    macOS `.dmg` + `.zip` and `btctx.s9pk` (signed with the `DEV_KEY` secret if
    set), publishes the AI connector to PyPI as `btctx-mcp==X.Y.Z` (trusted
    publishing, GitHub environment `pypi`, no token; skipped for `-N`
-   revisions), creates the tag and one GitHub release, and pushes `startos/`
-   to DigiMonk73/BTCTX-StartOS's `main` if the `MIRROR_TOKEN` secret is set.
+   revisions), creates the tag and one GitHub release (with `SHA256SUMS` of
+   its files and a GitHub build attestation of each: once it's out, check
+   one file with `gh attestation verify`, as the README shows), and pushes
+   `startos/` to DigiMonk73/BTCTX-StartOS's `main` if the `MIRROR_TOKEN`
+   secret is set.
    There, Start9's Tag and Release workflow tags it `v<upstream>_<revision>`
    and releases it (needs the mirror's `DEV_KEY` secret and
    `REFERENCE_REGISTRY` variable).

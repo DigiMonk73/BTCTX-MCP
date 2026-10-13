@@ -5,6 +5,13 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Check a download** (#203). Each release now has `SHA256SUMS`, the
+  SHA-256 of the macOS `.dmg` and `.zip` and of `btctx.s9pk`, and GitHub
+  keeps a signed build provenance attestation of each, made by the release
+  workflow. With the file and `SHA256SUMS` in one folder,
+  `shasum -a 256 -c --ignore-missing SHA256SUMS` should say OK; with the
+  GitHub CLI, `gh attestation verify <file> -R DigiMonk73/BTCTX-MCP` also
+  checks that GitHub built it from this repository (README, "Install").
 - **Trust this server: your own Mempool at a home server's https address**
   (#188, follow-up to #178). A StartOS server's home-network address (and
   other home servers') has a certificate from that server's own authority,
@@ -74,9 +81,9 @@ All notable changes to BitcoinTX are documented in this file.
   (about 3 MB): every year in the same fixed requests on every install,
   newest first, through Tor when it's set, and keeps a year only if it
   gives the fingerprint the release ships. With your own mempool server
-  and its fallback, it's downloaded only when a lookup needs an hour the
-  server doesn't have. Hours after the history come from the server's
-  hourly record (only the hours it recorded live) or from Bitstamp, and
+  and its fallback, it's downloaded when you save that choice. Hours after
+  the history come from the server's hourly record (only the hours it
+  recorded live) or from Bitstamp, and
   are kept (a new table, `btc_price_hourly`; nothing else in the database
   changes). No request names a transaction's hour.
 
@@ -91,6 +98,84 @@ All notable changes to BitcoinTX are documented in this file.
   answer over 16 MB is refused. Either counts as the source not answering,
   as before: the backup, "no price", or a retry later. A past-price lookup
   now really ends at its 3-minute limit.
+- **A browser that logged in before isn't kept waiting by others' failed
+  logins** (#151). After repeated wrong passwords BitcoinTX makes the next
+  tries wait. Behind StartOS's proxy, or a proxy in front of Docker, every
+  browser has the proxy's address, so anyone's wrong passwords made the
+  owner wait too, even with the right one. Now a browser that has logged in
+  (or set the password) gets a cookie that marks it as known (`btc_device`,
+  for a year; Secure over HTTPS): its tries are counted on their own, so
+  others' failures, from one address or many, no longer stop it. Its own
+  wrong passwords still slow it as before, and a browser without the cookie
+  is counted by its address as before. Logging out keeps the cookie; a new
+  password (in Settings or with StartOS's Set Login Credentials) makes
+  earlier ones count as none until that browser logs in again.
+- **A value too large to store is refused everywhere** (#151). The API
+  refused most amounts and USD values with more digits than the database
+  holds (not one the database rounds up, or a tiny exponent, saved as 0),
+  and the CSV, River and JSON imports (the AI connector's) refused none:
+  such a value was saved, and then the transaction list, the average cost
+  and the tax report showed an error for the whole ledger. Every path now
+  refuses it with a message naming the field (an amount or BTC value: at
+  most 10 digits before the decimal point; a USD value: 16, as the database
+  stores it), and the AI connector does before it asks BitcoinTX anything.
+  An amount in a River file that isn't a number is now that row's error (a
+  fee was read as no fee). Values within the limits are saved as before,
+  and the transaction list shows every stored value as it is, including a
+  sale's basis the ledger sums past the limits.
+- **The Mac app asks for your own username and password while it still
+  has the default login** (#151). Its default login (`admin` / `password`)
+  now needs the one-time setup code too, as on Docker, and the app's window
+  fills it in: the first screen is **Choose your username and password**
+  (12 or more characters, typed twice), and your transactions are kept. The
+  code is in `setup-code.txt` in the app's data folder (owner-only) and is
+  never written to its log; from a browser, `admin` / `password` works only
+  with the code typed in.
+- **A price a site gives under one cent, or as no number, is never kept**
+  (#206, #198, tax figures). A day's price from a public site or your own
+  Mempool was checked above zero before it was rounded to the cent, so an
+  answer of $0.004 was stored as $0.00, and a value left blank that day
+  (an income deposit's value at receipt, an unpriced spend's proceeds, a
+  BTC fee's value) was saved at $0.00. The hours after the hourly price
+  files (not in a release yet) kept 0, below 0 and no number too. Now such
+  a day or hour has no price: a value from it takes the day's price, or
+  asks you to type one, never $0, and one odd price no longer costs the
+  site's other days or hours. **Affected:** 0.9.2 to 1.2.7, only if a
+  price site (Bitstamp, Kraken, Coinbase before #161) or your own Mempool
+  ever answered such a price; none is known. **What to do:** nothing,
+  unless you ever saw a value "from the price" at $0.00: a day already
+  stored at $0.00 stays, so type that value.
+- **Logging out ends the session everywhere** (#151). Each login now opens
+  a session of its own on the server. Logging out ends it at once, for any
+  copy of that browser's cookie too; before, a copy kept working until 14
+  days after the login. Your other browsers stay logged in. A password
+  change (Settings, or StartOS's Set Login Credentials) or an account reset
+  still logs every other browser out, and an in-app restore keeps the
+  sessions that were open (when the backup's account has the same id;
+  otherwise every browser logs in again) and the browser that restored
+  logs in again. **After this update, everyone logs in once
+  more.** The unused `GET /api/users/protected` is gone.
+- **The Mac app gives the AI connector a new key each time it starts**
+  (#151). The key in `mcp.json` stayed the same across restarts; now each
+  start writes a new one, and a key from an earlier run stops working. The
+  AI connector reads the file again when its key is refused (every
+  released connector does), so an AI app left open carries on with nothing
+  to set up again. The connector also counts only a BitcoinTX run by your
+  own Mac account.
+- **A restore brings back a backup's data, and keeps this install's login,
+  AI key and price settings, or restores nothing** (#201, #151). An in-app
+  restore now builds a new database with BitcoinTX's own migrations, as a
+  fresh install does, and copies into it only the rows of BitcoinTX's own
+  tables and columns from the backup (upgraded first); anything else in the
+  backup's database stays behind, and a backup holding database objects
+  BitcoinTX doesn't make, more than one login, or rows that don't fit is
+  refused. Your current login, AI key and its switch, and price settings are
+  written into the new database and checked before it replaces your ledger.
+  If any step fails, the restore stops: your ledger and settings stay as
+  they were, no temporary file is left, and the page says why in plain words
+  (a wrong password, a damaged file) instead of "Failed to restore backup."
+  One restore runs at a time. Before, an error while keeping those settings
+  was only logged, and the backup's settings could stay in use.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and
@@ -146,13 +231,14 @@ All notable changes to BitcoinTX are documented in this file.
   and a CSV import refused one, but an edit with the AI connector's edit
   tool or the API took it (the form wasn't affected). Such a row now
   refuses other edits until its fee value is set again.
-- **Switching StartOS's Price Source & Privacy to "Choose in BitcoinTX"
-  no longer picks public price sites for you** (privacy, #134). While the
-  action sets the source (My Mempool, Public or Off), no choice is made in
-  the app, but prices get stored. After a switch to **Choose in
-  BitcoinTX**, BitcoinTX took those stored prices for an install from
-  before 1.1.0 (when public sites were on by default), saved **Public price
-  sites** as your choice and asked them for prices, without showing its
+- **Switching StartOS's Price Source & Privacy to "Decide in BitcoinTX
+  instead" (called "Choose in BitcoinTX" before this release) no longer
+  picks public price sites for you** (privacy, #134). While the action
+  sets the source (My Mempool, Public price sites or Nobody), no choice is
+  made in the app, but prices get stored. After a switch to **Decide in
+  BitcoinTX instead**, BitcoinTX took those stored prices for an install
+  from before 1.1.0 (when public sites were on by default), saved
+  **Public price sites** as your choice and asked them for prices, without showing its
   price question. A command run without the server's settings saved the
   same choice, ready for a later switch: the package's **Set Login
   Credentials** (Reset Login Credentials before 1.2.4:1), or
@@ -183,8 +269,8 @@ All notable changes to BitcoinTX are documented in this file.
   work. From now on each choice records when it was made and where (the
   first-run question or Settings), which Settings shows; the record is kept
   through an in-app restore. A choice StartOS sets is never asked here; if
-  you switch StartOS's action to *Choose in BitcoinTX*, a choice in the app
-  without a record is asked then (closing #155's last gap).
+  you switch StartOS's action to *Decide in BitcoinTX instead*, a choice
+  in the app without a record is asked then (closing #155's last gap).
 - **Public price sites: Coinbase and CoinGecko are no longer asked**
   (#161, the owner's decision). Coinbase's market data terms keep its data
   for personal or research use and say it "may not be used to build an
@@ -323,11 +409,9 @@ All notable changes to BitcoinTX are documented in this file.
   a fingerprint that comes with BitcoinTX; then its progress, year by year;
   then "downloaded and checked", from when it works offline whatever you
   choose. With *Nobody*, or your Mempool alone, the card says what that
-  means for older values. Your Mempool with its backup now downloads the
-  history when you save, instead of when a value first needs it. And a
-  server can lend its Tor to a choice made in the app (new
-  `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Choose in BitcoinTX*):
-  Settings shows "Through Tor: Tor on this server", locked on.
+  means for older values. And a server can lend its Tor to a choice made
+  in the app (new `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Decide
+  in BitcoinTX instead*): Settings shows "Through Tor: Tor on this server", locked on.
 - **One price card, the same everywhere** (#145): where BitcoinTX gets
   Bitcoin prices is now one card with three choices, *My own Mempool* (with
   *If it can't answer, ask public price sites*), *Public price sites*

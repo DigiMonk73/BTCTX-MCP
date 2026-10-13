@@ -244,7 +244,7 @@ From `backend/requirements.in`:
 | `python-multipart` | 0.0.32 | Caution | "Patch" releases add hardening limits (header count, boundary size) |
 | `bcrypt` | 5.0.0 | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
 | `cryptography` | 50.0.2 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
-| `itsdangerous` | 2.2.0 | Low | Session cookie signing |
+| `itsdangerous` | 2.2.0 | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone; update yearly |
@@ -280,8 +280,11 @@ take the upgrade.
 The schema is owned by Alembic migrations in `backend/migrations/versions/`.
 Nothing calls `create_all()`: every start runs `backend/migrate.py`, which
 backs the database up to `<db dir>/backups/` and upgrades it when a newer
-revision exists. Restored backups are upgraded the same way before they
-replace the live database.
+revision exists. A restored backup is upgraded the same way, then only
+the rows of the tables and columns the migrations make are copied into a
+new database made by the migrations, which replaces the live one
+(`services/backup.restore_backup`): a new table or column needs nothing
+more for restores.
 
 **Changing the schema** (a new column, table or index):
 

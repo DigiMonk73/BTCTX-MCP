@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.btc_price import BtcPriceDaily
 from backend.services import outbound
-from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR
+from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR, usable_price
 
 logger = logging.getLogger(__name__)
 
@@ -95,18 +95,19 @@ def _from_unix(ts) -> date:
 
 
 # Public sites: requests that never depend on which day is wanted
-async def _bitstamp(client, start: date | None = None) -> dict[date, Decimal]:
-    """1,000 daily opens from `start` (a fixed block start), or the latest 1,000."""
+async def _bitstamp(client, start: date | None = None) -> dict[date, str]:
+    """1,000 daily opens from `start` (a fixed block start), or the latest
+    1,000, as the site gives them (_kept checks each)."""
     params = {"step": DAY, "limit": BITSTAMP_BLOCK}
     if start is not None:
         params["start"] = _midnight(start)
     resp = await client.get(BITSTAMP_OHLC_URL, params=params)
     resp.raise_for_status()
-    return {_from_unix(row["timestamp"]): Decimal(str(row["open"])) for row in resp.json()["data"]["ohlc"]}
+    return {_from_unix(row["timestamp"]): str(row["open"]) for row in resp.json()["data"]["ohlc"]}
 
 
-async def _kraken_latest(client) -> dict[date, Decimal]:
-    """Kraken's latest 720 daily opens."""
+async def _kraken_latest(client) -> dict[date, str]:
+    """Kraken's latest 720 daily opens, as it gives them (_kept checks each)."""
     resp = await client.get(KRAKEN_OHLC_URL, params={"pair": "XBTUSD", "interval": 1440})
     resp.raise_for_status()
     data = resp.json()
@@ -114,7 +115,7 @@ async def _kraken_latest(client) -> dict[date, Decimal]:
         raise ValueError(str(data["error"]))
     pair = next(k for k in data["result"] if k != "last")
     # [time, open, high, low, close, vwap, volume, count]
-    return {_from_unix(row[0]): Decimal(str(row[1])) for row in data["result"][pair]}
+    return {_from_unix(row[0]): str(row[1]) for row in data["result"][pair]}
 
 
 def _blocks(first: date, size: int) -> list[date]:
@@ -126,9 +127,10 @@ def _blocks(first: date, size: int) -> list[date]:
     return starts
 
 
-def _kept(prices: dict[date, Decimal], source: str) -> dict[date, tuple]:
+def _kept(prices: dict[date, str], source: str) -> dict[date, tuple]:
     today = _today()
-    return {d: (p.quantize(CENT), source) for d, p in prices.items() if d <= today and p > 0}
+    cents = {d: usable_price(p) for d, p in prices.items() if d <= today}
+    return {d: (p, source) for d, p in cents.items() if p is not None}
 
 
 async def public_history(full: bool) -> tuple[dict[date, tuple], bool]:
@@ -160,9 +162,9 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     return {}, False
 
 
-async def _bitstamp_blocks(client) -> dict[date, Decimal]:
+async def _bitstamp_blocks(client) -> dict[date, str]:
     """Every block of Bitstamp's daily history, or nothing when one of them fails."""
-    got: dict[date, Decimal] = {}
+    got: dict[date, str] = {}
     try:
         for start in _blocks(FIRST_PRICE_DAY, BITSTAMP_BLOCK):
             got.update(await _bitstamp(client, start))
@@ -201,12 +203,14 @@ def midnight_prices(rows: list[dict]) -> dict[date, tuple]:
     by_time = {}
     for row in rows:
         try:
-            by_time[int(row["time"])] = Decimal(str(row["USD"]))
+            t, price = int(row["time"]), Decimal(str(row["USD"]))
         except (KeyError, TypeError, ValueError, ArithmeticError):
             continue
+        if usable_price(price) is not None:
+            by_time[t] = price
     out = {}
     for t, price in by_time.items():
-        if t % DAY or price <= 0:
+        if t % DAY:
             continue
         before, after = by_time.get(t - HOUR), by_time.get(t + HOUR)
         limit = price * MEMPOOL_TOLERANCE

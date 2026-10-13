@@ -7,12 +7,17 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import sqlite3
 import struct
 import tempfile
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -57,6 +62,20 @@ MIN_ITERATIONS = 100_000
 MAX_ITERATIONS = 5_000_000
 _HEADER_LENGTH = len(MAGIC) + 1 + 4
 SQLITE_HEADER = b"SQLite format 3\x00"
+# Why a restore was refused: plain words, never SQL
+NOT_OURS = "This backup can't be restored: it holds database objects BitcoinTX doesn't make."
+DAMAGED = "This file isn't a BitcoinTX backup, or it's damaged."
+NOT_UPGRADED = "This backup can't be restored: its database couldn't be brought up to this version of BitcoinTX."
+DOESNT_FIT = "This backup can't be restored: its {table} rows don't fit BitcoinTX's database."
+ONE_LOGIN = "This backup can't be restored: it holds more than one login, and BitcoinTX has one."
+NEWER = ("This backup can't be restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, "
+         "or restore a backup made with this version.")
+BUSY = "Another restore is running: wait for it to finish, then try again."
+NOT_WRITTEN = ("This backup couldn't be restored: BitcoinTX couldn't write to its data folder. "
+               "Your database is unchanged.")
+# One restore at a time (one process serves the app): two at once would share
+# the temporary files below
+_restoring = threading.Lock()
 
 
 def _derive_key(password: str, salt: bytes, iterations: int = LEGACY_ITERATIONS, length: int = KEY_LENGTH) -> bytes:
@@ -179,15 +198,25 @@ def make_backup(password: str, output_file: Path, db_path: Path | None = None) -
     logger.info(f"Backup created at: {output_file}")
 
 
-def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = None, engine=None):
+def restore_backup(
+    password: str,
+    encrypted_file: Path,
+    db_path: Path | None = None,
+    engine=None,
+    carry_over: Callable[[Session], None] | None = None,
+):
     """
-    Replace the database with a decrypted backup, upgraded to the current
-    schema. The live database is only touched once the backup has decrypted,
-    is a SQLite file and has migrated successfully; the database it replaces
-    is kept in <db dir>/backups/. Returns the MigrationResult of the backup.
+    Replace the database with a backup's. The live database stays as it was
+    until the very end: the backup has decrypted, holds only BitcoinTX's kind
+    of database objects, and has been upgraded to the current schema; then a
+    new database is made by BitcoinTX's own migrations and only its own
+    tables' and columns' rows are copied into it (_rebuild), and
+    `carry_over`, given a session on that new database, has written what
+    this install keeps. Only then is the live database copied to
+    <db dir>/backups/ and replaced. Any error deletes the temporary files and
+    leaves the live database as it was. Returns the backup's MigrationResult.
     """
-    from backend.migrate import MigrationError, backup_sqlite, upgrade_database
-    from backend.database import seed_defaults
+    from backend.migrate import backup_sqlite
 
     if engine is None:
         from backend.database import engine
@@ -198,31 +227,265 @@ def restore_backup(password: str, encrypted_file: Path, db_path: Path | None = N
     decrypted = decrypt_backup(encrypted_file.read_bytes(), password)
     if not decrypted.startswith(SQLITE_HEADER):
         raise ValueError("This file isn't a BitcoinTX backup (no database inside).")
+    if not _restoring.acquire(blocking=False):
+        raise ValueError(BUSY)
 
-    staging = db_path.with_name(db_path.name + ".restoring")
-    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)  # owner-only from the start, also over a leftover file
-    with os.fdopen(fd, "wb") as f:
-        f.write(decrypted)
-    staged = create_engine(f"sqlite:///{staging}", poolclass=NullPool)
     try:
-        result = upgrade_database(staged, backup=False)
-        seed_defaults(staged)
-    except MigrationError as e:
-        staging.unlink(missing_ok=True)
-        raise ValueError(f"This backup can't be restored: {e}") from e
-    except Exception:
-        staging.unlink(missing_ok=True)
-        raise
+        result = _restore_into(db_path, decrypted, carry_over, engine, backup_sqlite)
     finally:
-        staged.dispose()
-
-    if db_path.exists():
-        kept = backup_sqlite(db_path, "restore")
-        logger.info(f"Database being replaced was saved to: {kept}")
-    engine.dispose()
-    os.replace(staging, db_path)
+        _restoring.release()
+    # What SQLite kept beside the database it replaced: opened next to the
+    # new one, a write-ahead log or rollback journal would be applied to it.
+    _remove_side_files(db_path)
     engine.dispose()
 
     logger.info(f"Database restored from: {encrypted_file} (schema {result.from_revision or 'unversioned'} -> {result.to_revision})")
     return result
+
+
+def _restore_into(db_path: Path, decrypted: bytes, carry_over, engine, backup_sqlite):
+    """
+    The backup's database beside the live one, the new one built from it,
+    then the swap; the temporary files are deleted whatever happens. A file
+    error (a folder that can't be written, a full disk) answers in plain
+    words, never the server's paths.
+    """
+    staging = db_path.with_name(db_path.name + ".restoring")  # the backup's database
+    rebuilt = db_path.with_name(db_path.name + ".rebuilding")  # the one that goes live
+    try:
+        try:
+            # A restore cut short (the app quit) may have left a write-ahead
+            # log here, which SQLite would apply to the next file of the same name
+            _remove_database(staging)
+            _remove_database(rebuilt)
+            _write_owner_only(staging, decrypted)
+            _write_owner_only(rebuilt, b"")
+            result = _rebuild(staging, rebuilt, carry_over)
+            _swap(rebuilt, db_path, engine, backup_sqlite)
+        finally:
+            _remove_database(staging)
+            _remove_database(rebuilt)
+    except OSError as e:
+        logger.warning("Restore stopped: couldn't write the database files (%s)", e.strerror or type(e).__name__)
+        raise ValueError(NOT_WRITTEN) from e
+    return result
+
+
+def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite) -> None:
+    """Keep a copy of the live database in backups/, then put the new one in its place."""
+    if db_path.exists():
+        kept = backup_sqlite(db_path, "restore")
+        logger.info(f"Database being replaced was saved to: {kept}")
+    engine.dispose()
+    os.replace(rebuilt, db_path)
+
+
+def _write_owner_only(path: Path, data: bytes) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # owner-only from the start, also over a leftover file
+    with os.fdopen(fd, "wb") as f:
+        f.write(data)
+
+
+def _rebuild(staging: Path, rebuilt: Path, carry_over: Callable[[Session], None] | None):
+    """
+    Check and upgrade the backup's database, make the new one with the
+    migrations (as a fresh install does), copy the backup's own data into
+    it, seed the fixed accounts, require one login, and let `carry_over`
+    write into it. Database errors come back in plain words, never SQL.
+    """
+    from backend.database import seed_defaults
+    from backend.migrate import MigrationError, upgrade_database
+
+    try:
+        result = _check_and_upgrade(staging)
+        new = create_engine(f"sqlite:///{rebuilt}", poolclass=NullPool)
+        try:
+            upgrade_database(new, backup=False)
+            _copy_own_data(new, staging)
+            seed_defaults(new)
+            _require_one_login(new)
+            _read_as_the_app_does(new)
+            if carry_over is not None:
+                with Session(new) as session:
+                    carry_over(session)
+        finally:
+            new.dispose()
+        return result
+    except MigrationError as e:
+        message = _not_upgraded(e)
+        logger.warning("Restore refused: the backup's database couldn't be upgraded (%s)",
+                       _reason(e.__cause__) if e.__cause__ else message)
+        raise ValueError(message) from e
+    except SQLAlchemyError as e:
+        logger.warning("Restore refused: the backup's database couldn't be read (%s)", _reason(e))
+        raise ValueError(DAMAGED) from e
+    except OSError as e:
+        logger.warning("Restore stopped: couldn't write the database files (%s)", e.strerror or type(e).__name__)
+        raise ValueError(NOT_WRITTEN) from e
+    except ValueError:
+        raise
+    except Exception as e:  # e.g. alembic's own words on a stamp it can't read
+        logger.warning("Restore refused: the backup's database couldn't be read (%s)", type(e).__name__)
+        raise ValueError(DAMAGED) from e
+
+
+def _check_and_upgrade(staging: Path):
+    """The backup's database, checked before anything runs in it, then
+    brought to the current schema so its rows fit the new database's."""
+    from backend.migrate import upgrade_database
+
+    staged = create_engine(f"sqlite:///{staging}", poolclass=NullPool)
+    try:
+        _refuse_objects_not_ours(staged)
+        return upgrade_database(staged, backup=False)
+    finally:
+        staged.dispose()
+
+
+def _refuse_objects_not_ours(staged) -> None:
+    """
+    Only BitcoinTX's kind of database is restored: ordinary tables and
+    indexes, the only objects its migrations make, with its core tables. A
+    trigger or a view runs SQL that isn't BitcoinTX's whenever the app reads
+    or writes; a virtual table runs a module's code on the backup's data.
+    Read from sqlite_master alone, so nothing in the backup runs first.
+    """
+    from backend.migrate import CORE_TABLES
+
+    with staged.connect() as conn:
+        rows = conn.exec_driver_sql("SELECT type, name, sql FROM sqlite_master").all()
+    if any(kind not in ("table", "index") or _virtual(sql) for kind, _, sql in rows):
+        raise ValueError(NOT_OURS)
+    if not CORE_TABLES <= {name.lower() for kind, name, _ in rows if kind == "table"}:
+        raise ValueError(DAMAGED)
+
+
+def _virtual(sql: str | None) -> bool:
+    """Whether a schema statement is CREATE VIRTUAL TABLE (SQLite reads a
+    comment as a space, and keywords in any case)."""
+    words = re.sub(r"/\*.*?(?:\*/|$)|--[^\n]*", " ", sql or "", flags=re.S).split()
+    return [word.upper() for word in words[:2]] == ["CREATE", "VIRTUAL"]
+
+
+def _copy_own_data(new, staging: Path) -> None:
+    """
+    Copy the backup's rows of every table BitcoinTX's migrations made in the
+    new database (but alembic_version, which they set), in that table's
+    columns, ids kept. Nothing else in the backup comes along: other tables
+    or columns, its table definitions, its indexes. A table or column
+    BitcoinTX needs that the backup lacks, or rows the new tables refuse (a
+    duplicate key, a missing value), stop the restore. The app doesn't turn
+    on SQLite's foreign keys, so the copy's order doesn't matter.
+    """
+    with new.connect() as conn:
+        conn.exec_driver_sql("ATTACH DATABASE ? AS staged", (str(staging),))
+        tables = conn.exec_driver_sql("SELECT name FROM main.sqlite_master WHERE type = 'table'").scalars().all()
+        for table in tables:
+            if table != "alembic_version" and not table.startswith("sqlite_"):
+                _copy_table(conn, table)
+        conn.commit()
+
+
+def _copy_table(conn, table: str) -> None:
+    columns = [row[1] for row in conn.exec_driver_sql(f"PRAGMA main.table_info({_quoted(table)})")]
+    present = {row[1].lower() for row in conn.exec_driver_sql(f"PRAGMA staged.table_info({_quoted(table)})")}
+    missing = [column for column in columns if column.lower() not in present]
+    if missing:
+        what = f"the table {table}" if not present else f"{table}.{missing[0]}"
+        raise ValueError(f"This backup can't be restored: its database lacks {what}, which BitcoinTX needs.")
+    names = ", ".join(_quoted(column) for column in columns)
+    if _rows_without_a_key(conn, table):
+        raise ValueError(DOESNT_FIT.format(table=table))
+    try:
+        conn.exec_driver_sql(
+            f"INSERT INTO main.{_quoted(table)} ({names}) SELECT {names} FROM staged.{_quoted(table)}")
+    except IntegrityError as e:
+        logger.warning("Restore refused: the backup's %s rows don't fit (%s)", table, _reason(e))
+        raise ValueError(DOESNT_FIT.format(table=table)) from e
+    if _text_in_a_number_column(conn, table):
+        raise ValueError(DOESNT_FIT.format(table=table))
+
+
+# Declared types whose values the app reads as numbers (SQLAlchemy's Integer,
+# Numeric, Boolean): a text there (copied as it is) fails every later read
+NUMBER_TYPES = ("INTEGER", "NUMERIC", "BOOLEAN", "DECIMAL", "REAL", "FLOAT")
+
+
+def _rows_without_a_key(conn, table: str) -> bool:
+    """Whether a row has no primary key (SQLite would quietly give it one)."""
+    keys = [row[1] for row in conn.exec_driver_sql(f"PRAGMA main.table_info({_quoted(table)})") if row[5]]
+    where = " OR ".join(f"{_quoted(key)} IS NULL" for key in keys)
+    return bool(keys) and conn.exec_driver_sql(
+        f"SELECT EXISTS (SELECT 1 FROM staged.{_quoted(table)} WHERE {where})").scalar()
+
+
+def _text_in_a_number_column(conn, table: str) -> bool:
+    """Whether a copied number column holds something that isn't a number."""
+    numbers = [row[1] for row in conn.exec_driver_sql(f"PRAGMA main.table_info({_quoted(table)})")
+               if row[2].upper().startswith(NUMBER_TYPES)]
+    where = " OR ".join(f"typeof({_quoted(column)}) NOT IN ('integer', 'real', 'null')" for column in numbers)
+    return bool(numbers) and conn.exec_driver_sql(
+        f"SELECT EXISTS (SELECT 1 FROM main.{_quoted(table)} WHERE {where})").scalar()
+
+
+def _quoted(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _read_as_the_app_does(new) -> None:
+    """
+    Every copied row read through BitcoinTX's models, as the app will read
+    it (its types turn stored text into dates and numbers): a value it can't
+    read would fail every later read of that table, so it refuses the
+    restore now.
+    """
+    from backend.models import Base
+
+    with Session(new) as session:
+        for mapper in Base.registry.mappers:
+            try:
+                for _ in session.query(mapper.class_).yield_per(1000):
+                    pass
+            except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
+                logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
+                raise ValueError(DOESNT_FIT.format(table=mapper.local_table.name)) from e
+            session.expunge_all()
+
+
+def _require_one_login(new) -> None:
+    """BitcoinTX has one login: a backup with more is refused (the restore
+    keeps only this install's, on the first)."""
+    with new.connect() as conn:
+        if conn.exec_driver_sql("SELECT count(*) FROM users").scalar() != 1:
+            raise ValueError(ONE_LOGIN)
+
+
+def _reason(error: BaseException) -> str:
+    """SQLite's own words for an error, for the log: never the statement or
+    its values, and on one line (they may hold the backup's names)."""
+    words = str(error.orig) if isinstance(error, DBAPIError) else type(error).__name__
+    return " ".join(words.split())[:200]
+
+
+def _not_upgraded(e) -> str:
+    """Why the backup's database couldn't be upgraded. A MigrationError that
+    wraps another error carries that error's text, SQL included: plain words
+    instead."""
+    if e.__cause__ is not None:
+        return NOT_UPGRADED
+    if "written by a newer version" in str(e):  # its text names the backup's revision
+        return NEWER
+    return f"This backup can't be restored: {e}"
+
+
+def _remove_database(path: Path) -> None:
+    path.unlink(missing_ok=True)
+    _remove_side_files(path)
+
+
+def _remove_side_files(path: Path) -> None:
+    """The files SQLite keeps beside a database: its write-ahead log and
+    shared memory, or its rollback journal."""
+    for suffix in ("-wal", "-shm", "-journal"):
+        path.with_name(path.name + suffix).unlink(missing_ok=True)
