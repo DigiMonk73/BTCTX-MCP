@@ -77,8 +77,8 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` (every job except
-the macOS build, which doesn't run on pull requests, and the macOS
-dependency audit) have passed ("Protect develop").
+the macOS build and the macOS
+dependency audit, which run but aren't required) have passed ("Protect develop").
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from

@@ -1,13 +1,16 @@
 name: CI
 
-# Every push and pull request: lint, full Python suite, MCP tests, frontend,
-# end-to-end smoke test, Playwright click-through tests (Chromium, WebKit),
-# Docker image + container smoke, StartOS package checks and an x86_64 s9pk
-# packed from this commit's image, dependency audit.
-# The macOS app build (slowest job) runs on every branch push and on demand
-# from the Actions tab.
+# Every pull request, and every push to develop or main: lint, full Python
+# suite, MCP tests, frontend, end-to-end smoke test, Playwright click-through
+# tests (Chromium, WebKit), Docker image + container smoke, StartOS package
+# checks and an x86_64 s9pk packed from this commit's image, dependency audit,
+# and the macOS app build. A pull request's run tests the branch merged with
+# its base, so pushing a branch that has one doesn't run the same suite twice
+# (owner, 2026-10-13). A branch without a pull request: the pre-push hook's
+# checks, or a run on demand from the Actions tab.
 on:
   push:
+    branches: [develop, main]
   pull_request:
   workflow_dispatch:
 
@@ -310,9 +313,8 @@ jobs:
 
   macos-app:
     name: macOS app build + launch check
-    # Every branch push (not PRs, which would build the same commit twice), so
-    # packaging breaks show up before a merge. Free on public repos.
-    if: github.event_name != 'pull_request'
+    # Pull requests too, so packaging breaks show up before a merge; not a
+    # required check, so a macOS hiccup never blocks one. Free on public repos.
     needs: [python, frontend]
     runs-on: macos-latest
     steps:
