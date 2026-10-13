@@ -164,6 +164,8 @@ async def test_an_ai_session_carries_on_across_a_restart(desktop, restart):
         assert await btctx.get("/api/transactions") == []
         keys = [(key, status) for path, key, status in seen.calls if path == "/api/transactions"]
         assert keys == [(f"Bearer {old}", 401), (f"Bearer {_token(desktop)}", 200)]
+        # Finding the app again sends no key, not even the one just refused
+        assert [key for path, key, _ in seen.calls if path == "/api/health"] == [None]
     finally:
         await btctx.aclose()
 

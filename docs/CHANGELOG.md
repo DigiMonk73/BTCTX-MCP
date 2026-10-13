@@ -84,8 +84,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **The Mac app gives the AI connector a new key each time it starts**
   (#151). The key in `mcp.json` stayed the same across restarts; now each
   start writes a new one, and a key from an earlier run stops working. The
-  AI connector reads the file again when its key is refused (connectors
-  from 1.2.x already do), so an AI app left open carries on with nothing
+  AI connector reads the file again when its key is refused (every
+  released connector does), so an AI app left open carries on with nothing
   to set up again. The connector also counts only a BitcoinTX run by your
   own Mac account.
 - **A wrong setup code or an over-long password gets the usual answer, not
