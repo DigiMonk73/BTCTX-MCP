@@ -256,7 +256,7 @@ All notable changes to BitcoinTX are documented in this file.
   for you or your tax professional to decide.
 - **The AI connector lists a Sell's or spend's gross proceeds** (#157):
   `list_transactions` shows `gross_proceeds_usd`, what was entered (or the
-  day's value), beside `proceeds_usd`, which is after the fee, and the
+  value from the BTC price), beside `proceeds_usd`, which is after the fee, and the
   guide tells the AI to edit with the gross. Copying the listed after-fee
   value into an edit took the fee off a second time. Update the connector
   (`btctx-mcp`) with this release.

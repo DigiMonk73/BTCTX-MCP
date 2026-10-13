@@ -368,7 +368,7 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
     given): you get the price BitcoinTX itself uses for income, spending and fees, the
     price when that hour began (UTC), or that day's 00:00 UTC price where it has no hourly
     one ("moment" says which). A date alone (YYYY-MM-DD) gives that UTC day's 00:00
-    price; nothing gives the price right now. Use it to value income, spending, or gifts
+    price; with no date, the price right now. Use it to value income, spending, or gifts
     when the user doesn't know the USD amount. "source" says where the price came from:
     "mempool" is the user's own Mempool, any other name a public price site."""
     if date:
@@ -459,7 +459,7 @@ async def update_transaction(
     (at the hour) when you change its amount, the time's hour or the account, or move it there
     from another source (a switch among those four keeps it; sending back the value it already
     has doesn't make it typed); a Spent's proceeds that came from the price, when you change
-    its amount or the time's hour, or send them blank (a change of purpose makes them typed).
+    its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed).
     A value the user typed is kept.
     An Inherited deposit's is priced at its date of death (acquired_at), and again when that
     changes.
