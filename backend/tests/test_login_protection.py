@@ -14,6 +14,7 @@ The routes anyone can reach that check a password or code:
   server's log or data folder.
 """
 
+import ast
 import os
 import stat
 from pathlib import Path
@@ -287,18 +288,18 @@ REBINDING_PAGE = {"Host": "attacker.example:8765", "Origin": "http://attacker.ex
 
 
 def test_the_mac_app_answers_only_at_its_own_address(fresh_app, monkeypatch):
-    """Session 8's review (#151): a page whose own name was made to point at
-    127.0.0.1 (DNS rebinding) is same-origin to the browser, so the cross-site
-    guard lets it through. It named its own host, and gets nothing: not the
-    default login, not the account's reset, not even the page."""
+    """In Mac mode the backend answers only requests addressed to 127.0.0.1,
+    localhost or [::1] (#151), the page and every route alike."""
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     default = {"username": "admin", "password": "password"}
     assert anon().post("/api/login", json=default, headers=REBINDING_PAGE).status_code == 421
     assert anon().post("/api/users/reset-account", json=CLAIM, headers=REBINDING_PAGE).status_code == 421
     assert anon().get("/api/users/setup-status", headers=REBINDING_PAGE).status_code == 421
-    assert anon().get("/", headers=REBINDING_PAGE).status_code == 421
+    refused = anon().get("/", headers=REBINDING_PAGE)
+    assert refused.status_code == 421 and refused.headers["x-content-type-options"] == "nosniff"
     for name in ("attacker.example", "127.0.0.1.attacker.example", "localhost.attacker.example:8765",
-                 "localhost.:8765", "127.0.0.2:8765", "[::2]:8765", ""):
+                 "localhost.:8765", "127.0.0.2:8765", "[::2]:8765", "", "127.0.0.1:8765.attacker.example",
+                 "[::1].attacker.example", "localhost:abc"):
         assert anon().get("/api/health", headers={"Host": name}).status_code == 421, name
     for name in ("127.0.0.1:8765", "localhost:8765", "[::1]:8765", "LOCALHOST:8765", "127.0.0.1"):
         assert anon().get("/api/health", headers={"Host": name}).status_code == 200, name
@@ -311,12 +312,13 @@ def test_a_server_answers_at_any_name(fresh_app, monkeypatch):
 
 
 def test_the_mac_app_never_takes_a_client_address_from_x_forwarded_for():
-    """Session 8's review (#151): uvicorn takes the client's address from
-    X-Forwarded-For when the connection comes from 127.0.0.1, unless told
-    not to, and every Mac client is 127.0.0.1: a fresh header per try would
-    get past the throttle's per-client limit."""
-    launcher = (Path(__file__).resolve().parents[2] / "desktop" / "entrypoint.py").read_text()
-    assert "proxy_headers=False" in launcher
+    """The Mac app's server takes a client's address from the connection,
+    never from X-Forwarded-For (#151): its uvicorn.Config says so."""
+    launcher = ast.parse((Path(__file__).resolve().parents[2] / "desktop" / "entrypoint.py").read_text())
+    config = next(node for node in ast.walk(launcher) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Attribute) and node.func.attr == "Config")
+    settings = {k.arg: k.value.value for k in config.keywords if isinstance(k.value, ast.Constant)}
+    assert settings.get("proxy_headers") is False
 
 
 def test_an_account_without_the_default_login_involves_no_code(fresh_app):

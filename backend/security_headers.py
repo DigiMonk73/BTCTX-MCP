@@ -24,9 +24,8 @@ HTTPS). Requests with neither header are not from a web page (the AI
 connector, the CLI, curl, tests) and carry no browser cookie to abuse.
 
 LocalAddressOnlyMiddleware: the Mac app answers only requests addressed to
-127.0.0.1, localhost or [::1]. A page whose own name was made to point at
-127.0.0.1 (DNS rebinding) is same-origin to the browser, so the guard above
-lets it through; but its requests name its own host, and are refused (421).
+127.0.0.1, localhost or [::1] (421 otherwise), the names its window and the
+AI connector use.
 """
 
 from __future__ import annotations
@@ -161,11 +160,11 @@ NOT_LOCAL_REFUSED = "Refused: the Mac app answers only at 127.0.0.1 or localhost
 
 
 def _host_name(host: str) -> str:
-    """A Host header's name without its port, in lower case ("[::1]:8765" is "[::1]")."""
+    """A Host header's name in lower case, without a numeric port ("[::1]:8765"
+    is "[::1]"); anything else after the name is kept, so it matches nothing."""
     host = host.strip().lower()
-    if host.startswith("["):
-        return host.partition("]")[0] + "]"
-    return host.partition(":")[0]
+    name, colon, port = host.rpartition(":")
+    return name if colon and port.isdigit() else host
 
 
 class LocalAddressOnlyMiddleware:
