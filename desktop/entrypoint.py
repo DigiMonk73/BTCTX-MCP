@@ -13,9 +13,9 @@ import threading
 import time
 import logging
 import logging.handlers
-import base64
 from pathlib import Path
 
+from desktop_api import DesktopAPI
 from desktop_paths import DATA_DIR_ENV, app_name, data_dir, data_dir_override, log_dir
 from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running
 
@@ -91,81 +91,6 @@ def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
     return False
 
 
-class DesktopAPI:
-    """
-    Python API exposed to JavaScript via pywebview's js_api.
-
-    Provides native desktop functionality like file save dialogs
-    that aren't available in the WebKit renderer.
-    """
-
-    def __init__(self):
-        self._window = None
-
-    def set_window(self, window):
-        """Set the pywebview window reference."""
-        self._window = window
-
-    def is_desktop(self) -> bool:
-        """Check if running in desktop mode (always True for this API)."""
-        return True
-
-    def save_file(self, filename: str, data_base64: str, file_type: str = "pdf") -> dict:
-        """
-        Save a file using native macOS save dialog.
-
-        Args:
-            filename: Suggested filename for the save dialog
-            data_base64: Base64-encoded file content
-            file_type: File type for the filter (pdf, csv)
-
-        Returns:
-            dict with keys:
-                - success: bool
-                - path: str (if success)
-                - error: str (if not success)
-        """
-        import webview
-
-        try:
-            # Decode base64 data
-            file_data = base64.b64decode(data_base64)
-
-            # Configure file type filters
-            if file_type.lower() == "csv":
-                file_types = ("CSV Files (*.csv)", "All files (*.*)")
-            elif file_type.lower() == "btx":
-                file_types = ("BitcoinTX Backup (*.btx)", "All files (*.*)")
-            else:
-                file_types = ("PDF Files (*.pdf)", "All files (*.*)")
-
-            # Show native save dialog
-            save_path = webview.windows[0].create_file_dialog(
-                webview.SAVE_DIALOG,
-                save_filename=filename,
-                file_types=file_types,
-            )
-
-            if save_path:
-                # save_path is a tuple for SAVE_DIALOG, get the first element
-                if isinstance(save_path, (list, tuple)):
-                    save_path = save_path[0]
-
-                # Write the file
-                with open(save_path, "wb") as f:
-                    f.write(file_data)
-
-                logger.info(f"File saved to: {save_path}")
-                return {"success": True, "path": save_path}
-            else:
-                # User cancelled the dialog
-                return {"success": False, "error": "Save cancelled"}
-
-        except Exception as e:
-            logger.error(f"Failed to save file: {e}")
-            return {"success": False, "error": str(e)}
-
-
 def run_backend(sock: socket.socket):
     """Run the FastAPI backend with Uvicorn on an already-bound socket."""
     import uvicorn
@@ -236,13 +161,15 @@ def main():
         logger.error("Failed to start backend")
         sys.exit(1)
 
-    # Create the desktop API for pywebview
-    api = DesktopAPI()
+    # Create the desktop API for pywebview (desktop_api.py); it answers only
+    # the app's own pages
+    app_url = os.environ["BTCTX_DESKTOP_URL"]
+    api = DesktopAPI(app_url)
 
     # Create the webview window with the API
     window = webview.create_window(
         title=app_name(),
-        url=f"http://127.0.0.1:{port}/",
+        url=f"{app_url}/",
         width=1280,
         height=800,
         min_size=(800, 600),

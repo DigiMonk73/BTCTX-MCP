@@ -862,13 +862,23 @@ point, leave it alone, touch nothing in it, and record that.
 - **MAC-2** `curl http://127.0.0.1:8765/api/health`. Expect: version
   `X.Y.Z`. `ls -l ~/Library/Application\ Support/BitcoinTX/` shows
   `btctx.db` and `mcp.json`, and `mcp.json` is `-rw-------`.
-- **MAC-3** On the Sign in page, click **Create account**. Expect "Register
-  account" with New Username and New Password, and no Setup Code or Current
-  Password field. Set username `mac-tester` and password
-  `mac-tester-pass-1`, confirm, log in, and run `golden_loader.py` with
-  `BTCTX_URL=http://127.0.0.1:8765` and those credentials. Expect: the
-  golden Dashboard figures. IRS Reports 2025 **Export** opens a save
-  dialog, then "Saved to: <path>", and the PDF matches the 2025 figures.
+- **MAC-3** First, from Terminal: `curl -s -X POST
+  http://127.0.0.1:8765/api/login -H 'content-type: application/json' -d
+  '{"username":"admin","password":"password"}'`. Expect 403 and "enter the
+  setup code" (the default login works only with the code; the window
+  supplies it). `ls -l` of the data folder shows `setup-code.txt` as
+  `-rw-------`, and the code itself is in no log: `grep -rc "$(cat
+  DATA/setup-code.txt)" DATA/logs` prints only zeros (the installed app:
+  `~/Library/Logs/BitcoinTX/`). In the window, expect **Choose your
+  username and password** (New Username, New Password, Repeat New
+  Password), no Sign in form, no Setup Code field and no Create account
+  link. Set username `mac-tester`
+  and password `mac-tester-pass-1` twice, click **Continue**. Expect the
+  Dashboard (the price question first), and `setup-code.txt` gone. Run
+  `golden_loader.py` with `BTCTX_URL=http://127.0.0.1:8765` and those
+  credentials. Expect: the golden Dashboard figures. IRS Reports 2025
+  **Export** opens a save dialog, then "Saved to: <path>", and the PDF
+  matches the 2025 figures.
 - **MAC-4** Settings > Connect an AI Assistant. Expect: **Reset key**
   instead of Create; the Setup prompt says no key or address is needed; and
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,

@@ -39,3 +39,12 @@ def no_hourly_prices(monkeypatch, tmp_path):
     monkeypatch.setattr(hourly_prices, "find_hours", no_hours)
     monkeypatch.setattr(hourly_prices, "start_download", lambda: False)
     monkeypatch.setattr(hourly_prices, "DATA_DIR", str(tmp_path))
+
+
+@pytest.fixture(autouse=True)
+def first_run_files(monkeypatch, tmp_path):
+    """The first-run setup code's file in a temp folder, not next to the
+    database DATABASE_FILE names (backend/services/first_run.py)."""
+    from backend.services import first_run
+
+    monkeypatch.setattr(first_run, "DATA_DIR", str(tmp_path))

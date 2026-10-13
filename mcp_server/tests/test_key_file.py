@@ -14,7 +14,7 @@ from mcp import Client
 
 from backend.database import get_db
 from backend.main import app
-from backend.services import ai_key
+from backend.services import ai_key, first_run
 from btctx_mcp import server
 from btctx_mcp.client import BtctxClient, BtctxError
 from test_server import backend_db, call  # noqa: F401  (fixture)
@@ -55,6 +55,12 @@ def _token(key_file):
     return json.loads(key_file.read_text())["token"]
 
 
+def _default_login() -> dict:
+    """admin/password with the setup code, which the Mac app asks for too
+    (backend/services/first_run.py)."""
+    return {"username": "admin", "password": "password", "setup_code": first_run.ensure_code()}
+
+
 def _http(client_host="127.0.0.1"):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app, client=(client_host, 50000)),
@@ -91,7 +97,7 @@ async def test_access_is_off_until_the_owner_turns_it_on(monkeypatch, tmp_path, 
     async with _http() as h:
         r = await h.get("/api/transactions", headers=token)
         assert r.status_code == 401 and "turned off" in r.json()["detail"]
-        assert (await h.post("/api/login", json={"username": "admin", "password": "password"})).status_code == 200
+        assert (await h.post("/api/login", json=_default_login())).status_code == 200
         assert (await h.get("/api/settings/ai-access")).json()["on"] is False
         assert (await h.put("/api/settings/ai-access", json={"on": True})).json()["on"] is True
         h.cookies.clear()
@@ -160,7 +166,7 @@ async def test_access_switch_and_login_only_actions(desktop):
         assert restore.status_code == 403
 
         # The user turns access off (logged in): the key stops working.
-        login = await h.post("/api/login", json={"username": "admin", "password": "password"})
+        login = await h.post("/api/login", json=_default_login())
         assert login.status_code == 200
         r = await h.put("/api/settings/ai-access", json={"on": False})
         assert r.json() == {"mode": "mac", "on": False, "has_key": True, "key_file": str(desktop)}
