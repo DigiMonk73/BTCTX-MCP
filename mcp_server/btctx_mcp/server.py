@@ -558,7 +558,7 @@ async def backup_ledger() -> ToolResult:
     """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
     backups folder), as a safety net. Offer it before a large import or before deleting or
     changing many entries. BitcoinTX keeps the newest 3 copies (and the oldest from the last
-    week, and its own copy from before your latest deletions) and makes at most one a minute;
+    week, and its own copy from before your latest changes) and makes at most one a minute;
     only the file name comes back. Restoring a copy is done by the user, not by you."""
     return await _call("POST", "/api/backup/ai-copy")
 

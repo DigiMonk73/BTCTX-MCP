@@ -49,7 +49,7 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        deleted (it's downloaded again)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or Ledger Review's hourly prices are
-                           applied, or the AI key's first deletion in an
+                           applied, or the AI key's first change in an
                            hour, or asked for with the AI key (mode 600;
                            only created when needed)
 ```

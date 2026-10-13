@@ -64,7 +64,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 | ----------------------- | ------------------------------------------------------------------------------------------ |
 | `btctx.db`              | The SQLite ledger                                                                          |
 | `.btctx_secret_key`     | Session-cookie signing key, generated on first start (mode 600)                            |
-| `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first deletion in an hour (newest 3 kept, plus the oldest from the last week and the newest from before deleting) |
+| `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first change in an hour, an edit or a deletion (newest 3 kept, plus the oldest from the last week and the newest from before a change) |
 
 Installs from before the separate `startos` volume also had `.startos-wrapper.json` on `main`; the update moves its password into `store.json` and deletes it.
 

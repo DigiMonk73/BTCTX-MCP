@@ -43,14 +43,14 @@ BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
 # Copies the AI key asked for (POST /api/backup/ai-copy), or made before its
-# first deletion in an hour (DELETE /api/transactions/{id}, label
-# AI_DELETION_LABEL), kept apart: the newest 3, the oldest made in the last
-# week and the newest made before deleting (_ai_copies_held), so they still
-# hold the ledger from before the key's deletions, however many copies are
+# first change in an hour (PUT or DELETE /api/transactions/{id}, label
+# AI_CHANGE_LABEL), kept apart: the newest 3, the oldest made in the last
+# week and the newest made before a change (_ai_copies_held), so they still
+# hold the ledger from before the key's changes, however many copies are
 # made after them.
 AI_COPIES_KEPT = 3
 AI_COPY_HELD = 7 * 24 * 3600  # seconds
-AI_DELETION_LABEL = "before-deleting"
+AI_CHANGE_LABEL = "before-changing"
 # Copies before Ledger Review's hourly check is applied (#144), kept apart:
 # applying one item at a time must not push out the pre-upgrade copy.
 REVIEW_COPIES_KEPT = 5
@@ -124,7 +124,7 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
     and pre-restore; "ai": asked for with the AI key, or made before its
-    deletions; "review": before Ledger Review's hourly check is applied)
+    changes; "review": before Ledger Review's hourly check is applied)
     keeps its own newest `keep` (and "ai" two more: prune_backups), so one
     kind never pushes out the other.
     """
@@ -187,14 +187,14 @@ def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
     """
     The AI copies (newest first) kept beyond the newest AI_COPIES_KEPT: the
     oldest made in the last AI_COPY_HELD (the ledger from before a week of
-    the key's changes), and the newest made before deleting (the ledger just
-    before the key's latest deletions, with what the owner entered after
-    that oldest copy).
+    the key's changes), and the newest made before a change (the ledger just
+    before the key's latest changes, with what the owner entered after that
+    oldest copy).
     """
     since = time.time() - AI_COPY_HELD
     recent = [p for p in copies if p.stat().st_mtime >= since]
-    before_deleting = backup_copies(db_path, "ai", label=AI_DELETION_LABEL)
-    return set(recent[-1:] + before_deleting[:1])
+    before_changing = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
+    return set(recent[-1:] + before_changing[:1])
 
 
 # Adopting databases created before migrations existed

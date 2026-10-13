@@ -19,13 +19,13 @@ from backend.schemas.transaction import (
 )
 from backend.services import transaction as tx_service
 from backend.database import get_db
-from backend.migrate import AI_COPIES_KEPT, AI_DELETION_LABEL, backup_copies, backup_sqlite, sqlite_file
+from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["transactions"])
 
-AI_DELETION_COPY_EVERY = 3600  # seconds
+AI_CHANGE_COPY_EVERY = 3600  # seconds
 
 
 def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
@@ -98,11 +98,16 @@ def recalculate_ledger(db: Session = Depends(get_db)):
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, db: Session = Depends(get_db)):
+def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
-    transaction doesn't exist.
+    transaction doesn't exist. With the AI key, its first change in an hour
+    (an edit or a deletion) comes after an AI copy of the database.
     """
+    if not tx_service.get_transaction_by_id(db, transaction_id):
+        raise HTTPException(status_code=404, detail="Transaction not found.")
+    if not request.session.get("user_id"):  # the AI key
+        _copy_before_ai_changes(db, "Not changed")
     tx_data = tx.model_dump(exclude_unset=True)
     updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
     if not updated_tx:
@@ -125,36 +130,37 @@ def delete_transaction(transaction_id: int, request: Request, db: Session = Depe
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
-    With the AI key, its first deletion in an hour comes after an AI copy of
-    the database (in the backups folder).
+    With the AI key, its first change in an hour (an edit or a deletion)
+    comes after an AI copy of the database (in the backups folder).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
     if not request.session.get("user_id"):  # the AI key
-        _copy_before_ai_deletions(db)
+        _copy_before_ai_changes(db, "Not deleted")
     success = tx_service.delete_transaction_record(transaction_id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return
 
 
-def _copy_before_ai_deletions(db: Session) -> None:
+def _copy_before_ai_changes(db: Session, refused: str) -> None:
     """
-    An AI copy before the AI key's first deletion in an hour, which the AI
-    copies the key asks for next never push out (migrate._ai_copies_held).
-    No copy, no deletion.
+    An AI copy before the AI key's first change in an hour (an edit or a
+    deletion), which the AI copies the key asks for next never push out
+    (migrate._ai_copies_held). No copy, no change: `refused` ("Not changed",
+    "Not deleted") opens the message.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
         return
-    newest = backup_copies(db_path, "ai", label=AI_DELETION_LABEL)
-    if newest and time.time() - newest[0].stat().st_mtime < AI_DELETION_COPY_EVERY:
+    newest = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
+    if newest and time.time() - newest[0].stat().st_mtime < AI_CHANGE_COPY_EVERY:
         return
     try:
-        dest = backup_sqlite(db_path, AI_DELETION_LABEL, kind="ai", keep=AI_COPIES_KEPT)
+        dest = backup_sqlite(db_path, AI_CHANGE_LABEL, kind="ai", keep=AI_COPIES_KEPT)
     except (OSError, sqlite3.Error) as e:
-        logger.error("No AI copy before deleting (%s): the deletion was refused", type(e).__name__)
+        logger.error("No AI copy before a change (%s): the change was refused", type(e).__name__)
         raise HTTPException(
-            status_code=500, detail="Not deleted: BitcoinTX couldn't make its copy of the database first."
+            status_code=500, detail=f"{refused}: BitcoinTX couldn't make its copy of the database first."
         ) from e
-    logger.info("AI backup copy made before deleting: %s", dest.name)
+    logger.info("AI backup copy made before a change: %s", dest.name)

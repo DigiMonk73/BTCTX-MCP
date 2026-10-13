@@ -274,11 +274,11 @@ you to approve each tool call unless you tell it not to.
 - There is no bulk delete, and every write is visible in BitcoinTX. Before a
   large import, have the AI run `backup_ledger` or take a backup yourself
   (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
-- Before the key's first deletion in an hour, BitcoinTX makes a copy of the
-  database itself (`backups/…-ai-before-deleting-…db`). Of the AI copies it
-  keeps the newest 3, the oldest from the last week and the newest made
-  before deleting, so copies made afterwards never replace those from
-  before.
+- Before the key's first change in an hour (an edit or a deletion),
+  BitcoinTX makes a copy of the database itself
+  (`backups/…-ai-before-changing-…db`). Of the AI copies it keeps the newest
+  3, the oldest from the last week and the newest made before a change, so
+  copies made afterwards never replace those from before.
 
 ## Disclaimer
 

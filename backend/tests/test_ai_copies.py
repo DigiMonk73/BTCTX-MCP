@@ -1,10 +1,10 @@
 """
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
-first deletion in an hour BitcoinTX makes one itself, and the pruning keeps
-the newest 3, the oldest from the last week and the newest made before
-deleting. So after the key deletes entries, the AI copies still hold the
-ledger from before, however many copies are asked for next. The copies the
-AI asks for are tested in test_ai_key.py too.
+first change in an hour (an edit or a deletion) BitcoinTX makes one itself,
+and the pruning keeps the newest 3, the oldest from the last week and the
+newest made before a change. So after the key changes or deletes entries,
+the AI copies still hold the ledger from before, however many copies are
+asked for next. The copies the AI asks for are tested in test_ai_key.py too.
 """
 
 import os
@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.database import get_db
 from backend.main import app
-from backend.migrate import AI_DELETION_LABEL, backup_copies, backup_sqlite
+from backend.migrate import AI_CHANGE_LABEL, backup_copies, backup_sqlite
 from backend.routers import backup
 from backend.routers import transaction as tx_router
 from backend.services import first_run
@@ -75,9 +75,17 @@ def transaction_ids(copy) -> set[int]:
         conn.close()
 
 
-def made_before_deleting(path):
-    """The AI copies BitcoinTX made before the key's deletions, newest first."""
-    return backup_copies(path, "ai", label=AI_DELETION_LABEL)
+def made_before_changing(path):
+    """The AI copies BitcoinTX made before the key's changes, newest first."""
+    return backup_copies(path, "ai", label=AI_CHANGE_LABEL)
+
+
+def amounts(copy) -> dict[int, str]:
+    conn = sqlite3.connect(copy)
+    try:
+        return {row[0]: row[1] for row in conn.execute("SELECT id, amount FROM transactions")}
+    finally:
+        conn.close()
 
 
 def age(copy, seconds: float) -> None:
@@ -114,19 +122,19 @@ def test_after_an_earlier_copy_the_owners_newer_entries_are_kept_too(ledger, mon
 
     copies = backup_copies(path, "ai")
     assert any(transaction_ids(copy) == {*ids, newer} for copy in copies), [c.name for c in copies]
-    assert len(copies) == 5  # the 3 newest, the oldest of the week, the one before deleting
+    assert len(copies) == 5  # the 3 newest, the oldest of the week, the one before the change
 
 
 def test_one_copy_before_deleting_an_hour_not_one_per_deletion(ledger):
     path, ids, owner, ai = ledger
     assert ai.delete(f"/api/transactions/{ids[0]}").status_code == 204
     assert ai.delete(f"/api/transactions/{ids[1]}").status_code == 204
-    [first] = made_before_deleting(path)
+    [first] = made_before_changing(path)
     assert transaction_ids(first) == set(ids)
 
     age(first, 3601)
     assert ai.delete(f"/api/transactions/{ids[2]}").status_code == 204
-    second, older = made_before_deleting(path)
+    second, older = made_before_changing(path)
     assert older == first and transaction_ids(second) == {ids[2]}
 
 
@@ -153,7 +161,7 @@ def test_a_missing_entry_is_still_404_with_the_key_and_makes_no_copy(ledger):
     assert backup_copies(path, "ai") == []
 
 
-def test_no_copy_no_deletion(ledger, monkeypatch):
+def test_no_copy_no_deletion_and_no_edit(ledger, monkeypatch):
     path, ids, owner, ai = ledger
 
     def full_disk(*args, **kwargs):
@@ -163,7 +171,50 @@ def test_no_copy_no_deletion(ledger, monkeypatch):
     r = ai.delete(f"/api/transactions/{ids[0]}")
     assert r.status_code == 500
     assert r.json()["detail"] == "Not deleted: BitcoinTX couldn't make its copy of the database first."
-    assert len(owner.get("/api/transactions").json()) == 3
+    r = ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"})
+    assert r.status_code == 500
+    assert r.json()["detail"] == "Not changed: BitcoinTX couldn't make its copy of the database first."
+    assert [tx["amount"] for tx in owner.get("/api/transactions").json()] == ["3000.00000000", "2000.00000000",
+                                                                            "1000.00000000"]
+
+
+# Edits
+def test_an_ai_edit_comes_after_a_copy_holding_the_entry_as_it_was(ledger):
+    path, ids, owner, ai = ledger
+    before = amounts(path)
+    r = ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"})
+    assert r.status_code == 200, r.text
+    [copy] = made_before_changing(path)
+    assert amounts(copy) == before
+    assert amounts(path)[ids[0]] != before[ids[0]]
+
+
+def test_one_copy_an_hour_across_edits_and_deletions(ledger):
+    path, ids, owner, ai = ledger
+    assert ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"}).status_code == 200
+    assert ai.delete(f"/api/transactions/{ids[1]}").status_code == 204
+    assert ai.put(f"/api/transactions/{ids[2]}", json={"amount": "2"}).status_code == 200
+    [first] = made_before_changing(path)
+
+    age(first, 3601)
+    assert ai.delete(f"/api/transactions/{ids[2]}").status_code == 204
+    assert ai.put(f"/api/transactions/{ids[0]}", json={"amount": "3"}).status_code == 200
+    second, older = made_before_changing(path)
+    assert older == first and set(amounts(second)) == {ids[0], ids[2]}
+
+
+def test_the_owners_edits_make_no_copy(ledger):
+    path, ids, owner, ai = ledger
+    for tx_id in ids:
+        assert owner.put(f"/api/transactions/{tx_id}", json={"amount": "5"}).status_code == 200
+    assert backup_copies(path, "ai") == []
+
+
+def test_editing_a_missing_entry_is_still_404_with_the_key_and_makes_no_copy(ledger):
+    path, ids, owner, ai = ledger
+    r = ai.put("/api/transactions/999999", json={"amount": "1"})
+    assert r.status_code == 404 and r.json()["detail"] == "Transaction not found."
+    assert backup_copies(path, "ai") == []
 
 
 @pytest.fixture

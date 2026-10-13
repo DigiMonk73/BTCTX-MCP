@@ -188,7 +188,7 @@ def ai_copy(db: Session = Depends(get_db)):
     if db_path is None:
         raise HTTPException(status_code=400, detail="This database can't be copied to a file.")
     # Only the copies asked for count: the one made before the key's
-    # deletions never refuses the copy the AI asks for next.
+    # changes never refuses the copy the AI asks for next.
     newest = backup_copies(db_path, "ai", label=AI_COPY_LABEL)
     if newest and time.time() - newest[0].stat().st_mtime < AI_COPY_EVERY:
         raise HTTPException(status_code=429, detail="A backup was made less than a minute ago.")
