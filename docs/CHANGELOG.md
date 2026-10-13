@@ -339,6 +339,14 @@ All notable changes to BitcoinTX are documented in this file.
   five languages; the README and instructions say the same.
 
 ### Development
+- **Two privacy tests see more** (the stable candidate's privacy audit,
+  #151). The test that every site public prices may contact is named in
+  Settings, and is never Coinbase or CoinGecko, read only the three price
+  modules: it now reads every backend module (the IRS's draft forms, the
+  one admin's command, from `draft_forms.py` only). And a new test checks
+  the screens ask only the server they came from: the Mac app's window has
+  no browser policy to stop a request to another site, so the code names
+  none but links and an example address.
 - **Big work runs as a main session and numbered sessions** (AGENTS.md,
   "Big work"; `docs/HOW-CHANGES-FLOW.md`). The owner's standard since the
   stable release (#143): one session plans with the owner. The plan goes
