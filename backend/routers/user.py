@@ -166,7 +166,7 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
     _authorize_change(user, request, user_data.current_password, user_data.setup_code, default_login_ok=False)
     updated_user = update_user_service(user_id, user_data, db)
     # Other sessions end with the old password; this one carries on.
-    start_session(request, updated_user)
+    start_session(request, updated_user, db)
     if not first_run.is_default_account(updated_user):
         first_run.clear_code()
     return updated_user
@@ -184,16 +184,3 @@ def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
         status_code=409,
         detail="The account can't be deleted. Change its username and password in Settings instead.",
     )
-
-
-@router.get("/protected")
-def protected_route(request: Request, db: Session = Depends(get_db)):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=403, detail="Not authenticated")
-
-    user = db.query(User).filter_by(id=user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {"username": user.username}

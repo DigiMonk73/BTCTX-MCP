@@ -23,6 +23,7 @@ from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.models.user import User
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
@@ -115,9 +116,10 @@ def restore_encrypted_backup(
 ):
     """
     Restore the database from an encrypted backup file. The login in use (and
-    the AI key and the price settings) stays: an old backup never brings back an old password, and
-    on StartOS the password Set Login Credentials gave stays right. Clears the session after restore
-    since the user_id may no longer be valid.
+    the AI key, the price settings and the other browsers' sessions) stays: an
+    old backup never brings back an old password, and on StartOS the password
+    Set Login Credentials gave stays right. Ends this browser's session after
+    restore since the user_id may no longer be valid.
     """
     _require_auth(request)
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
@@ -126,6 +128,7 @@ def restore_encrypted_backup(
     ai_state = ai_key.snapshot(db)
     price_settings = outbound.snapshot(db)
     login = _login_in_use(db)
+    sessions = session_auth.open_sessions(db)
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             temp_path = Path(temp_file.name)
@@ -151,15 +154,22 @@ def restore_encrypted_backup(
             _keep_login(db, login)
         except Exception:
             logger.exception("Could not keep the login after restore")
+        # The sessions open before it stay open (the backup's list can't
+        # bring back one that ended since), but this browser logs in again:
+        # the restored database may have different user IDs.
+        db.close()
+        try:
+            session_auth.carry_over(db, sessions)
+            session_auth.end_session(request, db)
+        except Exception:
+            logger.exception("Could not keep the open sessions after restore")
+            request.session.clear()
         # The restored login may be the default one (a setup code) or not
         db.close()
         try:
             first_run.prepare(db)
         except Exception:
             logger.exception("Could not prepare the first-run setup code after restore")
-
-        # Clear session - the restored database may have different user IDs
-        request.session.clear()
 
         return {"message": "✅ Database successfully restored. Log in again with your current username and password."}
     except HTTPException:

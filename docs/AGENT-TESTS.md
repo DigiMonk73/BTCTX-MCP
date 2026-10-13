@@ -699,6 +699,11 @@ Set `KEY` to the key from AI-3, and use
   - with `-H 'Sec-Fetch-Site: cross-site'`: expect 403;
   - with `-H 'Origin: https://evil.example'`: expect 403;
   - with neither header: expect 200.
+
+  Then `POST $API/logout` with `-b jar` (no `-c`, so the jar keeps the
+  cookie) and `GET $API/transactions` with it again. Expect: 401 (logging
+  out ends that session, for every copy of its cookie), while the app in
+  the browser, a session of its own, stays logged in.
 - **SEC-6** `GET $API/users/setup-status`. Expect `setup_code_required`
   false.
 - **SEC-7** While using the app, record the browser's network requests
