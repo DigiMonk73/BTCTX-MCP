@@ -232,12 +232,13 @@ def restore_backup(
 
     try:
         result = _restore_into(db_path, decrypted, carry_over, engine, backup_sqlite)
+        # What SQLite kept beside the database it replaced: opened next to the
+        # new one, a write-ahead log or rollback journal would be applied to
+        # it. Still under the lock, so a next restore can't start meanwhile.
+        _remove_side_files(db_path)
+        engine.dispose()
     finally:
         _restoring.release()
-    # What SQLite kept beside the database it replaced: opened next to the
-    # new one, a write-ahead log or rollback journal would be applied to it.
-    _remove_side_files(db_path)
-    engine.dispose()
 
     logger.info(f"Database restored from: {encrypted_file} (schema {result.from_revision or 'unversioned'} -> {result.to_revision})")
     return result

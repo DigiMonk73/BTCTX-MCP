@@ -138,8 +138,6 @@ def test_the_restores_own_limit_and_the_form_around_it_pass_with_a_login(auth_cl
     assert (status, read) == (413, 0)
     status, _, _ = send("/api/backup/restore", [b"--"], length=limit, cookie=login)
     assert status != 413
-    status, _, _ = send("/api/backup/restore", [b"--"], length=6 * MB, cookie=session_cookie({"user_id": 1}))
-    assert status != 413
 
 
 @pytest.mark.parametrize("cookie", [
@@ -147,8 +145,9 @@ def test_the_restores_own_limit_and_the_form_around_it_pass_with_a_login(auth_cl
     session_cookie({"user_id": 1}, key="not-this-app's-key"),
     session_cookie({"user_id": 1}, age=SESSION_MAX_AGE + 60),
     session_cookie({}),
+    session_cookie({"user_id": 1}),
     "garbage",
-], ids=["no cookie", "another key", "expired", "no user_id", "not a cookie"])
+], ids=["no cookie", "another key", "expired", "no user_id", "no open session", "not a cookie"])
 def test_a_file_over_5_mb_needs_a_login(auth_client, cookie):
     """The larger allowance is for a logged-in owner's file: anyone else
     gets 5 MB, refused before a byte is read."""
@@ -167,3 +166,19 @@ def test_a_csv_import_keeps_its_own_limit_and_words(auth_client):
 
     r = auth_client.post("/api/import/preview", files={"file": ("big.csv", at_limit + b"x", "text/csv")})
     assert r.status_code == 400 and r.json()["detail"] == "File too large. Maximum size is 5MB."
+
+
+def test_a_busy_database_answers_busy_not_too_large(auth_client, monkeypatch):
+    """Whether a login's session is still open can't be read: the owner is
+    told BitcoinTX is busy (503), not that the file is too large."""
+    from sqlalchemy.exc import OperationalError
+
+    from backend import session_auth
+
+    def busy(*args):
+        raise OperationalError("SELECT", {}, Exception("database is locked"))
+
+    monkeypatch.setattr(session_auth, "session_is_live", busy)
+    login = auth_client.cookies.get(SESSION_COOKIE)
+    status, read, answer = send("/api/backup/restore", [b" " * MB] * 6, length=6 * MB, cookie=login)
+    assert (status, read) == (503, 0) and answer["json"]["detail"] == "BitcoinTX is busy: try again in a moment."
