@@ -86,8 +86,9 @@ All notable changes to BitcoinTX are documented in this file.
   connector's `update_transaction` and `delete_transaction`) first makes a
   copy in the `backups` folder with the AI's other copies
   (`…-ai-before-changing-…db`); if it can't be made, the change is
-  refused. Of the AI copies BitcoinTX now keeps the newest 3, the oldest
-  from the last week and the newest made before a change, so copies made
+  refused. Of the AI copies BitcoinTX now keeps the newest 3 and, for a
+  week, the oldest and the first copy of each day made before the AI
+  changed anything that day (UTC days; at most 11 copies), so copies made
   afterwards never replace the ledger from before the AI's changes. Your
   own edits and deletions make no copy.
 - **The AI connector's imports are kept short** (#151). With the AI key,

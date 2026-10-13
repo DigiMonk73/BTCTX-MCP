@@ -313,10 +313,12 @@ So derived values must be recomputable from the Transaction row alone.
   certificate's trust, #188, included) or debug.
 - Before the AI key's first change in an hour (an edit or a deletion) an AI
   copy is made (`backups/…-ai-before-changing-…db`; no copy, no change),
-  never for the owner's. The AI copies keep the newest 3, the oldest of the
-  last week and the newest made before a change (`migrate._ai_copies_held`),
-  so copies made after the key's changes never push out the ledger from
-  before them.
+  never for the owner's; it is written under a temporary name and renamed
+  once complete, one at a time, so a failed or unfinished copy never counts
+  as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and, for a
+  week (today and the 6 UTC days before), the oldest and the first copy of
+  each day made before the AI changed anything that day
+  (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. With the
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated

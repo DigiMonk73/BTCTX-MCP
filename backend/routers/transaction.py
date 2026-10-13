@@ -6,6 +6,7 @@ in UTC with a 'Z'.
 
 import logging
 import sqlite3
+import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,6 +27,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["transactions"])
 
 AI_CHANGE_COPY_EVERY = 3600  # seconds
+# One copy at a time (BitcoinTX runs one server process): a change that
+# comes while the copy is being written waits for it, then finds it.
+_ai_change_copy = threading.Lock()
 
 
 def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
@@ -153,14 +157,15 @@ def _copy_before_ai_changes(db: Session, refused: str) -> None:
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
         return
-    newest = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
-    if newest and time.time() - newest[0].stat().st_mtime < AI_CHANGE_COPY_EVERY:
-        return
-    try:
-        dest = backup_sqlite(db_path, AI_CHANGE_LABEL, kind="ai", keep=AI_COPIES_KEPT)
-    except (OSError, sqlite3.Error) as e:
-        logger.error("No AI copy before a change (%s): the change was refused", type(e).__name__)
-        raise HTTPException(
-            status_code=500, detail=f"{refused}: BitcoinTX couldn't make its copy of the database first."
-        ) from e
+    with _ai_change_copy:
+        newest = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
+        if newest and time.time() - newest[0].stat().st_mtime < AI_CHANGE_COPY_EVERY:
+            return
+        try:
+            dest = backup_sqlite(db_path, AI_CHANGE_LABEL, kind="ai", keep=AI_COPIES_KEPT)
+        except (OSError, sqlite3.Error) as e:
+            logger.error("No AI copy before a change (%s): the change was refused", type(e).__name__)
+            raise HTTPException(
+                status_code=500, detail=f"{refused}: BitcoinTX couldn't make its copy of the database first."
+            ) from e
     logger.info("AI backup copy made before a change: %s", dest.name)

@@ -59,7 +59,7 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
-| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI connector's `backup_ledger` asks for, and one before the AI key's first change in an hour, an edit or a deletion (newest 3 kept, plus the oldest from the last week and the newest from before a change) |
+| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI connector's `backup_ledger` asks for, and one before the AI key's first change in an hour, an edit or a deletion (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
 A new app version upgrades the database schema on first launch (after copying
 it into `backups/`). Opening an older app version on a database a newer one

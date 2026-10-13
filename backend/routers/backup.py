@@ -180,9 +180,9 @@ def ai_copy(db: Session = Depends(get_db)):
     """
     A plain copy of the database in <database dir>/backups/, which the AI key
     may ask for (a safety net before a large change). Owner-only like the
-    database itself; the newest AI_COPIES_KEPT AI copies are kept (and two
-    more: migrate.prune_backups), apart from the pre-upgrade copies; one a
-    minute. Only the file name comes back.
+    database itself; the newest AI_COPIES_KEPT AI copies are kept (and more:
+    migrate.prune_backups), apart from the pre-upgrade copies; one a minute.
+    Only the file name comes back, and how many AI copies are kept now.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
@@ -195,7 +195,8 @@ def ai_copy(db: Session = Depends(get_db)):
     dest = backup_sqlite(db_path, AI_COPY_LABEL, kind="ai", keep=AI_COPIES_KEPT)
     logger.info("AI backup copy made: %s", dest.name)
     created = datetime.fromtimestamp(dest.stat().st_mtime, timezone.utc)
-    return {"file": dest.name, "created": created.isoformat(timespec="seconds"), "kept": AI_COPIES_KEPT}
+    return {"file": dest.name, "created": created.isoformat(timespec="seconds"),
+            "kept": len(backup_copies(db_path, "ai"))}
 
 
 @router.get("/csv", response_class=PlainTextResponse)

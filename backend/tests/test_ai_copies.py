@@ -1,15 +1,18 @@
 """
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
 first change in an hour (an edit or a deletion) BitcoinTX makes one itself,
-and the pruning keeps the newest 3, the oldest from the last week and the
-newest made before a change. So after the key changes or deletes entries,
-the AI copies still hold the ledger from before, however many copies are
+and the pruning keeps the newest 3 and, for the last 7 UTC days, the oldest
+and the first made before a change each day. So for a week the AI copies
+hold the ledger from before each day's changes, however many copies are
 asked for next. The copies the AI asks for are tested in test_ai_key.py too.
 """
 
 import os
 import sqlite3
+import threading
 import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,6 +33,7 @@ DEPOSITS = [
     for month in (1, 2, 3)
 ]
 DAY = 24 * 3600
+HOUR = 3601  # a little over, so the next change makes the hour's copy
 
 
 @pytest.fixture
@@ -93,18 +97,20 @@ def age(copy, seconds: float) -> None:
     os.utime(copy, (then, then))
 
 
+
 def test_copies_asked_for_after_deleting_everything_leave_one_from_before(ledger, monkeypatch):
     path, ids, owner, ai = ledger
     monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
     for tx_id in ids:
         assert ai.delete(f"/api/transactions/{tx_id}").status_code == 204
     assert owner.get("/api/transactions").json() == []
-    for _ in range(3):
-        assert ai.post("/api/backup/ai-copy").status_code == 200
+    answers = [ai.post("/api/backup/ai-copy") for _ in range(3)]
+    assert [r.status_code for r in answers] == [200, 200, 200]
 
     copies = backup_copies(path, "ai")
     assert any(transaction_ids(copy) == set(ids) for copy in copies), [c.name for c in copies]
     assert len(copies) == 4  # the 3 newest, and the one from before the deletions
+    assert [r.json()["kept"] for r in answers] == [2, 3, 4]  # what is kept, said as it is
 
 
 def test_after_an_earlier_copy_the_owners_newer_entries_are_kept_too(ledger, monkeypatch):
@@ -217,6 +223,138 @@ def test_editing_a_missing_entry_is_still_404_with_the_key_and_makes_no_copy(led
     assert backup_copies(path, "ai") == []
 
 
+# A copy that fails, and a change while the copy is being written
+def on_each_copy(monkeypatch, then) -> None:
+    """sqlite3.connect runs `then` on each copy being written (in backups/)."""
+    connect = sqlite3.connect
+
+    def connect_and_then(database, *args, **kwargs):
+        connection = connect(database, *args, **kwargs)
+        if Path(database).parent.name == "backups":
+            then(connection)
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", connect_and_then)
+
+
+def test_a_copy_that_fails_leaves_nothing_and_the_next_change_makes_one(ledger, monkeypatch):
+    """Review of #228: a copy that failed half way ("database or disk is
+    full") left a file under a copy's name, which the next change in the
+    hour took for its copy."""
+    path, ids, owner, ai = ledger
+    before = amounts(path)
+    with monkeypatch.context() as full_disk:
+        on_each_copy(full_disk, lambda copy: copy.execute("PRAGMA max_page_count = 1"))
+        r = ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"})
+    assert r.status_code == 500
+    assert r.json()["detail"] == "Not changed: BitcoinTX couldn't make its copy of the database first."
+    assert list((path.parent / "backups").iterdir()) == []  # not even the unfinished file
+    assert amounts(path) == before
+
+    assert ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"}).status_code == 200
+    [copy] = made_before_changing(path)
+    assert amounts(copy) == before
+
+
+def test_a_change_while_the_copy_is_being_written_waits_for_it(ledger, monkeypatch):
+    path, ids, owner, ai = ledger
+    before = amounts(path)
+    on_each_copy(monkeypatch, lambda copy: time.sleep(0.5))  # a slow disk
+    answers = {}
+
+    def change(client, tx_id, amount):
+        answers[tx_id] = client.put(f"/api/transactions/{tx_id}", json={"amount": amount}).status_code
+
+    first = threading.Thread(target=change, args=(ai, ids[0], "1"))
+    first.start()
+    time.sleep(0.2)  # the first change's copy is being written
+    change(TestClient(app, headers=ai.headers), ids[1], "2")
+    first.join()
+
+    assert answers == {ids[0]: 200, ids[1]: 200}
+    [copy] = made_before_changing(path)
+    assert amounts(copy) == before
+
+
+# What's kept: for a week, the first copy of each day made before a change
+def pass_time(path, seconds: float) -> None:
+    """Time passes for the copies: each in backups/ is `seconds` older."""
+    for copy in (path.parent / "backups").glob("*.db"):
+        then = copy.stat().st_mtime - seconds
+        os.utime(copy, (then, then))
+
+
+def test_the_first_copy_of_the_day_of_a_deletion_is_kept_for_the_week(ledger):
+    """Review of #228: an AI copy on day 0, an entry of the owner's on day 1;
+    on day 3 the AI deletes an entry, then changes another every hour. The
+    copy holding both was gone after 3 hours."""
+    path, ids, owner, ai = ledger
+    assert ai.post("/api/backup/ai-copy").status_code == 200
+    pass_time(path, DAY)
+    owners = owner.post("/api/transactions", json=dict(DEPOSITS[0], timestamp="2024-04-15T17:00:00Z")).json()["id"]
+    pass_time(path, 2 * DAY)
+    assert ai.delete(f"/api/transactions/{ids[0]}").status_code == 204
+    for hour in range(1, 4 * 24 + 1):
+        pass_time(path, HOUR)
+        assert ai.put(f"/api/transactions/{ids[1]}", json={"amount": str(hour)}).status_code == 200
+        copies = backup_copies(path, "ai")
+        assert any({ids[0], owners} <= transaction_ids(c) for c in copies), f"after {hour} hours"
+        assert len(copies) <= 11
+
+
+def test_a_deletion_late_in_the_week_is_kept_however_many_copies_follow(ledger, monkeypatch):
+    """Review of #228: the AI deletes an entry on day 6.8, then changes
+    another every hour and asks for 3 copies an hour. Every copy holding the
+    deleted entry was gone after 5 hours."""
+    path, ids, owner, ai = ledger
+    monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
+    assert ai.post("/api/backup/ai-copy").status_code == 200
+    pass_time(path, 3 * DAY)
+    owners = owner.post("/api/transactions", json=dict(DEPOSITS[0], timestamp="2024-04-15T17:00:00Z")).json()["id"]
+    pass_time(path, 3.8 * DAY)
+    assert ai.delete(f"/api/transactions/{ids[0]}").status_code == 204
+    for hour in range(1, 13):
+        pass_time(path, HOUR)
+        assert ai.put(f"/api/transactions/{ids[1]}", json={"amount": str(hour)}).status_code == 200
+        for _ in range(3):
+            assert ai.post("/api/backup/ai-copy").status_code == 200
+        copies = backup_copies(path, "ai")
+        assert any({ids[0], owners} <= transaction_ids(c) for c in copies), f"after {hour} hours"
+        assert len(copies) <= 11
+
+
+def made_at(path, when: float) -> None:
+    """The copies just made were made at `when`. Unlike pass_time, which
+    moves every copy across the UTC days' ends, a copy is dated once and
+    keeps its day, as a real one does."""
+    for copy in (path.parent / "backups").glob("*.db"):
+        if copy.stat().st_mtime > time.time() - 600:  # just made
+            os.utime(copy, (when, when))
+
+
+def test_a_week_of_hourly_changes_keeps_the_first_copy_of_each_day(ledger):
+    path, ids, owner, ai = ledger
+    steps = 8 * 24
+    first = time.time() - (steps + 1) * HOUR
+    made = []  # (when, the amount it holds) of each copy made before a change
+    for hour in range(steps):
+        assert ai.put(f"/api/transactions/{ids[1]}", json={"amount": str(hour + 1)}).status_code == 200
+        newest = made_before_changing(path)[0]
+        made.append((first + hour * HOUR, amounts(newest)[ids[1]]))
+        made_at(path, first + hour * HOUR)
+        assert len(backup_copies(path, "ai")) <= 11
+
+    today = datetime.now(timezone.utc).date()
+    first_each_day = {}
+    for when, amount in made:
+        day = datetime.fromtimestamp(when, timezone.utc).date()
+        if day > today - timedelta(days=7):
+            first_each_day.setdefault(day, amount)
+    assert len(first_each_day) == 7
+    kept = {amounts(copy)[ids[1]] for copy in backup_copies(path, "ai")}
+    assert set(first_each_day.values()) <= kept
+
+
 @pytest.fixture
 def db_file(tmp_path):
     path = tmp_path / "btctx.db"
@@ -283,3 +421,16 @@ def test_other_kinds_keep_only_their_newest(db_file):
     path, session = db_file
     made = [backup_sqlite(path, "hourly-prices", kind="review", keep=2) for _ in range(4)]
     assert set(backup_copies(path, "review")) == set(made[2:])
+
+
+def test_a_copy_a_stopped_server_left_unfinished_is_removed_later(db_file):
+    path, session = db_file
+    backups = path.parent / "backups"
+    backups.mkdir()
+    stale, fresh = backups / ".partial-old.db", backups / ".partial-new.db"
+    stale.write_bytes(b"x")
+    fresh.write_bytes(b"x")
+    age(stale, 2 * 3600)
+    backup_sqlite(path, "upgrade")
+    assert not stale.exists() and fresh.exists()  # another copy may be writing that one
+    assert backup_copies(path) and all(not p.name.startswith(".") for p in backup_copies(path))

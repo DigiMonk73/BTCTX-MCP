@@ -277,8 +277,9 @@ you to approve each tool call unless you tell it not to.
 - Before the key's first change in an hour (an edit or a deletion),
   BitcoinTX makes a copy of the database itself
   (`backups/…-ai-before-changing-…db`). Of the AI copies it keeps the newest
-  3, the oldest from the last week and the newest made before a change, so
-  copies made afterwards never replace those from before.
+  3 and, for a week, the oldest and the first copy of each day made before
+  the AI changed anything that day (UTC days), so copies made afterwards
+  never replace those from before.
 
 ## Disclaimer
 
