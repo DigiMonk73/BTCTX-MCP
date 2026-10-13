@@ -25,6 +25,7 @@ import hmac
 import logging
 import os
 import secrets
+import string
 import threading
 
 from sqlalchemy.orm import Session
@@ -76,8 +77,13 @@ def code_path() -> str:
     return os.path.join(DATA_DIR, CODE_FILENAME)
 
 
+_CODE_CHARS = frozenset(string.ascii_uppercase + string.digits)
+
+
 def _normalize(code: str) -> str:
-    return "".join(ch for ch in code.upper() if ch.isalnum())
+    # ASCII only: the code is generated from ASCII, and a non-ASCII letter can never
+    # match it. Comparing such a string with hmac raises TypeError, so keep those out.
+    return "".join(ch for ch in code.upper() if ch in _CODE_CHARS)
 
 
 def _read_code() -> str | None:
