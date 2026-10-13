@@ -41,7 +41,7 @@ def test_a_correct_password_still_verifies():
 
 def test_through_the_routes_they_are_refused_and_counted(fresh_app, monkeypatch):
     monkeypatch.setattr(first_run, "_read_code", lambda: CODE)
-    client, failures = TestClient(app), []
+    client, failures = TestClient(app, client=("testclient", 50000)), []
     tries = [
         ("/api/users/reset-account", {"username": "owner", "password": "y" * 14, "setup_code": "ÀÀÀÀ-ÀÀÀÀ-ÀÀÀÀ"}, 403),
         ("/api/login", {"username": "admin", "password": "password", "setup_code": "ÀÀÀÀ-ÀÀÀÀ-ÀÀÀÀ"}, 403),

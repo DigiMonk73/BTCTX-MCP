@@ -89,7 +89,9 @@ All notable changes to BitcoinTX are documented in this file.
   exposed; now they're refused like any wrong code or password, and count
   toward the wait after repeated failures. A new password over 72 bytes is
   refused with "at most 72 characters (fewer with accented letters or
-  symbols)".
+  symbols)"; before, Create account with such a password deleted the
+  transactions (as it warns it will) and then failed, keeping the old
+  login.
 - **The Mac app answers only at 127.0.0.1 or localhost** (#151). A request
   addressed to any other name is refused, and the app's server no longer
   takes a client's address from an `X-Forwarded-For` header. Nothing changes
