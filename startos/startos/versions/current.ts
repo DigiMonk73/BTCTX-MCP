@@ -49,6 +49,7 @@ export const current = VersionInfo.of({
 **Security and smaller fixes**
 
 - From a security review: logging out ends that session everywhere; other people's failed logins no longer slow down a browser that has logged in before; a restore brings back a backup's data and keeps this install's login, AI key and price settings, or changes nothing; every request has limits on size and time; an edit or deletion by the AI connector keeps a backup copy first, and its imports are kept short. The details are published once this version is available.
+- Restarting BitcoinTX while it is still starting stops every process of the previous run (from Start9's 1.2.7:1).
 - An edit can no longer save a negative fee value.
 
 [Everything in 1.2.8](${CHANGELOG})`,
@@ -86,6 +87,7 @@ export const current = VersionInfo.of({
 **Seguridad y correcciones menores**
 
 - De una revisión de seguridad: cerrar sesión termina esa sesión en todas partes; los inicios de sesión fallidos de otros ya no frenan a un navegador que ya inició sesión antes; una restauración trae los datos de la copia y conserva el acceso, la clave de IA y los ajustes de precios de esta instalación, o no cambia nada; cada petición tiene límites de tamaño y de tiempo; una edición o un borrado del conector de IA guarda antes una copia, y sus importaciones son cortas. Los detalles se publican cuando esta versión esté disponible.
+- Reiniciar BitcoinTX mientras aún se está iniciando detiene todos los procesos de la ejecución anterior (de la 1.2.7:1 de Start9).
 - Una edición ya no puede guardar un valor de comisión negativo.
 
 [Todo lo de la 1.2.8](${CHANGELOG})`,
@@ -123,6 +125,7 @@ export const current = VersionInfo.of({
 **Sicherheit und kleinere Korrekturen**
 
 - Aus einer Sicherheitsprüfung: Abmelden beendet diese Sitzung überall; fehlgeschlagene Anmeldungen anderer bremsen einen Browser nicht mehr, der sich schon einmal angemeldet hat; eine Wiederherstellung bringt die Daten einer Sicherung zurück und behält Anmeldung, KI-Schlüssel und Kurseinstellungen dieser Installation, oder ändert nichts; jede Anfrage hat Grenzen für Größe und Zeit; eine Änderung oder Löschung durch den KI-Connector legt vorher eine Sicherungskopie an, und seine Importe bleiben kurz. Die Einzelheiten werden veröffentlicht, sobald diese Version verfügbar ist.
+- Ein Neustart von BitcoinTX, während es noch startet, beendet alle Prozesse des vorherigen Laufs (aus Start9s 1.2.7:1).
 - Eine Änderung kann keinen negativen Gebührenwert mehr speichern.
 
 [Alles in 1.2.8](${CHANGELOG})`,
@@ -160,6 +163,7 @@ export const current = VersionInfo.of({
 **Bezpieczeństwo i mniejsze poprawki**
 
 - Z przeglądu bezpieczeństwa: wylogowanie kończy tę sesję wszędzie; nieudane logowania innych osób nie spowalniają już przeglądarki, która logowała się wcześniej; przywracanie przywraca dane z kopii i zachowuje logowanie, klucz AI i ustawienia cen tej instalacji albo niczego nie zmienia; każde zapytanie ma limity rozmiaru i czasu; edycja lub usunięcie przez łącznik AI najpierw zapisuje kopię zapasową, a jego importy są krótkie. Szczegóły zostaną opublikowane, gdy ta wersja będzie dostępna.
+- Ponowne uruchomienie BitcoinTX w trakcie uruchamiania zatrzymuje wszystkie procesy poprzedniego uruchomienia (z wersji 1.2.7:1 od Start9).
 - Edycja nie może już zapisać ujemnej wartości opłaty.
 
 [Wszystko w 1.2.8](${CHANGELOG})`,
@@ -197,6 +201,7 @@ export const current = VersionInfo.of({
 **Sécurité et corrections mineures**
 
 - D’un audit de sécurité : se déconnecter met fin à cette session partout ; les échecs de connexion des autres ne ralentissent plus un navigateur qui s’est déjà connecté ; une restauration rapporte les données d’une sauvegarde et garde l’identifiant, la clé IA et les réglages de prix de cette installation, ou ne change rien ; chaque requête a des limites de taille et de durée ; une modification ou suppression par le connecteur IA fait d’abord une copie de sauvegarde, et ses imports restent courts. Les détails seront publiés quand cette version sera disponible.
+- Redémarrer BitcoinTX pendant son démarrage arrête tous les processus de l’exécution précédente (de la 1.2.7:1 de Start9).
 - Une modification ne peut plus enregistrer une valeur de frais négative.
 
 [Tout ce que contient la 1.2.8](${CHANGELOG})`,
