@@ -400,6 +400,12 @@ all Pyflakes rules, modern syntax and a size limit per function (app
 code), and ESLint with zero warnings and a size limit per function and
 file; `docs/CODE_STYLE.md` has the rest.
 
+A command that waits for another command must not search for its own
+text. `pgrep -f` can match the waiter's own command line (always on Linux)
+or another waiter's, so the wait never ends and the session stalls. Wait on
+the process you started, or read the log it writes. A poll on a local
+command gives up after 20 minutes and then reads whatever log is there.
+
 ## Releasing
 
 Full steps, the package version and the signing/mirror secrets:
