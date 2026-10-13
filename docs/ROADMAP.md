@@ -18,16 +18,20 @@ users see and how values are made.
       request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
-- [ ] **Hourly BTC prices, with the hourly history built into the app**
-      (#144): each valued transaction priced at its hour from a documented
-      worldwide index, one file per year with a checksum; a release script
-      adds the newest hours each time a release is made (a convenience, never
-      a promise of updates). Saved values change only when the owner applies
-      them.
-- [ ] **Price sources: one clear, simple choice everywhere** (#145): the
-      built-in history always on, one question about newer hours (own
-      Mempool, public sites, or nobody), a status line, and each value's
-      source shown; a careful plan with mockups, approved before building.
+- [x] **Hourly BTC prices** (#144): each value from a price is priced at
+      the opening of its UTC hour, the day's price where no hour is known.
+      Bitstamp's hourly history is downloaded once, in the same fixed
+      requests on every install, when the choice allows public sites, and
+      checked against fingerprints the release ships (one file per year);
+      newer hours come from your own Mempool or Bitstamp. Shipping the
+      history inside the app waits for Bitstamp's answer. Saved values
+      change only when the owner applies them (Ledger Review).
+- [ ] **Price sources: one clear, simple choice everywhere** (#145): built:
+      one price card (your own Mempool, public sites, or nobody, optionally
+      through Tor), a status line, confirm once after the update, and each
+      value's source shown; StartOS asks at install. Waiting on the owner:
+      the landing page's words (#145). Six small pieces of the plan come in
+      the next release (#208, under "Soon").
 - [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
       #150; the owner agreed 2026-10-12):
   - [x] a spend's network fee comes off its proceeds (#157, done in #162);
@@ -39,6 +43,15 @@ users see and how values are made.
 
 ## Soon
 
+- [ ] **The price redesign's six small pieces** (#208; the next release,
+      the owner's choice, 2026-10-13): "Recommended" beside "Chosen" in the
+      app when StartOS set your own Mempool; a blank value's hint, the Gift
+      form's Refresh and the sidebar's Auto price say where the price comes
+      from; the sidebar asks "Is Tor running?" when Tor fails; and the AI
+      connector says the hour and source of a value it filled.
+- [ ] **StartOS keeps only whether a login was set, not the password**
+      (#212; the next release, the owner's choice, 2026-10-13), with a
+      package migration that drops the stored value.
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
       forms are filed (early 2027): the user types the form's proceeds and
       cost for that sale, and Form 8949 shows them with the IRS's code and

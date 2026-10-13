@@ -699,6 +699,11 @@ Set `KEY` to the key from AI-3, and use
   - with `-H 'Sec-Fetch-Site: cross-site'`: expect 403;
   - with `-H 'Origin: https://evil.example'`: expect 403;
   - with neither header: expect 200.
+
+  Then `POST $API/logout` with `-b jar` (no `-c`, so the jar keeps the
+  cookie) and `GET $API/transactions` with it again. Expect: 401 (logging
+  out ends that session, for every copy of its cookie), while the app in
+  the browser, a session of its own, stays logged in.
 - **SEC-6** `GET $API/users/setup-status`. Expect `setup_code_required`
   false.
 - **SEC-7** While using the app, record the browser's network requests
@@ -827,6 +832,13 @@ Start from the `clean` snapshot.
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones." The service keeps running. Dismiss the task in
   StartOS, then restart the service and the server: it doesn't come back.
+- **UPG-8** (#143, a beta user may skip a release) A pass of its own:
+  restore the VM's `clean` snapshot, sideload the published 1.2.5:0
+  (`btctx.s9pk` of the v1.2.5 GitHub release), set it up as in UPG-1 (its
+  action may name the choices differently), then sideload the candidate.
+  Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
+  recorded figure is identical, the login and the AI key still work. UPG-3's
+  exceptions are the CHANGELOG entries of 1.2.6, 1.2.7 and this release.
 
 ## Track C: the Mac app (only on a Mac)
 
@@ -879,7 +891,9 @@ point, leave it alone, touch nothing in it, and record that.
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
   banner. Opening it again while it's open brings the window forward, with
-  no second copy.
+  no second copy. With the MCP Inspector (or an AI app) left open across the
+  quit and reopen, its next call still works: `mcp.json` has a new key and
+  the connector picks it up by itself.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
 - **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
   Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
