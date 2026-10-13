@@ -18,6 +18,10 @@ declare global {
     ): Promise<PyWebViewSaveResult>;
 
     is_desktop(): Promise<boolean>;
+
+    /** The first-run setup code while the account has the default login,
+     * else null (desktop/desktop_api.py). Absent in a build before it. */
+    setup_code?(): Promise<string | null>;
   }
 
   interface Window {

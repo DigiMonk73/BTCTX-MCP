@@ -65,10 +65,41 @@ BitcoinTX.app
   (421 for any other `Host`: `backend/security_headers.py`,
   `LocalAddressOnlyMiddleware`). Uvicorn runs with `proxy_headers=False`, so
   a client's own `X-Forwarded-For` never passes for its address.
-- **Native save dialog:** `entrypoint.py` exposes a `DesktopAPI.save_file()`
-  method to JavaScript via pywebview's `js_api`. The frontend
-  (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
-  backup downloads, because WebKit in pywebview doesn't handle browser downloads.
+- **The window's API:** `entrypoint.py` gives the window `DesktopAPI`
+  (`desktop/desktop_api.py`) through pywebview's `js_api`, as
+  `window.pywebview.api`. Only the app's own window has it: a browser or
+  another program reaching `127.0.0.1` doesn't.
+  - `save_file()`: the native Save dialog. The frontend
+    (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
+    backup downloads, because WebKit in pywebview doesn't handle browser
+    downloads.
+  - `setup_code()`: the first-run setup code ("First start" below), only
+    while the window shows one of the app's own pages (pywebview gives the
+    API to whatever page its window shows).
+
+## First start
+
+A new install has the login every BitcoinTX starts with (`admin` /
+`password`). While the account has it, logging in with it and claiming it
+need the one-time **setup code**, as on Docker
+(`backend/services/first_run.py`), which only the Mac account that runs
+BitcoinTX can read:
+
+- The backend makes the code at startup and keeps it in `setup-code.txt` in
+  the data folder (mode 600, in the 0700 folder), and deletes it once the
+  login is changed. The Mac app never writes it to its log, which a
+  problem report may attach.
+- In the app's window, the Sign in page is replaced by **Choose your
+  username and password**: a username, and a new password (12 or more
+  characters) typed twice. The window supplies the code
+  (`DesktopAPI.setup_code()`), and the page logs in with the default login
+  and changes it to the chosen one (`PATCH /api/users/{id}`), so every
+  transaction is kept (`frontend/src/utils/ownLogin.ts`). Then it opens the
+  Dashboard, as a first login does. It appears whenever the login is still
+  the default one, an older install's included.
+- From a browser at `http://127.0.0.1:8765/`, `admin` / `password` is
+  refused without the code typed in (from `setup-code.txt` in the data
+  folder).
 
 ## Data and secrets
 
@@ -79,6 +110,7 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `btctx.db` | SQLite database (all your data) |
 | `.btctx_secret_key` | Per-install session signing key, generated on first launch, mode 600 |
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
+| `setup-code.txt` | The one-time first-run setup code, mode 600, only while the login is still `admin` / `password` ("First start") |
 | `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and those the AI connector's `backup_ledger` asks for (newest 3 kept) |
 
 A new app version upgrades the database schema on first launch (after copying
@@ -142,7 +174,8 @@ launch finds the same data. It uses only a folder that is empty or that it
 marked as its own (`.btctx-test-folder`), never the installed app's folder
 however it is spelled; `--fresh` is refused while a test run answers on
 8766. That folder holds everything the app would keep in Application
-Support (`btctx.db`, the session key, `mcp.json`, `backups/`) and its log
+Support (`btctx.db`, the session key, `mcp.json`, `setup-code.txt`,
+`backups/`) and its log
 (`logs/BitcoinTX.log`); the log line "Test data folder from
 BTCTX_DESKTOP_DATA_DIR" confirms it's in use. The app also runs with
 `HOME=<folder>/home`: a build older than `BTCTX_DESKTOP_DATA_DIR` (every

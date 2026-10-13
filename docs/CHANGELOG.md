@@ -88,6 +88,14 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **The Mac app asks for your own username and password while it still
+  has the default login** (#151). Its default login (`admin` / `password`)
+  now needs the one-time setup code too, as on Docker, and the app's window
+  fills it in: the first screen is **Choose your username and password**
+  (12 or more characters, typed twice), and your transactions are kept. The
+  code is in `setup-code.txt` in the app's data folder (owner-only) and is
+  never written to its log; from a browser, `admin` / `password` works only
+  with the code typed in.
 - **A price a site gives under one cent, or as no number, is never kept**
   (#206, #198, tax figures). A day's price from a public site or your own
   Mempool was checked above zero before it was rounded to the cent, so an

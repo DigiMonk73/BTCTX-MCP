@@ -296,10 +296,15 @@ So derived values must be recomputable from the Transaction row alone.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
   New passwords need 12+ characters; a change needs the current password.
-- While the account has the default login (Docker/source before it's
-  claimed), logging in with it and claiming it need the one-time setup code
-  (`services/first_run.py`, `<data dir>/setup-code.txt`, printed to the
-  log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
+- While the account has the default login (before it's claimed: Docker,
+  source and the Mac app alike), logging in with it and claiming it need
+  the one-time setup code (`services/first_run.py`,
+  `<data dir>/setup-code.txt`, 0600). A server prints it to the log; the Mac
+  app never logs it: its window reads the file (`desktop/desktop_api.py`,
+  `setup_code()`, only for the app's own pages) and its login page has the
+  owner choose a username and password, keeping the ledger (PATCH, never
+  reset-account: `frontend/src/utils/ownLogin.ts`). StartOS never has the
+  default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
   `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed

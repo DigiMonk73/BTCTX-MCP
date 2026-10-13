@@ -280,9 +280,9 @@ def login(
     """
     Start a session for a correct username and password.
     Repeated failures are answered 429 for a while (login_throttle.py).
-    The default admin/password login also needs the setup code (Docker and
-    source installs before they're claimed; first_run.py): anyone who can
-    reach a fresh install knows that login.
+    The default admin/password login also needs the setup code (every
+    install before it's claimed, the Mac app's too; first_run.py): anyone
+    who can reach a fresh install knows that login.
     """
     login_throttle.check(request)
     user = get_user_by_username(login_req.username, db)
@@ -291,9 +291,9 @@ def login(
         login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
-    if first_run.needs_code(user) and not first_run.check_code(login_req.setup_code):
+    if first_run.is_default_account(user) and not first_run.check_code(login_req.setup_code):
         login_throttle.failed(request)
-        raise HTTPException(status_code=403, detail=first_run.DEFAULT_LOGIN_REFUSED)
+        raise HTTPException(status_code=403, detail=first_run.default_login_refused())
 
     login_throttle.succeeded(request)
     start_session(request, user, db)
