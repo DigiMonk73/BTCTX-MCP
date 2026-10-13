@@ -170,6 +170,17 @@ async def test_an_ai_session_carries_on_across_a_restart(desktop, restart):
         await btctx.aclose()
 
 
+async def test_a_restore_leaves_the_key_file_alone(desktop):
+    """After a restore the key the connector holds is still this install's:
+    refreshing after it must not write a new one (ai_key.sync does)."""
+    from backend.routers import backup as backup_router
+
+    before = desktop.read_text()
+    with _db() as db:
+        backup_router._refresh_after_restore(db)
+    assert desktop.read_text() == before
+
+
 async def test_mcp_tools_work_with_no_password(desktop):
     btctx = _key_client(desktop)
     server.set_client(btctx)
@@ -243,6 +254,7 @@ async def test_restored_database_keeps_the_key_the_mcp_has(desktop):
         ai_key._set(db, ai_key.HASH_KEY, "0" * 64)  # a restored backup carries another install's hash
         db.commit()
         ai_key.carry_over(db, before)
+        db.commit()  # the restore commits what carry_over wrote, then checks it
     assert _token(desktop) == token
     async with _http() as h:
         r = await h.get("/api/transactions", headers={"Authorization": f"Bearer {token}"})

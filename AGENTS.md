@@ -305,7 +305,15 @@ So derived values must be recomputable from the Transaction row alone.
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). It works only while AI access is on (off by default) and only on
+  brings back a backup's password or its price source). An in-app restore
+  takes a backup's data, never its database: a backup holding anything but
+  ordinary tables and indexes is refused, and the database that goes live is
+  made by BitcoinTX's own migrations with only the rows of its own tables
+  and columns copied in, one login, and these settings written and read back
+  before it replaces the live one; any failure leaves the live database as
+  it was and answers in plain words, never SQL
+  (`services/backup.restore_backup`, `routers/backup._write_kept`).
+  It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
   new MCP tool that needs a route adds it there on purpose (a test checks the
   tools and the list agree). Never allow the key on login, users, key or
