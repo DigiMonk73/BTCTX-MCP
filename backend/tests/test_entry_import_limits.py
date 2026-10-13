@@ -173,8 +173,9 @@ def test_one_earlier_row_is_always_allowed(reference, monkeypatch):
 
 def test_the_owners_save_during_the_largest_ai_preview_allowed_goes_through(reference):
     """SQLite's other writers wait 5 s for the lock. Here the largest preview
-    the key may ask for takes about 1.6 s, and the owner turning AI access
-    off meanwhile waits for it, then succeeds. Before the limits, a preview
+    the key may ask for takes about 0.8 s (at 2,000 entries replayed it took
+    1.6 s, and over 5 s on a CI runner), and the owner turning AI access off
+    meanwhile waits for it, then succeeds. Before the limits, a preview
     of 100 such rows held the lock about 14 s and that save failed with
     "database is locked"."""
     owner, ai = reference

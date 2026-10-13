@@ -103,7 +103,7 @@ All notable changes to BitcoinTX are documented in this file.
   call, and fewer rows dated before your latest entry, since each of those
   recalculates the whole ledger: the error says how many to send. A long
   one kept BitcoinTX busy, so a save of yours meanwhile (turning AI access
-  off too) could fail with "database is locked"; now one takes about 2 s
+  off too) could fail with "database is locked"; now one takes about 1 s
   at most and your save waits for it. Your own CSV and River imports are
   unchanged.
 - **Every request is limited to 5 MB** (#151). BitcoinTX refuses a larger

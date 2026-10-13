@@ -57,9 +57,10 @@ router = APIRouter()
 AI_MAX_ROWS = 500
 # With the AI key: entries replayed in all by the rows dated before the
 # ledger's latest entry (each replays the whole ledger, up to 1 ms an entry
-# on a laptop). A request then holds the write lock about 2 s, so the
-# owner's saves, which wait 5 s for it, go through on a server twice as slow.
-AI_MAX_REPLAYED = 2000
+# on a laptop). A request then holds the write lock about 1 s, so the
+# owner's saves, which wait 5 s for it, go through on a server four times as
+# slow (a CI runner, three times as slow, went past 5 s at 2,000).
+AI_MAX_REPLAYED = 1000
 
 
 def _with_ai_key(request: Request) -> bool:
