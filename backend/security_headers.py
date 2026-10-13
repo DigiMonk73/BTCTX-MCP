@@ -7,10 +7,12 @@ Response headers that keep the browser from leaking or loading anything:
   (backend/tests/test_privacy.py).
 - Referrer-Policy: no-referrer, X-Content-Type-Options: nosniff,
   X-Frame-Options: DENY.
-- The session cookie gets Secure when the request came over HTTPS (StartOS
-  serves the app through its HTTPS proxy, which sets X-Forwarded-Proto), so
-  the browser never sends it over plain HTTP. Plain-HTTP installs (the Mac
-  app on 127.0.0.1, Docker on a LAN) keep working.
+- Every cookie the app sets (the session's, and the login throttle's device
+  cookie: services/login_throttle.py) gets Secure when the request came over
+  HTTPS (StartOS serves the app through its HTTPS proxy, which sets
+  X-Forwarded-Proto), so the browser never sends it over plain HTTP.
+  Plain-HTTP installs (the Mac app on 127.0.0.1, Docker on a LAN) keep
+  working.
 
 CrossSiteGuardMiddleware refuses a change (POST, PUT, PATCH, DELETE...) that
 a browser sent from a page other than BitcoinTX's own. The cookie's
@@ -51,8 +53,6 @@ CSP = "; ".join([
     "frame-ancestors 'none'",
 ])
 
-SESSION_COOKIE = b"btc_session_id="
-
 
 def _is_https(scope: Scope) -> bool:
     if scope.get("scheme") == "https":
@@ -78,8 +78,7 @@ class SecurityHeadersMiddleware:
             if message["type"] == "http.response.start":
                 headers = []
                 for name, value in message.get("headers", []):
-                    if https and name == b"set-cookie" and value.startswith(SESSION_COOKIE) \
-                            and b"; secure" not in value.lower():
+                    if https and name == b"set-cookie" and b"; secure" not in value.lower():
                         value += b"; Secure"
                     headers.append((name, value))
                 present = {name.lower() for name, _ in headers}

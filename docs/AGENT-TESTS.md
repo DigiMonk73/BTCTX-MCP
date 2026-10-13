@@ -694,7 +694,9 @@ Set `KEY` to the key from AI-3, and use
   `curl --cacert ca.crt -si -c jar -X POST $API/login -H 'Content-Type: application/json' -d '{"username":"…","password":"…"}'`.
   Expect: `set-cookie: btc_session_id=…` with the attributes `HttpOnly`,
   `SameSite=lax` and `Secure`, in any letter case (StartOS serves over
-  HTTPS).
+  HTTPS); and `set-cookie: btc_device=…` (the login throttle's device
+  cookie) with `HttpOnly`, `SameSite=lax`, `Secure` and
+  `Max-Age=31536000`.
 - **SEC-5** With that cookie (`-b jar`), `POST $API/transactions/recalculate`:
   - with `-H 'Sec-Fetch-Site: cross-site'`: expect 403;
   - with `-H 'Origin: https://evil.example'`: expect 403;
@@ -718,10 +720,14 @@ Set `KEY` to the key from AI-3, and use
   `tester`. Nothing in StartOS shows a password again: Set Login
   Credentials only makes a new one.
 - **SEC-9** Last in Track A's security checks, because it makes you wait:
-  send wrong passwords to `$API/login` in quick succession, at most eight.
-  Expect: from the sixth or seventh on, HTTP 429 with a `Retry-After`
-  header and "Too many failed attempts. Try again in N second(s).". After
-  waiting that long, the correct login works.
+  without a cookie jar, send wrong passwords to `$API/login` in quick
+  succession, at most eight. Expect: from the sixth or seventh on, HTTP 429
+  with a `Retry-After` header and "Too many failed attempts. Try again in N
+  second(s).". At once, the correct login without a jar: expect 429 too
+  (every request comes from StartOS's proxy, one address). With SEC-4's
+  jar (`-b jar`, its `btc_device` cookie): expect 200 at once (a browser
+  that logged in before isn't stopped by others' failures). After waiting
+  that long, the correct login without a jar works.
 
 ### LCK: locked out
 

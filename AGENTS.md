@@ -233,7 +233,7 @@ So derived values must be recomputable from the Transaction row alone.
 |---|---|
 | `backend/main.py` | app, session middleware, router mounting, `get_current_user` |
 | `backend/migrate.py`, `backend/migrations/` | schema migrations run at startup, adoption of pre-migration DBs, pre-upgrade backups |
-| `backend/secret_key.py` | per-install session key in `.btctx_secret_key` (never a hardcoded key) |
+| `backend/secret_key.py` | per-install key in `.btctx_secret_key` that signs the session and device cookies (never a hardcoded key) |
 | `backend/services/transaction.py` | ledger, lots, FIFO, fees, proceeds, recalculation |
 | `backend/services/tax_time.py` | tax timezone helpers |
 | `backend/services/price_history.py` | stored daily BTC prices (`btc_price_daily`); date-free downloads from the own mempool or public sites |
@@ -242,7 +242,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
-| `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling |
+| `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
@@ -257,7 +257,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
 | `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
@@ -284,6 +284,11 @@ So derived values must be recomputable from the Transaction row alone.
   ends every other session. API docs (`/docs`, `/openapi.json`) only with DEBUG.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
+  A browser that got one of them right gets a device cookie (`btc_device`,
+  a year, signed with the secret key, bound to the current password) and is a
+  client of its own: other clients' failures, its address's count (behind
+  a proxy, everyone's) and the global cap don't stop it; its own failures
+  slow it. Logging out keeps it; a new password voids every earlier one.
   New passwords need 12+ characters; a change needs the current password.
 - While the account has the default login (Docker/source before it's
   claimed), logging in with it and claiming it need the one-time setup code

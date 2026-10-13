@@ -28,11 +28,10 @@ frontend_dist = os.environ.get(
     os.path.join(os.path.dirname(__file__), "../frontend/dist")
 )
 
-from backend.database import DATABASE_FILE
-from backend.secret_key import load_secret_key
+from backend.secret_key import app_secret_key
 
 # Signs the session cookie. Never a value from this repo — see secret_key.py
-SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
+SECRET_KEY = app_secret_key()
 
 
 def cors_origins(raw: str | None) -> list[str]:
@@ -284,7 +283,7 @@ def login(
     source installs before they're claimed; first_run.py): anyone who can
     reach a fresh install knows that login.
     """
-    login_throttle.check(request)
+    login_throttle.check(request, db)
     user = get_user_by_username(login_req.username, db)
     # For security, don't reveal which part is invalid
     if not user or not user.verify_password(login_req.password):
@@ -297,6 +296,7 @@ def login(
 
     login_throttle.succeeded(request)
     start_session(request, user)
+    login_throttle.remember_device(response, user)
     return {"detail": f"Logged in as {user.username}"}
 
 
@@ -304,6 +304,10 @@ def login(
 def logout(request: Request, response: Response):
     """End the session."""
     request.session.clear()
+    # The device cookie (login_throttle.py) stays: it says this browser
+    # logged in before, not that it is logged in, and opens nothing by
+    # itself. Without it, the next login would wait behind everyone else's
+    # failed tries from the same address (a proxy's).
     return {"detail": "Logged out successfully"}
 
 # Health check (public: used by StartOS and container probes)

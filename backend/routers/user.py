@@ -3,7 +3,7 @@ The one login: first registration, the first-run status and account reset,
 and changes to the logged-in user's name and password.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel, field_validator
@@ -62,7 +62,7 @@ def _require_self(user_id: int, request: Request, db: Session) -> None:
         raise HTTPException(status_code=403, detail="You can only change your own account.")
 
 
-def _authorize_change(user: User, request: Request, current_password: str | None,
+def _authorize_change(user: User, request: Request, db: Session, current_password: str | None,
                       setup_code: str | None, default_login_ok: bool) -> None:
     """
     May the login of `user` be changed? With its current password, or, while
@@ -70,7 +70,7 @@ def _authorize_change(user: User, request: Request, current_password: str | None
     (plus the setup code outside the Mac app: first_run.py). Failures count
     towards the login throttle (login_throttle.py).
     """
-    login_throttle.check(request)
+    login_throttle.check(request, db)
     is_default = first_run.is_default_account(user)
     if is_default and first_run.code_required():
         if not first_run.check_code(setup_code):
@@ -121,7 +121,7 @@ class AccountReset(BaseModel):
 
 
 @router.post("/reset-account")
-def reset_account(payload: AccountReset, request: Request, db: Session = Depends(get_db)):
+def reset_account(payload: AccountReset, request: Request, response: Response, db: Session = Depends(get_db)):
     """
     First-run / re-registration: set new credentials and clear all
     transactions. Allowed while the account still has the default login
@@ -133,7 +133,7 @@ def reset_account(payload: AccountReset, request: Request, db: Session = Depends
     if not users:
         raise HTTPException(status_code=404, detail="No account to reset.")
     user = users[0]
-    _authorize_change(user, request, payload.current_password, payload.setup_code, default_login_ok=True)
+    _authorize_change(user, request, db, payload.current_password, payload.setup_code, default_login_ok=True)
     if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
@@ -141,6 +141,7 @@ def reset_account(payload: AccountReset, request: Request, db: Session = Depends
     delete_all_transactions(db)
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
     first_run.clear_code()
+    login_throttle.remember_device(response, user)
     return {"detail": "Account reset. Log in with your new credentials."}
 
 
@@ -152,7 +153,8 @@ def get_users(request: Request, db: Session = Depends(get_db)):
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Session = Depends(get_db)):
+def patch_user(user_id: int, user_data: UserUpdate, request: Request, response: Response,
+               db: Session = Depends(get_db)):
     """
     Change your own username and/or password: PATCH /api/users/{user_id}.
     Requires being logged in as that user and current_password (so a
@@ -163,10 +165,11 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
-    _authorize_change(user, request, user_data.current_password, user_data.setup_code, default_login_ok=False)
+    _authorize_change(user, request, db, user_data.current_password, user_data.setup_code, default_login_ok=False)
     updated_user = update_user_service(user_id, user_data, db)
     # Other sessions end with the old password; this one carries on.
     start_session(request, updated_user)
+    login_throttle.remember_device(response, updated_user)
     if not first_run.is_default_account(updated_user):
         first_run.clear_code()
     return updated_user
