@@ -42,8 +42,9 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        the default login (mode 600; deleted once claimed;
   │                        never on StartOS, whose login is set before the first start)
   ├── btc-prices/          the hourly BTC price history, one YYYY.csv per year
-  │                        (about 3 MB), downloaded from Bitstamp once, at start or
-  │                        when the choice is saved, if the choice allows public
+  │                        (about 3 MB), downloaded from Bitstamp once (at start,
+  │                        when the choice is saved, or when a value needs a year
+  │                        not yet here), if the choice allows public
   │                        price sites (public sites, or a mempool server with its
   │                        fallback), and kept only when it matches the fingerprints
   │                        the release ships; can be deleted (it's downloaded again)
@@ -138,7 +139,7 @@ start upgrades a pre-1.1.0 install).
 An invalid value turns price lookups off (an error in the log says which;
 `GET /api/settings/network` says `"invalid": true`).
 
-`BTCTX_TOR_PROXY_URL` (new in the stable candidate, #145): Tor on the
+`BTCTX_TOR_PROXY_URL` (new in 1.2.8, #145): Tor on the
 server for a choice made in the app (StartOS: the action's *Use Tor* with
 *Decide in BitcoinTX instead*). It carries every request that goes through a proxy
 (public sites, an .onion Mempool) and Settings shows it locked on, while
@@ -147,7 +148,7 @@ underneath. Ignored when `BTCTX_PRICE_SOURCE` is set (`BTCTX_PROXY_URL`
 decides then). An invalid one asks nobody (an error in the log, and the
 status line says the server's settings aren't valid): never around Tor.
 
-`BTCTX_HOST` (`startos`; new in the stable candidate, #145) says where
+`BTCTX_HOST` (`startos`; new in 1.2.8, #145) says where
 BitcoinTX runs. It changes only words: where a server-set price choice is
 changed ("StartOS's Price Source & Privacy action" rather than words that
 fit any server). Without it the Mac app is `mac` (its launcher's
@@ -191,8 +192,10 @@ Change these only together with the package (`startos/`):
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
   newest 5 pre-upgrade/pre-restore copies, 5 copies before Ledger Review's
-  hourly prices were applied and 3 AI-requested copies are kept in
-  `/data/backups/`.
+  hourly prices were applied, and of the AI copies (asked for, or made
+  before the AI key's first change in an hour) the newest 3, plus for a
+  week the oldest and each day's first before a change (at most 11), are
+  kept in `/data/backups/`.
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
@@ -206,7 +209,7 @@ to DigiMonk73/BTCTX-StartOS) pins `:v<VERSION>` in
 `startos/startos/manifest/index.ts`.
 
 StartOS backups cover both package volumes (`main`: database, secret key,
-pre-upgrade copies; `startos`: the package's `store.json`). The app also has
+`btc-prices/`, the copies in `backups/`; `startos`: the package's `store.json`). The app also has
 its own password-encrypted backup (Settings, or `POST /api/backup/download` /
 `/api/backup/restore`), which covers the database only.
 

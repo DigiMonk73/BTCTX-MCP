@@ -185,7 +185,7 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
-   gross_proceeds_usd is before it (entered, or that hour's value). To
+   gross_proceeds_usd is before it (entered, or its value from the BTC price). To
    change the proceeds, send the new gross as proceeds_usd, never the
    listed after-fee value.
 5. To check what is already saved, call review_ledger (read-only) and show

@@ -24,7 +24,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   recalculates the whole ledger, so backdated entries come out right.
 - **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
-  a consolidation (Wallet to Wallet) records only its network fee
+  a consolidation (Wallet to Wallet, or between exchanges BitcoinTX counts as
+  one) records only its network fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
   tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
   says something different for a sale, record that on the transaction and the
@@ -252,7 +253,8 @@ to do.
 3. Open **Settings → Ledger Review**. Without changing anything, it lists
    every figure a recalculation would change (old → new) and saved entries
    worth a second look, such as income and rebate deposits with a $0 or
-   blank value. After them comes a reminder, not an error: My BTC and Gift
+   blank value, and Inherited deposits without a date of death. After them
+   comes a reminder, not an error: My BTC and Gift
    deposits without a date originally acquired, counted from their deposit
    date until you add one. The release notes say which to fix.
 4. Click **Settings → Recalculate Ledger** when you agree.
