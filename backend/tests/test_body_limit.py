@@ -4,16 +4,20 @@ Every request body has a size limit, checked before anything reads it
 the routes anyone can reach (login, Create account, the account reset) took
 a body of any size. Over MAX_BODY_BYTES the answer is 413, before a byte is
 read when Content-Length says so, and as soon as the bytes passed it when
-the body comes in chunks. The routes taking a file keep their own limits.
+the body comes in chunks. The routes taking a file keep their own limits,
+for a logged-in owner's request only.
 """
 
 import asyncio
 import json
+import time
+from base64 import b64encode
 
+import itsdangerous
 import pytest
 
 from backend.body_limit import FORM_ROOM, MAX_BODY_BYTES, too_large
-from backend.main import app
+from backend.main import SECRET_KEY, SESSION_COOKIE, SESSION_MAX_AGE, app
 from backend.routers import backup
 from backend.routers.backup import RESTORE_TOO_LARGE
 from backend.routers.csv_import import MAX_FILE_SIZE
@@ -24,15 +28,18 @@ MB = 1024 * 1024
 ANYONE = ["/api/login", "/api/users/register", "/api/users/reset-account"]
 
 
-def send(path: str, chunks: list[bytes], length: int | None) -> tuple[int, int, dict]:
+def send(path: str, chunks: list[bytes], length: int | None, cookie: str | None = None) -> tuple[int, int, dict]:
     """
     POST `chunks` straight to the app over ASGI, with a Content-Length of
-    `length` (none: the body comes in chunks). Returns the status, how many
-    chunks the app read, and the JSON answer.
+    `length` (none: the body comes in chunks) and this session cookie.
+    Returns the status, how many chunks the app read, and the answer: its
+    headers and its JSON ("json").
     """
     headers = [(b"host", b"testserver"), (b"content-type", b"application/json")]
     if length is not None:
         headers.append((b"content-length", str(length).encode()))
+    if cookie is not None:
+        headers.append((b"cookie", f"{SESSION_COOKIE}={cookie}".encode()))
     scope = {
         "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST",
         "scheme": "http", "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
@@ -52,9 +59,10 @@ def send(path: str, chunks: list[bytes], length: int | None) -> tuple[int, int, 
         sent.append(message)
 
     asyncio.run(app(scope, receive, collect))
-    status = next(m["status"] for m in sent if m["type"] == "http.response.start")
+    start = next(m for m in sent if m["type"] == "http.response.start")
     body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
-    return status, read, json.loads(body or b"{}")
+    answer = {name.decode(): value.decode() for name, value in start["headers"]}
+    return start["status"], read, {**answer, "json": json.loads(body or b"{}")}
 
 
 @pytest.mark.parametrize("path", [*ANYONE, "/api/import/entries/preview", "/api/transactions"])
@@ -62,7 +70,7 @@ def test_a_body_over_the_limit_is_refused_before_a_byte_is_read(auth_client, pat
     megabyte = b" " * MB
     status, read, answer = send(path, [megabyte] * 6, length=6 * MB)
     assert (status, read) == (413, 0), (path, status, read, answer)
-    assert answer["detail"] == too_large(MAX_BODY_BYTES) == "Request too large. Maximum size is 5MB."
+    assert answer["json"]["detail"] == too_large(MAX_BODY_BYTES) == "Request too large. Maximum size is 5MB."
 
 
 @pytest.mark.parametrize("path", ANYONE)
@@ -72,7 +80,7 @@ def test_a_body_in_chunks_is_refused_once_it_passes_the_limit(auth_client, path)
     megabyte = b" " * MB
     status, read, answer = send(path, [megabyte] * 12, length=None)
     assert (status, read) == (413, 6), (path, status, read, answer)
-    assert answer["detail"] == too_large(MAX_BODY_BYTES)
+    assert answer["json"]["detail"] == too_large(MAX_BODY_BYTES)
 
 
 def test_a_body_up_to_the_limit_is_unaffected(auth_client):
@@ -103,13 +111,49 @@ def test_a_restore_near_its_own_limit_is_still_taken(auth_client, monkeypatch):
     assert restored == [len(file)]
 
 
-def test_the_restores_own_limit_and_the_form_around_it_pass_the_body_limit(auth_client):
+def test_a_413_carries_the_security_headers(auth_client):
+    status, read, answer = send("/api/login", [], length=MAX_BODY_BYTES + 1)
+    assert (status, read) == (413, 0)
+    assert answer["x-content-type-options"] == "nosniff" and answer["x-frame-options"] == "DENY"
+    assert answer["referrer-policy"] == "no-referrer" and "frame-ancestors 'none'" in answer["content-security-policy"]
+
+
+def session_cookie(session: dict, key: str = SECRET_KEY, age: int = 0) -> str:
+    """A session cookie as SessionMiddleware writes it, signed with `key`,
+    `age` seconds ago."""
+    class Signer(itsdangerous.TimestampSigner):
+        def get_timestamp(self):
+            return int(time.time()) - age
+
+    return Signer(str(key)).sign(b64encode(json.dumps(session).encode())).decode()
+
+
+def test_the_restores_own_limit_and_the_form_around_it_pass_with_a_login(auth_client):
     """Only Content-Length is sent (nothing is read): at the restore's limit
     with room for the form the body is taken, past it refused."""
-    status, read, _ = send("/api/backup/restore", [], length=backup.MAX_RESTORE_BYTES + FORM_ROOM + 1)
+    login = auth_client.cookies.get(SESSION_COOKIE)
+    limit = backup.MAX_RESTORE_BYTES + FORM_ROOM
+    status, read, _ = send("/api/backup/restore", [], length=limit + 1, cookie=login)
     assert (status, read) == (413, 0)
-    status, _, _ = send("/api/backup/restore", [b"--"], length=backup.MAX_RESTORE_BYTES + FORM_ROOM)
+    status, _, _ = send("/api/backup/restore", [b"--"], length=limit, cookie=login)
     assert status != 413
+    status, _, _ = send("/api/backup/restore", [b"--"], length=6 * MB, cookie=session_cookie({"user_id": 1}))
+    assert status != 413
+
+
+@pytest.mark.parametrize("cookie", [
+    None,
+    session_cookie({"user_id": 1}, key="not-this-app's-key"),
+    session_cookie({"user_id": 1}, age=SESSION_MAX_AGE + 60),
+    session_cookie({}),
+    "garbage",
+], ids=["no cookie", "another key", "expired", "no user_id", "not a cookie"])
+def test_a_file_over_5_mb_needs_a_login(auth_client, cookie):
+    """The larger allowance is for a logged-in owner's file: anyone else
+    gets 5 MB, refused before a byte is read."""
+    for path in ("/api/backup/restore", "/api/import/preview"):
+        status, read, answer = send(path, [b" " * MB] * 6, length=6 * MB, cookie=cookie)
+        assert (status, read) == (413, 0), (path, status, read, answer["json"])
 
 
 def test_a_csv_import_keeps_its_own_limit_and_words(auth_client):

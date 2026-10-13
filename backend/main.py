@@ -131,10 +131,14 @@ app = FastAPI(
     openapi_url="/openapi.json" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
 
+SESSION_COOKIE = "btc_session_id"
+SESSION_MAX_AGE = 14 * 24 * 3600  # Starlette's default, given to the body limit too
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
-    session_cookie="btc_session_id",
+    session_cookie=SESSION_COOKIE,
+    max_age=SESSION_MAX_AGE,
     same_site="lax",
     # Secure is added per request when it came over HTTPS (StartOS's proxy):
     # backend/security_headers.py. A fixed https_only would break the plain
@@ -147,8 +151,27 @@ app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
 # The Mac app answers only at 127.0.0.1 or localhost (421 otherwise): a page
 # whose own name points there (DNS rebinding) is refused.
 app.add_middleware(LocalAddressOnlyMiddleware)
-# Outside those, so it also sees the session cookie: CSP, no-referrer, nosniff,
-# no framing, Secure cookie over HTTPS.
+# Before all of those: a body over its limit is refused before anything
+# reads it (body_limit.py). A route taking a file takes a logged-in owner's
+# file up to its own limit.
+from backend.body_limit import BodyLimitMiddleware
+from backend.routers.backup import MAX_RESTORE_BYTES
+from backend.routers.csv_import import MAX_FILE_SIZE
+
+app.add_middleware(
+    BodyLimitMiddleware,
+    file_limits={
+        "/api/backup/restore": MAX_RESTORE_BYTES,
+        "/api/import/preview": MAX_FILE_SIZE,
+        "/api/import/execute": MAX_FILE_SIZE,
+        "/api/import/river/preview": MAX_FILE_SIZE,
+    },
+    secret_key=SECRET_KEY,
+    session_cookie=SESSION_COOKIE,
+    max_age=SESSION_MAX_AGE,
+)
+# Outside those, so it also sees the session cookie and the 413: CSP,
+# no-referrer, nosniff, no framing, Secure cookie over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
 if ALLOWED_ORIGINS:
@@ -237,18 +260,6 @@ app.include_router(river_import.router, prefix="/api/import/river", tags=["impor
 app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=[Depends(get_current_user)])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
 app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=[Depends(get_current_user)])
-
-# Added last, so it runs first: a body over its limit is refused before
-# anything reads it (body_limit.py). The routes taking a file keep their
-# own limits.
-from backend.body_limit import BodyLimitMiddleware
-
-app.add_middleware(BodyLimitMiddleware, file_limits={
-    "/api/backup/restore": backup.MAX_RESTORE_BYTES,
-    "/api/import/preview": csv_import.MAX_FILE_SIZE,
-    "/api/import/execute": csv_import.MAX_FILE_SIZE,
-    "/api/import/river/preview": csv_import.MAX_FILE_SIZE,
-})
 
 # Debug routes: a logged-in session only, never the AI key.
 try:
