@@ -81,6 +81,14 @@ All notable changes to BitcoinTX are documented in this file.
   changes). No request names a transaction's hour.
 
 ### Fixed
+- **Logging out ends the session everywhere** (#151). Each login now opens
+  a session of its own on the server. Logging out ends it at once, for any
+  copy of that browser's cookie too; before, a copy kept working until 14
+  days after the login. Your other browsers stay logged in. A password
+  change (Settings, or StartOS's Set Login Credentials) or an account reset
+  still logs every other browser out, and an in-app restore keeps the
+  sessions that were open. **After this update, everyone logs in once
+  more.** The unused `GET /api/users/protected` is gone.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and
