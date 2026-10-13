@@ -322,8 +322,14 @@ So derived values must be recomputable from the Transaction row alone.
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (2,000) entries in all (one such row always), about 2 s.
-  A body over `MAX_BODY_BYTES` (5 MB) is refused before FastAPI reads it,
-  whoever sends it (FastAPI reads and parses a body before the login check).
+- Every request body is limited before anything reads it
+  (`backend/body_limit.py`, added last in `main.py` so it runs first): FastAPI
+  reads and parses a body before the login check, login and Create account
+  included. Over 5 MB it's 413, at once from Content-Length or as soon as a
+  chunked body passes it. A route taking a file is listed in `main.py` with
+  its own file limit (plus room for the form) and keeps checking the file
+  itself: the restore 1 GiB, the CSV and River files 5 MB. A new upload
+  route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 

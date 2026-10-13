@@ -15,25 +15,20 @@ Both hold SQLite's write lock while they work, and the owner's own saves
 wait for it only 5 s (sqlite3's timeout) before failing. With the AI key a
 request is therefore kept short (_check_ai_request): at most AI_MAX_ROWS
 rows, and at most AI_MAX_REPLAYED entries replayed in all, since each row
-dated before the ledger's latest entry replays the whole ledger. A body
-over MAX_BODY_BYTES is refused before it is read, whoever sends it.
+dated before the ledger's latest entry replays the whole ledger. The body's
+size is limited for every route (body_limit.py).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Coroutine
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.routing import APIRoute
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
-from starlette.types import Message, Receive
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.services.tax_time import get_tax_timezone
-from backend.routers.csv_import import MAX_FILE_SIZE, MAX_ROWS
+from backend.routers.csv_import import MAX_ROWS
 from backend.schemas.entry_import import (
     CreatedTransaction,
     EntryExecuteResponse,
@@ -55,9 +50,8 @@ from backend.services.entry_import import (
     write_rows,
 )
 
-# Room for MAX_ROWS rows (about 200 bytes each), like a CSV file's limit.
-MAX_BODY_BYTES = MAX_FILE_SIZE
-BODY_TOO_LARGE = f"Request too large. Maximum size is {MAX_BODY_BYTES // (1024 * 1024)}MB."
+router = APIRouter()
+
 # With the AI key: far more than an AI app sends in one call, and under a
 # second of work when the rows come after the ledger's latest entry.
 AI_MAX_ROWS = 500
@@ -66,42 +60,6 @@ AI_MAX_ROWS = 500
 # on a laptop). A request then holds the write lock about 2 s, so the
 # owner's saves, which wait 5 s for it, go through on a server twice as slow.
 AI_MAX_REPLAYED = 2000
-
-
-def _at_most(receive: Receive, limit: int) -> Receive:
-    """`receive`, stopping with 413 once the body passes `limit` bytes (a
-    body sent in chunks has no Content-Length)."""
-    received = 0
-
-    async def counted() -> Message:
-        nonlocal received
-        message = await receive()
-        received += len(message.get("body", b""))
-        if received > limit:
-            raise HTTPException(status_code=413, detail=BODY_TOO_LARGE)
-        return message
-
-    return counted
-
-
-class BodyAtMost(APIRoute):
-    """A route whose body is refused (413) past MAX_BODY_BYTES before it is
-    read: FastAPI reads and parses a JSON body before any dependency, the
-    login check included."""
-
-    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
-        handler = super().get_route_handler()
-
-        async def limited(request: Request) -> Response:
-            length = request.headers.get("content-length", "")
-            if length.isdigit() and int(length) > MAX_BODY_BYTES:
-                raise HTTPException(status_code=413, detail=BODY_TOO_LARGE)
-            return await handler(Request(request.scope, _at_most(request.receive, MAX_BODY_BYTES)))
-
-        return limited
-
-
-router = APIRouter(route_class=BodyAtMost)
 
 
 def _with_ai_key(request: Request) -> bool:

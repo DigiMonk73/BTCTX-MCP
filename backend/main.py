@@ -238,6 +238,18 @@ app.include_router(entry_import.router, prefix="/api/import/entries", tags=["imp
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
 app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=[Depends(get_current_user)])
 
+# Added last, so it runs first: a body over its limit is refused before
+# anything reads it (body_limit.py). The routes taking a file keep their
+# own limits.
+from backend.body_limit import BodyLimitMiddleware
+
+app.add_middleware(BodyLimitMiddleware, file_limits={
+    "/api/backup/restore": backup.MAX_RESTORE_BYTES,
+    "/api/import/preview": csv_import.MAX_FILE_SIZE,
+    "/api/import/execute": csv_import.MAX_FILE_SIZE,
+    "/api/import/river/preview": csv_import.MAX_FILE_SIZE,
+})
+
 # Debug routes: a logged-in session only, never the AI key.
 try:
     from backend.routers import debug

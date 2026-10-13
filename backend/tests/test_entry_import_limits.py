@@ -7,9 +7,8 @@ before the ledger's latest entry replays the whole ledger, so a long
 request kept the owner's own saves (turning AI access off included)
 waiting until they failed with "database is locked". With the AI key a
 request takes at most AI_MAX_ROWS rows and replays at most AI_MAX_REPLAYED
-entries; a body over MAX_BODY_BYTES is refused before it is read, whoever
-sends it. A login (the owner, scripts) keeps MAX_ROWS, and the CSV import
-is unchanged.
+entries. A login (the owner, scripts) keeps MAX_ROWS, and the CSV import is
+unchanged. The body's size limit, for every route: test_body_limit.py.
 """
 
 import importlib.util
@@ -23,7 +22,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.routers import entry_import
-from backend.routers.entry_import import AI_MAX_REPLAYED, AI_MAX_ROWS, BODY_TOO_LARGE, MAX_BODY_BYTES
+from backend.routers.entry_import import AI_MAX_REPLAYED, AI_MAX_ROWS
 from backend.services import first_run, outbound
 from backend.services.csv_import import CSV_COLUMNS
 
@@ -102,33 +101,6 @@ def test_the_owners_csv_import_is_unchanged(empty_ledger):
     r = owner.post("/api/import/execute", files={"file": ("big.csv", csv, "text/csv")})
     assert r.status_code == 200, r.text
     assert count(owner) == AI_MAX_ROWS + 1
-
-
-# The body's size, whoever sends it
-def test_a_body_over_the_limit_is_refused_before_it_is_read(auth_client):
-    """Not JSON and no login: 413, not 422 (its parse) or 401 (the login
-    check, which comes after FastAPI reads the body)."""
-    anonymous = TestClient(app)
-    for url in (PREVIEW, EXECUTE):
-        r = anonymous.post(url, content=b"x" * (MAX_BODY_BYTES + 1), headers={"Content-Type": "application/json"})
-        assert r.status_code == 413, (url, r.status_code, r.text)
-        assert r.json()["detail"] == BODY_TOO_LARGE
-
-
-def test_a_body_sent_in_chunks_is_counted(empty_ledger):
-    """No Content-Length: the bytes are counted as they come."""
-    owner, ai = empty_ledger
-
-    def chunks():
-        yield b'{"rows": ['
-        for _ in range(MAX_BODY_BYTES // (1024 * 1024) + 1):
-            yield b" " * (1024 * 1024)
-        yield b"]}"
-
-    r = owner.post(PREVIEW, content=chunks(), headers={"Content-Type": "application/json"})
-    assert r.status_code == 413 and r.json()["detail"] == BODY_TOO_LARGE
-    r = owner.post(PREVIEW, content=iter([b'{"rows": [', b"]}"]), headers={"Content-Type": "application/json"})
-    assert r.status_code == 400 and r.json()["detail"] == "No rows provided."
 
 
 # Rows dated before the ledger's latest entry, with the AI key
