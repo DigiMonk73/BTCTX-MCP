@@ -832,6 +832,13 @@ Start from the `clean` snapshot.
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones." The service keeps running. Dismiss the task in
   StartOS, then restart the service and the server: it doesn't come back.
+- **UPG-8** (#143, a beta user may skip a release) A pass of its own:
+  restore the VM's `clean` snapshot, sideload the published 1.2.5:0
+  (`btctx.s9pk` of the v1.2.5 GitHub release), set it up as in UPG-1 (its
+  action may name the choices differently), then sideload the candidate.
+  Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
+  recorded figure is identical, the login and the AI key still work. UPG-3's
+  exceptions are the CHANGELOG entries of 1.2.6, 1.2.7 and this release.
 
 ## Track C: the Mac app (only on a Mac)
 
