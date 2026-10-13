@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
+import { TOR_REFUSED, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -150,6 +150,11 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     expect(historyLine(h({ state: "failed" }), { ...ctx, tor: true })?.text).toMatch(
       /through Tor: is Tor running\? It's tried again when BitcoinTX next needs it or restarts, at least 10 minutes later\./,
     );
+    expect(historyLine(h({ state: "failed", refused: true }), { ...ctx, tor: true })).toEqual({
+      tone: "warning", text: `The hourly history didn't download. ${TOR_REFUSED}`,
+    });
+    expect(TOR_REFUSED).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download/);
+    expect(historyLine(h({ state: "failed", refused: true }), ctx)?.text).toMatch(/didn't download: Bitstamp refused it\./);
     expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
       "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. " +
         "Tried again a day later, when BitcoinTX next needs it or restarts.",

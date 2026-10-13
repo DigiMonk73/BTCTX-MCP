@@ -40,7 +40,7 @@ const inputSpec = InputSpec.of({
   tor: Value.toggle({
     name: i18n('Use Tor (the Tor service on this server)'),
     description: i18n(
-      'Needs the Tor service on this server. Public price sites then never see your IP address. Used with Public price sites, with My Mempool when it may ask public price sites, and with Decide in BitcoinTX instead, where BitcoinTX shows it as Tor on this server.',
+      "Needs the Tor service on this server. Public price sites then never see your IP address. Used with Public price sites, with My Mempool when it may ask public price sites, and with Decide in BitcoinTX instead, where BitcoinTX shows it as Tor on this server. Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download; only the live price works. Choose Public price sites without Tor to download them (once checked, the hourly history stays), use My Mempool on this server for newer values, or type them.",
     ),
     default: false,
   }),

@@ -48,7 +48,7 @@ export const current = VersionInfo.of({
 
 **Known limitation**
 
-- **Through Tor, Bitstamp currently refuses BitcoinTX's requests.** With Public price sites and Use Tor, the one-time hourly download and older daily prices don't arrive; nothing is sent without Tor instead, and no value becomes $0. Kraken still gives the live price and recent days. For older values: download the history once with Public price sites without Tor (once downloaded and checked, it stays, with Tor or not), use My Mempool on this server, or type them. A fix is planned.
+- **Through Tor, Bitstamp currently refuses BitcoinTX's requests:** the hourly history and past prices don't download; only the live price works. Choose Public price sites without Tor to download them (once checked, the hourly history stays), use your own Mempool for newer values, or type them. Nothing is sent without Tor instead, and no value becomes $0. A fix is planned.
 
 **Security and smaller fixes**
 
@@ -90,7 +90,7 @@ export const current = VersionInfo.of({
 
 **Limitación conocida**
 
-- **Por Tor, Bitstamp rechaza ahora las peticiones de BitcoinTX.** Con Sitios públicos de precios y Tor, la descarga única de precios por hora y los precios diarios antiguos no llegan; nunca se envía nada sin Tor en su lugar, y ningún valor pasa a ser 0 $. Kraken sigue dando el precio en vivo y los días recientes. Para valores antiguos: descarga el historial una vez con Sitios públicos de precios sin Tor (una vez descargado y comprobado, se queda, con Tor o sin él), usa Mi Mempool en este servidor o escríbelos. Hay una corrección prevista.
+- **Por Tor, Bitstamp rechaza ahora las peticiones de BitcoinTX:** el historial por hora y los precios pasados no se descargan; solo funciona el precio en vivo. Elige Sitios públicos de precios sin Tor para descargarlos (una vez comprobado, el historial por hora se queda), usa tu propio Mempool para los valores más recientes o escríbelos. Nunca se envía nada sin Tor en su lugar, y ningún valor pasa a ser 0 $. Hay una corrección prevista.
 
 **Seguridad y correcciones menores**
 
@@ -132,7 +132,7 @@ export const current = VersionInfo.of({
 
 **Bekannte Einschränkung**
 
-- **Über Tor lehnt Bitstamp die Anfragen von BitcoinTX derzeit ab.** Mit Öffentliche Preisseiten und Tor kommen der einmalige Download der Stundenkurse und ältere Tageskurse nicht an; stattdessen wird nie etwas ohne Tor gesendet, und kein Wert wird 0 $. Kraken liefert weiter den Live-Kurs und die letzten Tage. Für ältere Werte: Lade den Verlauf einmal mit Öffentliche Preisseiten ohne Tor herunter (einmal heruntergeladen und geprüft, bleibt er, mit Tor oder ohne), nutze Mein Mempool auf diesem Server, oder gib sie ein. Eine Korrektur ist geplant.
+- **Über Tor lehnt Bitstamp die Anfragen von BitcoinTX derzeit ab:** Der Stundenverlauf und vergangene Kurse werden nicht heruntergeladen; nur der Live-Kurs funktioniert. Wähle Öffentliche Preisseiten ohne Tor, um sie herunterzuladen (einmal geprüft, bleibt der Stundenverlauf), nutze deinen eigenen Mempool für neuere Werte, oder gib sie ein. Stattdessen wird nie etwas ohne Tor gesendet, und kein Wert wird 0 $. Eine Korrektur ist geplant.
 
 **Sicherheit und kleinere Korrekturen**
 
@@ -174,7 +174,7 @@ export const current = VersionInfo.of({
 
 **Znane ograniczenie**
 
-- **Przez Tor Bitstamp obecnie odrzuca zapytania BitcoinTX.** Przy Publiczne serwisy cenowe i Torze jednorazowe pobranie cen godzinowych i starsze ceny dzienne nie docierają; nic nie jest wtedy wysyłane bez Tora, a żadna wartość nie staje się 0 $. Kraken nadal podaje bieżącą cenę i ostatnie dni. Dla starszych wartości: pobierz historię raz z Publiczne serwisy cenowe bez Tora (raz pobrana i sprawdzona, zostaje, z Torem lub bez), użyj Mój Mempool na tym serwerze albo wpisz je. Poprawka jest planowana.
+- **Przez Tor Bitstamp obecnie odrzuca zapytania BitcoinTX:** historia godzinowa i ceny z przeszłości się nie pobierają; działa tylko bieżąca cena. Wybierz Publiczne serwisy cenowe bez Tora, aby je pobrać (raz sprawdzona historia godzinowa zostaje), użyj własnego Mempoola dla nowszych wartości albo je wpisz. Nic nie jest wtedy wysyłane bez Tora, a żadna wartość nie staje się 0 $. Poprawka jest planowana.
 
 **Bezpieczeństwo i mniejsze poprawki**
 
@@ -216,7 +216,7 @@ export const current = VersionInfo.of({
 
 **Limite connue**
 
-- **Via Tor, Bitstamp refuse actuellement les requêtes de BitcoinTX.** Avec Sites publics de prix et Tor, le téléchargement unique des prix horaires et les prix journaliers anciens n’arrivent pas ; rien n’est alors envoyé sans Tor, et aucune valeur ne devient 0 $. Kraken donne toujours le prix en direct et les jours récents. Pour les valeurs anciennes : téléchargez l’historique une fois avec Sites publics de prix sans Tor (une fois téléchargé et vérifié, il reste, avec ou sans Tor), utilisez Mon Mempool sur ce serveur, ou saisissez-les. Une correction est prévue.
+- **Via Tor, Bitstamp refuse actuellement les requêtes de BitcoinTX :** l’historique horaire et les prix passés ne se téléchargent pas ; seul le prix en direct fonctionne. Choisissez Sites publics de prix sans Tor pour les télécharger (une fois vérifié, l’historique horaire reste), utilisez votre propre Mempool pour les valeurs récentes, ou saisissez-les. Rien n’est alors envoyé sans Tor, et aucune valeur ne devient 0 $. Une correction est prévue.
 
 **Sécurité et corrections mineures**
 

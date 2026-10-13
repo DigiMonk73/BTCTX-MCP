@@ -21,8 +21,15 @@ export interface HistoryStatus {
   years_done: number;
   state: "complete" | "downloading" | "failed" | "not_allowed" | "waiting";
   failed_at: string | null;
+  /** The download failed because Bitstamp refused it (a block or a challenge page). */
+  refused?: boolean;
   mismatched: number[];
 }
+
+/** What Bitstamp gives Tor's exits (#241), said wherever Tor and the history meet. */
+export const TOR_REFUSED =
+  "Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download; only the live price works. " +
+  "Choose Public price sites without Tor to download them (once checked, the hourly history stays), use your own Mempool for newer values, or type them.";
 
 export interface PriceStatus {
   source: PriceSource | "unset";
@@ -184,8 +191,11 @@ export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | 
 const LATER = "when BitcoinTX next needs it or restarts";
 
 function problemLine(h: HistoryStatus, span: string, ctx: StatusContext): HistoryLine | null {
+  if (h.state === "failed" && ctx.tor && h.refused) {
+    return { tone: "warning", text: `The hourly history didn't download. ${TOR_REFUSED}` };
+  }
   if (h.state === "failed") {
-    const why = ctx.tor ? "Bitstamp didn't answer through Tor: is Tor running?" : "Bitstamp didn't answer.";
+    const why = ctx.tor ? "Bitstamp didn't answer through Tor: is Tor running?" : h.refused ? "Bitstamp refused it." : "Bitstamp didn't answer.";
     return { tone: "warning", text: `The hourly history didn't download: ${why} It's tried again ${LATER}, at least 10 minutes later. Meanwhile values use the day's price.` };
   }
   if (h.mismatched.length > 0) {

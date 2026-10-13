@@ -484,14 +484,16 @@ All notable changes to BitcoinTX are documented in this file.
   setup prompt asking for btctx-mcp==1.2.7. They were from 1.2.2.
 
 ### Known limitations
-- **Through Tor, Bitstamp refuses BitcoinTX's requests** (found in the
-  1.2.8 release tests, PRC-3b: 403 or its "Loading" challenge). With
-  public price sites through Tor, the one-time hourly download and
-  Bitstamp's daily history fail; it fails safe (no direct request, never
-  $0), and Kraken still gives the live price and the latest days. Download
-  the history once without Tor (once checked it stays, whatever the choice
-  later), use your own Mempool, or type older values. A fix is planned for
-  1.2.9.
+- **Through Tor, Bitstamp refuses BitcoinTX's requests** (#241; found in
+  the 1.2.8 release tests, PRC-3b: 403 or its "Loading" challenge). With
+  public price sites (or your Mempool's public backup) through Tor, the
+  hourly history and every past price from Bitstamp fail; only the live
+  price works (Kraken). It fails safe: no direct request, never $0. Choose
+  public price sites without Tor to download them (a checked hourly history
+  stays, whatever you choose later), use your own Mempool for newer values,
+  or type them. The price card now says so when Bitstamp refuses through
+  Tor, instead of asking whether Tor is running, and so do the Through Tor
+  box and StartOS's Use Tor. A fix is planned for 1.2.9.
 
 ### StartOS package
 - **Price Source & Privacy, in the redesign's words** (#145). The action asks

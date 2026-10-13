@@ -45,6 +45,8 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
+
+import httpx
 from pathlib import Path
 
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -217,6 +219,7 @@ def download_status() -> dict:
         "years_done": len(done),
         "state": state,
         "failed_at": failed,
+        "refused": state == "failed" and _state["refused"],
         "mismatched": mismatched,
     }
 
@@ -280,7 +283,7 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
-    _state.update(running=False, failed_at=-1e9, failed_wall=None, mismatched={}, public_at=-1e9, verified={})
+    _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9, verified={})
     _live.update(rows=None, hours={})
 
 
@@ -384,12 +387,20 @@ def _download(lines: list[pf.YearLine]) -> None:
         logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
+        _state["refused"] = _refused(exc)
         _state["failed_at"] = time.monotonic()
         _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     finally:
         with _changed:
             _state["running"] = False
             _changed.notify_all()
+
+
+def _refused(exc: Exception) -> bool:
+    """Bitstamp answered, but with a block or a challenge page instead of
+    prices (403, or a redirect to one): what it gives Tor's exits (#241)."""
+    return isinstance(exc, httpx.HTTPStatusError) and (
+        exc.response.status_code == 403 or exc.response.is_redirect)
 
 
 async def _download_years(lines: list[pf.YearLine]) -> None:
