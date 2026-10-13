@@ -257,7 +257,7 @@ So derived values must be recomputable from the Transaction row alone.
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing; Secure cookie over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
 | `backend/session_auth.py` | session stamp of the password hash (a password change ends other sessions) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
@@ -291,7 +291,10 @@ So derived values must be recomputable from the Transaction row alone.
   log). Not in the Mac app (127.0.0.1 only); StartOS never has the default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
-  `CORS_ALLOW_ORIGINS` is set.
+  `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
+  to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
+  `security_headers.LocalAddressOnlyMiddleware`), and its server never takes
+  a client's address from `X-Forwarded-For` (`desktop/entrypoint.py`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
   ReportLab, which may fetch nothing remote); CSV text cells can't start a
   formula.
