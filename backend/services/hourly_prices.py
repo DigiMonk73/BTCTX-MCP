@@ -45,8 +45,6 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
-
-import httpx
 from pathlib import Path
 
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -399,8 +397,8 @@ def _download(lines: list[pf.YearLine]) -> None:
 def _refused(exc: Exception) -> bool:
     """Bitstamp answered, but with a block or a challenge page instead of
     prices (403, or a redirect to one): what it gives Tor's exits (#241)."""
-    return isinstance(exc, httpx.HTTPStatusError) and (
-        exc.response.status_code == 403 or exc.response.is_redirect)
+    response = getattr(exc, "response", None)  # an HTTP status error's answer
+    return response is not None and (response.status_code == 403 or response.is_redirect)
 
 
 async def _download_years(lines: list[pf.YearLine]) -> None:
