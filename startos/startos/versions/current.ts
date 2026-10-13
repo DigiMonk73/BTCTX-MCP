@@ -144,7 +144,7 @@ export const current = VersionInfo.of({
 
 - **Odziedziczone bitcoiny.** Zapisane jako My BTC lub Gift, jak pozwalały wcześniejsze wersje, mogły dawać błędne wartości: sprzedaż w ciągu roku od śmierci wychodziła jako krótkoterminowa, lub koszt nabycia Gift był kosztem samej osoby. Wszystkie wcześniejsze wersje, każdy rok podatkowy z taką sprzedażą. Co zrobić: zmień każdą taką wpłatę na nowe źródło Inherited, z datą śmierci i jej wartością z tego dnia. Wpłata zapisana przed 1.1.0 ze źródłem "inherited" podlega tym zasadom od następnego przeliczenia; Ledger Review pokazuje te bez daty śmierci.
 
-- **Cena poniżej jednego centa była zapisywana jako 0 $.** Cena dnia podana przez serwis poniżej jednego centa była zapisywana jako 0,00 $, a wartość uzupełniona z niej wynosiła 0 $. Wersje 0.9.2 do 1.2.7, każdy rok podatkowy; żadna taka cena nie jest znana. Co zrobić: nic, chyba że kiedyś widziałeś wartość "From the price" równą 0,00 $: wpisz tę wartość (dzień już zapisany z 0,00 $ taki zostaje).
+- **Cena poniżej jednego centa była zapisywana jako 0 $.** Cena dnia podana przez serwis poniżej jednego centa była zapisywana jako 0,00 $, a wartość uzupełniona z niej wynosiła 0 $. Wersje 0.9.2 do 1.2.7, każdy rok podatkowy; żadna taka cena nie jest znana. Co zrobić: nic, chyba że kiedyś pojawiła się wartość "From the price" równa 0,00 $: wpisz tę wartość (dzień już zapisany z 0,00 $ taki zostaje).
 
 **Prywatność: wybór źródła cen bez pytania (naprawione)**
 
