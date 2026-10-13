@@ -240,6 +240,23 @@ def test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored(s
     assert sites.requests == []  # stored, and asked at most every 10 minutes
 
 
+def test_an_hour_bitstamp_gives_at_no_price_is_never_kept(sites, db):
+    """Session 8's review (#151): an hour after the files that Bitstamp gave
+    at 0, below 0 or as no number was kept, and a kept hour is never
+    replaced, so a value left blank in that hour was saved at $0 or less
+    (AGENTS.md: never $0). Such an hour has no price: the day's is used."""
+    hp.start_download()
+    finish_download()
+    bad = {"2026-03-18T05:00Z": "0", "2026-03-18T06:00Z": "-5", "2026-03-18T07:00Z": "NaN"}
+    for label, open_ in bad.items():
+        sites.bitstamp[at(label)] = open_
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
+    stored = {row.hour for row in db.query(BtcPriceHourly)}
+    assert not stored & {at(label) for label in bad}
+    assert at("2026-03-18T08:00Z") in stored  # the hours around them still are
+    assert hp.hourly_price(db, utc("2026-03-18T06:59Z")) is None
+
+
 def live_rows(first_live: int, until: int, spike: int | None = None) -> list[dict]:
     """A mempool server's history: weekly rows, then hourly from `first_live`."""
     rows = [{"time": t, "USD": 30000} for t in range(first_live - 400 * 86400, first_live, 7 * 86400)]
