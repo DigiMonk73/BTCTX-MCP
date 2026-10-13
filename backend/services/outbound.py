@@ -592,6 +592,8 @@ class _Body:
             self._decoder = None
         else:
             raise httpx.DecodingError(f"an answer encoded as {name!r}")
+        self._raw_deflate_allowed = name == "deflate"  # as httpx: deflate may come without its header
+        self._fed = False
         self.data = bytearray()
 
     def add(self, part: bytes) -> None:
@@ -600,15 +602,23 @@ class _Body:
             return
         room = MAX_ANSWER_BYTES + 1 - len(self.data)
         try:
-            self._keep(self._decoder.decompress(part, room))
+            out = self._decoder.decompress(part, room)
         except zlib.error as e:
-            raise httpx.DecodingError(f"an answer that doesn't decode: {e}") from e
+            if not (self._raw_deflate_allowed and not self._fed):
+                raise httpx.DecodingError(f"an answer that doesn't decode: {e}") from e
+            self._decoder = zlib.decompressobj(-zlib.MAX_WBITS)
+            out = self._decoder.decompress(part, room)
+        self._fed = self._fed or bool(part)
+        self._keep(out)
         if self._decoder.unconsumed_tail:  # more than the room left
             raise AnswerTooLarge(f"an answer over {MAX_ANSWER_BYTES} bytes")
 
     def finish(self) -> None:
-        if self._decoder is not None:
-            self._keep(self._decoder.flush())  # at most the decoder's window: the input is all consumed
+        if self._decoder is None:
+            return
+        self._keep(self._decoder.flush())  # at most the decoder's window: the input is all consumed
+        if self._fed and not self._decoder.eof:
+            raise httpx.DecodingError("an answer cut short")
 
     def _keep(self, data: bytes) -> None:
         self.data += data

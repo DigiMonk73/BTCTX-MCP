@@ -147,13 +147,14 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     now = time.monotonic()
     if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
-    # Counted before it starts: a lookup ended at its limit (_run) still
-    # waits RETRY_SECONDS before the next try. A success marks the history
-    # complete, so it isn't asked again.
+    # Counted before it starts, so a lookup ended at its limit (_run) still
+    # waits RETRY_SECONDS before the next try; a success clears it (the
+    # caller may not keep what came, and then it's asked again)
     _state["full_failed_at"] = now
     async with outbound.async_client() as client:
         got = await _bitstamp_blocks(client)
     if got:
+        _state["full_failed_at"] = -1e9
         logger.info("BTC price history from public site bitstamp: %d days", len(got))
         return _kept(got, "bitstamp"), True
     return {}, False

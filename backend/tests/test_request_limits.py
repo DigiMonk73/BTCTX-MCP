@@ -289,3 +289,40 @@ def test_a_streamed_gzip_answer_still_decodes(monkeypatch):
     packed = gzip.compress(body)
     r = ask_with(monkeypatch, {"Content-Encoding": "gzip"}, packed[:10], packed[10:])
     assert r.status_code == 200 and r.json()["result"]["XXBTZUSD"]["c"][0] == "65000.0"
+
+
+# #220's re-check
+def test_raw_deflate_still_decodes_and_a_cut_gzip_answer_is_refused(monkeypatch):
+    import zlib
+
+    body = b'{"error": [], "result": {"XXBTZUSD": {"c": ["65000.0", "1"]}}}'
+    raw = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+    deflated = raw.compress(body) + raw.flush()
+    assert ask_with(monkeypatch, {"Content-Encoding": "deflate"}, deflated).json()["error"] == []
+    packed = gzip.compress(body)
+    with pytest.raises(httpx.DecodingError):
+        ask_with(monkeypatch, {"Content-Encoding": "gzip"}, packed[: len(packed) // 2])
+    assert ask_with(monkeypatch, {"Content-Encoding": "gzip"}).content == b""  # an empty body is fine
+
+
+def test_a_download_whose_prices_werent_kept_is_asked_again_at_once(monkeypatch, test_engine):
+    """A success clears the retry timer: if the request that asked failed
+    afterwards (nothing committed), the next lookup downloads again."""
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.tests.test_price_history import FakeSources, all_days
+
+    fake = FakeSources()
+    fake.bitstamp = all_days()
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(fake.handler))
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
+    use(price_source="public")
+    day = date(2020, 5, 5)
+    with sessionmaker(bind=test_engine)() as db:
+        assert price_history.daily_price(db, day) > 0
+        db.rollback()  # the request failed later: nothing kept
+    fake.requests.clear()
+    with sessionmaker(bind=test_engine)() as db:
+        assert price_history.daily_price(db, day) > 0
+        db.rollback()
+    assert fake.requests, "asked again"
