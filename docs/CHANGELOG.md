@@ -287,8 +287,10 @@ All notable changes to BitcoinTX are documented in this file.
   - What could have been sent: requests from the server's address to
     public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or
     Coinbase) and the block height (Blockchain.info, Blockstream or
-    mempool.space). Never dates, amounts or anything from the ledger; over
-    Tor, not even the address. Every request the app can make is listed in
+    mempool.space). Never dates, amounts or anything from the ledger. The
+    action's Use Tor didn't apply after the switch (the package passed its
+    proxy only while the action set the source), so only a proxy set in
+    BitcoinTX's own Settings hid the address. Every request the app can make is listed in
     `docs/PRIVACY_AUDIT.md`.
   - What to do: confirm or change the choice when BitcoinTX asks once
     after the update (next entry), or check Settings › Privacy & Network.

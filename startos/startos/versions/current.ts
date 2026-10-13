@@ -19,8 +19,8 @@ export const current = VersionInfo.of({
 
 **What to do after updating**
 
-- **Recalculate Ledger.** A task asks once. First open Settings > Ledger Review in BitcoinTX: it lists each spend whose figures change, old and new. Then run Recalculate Ledger (here, or in Settings).
-- **Confirm where prices come from.** Unless this action sets it, BitcoinTX's Dashboard asks once to confirm your price choice, and asks nobody until you do. If you never made a choice in this action, a task asks once.
+- **Recalculate Ledger.** A task asks for it until you run it. First open Settings > Ledger Review in BitcoinTX: it lists each spend whose figures change, old and new. Then run the StartOS action Recalculate Ledger, or Settings > Recalculate Ledger in BitcoinTX.
+- **Confirm where prices come from.** Unless the action Price Source & Privacy sets it, BitcoinTX's Dashboard asks once to confirm your price choice, and asks nobody until you do. If you never made a choice in that action, a task asks once.
 - **Log in again.** After this update everyone logs in once more.
 - **Update your AI connector.** In your AI app's configuration, change the version after btctx-mcp== to 1.2.8 and restart the AI app. It now lists a sale's or spend's gross proceeds beside the after-fee figure; an older connector could take the fee off twice when it edited one.
 
@@ -30,14 +30,14 @@ export const current = VersionInfo.of({
 
 **Privacy: a price choice made without asking (fixed)**
 
-- Who could be affected: in 1.2.0 to 1.2.7, owners who switched this action to Decide in BitcoinTX instead (called Choose in BitcoinTX before) after it had been set to Off, Public price sites or My Mempool, or who ran Set Login Credentials or a hand-run command while it was set. BitcoinTX could then save Public price sites as your choice in the app without asking, and use it after a switch.
-- What could have been sent: requests from your server's address to public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or Coinbase) and the block height (Blockchain.info, Blockstream or mempool.space). Never dates, amounts or anything from your ledger; over Tor, not even your address.
+- Who could be affected: in 1.2.0 to 1.2.7, owners who switched Price Source & Privacy to Decide in BitcoinTX instead (called Choose in BitcoinTX before) after it had been set to Off, Public price sites or My Mempool, or who ran Set Login Credentials or a hand-run command while it was set. BitcoinTX could then save Public price sites as your choice in the app without asking, and use it after a switch.
+- What could have been sent: requests from your server's address to public sites for Bitcoin's price (CoinGecko, Kraken, Bitstamp or Coinbase) and the block height (Blockchain.info, Blockstream or mempool.space). Never dates, amounts or anything from your ledger. The action's Use Tor no longer applied after the switch: only a proxy set in BitcoinTX's own Settings hid your address.
 - What to do: confirm or change the choice when BitcoinTX asks once after this update (above), or check Settings > Privacy & Network.
 
 **New**
 
 - **Prices at the hour.** Values BitcoinTX fills in from the BTC price (a blank income or rebate value, a Spent's proceeds, a network fee's value) now use the price when the transaction's hour began: the IRS values bitcoin at the date and time. When your choice allows public price sites, BitcoinTX downloads Bitstamp's hourly prices from 2013 once (about 3 MB), each year checked against a fingerprint that comes with this version. Nothing already saved changes: Ledger Review lists, by tax year, values priced at the day that the hour would change, and changes only the ones you apply.
-- **One price choice.** This action now offers My Mempool on this server, Public price sites, Nobody, or Decide in BitcoinTX instead, with Use Tor and, for Mempool, a backup of public price sites. A new install asks before it starts. In the app, one price card says where prices come from and when the last one arrived, and the Dashboard, the sidebar and the transaction form say which price a value used. Coinbase and CoinGecko are no longer asked.
+- **One price choice.** Price Source & Privacy now offers My Mempool on this server, Public price sites, Nobody, or Decide in BitcoinTX instead, with Use Tor and, for Mempool, a backup of public price sites. A new install asks before it starts. In the app, one price card says where prices come from and when the last one arrived, and the Dashboard, the sidebar and the transaction form say which price a value used. Coinbase and CoinGecko are no longer asked.
 - **Inherited bitcoin.** A new deposit source, Inherited: its cost basis is its value on the date of death, and every sale of those coins is long-term, marked INHERITED on Form 8949.
 - **Consolidations.** A transfer within the same wallet (or between exchanges BitcoinTX counts as one) records only its network fee, a disposal of your oldest coins.
 - **Trust this server.** With Decide in BitcoinTX instead, a Mempool on another home server at its https address can be trusted from the price card.
@@ -52,8 +52,8 @@ export const current = VersionInfo.of({
 
 **Qué hacer después de actualizar**
 
-- **Recalcular el libro contable.** Una tarea lo pide una vez. Primero abre Settings > Ledger Review en BitcoinTX: muestra cada gasto cuyas cifras cambian, con las anteriores y las nuevas. Después ejecuta Recalcular el libro contable (aquí o en Settings).
-- **Confirma de dónde vienen los precios.** Salvo que esta acción lo fije, el Dashboard de BitcoinTX pide una vez que confirmes tu elección de precios, y no pregunta a nadie hasta que lo hagas. Si nunca elegiste nada en esta acción, una tarea lo pide una vez.
+- **Recalcular el libro contable.** Una tarea lo pide hasta que la ejecutes. Primero abre Settings > Ledger Review en BitcoinTX: muestra cada gasto cuyas cifras cambian, con las anteriores y las nuevas. Después ejecuta la acción de StartOS Recalcular el libro contable, o Settings > Recalculate Ledger en BitcoinTX.
+- **Confirma de dónde vienen los precios.** Salvo que la acción Fuente de precios y privacidad lo fije, el Dashboard de BitcoinTX pide una vez que confirmes tu elección de precios, y no pregunta a nadie hasta que lo hagas. Si nunca elegiste nada en esa acción, una tarea lo pide una vez.
 - **Vuelve a iniciar sesión.** Después de esta actualización todos inician sesión una vez más.
 - **Actualiza tu conector de IA.** En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.8 y reinicia la aplicación. Ahora muestra los ingresos brutos de una venta o un gasto junto a la cifra tras la comisión; un conector anterior podía restar la comisión dos veces al editar uno.
 
@@ -63,17 +63,17 @@ export const current = VersionInfo.of({
 
 **Privacidad: una elección de precios hecha sin preguntar (corregido)**
 
-- A quién pudo afectar: en las versiones 1.2.0 a 1.2.7, a quienes cambiaron esta acción a Decidir en BitcoinTX en su lugar (antes Elegir en BitcoinTX) después de tenerla en Desactivado, Sitios públicos de precios o Mi Mempool, o ejecutaron Establecer credenciales de acceso o un comando a mano mientras estaba así. BitcoinTX podía entonces guardar Public price sites como tu elección en la aplicación sin preguntar y usarla tras el cambio.
-- Qué pudo enviarse: peticiones desde la dirección de tu servidor a sitios públicos, para el precio del bitcoin (CoinGecko, Kraken, Bitstamp o Coinbase) y la altura de bloque (Blockchain.info, Blockstream o mempool.space). Nunca fechas, cantidades ni nada de tu libro contable; por Tor, ni siquiera tu dirección.
+- A quién pudo afectar: en las versiones 1.2.0 a 1.2.7, a quienes cambiaron Fuente de precios y privacidad a Decidir en BitcoinTX en su lugar (antes Elegir en BitcoinTX) después de tenerla en Desactivado, Sitios públicos de precios o Mi Mempool, o ejecutaron Establecer credenciales de acceso o un comando a mano mientras estaba así. BitcoinTX podía entonces guardar Public price sites como tu elección en la aplicación sin preguntar y usarla tras el cambio.
+- Qué pudo enviarse: peticiones desde la dirección de tu servidor a sitios públicos, para el precio del bitcoin (CoinGecko, Kraken, Bitstamp o Coinbase) y la altura de bloque (Blockchain.info, Blockstream o mempool.space). Nunca fechas, cantidades ni nada de tu libro contable. Tras el cambio, el Tor de la acción ya no se aplicaba: solo un proxy configurado en los propios Settings de BitcoinTX ocultaba tu dirección.
 - Qué hacer: confirma o cambia la elección cuando BitcoinTX lo pida una vez tras esta actualización (arriba), o revisa Settings > Privacy & Network.
 
 **Novedades**
 
 - **Precios por hora.** Los valores que BitcoinTX rellena con el precio del BTC (un valor de ingreso o de rebate en blanco, los ingresos de un Spent, el valor de una comisión de red) usan ahora el precio del inicio de la hora de la transacción: el IRS valora el bitcoin en la fecha y la hora. Cuando tu elección permite los sitios públicos de precios, BitcoinTX descarga una vez los precios por hora de Bitstamp desde 2013 (unos 3 MB) y comprueba cada año con una huella que viene con esta versión. Nada de lo ya guardado cambia: Ledger Review muestra, por año fiscal, los valores con el precio del día que la hora cambiaría, y solo cambia los que apliques.
-- **Una sola elección de precios.** Esta acción ofrece ahora Mi Mempool en este servidor, Sitios públicos de precios, Nadie o Decidir en BitcoinTX en su lugar, con Tor y, para Mempool, los sitios públicos como respaldo. Una instalación nueva lo pregunta antes de arrancar. En la aplicación, una sola tarjeta de precios dice de dónde vienen los precios y cuándo llegó el último, y el Dashboard, la barra lateral y el formulario de transacción dicen qué precio usó cada valor. Ya no se pregunta a Coinbase ni a CoinGecko.
+- **Una sola elección de precios.** Fuente de precios y privacidad ofrece ahora Mi Mempool en este servidor, Sitios públicos de precios, Nadie o Decidir en BitcoinTX en su lugar, con Tor y, para Mempool, los sitios públicos como respaldo. Una instalación nueva lo pregunta antes de arrancar. En la aplicación, una sola tarjeta de precios dice de dónde vienen los precios y cuándo llegó el último, y el Dashboard, la barra lateral y el formulario de transacción dicen qué precio usó cada valor. Ya no se pregunta a Coinbase ni a CoinGecko.
 - **Bitcoin heredado.** Un nuevo origen de depósito, Inherited: su coste base es su valor en la fecha del fallecimiento, y toda venta de esas monedas es a largo plazo, marcada INHERITED en el Form 8949.
 - **Consolidaciones.** Una transferencia dentro del mismo monedero (o entre exchanges que BitcoinTX cuenta como uno) registra solo su comisión de red, como disposición de tus monedas más antiguas.
-- **Confiar en este servidor.** Con Decidir en BitcoinTX en su lugar, un Mempool en otro servidor doméstico con dirección https puede marcarse como de confianza desde la tarjeta de precios.
+- **Trust this server.** Con Decidir en BitcoinTX en su lugar, un Mempool en otro servidor doméstico con dirección https puede marcarse como de confianza desde la tarjeta de precios.
 
 **Seguridad y correcciones menores**
 
@@ -85,8 +85,8 @@ export const current = VersionInfo.of({
 
 **Was nach dem Update zu tun ist**
 
-- **Journal neu berechnen.** Eine Aufgabe fragt einmal danach. Öffne zuerst Settings > Ledger Review in BitcoinTX: Dort steht jede Ausgabe, deren Zahlen sich ändern, alt und neu. Führe dann Journal neu berechnen aus (hier oder in Settings).
-- **Bestätige, woher die Kurse kommen.** Sofern diese Aktion es nicht festlegt, bittet das Dashboard von BitcoinTX einmal darum, deine Kurswahl zu bestätigen, und fragt bis dahin niemanden. Hast du in dieser Aktion nie etwas gewählt, fragt eine Aufgabe einmal danach.
+- **Journal neu berechnen.** Eine Aufgabe erinnert daran, bis du die Aktion ausführst. Öffne zuerst Settings > Ledger Review in BitcoinTX: Dort steht jede Ausgabe, deren Zahlen sich ändern, alt und neu. Führe dann die StartOS-Aktion Journal neu berechnen aus, oder Settings > Recalculate Ledger in BitcoinTX.
+- **Bestätige, woher die Kurse kommen.** Sofern die Aktion Kursquelle & Datenschutz es nicht festlegt, bittet das Dashboard von BitcoinTX einmal darum, deine Kurswahl zu bestätigen, und fragt bis dahin niemanden. Hast du in jener Aktion nie etwas gewählt, fragt eine Aufgabe einmal danach.
 - **Melde dich erneut an.** Nach diesem Update melden sich alle noch einmal an.
 - **Aktualisiere deinen KI-Connector.** Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 1.2.8 und starte die App neu. Er zeigt jetzt den Bruttoerlös eines Verkaufs oder einer Ausgabe neben dem Betrag nach Gebühr; ein älterer Connector konnte die Gebühr beim Bearbeiten doppelt abziehen.
 
@@ -96,17 +96,17 @@ export const current = VersionInfo.of({
 
 **Datenschutz: eine Kurswahl ohne Nachfrage (behoben)**
 
-- Wer betroffen sein konnte: in 1.2.0 bis 1.2.7, wer diese Aktion auf Stattdessen in BitcoinTX entscheiden (früher In BitcoinTX wählen) umgestellt hat, nachdem sie auf Aus, Öffentliche Kursseiten oder Mein Mempool stand, oder wer Zugangsdaten festlegen oder einen Befehl von Hand ausgeführt hat, während sie so stand. BitcoinTX konnte dann ohne Nachfrage Public price sites als deine Wahl in der App speichern und nach der Umstellung verwenden.
-- Was gesendet worden sein kann: Anfragen von der Adresse deines Servers an öffentliche Seiten, nach dem Bitcoin-Kurs (CoinGecko, Kraken, Bitstamp oder Coinbase) und der Blockhöhe (Blockchain.info, Blockstream oder mempool.space). Nie Daten, Beträge oder etwas aus deinem Journal; über Tor nicht einmal deine Adresse.
+- Wer betroffen sein konnte: in 1.2.0 bis 1.2.7, wer Kursquelle & Datenschutz auf Stattdessen in BitcoinTX entscheiden (früher In BitcoinTX wählen) umgestellt hat, nachdem sie auf Aus, Öffentliche Kursseiten oder Mein Mempool stand, oder wer Zugangsdaten festlegen oder einen Befehl von Hand ausgeführt hat, während sie so stand. BitcoinTX konnte dann ohne Nachfrage Public price sites als deine Wahl in der App speichern und nach der Umstellung verwenden.
+- Was gesendet worden sein kann: Anfragen von der Adresse deines Servers an öffentliche Seiten, nach dem Bitcoin-Kurs (CoinGecko, Kraken, Bitstamp oder Coinbase) und der Blockhöhe (Blockchain.info, Blockstream oder mempool.space). Nie Daten, Beträge oder etwas aus deinem Journal. Nach der Umstellung galt das Tor der Aktion nicht mehr: Nur ein Proxy in den eigenen Settings von BitcoinTX verbarg deine Adresse.
 - Was zu tun ist: Bestätige oder ändere die Wahl, wenn BitcoinTX nach diesem Update einmal fragt (oben), oder prüfe Settings > Privacy & Network.
 
 **Neu**
 
 - **Kurse zur Stunde.** Werte, die BitcoinTX aus dem BTC-Kurs einsetzt (ein leerer Einkommens- oder Rebate-Wert, der Erlös eines Spent, der Wert einer Netzwerkgebühr), verwenden jetzt den Kurs zu Beginn der Stunde der Transaktion: Der IRS bewertet Bitcoin nach Datum und Uhrzeit. Erlaubt deine Wahl öffentliche Preisseiten, lädt BitcoinTX die Stundenkurse von Bitstamp ab 2013 einmal herunter (etwa 3 MB) und prüft jedes Jahr gegen einen Fingerabdruck, der mit dieser Version kommt. Nichts bereits Gespeichertes ändert sich: Ledger Review listet nach Steuerjahr die Werte zum Tageskurs auf, die die Stunde ändern würde, und ändert nur die, die du übernimmst.
-- **Eine Kurswahl.** Diese Aktion bietet jetzt Mein Mempool auf diesem Server, Öffentliche Preisseiten, Niemand oder Stattdessen in BitcoinTX entscheiden, mit Tor und, für Mempool, öffentlichen Preisseiten als Ersatz. Eine neue Installation fragt vor dem Start. In der App sagt eine Kurskarte, woher die Kurse kommen und wann der letzte kam, und Dashboard, Seitenleiste und Transaktionsformular zeigen, welchen Kurs ein Wert verwendet hat. Coinbase und CoinGecko werden nicht mehr gefragt.
+- **Eine Kurswahl.** Kursquelle & Datenschutz bietet jetzt Mein Mempool auf diesem Server, Öffentliche Preisseiten, Niemand oder Stattdessen in BitcoinTX entscheiden, mit Tor und, für Mempool, öffentlichen Preisseiten als Ersatz. Eine neue Installation fragt vor dem Start. In der App sagt eine Kurskarte, woher die Kurse kommen und wann der letzte kam, und Dashboard, Seitenleiste und Transaktionsformular zeigen, welchen Kurs ein Wert verwendet hat. Coinbase und CoinGecko werden nicht mehr gefragt.
 - **Geerbte Bitcoin.** Eine neue Einzahlungsquelle, Inherited: Ihre Anschaffungskosten sind ihr Wert am Todestag, und jeder Verkauf dieser Coins ist langfristig, in Form 8949 mit INHERITED vermerkt.
 - **Konsolidierungen.** Ein Transfer innerhalb derselben Wallet (oder zwischen Börsen, die BitcoinTX als eine zählt) erfasst nur seine Netzwerkgebühr, als Veräußerung deiner ältesten Coins.
-- **Diesem Server vertrauen.** Mit Stattdessen in BitcoinTX entscheiden kann ein Mempool auf einem anderen Heimserver mit https-Adresse über die Kurskarte als vertrauenswürdig markiert werden.
+- **Trust this server.** Mit Stattdessen in BitcoinTX entscheiden kann ein Mempool auf einem anderen Heimserver mit https-Adresse über die Kurskarte als vertrauenswürdig markiert werden.
 
 **Sicherheit und kleinere Korrekturen**
 
@@ -118,8 +118,8 @@ export const current = VersionInfo.of({
 
 **Co zrobić po aktualizacji**
 
-- **Przelicz księgę.** Zadanie poprosi o to raz. Najpierw otwórz Settings > Ledger Review w BitcoinTX: pokazuje każdy wydatek, którego wartości się zmieniają, stare i nowe. Potem uruchom Przelicz księgę (tutaj albo w Settings).
-- **Potwierdź, skąd pochodzą ceny.** Jeśli ta akcja tego nie ustawia, Dashboard BitcoinTX raz poprosi o potwierdzenie wyboru źródła cen i do tego czasu nikogo nie pyta. Jeśli w tej akcji nigdy niczego nie wybrano, raz poprosi o to zadanie.
+- **Przelicz księgę.** Zadanie przypomina o tym, dopóki nie uruchomisz akcji. Najpierw otwórz Settings > Ledger Review w BitcoinTX: pokazuje każdy wydatek, którego wartości się zmieniają, stare i nowe. Potem uruchom akcję StartOS Przelicz księgę albo Settings > Recalculate Ledger w BitcoinTX.
+- **Potwierdź, skąd pochodzą ceny.** Jeśli akcja Źródło cen i prywatność tego nie ustawia, Dashboard BitcoinTX raz poprosi o potwierdzenie wyboru źródła cen i do tego czasu nikogo nie pyta. Jeśli w tamtej akcji nigdy niczego nie wybrano, raz poprosi o to zadanie.
 - **Zaloguj się ponownie.** Po tej aktualizacji wszyscy logują się jeszcze raz.
 - **Zaktualizuj łącznik AI.** W konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 1.2.8 i uruchom aplikację ponownie. Łącznik pokazuje teraz przychód brutto ze sprzedaży lub wydatku obok kwoty po opłacie; starszy łącznik mógł przy edycji odjąć opłatę dwa razy.
 
@@ -129,17 +129,17 @@ export const current = VersionInfo.of({
 
 **Prywatność: wybór źródła cen bez pytania (naprawione)**
 
-- Kogo mogło to dotyczyć: w wersjach 1.2.0 do 1.2.7 tych, którzy przełączyli tę akcję na Zamiast tego zdecyduj w BitcoinTX (wcześniej Wybierz w BitcoinTX) po ustawieniu jej na Wyłączone, Publiczne serwisy z cenami lub Mój Mempool, albo uruchomili Ustaw dane logowania lub polecenie ręcznie przy takim ustawieniu. BitcoinTX mógł wtedy bez pytania zapisać Public price sites jako Twój wybór w aplikacji i użyć go po przełączeniu.
-- Co mogło zostać wysłane: zapytania z adresu Twojego serwera do publicznych serwisów o cenę bitcoina (CoinGecko, Kraken, Bitstamp lub Coinbase) i wysokość bloku (Blockchain.info, Blockstream lub mempool.space). Nigdy daty, kwoty ani nic z Twojej księgi; przez Tor nawet nie Twój adres.
+- Kogo mogło to dotyczyć: w wersjach 1.2.0 do 1.2.7 tych, którzy przełączyli Źródło cen i prywatność na Zamiast tego zdecyduj w BitcoinTX (wcześniej Wybierz w BitcoinTX) po ustawieniu jej na Wyłączone, Publiczne serwisy z cenami lub Mój Mempool, albo uruchomili Ustaw dane logowania lub polecenie ręcznie przy takim ustawieniu. BitcoinTX mógł wtedy bez pytania zapisać Public price sites jako Twój wybór w aplikacji i użyć go po przełączeniu.
+- Co mogło zostać wysłane: zapytania z adresu Twojego serwera do publicznych serwisów o cenę bitcoina (CoinGecko, Kraken, Bitstamp lub Coinbase) i wysokość bloku (Blockchain.info, Blockstream lub mempool.space). Nigdy daty, kwoty ani nic z Twojej księgi. Po przełączeniu Tor z akcji przestawał działać: Twój adres ukrywało tylko proxy ustawione w samych Settings BitcoinTX.
 - Co zrobić: potwierdź lub zmień wybór, gdy BitcoinTX raz o to zapyta po tej aktualizacji (wyżej), albo sprawdź Settings > Privacy & Network.
 
 **Nowości**
 
 - **Ceny według godziny.** Wartości, które BitcoinTX uzupełnia z ceny BTC (pusta wartość dochodu lub rebate, przychód ze Spent, wartość opłaty sieciowej), używają teraz ceny z początku godziny transakcji: IRS wycenia bitcoina według daty i godziny. Gdy Twój wybór dopuszcza publiczne serwisy cenowe, BitcoinTX raz pobiera godzinowe ceny Bitstamp od 2013 r. (około 3 MB) i sprawdza każdy rok odciskiem dołączonym do tej wersji. Nic już zapisanego się nie zmienia: Ledger Review pokazuje według roku podatkowego wartości wycenione ceną dnia, które godzina by zmieniła, i zmienia tylko te, które zatwierdzisz.
-- **Jeden wybór źródła cen.** Ta akcja oferuje teraz Mój Mempool na tym serwerze, Publiczne serwisy cenowe, Nikt albo Zamiast tego zdecyduj w BitcoinTX, z Torem i, dla Mempoola, publicznymi serwisami jako zapasem. Nowa instalacja pyta o to przed uruchomieniem. W aplikacji jedna karta cen mówi, skąd pochodzą ceny i kiedy przyszła ostatnia, a Dashboard, pasek boczny i formularz transakcji pokazują, jakiej ceny użyła dana wartość. Coinbase i CoinGecko nie są już pytane.
+- **Jeden wybór źródła cen.** Źródło cen i prywatność oferuje teraz Mój Mempool na tym serwerze, Publiczne serwisy cenowe, Nikt albo Zamiast tego zdecyduj w BitcoinTX, z Torem i, dla Mempoola, publicznymi serwisami jako zapasem. Nowa instalacja pyta o to przed uruchomieniem. W aplikacji jedna karta cen mówi, skąd pochodzą ceny i kiedy przyszła ostatnia, a Dashboard, pasek boczny i formularz transakcji pokazują, jakiej ceny użyła dana wartość. Coinbase i CoinGecko nie są już pytane.
 - **Odziedziczone bitcoiny.** Nowe źródło wpłaty, Inherited: koszt nabycia to wartość w dniu śmierci, a każda sprzedaż tych monet jest długoterminowa, oznaczona INHERITED w Form 8949.
 - **Konsolidacje.** Transfer w obrębie tego samego portfela (lub między giełdami, które BitcoinTX liczy jako jedną) zapisuje tylko opłatę sieciową, jako zbycie Twoich najstarszych monet.
-- **Zaufaj temu serwerowi.** Przy Zamiast tego zdecyduj w BitcoinTX Mempool na innym serwerze domowym pod adresem https można oznaczyć jako zaufany na karcie cen.
+- **Trust this server.** Przy Zamiast tego zdecyduj w BitcoinTX Mempool na innym serwerze domowym pod adresem https można oznaczyć jako zaufany na karcie cen.
 
 **Bezpieczeństwo i mniejsze poprawki**
 
@@ -151,8 +151,8 @@ export const current = VersionInfo.of({
 
 **Que faire après la mise à jour**
 
-- **Recalculer le registre.** Une tâche le demande une fois. Ouvrez d’abord Settings > Ledger Review dans BitcoinTX : il liste chaque dépense dont les chiffres changent, anciens et nouveaux. Lancez ensuite Recalculer le registre (ici ou dans Settings).
-- **Confirmez d’où viennent les prix.** Sauf si cette action le fixe, le Dashboard de BitcoinTX demande une fois de confirmer votre choix de prix, et n’interroge personne d’ici là. Si vous n’avez jamais fait de choix dans cette action, une tâche le demande une fois.
+- **Recalculer le registre.** Une tâche le rappelle jusqu’à ce que vous lanciez l’action. Ouvrez d’abord Settings > Ledger Review dans BitcoinTX : il liste chaque dépense dont les chiffres changent, anciens et nouveaux. Lancez ensuite l’action StartOS Recalculer le registre, ou Settings > Recalculate Ledger dans BitcoinTX.
+- **Confirmez d’où viennent les prix.** Sauf si l’action Source des prix et confidentialité le fixe, le Dashboard de BitcoinTX demande une fois de confirmer votre choix de prix, et n’interroge personne d’ici là. Si vous n’avez jamais fait de choix dans cette action-là, une tâche le demande une fois.
 - **Reconnectez-vous.** Après cette mise à jour, tout le monde se reconnecte une fois.
 - **Mettez à jour votre connecteur IA.** Dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 1.2.8 et redémarrez l’application. Il affiche désormais le produit brut d’une vente ou d’une dépense à côté du montant après frais ; un connecteur plus ancien pouvait retirer les frais deux fois en en modifiant une.
 
@@ -162,17 +162,17 @@ export const current = VersionInfo.of({
 
 **Confidentialité : un choix de prix fait sans demander (corrigé)**
 
-- Qui a pu être concerné : de la 1.2.0 à la 1.2.7, ceux qui ont passé cette action à Décider plutôt dans BitcoinTX (auparavant Choisir dans BitcoinTX) après l’avoir mise sur Désactivé, Sites publics de prix ou Mon Mempool, ou qui ont lancé Définir les identifiants ou une commande à la main pendant ce réglage. BitcoinTX pouvait alors enregistrer Public price sites comme votre choix dans l’application sans demander, et s’en servir après le changement.
-- Ce qui a pu être envoyé : des requêtes depuis l’adresse de votre serveur vers des sites publics, pour le prix du bitcoin (CoinGecko, Kraken, Bitstamp ou Coinbase) et la hauteur de bloc (Blockchain.info, Blockstream ou mempool.space). Jamais de dates, de montants ni rien de votre registre ; via Tor, pas même votre adresse.
+- Qui a pu être concerné : de la 1.2.0 à la 1.2.7, ceux qui ont passé Source des prix et confidentialité à Décider plutôt dans BitcoinTX (auparavant Choisir dans BitcoinTX) après l’avoir mise sur Désactivé, Sites publics de prix ou Mon Mempool, ou qui ont lancé Définir les identifiants ou une commande à la main pendant ce réglage. BitcoinTX pouvait alors enregistrer Public price sites comme votre choix dans l’application sans demander, et s’en servir après le changement.
+- Ce qui a pu être envoyé : des requêtes depuis l’adresse de votre serveur vers des sites publics, pour le prix du bitcoin (CoinGecko, Kraken, Bitstamp ou Coinbase) et la hauteur de bloc (Blockchain.info, Blockstream ou mempool.space). Jamais de dates, de montants ni rien de votre registre. Après le changement, le Tor de l’action ne s’appliquait plus : seul un proxy réglé dans les Settings de BitcoinTX lui-même masquait votre adresse.
 - Que faire : confirmez ou changez le choix quand BitcoinTX le demande une fois après cette mise à jour (ci-dessus), ou vérifiez Settings > Privacy & Network.
 
 **Nouveautés**
 
 - **Des prix à l’heure.** Les valeurs que BitcoinTX remplit à partir du prix du BTC (une valeur de revenu ou de rebate laissée vide, le produit d’un Spent, la valeur de frais de réseau) utilisent désormais le prix au début de l’heure de la transaction : l’IRS évalue le bitcoin à la date et à l’heure. Quand votre choix autorise les sites publics de prix, BitcoinTX télécharge une fois les prix horaires de Bitstamp depuis 2013 (environ 3 Mo) et vérifie chaque année avec une empreinte fournie avec cette version. Rien de ce qui est déjà enregistré ne change : Ledger Review liste, par année fiscale, les valeurs au prix du jour que l’heure changerait, et ne change que celles que vous appliquez.
-- **Un seul choix de prix.** Cette action propose désormais Mon Mempool sur ce serveur, Sites publics de prix, Personne ou Décider plutôt dans BitcoinTX, avec Tor et, pour Mempool, les sites publics en secours. Une nouvelle installation le demande avant de démarrer. Dans l’application, une seule carte de prix dit d’où viennent les prix et quand est arrivé le dernier, et le Dashboard, la barre latérale et le formulaire de transaction indiquent quel prix une valeur a utilisé. Coinbase et CoinGecko ne sont plus interrogés.
+- **Un seul choix de prix.** Source des prix et confidentialité propose désormais Mon Mempool sur ce serveur, Sites publics de prix, Personne ou Décider plutôt dans BitcoinTX, avec Tor et, pour Mempool, les sites publics en secours. Une nouvelle installation le demande avant de démarrer. Dans l’application, une seule carte de prix dit d’où viennent les prix et quand est arrivé le dernier, et le Dashboard, la barre latérale et le formulaire de transaction indiquent quel prix une valeur a utilisé. Coinbase et CoinGecko ne sont plus interrogés.
 - **Bitcoins hérités.** Une nouvelle source de dépôt, Inherited : son coût d’acquisition est sa valeur à la date du décès, et toute vente de ces bitcoins est à long terme, marquée INHERITED sur le Form 8949.
 - **Consolidations.** Un transfert au sein du même portefeuille (ou entre plateformes que BitcoinTX compte comme une seule) n’enregistre que ses frais de réseau, une cession de vos bitcoins les plus anciens.
-- **Faire confiance à ce serveur.** Avec Décider plutôt dans BitcoinTX, un Mempool sur un autre serveur domestique à une adresse https peut être approuvé depuis la carte de prix.
+- **Trust this server.** Avec Décider plutôt dans BitcoinTX, un Mempool sur un autre serveur domestique à une adresse https peut être approuvé depuis la carte de prix.
 
 **Sécurité et corrections mineures**
 

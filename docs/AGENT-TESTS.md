@@ -529,8 +529,9 @@ Start from the `clean` snapshot.
     and **Trust this server** to show the server's name, its root
     certificate's name ("… Local Root CA") and a SHA-256 fingerprint.
   - Press it. Expect the certificate check to pass: the status line now
-    says the address isn't a Mempool (StartOS answers 404 there), not a
-    certificate error. A certificate error after trusting is a FAIL.
+    says "Your Mempool didn't answer at HH:MM." (StartOS's address isn't a
+    Mempool), not the certificate message. The certificate message after
+    trusting is a FAIL.
   - **Forget this server's certificate**: the certificate message comes
     back.
   - Afterwards choose **Off** in Settings > Privacy & Network, clear the
