@@ -19,15 +19,19 @@ users see and how values are made.
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
 - [x] **Hourly BTC prices** (#144): each value from a price is priced at
-      the opening of its UTC hour (Bitstamp's hourly price), from a history
-      every install downloads once in fixed requests and checks against
-      fingerprints the release ships (one file per year); shipping the
+      the opening of its UTC hour, the day's price where no hour is known.
+      Bitstamp's hourly history is downloaded once, in the same fixed
+      requests on every install, when the choice allows public sites, and
+      checked against fingerprints the release ships (one file per year);
+      newer hours come from your own Mempool or Bitstamp. Shipping the
       history inside the app waits for Bitstamp's answer. Saved values
       change only when the owner applies them (Ledger Review).
-- [x] **Price sources: one clear, simple choice everywhere** (#145): one
-      price card (your own Mempool, public sites, or nobody, optionally
+- [ ] **Price sources: one clear, simple choice everywhere** (#145): built:
+      one price card (your own Mempool, public sites, or nobody, optionally
       through Tor), a status line, confirm once after the update, and each
-      value's source shown; StartOS asks at install.
+      value's source shown; StartOS asks at install. Waiting on the owner:
+      six small pieces of the plan not built (#208) and the landing page's
+      words (#145).
 - [ ] **BTC fees and inherited bitcoin** (#163; from the tax-guidance check,
       #150; the owner agreed 2026-10-12):
   - [x] a spend's network fee comes off its proceeds (#157, done in #162);

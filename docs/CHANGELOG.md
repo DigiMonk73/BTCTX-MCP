@@ -75,8 +75,8 @@ All notable changes to BitcoinTX are documented in this file.
   newest first, through Tor when it's set, and keeps a year only if it
   gives the fingerprint the release ships. With your own mempool server
   and its fallback, it's downloaded when you save that choice. Hours after
-  the history come from the server's
-  hourly record (only the hours it recorded live) or from Bitstamp, and
+  the history come from the server's hourly record (only the hours it
+  recorded live) or from Bitstamp, and
   are kept (a new table, `btc_price_hourly`; nothing else in the database
   changes). No request names a transaction's hour.
 
@@ -126,12 +126,13 @@ All notable changes to BitcoinTX are documented in this file.
   tool or the API took it (the form wasn't affected). Such a row now
   refuses other edits until its fee value is set again.
 - **Switching StartOS's Price Source & Privacy to "Decide in BitcoinTX
-  instead" no longer picks public price sites for you** (privacy, #134).
-  While the action sets the source (My Mempool, Public or Off), no choice
-  is made in the app, but prices get stored. After a switch to **Decide in
+  instead" (called "Choose in BitcoinTX" before this release) no longer
+  picks public price sites for you** (privacy, #134). While the action
+  sets the source (My Mempool, Public price sites or Nobody), no choice is
+  made in the app, but prices get stored. After a switch to **Decide in
   BitcoinTX instead**, BitcoinTX took those stored prices for an install
-  from before 1.1.0 (when public sites were on by default), saved **Public price
-  sites** as your choice and asked them for prices, without showing its
+  from before 1.1.0 (when public sites were on by default), saved
+  **Public price sites** as your choice and asked them for prices, without showing its
   price question. A command run without the server's settings saved the
   same choice, ready for a later switch: the package's **Set Login
   Credentials** (Reset Login Credentials before 1.2.4:1), or
@@ -302,10 +303,9 @@ All notable changes to BitcoinTX are documented in this file.
   a fingerprint that comes with BitcoinTX; then its progress, year by year;
   then "downloaded and checked", from when it works offline whatever you
   choose. With *Nobody*, or your Mempool alone, the card says what that
-  means for older values. And a server can lend its Tor to a choice made in the app (new
-  `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Decide in BitcoinTX
-  instead*):
-  Settings shows "Through Tor: Tor on this server", locked on.
+  means for older values. And a server can lend its Tor to a choice made
+  in the app (new `BTCTX_TOR_PROXY_URL`; StartOS's *Use Tor* with *Decide
+  in BitcoinTX instead*): Settings shows "Through Tor: Tor on this server", locked on.
 - **One price card, the same everywhere** (#145): where BitcoinTX gets
   Bitcoin prices is now one card with three choices, *My own Mempool* (with
   *If it can't answer, ask public price sites*), *Public price sites*
