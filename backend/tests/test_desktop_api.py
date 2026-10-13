@@ -32,7 +32,7 @@ class Window:
 
 def window_api(url: str | None = APP_URL + "/login") -> DesktopAPI:
     api = DesktopAPI(APP_URL)
-    api.set_window(Window(url))
+    api._set_window(Window(url))
     return api
 
 

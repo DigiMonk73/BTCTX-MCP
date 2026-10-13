@@ -26,7 +26,7 @@ class DesktopAPI:
         self._app_url = app_url
         self._window = None
 
-    def set_window(self, window):
+    def _set_window(self, window):
         """Set the pywebview window reference."""
         self._window = window
 

@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { extractErrorMessage } from "../utils/apiError";
 import { PASSWORD_RULE } from "../utils/credentials";
-import { NO_SETUP_CODE, claimDefaultLogin, ownLoginProblem } from "../utils/ownLogin";
+import { claimDefaultLogin, ownLoginProblem, windowSetupCode } from "../utils/ownLogin";
 
 interface ChooseOwnLoginProps {
   /** The Mac app window's API: it reads the setup code (desktop/desktop_api.py). */
   windowApi: PyWebViewAPI;
   /** On into the app, as a first login goes. */
   onDone: () => Promise<void>;
+  /** The window couldn't read the code: back to the sign-in form, with its Setup Code field. */
+  onNoCode: () => void;
 }
 
 /**
@@ -16,7 +18,7 @@ interface ChooseOwnLoginProps {
  * owner chooses a username and password, the window supplies the setup
  * code, and every transaction is kept (utils/ownLogin.ts).
  */
-const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone }) => {
+const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone, onNoCode }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [repeat, setRepeat] = useState("");
@@ -29,12 +31,13 @@ const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone }) =>
     setErrorMsg(problem ?? "");
     if (problem) return;
     setIsSubmitting(true);
+    const code = await windowSetupCode(windowApi);
+    if (!code) {
+      setIsSubmitting(false);
+      onNoCode();
+      return;
+    }
     try {
-      const code = await windowApi.setup_code?.();
-      if (!code) {
-        setErrorMsg(NO_SETUP_CODE);
-        return;
-      }
       await claimDefaultLogin(username, password, code);
       await onDone();
     } catch (error) {

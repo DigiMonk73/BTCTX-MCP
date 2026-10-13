@@ -10,7 +10,8 @@ import { MIN_PASSWORD_LENGTH, PASSWORD_RULE } from "./credentials";
 // backend/services/first_run.py
 const DEFAULT_LOGIN = { username: "admin", password: "password" };
 
-export const NO_SETUP_CODE = "BitcoinTX couldn't read its setup code. Quit BitcoinTX and open it again.";
+export const NO_SETUP_CODE =
+  "BitcoinTX couldn't read its setup code: sign in below with admin / password and the setup code instead.";
 
 /** Why the chosen username and password can't be sent yet, or null. */
 export function ownLoginProblem(username: string, password: string, repeat: string): string | null {
@@ -42,5 +43,15 @@ export async function claimDefaultLogin(username: string, password: string, setu
   } catch (error) {
     await api.post("/logout").catch(() => undefined);
     throw error;
+  }
+}
+
+/** The setup code the Mac app's window reads, or null when it can't (no
+ * file, a page that isn't the app's, or an error). */
+export async function windowSetupCode(windowApi: PyWebViewAPI | null): Promise<string | null> {
+  try {
+    return (await windowApi?.setup_code?.()) || null;
+  } catch {
+    return null;
   }
 }

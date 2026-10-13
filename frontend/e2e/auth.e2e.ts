@@ -244,6 +244,18 @@ test.describe("the Mac app", () => {
     expect(tz.timezone).toBe(info.project.use.timezoneId);
   });
 
+  test("a window that can't read its setup code offers the sign-in form with the typed code", async ({ page, app }) => {
+    await asTheAppWindow(page, undefined);  // setup_code() gives nothing
+    await page.goto("/login");
+    await expect(page.getByRole("alert")).toContainText("couldn't read its setup code");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password", { exact: true }).fill("password");
+    await page.getByLabel("Setup Code").fill(setupCode(app)!);
+    await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+  });
+
   test("in a browser, without the window, the default login needs the typed setup code", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();

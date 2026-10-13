@@ -7,6 +7,7 @@ import { ensureTaxTimezone } from "../utils/taxTimezone";
 import { MAC_SETUP_CODE_HINT, SETUP_CODE_HINT } from "../utils/credentials";
 import { appWindowApi, onAppWindowApi } from "../utils/appWindow";
 import ChooseOwnLogin from "../components/ChooseOwnLogin";
+import { NO_SETUP_CODE, windowSetupCode } from "../utils/ownLogin";
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState("");
@@ -29,6 +30,21 @@ const LoginPage: React.FC = () => {
   const [, windowChanged] = useReducer((n: number) => n + 1, 0);
   useEffect(() => onAppWindowApi(windowChanged), []);
   const windowApi = appWindowApi();
+  // Whether the window could read the code: if not, the sign-in form with
+  // its Setup Code field, so the owner is never stuck
+  const [windowHasCode, setWindowHasCode] = useState<boolean | null>(null);
+  const readsCode = Boolean(firstRun && windowApi?.setup_code);
+  useEffect(() => {
+    if (!readsCode) return;
+    void windowSetupCode(appWindowApi()).then((code) => {
+      setWindowHasCode(Boolean(code));
+      if (!code) setErrorMsg(NO_SETUP_CODE);
+    });
+  }, [readsCode]);
+  const noCode = () => {
+    setWindowHasCode(false);
+    setErrorMsg(NO_SETUP_CODE);
+  };
   useEffect(() => {
     api
       .get('/protected')
@@ -85,8 +101,8 @@ const LoginPage: React.FC = () => {
       </div>
 
       <div className="card login-card">
-        {firstRun && windowApi?.setup_code ? (
-          <ChooseOwnLogin windowApi={windowApi} onDone={enterApp} />
+        {readsCode && windowApi && windowHasCode !== false ? (
+          <ChooseOwnLogin windowApi={windowApi} onDone={enterApp} onNoCode={noCode} />
         ) : (
           <>
             <h2 className="login-card-title">Sign in</h2>

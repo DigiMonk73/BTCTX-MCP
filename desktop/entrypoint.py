@@ -179,7 +179,7 @@ def main():
     )
 
     # Store window reference in the API
-    api.set_window(window)
+    api._set_window(window)  # not on the page's API: pywebview leaves out _ names
 
 
     # Start the webview (blocks until window is closed)
