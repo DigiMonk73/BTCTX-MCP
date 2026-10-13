@@ -35,8 +35,9 @@ from backend.constants import (
 )
 from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
+from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal
+from backend.services.csv_import import _parse_decimal, number_limits
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,9 @@ RIVER_REQUIRED_COLUMNS = {
 }
 
 RIVER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+# The amounts, as River's header names them
+RIVER_NUMBER_COLUMNS = ("Sent Amount", "Received Amount", "Fee Amount")
 
 # A buy outlay (sent + USD fee) that repeats at least this many times with no
 # fee is treated as a recurring auto-buy pulled from the bank via ACH.
@@ -195,8 +199,10 @@ def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]
             ))
             continue
 
-        def dec(col: str, places: int) -> Decimal | None:
-            return _parse_decimal(r.get(col, ""), places)
+        numbers = _river_numbers(r, row_number, errors)
+        if numbers is None:
+            continue
+        sent, received, fee = numbers
 
         sent_cur = r.get("sent currency", "").upper() or None
         recv_cur = r.get("received currency", "").upper() or None
@@ -205,11 +211,11 @@ def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]
         rows.append(RiverRow(
             row_number=row_number,
             timestamp=ts,
-            sent=dec("sent amount", 8),
+            sent=sent,
             sent_currency=sent_cur,
-            received=dec("received amount", 8),
+            received=received,
             received_currency=recv_cur,
-            fee=dec("fee amount", 8),
+            fee=fee,
             fee_currency=fee_cur,
             tag=r.get("tag", "").title() or None,
         ))
@@ -221,6 +227,29 @@ def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]
         ))
 
     return rows, errors
+
+
+def _river_numbers(r: dict[str, str], row_number: int,
+                   errors: list[CSVParseError]) -> tuple[Decimal | None, ...] | None:
+    """
+    The row's sent, received and fee amounts (None when blank), or None with
+    the row's error when one isn't a number within a BTC column's rule (the
+    USD ones too: the import checks their cents when it saves them). Read as
+    blank, such a fee would be left out and such an amount would skip its row
+    as missing.
+    """
+    numbers = []
+    for column in RIVER_NUMBER_COLUMNS:
+        text = r.get(column.lower(), "")
+        value = _parse_decimal(text, BTC_PLACES)
+        if text and value is None:
+            errors.append(CSVParseError(
+                row_number=row_number, column=column, severity="error",
+                message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}.",
+            ))
+            return None
+        numbers.append(value)
+    return tuple(numbers)
 
 
 def _usd_fee(row: RiverRow) -> Decimal:
