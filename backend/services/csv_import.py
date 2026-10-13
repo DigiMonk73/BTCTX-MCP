@@ -510,8 +510,11 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
         number = rule(Decimal(value.replace(",", "")))  # without thousands separators
     except (InvalidOperation, ValueError):
         return None
-    # A zero keeps no exponent: "0E-999999999" would be written out in full
-    return Decimal(0) if number == 0 else number
+    # A zero with an exponent past the column's places ("0E-999999999")
+    # would be written out in full; "0.00" stays as typed
+    if number == 0 and not -max_decimals <= number.as_tuple().exponent <= 0:
+        return Decimal(0)
+    return number
 
 
 def number_limits(max_decimals: int) -> str:
