@@ -9,11 +9,17 @@ from pydantic import BaseModel, ConfigDict, field_validator
 # v1.1.0 that is shorter still logs in.
 MIN_PASSWORD_LENGTH = 12
 PASSWORD_TOO_SHORT = f"The password must be at least {MIN_PASSWORD_LENGTH} characters."
+# bcrypt reads at most 72 bytes (User.set_password refuses more)
+MAX_PASSWORD_BYTES = 72
+PASSWORD_TOO_LONG = (f"The password can be at most {MAX_PASSWORD_BYTES} characters "
+                     "(fewer with accented letters or symbols).")
 
 
 def check_new_password(password: str) -> str:
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(PASSWORD_TOO_SHORT)
+    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        raise ValueError(PASSWORD_TOO_LONG)
     return password
 
 
