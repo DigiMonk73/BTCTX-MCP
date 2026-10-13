@@ -3,7 +3,7 @@ The one login: first registration, the first-run status and account reset,
 and changes to the logged-in user's name and password.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel, field_validator
@@ -121,13 +121,13 @@ class AccountReset(BaseModel):
 
 
 @router.post("/reset-account")
-def reset_account(payload: AccountReset, request: Request, db: Session = Depends(get_db)):
+def reset_account(payload: AccountReset, request: Request, response: Response, db: Session = Depends(get_db)):
     """
     First-run / re-registration: set new credentials and clear all
     transactions. Allowed while the account still has the default login
     (with the setup code, outside the Mac app), or when current_password is
     the account's real password (verified here, server-side). Throttled like
-    the login.
+    the login, and the browser gets the same device cookie.
     """
     users = get_all_users(db)
     if not users:
@@ -141,6 +141,7 @@ def reset_account(payload: AccountReset, request: Request, db: Session = Depends
     delete_all_transactions(db)
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
     first_run.clear_code()
+    login_throttle.remember_device(response)
     return {"detail": "Account reset. Log in with your new credentials."}
 
 
@@ -152,7 +153,8 @@ def get_users(request: Request, db: Session = Depends(get_db)):
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Session = Depends(get_db)):
+def patch_user(user_id: int, user_data: UserUpdate, request: Request, response: Response,
+               db: Session = Depends(get_db)):
     """
     Change your own username and/or password: PATCH /api/users/{user_id}.
     Requires being logged in as that user and current_password (so a
@@ -167,6 +169,7 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
     updated_user = update_user_service(user_id, user_data, db)
     # Other sessions end with the old password; this one carries on.
     start_session(request, updated_user)
+    login_throttle.remember_device(response)
     if not first_run.is_default_account(updated_user):
         first_run.clear_code()
     return updated_user

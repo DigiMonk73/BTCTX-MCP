@@ -5,7 +5,8 @@ The routes anyone can reach that check a password or code:
 - Login throttling (backend/services/login_throttle.py): after 5 failures
   a client waits 1 s, 2 s, 4 s... (429 + Retry-After), at most 5 minutes;
   30 failures a minute across all clients make everyone wait. Login,
-  reset-account and a password change share it.
+  reset-account and a password change share it. A browser that got one of
+  them right has a device cookie and a count of its own.
 - New passwords are at least 12 characters (older, shorter ones still log
   in); a password change needs the current password.
 - setup-status runs bcrypt once per set of credentials, not on every call.
@@ -99,7 +100,7 @@ def test_many_failures_from_many_addresses_make_everyone_wait(fresh_app, clock):
 
 
 def test_a_client_is_forgotten_after_an_hour(clock):
-    req = SimpleNamespace(client=SimpleNamespace(host="10.3.0.1"))
+    req = SimpleNamespace(client=SimpleNamespace(host="10.3.0.1"), cookies={})
     for _ in range(7):
         login_throttle.failed(req)
     with pytest.raises(HTTPException):

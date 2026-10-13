@@ -28,11 +28,10 @@ frontend_dist = os.environ.get(
     os.path.join(os.path.dirname(__file__), "../frontend/dist")
 )
 
-from backend.database import DATABASE_FILE
-from backend.secret_key import load_secret_key
+from backend.secret_key import app_secret_key
 
 # Signs the session cookie. Never a value from this repo — see secret_key.py
-SECRET_KEY = load_secret_key(os.path.dirname(DATABASE_FILE))
+SECRET_KEY = app_secret_key()
 
 
 def cors_origins(raw: str | None) -> list[str]:
@@ -276,7 +275,8 @@ def login(
 ):
     """
     Start a session for a correct username and password.
-    Repeated failures are answered 429 for a while (login_throttle.py).
+    Repeated failures are answered 429 for a while (login_throttle.py); a
+    browser that logged in before (its device cookie) has a count of its own.
     The default admin/password login also needs the setup code (Docker and
     source installs before they're claimed; first_run.py): anyone who can
     reach a fresh install knows that login.
@@ -294,6 +294,7 @@ def login(
 
     login_throttle.succeeded(request)
     start_session(request, user)
+    login_throttle.remember_device(response)
     return {"detail": f"Logged in as {user.username}"}
 
 
