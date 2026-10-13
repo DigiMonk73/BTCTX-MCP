@@ -86,7 +86,10 @@ All notable changes to BitcoinTX are documented in this file.
   CSV, and the CSV export's price moment can't start a spreadsheet formula.
   A purpose or source typed as text must be one line (no line break, tab
   or other control character), and a fee currency must be USD or BTC,
-  through the API and every import.
+  through the API and every import; a row that already holds such text
+  keeps it through an edit that leaves it alone. A text cell that only
+  looks plain (spaces or a full-width sign before `=`) gets a `'` in front
+  too.
 - **A wrong setup code or an over-long password gets the usual answer, not
   a server error** (#200, #205). A setup code typed with some letters
   outside A–Z and 0–9 (À, for example) made the login, Create account and
