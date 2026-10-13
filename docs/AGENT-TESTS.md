@@ -39,7 +39,7 @@ feeling.
 
 | Layer | Where | Covers |
 |---|---|---|
-| ~1,150 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
+| ~1,700 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
 | Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
@@ -536,8 +536,8 @@ Start from the `clean` snapshot.
     trusting is a FAIL.
   - **Forget this server's certificate**: the certificate message comes
     back.
-  - Afterwards choose **Off** in Settings > Privacy & Network, clear the
-    address, and save: PRC-5 expects the app's own choice to be Off (from
+  - Afterwards choose **Nobody** in Settings > Privacy & Network, clear the
+    address, and save: PRC-5 expects the app's own choice to be Nobody (from
     AUTH-4) and a blank address.
 - **PRC-5** Action: **Decide in BitcoinTX instead**. Expect: Settings > Privacy &
   Network is editable again and shows the app's own choice (**Nobody**, from
@@ -936,12 +936,12 @@ point, leave it alone, touch nothing in it, and record that.
   the connector picks it up by itself.
 - **MAC-6** Quit, reopen and log in. Expect: the data is still there.
 - **MAC-7** Your own mempool server, as PRC-4b. Settings > Privacy &
-  Network: **My mempool server**, `https://mempool.emzy.de`, fallback off,
+  Network: **My own Mempool**, `https://mempool.emzy.de`, fallback off,
   save. Expect the Dashboard's price and block height. Then the Sats
   Converter's **Date** mode on a past day. Expect a price, and in
   `DATA/logs/run-test-build.out` "Price history from your mempool server:
   N days" with N in the hundreds (only if no daily price was stored yet:
-  this build has asked no public site). Set it back to **Off** and clear
+  this build has asked no public site). Set it back to **Nobody** and clear
   the address.
 
 ## REF: the reference ledger and the landing page's pictures (every run)

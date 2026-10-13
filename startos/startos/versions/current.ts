@@ -24,9 +24,13 @@ export const current = VersionInfo.of({
 - **Log in again.** After this update everyone logs in once more.
 - **Update your AI connector.** In your AI app's configuration, change the version after btctx-mcp== to 1.2.8 and restart the AI app. It now lists a sale's or spend's gross proceeds beside the after-fee figure; an older connector could take the fee off twice when it edited one.
 
-**A fix that changes tax figures**
+**Fixes that change tax figures**
 
 - **A spend's network fee counted twice in its gain.** When you spent bitcoin (a Withdrawal, purpose Spent) with a BTC network fee, the fee was counted as its own disposal but not taken off the spend's proceeds, so the gain came out too high by the fee's value, usually a few dollars. Versions 0.9.2 to 1.2.7, every tax year; it only ever showed more tax, never less. What to do: Ledger Review, then Recalculate Ledger, as above. Whether to amend a filed return over a few dollars is for you or your tax professional to decide.
+
+- **Inherited bitcoin.** Recorded as My BTC or Gift, as earlier versions offered, it could print wrong figures: a sale within a year of the death came out short-term, or a Gift's basis was the person's own cost. All earlier versions, every tax year with such a sale. What to do: edit each such deposit to the new Source Inherited, with the date of death and its value that day. A deposit saved before 1.1.0 with the source "inherited" follows the rules from the next recalculation; Ledger Review lists any without a date of death.
+
+- **A price under one cent was stored as $0.** A day's price a site gave under one cent was kept as $0.00, and a value filled in from it was $0. Versions 0.9.2 to 1.2.7, any tax year; no such price is known. What to do: nothing, unless you ever saw a value "From the price" at $0.00: type that value (a day already stored at $0.00 stays).
 
 **Privacy: a price choice made without asking (fixed)**
 
@@ -46,7 +50,7 @@ export const current = VersionInfo.of({
 
 - From a security review: logging out ends that session for every copy of its cookie (if the database is busy at that moment, a copy lasts until it expires); other people's failed logins no longer slow down a browser that has logged in before; a restore brings back a backup's data and keeps this install's login, AI key and price settings, or changes nothing; every request has limits on size and time; an edit or deletion by the AI connector keeps a backup copy first, and its imports are kept short. The details are published once this version is available.
 - Restarting BitcoinTX while it is still starting stops every process of the previous run (from Start9's 1.2.7:1).
-- An edit can no longer save a negative fee value, and a price under one cent is never stored as $0.
+- An edit can no longer save a negative fee value.
 
 [Everything in 1.2.8](${CHANGELOG})`,
     es_ES: `BitcoinTX 1.2.8 valora el bitcoin a la hora de cada transacción, convierte el origen de los precios en una sola elección clara, añade el bitcoin heredado y las comisiones de consolidación, evita que la comisión de red de un gasto cuente dos veces e incluye las correcciones de una revisión de seguridad.
@@ -58,9 +62,13 @@ export const current = VersionInfo.of({
 - **Vuelve a iniciar sesión.** Después de esta actualización todos inician sesión una vez más.
 - **Actualiza tu conector de IA.** En la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 1.2.8 y reinicia la aplicación. Ahora muestra los ingresos brutos de una venta o un gasto junto a la cifra tras la comisión; un conector anterior podía restar la comisión dos veces al editar uno.
 
-**Una corrección que cambia cifras fiscales**
+**Correcciones que cambian cifras fiscales**
 
 - **La comisión de red de un gasto contaba dos veces en su ganancia.** Al gastar bitcoin (un Withdrawal con propósito Spent) con una comisión de red en BTC, la comisión se contaba como una disposición propia pero no se restaba de los ingresos del gasto, así que la ganancia salía más alta por el valor de la comisión, normalmente unos pocos dólares. Versiones 0.9.2 a 1.2.7, todos los años fiscales; solo mostraba más impuesto, nunca menos. Qué hacer: Ledger Review y después Recalcular el libro contable, como arriba. Decidir si rectificar una declaración ya presentada por unos pocos dólares te corresponde a ti o a tu profesional fiscal.
+
+- **Bitcoin heredado.** Registrado como My BTC o Gift, como permitían las versiones anteriores, podía dar cifras erróneas: una venta en el año siguiente al fallecimiento salía a corto plazo, o el coste base de un Gift era el de la propia persona. Todas las versiones anteriores, cada año fiscal con una venta así. Qué hacer: edita cada depósito así al nuevo origen Inherited, con la fecha del fallecimiento y su valor ese día. Un depósito guardado antes de la 1.1.0 con el origen "inherited" sigue las reglas desde el siguiente recálculo; Ledger Review muestra los que no tienen fecha de fallecimiento.
+
+- **Un precio inferior a un centavo se guardaba como 0 $.** El precio de un día que un sitio daba por debajo de un centavo se guardaba como 0,00 $, y un valor rellenado con él era 0 $. Versiones 0.9.2 a 1.2.7, cualquier año fiscal; no se conoce ninguno. Qué hacer: nada, salvo que alguna vez vieras un valor "From the price" de 0,00 $: escribe ese valor (un día ya guardado a 0,00 $ se queda así).
 
 **Privacidad: una elección de precios hecha sin preguntar (corregido)**
 
@@ -80,7 +88,7 @@ export const current = VersionInfo.of({
 
 - De una revisión de seguridad: cerrar sesión termina esa sesión para toda copia de su cookie (si la base de datos está ocupada en ese momento, una copia dura hasta que caduca); los inicios de sesión fallidos de otros ya no frenan a un navegador que ya inició sesión antes; una restauración trae los datos de la copia y conserva el acceso, la clave de IA y los ajustes de precios de esta instalación, o no cambia nada; cada petición tiene límites de tamaño y de tiempo; una edición o un borrado del conector de IA guarda antes una copia, y sus importaciones son cortas. Los detalles se publican cuando esta versión esté disponible.
 - Reiniciar BitcoinTX mientras aún se está iniciando detiene todos los procesos de la ejecución anterior (de la 1.2.7:1 de Start9).
-- Una edición ya no puede guardar un valor de comisión negativo, y un precio inferior a un centavo nunca se guarda como 0 $.
+- Una edición ya no puede guardar un valor de comisión negativo.
 
 [Todo lo de la 1.2.8](${CHANGELOG})`,
     de_DE: `BitcoinTX 1.2.8 bewertet Bitcoin zur Stunde jeder Transaktion, macht die Herkunft der Kurse zu einer klaren Wahl, ergänzt geerbte Bitcoin und Konsolidierungsgebühren, verhindert, dass die Netzwerkgebühr einer Ausgabe doppelt zählt, und bringt die Korrekturen einer Sicherheitsprüfung.
@@ -92,9 +100,13 @@ export const current = VersionInfo.of({
 - **Melde dich erneut an.** Nach diesem Update melden sich alle noch einmal an.
 - **Aktualisiere deinen KI-Connector.** Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 1.2.8 und starte die App neu. Er zeigt jetzt den Bruttoerlös eines Verkaufs oder einer Ausgabe neben dem Betrag nach Gebühr; ein älterer Connector konnte die Gebühr beim Bearbeiten doppelt abziehen.
 
-**Eine Korrektur, die Steuerzahlen ändert**
+**Korrekturen, die Steuerzahlen ändern**
 
 - **Die Netzwerkgebühr einer Ausgabe zählte doppelt im Gewinn.** Wurde Bitcoin ausgegeben (eine Withdrawal mit dem Zweck Spent) und eine Netzwerkgebühr in BTC gezahlt, zählte die Gebühr als eigene Veräußerung, wurde aber nicht vom Erlös der Ausgabe abgezogen; der Gewinn war also um den Wert der Gebühr zu hoch, meist ein paar Dollar. Versionen 0.9.2 bis 1.2.7, jedes Steuerjahr; es ergab immer nur mehr Steuer, nie weniger. Was zu tun ist: Ledger Review, dann Journal neu berechnen, wie oben. Ob eine bereits abgegebene Erklärung wegen ein paar Dollar berichtigt wird, entscheidest du oder dein Steuerberater.
+
+- **Geerbte Bitcoin.** Als My BTC oder Gift erfasst, wie es frühere Versionen anboten, konnten sie falsche Zahlen ergeben: Ein Verkauf innerhalb eines Jahres nach dem Todestag galt als kurzfristig, oder die Anschaffungskosten eines Gift waren die eigenen Kosten der Person. Alle früheren Versionen, jedes Steuerjahr mit einem solchen Verkauf. Was zu tun ist: Stelle jede solche Einzahlung auf die neue Quelle Inherited um, mit dem Todestag und ihrem Wert an dem Tag. Eine vor 1.1.0 mit der Quelle "inherited" gespeicherte Einzahlung folgt den Regeln ab der nächsten Neuberechnung; Ledger Review listet jede ohne Todestag auf.
+
+- **Ein Kurs unter einem Cent wurde als 0 $ gespeichert.** Gab eine Seite den Kurs eines Tages unter einem Cent an, wurde er als 0,00 $ gespeichert, und ein daraus eingesetzter Wert war 0 $. Versionen 0.9.2 bis 1.2.7, jedes Steuerjahr; kein solcher Kurs ist bekannt. Was zu tun ist: nichts, außer du hast je einen Wert "From the price" mit 0,00 $ gesehen: Gib diesen Wert ein (ein schon mit 0,00 $ gespeicherter Tag bleibt so).
 
 **Datenschutz: eine Kurswahl ohne Nachfrage (behoben)**
 
@@ -114,7 +126,7 @@ export const current = VersionInfo.of({
 
 - Aus einer Sicherheitsprüfung: Abmelden beendet diese Sitzung für jede Kopie ihres Cookies (ist die Datenbank in dem Moment beschäftigt, gilt eine Kopie bis zu ihrem Ablauf); fehlgeschlagene Anmeldungen anderer bremsen einen Browser nicht mehr, der sich schon einmal angemeldet hat; eine Wiederherstellung bringt die Daten einer Sicherung zurück und behält Anmeldung, KI-Schlüssel und Kurseinstellungen dieser Installation, oder ändert nichts; jede Anfrage hat Grenzen für Größe und Zeit; eine Änderung oder Löschung durch den KI-Connector legt vorher eine Sicherungskopie an, und seine Importe bleiben kurz. Die Einzelheiten werden veröffentlicht, sobald diese Version verfügbar ist.
 - Ein Neustart von BitcoinTX, während es noch startet, beendet alle Prozesse des vorherigen Laufs (aus Start9s 1.2.7:1).
-- Eine Änderung kann keinen negativen Gebührenwert mehr speichern, und ein Kurs unter einem Cent wird nie als 0 $ gespeichert.
+- Eine Änderung kann keinen negativen Gebührenwert mehr speichern.
 
 [Alles in 1.2.8](${CHANGELOG})`,
     pl_PL: `BitcoinTX 1.2.8 wycenia bitcoina według godziny każdej transakcji, sprowadza źródło cen do jednego jasnego wyboru, dodaje odziedziczone bitcoiny i opłaty za konsolidację, sprawia, że opłata sieciowa wydatku nie liczy się podwójnie, i wprowadza poprawki z przeglądu bezpieczeństwa.
@@ -126,9 +138,13 @@ export const current = VersionInfo.of({
 - **Zaloguj się ponownie.** Po tej aktualizacji wszyscy logują się jeszcze raz.
 - **Zaktualizuj łącznik AI.** W konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 1.2.8 i uruchom aplikację ponownie. Łącznik pokazuje teraz przychód brutto ze sprzedaży lub wydatku obok kwoty po opłacie; starszy łącznik mógł przy edycji odjąć opłatę dwa razy.
 
-**Poprawka, która zmienia wartości podatkowe**
+**Poprawki, które zmieniają wartości podatkowe**
 
 - **Opłata sieciowa wydatku liczyła się podwójnie w zysku.** Przy wydaniu bitcoina (Withdrawal z celem Spent) z opłatą sieciową w BTC opłata liczyła się jako osobne zbycie, ale nie była odejmowana od przychodu z wydatku, więc zysk wychodził za wysoki o wartość opłaty, zwykle o kilka dolarów. Wersje 0.9.2 do 1.2.7, każdy rok podatkowy; zawsze dawało to wyższy podatek, nigdy niższy. Co zrobić: Ledger Review, potem Przelicz księgę, jak wyżej. Czy korygować złożone już zeznanie z powodu kilku dolarów, decydujesz Ty lub Twój doradca podatkowy.
+
+- **Odziedziczone bitcoiny.** Zapisane jako My BTC lub Gift, jak pozwalały wcześniejsze wersje, mogły dawać błędne wartości: sprzedaż w ciągu roku od śmierci wychodziła jako krótkoterminowa, lub koszt nabycia Gift był kosztem samej osoby. Wszystkie wcześniejsze wersje, każdy rok podatkowy z taką sprzedażą. Co zrobić: zmień każdą taką wpłatę na nowe źródło Inherited, z datą śmierci i jej wartością z tego dnia. Wpłata zapisana przed 1.1.0 ze źródłem "inherited" podlega tym zasadom od następnego przeliczenia; Ledger Review pokazuje te bez daty śmierci.
+
+- **Cena poniżej jednego centa była zapisywana jako 0 $.** Cena dnia podana przez serwis poniżej jednego centa była zapisywana jako 0,00 $, a wartość uzupełniona z niej wynosiła 0 $. Wersje 0.9.2 do 1.2.7, każdy rok podatkowy; żadna taka cena nie jest znana. Co zrobić: nic, chyba że kiedyś pojawiła się wartość "From the price" równa 0,00 $: wpisz tę wartość (dzień już zapisany z 0,00 $ taki zostaje).
 
 **Prywatność: wybór źródła cen bez pytania (naprawione)**
 
@@ -148,7 +164,7 @@ export const current = VersionInfo.of({
 
 - Z przeglądu bezpieczeństwa: wylogowanie kończy tę sesję dla każdej kopii jej ciasteczka (jeśli baza danych jest w tej chwili zajęta, kopia działa do wygaśnięcia); nieudane logowania innych osób nie spowalniają już przeglądarki, która logowała się wcześniej; przywracanie przywraca dane z kopii i zachowuje logowanie, klucz AI i ustawienia cen tej instalacji albo niczego nie zmienia; każde zapytanie ma limity rozmiaru i czasu; edycja lub usunięcie przez łącznik AI najpierw zapisuje kopię zapasową, a jego importy są krótkie. Szczegóły zostaną opublikowane, gdy ta wersja będzie dostępna.
 - Ponowne uruchomienie BitcoinTX w trakcie uruchamiania zatrzymuje wszystkie procesy poprzedniego uruchomienia (z wersji 1.2.7:1 od Start9).
-- Edycja nie może już zapisać ujemnej wartości opłaty, a cena poniżej jednego centa nigdy nie jest zapisywana jako 0 $.
+- Edycja nie może już zapisać ujemnej wartości opłaty.
 
 [Wszystko w 1.2.8](${CHANGELOG})`,
     fr_FR: `BitcoinTX 1.2.8 évalue le bitcoin à l’heure de chaque transaction, fait de l’origine des prix un seul choix clair, ajoute les bitcoins hérités et les frais de consolidation, empêche les frais de réseau d’une dépense de compter deux fois et apporte les corrections d’un audit de sécurité.
@@ -160,9 +176,13 @@ export const current = VersionInfo.of({
 - **Reconnectez-vous.** Après cette mise à jour, tout le monde se reconnecte une fois.
 - **Mettez à jour votre connecteur IA.** Dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 1.2.8 et redémarrez l’application. Il affiche désormais le produit brut d’une vente ou d’une dépense à côté du montant après frais ; un connecteur plus ancien pouvait retirer les frais deux fois en en modifiant une.
 
-**Une correction qui change des montants fiscaux**
+**Corrections qui changent des montants fiscaux**
 
 - **Les frais de réseau d’une dépense comptaient deux fois dans son gain.** Quand vous dépensiez des bitcoins (un Withdrawal de motif Spent) avec des frais de réseau en BTC, les frais comptaient comme une cession à part mais n’étaient pas déduits du produit de la dépense : le gain était trop élevé de la valeur des frais, en général quelques dollars. Versions 0.9.2 à 1.2.7, toutes les années fiscales ; cela ne donnait jamais que plus d’impôt, jamais moins. Que faire : Ledger Review, puis Recalculer le registre, comme ci-dessus. Corriger ou non une déclaration déjà déposée pour quelques dollars relève de vous ou de votre professionnel de la fiscalité.
+
+- **Bitcoins hérités.** Saisis en My BTC ou Gift, comme le proposaient les versions antérieures, ils pouvaient donner des chiffres faux : une vente dans l’année suivant le décès sortait à court terme, ou le coût d’acquisition d’un Gift était celui de la personne elle-même. Toutes les versions antérieures, chaque année fiscale avec une telle vente. Que faire : passez chaque dépôt de ce type à la nouvelle source Inherited, avec la date du décès et sa valeur ce jour-là. Un dépôt enregistré avant la 1.1.0 avec la source "inherited" suit ces règles dès le prochain recalcul ; Ledger Review liste ceux qui n’ont pas de date de décès.
+
+- **Un prix inférieur à un cent était enregistré à 0 $.** Le prix d’un jour qu’un site donnait sous un cent était gardé à 0,00 $, et une valeur remplie à partir de lui valait 0 $. Versions 0.9.2 à 1.2.7, toute année fiscale ; aucun n’est connu. Que faire : rien, sauf si vous avez déjà vu une valeur "From the price" à 0,00 $ : saisissez cette valeur (un jour déjà enregistré à 0,00 $ le reste).
 
 **Confidentialité : un choix de prix fait sans demander (corrigé)**
 
@@ -182,7 +202,7 @@ export const current = VersionInfo.of({
 
 - D’un audit de sécurité : se déconnecter met fin à cette session pour toute copie de son cookie (si la base de données est occupée à ce moment, une copie dure jusqu’à son expiration) ; les échecs de connexion des autres ne ralentissent plus un navigateur qui s’est déjà connecté ; une restauration rapporte les données d’une sauvegarde et garde l’identifiant, la clé IA et les réglages de prix de cette installation, ou ne change rien ; chaque requête a des limites de taille et de durée ; une modification ou suppression par le connecteur IA fait d’abord une copie de sauvegarde, et ses imports restent courts. Les détails seront publiés quand cette version sera disponible.
 - Redémarrer BitcoinTX pendant son démarrage arrête tous les processus de l’exécution précédente (de la 1.2.7:1 de Start9).
-- Une modification ne peut plus enregistrer une valeur de frais négative, et un prix inférieur à un cent n’est jamais enregistré comme 0 $.
+- Une modification ne peut plus enregistrer une valeur de frais négative.
 
 [Tout ce que contient la 1.2.8](${CHANGELOG})`,
   },

@@ -64,6 +64,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 | ----------------------- | ------------------------------------------------------------------------------------------ |
 | `btctx.db`              | The SQLite ledger                                                                          |
 | `.btctx_secret_key`     | Session-cookie signing key, generated on first start (mode 600)                            |
+| `btc-prices/`           | The hourly BTC price history (one `YYYY.csv` per year, about 3 MB), downloaded once from Bitstamp when the choice allows public price sites, each year checked against the fingerprint the release ships; deleting it only means it's downloaded again |
 | `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first change in an hour, an edit or a deletion (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
 Installs from before the separate `startos` volume also had `.startos-wrapper.json` on `main`; the update moves its password into `store.json` and deletes it.
@@ -146,9 +147,9 @@ Three actions raise tasks.
 | Price Source & Privacy | `important` | Once, after an update or a restore of an install that was never asked and has no choice made here (never critical: a running service never stops) | The action runs, or dismissed |
 | Recalculate Ledger     | `important` | After updating (or restoring a backup) from a version with the old gain calculations | The action runs |
 
-The critical tasks block starting the service until the login exists and a price choice is made (Start9's `tasks.md`: critical is for essential setup such as selecting a backend). Both keep the replay key they always had, so nothing is retired. After an update or a restore the price task does not block: until a source is chosen, the app asks on its Dashboard and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, holding period) stay wrong until a recalculation.
+The critical tasks block starting the service until the login exists and a price choice is made (Start9's `tasks.md`: critical is for essential setup such as selecting a backend). Both keep the replay key they always had, so nothing is retired. After an update or a restore the price task does not block: until a source is chosen, the app asks on its Dashboard and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, the holding period, a spend's network fee counted twice) stay wrong until a recalculation.
 
-Updating across the change that made a withdrawal's network fee its own disposal (and gave Lost withdrawals no gain or loss), or the one that takes a spend's network fee off its proceeds, raises no task, but the next recalculation (or any add, edit or delete) changes those figures. **Settings → Ledger Review** in the app lists them beforehand.
+Updating across the change that made a withdrawal's network fee its own disposal (and gave Lost withdrawals no gain or loss) raises no task, but the next recalculation (an edit or a deletion recalculates too) changes those figures. Updating across the one that takes a spend's network fee off its proceeds raises the Recalculate Ledger task. **Settings → Ledger Review** in the app lists the changed figures beforehand.
 
 ## Health Checks
 
@@ -164,7 +165,7 @@ One check, on the `webui` daemon.
 
 Both volumes are copied whole (`sdk.Backups.ofVolumes('main', 'startos')`). StartOS stops the service first, so the SQLite file is copied at rest; there is no dump step.
 
-- **Included:** the database, the session key, the app's copies in `backups/`, and `store.json`.
+- **Included:** the database, the session key, the hourly price history in `btc-prices/`, the app's copies in `backups/`, and `store.json`.
 - **Restore:** complete, including the generated password. A backup taken on an older package version is migrated forward on restore like an update (including the Recalculate Ledger task when it predates the gain-calculation fixes).
 - **Address after a restore:** a restore is a fresh install, so StartOS may assign the web UI and MCP API a new port (ports are kept across restarts and updates, released on uninstall). Rerun **Connect an AI Assistant** and update the AI client's `BTCTX_URL`.
 - The app also has its own password-encrypted database export (Settings in the web UI), independent of StartOS backups. Restoring one of those in the app brings back the ledger and its other settings but keeps the login, the AI key and the price settings in use.
@@ -207,6 +208,8 @@ startos_managed_env_vars:
   - BTCTX_MEMPOOL_URL # http://<bridge>, left out while Mempool is missing
   - BTCTX_MEMPOOL_FALLBACK
   - BTCTX_PROXY_URL # socks5h://<bridge>:9050 with Tor
+  - BTCTX_TOR_PROXY_URL # with Decide in BitcoinTX instead + Use Tor
+  - BTCTX_HOST # startos
 dependencies: # both optional, only while chosen
   mempool: { kind: running, health: webui, host: main, port: 8080 }
   tor: { kind: running, health: tor, host: socks, port: 9050 }
