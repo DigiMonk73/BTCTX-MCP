@@ -355,7 +355,7 @@ So derived values must be recomputable from the Transaction row alone.
   lock while it works, and the owner's saves wait only 5 s for it. With the
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
-  `AI_MAX_REPLAYED` (2,000) entries in all (one such row always), about 2 s.
+  `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI
