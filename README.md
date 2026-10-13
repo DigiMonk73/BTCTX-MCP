@@ -44,8 +44,9 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   (Settings → Privacy & Network) and the live price, block height and newer
   prices come from it; no public site is contacted. Your Mempool has hourly
   prices only from when it began recording. A home server's https address
-  (a StartOS `.local` one, say) works too: the card offers **Trust this
-  server** for its own certificate, for that address only. A fresh install
+  (a StartOS server's `.local` one from the Mac app, or its LAN IP address)
+  works too: the card offers **Trust this server** for its own certificate,
+  for that address only. A fresh install
   contacts nothing until you choose where prices come from (your own
   Mempool, public price sites, or Nobody)
 - **Prices at the hour, without giving away your dates**: BitcoinTX values
