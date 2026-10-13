@@ -7,16 +7,17 @@ database.seed_defaults) and the one-time setup code that claiming it needs.
   is remembered for the account's (id, username, password hash). Any change
   of the credentials (Register, Settings, the CLI in another process, a
   restored backup) is a new hash, so it is checked again.
-- The setup code: anyone who can reach a fresh Docker or source install
-  knows the default login. Logging in with it, and claiming the account
-  (Register, or changing the default login in Settings), also need a code
-  that only someone who can
-  read the server's log or data folder has. It is made at startup while the
-  account has the default login, kept in <data folder>/setup-code.txt
-  (owner-only, the same across restarts), printed to the log, and deleted
-  once the account is claimed. Not in the Mac app, which listens on
-  127.0.0.1 only; StartOS sets a generated password before the first
-  start, so its account never has the default login.
+- The setup code: the default login is the same everywhere, so logging in
+  with it, and claiming the account (Register, or changing the default
+  login in Settings), also need a code that only someone who can read the
+  server's data folder has (in the Mac app, the Mac account that runs
+  BitcoinTX). It is made at startup while the account has the default
+  login, kept in <data folder>/setup-code.txt (owner-only, the same across
+  restarts) and deleted once the account is claimed. A server prints it to its log; the
+  Mac app's own window reads the file instead (desktop/desktop_api.py) to
+  set the owner's login, so the Mac app never logs it. StartOS sets a
+  generated password before the first start, so its account never has the
+  default login.
 """
 
 from __future__ import annotations
@@ -42,15 +43,6 @@ DEFAULT_PASSWORD = "password"
 DATA_DIR = os.path.dirname(DATABASE_FILE)  # tests point this elsewhere
 CODE_FILENAME = "setup-code.txt"
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
-_WHERE = f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
-CODE_REQUIRED = "Enter the setup code. " + _WHERE
-CODE_WRONG = "That setup code is wrong. " + _WHERE
-# Not "go to Create account": on an older install with data that page would
-# start the ledger over. Log in with the code, then change the password.
-DEFAULT_LOGIN_REFUSED = (
-    "This install still has the default login: enter the setup code as well. " + _WHERE
-    + " Then set your own password in Settings."
-)
 
 _lock = threading.Lock()
 _default: dict[tuple[int, str, str], bool] = {}
@@ -69,24 +61,25 @@ def is_default_account(user: User) -> bool:
     return result
 
 
-def code_required() -> bool:
-    return not is_desktop()
+def code_refused(given: str | None) -> str:
+    """Why claiming the default login was refused: no setup code, or a wrong one."""
+    return ("That setup code is wrong. " if given else "Enter the setup code. ") + _where_the_code_is()
+
+
+def default_login_refused() -> str:
+    """Why the default login was refused without the setup code."""
+    # Not "go to Create account": on an older install with data that page would
+    # start the ledger over. Log in with the code, then change the password.
+    return ("This install still has the default login: enter the setup code as well. "
+            + _where_the_code_is() + " Then set your own password in Settings.")
 
 
 def code_path() -> str:
     return os.path.join(DATA_DIR, CODE_FILENAME)
 
 
-_CODE_CHARS = frozenset(string.ascii_uppercase + string.digits)
-
-
-def _normalize(code: str) -> str:
-    # ASCII only: the code is generated from ASCII, and a non-ASCII letter can never
-    # match it. Comparing such a string with hmac raises TypeError, so keep those out.
-    return "".join(ch for ch in code.upper() if ch in _CODE_CHARS)
-
-
-def _read_code() -> str | None:
+def read_code() -> str | None:
+    """The setup code in its file, or None when there is none."""
     try:
         with open(code_path(), encoding="utf-8") as fh:
             return fh.read().strip() or None
@@ -95,26 +88,18 @@ def _read_code() -> str | None:
 
 
 def ensure_code() -> str:
-    """The setup code, made if there is none yet; printed to the log."""
-    code = _read_code()
+    """The setup code, made if there is none yet."""
+    code = read_code()
     if code is None:
         raw = "".join(secrets.choice(CODE_ALPHABET) for _ in range(12))
         code = "-".join(raw[i:i + 4] for i in range(0, 12, 4))
-        tmp = code_path() + ".tmp"
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(code + "\n")
-        os.replace(tmp, code_path())
-    logger.warning(
-        "\n\n    First-run setup code: %s (also in %s)\n"
-        "    Enter it on the Create account page to set your username and password.\n",
-        code, code_path(),
-    )
+        _write_code(code)
+    _log_code(code)
     return code
 
 
 def check_code(given: str | None) -> bool:
-    code = _read_code()
+    code = read_code()
     if code is None:
         # Deleted, or a restored backup brought the default login back
         ensure_code()
@@ -130,16 +115,49 @@ def clear_code() -> None:
         pass
 
 
-def needs_code(user: User) -> bool:
-    """Changing this account's login needs the setup code."""
-    return code_required() and is_default_account(user)
-
-
 def prepare(db: Session) -> None:
     """At startup and after a restore: a code while the account has the
-    default login (and one is needed), otherwise no code file."""
+    default login, otherwise no code file."""
     user = db.query(User).order_by(User.id).first()
-    if user is not None and needs_code(user):
+    if user is not None and is_default_account(user):
         ensure_code()
     else:
         clear_code()
+
+
+def _where_the_code_is() -> str:
+    if is_desktop():
+        return (f"It is in {CODE_FILENAME} in the Mac app's data folder "
+                "(~/Library/Application Support/BitcoinTX); the app's own window normally fills it in.")
+    return f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
+
+
+def _write_code(code: str) -> None:
+    tmp = code_path() + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # owner-only also over a leftover file, whose mode open() keeps
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(code + "\n")
+    os.replace(tmp, code_path())
+
+
+def _log_code(code: str) -> None:
+    if is_desktop():
+        # The window reads the file itself, and the Mac app's log is what a
+        # problem report may attach.
+        logger.warning("First-run setup code in %s: the BitcoinTX window uses it to set your login", code_path())
+        return
+    logger.warning(
+        "\n\n    First-run setup code: %s (also in %s)\n"
+        "    Enter it on the Create account page to set your username and password.\n",
+        code, code_path(),
+    )
+
+
+_CODE_CHARS = frozenset(string.ascii_uppercase + string.digits)
+
+
+def _normalize(code: str) -> str:
+    # ASCII only: the code is generated from ASCII, and a non-ASCII letter can never
+    # match it. Comparing such a string with hmac raises TypeError, so keep those out.
+    return "".join(ch for ch in code.upper() if ch in _CODE_CHARS)

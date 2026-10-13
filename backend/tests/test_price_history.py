@@ -183,6 +183,21 @@ def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
     assert not sources.names_a_day(day)
 
 
+@pytest.mark.parametrize("given", ["0.004", "0", "NaN", "abc"])
+def test_a_day_a_site_gives_at_no_price_is_never_kept(sources, db, given):
+    """#199's review: a day's price was checked above 0 before it was
+    rounded to the cent, so a site's 0.004 was kept as $0.00 (and a stored
+    day never changes), and one that wasn't a number lost the whole answer.
+    Such a day has no price (a 422, never $0); the other days are kept."""
+    price_history._mark_history_complete(db)
+    odd, other = TODAY - timedelta(days=2), TODAY - timedelta(days=3)
+    sources.bitstamp = candles(TODAY - timedelta(days=9), 10, price=lambda d: given if d == odd else 64000)
+    assert price_history.daily_price(db, other) == D("64000.00")
+    with pytest.raises(HTTPException) as exc:
+        price_history.daily_price(db, odd)
+    assert exc.value.status_code == 422
+
+
 def test_timestamps_use_their_utc_day(sources, db):
     sources.bitstamp = all_days()
     late_evening_chicago = datetime(2022, 6, 30, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
@@ -244,6 +259,16 @@ def test_midnight_prices_need_agreeing_neighbours():
     assert price_history.midnight_prices(rows) == {day: (D("101000.00"), "mempool")}
     rows[0]["USD"] = 90000  # more than 2% off: a backfilled close, not the hour
     assert price_history.midnight_prices(rows) == {}
+
+
+def test_midnight_prices_skip_rows_that_are_no_price():
+    """#199's review: a row that isn't a number lost every day, and a
+    midnight under a cent was kept as $0.00."""
+    days = [date(2025, 1, 1), date(2025, 1, 2)]
+    rows = [{"time": midnight(d) + h * 3600, "USD": 100000} for d in days for h in (-1, 0, 1)]
+    rows += [{"time": midnight(date(2025, 1, 3)) + h * 3600, "USD": "0.004"} for h in (-1, 0, 1)]
+    rows.append({"time": midnight(date(2025, 1, 4)), "USD": "NaN"})
+    assert price_history.midnight_prices(rows) == {d: (D("100000.00"), "mempool") for d in days}
 
 
 def test_mempool_with_fallback_asks_the_public_history_for_older_days(sources, db):

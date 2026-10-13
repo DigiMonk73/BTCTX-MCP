@@ -9,9 +9,10 @@ The routes anyone can reach that check a password or code:
 - New passwords are at least 12 characters (older, shorter ones still log
   in); a password change needs the current password.
 - setup-status runs bcrypt once per set of credentials, not on every call.
-- The first-run setup code (backend/services/first_run.py): claiming the
-  default admin/password login outside the Mac app needs a code from the
-  server's log or data folder.
+- The first-run setup code (backend/services/first_run.py): logging in with
+  the default admin/password login and claiming it need a code from the
+  server's data folder (and its log, outside the Mac app, whose window
+  reads the file itself).
 """
 
 import ast
@@ -272,15 +273,67 @@ def test_changing_the_default_login_in_settings_needs_the_code_too(fresh_app):
     assert not os.path.exists(first_run.code_path())
 
 
-def test_the_mac_app_needs_no_code(fresh_app, monkeypatch):
-    """It listens on 127.0.0.1 only."""
+def mac_app() -> TestClient:
+    """A client at the Mac app's own address (in Mac mode it answers no other)."""
+    return TestClient(app, client=("127.0.0.1", 50000), headers=MAC_APP_HOST)
+
+
+DEFAULT = {"username": "admin", "password": "password"}
+
+
+def test_the_mac_app_needs_the_code_too(fresh_app, monkeypatch, caplog):
+    """The Mac app's default login needs the setup code too, as a server's
+    does (#151). Its window reads the code from the file
+    (desktop/desktop_api.py), so its log never shows it."""
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     db = fresh_app()
-    first_run.prepare(db)
+    with caplog.at_level("INFO", logger="backend.services.first_run"):
+        first_run.prepare(db)
     db.close()
+    code = open(first_run.code_path()).read().strip()
+    assert stat.S_IMODE(os.stat(first_run.code_path()).st_mode) == 0o600
+    assert code not in caplog.text
+    assert mac_app().get("/api/users/setup-status").json() == {
+        "has_user": True, "is_default": True, "setup_code_required": True}
+
+    r = mac_app().post("/api/login", json=DEFAULT)
+    assert r.status_code == 403 and "enter the setup code" in r.json()["detail"]
+    assert "docker logs" not in r.json()["detail"]  # where the Mac app keeps it instead
+    assert "Application Support/BitcoinTX" in r.json()["detail"]
+    assert mac_app().post("/api/login", json=dict(DEFAULT, setup_code="WRNG-WRNG-WRNG")).status_code == 403
+    r = mac_app().post("/api/users/reset-account", json=CLAIM)
+    assert r.status_code == 403 and "setup code" in r.json()["detail"]
+    assert mac_app().get("/api/users/setup-status").json()["is_default"] is True
+    assert mac_app().post("/api/login", json=dict(DEFAULT, setup_code=code)).status_code == 200
+
+
+def test_the_mac_window_sets_the_owners_login_and_keeps_the_ledger(fresh_app, monkeypatch):
+    """What the window's first-run step sends (frontend/src/utils/ownLogin.ts):
+    the default login with the code, then the new username and password by
+    PATCH, never reset-account, which deletes every transaction."""
+    monkeypatch.setenv("BTCTX_DESKTOP", "1")
+    code = first_run.ensure_code()
+    me = mac_app()
+    assert me.post("/api/login", json=dict(DEFAULT, setup_code=code)).status_code == 200
+    deposit = {"type": "Deposit", "timestamp": "2024-01-02T12:00:00Z", "from_account_id": 99,
+               "to_account_id": 1, "amount": "1000", "fee_amount": "0", "fee_currency": "USD"}
+    assert me.post("/api/transactions", json=deposit).status_code in (200, 201)
+
+    change = {"username": "owner", "password": "own-passw0rd-1", "current_password": "password"}
+    r = me.patch("/api/users/1", json=change)
+    assert r.status_code == 403 and "setup code" in r.json()["detail"]
+    r = me.patch("/api/users/1", json=dict(change, setup_code=code))
+    assert r.status_code == 200, r.text
+    assert len(me.get("/api/transactions").json()) == 1  # the session carries on, the ledger stays
     assert not os.path.exists(first_run.code_path())
-    assert anon().get("/api/users/setup-status", headers=MAC_APP_HOST).json()["setup_code_required"] is False
-    assert anon().post("/api/users/reset-account", json=CLAIM, headers=MAC_APP_HOST).status_code == 200
+
+    assert mac_app().post("/api/login", json=dict(DEFAULT, setup_code=code)).status_code == 401
+    own = {"username": "owner", "password": "own-passw0rd-1"}
+    assert mac_app().post("/api/login", json=own).status_code == 200
+    # The code no longer matters, given or not
+    assert mac_app().post("/api/login", json=dict(own, setup_code="WRNG-WRNG-WRNG")).status_code == 200
+    assert mac_app().get("/api/users/setup-status").json() == {
+        "has_user": True, "is_default": False, "setup_code_required": False}
 
 
 REBINDING_PAGE = {"Host": "attacker.example:8765", "Origin": "http://attacker.example:8765",
@@ -346,9 +399,3 @@ def test_the_default_login_needs_the_code(fresh_app):
     r = anon().post("/api/login", json={"username": "admin", "password": "password", "setup_code": "WRNG-WRNG-WRNG"})
     assert r.status_code == 403
     assert anon().post("/api/login", json=good()).status_code == 200
-
-
-def test_the_mac_app_logs_in_with_the_default_login_without_a_code(fresh_app, monkeypatch):
-    monkeypatch.setenv("BTCTX_DESKTOP", "1")
-    r = anon().post("/api/login", json={"username": "admin", "password": "password"}, headers=MAC_APP_HOST)
-    assert r.status_code == 200

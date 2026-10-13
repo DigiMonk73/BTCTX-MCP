@@ -90,6 +90,7 @@ def cmd_set_password(args: argparse.Namespace) -> int:
     _init_db()
     from backend.database import SessionLocal
     from backend.models.user import User
+    from backend.session_auth import end_all_sessions
 
     db = SessionLocal()
     try:
@@ -107,6 +108,7 @@ def cmd_set_password(args: argparse.Namespace) -> int:
                 raise ValueError(f"Another user is already named {username!r}.")
             user.username = username
         user.set_password(password)  # bcrypt; refuses more than 72 bytes
+        end_all_sessions(db)  # every browser logs in again
         db.commit()
         print(f"Password set for user {user.username!r}.")
         # No longer the default login: the first-run setup code is done with

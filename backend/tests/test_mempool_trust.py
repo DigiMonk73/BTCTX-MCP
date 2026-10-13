@@ -218,7 +218,9 @@ def test_a_restore_keeps_this_installs_trusted_root(auth_client, home_server, te
         assert json.loads(before[outbound.TRUSTED_ROOT_KEY])["url"] == url
         db.execute(text("DELETE FROM app_settings WHERE key = :k"), {"k": outbound.TRUSTED_ROOT_KEY})
         db.commit()  # what restoring a backup without it does
-        assert outbound.carry_over(db, before).mempool_root is not None
+        outbound.carry_over(db, before)  # written into the restored database...
+        db.commit()
+        assert outbound.load(db).mempool_root is not None  # ...and read once it's live
     finally:
         db.close()
 

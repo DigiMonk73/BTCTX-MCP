@@ -8,7 +8,7 @@ StartOS the password the package gave stopped working.
 from sqlalchemy import text
 
 from backend.models.user import User
-from backend.tests.conftest import default_login
+from backend.tests.conftest import default_login, keep_in_use
 
 
 def test_restoring_an_old_backup_keeps_the_login_in_use(auth_client, test_engine, monkeypatch):
@@ -17,10 +17,11 @@ def test_restoring_an_old_backup_keeps_the_login_in_use(auth_client, test_engine
     old = User(username="old-owner", password_hash="")
     old.set_password("old-password-123")
 
-    def restore_old_backup(password, path):  # the backup's database: another login
+    def restore_old_backup(password, path, carry_over):  # the backup's database: another login
         with test_engine.begin() as conn:
             conn.execute(text("UPDATE users SET username = :u, password_hash = :h"),
                          {"u": old.username, "h": old.password_hash})
+        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
@@ -36,13 +37,14 @@ def test_restoring_an_old_backup_keeps_the_login_in_use(auth_client, test_engine
 def _restore_a_backup_that_used_public_sites(auth_client, test_engine, monkeypatch):
     from backend.routers import backup
 
-    def restore_old_backup(password, path):  # the backup's database: public sites, direct, prices stored
+    def restore_old_backup(password, path, carry_over):  # the backup's database: public sites, direct, prices stored
         with test_engine.begin() as conn:
             for key in ("price_source", "mempool_fallback", "mempool_url", "proxy_url", "live_data"):
                 conn.execute(text("DELETE FROM app_settings WHERE key = :k"), {"k": key})
             conn.execute(text("INSERT INTO app_settings (key, value) VALUES ('price_source', 'public')"))
             conn.execute(text("INSERT OR REPLACE INTO btc_price_daily (day, usd, source) "
                               "VALUES ('2020-01-01', 7200, 'bitstamp')"))
+        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})

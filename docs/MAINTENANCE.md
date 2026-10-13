@@ -280,8 +280,11 @@ take the upgrade.
 The schema is owned by Alembic migrations in `backend/migrations/versions/`.
 Nothing calls `create_all()`: every start runs `backend/migrate.py`, which
 backs the database up to `<db dir>/backups/` and upgrades it when a newer
-revision exists. Restored backups are upgraded the same way before they
-replace the live database.
+revision exists. A restored backup is upgraded the same way, then only
+the rows of the tables and columns the migrations make are copied into a
+new database made by the migrations, which replaces the live one
+(`services/backup.restore_backup`): a new table or column needs nothing
+more for restores.
 
 **Changing the schema** (a new column, table or index):
 

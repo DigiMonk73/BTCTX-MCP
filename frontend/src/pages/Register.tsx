@@ -13,7 +13,7 @@ const RegisterPage: React.FC = () => {
   const [overridePassword, setOverridePassword] = useState('');
   // Still the shipped default login; null until the server says
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
-  // Outside the Mac app, claiming the default login needs the first-run setup code.
+  // Claiming the default login needs the first-run setup code.
   const [codeRequired, setCodeRequired] = useState(false);
   const [setupCode, setSetupCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

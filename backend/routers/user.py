@@ -66,17 +66,15 @@ def _authorize_change(user: User, request: Request, current_password: str | None
                       setup_code: str | None, default_login_ok: bool) -> None:
     """
     May the login of `user` be changed? With its current password, or, while
-    it still has the default login and default_login_ok, by knowing that
-    (plus the setup code outside the Mac app: first_run.py). Failures count
-    towards the login throttle (login_throttle.py).
+    it still has the default login and default_login_ok, by knowing that;
+    while it has the default login, also with the setup code (first_run.py).
+    Failures count towards the login throttle (login_throttle.py).
     """
     login_throttle.check(request)
     is_default = first_run.is_default_account(user)
-    if is_default and first_run.code_required():
-        if not first_run.check_code(setup_code):
-            login_throttle.failed(request)
-            detail = first_run.CODE_WRONG if setup_code else first_run.CODE_REQUIRED
-            raise HTTPException(status_code=403, detail=detail)
+    if is_default and not first_run.check_code(setup_code):
+        login_throttle.failed(request)
+        raise HTTPException(status_code=403, detail=first_run.code_refused(setup_code))
     if not (is_default and default_login_ok) and (
         current_password is None or not user.verify_password(current_password)
     ):
@@ -89,15 +87,16 @@ def _authorize_change(user: User, request: Request, current_password: str | None
 def setup_status(db: Session = Depends(get_db)):
     """
     Public: whether the single account still has the shipped default login,
-    and whether claiming it needs the first-run setup code (never the code).
-    Used by the first-run (Register) page before anyone is logged in.
+    and so whether logging in with it and claiming it need the first-run
+    setup code (never the code). Used by the Login and Register pages before
+    anyone is logged in.
     """
     users = get_all_users(db)
     is_default = bool(users) and first_run.is_default_account(users[0])
     return {
         "has_user": bool(users),
         "is_default": is_default,
-        "setup_code_required": is_default and first_run.code_required(),
+        "setup_code_required": is_default,
     }
 
 
@@ -125,7 +124,7 @@ def reset_account(payload: AccountReset, request: Request, db: Session = Depends
     """
     First-run / re-registration: set new credentials and clear all
     transactions. Allowed while the account still has the default login
-    (with the setup code, outside the Mac app), or when current_password is
+    (with the setup code), or when current_password is
     the account's real password (verified here, server-side). Throttled like
     the login.
     """
@@ -166,7 +165,7 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, db: Sessio
     _authorize_change(user, request, user_data.current_password, user_data.setup_code, default_login_ok=False)
     updated_user = update_user_service(user_id, user_data, db)
     # Other sessions end with the old password; this one carries on.
-    start_session(request, updated_user)
+    start_session(request, updated_user, db)
     if not first_run.is_default_account(updated_user):
         first_run.clear_code()
     return updated_user
@@ -184,16 +183,3 @@ def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
         status_code=409,
         detail="The account can't be deleted. Change its username and password in Settings instead.",
     )
-
-
-@router.get("/protected")
-def protected_route(request: Request, db: Session = Depends(get_db)):
-    user_id = request.session.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=403, detail="Not authenticated")
-
-    user = db.query(User).filter_by(id=user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return {"username": user.username}
