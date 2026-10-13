@@ -230,20 +230,9 @@ def restore_backup(
     if not _restoring.acquire(blocking=False):
         raise ValueError(BUSY)
 
-    staging = db_path.with_name(db_path.name + ".restoring")  # the backup's database
-    rebuilt = db_path.with_name(db_path.name + ".rebuilding")  # the one that goes live
     try:
-        # A restore cut short (the app quit) may have left a write-ahead log
-        # here, which SQLite would apply to the next file of the same name
-        _remove_database(staging)
-        _remove_database(rebuilt)
-        _write_owner_only(staging, decrypted)
-        _write_owner_only(rebuilt, b"")
-        result = _rebuild(staging, rebuilt, carry_over)
-        _swap(rebuilt, db_path, engine, backup_sqlite)
+        result = _restore_into(db_path, decrypted, carry_over, engine, backup_sqlite)
     finally:
-        _remove_database(staging)
-        _remove_database(rebuilt)
         _restoring.release()
     # What SQLite kept beside the database it replaced: opened next to the
     # new one, a write-ahead log or rollback journal would be applied to it.
@@ -254,18 +243,41 @@ def restore_backup(
     return result
 
 
-def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite) -> None:
-    """Keep a copy of the live database in backups/, then put the new one in
-    its place. A file error answers in plain words, never the server's paths."""
+def _restore_into(db_path: Path, decrypted: bytes, carry_over, engine, backup_sqlite):
+    """
+    The backup's database beside the live one, the new one built from it,
+    then the swap; the temporary files are deleted whatever happens. A file
+    error (a folder that can't be written, a full disk) answers in plain
+    words, never the server's paths.
+    """
+    staging = db_path.with_name(db_path.name + ".restoring")  # the backup's database
+    rebuilt = db_path.with_name(db_path.name + ".rebuilding")  # the one that goes live
     try:
-        if db_path.exists():
-            kept = backup_sqlite(db_path, "restore")
-            logger.info(f"Database being replaced was saved to: {kept}")
-        engine.dispose()
-        os.replace(rebuilt, db_path)
+        try:
+            # A restore cut short (the app quit) may have left a write-ahead
+            # log here, which SQLite would apply to the next file of the same name
+            _remove_database(staging)
+            _remove_database(rebuilt)
+            _write_owner_only(staging, decrypted)
+            _write_owner_only(rebuilt, b"")
+            result = _rebuild(staging, rebuilt, carry_over)
+            _swap(rebuilt, db_path, engine, backup_sqlite)
+        finally:
+            _remove_database(staging)
+            _remove_database(rebuilt)
     except OSError as e:
         logger.warning("Restore stopped: couldn't write the database files (%s)", e.strerror or type(e).__name__)
         raise ValueError(NOT_WRITTEN) from e
+    return result
+
+
+def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite) -> None:
+    """Keep a copy of the live database in backups/, then put the new one in its place."""
+    if db_path.exists():
+        kept = backup_sqlite(db_path, "restore")
+        logger.info(f"Database being replaced was saved to: {kept}")
+    engine.dispose()
+    os.replace(rebuilt, db_path)
 
 
 def _write_owner_only(path: Path, data: bytes) -> None:
@@ -293,6 +305,7 @@ def _rebuild(staging: Path, rebuilt: Path, carry_over: Callable[[Session], None]
             _copy_own_data(new, staging)
             seed_defaults(new)
             _require_one_login(new)
+            _read_as_the_app_does(new)
             if carry_over is not None:
                 with Session(new) as session:
                     carry_over(session)
@@ -418,6 +431,26 @@ def _text_in_a_number_column(conn, table: str) -> bool:
 
 def _quoted(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
+
+
+def _read_as_the_app_does(new) -> None:
+    """
+    Every copied row read through BitcoinTX's models, as the app will read
+    it (its types turn stored text into dates and numbers): a value it can't
+    read would fail every later read of that table, so it refuses the
+    restore now.
+    """
+    from backend.models import Base
+
+    with Session(new) as session:
+        for mapper in Base.registry.mappers:
+            try:
+                for _ in session.query(mapper.class_).yield_per(1000):
+                    pass
+            except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
+                logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
+                raise ValueError(DOESNT_FIT.format(table=mapper.local_table.name)) from e
+            session.expunge_all()
 
 
 def _require_one_login(new) -> None:

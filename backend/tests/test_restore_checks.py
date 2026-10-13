@@ -406,6 +406,33 @@ def test_text_in_a_number_column_is_refused(live, tmp_path):
                     "BitcoinTX's database.", tmp_path)
 
 
+def test_a_value_the_app_cant_read_is_refused(live, tmp_path):
+    """A timestamp that isn't one would fail every later read of the
+    transactions (#209's last re-check)."""
+    _assert_refused(live, ["UPDATE transactions SET timestamp = 'abc'"],
+                    "Restore failed: This backup can't be restored: its transactions rows don't fit "
+                    "BitcoinTX's database.", tmp_path)
+
+
+def test_a_folder_that_cant_be_written_answers_in_plain_words_and_frees_the_next_restore(
+        live, tmp_path, monkeypatch):
+    """A file error, even while cleaning up, never shows the server's paths
+    and never leaves the next restore waiting (#209's last re-check)."""
+    blob, _ = _backup(tmp_path)
+    real_unlink = Path.unlink
+
+    def read_only(self, missing_ok=False):
+        if self.parent == live.path.parent:
+            raise OSError(30, "Read-only file system", str(self))
+        return real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", read_only)
+    r = _restore(live.client, blob)
+    assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.NOT_WRITTEN
+    monkeypatch.setattr(Path, "unlink", real_unlink)
+    assert _restore(live.client, blob).status_code == 200
+
+
 def test_a_row_without_its_id_is_refused(live, tmp_path):
     """A table defined without its primary key can hold a row with no id,
     which SQLite would quietly give a new one."""
