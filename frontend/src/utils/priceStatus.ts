@@ -29,7 +29,8 @@ export interface HistoryStatus {
 /** What Bitstamp gives Tor's exits (#241), said wherever Tor and the history meet. */
 export const TOR_REFUSED =
   "Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download; only the live price works. " +
-  "Choose Public price sites without Tor to download them (once checked, the hourly history stays), use your own Mempool for newer values, or type them.";
+  "Choose Public price sites without Tor (on StartOS: turn off Use Tor in its Price Source & Privacy action) to download them " +
+  "(once checked, the hourly history stays), use your own Mempool for newer values, or type them.";
 
 export interface PriceStatus {
   source: PriceSource | "unset";

@@ -90,7 +90,7 @@ export const current = VersionInfo.of({
 
 **Limitación conocida**
 
-- **Por Tor, Bitstamp rechaza ahora las peticiones de BitcoinTX:** el historial por hora y los precios pasados no se descargan; solo funciona el precio en vivo. Elige Sitios públicos de precios sin Tor para descargarlos (una vez comprobado, el historial por hora se queda), usa tu propio Mempool para los valores más recientes o escríbelos. Nunca se envía nada sin Tor en su lugar, y ningún valor pasa a ser 0 $. Hay una corrección prevista.
+- **Por Tor, Bitstamp rechaza ahora las peticiones de BitcoinTX:** el historial por hora y los precios pasados no se descargan; solo funciona el precio en vivo. Elige Sitios públicos de precios sin Tor para descargarlos (una vez comprobado, el historial por hora se conserva), usa tu propio Mempool para los valores más recientes o escríbelos. Nunca se envía nada sin Tor en su lugar, y ningún valor pasa a ser 0 $. Hay una corrección prevista.
 
 **Seguridad y correcciones menores**
 
@@ -132,7 +132,7 @@ export const current = VersionInfo.of({
 
 **Bekannte Einschränkung**
 
-- **Über Tor lehnt Bitstamp die Anfragen von BitcoinTX derzeit ab:** Der Stundenverlauf und vergangene Kurse werden nicht heruntergeladen; nur der Live-Kurs funktioniert. Wähle Öffentliche Preisseiten ohne Tor, um sie herunterzuladen (einmal geprüft, bleibt der Stundenverlauf), nutze deinen eigenen Mempool für neuere Werte, oder gib sie ein. Stattdessen wird nie etwas ohne Tor gesendet, und kein Wert wird 0 $. Eine Korrektur ist geplant.
+- **Über Tor lehnt Bitstamp die Anfragen von BitcoinTX derzeit ab:** Der stündliche Preisverlauf und vergangene Kurse werden nicht heruntergeladen; nur der Live-Kurs funktioniert. Wähle Öffentliche Preisseiten ohne Tor, um sie herunterzuladen (einmal geprüft, bleibt der stündliche Preisverlauf), nutze deinen eigenen Mempool für neuere Werte oder gib sie ein. Stattdessen wird nie etwas ohne Tor gesendet, und kein Wert wird 0 $. Eine Korrektur ist geplant.
 
 **Sicherheit und kleinere Korrekturen**
 
@@ -174,7 +174,7 @@ export const current = VersionInfo.of({
 
 **Znane ograniczenie**
 
-- **Przez Tor Bitstamp obecnie odrzuca zapytania BitcoinTX:** historia godzinowa i ceny z przeszłości się nie pobierają; działa tylko bieżąca cena. Wybierz Publiczne serwisy cenowe bez Tora, aby je pobrać (raz sprawdzona historia godzinowa zostaje), użyj własnego Mempoola dla nowszych wartości albo je wpisz. Nic nie jest wtedy wysyłane bez Tora, a żadna wartość nie staje się 0 $. Poprawka jest planowana.
+- **Przez Tor Bitstamp obecnie odrzuca zapytania BitcoinTX:** historia godzinowa i ceny z przeszłości nie są pobierane; działa tylko bieżąca cena. Wybierz Publiczne serwisy cenowe bez Tora, aby je pobrać (raz sprawdzona historia godzinowa zostaje), użyj własnego Mempoola dla nowszych wartości albo je wpisz. Nic nie jest wtedy wysyłane bez Tora, a żadna wartość nie staje się 0 $. Poprawka jest planowana.
 
 **Bezpieczeństwo i mniejsze poprawki**
 
@@ -216,7 +216,7 @@ export const current = VersionInfo.of({
 
 **Limite connue**
 
-- **Via Tor, Bitstamp refuse actuellement les requêtes de BitcoinTX :** l’historique horaire et les prix passés ne se téléchargent pas ; seul le prix en direct fonctionne. Choisissez Sites publics de prix sans Tor pour les télécharger (une fois vérifié, l’historique horaire reste), utilisez votre propre Mempool pour les valeurs récentes, ou saisissez-les. Rien n’est alors envoyé sans Tor, et aucune valeur ne devient 0 $. Une correction est prévue.
+- **Via Tor, Bitstamp refuse actuellement les requêtes de BitcoinTX :** l’historique horaire et les prix passés ne se téléchargent pas ; seul le prix en direct fonctionne. Choisissez Sites publics de prix sans Tor pour les télécharger (une fois vérifié, l’historique horaire est conservé), utilisez votre propre Mempool pour les valeurs récentes, ou saisissez-les. Rien n’est alors envoyé sans Tor, et aucune valeur ne devient 0 $. Une correction est prévue.
 
 **Sécurité et corrections mineures**
 
