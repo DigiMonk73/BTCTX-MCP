@@ -112,6 +112,8 @@ def test_the_preview_says_what_each_amount_is_in_and_names_the_accounts_as_usual
         "2024-01-07,Transfer,0.1,Exchange BTC,Wallet,,,0.0001,BTC,,,",
         "2024-01-08,Withdrawal,0.01,Wallet,External,,500,,,,Spent,",
         "2024-01-09,Sell,0.05,Exchange BTC,Exchange USD,,2500,,,,,",
+        "2024-01-10,Deposit,0.2,External,Wallet,8000,,,,MyBTC,,",
+        "2024-01-11,Transfer,0.2,Wallet,Wallet,,,0.0001,BTC,,,",
     )
     assert not r.errors, messages(r)
     shown = [(p.amount_currency, p.from_account, p.to_account) for p in r.previews]
@@ -123,4 +125,6 @@ def test_the_preview_says_what_each_amount_is_in_and_names_the_accounts_as_usual
         ("BTC", "Exchange BTC", "Wallet"),
         ("BTC", "Wallet", "External"),
         ("BTC", "Exchange BTC", "Exchange USD"),
+        ("BTC", "External", "Wallet"),
+        ("BTC", "Wallet", "Wallet"),
     ]

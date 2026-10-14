@@ -441,11 +441,11 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
 
 
 def _amount_currency(row: _Row) -> str:
-    """BTC for a trade or a move in or out of a BTC account, else USD (a
-    deposit, withdrawal or transfer of cash)."""
-    if row.tx_type in ("Buy", "Sell") or row.from_id in BTC_ACCOUNTS or row.to_id in BTC_ACCOUNTS:
-        return "BTC"
-    return "USD"
+    """What the amount is counted in, as the ledger counts it
+    (transaction._check_amount): the receiving account's currency for a
+    Deposit or Buy, the sending account's otherwise."""
+    account = row.to_id if row.tx_type in ("Deposit", "Buy") else row.from_id
+    return "BTC" if account in BTC_ACCOUNTS else "USD"
 
 
 def _preview(row: _Row) -> CSVRowPreview:
