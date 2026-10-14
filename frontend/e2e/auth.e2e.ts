@@ -57,9 +57,8 @@ test("first run: claim the default account, then log in", async ({ page, app }) 
   await page.getByLabel("Setup Code").fill(code!);
   await page.getByRole("button", { name: "Register" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  expect(dialogs).toEqual([
-    "This will update your username and password and delete any existing transactions. Continue?",
-  ]);
+  // A fresh install has nothing to delete: no warning at all (#256)
+  expect(dialogs).toEqual([]);
   await expect(page.getByText("Registration successful!")).toBeVisible();
 
   // The code is used up; the default credentials no longer work; the new ones do.
@@ -68,6 +67,48 @@ test("first run: claim the default account, then log in", async ({ page, app }) 
   expect(old.status()).toBe(401);
   await loginViaUi(page);
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
+});
+
+test("Create account on an install with transactions: the code first, then the dialog (#256)", async ({ page, app }) => {
+  // An older install never taken off admin/password, with a transaction
+  const r = await page.request.post("/api/login", {
+    data: { username: "admin", password: "password", setup_code: setupCode(app) },
+  });
+  expect(r.ok()).toBeTruthy();
+  const tx = await page.request.post("/api/transactions", {
+    data: {
+      type: "Deposit", timestamp: "2024-01-02T18:00:00Z", from_account_id: 99, to_account_id: 1,
+      amount: "1000", fee_amount: "0", fee_currency: "USD",
+    },
+  });
+  expect(tx.ok()).toBeTruthy();
+  await page.request.post("/api/logout");
+
+  await page.goto("/register");
+  await page.getByLabel("New Username").fill(USER);
+  await page.getByLabel("New Password").fill(PASSWORD);
+  await page.getByLabel("Setup Code").fill("AAAA-AAAA-AAAA");
+  await page.getByRole("button", { name: "Register" }).click();
+  await expect(page.getByRole("alert")).toContainText("That setup code is wrong.");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await page.getByLabel("Setup Code").fill(setupCode(app)!);
+  await page.getByRole("button", { name: "Register" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create a new account and delete every transaction?" });
+  await expect(dialog).toContainText("This deletes 1 transaction, 2024");
+  // Not logged in: the backup is a login away
+  await expect(dialog.getByRole("button", { name: "Download a backup first" })).toHaveCount(0);
+  await expect(dialog.getByRole("link", { name: "Log in" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  expect((await (await page.request.get("/api/users/setup-status")).json()).is_default).toBe(true);
+
+  await page.getByRole("button", { name: "Register" }).click();
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 1 transaction" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText(/A copy of the database from before is kept/)).toBeVisible();
+  await loginViaUi(page);
+  expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(0);
 });
 
 test("register again once claimed needs the current password", async ({ page, app }) => {

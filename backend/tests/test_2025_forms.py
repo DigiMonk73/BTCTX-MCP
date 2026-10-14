@@ -42,7 +42,7 @@ ROWS_PER_PAGE_2025 = 11
 
 
 def delete_all_transactions() -> bool:
-    r = CLIENT.delete("/api/transactions/delete_all")
+    r = CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     return r.status_code in (200, 204)
 
 

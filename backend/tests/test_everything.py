@@ -23,7 +23,7 @@ Runs in-process on a temporary database (pytest, or directly as a script).
 
 from __future__ import annotations
 
-from backend.tests.conftest import default_login
+from backend.tests.conftest import default_login, remove_temp_db, temp_db_file
 
 import argparse
 import csv
@@ -234,7 +234,7 @@ def test_database_reset():
     """Reset database by deleting all transactions."""
     subsection("Database Reset")
 
-    status, _ = api_delete("transactions/delete_all")
+    status, _ = api_delete("transactions/delete_all?confirm=DELETE")
     assert_true(status in (200, 204), "Delete all transactions")
 
     # Verify empty
@@ -451,7 +451,7 @@ def test_csv_roundtrip():
 
     # Delete all transactions
     subsection("Delete All Before Import")
-    status, _ = api_delete("transactions/delete_all")
+    status, _ = api_delete("transactions/delete_all?confirm=DELETE")
     assert_true(status in (200, 204), "Delete all transactions for roundtrip")
 
     # Verify empty
@@ -816,9 +816,8 @@ def main():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
+    db_file = temp_db_file()  # its own folder: the copies made beside it go too
+    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
     init_test_db(engine)
 
     TestSessionLocal = sessionmaker(bind=engine)
@@ -868,7 +867,7 @@ def main():
     # Cleanup
     app.dependency_overrides.clear()
     engine.dispose()
-    os.unlink(tmp.name)
+    remove_temp_db(db_file)
 
     # Summary
     failures = print_summary()

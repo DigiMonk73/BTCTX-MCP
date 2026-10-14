@@ -37,9 +37,9 @@ PRICES = {APRIL_1: 50000, APRIL_2: 60000}
 def _ledger(auth_client, monkeypatch):
     """An empty ledger, and a different price each day, so a re-priced value shows."""
     stub_daily_prices(monkeypatch, lambda day: PRICES.get(day, 40000))
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def deposit(client, **fields) -> dict:
@@ -303,7 +303,7 @@ def test_a_csv_export_and_reimport_keeps_the_mark(auth_client):
     rows = list(csv.DictReader(io.StringIO(export.text)))
     assert sorted(row["cost_basis_typed"] for row in rows) == ["no", "yes"]
 
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
     marks = {Decimal(str(t["amount"])): t["cost_basis_from_price"] for t in auth_client.get("/api/transactions").json()}

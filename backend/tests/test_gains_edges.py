@@ -18,7 +18,7 @@ LEDGER = [
 
 
 def test_a_disposal_without_holding_period_counts_as_short_term(auth_client, test_engine):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     try:
         for tx in LEDGER:
             assert auth_client.post("/api/transactions", json=tx).status_code == 200
@@ -31,4 +31,4 @@ def test_a_disposal_without_holding_period_counts_as_short_term(auth_client, tes
         assert (gains["short_term_gains"], gains["long_term_gains"]) == (20000.0, 0.0)
         assert gains["short_term_net"] == gains["total_net_capital_gains"] == 20000.0
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

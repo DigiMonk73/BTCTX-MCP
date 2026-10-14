@@ -20,7 +20,7 @@ D = Decimal
 
 @pytest.fixture
 def ledger(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for body in (
         dict(type="Deposit", timestamp="2025-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
              amount="100000", fee_amount="0", fee_currency="USD", source="N/A"),
@@ -29,7 +29,7 @@ def ledger(auth_client):
     ):
         assert auth_client.post("/api/transactions", json=body).status_code == 200
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def withdraw(client, **kw):

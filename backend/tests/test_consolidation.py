@@ -39,9 +39,9 @@ def _no_network(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _clean():
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def tx(**data) -> dict:
@@ -296,7 +296,7 @@ def test_a_csv_round_trip_keeps_it():
     exported = CLIENT.get("/api/backup/csv").text
     assert "Wallet,Wallet" in exported
 
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     r = CLIENT.post("/api/import/execute", files={"file": ("ledger.csv", io.BytesIO(exported.encode()), "text/csv")})
     assert r.status_code == 200, r.text
     moved = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer")

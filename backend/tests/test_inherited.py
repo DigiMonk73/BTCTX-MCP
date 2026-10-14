@@ -36,9 +36,9 @@ def _ledger(auth_client, test_engine, monkeypatch):
     global CLIENT, ENGINE
     CLIENT, ENGINE = auth_client, test_engine
     stub_daily_prices(monkeypatch, lambda day: PRICES.get(day, 90000))
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def post(**data):
@@ -239,7 +239,7 @@ def test_a_csv_round_trip_keeps_it():
     sell("2025-04-10", "0.01")
     before = form_rows(2025)
     exported = CLIENT.get("/api/backup/csv").text
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     r = CLIENT.post("/api/import/execute", files={"file": ("l.csv", io.BytesIO(exported.encode()), "text/csv")})
     assert r.status_code == 200, r.text
     deposit = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Deposit")

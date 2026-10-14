@@ -45,7 +45,7 @@ EXCHANGE_BTC = 4
 
 def delete_all_transactions() -> bool:
     """Clear all transactions for a fresh start."""
-    r = CLIENT.delete("/api/transactions/delete_all")
+    r = CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     return r.status_code in (200, 204)
 
 

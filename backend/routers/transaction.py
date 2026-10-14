@@ -19,6 +19,7 @@ from backend.schemas.transaction import (
     TransactionRead
 )
 from backend.services import transaction as tx_service
+from backend.services import wipe
 from backend.database import get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
@@ -59,6 +60,19 @@ def list_transactions(db: Session = Depends(get_db)):
     raw_txs = tx_service.get_all_transactions(db)
     years: dict = {}  # the year files, read once for the whole list
     return [_attach_utc_and_build_read_model(tx, db, years) for tx in raw_txs]
+
+
+def _require_login_to_delete_all(request: Request) -> None:
+    if not request.session.get("user_id"):  # never the AI key
+        raise HTTPException(status_code=403, detail="Deleting everything needs a login.")
+
+
+@router.get("/delete_all")
+def what_delete_all_deletes(request: Request, db: Session = Depends(get_db)):
+    """What Delete All would delete, for its dialog: {"transactions",
+    "first_year", "last_year"} (tax years). Login only."""
+    _require_login_to_delete_all(request)
+    return wipe.extent(db)
 
 
 @router.get("/{tx_id}", response_model=TransactionRead)
@@ -121,13 +135,19 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
 
 
 @router.delete("/delete_all", status_code=204)
-def delete_all_transactions_endpoint(request: Request, db: Session = Depends(get_db)):
-    """Delete every transaction with its ledger lines, lots and disposals.
-    Login only (never the AI key)."""
-    if not request.session.get("user_id"):  # never the AI key
-        raise HTTPException(status_code=403, detail="Deleting everything needs a login.")
+def delete_all_transactions_endpoint(request: Request, confirm: str | None = None, db: Session = Depends(get_db)):
+    """
+    Delete every transaction with its ledger lines, lots and disposals, only
+    with confirm=DELETE (typed in the dialog, #256): otherwise 409 says what
+    would go, and nothing is deleted. A copy of the database comes first
+    (backups/, "before-delete"). Login only (never the AI key).
+    """
+    _require_login_to_delete_all(request)
+    refused = wipe.refusal(db, confirm)
+    if refused is not None:
+        return refused
     # 204 No Content: the deleted count is intentionally not returned.
-    tx_service.delete_all_transactions(db)
+    wipe.copy_then_delete(db)
 
 
 @router.delete("/{transaction_id}", status_code=204)

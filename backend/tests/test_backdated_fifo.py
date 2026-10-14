@@ -18,7 +18,7 @@ import requests
 import sys
 
 BASE_URL = "http://127.0.0.1:8000"
-DELETE_ALL = f"{BASE_URL}/api/transactions/delete_all"
+DELETE_ALL = f"{BASE_URL}/api/transactions/delete_all?confirm=DELETE"
 TRANSACTIONS_URL = f"{BASE_URL}/api/transactions"
 LOTS_URL = f"{BASE_URL}/api/calculations/bitcoin-lots"
 

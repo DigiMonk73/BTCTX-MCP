@@ -18,14 +18,14 @@ def this_year(tz_name="UTC"):
 
 
 def test_empty_ledger_offers_this_year(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.get("/api/reports/years")
     assert r.status_code == 200
     assert r.json() == {"ledger_years": [this_year()], "form_years": get_supported_years(), "draft_years": []}
 
 
 def test_years_run_from_the_first_transaction_in_the_tax_timezone(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"})
     try:
         # 2023-01-01 03:00 UTC is still Dec 31, 2022 in Chicago.
@@ -39,7 +39,7 @@ def test_years_run_from_the_first_transaction_in_the_tax_timezone(auth_client):
         assert years == sorted(years, reverse=True)
         assert len(years) == len(set(years))
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
         auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
 
 

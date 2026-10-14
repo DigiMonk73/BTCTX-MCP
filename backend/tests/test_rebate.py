@@ -30,9 +30,9 @@ APRIL_1 = date(2026, 4, 1)
 def _ledger(auth_client, monkeypatch):
     """An empty ledger; $50,000 on April 1, $40,000 any other day."""
     stub_daily_prices(monkeypatch, lambda day: 50000 if day == APRIL_1 else 40000)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def deposit(client, **fields) -> dict:

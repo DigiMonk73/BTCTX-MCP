@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import api from "../api";
-import { detailOr } from "../utils/apiError";
+import { detailOr, extractErrorMessage } from "../utils/apiError";
+import { CONFIRMATION, describeExtent, type LedgerExtent } from "../utils/deleteAll";
 import { downloadMessage } from "../utils/desktopDownload";
 import CsvImportPreview from "./CsvImportPreview";
+import DeleteAllDialog from "./DeleteAllDialog";
 
 function clearFileInput() {
   const fileInput = document.getElementById("csv-file-input") as HTMLInputElement;
@@ -16,18 +18,37 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CSVPreviewResponse | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  // What Delete All would take, while its dialog is open (#256)
+  const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
 
   const handleDeleteTransactions = async () => {
-    if (!window.confirm("Delete ALL transactions? This cannot be undone.")) return;
     setLoading(true);
     setMessage("");
-
     try {
-      await api.delete<ApiErrorResponse>("/transactions/delete_all");
-      setMessage("All transactions deleted.");
+      const { data } = await api.get<LedgerExtent>("/transactions/delete_all");
+      if (data.transactions === 0) setMessage("There are no transactions to delete.");
+      else setToDelete(data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to delete transactions.");
+      setMessage(extractErrorMessage(error) || "Couldn't read the ledger.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setLoading(true);
+    try {
+      await api.delete("/transactions/delete_all", { params: { confirm: CONFIRMATION } });
+      setMessage(
+        `Deleted ${describeExtent(toDelete)}. A copy of the database from before is kept in ` +
+          "BitcoinTX's data folder (in backups, unencrypted).",
+      );
+    } catch (error) {
+      setMessage(extractErrorMessage(error) || "Failed to delete transactions.");
+    } finally {
+      setToDelete(null);
       setLoading(false);
     }
   };
@@ -147,13 +168,25 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
         <div className="option-info">
           <span className="settings-option-title">Delete All Transactions</span>
           <p className="settings-option-subtitle">
-            Remove all transaction history. This action cannot be undone.
+            Remove all transaction history, for example to import a corrected CSV file. It asks
+            first, and keeps a copy of the database in the data folder before it deletes.
           </p>
         </div>
-        <button onClick={handleDeleteTransactions} disabled={loading} className="btn btn-danger">
+        <button ref={deleteButton} onClick={handleDeleteTransactions} disabled={loading} className="btn btn-danger">
           {loading ? "Processing..." : "Delete"}
         </button>
       </div>
+      {toDelete && (
+        <DeleteAllDialog
+          extent={toDelete}
+          title="Delete all transactions?"
+          canDownloadBackup
+          busy={loading}
+          opener={deleteButton}
+          onConfirm={confirmDelete}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
 
       <div className="settings-option import-section">
         <div className="option-info">

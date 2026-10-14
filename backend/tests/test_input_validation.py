@@ -14,7 +14,7 @@ TS = "2024-05-01T12:00:00Z"
 
 @pytest.fixture(autouse=True)
 def funded(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for body in (
         dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
              amount="100000", fee_amount="0", fee_currency="USD", source="N/A"),
@@ -23,7 +23,7 @@ def funded(auth_client):
     ):
         assert auth_client.post("/api/transactions", json=body).status_code == 200
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def post(client, **body):

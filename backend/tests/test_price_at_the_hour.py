@@ -43,9 +43,9 @@ def at(moment: str) -> datetime:
 def _ledger(auth_client, monkeypatch):
     stub_prices_at(monkeypatch, price_of)
     CALLS.clear()
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def post(client, **fields) -> dict:
@@ -262,7 +262,7 @@ def test_the_csv_export_carries_the_marks_and_an_older_file_means_the_day(auth_c
     assert header[-2:] == ["proceeds_typed", "price_moment"]
 
     def imported(text: str) -> list[dict]:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
         r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(text.encode()), "text/csv")})
         assert r.status_code == 200, r.text
         return sorted(auth_client.get("/api/transactions").json(), key=lambda t: t["timestamp"])

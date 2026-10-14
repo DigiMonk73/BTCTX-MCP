@@ -61,7 +61,7 @@ def test_no_access_log_on_any_edition():
 
 def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
     """Creating a backdated entry and editing one logged their timestamps at INFO."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     tx = lambda ts, amount: auth_client.post("/api/transactions", json={  # noqa: E731
         "type": "Deposit", "timestamp": ts, "from_account_id": 99, "to_account_id": 1,
         "amount": amount, "fee_amount": "0", "fee_currency": "USD", "source": "N/A"})
@@ -70,7 +70,7 @@ def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
         tx("2021-02-03T04:05:06Z", "2000")  # backdated: recalculates everything
         r = auth_client.put(f"/api/transactions/{later['id']}", json={"timestamp": "2022-08-09T01:02:03Z"})
         assert r.status_code == 200, r.text
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     info = "\n".join(rec.getMessage() for rec in caplog.records if rec.levelname != "DEBUG")
     for day in ("2023-05-17", "2021-02-03", "2022-08-09"):
         assert day not in info
@@ -79,7 +79,7 @@ def test_transaction_dates_stay_out_of_the_info_log(auth_client, caplog):
 def test_reports_log_no_counts_of_the_ledger_at_info(auth_client, caplog):
     """Privacy audit 2026-09-29 (3a): making reports logged how many
     transactions, disposals and lots each year had, at INFO."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for body in (
         dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
              amount="50000", fee_amount="0", fee_currency="USD", source="N/A"),
@@ -95,7 +95,7 @@ def test_reports_log_no_counts_of_the_ledger_at_info(auth_client, caplog):
                              ("simple_transaction_history", {"format": "pdf"})):
             r = auth_client.get(f"/api/reports/{path}", params={"year": 2024, **params})
             assert r.status_code == 200, (path, r.text)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     info = [rec.getMessage() for rec in caplog.records if rec.levelno >= 20]
     counted = [m for m in info if any(w in m for w in ("transactions for", "rows", "disposals", "lots"))]
     assert counted == []

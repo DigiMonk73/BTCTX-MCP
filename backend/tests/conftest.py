@@ -220,19 +220,29 @@ def keep_in_use(engine, carry_over):
         carry_over(restored)
 
 
+def temp_db_file() -> str:
+    """A database path in a temp folder of its own: the copies BitcoinTX keeps
+    next to its database (backups/: before a delete, the AI's) go there, not
+    into the shared temp folder. remove_temp_db() deletes it all."""
+    return os.path.join(tempfile.mkdtemp(prefix="btctx-test-"), "btctx.db")
+
+
+def remove_temp_db(path: str) -> None:
+    shutil.rmtree(os.path.dirname(path), ignore_errors=True)
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     """Create a temporary SQLite database for the entire test session."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
+    path = temp_db_file()
     engine = create_engine(
-        f"sqlite:///{tmp.name}",
+        f"sqlite:///{path}",
         connect_args={"check_same_thread": False},
     )
     init_test_db(engine)
     yield engine
     engine.dispose()
-    os.unlink(tmp.name)
+    remove_temp_db(path)
 
 
 @pytest.fixture(scope="session")
@@ -278,9 +288,8 @@ def fresh_app(auth_client):
     """
     from backend.services import first_run
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
+    path = temp_db_file()
+    engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     init_test_db(engine)
     Session = sessionmaker(bind=engine)
 
@@ -298,7 +307,7 @@ def fresh_app(auth_client):
     first_run.clear_code()
     app.dependency_overrides[get_db] = previous
     engine.dispose()
-    os.unlink(tmp.name)
+    remove_temp_db(path)
 
 
 @pytest.fixture(scope="session")

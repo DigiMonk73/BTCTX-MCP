@@ -50,9 +50,10 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
   │                        the release ships; can be deleted (it's downloaded again)
   └── backups/             automatic copies taken before a schema upgrade,
                            a restore, or Ledger Review's hourly prices are
-                           applied, or the AI key's first change in an
-                           hour, or asked for with the AI key (mode 600;
-                           only created when needed)
+                           applied, before every transaction is deleted
+                           (Delete All, Create account), or the AI key's
+                           first change in an hour, or asked for with the
+                           AI key (mode 600; only created when needed)
 ```
 
 On every start the app migrates `btctx.db` to the current schema

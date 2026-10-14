@@ -134,11 +134,11 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
         </div>
 
       {showDiscardModal && (
-        <div className="discard-modal">
-          <div className="discard-modal-content card" role="dialog" aria-modal="true">
+        <div className="dialog-backdrop">
+          <div className="dialog dialog-narrow card" role="dialog" aria-modal="true">
             <h3 className="card-title">Discard changes?</h3>
             <p>Your changes have not been saved. If you close this panel, they will be lost.</p>
-            <div className="discard-modal-actions">
+            <div className="dialog-actions">
               <button type="button" onClick={handleGoBack} className="btn btn-secondary">Go back</button>
               <button type="button" onClick={handleDiscardChanges} className="btn btn-danger">
                 Discard changes
