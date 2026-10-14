@@ -52,7 +52,7 @@ the maintenance releases after promotion, 1.2.9 first.
       that says what goes, offers to download a backup first and deletes
       only once `DELETE` is typed, and a safety copy in the data folder's
       `backups` before the wipe. An empty install isn't warned.
-- [ ] **Times on screen in the device's own timezone** (#260; 1.2.9, the
+- [x] **Times on screen in the device's own timezone** (#260; 1.2.9, the
       owner's choice, 2026-10-14): the price card's and Settings' clock
       times as the phone's or computer's clock shows them, like the
       transaction list; the tax timezone keeps deciding the tax year, Form

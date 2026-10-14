@@ -46,12 +46,12 @@ export const CONFIRM_WHY =
   "BitcoinTX now keeps a record of when you chose. Yours has none yet, so it asks once, your current choice " +
   "selected. Until you confirm, nothing is contacted; prices BitcoinTX already has still work.";
 
-/** "You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question." */
-export function chosenWhen(s: NetworkSettingsData, timezone: string): string | null {
+/** "You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question.", on this device's clock. */
+export function chosenWhen(s: NetworkSettingsData): string | null {
   if (!s.chosen_at || s.managed) return null;
   const at = new Date(s.chosen_at);
-  const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
-  const time = clock(s.chosen_at, timezone);
+  const day = at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = clock(s.chosen_at);
   const where = s.chosen_via === "first-run" ? "in the first-run question" : "in Settings";
   return `You chose this on ${day} at ${time}, ${where}.`;
 }
@@ -180,7 +180,7 @@ export function shownAddress(s: NetworkSettingsData, what: "mempool" | "tor"): s
 }
 
 /** What the card shows around its choices, worked out from its state. */
-export function cardView(saved: NetworkSettingsData, form: PriceForm, firstRun: boolean, timezone: string) {
+export function cardView(saved: NetworkSettingsData, form: PriceForm, firstRun: boolean) {
   const confirming = waitingToConfirm(saved);
   const changed = priceFormChanged(saved, form);
   const blocked = cannotSave(form);
@@ -188,7 +188,7 @@ export function cardView(saved: NetworkSettingsData, form: PriceForm, firstRun: 
     confirming,
     title: confirming ? CONFIRM_TITLE : "Bitcoin prices",
     current: confirming && saved.price_source !== "unset" ? saved.price_source : null,
-    when: confirming ? null : chosenWhen(saved, timezone),
+    when: confirming ? null : chosenWhen(saved),
     blocked: form.source === "" ? null : blocked,
     canSave: blocked === null && (changed || confirming),
     label: confirming && !changed ? "Confirm" : firstRun ? "Use this" : "Save",
