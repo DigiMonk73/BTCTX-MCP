@@ -16,6 +16,16 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
+  900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
+  basis, proceeds and fees were off to the right and the table had to be
+  scrolled sideways. While a preview is open, Settings now widens (up to
+  1,240 px, the Dashboard's width), and the table is narrower: the time under the date, a
+  withdrawal's purpose or a deposit's source under its type, and the
+  account it goes to under the one it comes from (a Buy's Bank / Exchange
+  USD choice included). Every column now shows in a 1440-wide window; in a
+  narrower one (the Mac app opens at 1280) and on a phone the table still
+  scrolls sideways, less than before.
 - **Delete All and Create account ask before they wipe the ledger, and
   keep a copy first** (#256). Settings → Data Management → **Delete** used
   the browser's one-click confirm, and **Create account** on an install
@@ -37,6 +47,13 @@ All notable changes to BitcoinTX are documented in this file.
     can't delete everything.
 
 ### Fixed
+- **The River import's preview says what its fees and tags are** (#269).
+  The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
+  "0.00000200", with no unit, and an Interest payout showed only as
+  "Deposit". It now writes "$1.50" and "0.00000200 BTC", as the other
+  columns do, and a deposit River tagged shows its source under its type
+  ("Deposit" over "Interest"). Display only: the import always read them
+  right.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the

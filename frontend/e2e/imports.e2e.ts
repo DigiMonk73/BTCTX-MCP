@@ -63,6 +63,10 @@ test("River import: preview statuses, edits, execute, re-import skips", async ({
   await expect(riverRow(page, 3)).toContainText("Review");
   for (const n of [4, 5, 6, 7]) await expect(r.getByLabel(`Include row ${n}`)).toBeChecked();
   await expect(riverRow(page, 4)).toContainText("New");
+  // Each fee with its unit, and a tagged payout's source under its type (#269)
+  await expect(riverRow(page, 4)).toContainText("$1.50");
+  await expect(riverRow(page, 5)).toContainText("$0.55");
+  await expect(riverRow(page, 6).getByText("Interest", { exact: true })).toBeVisible();
 
   // Edits: the interest payout's basis, the send's fee; leave out the sell.
   await riverRow(page, 6).getByLabel("Cost basis (USD)").fill("2.10");
@@ -106,6 +110,22 @@ test("River import rejects a file that isn't a River export", async ({ authedPag
   await r.getByRole("button", { name: "Preview" }).click();
   await expect(r.getByText(/This does not look like a River bitcoin-activity CSV\. Missing columns:/)).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
+});
+
+test("River preview: every column fits a 1440-wide window, the page widens only while it's open (#259)", async ({ authedPage: page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const settingsWidth = () => page.locator(".settings-page").evaluate((e) => e.clientWidth);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const narrow = await settingsWidth();
+  await previewRiver(page);
+  await expect.poll(settingsWidth).toBeGreaterThan(narrow);
+  const table = river(page).locator(".river-table");
+  const fit = await table.evaluate((t) => ({ table: t.scrollWidth, room: t.closest(".table-scroll")!.clientWidth }));
+  expect(fit.table).toBeLessThanOrEqual(fit.room);
+
+  await river(page).getByRole("button", { name: "Cancel" }).click();
+  await expect(table).toHaveCount(0);
+  await expect.poll(settingsWidth).toBe(narrow);
 });
 
 function data(page: Page) {

@@ -8,28 +8,33 @@ interface FundingCellProps {
   onChange: (patch: Partial<EditableRow>) => void;
 }
 
-/** From → To, with a choice of the account a Buy was paid from when River's
- * row doesn't say. */
+/** From, then "→ To" under it, with a choice of the account a Buy was paid
+ * from when River's row doesn't say. */
 const FundingCell: React.FC<FundingCellProps> = ({ row, editable, loading, onChange }) => (
   <td className="river-cell-accounts">
     {row.proposal.funding_choices.length > 1 && editable ? (
-      <span className="segmented river-funding-toggle" role="group" aria-label="Buy funding source">
-        {row.proposal.funding_choices.map((acct) => (
-          <button
-            key={acct}
-            type="button"
-            disabled={loading}
-            className={row.fromAccount === acct ? "active" : undefined}
-            aria-pressed={row.fromAccount === acct}
-            onClick={() => onChange({ fromAccount: acct })}
-          >
-            {acct}
-          </button>
-        ))}
+      <span className="river-stack">
+        <span className="segmented river-funding-toggle" role="group" aria-label="Buy funding source">
+          {row.proposal.funding_choices.map((acct) => (
+            <button
+              key={acct}
+              type="button"
+              disabled={loading}
+              className={row.fromAccount === acct ? "active" : undefined}
+              aria-pressed={row.fromAccount === acct}
+              onClick={() => onChange({ fromAccount: acct })}
+            >
+              {acct}
+            </button>
+          ))}
+        </span>
         <span className="river-funding-dest">→ {row.toAccount}</span>
       </span>
     ) : (
-      `${row.fromAccount} → ${row.toAccount}`
+      <span className="river-stack">
+        {row.fromAccount}
+        <span className="river-funding-dest">→ {row.toAccount}</span>
+      </span>
     )}
   </td>
 );
