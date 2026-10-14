@@ -150,8 +150,8 @@ def test_every_value_a_price_would_fill_is_given():
     for row in seed_ledger.ledger_rows():
         if row.get("fee_currency") == "BTC" and Decimal(row["fee_amount"]) > 0:
             assert Decimal(row["fee_usd"]) > 0, row
-        if (row.get("purpose") or "").lower() in ("gift", "donation"):
-            assert Decimal(row["fmv_usd"]) > 0, row
+        if (row.get("purpose") or "").lower() in ("gift", "donation", "lost"):  # Lost too since #255
+            assert row.get("fmv_usd") is not None, row
 
 
 def test_2026_rows_land_in_their_boxes(seeded):

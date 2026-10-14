@@ -204,7 +204,8 @@
    "amount": "0.002",
    "fee_amount": "0",
    "fee_currency": "BTC",
-   "purpose": "Lost"
+   "purpose": "Lost",
+   "fmv_usd": "75.00"
   },
   {
    "type": "Deposit",
@@ -1250,7 +1251,8 @@
    "amount": "0.001",
    "fee_amount": "0",
    "fee_currency": "BTC",
-   "purpose": "Lost"
+   "purpose": "Lost",
+   "fmv_usd": "148.00"
   },
   {
    "type": "Transfer",

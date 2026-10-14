@@ -32,6 +32,7 @@ EXPORTED = {
     "cost_basis_from_price": "cost_basis_typed",
     "acquired_at": "acquired_at",
     "proceeds_from_price": "proceeds_typed",
+    "fmv_from_price": "fmv_typed",
     "price_moment": "price_moment",
 }
 
