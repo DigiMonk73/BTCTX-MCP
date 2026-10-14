@@ -32,9 +32,9 @@ All notable changes to BitcoinTX are documented in this file.
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
   "Deposit". It now writes "$1.50" and "0.00000200 BTC", as the other
-  columns do, and a row River tagged shows its source or purpose under its
-  type ("Deposit" over "Interest"). Display only: the import always read
-  them right.
+  columns do, and a deposit River tagged shows its source under its type
+  ("Deposit" over "Interest"). Display only: the import always read them
+  right.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the

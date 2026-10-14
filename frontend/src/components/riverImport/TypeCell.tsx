@@ -10,8 +10,9 @@ interface TypeCellProps {
 }
 
 /** The row's type, a choice when River's row can be read more than one way,
- * with a withdrawal's purpose or a deposit's source under it: a choice too,
- * or what River's tag says (an Interest payout's "Interest"). */
+ * with a withdrawal's purpose (a choice) or a deposit's source under it: a
+ * choice too, or River's tag (an Interest payout's "Interest"). A withdrawal
+ * River tagged has only BitcoinTX's default purpose, so none is shown. */
 const TypeCell: React.FC<TypeCellProps> = ({ row, editable, loading, onChange }) => {
   const choices = row.proposal.type_choices;
   const choosable = choices.length > 1 && editable;
@@ -24,12 +25,10 @@ const TypeCell: React.FC<TypeCellProps> = ({ row, editable, loading, onChange })
         ) : (
           row.type
         )}
-        {row.type === "Withdrawal" && (choosable ? (
+        {row.type === "Withdrawal" && choosable && (
           <RiverSelect label="Withdrawal purpose" value={row.purpose} choices={WITHDRAWAL_PURPOSES} disabled={loading}
             onChange={(purpose) => onChange({ purpose })} />
-        ) : (
-          <span className="river-cell-sub">{row.purpose}</span>
-        ))}
+        )}
         {row.type === "Deposit" && (choosable ? (
           <RiverSelect label="Deposit source" value={row.source} choices={DEPOSIT_SOURCES} disabled={loading}
             onChange={(source) => onChange({ source })} />

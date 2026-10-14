@@ -35,7 +35,7 @@
 .river-status-discrepancy { background: var(--color-warning-tint); color: var(--color-warning); }
 
 /* Narrow enough for a 1440-wide window (#259): headers wrap, a cell's
-   second item (time, purpose, destination) goes under its first */
+   second item (time, purpose or source, destination) goes under its first */
 .river-table td { white-space: nowrap; }
 .river-table th { white-space: normal; vertical-align: bottom; }
 .river-table th, .river-table td { padding-left: var(--space-2); padding-right: var(--space-2); }

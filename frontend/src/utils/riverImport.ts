@@ -71,8 +71,8 @@ export function feeText(r: EditableRow): string {
   return feeCurrency(r) === "USD" ? `$${r.feeAmount}` : `${r.feeAmount} BTC`;
 }
 
-/** A row of the import request. A fee is in USD on a Buy or Sell and in BTC
- * otherwise; only a Deposit has a source and only a Withdrawal a purpose. */
+/** A row of the import request: the fee in feeCurrency's currency; only a
+ * Deposit has a source and only a Withdrawal a purpose. */
 export function importRow(r: EditableRow) {
   return {
     date: r.proposal.date,

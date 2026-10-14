@@ -36,7 +36,7 @@ describe("toEditableRow", () => {
 
 describe("feeText (#269)", () => {
   it("writes a fee with its unit: dollars on a Buy or Sell, BTC otherwise", () => {
-    const row = (type: string, fee_amount?: string) => ({ ...toEditableRow(proposal({ type, fee_amount })), type });
+    const row = (type: string, fee_amount?: string) => toEditableRow(proposal({ type, fee_amount }));
     expect(feeText(row("Buy", "1.50"))).toBe("$1.50");
     expect(feeText(row("Sell", "0.55"))).toBe("$0.55");
     expect(feeText(row("Withdrawal", "0.00000200"))).toBe("0.00000200 BTC");
