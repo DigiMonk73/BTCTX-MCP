@@ -57,7 +57,7 @@ class TestUserRoutesRequireAuth:
     def test_setup_status_is_public_and_minimal(self, auth_client):
         r = anon().get("/api/users/setup-status")
         assert r.status_code == 200
-        assert set(r.json()) == {"has_user", "is_default", "setup_code_required"}
+        assert set(r.json()) == {"has_user", "is_default", "setup_code_required", "desktop"}
 
 
 class TestResetAccount:
@@ -67,7 +67,7 @@ class TestResetAccount:
 
     def test_default_account_can_be_claimed(self, fresh_app):
         assert anon().get("/api/users/setup-status").json() == {
-            "has_user": True, "is_default": True, "setup_code_required": True}
+            "has_user": True, "is_default": True, "setup_code_required": True, "desktop": False}
         r = anon().post("/api/users/reset-account",
                         json={"username": "me", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
         assert r.status_code == 200, r.text
