@@ -482,7 +482,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
         if not tx.purpose:
             continue
         purpose_lower = tx.purpose.lower()
-        if purpose_lower in ("gift", "donation", "lost"):
+        if purpose_lower in GIFT_LIKE_PURPOSES:
             row = {
                 "date": tx.timestamp.isoformat() if tx.timestamp else "",
                 "asset": "BTC",

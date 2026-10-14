@@ -44,8 +44,9 @@ Checks:
 - gift_without_value (#255): a Gift, Donation or Lost withdrawal with a
   blank or $0 value. From 1.2.9 a blank one is valued at that hour's price
   when saved; older versions saved it blank (the report says "not given"),
-  and an edit in them could save $0. A donation's value is the deduction,
-  a gift's counts toward the gift-tax limit. Shown with that hour's value
+  and an edit in them could save $0. A donation's deduction starts from
+  it (for coins held a year or less, at most their basis), a gift's counts
+  toward the gift-tax limit. Shown with that hour's value
   (else that day's) when the price is known.
 - income_value_off (F42): an income or rebate deposit whose typed basis is
   more than 5% away from amount x that hour's price (else that day's).
@@ -510,7 +511,8 @@ def year_line(year: dict[str, Any]) -> str:
     """The hourly check's line for one tax year: how many change, and its totals' change."""
     unlisted = year["count"] - year["listed"]
     moved = ", ".join(f"{name} {_signed(year[key])}" for key, name in (
-        ("income", "income"), ("basis", "basis"), ("proceeds", "proceeds before fees"), ("fees", "fee values"))
+        ("income", "income"), ("basis", "basis"), ("proceeds", "proceeds before fees"), ("gift_values", "gift values"),
+        ("fees", "fee values"))
         if Decimal(year[key]) != 0) or "no net change"
     return (f"{year['year']}: {year['count']} transaction(s)"
             + (f", {unlisted} by less than $1.00 each (not listed)" if unlisted else "") + f"; totals: {moved}")

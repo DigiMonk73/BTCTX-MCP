@@ -6,15 +6,12 @@ import TransferFields from "./TransferFields";
 import WithdrawalFields from "./WithdrawalFields";
 
 /** The fields of the chosen transaction type; none before one is chosen. */
-const TypeFields: React.FC<{ type: TransactionType | ""; onRefreshFmv: () => void }> = ({
-  type,
-  onRefreshFmv,
-}) => {
+const TypeFields: React.FC<{ type: TransactionType | "" }> = ({ type }) => {
   switch (type) {
     case "Deposit":
       return <DepositFields />;
     case "Withdrawal":
-      return <WithdrawalFields onRefreshFmv={onRefreshFmv} />;
+      return <WithdrawalFields />;
     case "Transfer":
       return <TransferFields />;
     case "Buy":

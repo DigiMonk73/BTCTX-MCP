@@ -22,6 +22,8 @@ export interface HourlyYear {
   income: string;
   basis: string;
   proceeds: string;
+  /** Gift, donation and lost coins' values (#255) */
+  gift_values: string;
   fees: string;
 }
 

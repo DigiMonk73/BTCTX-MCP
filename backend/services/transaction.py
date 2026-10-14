@@ -163,8 +163,8 @@ def _is_gift_like(data) -> bool:
 
 def _gift_value_at(amount, when: datetime, db: Session) -> tuple[Decimal, str] | None:
     """(the amount's value at the price that values `when`, that price's
-    moment), or None without a price: a gift's value isn't on any IRS form
-    (the deduction and the gift-tax limit it counts toward are the owner's
+    moment), or None without a price: a gift's value is on no form BitcoinTX
+    fills (the deduction and the gift-tax limit it counts toward are the owner's
     to claim), so it stays blank for the owner to type, never a 422."""
     try:
         priced = _price_at(when, db)
@@ -579,23 +579,35 @@ def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None
 
 def _revalue_gift(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
-    A Gift, Donation or Lost withdrawal's value after an edit (#255): sent
-    blank, it is filled from the price (blank without one); one that came
-    from the price is priced again when the edit changes its amount or hour,
-    and stays as it was when the form only sends it back; a typed value, or
-    a change to a sale or another type, makes it typed.
+    A Gift, Donation or Lost withdrawal's value after an edit (#255): priced
+    when the edit prices it (_gift_priced_by_edit; blank without a price);
+    a typed value, or a change to a sale or another type, makes it typed.
     """
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "amount", "timestamp", "from_account_id")}
     if not _is_gift_like(edited):
         if tx.fmv_from_price:
             tx_data["fmv_from_price"] = False
         return
-    if "fmv_usd" in tx_data and tx_data["fmv_usd"] is None:
+    if _gift_priced_by_edit(tx, tx_data):
         _price_gift_again(edited, tx_data, db)
     elif tx.fmv_from_price and _typed_gift_value(tx, tx_data):
         tx_data["fmv_from_price"] = False
-    elif tx.fmv_from_price and _spent_inputs_changed(tx, tx_data):
-        _price_gift_again(edited, tx_data, db)
+
+
+def _gift_priced_by_edit(tx: Transaction, tx_data: dict) -> bool:
+    """Whether an edit that leaves a withdrawal a gift, donation or loss
+    prices its value: blank after the edit (sent blank, or left blank: an
+    edit saves it, as one saved before #255 was), a sale's $0 or blank it
+    becomes a gift with (the form sends back what it shows: not a typed
+    value), or one from the price whose amount or hour the edit changes."""
+    after = tx_data["fmv_usd"] if "fmv_usd" in tx_data else tx.fmv_usd
+    if after is None:
+        return True
+    if _typed_gift_value(tx, tx_data):
+        return False
+    if not _is_gift_like(tx):
+        return Decimal(after) <= 0
+    return bool(tx.fmv_from_price) and _spent_inputs_changed(tx, tx_data)
 
 
 def _price_gift_again(edited: dict, tx_data: dict, db: Session) -> None:
@@ -658,17 +670,18 @@ def _keeps_a_day_price(tx: Transaction, tx_data: dict) -> bool:
 
 
 def _value_priced_by_edit(tx: Transaction, tx_data: dict, edited: dict) -> bool | None:
-    """A Spent's proceeds or a gift's value that came from a price, after an
-    edit: True when the edit prices it again, False when it keeps it; None
-    when there is none, or the edit types it."""
+    """A Spent's proceeds that came from a price, or a gift's value, after an
+    edit: True when the edit prices it (again, or now), False when it keeps
+    one from the price; None when there is none, or the edit types it."""
     if _is_spent(edited) and tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
         if _typed_proceeds(tx, tx_data):
             return None
         return _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
-    if _is_gift_like(edited) and tx.fmv_from_price and tx.fmv_usd is not None:
-        if _typed_gift_value(tx, tx_data):
-            return None
-        return ("fmv_usd" in tx_data and tx_data["fmv_usd"] is None) or _spent_inputs_changed(tx, tx_data)
+    if _is_gift_like(edited):
+        if _gift_priced_by_edit(tx, tx_data):
+            return True
+        kept = tx.fmv_from_price and tx.fmv_usd is not None and not _typed_gift_value(tx, tx_data)
+        return False if kept else None
     return None
 
 
@@ -1049,7 +1062,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     # Gift/Donation/Lost => no gain or loss on the amount: not a sale, and
     # not on Form 8949 (form_8949.NON_TAXABLE_PURPOSES); the dashboard and
     # the tax report's summary leave it out too (owner decision 2026-09-26).
-    not_a_sale = tx.type == "Withdrawal" and (tx.purpose or "").lower() in ("gift", "donation", "lost")
+    not_a_sale = tx.type == "Withdrawal" and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
@@ -1208,7 +1221,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
 
-    if tx.type == "Withdrawal" and (tx.purpose or "").lower() in ("gift", "donation", "lost"):
+    if tx.type == "Withdrawal" and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES:
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None

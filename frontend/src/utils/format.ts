@@ -69,7 +69,7 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     cost_basis_usd: parseDecimal(rawTx.cost_basis_usd),
     proceeds_usd: parseDecimal(rawTx.proceeds_usd),
     gross_proceeds_usd: parseDecimal(rawTx.gross_proceeds_usd),
-    // Blank stays blank: an edit sent $0 for it, a typed value (#255)
+    // Blank stays blank, never $0: the form would send $0 back as a typed value (#255)
     fmv_usd: rawTx.fmv_usd == null ? undefined : parseDecimal(rawTx.fmv_usd),
     realized_gain_usd: parseDecimal(rawTx.realized_gain_usd),
 

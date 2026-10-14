@@ -132,6 +132,58 @@ def test_an_old_blank_gift_is_valued_when_saved_again(auth_client, test_db):
     assert again["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.005") and again["fmv_from_price"] is True
 
 
+def blank_in_the_database(test_db, tx: dict, **fields) -> None:
+    """The row as 1.2.8 left it: its value blank (or another field set), its marks unchanged."""
+    from backend.models.transaction import Transaction
+    row = test_db.get(Transaction, tx["id"])
+    row.fmv_usd = None
+    for key, stored in fields.items():
+        setattr(row, key, stored)
+    test_db.commit()
+
+
+def test_a_value_left_blank_is_filled_by_any_edit(auth_client, test_db):
+    """The AI's update_transaction sends only what changes: a blank value is filled all the same."""
+    tx = gift(auth_client, fmv_usd="100.00")
+    blank_in_the_database(test_db, tx)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"amount": "0.004"})
+    assert r.status_code == 200, r.text
+    assert r.json()["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.004") and r.json()["fmv_from_price"] is True
+
+
+def test_a_spend_made_a_gift_is_valued(auth_client, test_db):
+    """Its $0 or blank value (forms before #255 saved $0 for every withdrawal) isn't a typed one."""
+    for stored in (None, D(0)):
+        spend = gift(auth_client, "Spent", proceeds_usd="300.00")
+        blank_in_the_database(test_db, spend, fmv_usd=stored)
+        r = auth_client.put(f"/api/transactions/{spend['id']}", json={"purpose": "Gift"})
+        assert r.status_code == 200, r.text
+        assert r.json()["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.005") and r.json()["fmv_from_price"] is True
+        echoed = gift(auth_client, "Spent", proceeds_usd="300.00")
+        blank_in_the_database(test_db, echoed, fmv_usd=stored)
+        stored_row = auth_client.get(f"/api/transactions/{echoed['id']}").json()
+        again = edit(auth_client, stored_row, purpose="Donation", fmv_usd=None if stored is None else "0.00")
+        assert again["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.005") and again["fmv_from_price"] is True
+
+
+def test_a_value_priced_now_beside_a_fee_at_the_days_price_takes_the_days_too(auth_client, test_db, monkeypatch):
+    """One price per transaction: the fee keeps its day price, so the value
+    filled takes it as well, and Ledger Review offers both at the hour."""
+    stub_prices_at(monkeypatch, lambda when: D(50000), moment="day")
+    typed = gift(auth_client, fee_amount="0.0001", fmv_usd="100.00")
+    old_blank = gift(auth_client, "Lost", fee_amount="0.0001", fmv_usd="100.00")
+    blank_in_the_database(test_db, old_blank)
+    spend = gift(auth_client, "Spent", fee_amount="0.0001", proceeds_usd="300.00")
+    blank_in_the_database(test_db, spend)
+    assert {tx["price_moment"] for tx in (typed, old_blank, spend)} == {"day"}
+    stub_prices_at(monkeypatch, price_of)  # hourly prices now
+    for tx, changes in ((typed, {"fmv_usd": None}), (old_blank, {}), (spend, {"purpose": "Gift"})):
+        stored = auth_client.get(f"/api/transactions/{tx['id']}").json()
+        after = edit(auth_client, stored, **changes)
+        assert after["fmv_usd"] == "250.00" and after["fmv_from_price"] is True, tx["purpose"]
+        assert after["fee_usd"] == "5.00" and after["price_moment"] == "day", tx["purpose"]
+
+
 def test_ledger_review_lists_gifts_with_no_value(auth_client, test_db):
     from backend.models.transaction import Transaction
     blank = gift(auth_client, fmv_usd="100.00")
@@ -160,6 +212,11 @@ def test_a_day_priced_value_is_offered_at_the_hour(auth_client, monkeypatch):
     db = next(app.dependency_overrides[get_db]())
     assert [f for f, _, _ in _priced_values(db.get(Transaction, tx["id"]))] == ["fmv_usd"]
     db.close()
+    # Its tax year's totals name what moves (Settings, cli review, the AI's review_ledger)
+    from backend.services.review import year_line
+    found = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "day_priced_values")
+    [year] = found["years"]
+    assert D(year["gift_values"]) != 0 and "; totals: gift values " in year_line(year)
 
 
 def test_the_tax_report_lists_the_value_with_its_price(auth_client):

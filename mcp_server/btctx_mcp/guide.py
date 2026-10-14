@@ -112,8 +112,10 @@ Withdrawal: any account -> External
     Donation = gave to a charity (not a sale).
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
                Form 8949, like Gift and Donation).
-    For these three, fmv_usd = the value when it left (a donation's is the
-    deduction, a gift's counts toward the gift-tax limit): omitted, it is
+    For these three, fmv_usd = the value when it left (a donation's
+    deduction starts from it: for coins held a year or less, at most their
+    basis, IRC 170(e)(1)(A); a gift's counts toward the gift-tax limit;
+    BitcoinTX fills no form with it): omitted, it is
     that hour's price x amount, marked as from the price; with no price it
     stays blank, and Ledger Review lists it.
   amount = what the recipient got. Network fee: fee_amount in BTC,

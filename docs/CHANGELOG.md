@@ -25,14 +25,16 @@ All notable changes to BitcoinTX are documented in this file.
   it's saved, from the BTC price when that hour began (that day's where
   there's no hourly price), shown as "From the price", priced again when
   you change its amount or time, and listed with the report's other values
-  from a price. A value you type, $0 included, is kept. With the price
-  source Nobody (or no price found) it stays blank. **Ledger Review** gets
-  a check, "Gifts, donations and lost coins with a $0 or blank value",
-  that also finds the ones earlier versions saved blank: edit one and
-  clear its FMV to fill it. A gift, donation or loss is not a sale, so no
-  gain changes; nothing already saved changes either. The CSV file gains
-  an `fmv_typed` column, so a re-import keeps where the value came from.
-  This adds a database column (migration 0011, `fmv_from_price`).
+  from a price. The FMV box's **Refresh** button is gone: like an income
+  value, a blank one is filled when you save. A value you type, $0
+  included, is kept. With the price source Nobody (or no price found) it
+  stays blank. **Ledger Review** gets a check, "Gifts, donations and lost
+  coins with a $0 or blank value", that also finds the ones earlier
+  versions saved blank: saving one again fills it (a $0 one: clear its
+  FMV first). A gift, donation or loss is not a sale, so no gain changes;
+  nothing already saved changes either. The CSV file gains an `fmv_typed`
+  column, so a re-import keeps where the value came from. This adds a
+  database column (migration 0011, `fmv_from_price`).
 
 ### Fixed
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →

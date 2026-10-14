@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildTransactionPayload,
   dayIn,
-  fmvPriceRequest,
   localDatetimeToIso,
   mapTransactionToFormData,
   transferDestinations,
@@ -332,20 +331,6 @@ describe("a BTC fee's USD value (F14)", () => {
     const body = roundTrip({ type: "Transfer", from_account_id: 1, to_account_id: 3, amount: 100,
       fee_amount: 1, fee_currency: "USD" });
     expect("fee_usd" in body).toBe(false);
-  });
-});
-
-describe("fmvPriceRequest", () => {
-  const now = new Date("2026-04-01T15:00:00Z");
-
-  it("asks the price that values a past moment: the server's, at that time (#144)", () => {
-    expect(fmvPriceRequest("2025-07-01T16:47", now)).toEqual({
-      url: "/bitcoin/price/history", params: { at: "2025-07-01T16:47:00.000Z" },
-    });
-  });
-
-  it("asks the live price for a moment not yet come", () => {
-    expect(fmvPriceRequest("2026-04-01T16:00", now)).toEqual({ url: "/bitcoin/price" });
   });
 });
 

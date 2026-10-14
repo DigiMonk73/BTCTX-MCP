@@ -93,7 +93,7 @@ LEDGER = [
     dict(type="Deposit", timestamp="2024-05-01T16:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
          amount="0.02", fee_amount="0", fee_currency="BTC", source="Income"),
     dict(type="Withdrawal", timestamp="2024-06-01T16:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
-         amount="0.1", fee_amount="0", fee_currency="BTC", purpose="Gift"),
+         amount="0.1", fee_amount="0", fee_currency="BTC", purpose="Gift", fmv_usd="6700"),
     dict(type="Buy", timestamp="2025-01-10T17:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
          amount="0.2", cost_basis_usd="20000", fee_amount="0", fee_currency="USD"),
     dict(type="Sell", timestamp="2025-04-01T16:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
