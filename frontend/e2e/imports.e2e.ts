@@ -134,6 +134,12 @@ test("CSV import: template and instructions download; the template imports into 
   });
   await data(page).getByRole("button", { name: "Preview" }).click();
   await expect(data(page).getByRole("heading", { name: "Import Preview" })).toBeVisible();
+  // Dollars as dollars, bitcoin as bitcoin, the accounts by their usual names (#254)
+  const rows = data(page).getByRole("row");
+  await expect(rows.nth(1)).toContainText("$20,000.00");
+  await expect(rows.nth(1)).not.toContainText("BTC");
+  await expect(rows.nth(2)).toContainText(/Bank\s*Exchange USD/);
+  await expect(rows.nth(3)).toContainText("0.50000000 BTC");
   const stats = await data(page).getByText(/valid \/ \d+ total rows/).innerText();
   const valid = Number(stats.match(/(\d+) valid/)![1]);
   expect(valid).toBeGreaterThan(0);

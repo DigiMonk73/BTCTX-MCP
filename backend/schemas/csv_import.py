@@ -16,6 +16,8 @@ class CSVRowPreview(BaseModel):
     date: datetime
     type: str
     amount: Decimal
+    # What the amount is in: USD for a cash move (Bank, Exchange USD)
+    amount_currency: str
     from_account: str
     to_account: str
     cost_basis_usd: Decimal | None = None

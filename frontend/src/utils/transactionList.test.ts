@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByDay, pageOf, sortTransactions } from "./transactionList";
+import { gainLabel, groupByDay, pageOf, sortTransactions } from "./transactionList";
 
 const tx = (id: number, timestamp: string) => ({ id, timestamp }) as ITransaction;
 
@@ -45,5 +45,33 @@ describe("groupByDay", () => {
       ["Jun 2, 2024", [1, 2]],
       ["Jun 1, 2024", [3]],
     ]);
+  });
+});
+
+describe("gainLabel", () => {
+  const disposal = (type: string, purpose?: string) =>
+    ({
+      type,
+      purpose,
+      cost_basis_usd: 100,
+      realized_gain_usd: 20,
+      holding_period: "LONG",
+    }) as ITransaction;
+
+  it("shows a sell's and a spend's gain", () => {
+    expect(gainLabel(disposal("Sell"))).toBe("Gain +$20.00 \u00b7 +20.00% \u00b7 Long-term");
+    expect(gainLabel(disposal("Withdrawal", "Spent"))).toBe("Gain +$20.00 \u00b7 +20.00% \u00b7 Long-term");
+  });
+
+  it("shows none for a gift, a donation or lost coins: they aren't sales (#257)", () => {
+    // As saved: a basis, and a gain of 0 ("Gain $0.00 · +0.00% · Long-term" before)
+    for (const purpose of ["Gift", "Donation", "Lost", "gift"]) {
+      expect(gainLabel({ ...disposal("Withdrawal", purpose), realized_gain_usd: 0 })).toBe("");
+    }
+  });
+
+  it("shows none for a deposit, or with no basis and no gain", () => {
+    expect(gainLabel(disposal("Deposit"))).toBe("");
+    expect(gainLabel({ ...disposal("Sell"), cost_basis_usd: 0, realized_gain_usd: 0 })).toBe("");
   });
 });
