@@ -29,6 +29,7 @@ from backend.services.transaction import (
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
+    ACCOUNT_ID_TO_NAME,
     ACCOUNT_NAME_TO_ID,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
@@ -439,14 +440,25 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
+def _amount_currency(row: _Row) -> str:
+    """What the amount is counted in, as the ledger counts it
+    (transaction._check_amount): the receiving account's currency for a
+    Deposit or Buy, the sending account's otherwise."""
+    account = row.to_id if row.tx_type in ("Deposit", "Buy") else row.from_id
+    return "BTC" if account in BTC_ACCOUNTS else "USD"
+
+
 def _preview(row: _Row) -> CSVRowPreview:
+    # The accounts' usual names, as the CSV export writes them ("Exchange
+    # USD", not the typed name in title case, #254)
     return CSVRowPreview(
         row_number=row.number,
         date=row.timestamp,
         type=row.tx_type,
         amount=row.amount,
-        from_account=row.from_name.title(),
-        to_account=row.to_name.title(),
+        amount_currency=_amount_currency(row),
+        from_account=ACCOUNT_ID_TO_NAME[row.from_id],
+        to_account=ACCOUNT_ID_TO_NAME[row.to_id],
         cost_basis_usd=row.cost_basis_usd,
         proceeds_usd=row.proceeds_usd,
         fee_amount=row.fee_amount,

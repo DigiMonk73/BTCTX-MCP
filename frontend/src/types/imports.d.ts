@@ -7,6 +7,7 @@ declare global {
     date: string;
     type: string;
     amount: string;
+    amount_currency: "BTC" | "USD";
     from_account: string;
     to_account: string;
     cost_basis_usd?: string;
