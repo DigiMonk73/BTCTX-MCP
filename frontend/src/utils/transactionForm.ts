@@ -1,6 +1,7 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { optionalDecimal, parseDecimal } from "./format";
+import { isNotSold } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -124,8 +125,10 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,
-    // Blank stays blank, so saving it fills it from the price (#255)
-    fmv_usd: tx.fmv_usd,
+    // Blank stays blank, so saving it fills it from the price (#255); a
+    // sale's $0 (older forms saved one on every withdrawal) shows blank too,
+    // so making it a gift fills it rather than sending $0 as the value
+    fmv_usd: isNotSold(tx.purpose) ? tx.fmv_usd : tx.fmv_usd || undefined,
     grossProceedsUSD: tx.gross_proceeds_usd ?? 0,
     brokerReporting: tx.broker_reporting ?? "",
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,

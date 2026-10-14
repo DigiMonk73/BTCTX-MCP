@@ -101,6 +101,15 @@ describe("Withdrawal", () => {
     const priced = mapTransactionToFormData(tx({ ...gift, fmv_usd: 391.05, fmv_from_price: true }));
     expect(priced).toMatchObject({ fmv_usd: 391.05, fmvFromPrice: true, fmvStored: 391.05 });
     expect(buildTransactionPayload(priced).fmv_usd).toBe(391.05);
+    // A gift's $0 is a value it was given: sent back as $0
+    expect(roundTrip({ ...gift, fmv_usd: 0 }).fmv_usd).toBe(0);
+  });
+
+  it("a sale's $0 value is edited blank, so making it a gift fills it from the price (#255)", () => {
+    // Older forms saved $0 as every withdrawal's value; sent back, it would be a typed $0
+    const form = mapTransactionToFormData(tx({ ...spend, fmv_usd: 0 }));
+    expect(form.fmv_usd).toBeUndefined();
+    expect(buildTransactionPayload({ ...form, purpose: "Gift" }).fmv_usd).toBeNull();
   });
 
   it("sends the override for a Spent withdrawal only", () => {

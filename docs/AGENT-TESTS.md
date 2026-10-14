@@ -451,7 +451,7 @@ Start from the `clean` snapshot.
   and the price site. Change the amount to `0.002` and save: the FMV
   doubles (± a cent). Type `50` in FMV and save: Edit shows "Typed: you
   typed this value; it's kept as it is." Delete the gift.
-- **PRC-2c** (#260, right after PRC-2) Settings > Tax Timezone: `Asia/Tokyo`,
+- **PRC-2c** (#260, right after PRC-2b) Settings > Tax Timezone: `Asia/Tokyo`,
   **Save**. Expect: the Dashboard's price line ("From public price sites
   (…) · h:mm am/pm") and Settings' "Last price h:mm am/pm" show New York
   time (the browser's timezone), not Tokyo's; the Transactions list's

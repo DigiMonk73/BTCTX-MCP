@@ -152,7 +152,9 @@ def test_a_value_left_blank_is_filled_by_any_edit(auth_client, test_db):
 
 
 def test_a_spend_made_a_gift_is_valued(auth_client, test_db):
-    """Its $0 or blank value (forms before #255 saved $0 for every withdrawal) isn't a typed one."""
+    """Its $0 or blank value (forms before #255 saved $0 for every withdrawal)
+    is filled when no value is sent, or the form's blank (it shows a sale's $0
+    blank: transactionForm.test.ts)."""
     for stored in (None, D(0)):
         spend = gift(auth_client, "Spent", proceeds_usd="300.00")
         blank_in_the_database(test_db, spend, fmv_usd=stored)
@@ -162,17 +164,20 @@ def test_a_spend_made_a_gift_is_valued(auth_client, test_db):
         echoed = gift(auth_client, "Spent", proceeds_usd="300.00")
         blank_in_the_database(test_db, echoed, fmv_usd=stored)
         stored_row = auth_client.get(f"/api/transactions/{echoed['id']}").json()
-        again = edit(auth_client, stored_row, purpose="Donation", fmv_usd=None if stored is None else "0.00")
+        again = edit(auth_client, stored_row, purpose="Donation", fmv_usd=None)
         assert again["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.005") and again["fmv_from_price"] is True
 
 
-def test_a_0_typed_while_making_a_spend_a_gift_is_kept(auth_client, test_db):
-    """A blank value goes back blank (the form, the AI's update_transaction), so a $0 sent for it is typed."""
-    spend = gift(auth_client, "Spent", proceeds_usd="300.00")
-    blank_in_the_database(test_db, spend)
-    r = auth_client.put(f"/api/transactions/{spend['id']}", json={"purpose": "Lost", "fmv_usd": "0"})
-    assert r.status_code == 200, r.text
-    assert D(r.json()["fmv_usd"]) == 0 and r.json()["fmv_from_price"] is False
+def test_a_0_sent_while_making_a_spend_a_gift_is_kept(auth_client, test_db):
+    """A $0 sent is the value wanted (the form and the AI's update_transaction
+    send a blank one blank), whether the sale's value was blank or $0."""
+    for stored in (None, D(0)):
+        spend = gift(auth_client, "Spent", proceeds_usd="300.00")
+        blank_in_the_database(test_db, spend, fmv_usd=stored)
+        for purpose in ("Gift", "Lost"):
+            r = auth_client.put(f"/api/transactions/{spend['id']}", json={"purpose": purpose, "fmv_usd": "0"})
+            assert r.status_code == 200, r.text
+            assert D(r.json()["fmv_usd"]) == 0 and r.json()["fmv_from_price"] is False, (stored, purpose)
 
 
 def test_a_value_priced_now_beside_a_fee_at_the_days_price_takes_the_days_too(auth_client, test_db, monkeypatch):

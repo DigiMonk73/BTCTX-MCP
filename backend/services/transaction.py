@@ -597,16 +597,17 @@ def _revalue_gift(tx: Transaction, tx_data: dict, db: Session) -> None:
 def _gift_priced_by_edit(tx: Transaction, tx_data: dict) -> bool:
     """Whether an edit that leaves a withdrawal a gift, donation or loss
     prices its value: blank after the edit (sent blank, or left blank: an
-    edit saves it, as one saved before #255 was), a sale's $0 or blank it
-    becomes a gift with (the form sends back what it shows: not a typed
-    value), or one from the price whose amount or hour the edit changes."""
+    edit saves it, as one saved before #255 was), a sale's $0 it becomes a
+    gift with when no value is sent (older forms saved $0 on every
+    withdrawal; a value sent, $0 included, is the one wanted), or one from
+    the price whose amount or hour the edit changes."""
     after = tx_data["fmv_usd"] if "fmv_usd" in tx_data else tx.fmv_usd
     if after is None:
         return True
+    if not _is_gift_like(tx):
+        return "fmv_usd" not in tx_data and Decimal(after) <= 0
     if _typed_gift_value(tx, tx_data):
         return False
-    if not _is_gift_like(tx):
-        return Decimal(after) <= 0
     return bool(tx.fmv_from_price) and _spent_inputs_changed(tx, tx_data)
 
 
