@@ -1,5 +1,7 @@
-// The Transactions page's list: its order, the page shown and the day
-// headings.
+// The Transactions page's list: its order, the page shown, the day
+// headings and a row's gain line.
+import { formatSignedUsd, parseDecimal } from "./format";
+import { isNotSold } from "./purposes";
 
 /** Newest first: by date, or by when they were added (id). */
 export function sortTransactions(transactions: ITransaction[], sortMode: SortMode): ITransaction[] {
@@ -33,4 +35,19 @@ export function groupByDay(transactions: ITransaction[]): [string, ITransaction[
     groups[day].push(tx);
   }
   return Object.entries(groups);
+}
+
+/** A sale's gain: "Gain +$1.00 · +2.00% · Long-term" for a Sell or a
+ * Withdrawal, "" with no basis and no gain. A gift, a donation or lost coins
+ * aren't sales, so they get none (#257). */
+export function gainLabel(tx: ITransaction): string {
+  if (tx.type !== "Sell" && tx.type !== "Withdrawal") return "";
+  if (tx.type === "Withdrawal" && isNotSold(tx.purpose)) return "";
+  if (tx.cost_basis_usd == null || tx.realized_gain_usd == null) return "";
+  const gain = parseDecimal(tx.realized_gain_usd);
+  const basis = parseDecimal(tx.cost_basis_usd);
+  if (gain === 0 && basis === 0) return "";
+  const term = tx.holding_period === "LONG" ? "Long-term" : tx.holding_period === "SHORT" ? "Short-term" : "";
+  const pct = basis !== 0 ? `${gain >= 0 ? "+" : "\u2212"}${Math.abs((gain / basis) * 100).toFixed(2)}%` : "";
+  return [`${gain >= 0 ? "Gain" : "Loss"} ${formatSignedUsd(gain)}`, pct, term].filter(Boolean).join(" \u00b7 ");
 }

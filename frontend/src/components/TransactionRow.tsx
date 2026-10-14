@@ -1,9 +1,11 @@
 // One row of the Transactions list: an icon for the type, a title (type and
 // account) over a grey subtitle (time, source or purpose, fee), the gain for
-// sells and spends, and the amount that moved with its USD value under it.
+// sells and spends (never gifts, donations or lost coins), and the amount
+// that moved with its USD value under it.
 import React from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Minus, Plus, type LucideIcon } from "lucide-react";
-import { formatBtc, formatSignedUsd, formatUsd, parseDecimal } from "../utils/format";
+import { formatBtc, formatUsd } from "../utils/format";
+import { gainLabel } from "../utils/transactionList";
 
 function accountIdToName(id: number | null): string {
   if (id === null) return "N/A";
@@ -82,17 +84,6 @@ function rowAmounts(tx: ITransaction): { primary: string; secondary: string } {
     default:
       return { primary: `${amount}`, secondary: "" };
   }
-}
-
-function gainLabel(tx: ITransaction): string {
-  if (tx.type !== "Sell" && tx.type !== "Withdrawal") return "";
-  if (tx.cost_basis_usd == null || tx.realized_gain_usd == null) return "";
-  const gain = parseDecimal(tx.realized_gain_usd);
-  const basis = parseDecimal(tx.cost_basis_usd);
-  if (gain === 0 && basis === 0) return "";
-  const term = tx.holding_period === "LONG" ? "Long-term" : tx.holding_period === "SHORT" ? "Short-term" : "";
-  const pct = basis !== 0 ? `${gain >= 0 ? "+" : "\u2212"}${Math.abs((gain / basis) * 100).toFixed(2)}%` : "";
-  return [`${gain >= 0 ? "Gain" : "Loss"} ${formatSignedUsd(gain)}`, pct, term].filter(Boolean).join(" \u00b7 ");
 }
 
 interface Props {

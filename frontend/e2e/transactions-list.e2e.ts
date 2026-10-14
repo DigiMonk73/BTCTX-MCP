@@ -60,6 +60,25 @@ test("rows show account, amounts, fee, source and gain", async ({ authedPage: pa
   await expect(buy).toContainText(/\+1\.00000000 BTC\s*\$20,000\.00/);
 });
 
+test("a spend shows its gain; a gift, a donation and lost coins show none (#257)", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  for (const [day, purpose] of [["01", "Spent"], ["02", "Gift"], ["03", "Donation"], ["04", "Lost"]]) {
+    await createTx(page.request, {
+      type: "Withdrawal", timestamp: `2024-04-${day}T15:00:00Z`, from_account_id: 2, to_account_id: 99,
+      amount: "0.005", fee_amount: "0", fee_currency: "BTC", purpose,
+      ...(purpose === "Spent" ? { gross_proceeds_usd: "400" } : {}),
+    });
+  }
+  await page.getByRole("link", { name: "Transactions" }).click();
+  const rows = page.getByRole("listitem");
+  await expect(rows.filter({ hasText: "Spent" })).toContainText(/Gain \+\$/);
+  for (const purpose of ["Gift", "Donation", "Lost"]) {
+    const row = rows.filter({ hasText: purpose });
+    await expect(row).toContainText("0.00500000 BTC");
+    await expect(row).not.toContainText(/Gain|Loss|Long-term|Short-term/);
+  }
+});
+
 test("rows are grouped by the local day, with local times", async ({ authedPage: page }, info) => {
   // 03:04 UTC on June 15: June 14 in Chicago, June 15 in Tokyo.
   await createTx(page.request, {
