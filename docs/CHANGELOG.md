@@ -25,10 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   times, and the sidebar's hour, follow the device you look from (on
   StartOS, your phone's or laptop's clock, not the server's). The tax
   timezone keeps deciding what it's for: the tax year, Form 8949's dates
-  and the report. Two times stay as they were, each labelled: Ledger
-  Review's dates are in the tax timezone, since it sorts them into tax
-  years, and a value's "From the price … UTC" names the UTC hour whose
-  price it used.
+  and the report. Two kinds of time stay as they were, each labelled:
+  Ledger Review's dates are in the tax timezone, as `cli review` and the
+  AI connector see the same items, and a price's hour ("From the price: …
+  at 14:00 UTC") is named in UTC wherever it's shown.
 
 ### Fixed
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →

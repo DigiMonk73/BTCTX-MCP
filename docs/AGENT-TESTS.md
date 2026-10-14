@@ -442,9 +442,9 @@ Start from the `clean` snapshot.
   **Save**. Expect: the Dashboard's price line ("From public price sites
   (…) · h:mm am/pm") and Settings' "Last price h:mm am/pm" show New York
   time (the browser's timezone), not Tokyo's; the Transactions list's
-  times don't move. Ledger Review's "Dates in Asia/Tokyo." is right: its
-  dates stay in the tax timezone. Set it back to `America/New_York` (every
-  golden figure back, as in TZ-2).
+  times don't move. Ledger Review > **Check again** reads "Dates in
+  Asia/Tokyo.": its dates stay in the tax timezone. Set it back to
+  `America/New_York` (every golden figure back, as in TZ-2).
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
