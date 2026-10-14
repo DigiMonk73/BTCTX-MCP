@@ -31,6 +31,7 @@ from backend.constants import (
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
     BTC_ACCOUNTS,
+    GIFT_LIKE_PURPOSES,
     INHERITED_SOURCE,
     ORIGINAL_DATE_SOURCES,
     VALUED_AT_RECEIPT,
@@ -100,10 +101,11 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     # the day): a value priced now takes the day too, so the transaction's
     # priced values share one price
     imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
-        or tx_data.get("fee_usd_from_price")
+        or tx_data.get("fee_usd_from_price") or tx_data.get("fmv_from_price")
     at_the_day = tx_data.get("price_moment") == "day" or (imported and not tx_data.get("price_moment"))
     with _priced_at_the_day(db, bool(at_the_day)):
         _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
+        _mark_gift_value(tx_data, priced=_value_blank_gift(tx_data, db))
         _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
     if tx_data.get("fee_usd_from_price") and tx_data.get("fee_usd") is not None:
         # A CSV re-import of a value once priced (not typed): kept as it
@@ -119,11 +121,13 @@ PRICE_MOMENTS = ("hour", "day")
 
 def _has_priced_value(data) -> bool:
     """Whether a transaction (or its input) holds a value that came from a
-    price: an income or rebate basis, a Spent's proceeds, a BTC fee's value.
-    A mark without its value (a deposit moved to Bank) isn't one."""
+    price: an income or rebate basis, a Spent's proceeds, a gift's,
+    donation's or lost coins' value, a BTC fee's value. A mark without its
+    value (a deposit moved to Bank) isn't one."""
     get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
     return bool((get("cost_basis_from_price") and get("cost_basis_usd") is not None)
                 or (get("proceeds_from_price") and get("gross_proceeds_usd") is not None)
+                or (get("fmv_from_price") and get("fmv_usd") is not None)
                 or (get("fee_usd") is not None and not get("fee_usd_manual")))
 
 
@@ -147,6 +151,50 @@ def _price_moment(data) -> str | None:
 def _is_spent(data: dict) -> bool:
     kind = getattr(data.get("type"), "value", data.get("type"))
     return kind == "Withdrawal" and (data.get("purpose") or "").lower() == "spent"
+
+
+def _is_gift_like(data) -> bool:
+    """A Gift, Donation or Lost withdrawal from a BTC account (a transaction or its input)."""
+    get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
+    kind = getattr(get("type"), "value", get("type"))
+    return kind == "Withdrawal" and get("from_account_id") in BTC_ACCOUNTS \
+        and (get("purpose") or "").lower() in GIFT_LIKE_PURPOSES
+
+
+def _gift_value_at(amount, when: datetime, db: Session) -> tuple[Decimal, str] | None:
+    """(the amount's value at the price that values `when`, that price's
+    moment), or None without a price: a gift's value isn't on any IRS form
+    (the deduction and the gift-tax limit it counts toward are the owner's
+    to claim), so it stays blank for the owner to type, never a 422."""
+    try:
+        priced = _price_at(when, db)
+    except HTTPException:
+        return None
+    return (priced.usd * Decimal(amount)).quantize(CENT), priced.moment
+
+
+def _value_blank_gift(tx_data: dict, db: Session) -> bool:
+    """A Gift, Donation or Lost withdrawal entered with a blank value (#255):
+    the BTC price when its hour began (that day's where there's no hourly
+    price) x the amount, as a blank income value and a Spent's proceeds are.
+    A typed value, $0 included, is kept. Returns True when it filled it."""
+    if not _is_gift_like(tx_data) or tx_data.get("fmv_usd") is not None or Decimal(tx_data.get("amount") or 0) <= 0:
+        return False
+    found = _gift_value_at(tx_data["amount"], tx_data.get("timestamp") or datetime.now(timezone.utc), db)
+    if found is None:
+        return False
+    tx_data["fmv_usd"] = found[0]
+    _note_moment(tx_data, found[1])
+    return True
+
+
+def _mark_gift_value(tx_data: dict, priced: bool) -> None:
+    """fmv_from_price: the value was just priced, or an import says it once
+    was (a CSV re-import, the AI's autofill), on a gift-like withdrawal.
+    Anything else is typed."""
+    tx_data["fmv_from_price"] = priced or (
+        bool(tx_data.get("fmv_from_price")) and _is_gift_like(tx_data) and tx_data.get("fmv_usd") is not None
+    )
 
 
 def _mark_income_value(tx_data: dict, priced: bool, db: Session) -> None:
@@ -181,6 +229,7 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
         acquired_at=tx_data.get("acquired_at"),
         price_moment=tx_data.get("price_moment"),
         proceeds_from_price=tx_data.get("proceeds_from_price", False),
+        fmv_from_price=tx_data.get("fmv_from_price", False),
         created_at=now_utc,
         updated_at=now_utc
     )
@@ -259,6 +308,7 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         _check_edit(tx, tx_data, type_changed, db)
         _revalue_btc_fee(tx, tx_data, db)
         _revalue_spent_proceeds(tx, tx_data, db)
+        _revalue_gift(tx, tx_data, db)
     _apply_edit(tx, tx_data, type_changed)
     tx.price_moment = _price_moment(tx)
     tx.updated_at = datetime.now(timezone.utc)
@@ -437,7 +487,7 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict, db: Session) -> bool:
 def price_used(tx: Transaction, db: Session, years: dict | None = None) -> dict | None:
     """
     The stored price a transaction's filled-in values came from (an income
-    or rebate value, Spent proceeds, a BTC fee's value), for the form and the
+    or rebate value, Spent proceeds, a gift's value, a BTC fee's value), for the form and the
     API (#145): its hour or day, source and USD per BTC. Read from this
     install's table and files only, never asked for. Given only when a value
     it filled in is that price times its amount to the cent: a value priced
@@ -466,6 +516,8 @@ def _priced_amounts(tx: Transaction) -> list[tuple[Decimal, Decimal]]:
         out.append((Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
     if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
         out.append((Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
+    if tx.fmv_from_price and tx.fmv_usd is not None:
+        out.append((Decimal(tx.fmv_usd), Decimal(tx.amount or 0)))
     if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
         out.append((Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
     return out
@@ -525,6 +577,42 @@ def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None
     _note_moment(tx_data, priced.moment)
 
 
+def _revalue_gift(tx: Transaction, tx_data: dict, db: Session) -> None:
+    """
+    A Gift, Donation or Lost withdrawal's value after an edit (#255): sent
+    blank, it is filled from the price (blank without one); one that came
+    from the price is priced again when the edit changes its amount or hour,
+    and stays as it was when the form only sends it back; a typed value, or
+    a change to a sale or another type, makes it typed.
+    """
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "amount", "timestamp", "from_account_id")}
+    if not _is_gift_like(edited):
+        if tx.fmv_from_price:
+            tx_data["fmv_from_price"] = False
+        return
+    if "fmv_usd" in tx_data and tx_data["fmv_usd"] is None:
+        _price_gift_again(edited, tx_data, db)
+    elif tx.fmv_from_price and _typed_gift_value(tx, tx_data):
+        tx_data["fmv_from_price"] = False
+    elif tx.fmv_from_price and _spent_inputs_changed(tx, tx_data):
+        _price_gift_again(edited, tx_data, db)
+
+
+def _price_gift_again(edited: dict, tx_data: dict, db: Session) -> None:
+    """The edited gift's value at its hour's price, marked; without a price, blank."""
+    found = _gift_value_at(edited["amount"], edited["timestamp"], db) if Decimal(edited["amount"] or 0) > 0 else None
+    tx_data["fmv_usd"] = found[0] if found else None
+    tx_data["fmv_from_price"] = found is not None
+    if found:
+        _note_moment(tx_data, found[1])
+
+
+def _typed_gift_value(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit types the value: one that isn't the stored one sent back."""
+    sent = tx_data.get("fmv_usd")
+    return sent is not None and Decimal(sent).quantize(CENT) != Decimal(tx.fmv_usd or 0).quantize(CENT)
+
+
 def _sent_proceeds(tx_data: dict):
     """The proceeds an edit sends (the gross first: _apply_edit stores it first), or None."""
     return tx_data["gross_proceeds_usd"] if "gross_proceeds_usd" in tx_data else tx_data.get("proceeds_usd")
@@ -551,22 +639,37 @@ def _spent_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
 
 def _keeps_a_day_price(tx: Transaction, tx_data: dict) -> bool:
     """
-    Whether an edit prices one of a Spent's values (its proceeds, its fee's
-    value: priced again, or priced now) while the other keeps the day's
-    price: then the one priced takes the day's price too, so the
-    transaction's values share one price, and Ledger Review offers both at
-    the hour.
+    Whether an edit prices one of a withdrawal's values (a Spent's proceeds
+    or a gift's value, and its fee's value: priced again, or priced now)
+    while the other keeps the day's price: then the one priced takes the
+    day's price too, so the transaction's values share one price, and
+    Ledger Review offers both at the hour.
     """
     if tx.price_moment != "day":
         return False
-    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "fee_amount", "fee_currency")}
+    edited = {k: tx_data.get(k, getattr(tx, k))
+              for k in ("type", "purpose", "fee_amount", "fee_currency", "from_account_id")}
     edited["type"] = getattr(edited["type"], "value", edited["type"])
-    if not (_is_spent(edited) and tx.proceeds_from_price and tx.gross_proceeds_usd is not None) \
-            or _typed_proceeds(tx, tx_data):
+    value_priced = _value_priced_by_edit(tx, tx_data, edited)
+    if value_priced is None:
         return False
-    proceeds_priced = _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
     fee = _fee_after_edit(tx, tx_data, edited)
-    return (proceeds_priced and fee == "kept") or (fee == "priced" and not proceeds_priced)
+    return (value_priced and fee == "kept") or (fee == "priced" and not value_priced)
+
+
+def _value_priced_by_edit(tx: Transaction, tx_data: dict, edited: dict) -> bool | None:
+    """A Spent's proceeds or a gift's value that came from a price, after an
+    edit: True when the edit prices it again, False when it keeps it; None
+    when there is none, or the edit types it."""
+    if _is_spent(edited) and tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
+        if _typed_proceeds(tx, tx_data):
+            return None
+        return _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
+    if _is_gift_like(edited) and tx.fmv_from_price and tx.fmv_usd is not None:
+        if _typed_gift_value(tx, tx_data):
+            return None
+        return ("fmv_usd" in tx_data and tx_data["fmv_usd"] is None) or _spent_inputs_changed(tx, tx_data)
+    return None
 
 
 def _fee_after_edit(tx: Transaction, tx_data: dict, edited: dict) -> str | None:
@@ -612,7 +715,7 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
     for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd", "acquired_at",
-                "price_moment", "proceeds_from_price"):
+                "price_moment", "proceeds_from_price", "fmv_from_price"):
         if key in tx_data:
             setattr(tx, key, tx_data[key])
     if "gross_proceeds_usd" in tx_data:

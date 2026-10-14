@@ -135,7 +135,8 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,
-    fmv_usd: tx.fmv_usd ?? 0,
+    // Blank stays blank, so saving it fills it from the price (#255)
+    fmv_usd: tx.fmv_usd,
     grossProceedsUSD: tx.gross_proceeds_usd ?? 0,
     brokerReporting: tx.broker_reporting ?? "",
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,
@@ -151,8 +152,10 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
   return {
     costBasisFromPrice: tx.cost_basis_from_price ?? false,
     proceedsFromPrice: tx.proceeds_from_price ?? false,
+    fmvFromPrice: tx.fmv_from_price ?? false,
     costBasisStored: tx.cost_basis_usd,
     proceedsStored: tx.gross_proceeds_usd ?? tx.proceeds_usd,
+    fmvStored: tx.fmv_usd,
     priceUsed: tx.price_used ?? null,
   };
 }

@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from backend.constants import BTC_ACCOUNTS, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -540,6 +540,9 @@ def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
     if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and tx.type == "Withdrawal" \
             and (tx.purpose or "").lower() == "spent":
         yield "Proceeds (before fees)", tx.gross_proceeds_usd, _price_used(tx)
+    if tx.fmv_from_price and tx.fmv_usd is not None and tx.type == "Withdrawal" \
+            and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+        yield "Value (fair market value)", tx.fmv_usd, _price_used(tx)
     if tx.fee_usd is not None and not tx.fee_usd_manual and (tx.fee_currency or "").upper() == "BTC" \
             and Decimal(tx.fee_amount or 0) > 0:
         yield "Network fee value", tx.fee_usd, _price_used(tx)

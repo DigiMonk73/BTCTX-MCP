@@ -29,7 +29,8 @@ from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite
 from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
-from backend.services.csv_import import CSV_COLUMNS, GIFT_LIKE_PURPOSES
+from backend.constants import GIFT_LIKE_PURPOSES
+from backend.services.csv_import import CSV_COLUMNS
 from backend.services.reports.safe_text import csv_text
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, VALUED_AT_RECEIPT
 
@@ -328,6 +329,7 @@ def _export_row(txn: Transaction) -> dict[str, str]:
         "acquired_at": txn.acquired_at.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.acquired_at else "",
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
+        "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
     }
 
 

@@ -41,6 +41,12 @@ Checks:
   whole value becomes gain when it's sold. The rules forbid it (a blank is
   valued at the hour's price); older versions and some edits (#76) left such
   rows. Shown with that hour's value (else that day's) when the price is known.
+- gift_without_value (#255): a Gift, Donation or Lost withdrawal with a
+  blank or $0 value. From 1.2.9 a blank one is valued at that hour's price
+  when saved; older versions saved it blank (the report says "not given"),
+  and an edit in them could save $0. A donation's value is the deduction,
+  a gift's counts toward the gift-tax limit. Shown with that hour's value
+  (else that day's) when the price is known.
 - income_value_off (F42): an income or rebate deposit whose typed basis is
   more than 5% away from amount x that hour's price (else that day's).
   Before v0.9.2 a lookup for a date more than about two years back could
@@ -71,7 +77,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
 from backend.models.transaction import LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
@@ -114,6 +120,10 @@ CHECKS: dict[str, tuple] = {
         "Income and rebate deposits with a $0 or blank value",
         "Edit each one: clear its Cost Basis (USD) to use that hour's price, or type its value when you "
         "received it.",
+    ),
+    "gift_without_value": (
+        "Gifts, donations and lost coins with a $0 or blank value",
+        "Edit each one: clear its FMV (USD) to use that hour's price, or type its value when it left.",
     ),
     "income_value_off": (
         "Income and rebate values you typed, far from that hour's price",
@@ -181,7 +191,7 @@ EXPLANATIONS: dict[str, tuple[str, ...]] = {
 }
 LISTED_FROM = Decimal("1.00")
 # What each priced value is called in an item (income: also the income reported)
-VALUE_NAMES = {"gross_proceeds_usd": "Proceeds", "fee_usd": "Fee value"}
+VALUE_NAMES = {"gross_proceeds_usd": "Proceeds", "fmv_usd": "Value", "fee_usd": "Fee value"}
 
 TOLERANCE = Decimal("0.05")
 CENT = Decimal("0.01")
@@ -287,6 +297,7 @@ def build_review(db: Session) -> dict[str, Any]:
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
     found["income_without_value"] = _income_without_value_items(db, rows, tz, missing)
+    found["gift_without_value"] = _gift_without_value_items(db, rows, tz, missing)
     found["income_value_off"] = _income_value_items(db, rows, tz, missing)
 
     checks = [
@@ -363,12 +374,13 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
     for change in hourly_changes(db):
         t = db.get(Transaction, change["id"])
         year = years.setdefault(change["tax_year"], {
-            "year": change["tax_year"], "count": 0, "listed": 0, "ids": [],
-            "income": Decimal(0), "basis": Decimal(0), "proceeds": Decimal(0), "fees": Decimal(0)})
+            "year": change["tax_year"], "count": 0, "listed": 0, "ids": [], "income": Decimal(0),
+            "basis": Decimal(0), "proceeds": Decimal(0), "gift_values": Decimal(0), "fees": Decimal(0)})
         year["count"] += 1
         year["ids"].append(t.id)
         for field, (old, new) in change["values"].items():
-            key = {"cost_basis_usd": "basis", "gross_proceeds_usd": "proceeds", "fee_usd": "fees"}[field]
+            key = {"cost_basis_usd": "basis", "gross_proceeds_usd": "proceeds", "fmv_usd": "gift_values",
+                   "fee_usd": "fees"}[field]
             year[key] += new - old
             if field == "cost_basis_usd" and _is_income(t):
                 year["income"] += new - old
@@ -376,7 +388,7 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
             year["listed"] += 1
             items.append(_day_priced_item(t, tz, change))
     for year in years.values():
-        for key in ("income", "basis", "proceeds", "fees"):
+        for key in ("income", "basis", "proceeds", "gift_values", "fees"):
             year[key] = _money(year[key])
     return items, [years[y] for y in sorted(years)]
 
@@ -430,6 +442,28 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
             issue += f"; at {which} price (${_money(price)}) it is ${_money(expected)}."
             change = f"{figure} $0.00 -> ${_money(expected)} if you clear it."
         items.append(_item(t, tz, issue, change))
+    return items
+
+
+def _gift_without_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
+    """Gifts, donations and lost coins with a $0 or blank value, with that
+    hour's value when the price is known; the ids of those with no price go
+    to `missing`."""
+    items = []
+    for t in rows:
+        if not (t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
+                and (t.purpose or "").lower() in GIFT_LIKE_PURPOSES and _is_zero_or_blank(t.fmv_usd)):
+            continue
+        issue = "Value blank: the tax report lists it as not given" if t.fmv_usd is None else "Value $0.00"
+        market = _market_price(db, t, missing)
+        if market is None:
+            items.append(_item(t, tz, issue + " (no price stored for that day).",
+                               "Its value when it left becomes the value the report shows."))
+            continue
+        price, which = market
+        expected = (price * Decimal(t.amount)).quantize(CENT)
+        items.append(_item(t, tz, f"{issue}; at {which} price (${_money(price)}) it is ${_money(expected)}.",
+                           f"Value {'blank' if t.fmv_usd is None else '$0.00'} -> ${_money(expected)} if you clear it."))
     return items
 
 

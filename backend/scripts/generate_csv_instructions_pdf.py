@@ -29,13 +29,14 @@ COLUMNS = [
     ["purpose", "Conditional", "For Withdrawals: Spent, Gift, Donation, Lost"],
     ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
-    ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value that day (shown in the tax report)"],
+    ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value when it left (shown in the tax report); blank = the BTC price when its hour began x the amount (that day's where there's no hourly price), or blank without a price"],
     ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
     ["fee_usd_typed", "No", "With fee_usd: yes (or blank) if you typed that value, no if it came from the price (the export writes it)"],
     ["cost_basis_typed", "No", "Income/Interest/Reward/Rebate/Inherited deposit with cost_basis_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
     ["acquired_at", "Conditional", "MyBTC or Gift deposit into Wallet/Exchange BTC: when the coins were first acquired (by the giver, for a gift); blank = the deposit's date. Inherited: the date of death (required)"],
     ["proceeds_typed", "No", "Spent withdrawal with proceeds_usd: yes (or blank) if you typed them, no if they came from the price (the export writes it)"],
     ["price_moment", "No", "With a value from the price: hour (the BTC price when its hour began, UTC) or day (that day's 00:00 UTC price). Blank = day (the export writes it)"],
+    ["fmv_typed", "No", "Gift/Donation/Lost withdrawal with fmv_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
 ]
 
 TYPES = [

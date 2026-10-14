@@ -1,7 +1,8 @@
 """
 Ledger Review's check of values priced at the day (#144). Before hourly
 prices, every value BitcoinTX filled in itself (an income or rebate
-deposit's basis, a Spent's proceeds, a BTC fee's value) came from the day's
+deposit's basis, a Spent's proceeds, a BTC fee's value; from #255 also a
+gift's, donation's or lost coins' value) came from the day's
 00:00 UTC price; those transactions are marked price_moment "day". An
 inheritance is left out: its value is the date of death's day price by rule
 (#173), not one the hour would make closer. hourly_changes() lists the ones the price of their hour would
@@ -24,7 +25,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, INHERITED_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
 from backend.migrate import REVIEW_COPIES_KEPT, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
@@ -117,6 +118,9 @@ def _priced_values(t: Transaction):
     if t.proceeds_from_price and t.gross_proceeds_usd is not None and t.type == "Withdrawal" \
             and (t.purpose or "").lower() == "spent":
         yield "gross_proceeds_usd", t.gross_proceeds_usd, Decimal(t.amount)
+    if t.fmv_from_price and t.fmv_usd is not None and t.type == "Withdrawal" \
+            and (t.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+        yield "fmv_usd", t.fmv_usd, Decimal(t.amount)
     if t.fee_usd is not None and not t.fee_usd_manual and (t.fee_currency or "").upper() == "BTC" \
             and Decimal(t.fee_amount or 0) > 0:
         yield "fee_usd", t.fee_usd, Decimal(t.fee_amount)

@@ -93,6 +93,17 @@ describe("Withdrawal", () => {
     });
   });
 
+  it("a gift saved without a value is edited blank, so saving fills it from the price (#255)", () => {
+    const gift = { ...spend, purpose: "Gift", gross_proceeds_usd: undefined, proceeds_usd: undefined };
+    const form = mapTransactionToFormData(tx({ ...gift, fmv_usd: undefined }));
+    expect(form.fmv_usd).toBeUndefined();
+    expect(buildTransactionPayload(form).fmv_usd).toBeNull();
+    // A value it has (typed, or from the price) is sent back as it is, with where it came from
+    const priced = mapTransactionToFormData(tx({ ...gift, fmv_usd: 391.05, fmv_from_price: true }));
+    expect(priced).toMatchObject({ fmv_usd: 391.05, fmvFromPrice: true, fmvStored: 391.05 });
+    expect(buildTransactionPayload(priced).fmv_usd).toBe(391.05);
+  });
+
   it("sends the override for a Spent withdrawal only", () => {
     expect(roundTrip({ ...spend, broker_reporting: "proceeds" }).broker_reporting).toBe("proceeds");
     expect(

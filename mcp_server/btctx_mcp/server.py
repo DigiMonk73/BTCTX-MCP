@@ -86,7 +86,8 @@ class TransactionInput(BaseModel):
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
     purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")
     fmv_usd: UsdValue | None = Field(
-        default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
+        default=None, description="Gift/Donation/Lost withdrawals: fair market value when it left "
+                                  "(that hour's price x amount if omitted).")
     fee_usd: UsdValue | None = Field(
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
                                   "price when its hour began is stored).")

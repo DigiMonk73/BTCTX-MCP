@@ -69,7 +69,8 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     cost_basis_usd: parseDecimal(rawTx.cost_basis_usd),
     proceeds_usd: parseDecimal(rawTx.proceeds_usd),
     gross_proceeds_usd: parseDecimal(rawTx.gross_proceeds_usd),
-    fmv_usd: parseDecimal(rawTx.fmv_usd),
+    // Blank stays blank: an edit sent $0 for it, a typed value (#255)
+    fmv_usd: rawTx.fmv_usd == null ? undefined : parseDecimal(rawTx.fmv_usd),
     realized_gain_usd: parseDecimal(rawTx.realized_gain_usd),
 
     holding_period: rawTx.holding_period ?? undefined,
@@ -93,6 +94,7 @@ function pricedFrom(rawTx: ITransactionRaw) {
   return {
     cost_basis_from_price: rawTx.cost_basis_from_price ?? false,
     proceeds_from_price: rawTx.proceeds_from_price ?? false,
+    fmv_from_price: rawTx.fmv_from_price ?? false,
     price_used: rawTx.price_used ?? null,
   };
 }

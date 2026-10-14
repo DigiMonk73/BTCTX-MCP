@@ -108,10 +108,14 @@ Withdrawal: any account -> External
   BTC withdrawals need purpose:
     Spent    = paid a merchant or sold P2P for cash. proceeds_usd = value
                received (auto-filled from that hour's price if omitted).
-    Gift     = gave BTC to a person (not a sale; fmv_usd auto-filled).
-    Donation = gave to a charity (not a sale; fmv_usd auto-filled).
+    Gift     = gave BTC to a person (not a sale).
+    Donation = gave to a charity (not a sale).
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
                Form 8949, like Gift and Donation).
+    For these three, fmv_usd = the value when it left (a donation's is the
+    deduction, a gift's counts toward the gift-tax limit): omitted, it is
+    that hour's price x amount, marked as from the price; with no price it
+    stays blank, and Ledger Review lists it.
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
   was received for amount, before the fee: BitcoinTX takes the fee's value

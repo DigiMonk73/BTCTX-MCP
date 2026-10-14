@@ -65,6 +65,10 @@ INHERITED_SOURCE = "inherited"
 # basis) is that hour's price x the amount: when received, or for an
 # inheritance on the date of death (lowercase)
 VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE, INHERITED_SOURCE}
+# Withdrawal purposes that aren't a sale: a gift, a donation, lost coins
+# (lowercase). No gain or loss of their own; what they carry is their value,
+# the fair market value (fmv_usd), filled from the price when left blank (#255).
+GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 # Deposit sources whose coins can have been acquired before the deposit (a
 # date originally acquired, #91): the user's own, a gift with the giver's
 # basis, or an inheritance (the date of death)

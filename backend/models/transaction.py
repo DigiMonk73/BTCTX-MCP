@@ -198,6 +198,19 @@ class Transaction(Base):
             "A typed value is kept."
         ),
     )
+    # Last, where migration 0011 added it
+    fmv_from_price = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_false(),
+        doc=(
+            "True when a Gift, Donation or Lost withdrawal's fmv_usd came from the "
+            "price (left blank when entered, #255): an edit of its amount or hour "
+            "prices it again (a change of purpose or type makes it typed). A typed "
+            "value is kept."
+        ),
+    )
 
     ledger_entries = relationship(
         "LedgerEntry",

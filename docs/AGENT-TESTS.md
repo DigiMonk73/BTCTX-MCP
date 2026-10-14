@@ -402,6 +402,14 @@ Start from the `clean` snapshot.
 - **REV-3** StartOS action **Recalculate Ledger**, once with the service
   running and once stopped. Expect its warning, then "Ledger Recalculated",
   and figures unchanged afterwards. Start the service again.
+- **REV-4** (#255, still Nobody) Add a Withdrawal from Wallet, purpose
+  **Gift**, `0.001` BTC, yesterday 12:00, FMV (USD) left blank. Expect: it
+  saves, and **Edit** shows FMV blank with "Its fair market value when it
+  left. Leave blank to use the BTC price when that hour began (that day's,
+  where there's no hourly price)." Ledger Review > **Check again** lists it
+  under "Gifts, donations and lost coins with a $0 or blank value" ("Value
+  blank: the tax report lists it as not given (no price stored for that
+  day)."). Delete the gift; Check again: "Nothing to review."
 
 ### PRC: price sources
 
@@ -443,6 +451,12 @@ Start from the `clean` snapshot.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
   dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
+- **PRC-2b** (#255, right after PRC-2) Add the REV-4 gift again (FMV
+  blank). Expect: **Edit** shows its FMV filled, 0.001 × the BTC price when
+  that hour began (to the cent), and "From the price: …" naming that hour
+  and the price site. Change the amount to `0.002` and save: the FMV
+  doubles (± a cent). Type `50` in FMV and save: Edit shows "Typed: you
+  typed this value; it's kept as it is." Delete the gift.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Use Tor**. Expect: a price on the Dashboard.
   Bitstamp is the price history's only site since #161 (and the live
