@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **A way to support BitcoinTX:** the README's "Support BitcoinTX" gives its
+  Lightning address (digimonk73@strike.me), and GitHub's Sponsor button
+  (`.github/FUNDING.yml`) opens the tipping page. Nothing in the app changes.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added

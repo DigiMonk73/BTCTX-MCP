@@ -333,6 +333,12 @@ Every bug we find ourselves is filed publicly too. Its fix comes with a test,
 and when a fix changes figures, the release notes say what was wrong and what
 to do. Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Support BitcoinTX
+
+BitcoinTX is free and stays free. If it helps you and you'd like to send a
+few sats, its Lightning address is **digimonk73@strike.me** (any Lightning
+wallet), or use the [tipping page](https://strike.me/@digimonk73). Thank you.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
