@@ -39,7 +39,7 @@ the maintenance releases after promotion, 1.2.9 first.
 - [ ] **StartOS keeps only whether a login was set, not the password**
       (#212; the next release, the owner's choice, 2026-10-13), with a
       package migration that drops the stored value.
-- [ ] **A gift, donation or lost value left blank is filled from the
+- [x] **A gift, donation or lost value left blank is filled from the
       price** (#255; 1.2.9, the owner's choice, 2026-10-14): when it's
       saved, from the BTC price when that hour began (that day's where
       there's no hourly price), shown as coming from the price, as income
