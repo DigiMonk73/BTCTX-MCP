@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TOR_REFUSED, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
@@ -9,9 +9,14 @@ const base: PriceStatus = {
   source: "mempool", managed: false, invalid: false, waiting: false, host: "mac", last_ok: null, last_problem: null,
   history,
 };
-const ctx: StatusContext = { backup: false, tor: false, timezone: "America/Chicago" };
+const ctx: StatusContext = { backup: false, tor: false };
 const T1 = "2026-10-12T19:02:00Z"; // 2:02 pm in Chicago
 const T2 = "2026-10-12T19:04:00Z";
+
+// Times are this device's clock (#260): here, a computer in Chicago
+const testsTz = process.env.TZ;
+beforeAll(() => { process.env.TZ = "America/Chicago"; });
+afterAll(() => { process.env.TZ = testsTz; });
 
 describe("the status line", () => {
   it("says when nothing is contacted", () => {
@@ -22,8 +27,11 @@ describe("the status line", () => {
     });
   });
 
-  it("names the source and the time of the last price, in the tax timezone", () => {
-    expect(clock(T1, "America/Chicago")).toBe("2:02 pm");
+  it("names the source and the time of the last price, on this device's clock", () => {
+    expect(clock(T1)).toBe("2:02 pm");
+    process.env.TZ = "Asia/Tokyo";
+    expect(clock(T1)).toBe("4:02 am"); // whatever the tax timezone: the device's own clock (#260)
+    process.env.TZ = "America/Chicago";
     expect(statusLine({ ...base, last_ok: { at: T1, from: "mempool" } }, ctx)).toEqual({
       tone: "ok", text: "Newer prices from your Mempool. Last price 2:02 pm.",
     });

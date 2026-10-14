@@ -443,6 +443,12 @@ Start from the `clean` snapshot.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
   dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
   Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
+- **PRC-2c** (#260, right after PRC-2) Settings > Tax Timezone: `Asia/Tokyo`,
+  **Save**. Expect: the Dashboard's price line ("From public price sites
+  (…) · h:mm am/pm") and Settings' "Last price h:mm am/pm" show this
+  computer's clock time, not Tokyo's; the Transactions list's times don't
+  move. Set it back to `America/New_York` (every golden figure back, as in
+  TZ-2).
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Use Tor**. Expect: a price on the Dashboard.
   Bitstamp is the price history's only site since #161 (and the live
