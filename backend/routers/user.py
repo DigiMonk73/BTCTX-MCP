@@ -90,9 +90,9 @@ def setup_status(db: Session = Depends(get_db)):
     Public: whether the single account still has the shipped default login,
     and so whether logging in with it and claiming it need the first-run
     setup code (never the code), and whether this is the Mac app, which
-    keeps the code in its data folder rather than a server's log (#258: its
-    pages in a browser have no window to ask). Used by the Login and
-    Register pages before anyone is logged in.
+    keeps the code in its data folder rather than a server's log (its pages
+    in a browser have no window to ask). Used by the Login and Register
+    pages before anyone is logged in.
     """
     users = get_all_users(db)
     is_default = bool(users) and first_run.is_default_account(users[0])

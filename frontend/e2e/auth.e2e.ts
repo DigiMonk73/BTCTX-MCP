@@ -285,6 +285,17 @@ test.describe("the Mac app", () => {
     await expect(hint).not.toContainText("docker logs");
   });
 
+  test("on the default login, Settings says where the Mac app keeps the setup code", async ({ page, app }) => {
+    const r = await page.request.post("/api/login", {
+      data: { username: "admin", password: "password", setup_code: setupCode(app) },
+    });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    await page.goto("/settings");
+    const hint = page.getByText("This is still the default login");
+    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).not.toContainText("docker logs");
+  });
+
   test("a window that can't supply the code offers the typed field and says where it is", async ({ page, app }) => {
     await asTheAppWindow(page, setupCode(app), false);
     await page.goto("/login");
