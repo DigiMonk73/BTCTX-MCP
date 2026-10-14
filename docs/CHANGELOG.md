@@ -4,6 +4,11 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Grok's review pass** (`docs/GROK-REVIEW.md`). The finder's manual:
+  a release pass and one monthly area, with Claude checking each finding.
+  The short pointer in `AGENTS.md` is added with the review of this file.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added
