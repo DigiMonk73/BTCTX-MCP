@@ -368,9 +368,8 @@ Start from the `clean` snapshot.
   figure is as in the expected-figures table. Section 7, "Notes", says how
   a blank value is priced (Bitstamp's hourly opening price, or your
   Mempool server's) and that the IRS approves no price source, and ends
-  with "Values from the BTC price": "None of YYYY's income, rebate,
-  inherited, spend or network fee values: each was entered with its
-  transaction" (every golden value is typed). Each report has section 6,
+  with "Values from the BTC price": "None of YYYY's values: each was
+  entered with its transaction" (every golden value is typed). Each report has section 6,
   "Using these forms" (before 7, "Notes"), for the preparer, with the
   one-wallet line and the disclaimer. RPT-6 checks the values once
   prices are on.

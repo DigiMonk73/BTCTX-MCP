@@ -71,10 +71,10 @@ def generate_comprehensive_tax_report(report_dict: dict[str, Any]) -> bytes:
     return buffer.getvalue()
 
 
-# Gift and donation values aren't marked when filled in from a price (the AI
-# connector fills a blank one; the form's Refresh fills the field to edit)
-GIFT_VALUES_NOTE = ("A gift's or donation's value (section 4) isn't tracked this way: one the AI connector filled "
-                    "in uses the price when the transaction's hour began (that day's where there's none).")
+# Gift values are marked when filled in from the price only from 1.2.9 (#255):
+# one the AI connector filled before then counts as entered
+OLDER_GIFT_VALUES_NOTE = ("A gift's or donation's value (section 4) the AI connector filled in before BitcoinTX "
+                          "1.2.9 isn't marked as from the price, so it isn't listed here.")
 
 class _ReportDocument(BaseDocTemplate):
     """Letter pages: the cover without the running header, the rest with it;
@@ -681,8 +681,9 @@ class _TaxReport:
             "hourly opening price, downloaded by BitcoinTX and checked against fingerprints published with it, "
             "or your own Mempool server's record of that hour. Where it had no hourly price (before 2013, or "
             "none on this install), and for a value filled in before hourly prices, it used that day's 00:00 "
-            "UTC price; an inheritance is valued at its date of death's 00:00 UTC price. The income, rebate, "
-            "inherited, spend and network fee values it filled in, and the price each used, are listed below.",
+            "UTC price; an inheritance is valued at its date of death's 00:00 UTC price. The values it filled in "
+            "(income, rebates, inherited coins, spends, gifts, donations, lost coins and network fees), and the "
+            "price each used, are listed below.",
             "IRS rules measure fair market value at the date and time of each transaction (Treas. Reg. "
             "§1.1001-7(b)(3)); an hourly price approximates it. The IRS has not approved any price source or "
             "method: you are responsible for showing your values are accurate. A value from your own records "
@@ -703,9 +704,9 @@ class _TaxReport:
         rows = self.data.get("priced_values", [])
         story = self.subheading("Values from the BTC price")
         if not rows:
-            return story + [self.text(f"None of {self.year}'s income, rebate, inherited, spend or network fee "
-                                      "values: each was entered with its transaction.", self.styles.normal),
-                            *([self.text(GIFT_VALUES_NOTE, self.styles.note)] if self.gifts else [])]
+            return story + [self.text(f"None of {self.year}'s values: each was entered with its transaction.",
+                                      self.styles.normal),
+                            *([self.text(OLDER_GIFT_VALUES_NOTE, self.styles.note)] if self.gifts else [])]
         table = [self.header("Date", "Transaction", "Value", "Price used", "USD", numbers_from=4)]
         table += [[self.text(self.date(r["date"])), self.text(r["transaction"]), self.text(r["value"]),
                    self.text(r["priced_at"]), self.number(fmt_usd(r["usd"]))] for r in rows]
@@ -713,6 +714,6 @@ class _TaxReport:
                         Spacer(1, 6), data_table(table, [0.85, 1.35, 1.35, 2.55, 0.9])]
 
     def priced_values_note(self) -> str:
-        return ("Every other income, rebate, inherited, spend and network fee value of the year was entered with "
-                "its transaction. A lot's cost basis from an earlier year is listed in that year's report."
-                + (f" {GIFT_VALUES_NOTE}" if self.gifts else ""))
+        return ("Every other value of the year was entered with its transaction. A lot's cost basis from an "
+                "earlier year is listed in that year's report."
+                + (f" {OLDER_GIFT_VALUES_NOTE}" if self.gifts else ""))

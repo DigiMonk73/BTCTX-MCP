@@ -166,6 +166,15 @@ def test_a_spend_made_a_gift_is_valued(auth_client, test_db):
         assert again["fmv_usd"] == value("2026-05-01T12:00:00Z", "0.005") and again["fmv_from_price"] is True
 
 
+def test_a_0_typed_while_making_a_spend_a_gift_is_kept(auth_client, test_db):
+    """A blank value goes back blank (the form, the AI's update_transaction), so a $0 sent for it is typed."""
+    spend = gift(auth_client, "Spent", proceeds_usd="300.00")
+    blank_in_the_database(test_db, spend)
+    r = auth_client.put(f"/api/transactions/{spend['id']}", json={"purpose": "Lost", "fmv_usd": "0"})
+    assert r.status_code == 200, r.text
+    assert D(r.json()["fmv_usd"]) == 0 and r.json()["fmv_from_price"] is False
+
+
 def test_a_value_priced_now_beside_a_fee_at_the_days_price_takes_the_days_too(auth_client, test_db, monkeypatch):
     """One price per transaction: the fee keeps its day price, so the value
     filled takes it as well, and Ledger Review offers both at the hour."""

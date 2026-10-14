@@ -501,9 +501,9 @@ def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None)
     """
     The year's values BitcoinTX filled in from the BTC price, and which
     price each used (#144): an income, rebate or inherited deposit's value,
-    a Spent's proceeds, a BTC network fee's value. Every other such value
-    was entered with its transaction; a gift's or donation's value isn't
-    marked either way.
+    a Spent's proceeds, a gift's, donation's or lost coins' value (#255), a
+    BTC network fee's value. Every other such value was entered with its
+    transaction (or filled in, unmarked, by the AI connector before 1.2.9).
     """
     years: dict = {}  # the stored history's year files, read once for the report
     return [

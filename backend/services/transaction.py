@@ -620,9 +620,12 @@ def _price_gift_again(edited: dict, tx_data: dict, db: Session) -> None:
 
 
 def _typed_gift_value(tx: Transaction, tx_data: dict) -> bool:
-    """Whether the edit types the value: one that isn't the stored one sent back."""
+    """Whether the edit types the value: one that isn't the stored one sent
+    back (the form sends a blank one back blank, so $0 for it is typed)."""
     sent = tx_data.get("fmv_usd")
-    return sent is not None and Decimal(sent).quantize(CENT) != Decimal(tx.fmv_usd or 0).quantize(CENT)
+    if sent is None:
+        return False
+    return tx.fmv_usd is None or Decimal(sent).quantize(CENT) != Decimal(tx.fmv_usd).quantize(CENT)
 
 
 def _sent_proceeds(tx_data: dict):

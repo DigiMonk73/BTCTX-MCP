@@ -786,7 +786,7 @@ TEMPLATE_ROWS = [
     ["2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
      "", "9000.00", "0.0001", "BTC", "", "Spent", "Spent BTC on purchase (taxable event)", "6.85"],
     ["2024-03-15T10:00:00Z", "Withdrawal", "0.1", "Wallet", "External",
-     "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value that day",
+     "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value when it left (blank: the price when that hour began)",
      "6.80", "6800.00"],
     ["2024-03-20T10:00:00Z", "Withdrawal", "0.05", "Wallet", "External",
      "", "", "0.0001", "BTC", "", "Donation", "Donated BTC to charity (non-taxable)", "6.70"],

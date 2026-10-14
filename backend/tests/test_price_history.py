@@ -330,20 +330,20 @@ def test_no_price_messages_speak_to_the_form_as_well_as_the_api(sources, auth_cl
     assert r.status_code == 422 and "edit that transaction" not in detail and "Proceeds (USD)" in detail
 
 
-def test_the_refresh_button_and_the_server_use_the_same_price(auth_client, monkeypatch):
-    """F3: the form's FMV Refresh and the server's income valuation read the
-    same price for the same moment: since #144, its hour's (Refresh asks
-    `at`, fmvPriceRequest), each hour here its own."""
+def test_the_price_asked_at_a_moment_is_the_one_the_server_values_it_at(auth_client, monkeypatch):
+    """F3: a price asked for a moment (`?at=`, as the sidebar converter asks)
+    and the server's income valuation read the same price: since #144, its
+    hour's, each hour here its own."""
     stub_prices_at(monkeypatch, lambda when: 60000 + when.hour)
     auth_client.delete("/api/transactions/delete_all")
     try:
-        refresh = auth_client.get("/api/bitcoin/price/history", params={"at": "2024-05-01T12:00:00.000Z"}).json()["USD"]
-        assert refresh == 60012.0
+        asked = auth_client.get("/api/bitcoin/price/history", params={"at": "2024-05-01T12:00:00.000Z"}).json()["USD"]
+        assert asked == 60012.0
         r = auth_client.post("/api/transactions", json=dict(
             type="Deposit", timestamp="2024-05-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
             amount="0.5", source="Income", fee_amount="0", fee_currency="BTC"))
         assert r.status_code == 200, r.text
-        assert D(r.json()["cost_basis_usd"]) == (D(str(refresh)) * D("0.5")).quantize(D("0.01"))
+        assert D(r.json()["cost_basis_usd"]) == (D(str(asked)) * D("0.5")).quantize(D("0.01"))
     finally:
         auth_client.delete("/api/transactions/delete_all")
 
