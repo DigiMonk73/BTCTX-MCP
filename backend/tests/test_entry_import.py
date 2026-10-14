@@ -63,6 +63,11 @@ TO_COLD = {
     "fee_amount": "0.0001", "fee_currency": "BTC",
 }
 
+INTEREST = {
+    "date": "2025-03-20T12:00:00Z", "type": "Deposit", "amount": "0.002",
+    "from_account": "External", "to_account": "Wallet", "source": "Interest", "cost_basis_usd": "210.00",
+}
+
 
 class TestPreview:
     def test_preview_writes_nothing_and_reports_balances(self):
@@ -210,6 +215,48 @@ class TestDedup:
         assert tx_count() == 2
         # The very same buy (same amount and price) is still skipped
         assert execute([second])["skipped_duplicates"] == 1 and tx_count() == 2
+
+    def test_a_deposit_of_another_source_at_the_same_time_is_saved(self):
+        """#253's reproduction: an Inherited deposit was a "duplicate" of an
+        Interest deposit of the same amount and time, and couldn't be saved."""
+        execute([INTEREST])
+        inherited = dict(INTEREST, source="Inherited", cost_basis_usd="168.80", acquired_at="2025-02-28")
+        res = preview([inherited])["results"][0]
+        assert res["status"] == "possible_duplicate" and res["matched_transaction_id"]
+        assert any("the same minute; its source is Interest, not Inherited" in w for w in res["warnings"])
+        assert execute([inherited])["imported_count"] == 1 and tx_count() == 2
+
+    def test_a_payout_at_another_minute_is_saved(self):
+        """The same amount and source a minute apart is never left out by itself."""
+        execute([INTEREST])
+        later = dict(INTEREST, date="2025-03-20T12:01:00Z")
+        res = preview([later])["results"][0]
+        assert res["status"] == "possible_duplicate"
+        assert any("recorded 1 minute earlier" in w and "Saved unless you remove it" in w for w in res["warnings"])
+        assert execute([later])["imported_count"] == 1 and tx_count() == 2
+
+    def test_a_duplicate_is_saved_when_the_user_says_it_is_another_transaction(self):
+        """D1: left out by default; not_a_duplicate saves it."""
+        execute([INTEREST])
+        res = preview([INTEREST])["results"][0]
+        assert res["status"] == "duplicate" and any("not_a_duplicate" in w for w in res["warnings"])
+        assert execute([INTEREST])["skipped_duplicates"] == 1 and tx_count() == 1
+        another = dict(INTEREST, not_a_duplicate=True)
+        assert preview([another])["results"][0]["status"] == "ready"
+        out = execute([another])
+        assert out["imported_count"] == 1 and out["skipped_duplicates"] == 0 and tx_count() == 2
+
+    def test_a_date_alone_matches_that_day_in_the_tax_timezone(self):
+        """A row without a time matches any time that day; the next day's is only similar."""
+        assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+        try:
+            execute([dict(INTEREST, date="2025-03-21T02:00:00Z")])  # 10 pm on the 20th in New York
+            assert preview([dict(INTEREST, date="2025-03-20")])["results"][0]["status"] == "duplicate"
+            res = preview([dict(INTEREST, date="2025-03-21")])["results"][0]
+            assert res["status"] == "possible_duplicate"
+            assert any("recorded on 2025-03-20" in w for w in res["warnings"])
+        finally:
+            CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
 
     def test_near_match_transfer_is_possible_duplicate(self):
         execute([dict(BUY, amount="1.0"), TO_COLD])

@@ -159,9 +159,10 @@ async def execute_entries(
     db: Session = Depends(get_db),
 ):
     """
-    Write rows atomically. Rows exactly matching an existing transaction
-    are skipped; possible (fuzzy) duplicates ARE written — the caller is
-    expected to have removed any the user rejected after preview.
+    Write rows atomically. Duplicates of a transaction in the ledger
+    (mark_duplicates) are skipped unless the row says not_a_duplicate;
+    possible duplicates ARE written: the caller is expected to have removed
+    any the user rejected after preview.
     Any invalid row or ledger rejection aborts the whole batch.
     """
     ai = _with_ai_key(request)

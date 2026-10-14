@@ -79,6 +79,34 @@ All notable changes to BitcoinTX are documented in this file.
   database column (migration 0011, `fmv_from_price`).
 
 ### Fixed
+- **A different transaction of the same amount is no longer skipped as
+  already recorded** (#253). The AI connector (`add_transactions`) and the
+  River import treated a new transaction as already in the ledger when one
+  of the same kind and BTC amount was recorded within 48 hours, whatever
+  its source or value, and skipped it: two Interest payouts of the same
+  amount a day apart, or an Inherited deposit beside an Interest deposit of
+  the same amount and time. The skipped one's income and cost basis were
+  missing from every report. Verified in 1.2.8; the rule is older. Now
+  (the owner's rule):
+  - **A duplicate** is the same kind, BTC amount and minute as a recorded
+    transaction. The AI connector also compares the source or purpose, and
+    a Buy's price, and a date given alone matches that day. A duplicate is
+    left out by default, and you can override it: tick it in the River
+    preview, or tell the AI it's another transaction.
+  - **A similar row,** the same amount within 48 hours with anything else
+    different, is never skipped by itself. It's shown with the match and
+    what differs, and saved unless you remove it; in the River preview it
+    starts ticked (it used to start unticked).
+  - A River row compares nothing else: its source and purpose are the
+    preview's or your own edits, so a re-import of a row you changed isn't
+    recorded twice.
+
+  **What to do:** if you added transactions through the AI connector or
+  imported River files, check that payouts of the same amount within two
+  days of each other (interest, rewards, sats-back) are all in your
+  ledger, against River's statement or your own records. Previewing a
+  River file again shows a payout the old check skipped as New or Review.
+  Any tax year with such imports can be affected.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

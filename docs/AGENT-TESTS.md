@@ -637,7 +637,12 @@ Set `KEY` to the key from AI-3, and use
   (a date alone means noon in the tax timezone), and the ledger still has
   14 rows. Preview a copy of #2 (`"date":"2023-02-01T12:00:00-05:00"`, Buy,
   `1.0`, Bank → Exchange BTC, basis `23000`). Expect: status `duplicate`,
-  `matched_transaction_id` = #2's id. Then `add_transactions` with the first
+  `matched_transaction_id` = #2's id. Preview it again with
+  `"not_a_duplicate": true`: status `ready`. Preview it without that at
+  `2023-02-01T12:05:00-05:00`: status `possible_duplicate`, a warning
+  "Same BTC amount as tx #… (Buy 1.00000000 BTC), recorded 5 minutes
+  earlier: it may be the same transaction. Saved unless you remove it."
+  (#253). Then `add_transactions` with the first
   row. Expect: it appears in the UI list. Run `update_transaction` with
   `transaction_id=<its id>` and `cost_basis_usd=1100`. Expect: the UI shows
   $1,100.00. `delete_transaction` removes it. Expect: 14 rows and every
@@ -722,7 +727,13 @@ Set `KEY` to the key from AI-3, and use
   transaction(s)." The Sell shows Gain +$5.00 (net proceeds $55.00 = River's
   $55.00 received, which is after River's $0.55 fee; basis 0.0005 × $100,000
   from lot C). Preview the same file again. Expect: "3 already in ledger" and
-  "0 new".
+  "0 new". Click **Show 3 already-imported row(s)**. Expect each row's
+  Import box unticked but clickable, and "Tick one to import it anyway, if
+  it's another transaction." (#253). Leave them unticked and **Cancel**.
+  Preview the file with its first row's time changed to `2026-01-06
+  09:00:00`. Expect "2 already in ledger", "1 need review" and that row
+  ticked, its note "Same BTC amount as tx #… (Buy 0.00030000 BTC),
+  recorded 21 hours earlier: it may be the same transaction". **Cancel**.
 - **IMP-5** Preview a CSV that isn't a River export, for example
   `date,type,amount` plus one row. Expect "This does not look like a River
   bitcoin-activity CSV. Missing columns: …".

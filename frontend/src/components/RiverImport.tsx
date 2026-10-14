@@ -1,7 +1,7 @@
 // River's bitcoin-activity CSV: upload, an editable preview, then one import
 // of every ticked row. Unlike the onboarding CSV import (empty ledger only),
 // this adds to a ledger in use: rows already in it come back from the server
-// matched, and are left out.
+// matched, and are left out unless the owner ticks them (#253).
 
 import React, { useEffect, useState } from "react";
 import api from "../api";
@@ -81,8 +81,8 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
           <span className="settings-option-title">River Bitcoin Activity CSV</span>
           <p className="settings-option-subtitle">
             Download your bitcoin activity CSV from river.com → Taxes &amp; Documents,
-            then upload it here. Transactions already in your ledger are detected and
-            skipped — safe to re-import overlapping date ranges.
+            then upload it here. Transactions already in your ledger are found and
+            left out, so overlapping date ranges can be imported again.
           </p>
         </div>
         <div className="river-input-row">

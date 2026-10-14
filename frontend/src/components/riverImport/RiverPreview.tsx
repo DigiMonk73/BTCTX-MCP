@@ -73,11 +73,11 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
 
       {discrepancies.length > 0 && (
         <div className="river-discrepancies">
-          <strong>Possible mismatches with your ledger</strong>
+          <strong>Possible matches with your ledger</strong>
           <p className="river-discrepancy-hint">
-            These look like events you already recorded, but the details differ.
-            They are excluded by default — tick a row's Import box only if it is
-            genuinely missing from your ledger.
+            These look like transactions you already recorded, but something
+            differs. They&apos;re ticked, so they&apos;re imported: untick a row if
+            it&apos;s the one already in your ledger.
           </p>
           <ul>
             {discrepancies.map((r) => (
@@ -129,6 +129,12 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
             ? "Hide already-imported rows"
             : `Show ${preview.matched_count} already-imported row(s)`}
         </button>
+      )}
+      {showMatched && preview.matched_count > 0 && (
+        <p className="river-discrepancy-hint">
+          Rows already in your ledger (the same kind, amount and minute) are left
+          out. Tick one to import it anyway, if it&apos;s another transaction.
+        </p>
       )}
 
       <div className="import-actions">

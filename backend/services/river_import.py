@@ -18,8 +18,9 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -38,6 +39,7 @@ from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
 from backend.services.csv_import import _parse_decimal, number_limits
+from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +57,8 @@ RIVER_NUMBER_COLUMNS = ("Sent Amount", "Received Amount", "Fee Amount")
 # fee is treated as a recurring auto-buy pulled from the bank via ACH.
 RECURRING_BUY_THRESHOLD = 4
 
-# Dedup windows
-EXACT_MATCH_WINDOW = timedelta(hours=48)
-FUZZY_MATCH_WINDOW = timedelta(hours=48)
+# Dedup: a row within this of a transaction of the same amount is shown as similar (#253)
+SIMILAR_WINDOW = timedelta(hours=48)
 FUZZY_AMOUNT_TOLERANCE = Decimal("0.20")  # ±20% for transfer near-matches
 
 STATUS_NEW = "new"
@@ -103,6 +104,9 @@ class RiverProposal:
     status: str = STATUS_NEW
     matched_tx_id: int | None = None
     discrepancy: str | None = None
+    # A row given as a date alone (the AI connector's): its day in the tax
+    # timezone, which the duplicate check matches instead of the minute
+    day: date | None = None
 
     @property
     def from_account(self) -> str:
@@ -465,50 +469,48 @@ def _as_utc(ts: datetime) -> datetime:
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
 
 
-def _detail_discrepancy(proposal: RiverProposal, tx: Transaction) -> str | None:
-    """
-    Compare USD details of a matched pair; return a description if they
-    differ. Only Buy cost basis is compared: it is user-provided and stored
-    verbatim. Sell proceeds are NOT compared — the app overwrites
-    tx.proceeds_usd with recomputed net disposal proceeds
-    (compute_sell_summary_from_disposals), so the original input is not
-    preserved and any comparison would always flag a false discrepancy.
-    """
-    if proposal.type == "Buy" and proposal.cost_basis_usd is not None:
-        existing = Decimal(tx.cost_basis_usd or 0)
-        if existing != proposal.cost_basis_usd:
-            return (
-                f"River cost basis ${proposal.cost_basis_usd} differs from "
-                f"recorded ${existing} (tx #{tx.id})"
-            )
-    return None
+def _nothing_else(_proposal: RiverProposal, _tx: Transaction) -> list[str]:
+    """River's rule (owner, 2026-10-14, #253): the same kind, BTC amount and
+    minute is the same event. A row's source, purpose and values are the
+    preview's defaults or the owner's own edits, so a re-import of an edited
+    row isn't recorded twice."""
+    return []
 
 
 def annotate_duplicates(
-    proposals: list[RiverProposal], db: Session, exact_only: bool = False
+    proposals: list[RiverProposal],
+    db: Session,
+    exact_only: bool = False,
+    differences: Callable[[RiverProposal, Transaction], list[str]] = _nothing_else,
 ) -> None:
     """
-    Mark proposals that already exist in the ledger.
+    Mark proposals that are already in the ledger, or look like it (#253).
 
-    Pass 1 (exact): compatible type, identical BTC amount, within ±48 h —
-    greedy nearest-timestamp, one existing tx matches at most one proposal.
-    A matched pair whose USD details differ is flagged as a discrepancy
-    (still excluded from import).
+    Pass 1 (a duplicate, STATUS_MATCHED): a compatible type, the identical
+    BTC amount and the same minute (a row given as a date alone: the same
+    day in the tax timezone), and nothing that `differences` names; greedy
+    nearest-timestamp, one existing tx matches at most one proposal.
 
-    Pass 2 (fuzzy, BTC moves only): compatible type within ±48 h and amount
-    within ±20 % — the user's manual transfer entries are known to be
-    approximate, so these are flagged as discrepancies rather than imported
-    as duplicates. Skipped when exact_only=True (the execute endpoint's
-    double-import guard must not block rows the user deliberately chose to
-    import despite a fuzzy flag).
+    Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
+    anything else different; its note says what. Never left out by itself.
+
+    Pass 3 (BTC moves only): within ±48 h and an amount within ±20 %: the
+    user's manual transfer entries are known to be approximate.
+
+    Passes 2 and 3 are skipped when exact_only=True: the execute
+    endpoints' double-submit guard leaves out only duplicates.
     """
     existing: list[Transaction] = db.query(Transaction).all()
+    tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set()
     by_time = sorted(proposals, key=lambda p: p.timestamp)
     for proposal in by_time:
-        _match_exactly(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
+        _match_exactly(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids, differences, tz)
     if exact_only:
         return
+    for proposal in by_time:
+        if proposal.status == STATUS_NEW:
+            _match_similar(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids, differences, tz)
     for proposal in by_time:
         if proposal.status == STATUS_NEW and proposal.type in ("Transfer", "Withdrawal"):
             _match_roughly(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
@@ -521,7 +523,7 @@ def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_id
         tx for tx in existing
         if tx.id not in used_tx_ids
         and tx.type in types
-        and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= EXACT_MATCH_WINDOW
+        and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
 
 
@@ -530,19 +532,57 @@ def _nearest(proposal: RiverProposal, txs: list[Transaction]) -> Transaction | N
     return min(txs, key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp), default=None)
 
 
-def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set) -> None:
+def _same_moment(proposal: RiverProposal, tx: Transaction, tz) -> bool:
+    """The same minute; for a row given as a date alone, the same day in the tax timezone."""
+    if proposal.day is not None:
+        return local_date(_as_utc(tx.timestamp), tz) == proposal.day
+    return _as_utc(tx.timestamp).replace(second=0, microsecond=0) == proposal.timestamp.replace(second=0, microsecond=0)
+
+
+def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set, differences, tz) -> None:
+    amount = _proposal_ledger_amount(proposal)
+    same = [
+        tx for tx in candidates
+        if Decimal(tx.amount or 0) == amount and _same_moment(proposal, tx, tz) and not differences(proposal, tx)
+    ]
+    best = _nearest(proposal, same)
+    if best is None:
+        return
+    used_tx_ids.add(best.id)
+    proposal.matched_tx_id = best.id
+    proposal.status = STATUS_MATCHED
+
+
+def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set, differences, tz) -> None:
     amount = _proposal_ledger_amount(proposal)
     best = _nearest(proposal, [tx for tx in candidates if Decimal(tx.amount or 0) == amount])
     if best is None:
         return
     used_tx_ids.add(best.id)
     proposal.matched_tx_id = best.id
-    diff = _detail_discrepancy(proposal, best)
-    if diff:
-        proposal.status = STATUS_DISCREPANCY
-        proposal.discrepancy = diff
-    else:
-        proposal.status = STATUS_MATCHED
+    proposal.status = STATUS_DISCREPANCY
+    what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
+    proposal.discrepancy = (
+        f"Same BTC amount as tx #{best.id} ({best.type} {btc_text(best.amount or 0)} BTC), "
+        f"{'; '.join(what)}: it may be the same transaction"
+    )
+
+
+def _when_recorded(proposal: RiverProposal, tx: Transaction, tz) -> str:
+    """When the similar transaction is, from this row: "recorded 3 hours earlier", "recorded on 2026-02-01"."""
+    if _same_moment(proposal, tx, tz):
+        return "the same day" if proposal.day is not None else "the same minute"
+    if proposal.day is not None:
+        return f"recorded on {local_date(_as_utc(tx.timestamp), tz).isoformat()}"
+    gap = _as_utc(tx.timestamp) - proposal.timestamp
+    return f"recorded {_gap_text(gap)} {'earlier' if gap < timedelta(0) else 'later'}"
+
+
+def _gap_text(gap: timedelta) -> str:
+    """A gap as the note says it: "3 minutes", "1 hour", "24 hours"."""
+    minutes = round(abs(gap).total_seconds() / 60)
+    count, unit = (minutes, "minute") if minutes < 60 else (round(minutes / 60), "hour")
+    return f"{count} {unit}{'' if count == 1 else 's'}"
 
 
 def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set) -> None:
@@ -561,5 +601,5 @@ def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.discrepancy = (
         f"Likely the same event as tx #{best.id} "
         f"({best.type} {btc_text(best.amount or 0)} BTC) recorded with a "
-        f"different amount — review before importing"
+        f"different amount"
     )

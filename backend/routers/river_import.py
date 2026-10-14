@@ -163,9 +163,10 @@ def execute_river_import(
     Import the final (possibly user-edited) rows atomically.
 
     Every row is re-validated server-side with the same rules as the
-    onboarding CSV import, then re-checked against the ledger for exact
-    duplicates (double-submit guard). All-or-nothing: any failure rolls
-    back the entire batch.
+    onboarding CSV import, then re-checked against the ledger for
+    duplicates (double-submit guard), except a row the owner ticked though
+    the preview found it in the ledger (not_a_duplicate, #253).
+    All-or-nothing: any failure rolls back the entire batch.
     """
     _require_auth(request)
 
@@ -179,7 +180,8 @@ def execute_river_import(
 
     tx_datas = _validated_rows(payload.rows)
     stubs = [_stub(i, tx_data) for i, tx_data in enumerate(tx_datas, start=1)]
-    annotate_duplicates(stubs, db, exact_only=True)
+    checked = [stub for stub, row in zip(stubs, payload.rows) if not row.not_a_duplicate]
+    annotate_duplicates(checked, db, exact_only=True)
     new_tx_datas = [
         tx_data for tx_data, stub in zip(tx_datas, stubs) if stub.status == STATUS_NEW
     ]

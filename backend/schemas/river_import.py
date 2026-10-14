@@ -67,6 +67,9 @@ class RiverExecuteRow(BaseModel):
     # price_moment says ("hour" or "day")
     cost_basis_typed: str | None = None
     price_moment: str | None = None
+    # The owner ticked a row the preview found already in the ledger: it's
+    # another transaction, imported all the same (#253)
+    not_a_duplicate: bool = False
 
 
 class RiverExecuteRequest(BaseModel):

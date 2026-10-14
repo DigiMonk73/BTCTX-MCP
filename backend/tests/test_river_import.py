@@ -255,42 +255,67 @@ class TestPreview:
         assert interest["basis_autofilled"] is True
         assert interest["price_moment"] == "day"  # no hourly prices in tests: the day's
 
-    def test_existing_tx_marked_matched(self):
+    def test_the_same_kind_amount_and_minute_is_in_the_ledger(self):
+        """River's rule (owner, 2026-10-14, #253): nothing else is compared,
+        so a Buy recorded at another cost basis is still that Buy."""
         delete_all_transactions()
-        # Manual entry ~3h off River's timestamp, same amount/basis
         create_tx({
-            "type": "Buy",
-            "timestamp": ts(1, 5, 15),
-            "from_account_id": 1,
-            "to_account_id": 4,
-            "amount": "0.00030000",
-            "fee_amount": "0",
-            "fee_currency": "USD",
-            "cost_basis_usd": "25.00",
+            "type": "Buy", "timestamp": "2026-01-05T12:00:40Z", "from_account_id": 1, "to_account_id": 4,
+            "amount": "0.00030000", "fee_amount": "0", "fee_currency": "USD", "cost_basis_usd": "10.00",
         })
         data = preview(SYNTHETIC_ROWS)
         matched = [p for p in data["proposals"] if p["status"] == STATUS_MATCHED]
-        assert len(matched) == 1
-        assert matched[0]["row_number"] == 2
+        assert [p["row_number"] for p in matched] == [2]
         assert data["new_count"] == len(SYNTHETIC_ROWS) - 1
 
-    def test_same_amount_different_basis_is_discrepancy(self):
+    def test_the_same_amount_hours_apart_is_similar_not_left_out(self):
+        """#253: a manual entry 3 hours off River's time was "In ledger" and
+        skipped; it may be another transaction, so it's one to review."""
         delete_all_transactions()
         create_tx({
-            "type": "Buy",
-            "timestamp": ts(1, 5, 15),
-            "from_account_id": 1,
-            "to_account_id": 4,
-            "amount": "0.00030000",
-            "fee_amount": "0",
-            "fee_currency": "USD",
-            "cost_basis_usd": "10.00",  # wrong basis vs River's $25
+            "type": "Buy", "timestamp": ts(1, 5, 15), "from_account_id": 1, "to_account_id": 4,
+            "amount": "0.00030000", "fee_amount": "0", "fee_currency": "USD", "cost_basis_usd": "25.00",
         })
         data = preview(SYNTHETIC_ROWS)
+        assert data["matched_count"] == 0
         disc = [p for p in data["proposals"] if p["status"] == STATUS_DISCREPANCY]
-        assert len(disc) == 1
-        assert disc[0]["row_number"] == 2
-        assert "differs" in disc[0]["discrepancy"]
+        assert [p["row_number"] for p in disc] == [2]
+        assert disc[0]["discrepancy"] == (
+            f"Same BTC amount as tx #{disc[0]['matched_tx_id']} (Buy 0.00030000 BTC), "
+            "recorded 3 hours later: it may be the same transaction"
+        )
+
+    def test_a_payout_of_the_same_amount_a_day_later_is_not_in_the_ledger(self):
+        """#253's River reproduction: the 02-02 payout was "In ledger"."""
+        delete_all_transactions()
+        create_tx({
+            "type": "Deposit", "timestamp": "2026-02-01T09:00:00Z", "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.00002000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "2.00",
+            "source": "Interest",
+        })
+        data = preview([
+            "2026-02-02 09:00:00,,,0.00002000,BTC,,,Interest",
+            "2026-02-03 08:00:00,,,0.00002000,BTC,,,Interest",
+        ])
+        assert data["matched_count"] == 0
+        assert [p["status"] for p in data["proposals"]] == [STATUS_DISCREPANCY, "new"]
+        assert "recorded 24 hours earlier" in data["proposals"][0]["discrepancy"]
+
+    def test_a_row_edited_after_its_import_is_in_the_ledger_when_imported_again(self):
+        """The owner's River rule: a purpose or source changed after the
+        import isn't compared, so a re-import doesn't record it twice."""
+        delete_all_transactions()
+        create_tx({
+            "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+            "source": "MyBTC",
+        })
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]]))
+        rows[0]["source"] = "Reward"   # the Interest payout
+        rows[1]["purpose"] = "Gift"    # the tagged Withdrawal
+        assert execute(rows)["imported_count"] == 2
+        data = preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, STATUS_MATCHED]
 
     def test_approximate_manual_transfer_is_fuzzy_discrepancy(self):
         delete_all_transactions()
@@ -363,6 +388,28 @@ class TestExecute:
         result2 = execute(rows)
         assert result2["imported_count"] == 0
         assert result2["skipped_existing"] == len(rows)
+
+    def test_a_row_in_the_ledger_the_owner_ticks_is_imported(self):
+        """#253 (D1): a duplicate is left out by default, and can be overridden."""
+        delete_all_transactions()
+        data = preview([SYNTHETIC_ROWS[7]])
+        execute(proposals_to_execute_rows(data))
+        again = preview([SYNTHETIC_ROWS[7]])
+        assert again["proposals"][0]["status"] == STATUS_MATCHED
+        rows = proposals_to_execute_rows(again, statuses=(STATUS_MATCHED,))
+        assert execute(rows)["skipped_existing"] == 1  # not ticked: the guard leaves it out
+        result = execute([{**rows[0], "not_a_duplicate": True}])
+        assert result["imported_count"] == 1 and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == 2
+
+    def test_a_similar_row_is_imported(self):
+        """The guard leaves out only duplicates: a similar row the owner keeps is imported."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview(["2026-02-01 09:00:00,,,0.00002000,BTC,,,Interest"])))
+        data = preview(["2026-02-02 09:00:00,,,0.00002000,BTC,,,Interest"])
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_DISCREPANCY,))
+        assert len(rows) == 1
+        assert execute(rows)["imported_count"] == 1
 
     def test_sell_lands_at_rivers_received_amount(self):
         """The fee is subtracted once: net proceeds (Form 8949) and the cash

@@ -33,7 +33,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 |------|--------------|
 | `get_ledger_guide` | How to map real-world events onto BitcoinTX accounts, types and tax fields |
 | `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing |
-| `add_transactions` | Save rows, all-or-nothing; exact duplicates are skipped. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list |
+| `add_transactions` | Save rows, all-or-nothing; duplicates are skipped unless you say one is another transaction. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list |
 | `list_transactions` | Search by date range, type and account |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
 | `get_portfolio` | Account balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |

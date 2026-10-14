@@ -193,6 +193,15 @@ async def test_preview_then_add_then_list(mcp_client):
     assert again["imported_count"] == 0 and again["skipped_duplicates"] == 2
 
 
+async def test_a_duplicate_the_user_says_is_another_transaction_is_added(mcp_client):
+    """#253 (D1): the per-row choice reaches the server, and saves the row."""
+    await call(mcp_client, "add_transactions", {"transactions": [BUY]})
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY]})
+    assert preview["results"][0]["status"] == "duplicate"
+    added = await call(mcp_client, "add_transactions", {"transactions": [{**BUY, "not_a_duplicate": True}]})
+    assert added["imported_count"] == 1 and added["skipped_duplicates"] == 0
+
+
 async def test_a_listed_spend_shows_its_gross_beside_its_after_fee_proceeds(mcp_client):
     """#157: a spend's proceeds_usd is after its network fee. Listed alone,
     an AI copying it back into update_transaction took the fee off again;

@@ -186,13 +186,18 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    original cost basis of MyBTC/Gift deposits). Don't invent cost basis.
 2. Call preview_transactions. Nothing is saved. Show the user a compact
    table: date, type, amount, from -> to, USD values, simulated gain/loss.
-   Call out: duplicates (already recorded - will be skipped), possible
-   duplicates (probably already recorded with a slightly different amount,
-   or the same amount at another price - ask whether to drop), auto-filled USD values, rejected rows (e.g. not
+   Call out: duplicates (the same type, BTC amount, source or purpose and
+   minute as a recorded transaction, or the same day for a date alone - will
+   be skipped), possible duplicates (the same amount within 48 hours with
+   something else different, or a transfer of a near amount; the warning
+   says what - saved unless dropped, so ask), auto-filled USD values, rejected rows (e.g. not
    enough BTC - usually a missing earlier transaction), and affected_existing
    (backdating changes gains on earlier-recorded sales).
 3. Only after the user confirms, call add_transactions with the same rows
-   (minus anything they rejected). The write is all-or-nothing.
+   (minus anything they rejected). The write is all-or-nothing. A duplicate
+   the user says is another transaction (two payouts of the same amount at
+   the same time, say) goes with not_a_duplicate: true, and is saved. Never
+   set it without their word.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its

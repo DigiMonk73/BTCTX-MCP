@@ -35,6 +35,11 @@ class EntryRow(BaseModel):
         description="My BTC or Gift deposit: when the coins were originally acquired (by the giver, for a gift), "
                     "read like date. Omitted: the deposit's date. Inherited deposit: the date of death (required).",
     )
+    not_a_duplicate: bool = Field(
+        default=False,
+        description="True only when the user says this row is another transaction than the one the preview "
+                    "matched as a duplicate: it's then saved (#253).",
+    )
 
 
 class EntryRequest(BaseModel):
