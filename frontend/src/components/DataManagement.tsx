@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import api from "../api";
 import { detailOr, extractErrorMessage } from "../utils/apiError";
 import { CONFIRMATION, describeExtent, type LedgerExtent } from "../utils/deleteAll";
@@ -20,6 +20,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   const [showPreview, setShowPreview] = useState(false);
   // What Delete All would take, while its dialog is open (#256)
   const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
 
   const handleDeleteTransactions = async () => {
     setLoading(true);
@@ -171,7 +172,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
             first, and keeps a copy of the database in the data folder before it deletes.
           </p>
         </div>
-        <button onClick={handleDeleteTransactions} disabled={loading} className="btn btn-danger">
+        <button ref={deleteButton} onClick={handleDeleteTransactions} disabled={loading} className="btn btn-danger">
           {loading ? "Processing..." : "Delete"}
         </button>
       </div>
@@ -181,6 +182,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
           title="Delete all transactions?"
           canDownloadBackup
           busy={loading}
+          opener={deleteButton}
           onConfirm={confirmDelete}
           onCancel={() => setToDelete(null)}
         />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { extractErrorMessage } from '../utils/apiError';
@@ -22,6 +22,7 @@ const RegisterPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   // What a new account would delete: asked once the code or password is right (#256)
   const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
+  const registerButton = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -176,7 +177,7 @@ const RegisterPage: React.FC = () => {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting}>
+          <button ref={registerButton} type="submit" className="btn btn-primary btn-block" disabled={isSubmitting}>
             {isSubmitting ? "Processing..." : "Register"}
           </button>
           {errorMsg && <div className="note note-error login-error-msg" role="alert">{errorMsg}</div>}
@@ -193,6 +194,7 @@ const RegisterPage: React.FC = () => {
           title="Create a new account and delete every transaction?"
           canDownloadBackup={false}
           busy={isSubmitting}
+          opener={registerButton}
           onConfirm={() => void submit(CONFIRMATION)}
           onCancel={() => setToDelete(null)}
         />

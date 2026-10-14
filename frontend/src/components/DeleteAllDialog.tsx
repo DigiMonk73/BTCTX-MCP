@@ -15,12 +15,14 @@ interface DeleteAllDialogProps {
    * owner is told how to get one. */
   canDownloadBackup: boolean;
   busy: boolean;
+  /** What opened it, focused again when it closes (it's disabled while the dialog loads). */
+  opener: React.RefObject<HTMLElement | null>;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
-  extent, title, canDownloadBackup, busy, onConfirm, onCancel,
+  extent, title, canDownloadBackup, busy, opener, onConfirm, onCancel,
 }) => {
   const [typed, setTyped] = useState("");
   // A backup downloading: nothing is deleted or closed until it's saved
@@ -29,9 +31,9 @@ const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
   const dialog = useRef<HTMLDivElement>(null);
   // Focus goes back to what opened the dialog when it closes
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    return () => opener?.focus();
-  }, []);
+    const from = opener.current;
+    return () => from?.focus();
+  }, [opener]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !waiting) onCancel();
