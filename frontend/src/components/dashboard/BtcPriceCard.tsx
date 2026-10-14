@@ -8,17 +8,15 @@ import { formatUsd } from "../../utils/format";
 interface BtcPriceCardProps {
   price: LivePrice;
   blockHeight: number | null;
-  /** The tax timezone, for the time the price arrived. */
-  timezone: string;
 }
 
 /** Under the price: where it came from and when, or why there's none and what to do (#145). */
-const PriceWhy: React.FC<{ price: LivePrice; timezone: string }> = ({ price, timezone }) => {
+const PriceWhy: React.FC<{ price: LivePrice }> = ({ price }) => {
   if (price.loading) return null;
   if (price.value !== null) {
     const from = priceSourceWords(price.source, price.throughTor);
     if (!from) return null;
-    return <p className="btc-price-why">{price.at ? `${from} · ${clock(price.at, timezone)}` : from}</p>;
+    return <p className="btc-price-why">{price.at ? `${from} · ${clock(price.at)}` : from}</p>;
   }
   if (price.waiting || price.unchosen) {
     return (
@@ -38,7 +36,7 @@ const PriceWhy: React.FC<{ price: LivePrice; timezone: string }> = ({ price, tim
 };
 
 /** Today's BTC price with where it came from and when, or why there is none, and the block height. */
-const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight, timezone }) => (
+const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight }) => (
   <div className="card btc-price-container">
     <div className="btc-price-header">
       <h3 className="card-title">Current Bitcoin Price</h3>
@@ -65,7 +63,7 @@ const BtcPriceCard: React.FC<BtcPriceCardProps> = ({ price, blockHeight, timezon
         <span className="btc-price-value">{noPriceWords(price)}</span>
       )}
     </div>
-    <PriceWhy price={price} timezone={timezone} />
+    <PriceWhy price={price} />
 
     {blockHeight !== null && (
       <div className="btc-block-height">

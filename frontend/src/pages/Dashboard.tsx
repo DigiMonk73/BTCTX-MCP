@@ -8,7 +8,6 @@ import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
 import { NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
 import { useLivePrice } from "../components/dashboard/useLivePrice";
-import { getTaxTimezone } from "../utils/taxTimezone";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
@@ -50,14 +49,6 @@ const Dashboard: React.FC = () => {
   // never shows without "through Tor" first
   const [throughTor, setThroughTor] = useState<boolean | null>(null);
   const price = { ...live, source: throughTor === null ? undefined : live.source, throughTor: Boolean(throughTor) };
-  const [timezone, setTimezone] = useState("UTC");
-
-  useEffect(() => {
-    getTaxTimezone()
-      .then((tz) => setTimezone(tz.timezone))
-      .catch(() => undefined);
-  }, []);
-
   useEffect(() => {
     api
       .get("/bitcoin/blockheight")
@@ -146,7 +137,7 @@ const Dashboard: React.FC = () => {
       {unchosen && <PriceSourceCard variant="first-run" />}
       <div className="dashboard-grid">
         <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
-        <BtcPriceCard price={price} blockHeight={blockHeight} timezone={timezone} />
+        <BtcPriceCard price={price} blockHeight={blockHeight} />
         <RealizedGainsCard gains={gainsAndLosses} />
         <IncomeFeesCard gains={gainsAndLosses} price={price} />
       </div>

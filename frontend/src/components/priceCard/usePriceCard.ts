@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import api from "../../api";
-import { getTaxTimezone } from "../../utils/taxTimezone";
 import {
   formFromSettings,
   payloadFromForm,
@@ -28,12 +27,11 @@ function fieldOf(detail: string): keyof FieldErrors | null {
   return null;
 }
 
-/** The card's data: the saved settings, the form, the status and the tax timezone. */
+/** The card's data: the saved settings, the form and the status. */
 export function usePriceCard() {
   const [saved, setSaved] = useState<NetworkSettingsData | null>(null);
   const [form, setForm] = useState<PriceForm>(EMPTY);
   const [status, setStatus] = useState<PriceStatus | null>(null);
-  const [timezone, setTimezone] = useState("UTC");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
 
@@ -51,9 +49,6 @@ export function usePriceCard() {
         setSaved(res.data);
         setForm(formFromSettings(res.data));
       })
-      .catch(() => undefined);
-    getTaxTimezone()
-      .then((tz) => setTimezone(tz.timezone))
       .catch(() => undefined);
     loadStatus();
   }, [loadStatus]);
@@ -101,5 +96,5 @@ export function usePriceCard() {
     window.dispatchEvent(new Event(PRICE_CHOICE_SAVED));
   };
 
-  return { saved, form, set, status, timezone, errors, saving, save, applied };
+  return { saved, form, set, status, errors, saving, save, applied };
 }

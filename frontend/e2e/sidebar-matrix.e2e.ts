@@ -284,12 +284,17 @@ test("own mempool server down, with the public backup: the prices from the publi
   expect(proxies(sent)).toEqual([null]);
 });
 
-test("Date with an hour: that hour in the tax timezone, its UTC day's price here; nothing names the day", async ({
+test("Date with an hour: that hour on this device's clock, its UTC day's price here; nothing names the day", async ({
   page, app,
 }) => {
   // #145: 23:00 in Chicago is 05:00 UTC the next day; 05:00 in Tokyo, 20:00 UTC the day before.
   // The fake internet has day prices only, so the hour's price is its UTC day's.
   const browser = await logIn(page, app);
+  // Tax timezone UTC, unlike this device's (#260): an hour read in the tax timezone
+  // would show the picked UTC day's price, not the device hour's. Saved before
+  // choose()'s reload: Playwright's WebKit crashes at a second one (#231).
+  const tz = await page.request.put("/api/settings/tax-timezone", { data: { timezone: "UTC" } });
+  expect(tz.ok(), await tz.text()).toBeTruthy();
   await choose(page, { price_source: "public" });
   const sidebar = page.getByRole("complementary");
   await sidebar.getByRole("button", { name: "Date" }).click();

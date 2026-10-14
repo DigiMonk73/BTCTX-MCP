@@ -3,8 +3,8 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import api from "../api";
 import { noPriceReason, type NoPrice } from "../utils/dashboard";
-import { getTaxTimezone } from "../utils/taxTimezone";
-import { zonedHourToIso } from "../utils/zonedTime";
+import { browserTimezone } from "../utils/taxTimezone";
+import { historyPriceUrl } from "../utils/converter";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
@@ -73,15 +73,11 @@ const BtcConverter: React.FC = () => {
       ? "$" + btcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : NO_PRICE_WORDS[noPrice];
 
-  // Date mode's day, and its hour in the tax timezone ("": the day's 00:00 UTC price)
+  // Date mode's day, and its hour on this device's clock, as the
+  // transaction form's Date & Time is (#260; "": the day's 00:00 UTC price)
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedHour, setSelectedHour] = useState<string>("");
-  const [timezone, setTimezone] = useState("UTC");
-  useEffect(() => {
-    getTaxTimezone()
-      .then((tz) => setTimezone(tz.timezone))
-      .catch(() => undefined);
-  }, []);
+  const timezone = browserTimezone();
 
   const [usdValue, setUsdValue] = useState<string>("");
   const [btcValue, setBtcValue] = useState<string>("");
@@ -122,10 +118,10 @@ const BtcConverter: React.FC = () => {
     if (!selectedDate) return;
 
     setBtcPrice(0);
-    setNoPrice("loading");
-    const at = selectedHour === "" ? null : zonedHourToIso(selectedDate, Number(selectedHour), timezone);
-    fetchPrice(at ? `/bitcoin/price/history?at=${encodeURIComponent(at)}` : `/bitcoin/price/history?date=${selectedDate}`);
-  }, [mode, selectedDate, selectedHour, timezone]);
+    const url = historyPriceUrl(selectedDate, selectedHour);
+    setNoPrice(url ? "loading" : "missing");
+    if (url) fetchPrice(url);
+  }, [mode, selectedDate, selectedHour]);
 
   // Manual mode starts from the live price, fetched once
   const fetchManualPriceOnce = () => fetchPrice("/bitcoin/price");
@@ -303,7 +299,7 @@ const BtcConverter: React.FC = () => {
             <select
               className="input input-sm date-hour"
               aria-label="Hour"
-              title={`The hour in your tax timezone (${timezone})`}
+              title={`The hour on this device's clock (${timezone})`}
               value={selectedHour}
               onChange={(e) => setSelectedHour(e.target.value)}
             >

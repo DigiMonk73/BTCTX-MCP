@@ -16,14 +16,14 @@ interface Props {
 const ICONS = { ok: "●", idle: "○", warning: "▲" } as const;
 const LOADING: StatusLine = { tone: "idle", text: "Loading…" };
 
-function lineFor(status: PriceStatus | null, saved: NetworkSettingsData, timezone: string): StatusLine {
-  const ctx = { backup: saved.mempool_fallback, tor: Boolean(saved.proxy_url), timezone, trustable: saved.mempool_trustable };
+function lineFor(status: PriceStatus | null, saved: NetworkSettingsData): StatusLine {
+  const ctx = { backup: saved.mempool_fallback, tor: Boolean(saved.proxy_url), trustable: saved.mempool_trustable };
   return status ? statusLine(status, ctx) : LOADING;
 }
 
 /** The hourly history's line, first on the card, with the download's progress (#145). */
-const History: React.FC<{ status: PriceStatus | null; tor: boolean; timezone: string }> = ({ status, tor, timezone }) => {
-  const line = status ? historyLine(status, { backup: false, tor, timezone }) : null;
+const History: React.FC<{ status: PriceStatus | null; tor: boolean }> = ({ status, tor }) => {
+  const line = status ? historyLine(status, { backup: false, tor }) : null;
   if (!line) return null;
   return (
     <div className={`price-history ${line.tone}`}>
@@ -53,12 +53,12 @@ const History: React.FC<{ status: PriceStatus | null; tor: boolean; timezone: st
  */
 const PriceSourceCard: React.FC<Props> = ({ variant }) => {
   const toast = useToast();
-  const { saved, form, set, status, timezone, errors, saving, save, applied } = usePriceCard();
+  const { saved, form, set, status, errors, saving, save, applied } = usePriceCard();
   if (!saved) return null;
 
   const firstRun = variant === "first-run";
-  const view = cardView(saved, form, firstRun, timezone);
-  const line = lineFor(status, saved, timezone);
+  const view = cardView(saved, form, firstRun);
+  const line = lineFor(status, saved);
   const Heading = firstRun ? "h2" : "h4"; // in Settings, under its section's h3
 
   const onSave = async () => {
@@ -74,7 +74,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
       </Heading>
       {view.confirming && <p className="price-help">{CONFIRM_WHY}</p>}
       {/* While confirming nothing is downloaded, and the window must fit (800 × 600) */}
-      {!view.confirming && <History status={status} tor={Boolean(saved.proxy_url)} timezone={timezone} />}
+      {!view.confirming && <History status={status} tor={Boolean(saved.proxy_url)} />}
       {saved.managed ? (
         <ReadOnlyChoices settings={saved} />
       ) : (

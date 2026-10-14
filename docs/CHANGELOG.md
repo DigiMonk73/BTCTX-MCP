@@ -26,6 +26,19 @@ All notable changes to BitcoinTX are documented in this file.
   USD choice included). Every column now shows in a 1440-wide window; in a
   narrower one (the Mac app opens at 1280) and on a phone the table still
   scrolls sideways, less than before.
+- **Times on screen are this device's clock** (#260, the owner's choice).
+  With a tax timezone other than the computer's, the screen showed times in
+  two zones: the Transactions list and the form in the computer's, but the
+  price card ("From public price sites (Kraken) · 4:45 pm"), Settings'
+  "Last price" and "You chose this … at" in the tax timezone, and the
+  sidebar's Date + hour picked the hour in the tax timezone. Now these
+  times, and the sidebar's hour, follow the device you look from (on
+  StartOS, your phone's or laptop's clock, not the server's). The tax
+  timezone keeps deciding what it's for: the tax year, Form 8949's dates
+  and the report. Two kinds of time stay as they were, each labelled:
+  Ledger Review's dates are in the tax timezone, as `cli review` and the
+  AI connector see the same items, and a price's hour ("From the price: …
+  at 14:00 UTC") is named in UTC wherever it's shown.
 - **Delete All and Create account ask before they wipe the ledger, and
   keep a copy first** (#256). Settings → Data Management → **Delete** used
   the browser's one-click confirm, and **Create account** on an install
