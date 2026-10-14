@@ -15,6 +15,14 @@ All notable changes to BitcoinTX are documented in this file.
   `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
   with the next package release.
 
+### Fixed
+- **No gain line for a gift, a donation or lost coins** (#257). The
+  Transactions list showed one under these withdrawals ("Gain $0.00 ·
+  +0.00% · Long-term"), as if they were sales with a holding period. They
+  aren't sales: the tax report already gives them no gain or loss of their
+  own. Now only a Sell and a Spent withdrawal show a gain line. Display
+  only: no figure changes.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added
