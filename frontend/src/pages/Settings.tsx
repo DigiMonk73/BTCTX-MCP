@@ -17,10 +17,12 @@ import "../styles/settings.css";
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  // The River preview's table takes the window's width while it's open
+  const [wide, setWide] = useState(false);
   const section = { loading, setLoading, setMessage };
 
   return (
-    <div className="settings-page">
+    <div className={wide ? "settings-page settings-page-wide" : "settings-page"}>
       <h2 className="page-title">Settings</h2>
       <div className="card settings-container">
         <AccountSettings {...section} />
@@ -31,7 +33,7 @@ const Settings: React.FC = () => {
         </div>
         <ConnectAiSetting />
         <DataManagement {...section} />
-        <RiverImport />
+        <RiverImport onPreviewShown={setWide} />
         <BackupRestore {...section} />
         {message && <p className="note settings-message" role="status">{message}</p>}
         <AboutSetting />

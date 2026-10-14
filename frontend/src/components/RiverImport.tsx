@@ -3,7 +3,7 @@
 // this adds to a ledger in use: rows already in it come back from the server
 // matched, and are left out.
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
@@ -11,13 +11,16 @@ import { importRow, importableRows, toEditableRow, type EditableRow } from "../u
 import RiverPreview from "./riverImport/RiverPreview";
 import "../styles/riverImport.css";
 
-const RiverImport: React.FC = () => {
+/** `onPreviewShown(true)` while a preview is open: its table needs the
+ * window's width, wider than the Settings card (#259). */
+const RiverImport: React.FC<{ onPreviewShown?: (shown: boolean) => void }> = ({ onPreviewShown }) => {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [showMatched, setShowMatched] = useState(false);
+  useEffect(() => onPreviewShown?.(preview !== null), [preview, onPreviewShown]);
 
   const reset = () => {
     setFile(null);

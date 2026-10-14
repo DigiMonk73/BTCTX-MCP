@@ -16,20 +16,22 @@ const TypeCell: React.FC<TypeCellProps> = ({ row, editable, loading, onChange })
   const choosable = choices.length > 1 && editable;
   return (
     <td>
-      {choosable ? (
-        <RiverSelect label="Transaction type" value={row.type} choices={choices} disabled={loading}
-          onChange={(type) => onChange(typeChange(row, type))} />
-      ) : (
-        row.type
-      )}
-      {row.type === "Withdrawal" && choosable && (
-        <RiverSelect label="Withdrawal purpose" value={row.purpose} choices={WITHDRAWAL_PURPOSES} disabled={loading}
-          onChange={(purpose) => onChange({ purpose })} />
-      )}
-      {row.type === "Deposit" && choosable && (
-        <RiverSelect label="Deposit source" value={row.source} choices={DEPOSIT_SOURCES} disabled={loading}
-          onChange={(source) => onChange({ source })} />
-      )}
+      <span className="river-stack">
+        {choosable ? (
+          <RiverSelect label="Transaction type" value={row.type} choices={choices} disabled={loading}
+            onChange={(type) => onChange(typeChange(row, type))} />
+        ) : (
+          row.type
+        )}
+        {row.type === "Withdrawal" && choosable && (
+          <RiverSelect label="Withdrawal purpose" value={row.purpose} choices={WITHDRAWAL_PURPOSES} disabled={loading}
+            onChange={(purpose) => onChange({ purpose })} />
+        )}
+        {row.type === "Deposit" && choosable && (
+          <RiverSelect label="Deposit source" value={row.source} choices={DEPOSIT_SOURCES} disabled={loading}
+            onChange={(source) => onChange({ source })} />
+        )}
+      </span>
     </td>
   );
 };
