@@ -37,13 +37,25 @@ days on Community Beta and the promotion request.
 - [ ] **StartOS keeps only whether a login was set, not the password**
       (#212; the next release, the owner's choice, 2026-10-13), with a
       package migration that drops the stored value.
+- [ ] **A gift, donation or lost value left blank is filled from the
+      price** (#255; the next release, the owner's choice, 2026-10-14):
+      when it's saved, from the BTC price when that hour began (that day's
+      where there's no hourly price), shown as coming from the price, as
+      income and a spend's proceeds already are; a typed value always wins,
+      and with no price source it stays blank. Ledger Review lists the
+      gifts, donations and lost coins that have no value.
+- [ ] **Delete All and Create account ask before wiping the ledger**
+      (#256; the next release, the owner's choice, 2026-10-14): a dialog
+      that says what goes, offers to download a backup first and deletes
+      only once `DELETE` is typed, and a safety copy in the data folder's
+      `backups` before the wipe. An empty install isn't warned.
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
       forms are filed (early 2027): the user types the form's proceeds and
       cost for that sale, and Form 8949 shows them with the IRS's code and
       correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
       report and the guide say when. Generic, not tied to one exchange.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
-      backup password).
+      backup password); Delete All's comes first (#256, above).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
