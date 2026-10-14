@@ -565,13 +565,13 @@ One home for each kind of information, so nothing is kept twice:
   closes issues by itself only for pull requests into the default branch,
   `main`.
 - **A closing word next to an issue number closes it.** In a commit message
-  or a pull request, never write "close", "fix" or "resolve" (any form,
-  with or without a colon) right before an issue number unless that commit
-  finishes it: GitHub closes the issue when the commit reaches `main`, even
-  months later at a release: #165's commit message put "fixes:" right
-  before #41 and closed the pinned "Where we are" when 1.2.8
-  fast-forwarded `main`. Write
-  "for #41", "on #41" or "(#41)" instead.
+  or a pull request, never put "close", "fix" or "resolve" (any form, any
+  case, with or without a colon) right before an issue reference (`#N`,
+  `owner/repo#N` or an issue's link) unless that commit finishes it.
+  GitHub closes the issue when the commit reaches `main`, even months
+  later at a release. #165's commit put "fixes:" right before #41 and
+  closed the pinned "Where we are" when 1.2.8 fast-forwarded `main`.
+  Write "for #N", "on #N" or "(#N)" instead.
 - **A long checklist** for work under way may live in `docs/temp/<topic>.md`
   (`docs/temp/README.md`), deleted when done. No other notes, plan or status
   files, and no project status in an AI tool's private memory: it goes in
