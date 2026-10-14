@@ -4,18 +4,20 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Next release: the stable candidate
+## Now: the stable candidate, 1.2.8
 
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
 Registry, then maintenance only. The plan and its checklist are #143. The
-version plan (owner, 2026-10-13): 1.2.8 carries #134's fix, hourly prices,
-the price redesign and the security review's fixes; 1.2.9 is polish; then
-one more thorough test round, and 1.3.0, the stable version, gets the 14
-days on Community Beta and the promotion request.
+version plan (owner, 2026-10-14, replacing the 1.2.9-then-1.3.0 plan of
+2026-10-13): 1.2.8, with #134's fix, hourly prices, the price redesign and
+the security review's fixes, is the stable candidate; it gets the 14 days
+on Community Beta and the promotion request. Nothing that changes the
+package goes to Start9 during that test, so what's under "Soon" waits for
+the maintenance releases after promotion, 1.2.9 first.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
-      blocking item, then 14 days on Community Beta (1.3.0), then the
+      blocking item, then 14 days on Community Beta (1.2.8), then the
       promotion request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
@@ -23,8 +25,8 @@ days on Community Beta and the promotion request.
       one price card (your own Mempool, public sites, or nobody, optionally
       through Tor), a status line, confirm once after the update, and each
       value's source shown; StartOS asks at install. Waiting on the owner:
-      the landing page's words (#145). Six small pieces of the plan come in
-      the next release (#208, under "Soon").
+      the landing page's words (#145). Six small pieces of the plan come
+      later (#208, under "Soon").
 
 ## Soon
 
@@ -38,24 +40,31 @@ days on Community Beta and the promotion request.
       (#212; the next release, the owner's choice, 2026-10-13), with a
       package migration that drops the stored value.
 - [ ] **A gift, donation or lost value left blank is filled from the
-      price** (#255; the next release, the owner's choice, 2026-10-14):
-      when it's saved, from the BTC price when that hour began (that day's
-      where there's no hourly price), shown as coming from the price, as
-      income and a spend's proceeds already are; a typed value always wins,
-      and with no price source it stays blank. Ledger Review lists the
-      gifts, donations and lost coins that have no value.
+      price** (#255; 1.2.9, the owner's choice, 2026-10-14): when it's
+      saved, from the BTC price when that hour began (that day's where
+      there's no hourly price), shown as coming from the price, as income
+      and a spend's proceeds already are; a typed value always wins, and
+      with no price source, or no price found, it stays blank. Ledger
+      Review lists the gifts, donations and lost coins that have no value,
+      including ones saved blank before.
 - [ ] **Delete All and Create account ask before wiping the ledger**
-      (#256; the next release, the owner's choice, 2026-10-14): a dialog
+      (#256; 1.2.9, the owner's choice, 2026-10-14): a dialog
       that says what goes, offers to download a backup first and deletes
       only once `DELETE` is typed, and a safety copy in the data folder's
       `backups` before the wipe. An empty install isn't warned.
+- [ ] **Times on screen in the device's own timezone** (#260; 1.2.9, the
+      owner's choice, 2026-10-14): the price card's and Settings' clock
+      times as the phone's or computer's clock shows them, like the
+      transaction list; the tax timezone keeps deciding the tax year, Form
+      8949's dates and the report.
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
       forms are filed (early 2027): the user types the form's proceeds and
       cost for that sale, and Form 8949 shows them with the IRS's code and
       correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
       report and the guide say when. Generic, not tied to one exchange.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
-      backup password); Delete All's comes first (#256, above).
+      backup password); the one for Delete All and Create account comes
+      first (#256, above).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
