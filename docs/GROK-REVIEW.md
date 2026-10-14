@@ -3,10 +3,11 @@
 The finder's manual for BitcoinTX. A fresh Cursor chat, or a fresh Grok
 Build session, can run one pass from this file alone. The rules it points
 at live in `AGENTS.md` ("Who does what," "Reviews," "Bugs and security,"
-"Tax invariants," "Releasing"). This file does not restate them.
+"Tax invariants," "Releasing"). It restates no rule in full: each area
+names what to check against them.
 
-`docs/HARDENING_FINDINGS.md` and `docs/PRIVACY_AUDIT.md` are records of
-past findings. They are not this routine.
+`docs/HARDENING_FINDINGS.md` is a record of past findings, not this
+routine. `docs/PRIVACY_AUDIT.md`'s 1.2.8 table is the checklist for area 3.
 
 ## Who does what
 
@@ -14,23 +15,28 @@ past findings. They are not this routine.
   StartOS package, and releases. Claude checks every finder report in the
   code before it counts, then fixes it. Claude's fresh pull-request review
   stays as `AGENTS.md` describes it.
-- **Cursor's Grok, at its highest setting,** is the finder. Read-only
-  unless the owner asks for one named job. A finding is a claim until
-  Claude checks it. Comments end "— Grok (Cursor)."
+- **Cursor's Grok, at its highest setting,** is the finder: a second set
+  of eyes when the owner asks. Read-only unless the owner names one job
+  (see "A small fix"). A finding is a claim until Claude checks it.
+  Comments end `— Grok (Cursor)`.
 - **Grok Build** is the spare workshop when Claude is out of tokens, for a
   job the owner already chose. It may write docs, tests, and small fixes
   outside the money path, the doors (login and security), the database,
-  and StartOS. A one-line change in those four areas is still Claude's.
-  Grok Build never merges. Every change it writes gets a fresh Claude
+  and StartOS: not in the files of monthly areas 1–4 below, nor
+  `backend/migrations/`. A one-line change there is still Claude's.
+  Grok never merges. Every change it writes gets a fresh Claude
   review, and Claude or the owner's "merge" lands it. It does not review
-  its own change. Comments end "— Grok (Build)." It does not cut a
-  release, move `main`, or send anything to Start9. Connected to
-  BitcoinTX, it is for the owner's questions only.
+  its own change. Comments end `— Grok (Build)`. It does not cut a
+  release, move `main`, or send anything to Start9. A Grok Build session
+  connected to the owner's BitcoinTX (the AI connector) is the owner's own
+  use: never a review or a fix there.
 - The finder pass is the high-value use. A Grok-written app change still
   needs a full Claude review, so it saves less than docs, tests, and
   simple fixes.
-- After each pass, Claude notes in the Monday report how many findings
-  were confirmed and how many were not. No separate scorecard file.
+- After each pass, Claude records it as a comment on issue #41: the area
+  or release, the date, how many findings were confirmed and how many
+  were not, and the next area. The Monday report repeats the latest. No
+  separate scorecard file.
 
 Do not name model versions or speed tiers in this file. They go stale.
 
@@ -50,7 +56,10 @@ write. No release, no move of `main`, nothing sent to Start9.
 
 ## Release pass
 
-Before every release, read what changed since the last release tag. App
+When the owner asks, before a release (a second set of eyes, not a
+release gate), read what changed since the last release tag
+(`git log --oneline $(git describe --tags --abbrev=0 origin/main)..origin/develop`;
+tags look like `v1.2.8`). App
 code, the database, prices, auth, backup, the connector, and `startos/`.
 Skip a file that only moved words, except the StartOS release notes and
 the instructions a user follows.
@@ -65,9 +74,8 @@ Report what you did not read.
 
 ## Monthly pass
 
-One area, then the next, then start over. Not the whole repo. Claude's
-Monday report names the area, or says a release is waiting on the release
-pass.
+One area, then the next, then start over. Not the whole repo. The owner
+names the area (the latest pass on #41 says which is next); if not, ask.
 
 1. **Money.** `backend/services/transaction.py`,
    `backend/services/tax_time.py`,
@@ -91,8 +99,9 @@ pass.
    `backend/services/price_history.py`, `backend/services/price_files.py`,
    `backend/services/outbound.py`, `backend/services/mempool_trust.py`.
    No request names a day or an hour. Nothing is asked until a price
-   source is chosen. A stored price is never rewritten to $0. A sub-cent
-   or non-numeric price is not stored.
+   source is chosen. A stored day or hour never changes. A sub-cent or
+   non-numeric price is not stored. Every outside request is in
+   `docs/PRIVACY_AUDIT.md`'s 1.2.8 table.
 4. **StartOS.** `startos/`, including `instructions.md` and the release
    notes in `startos/startos/versions/current.ts`. Check them against
    Start9's published guide (`start-technologies` on `live-docs`, or
@@ -101,10 +110,14 @@ pass.
    chooses where an interface is reachable.
 5. **Imports and the connector.** `backend/services/csv_import.py`,
    `backend/services/river_import.py`, `backend/services/entry_import.py`,
-   `mcp_server/btctx_mcp/server.py`, `mcp_server/btctx_mcp/guide.py`, and
-   `AI_KEY_ROUTES`. CSV must not run a formula. One transaction per row.
-   The connector's tools and the routes the AI key may call have to match.
-   An AI edit or delete takes a copy first. An import is not that copy.
+   `mcp_server/btctx_mcp/server.py`, `mcp_server/btctx_mcp/guide.py`,
+   `AI_KEY_ROUTES`, and the CSV BitcoinTX writes
+   (`backend/services/reports/safe_text.py`, `csv_text`). A CSV cell
+   BitcoinTX writes never starts a formula. One transaction per row. The
+   connector's tools and the routes the AI key may call have to match. The
+   AI key's first edit or delete in an hour is preceded by a copy
+   (`_copy_before_ai_changes`, `backend/routers/transaction.py`); an import
+   makes none (the connector offers `backup_ledger`).
 
 ## How to report
 
@@ -119,8 +132,8 @@ a public issue or a pull-request comment for an unfixed security problem.
 
 Only when the owner names that job, and only outside the money path, the
 doors, the database, and StartOS. One function and a test that fails on
-the old code. Its own pull request into `develop`, then stop. Grok Build
-never merges. The session that wrote the change does not approve it.
+the old code. Its own pull request into `develop`, then stop. Grok never
+merges. The session that wrote the change does not approve it.
 
 ## Do not
 

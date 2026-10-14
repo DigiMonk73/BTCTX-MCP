@@ -11,6 +11,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **Grok's review pass** (`docs/GROK-REVIEW.md`). The finder's manual:
   a release pass and one monthly area, with Claude checking each finding;
   `AGENTS.md` points to it ("Who does what", "Reviews").
+- **StartOS: the store's donation link** (#249): the package's
+  `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
+  with the next package release.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

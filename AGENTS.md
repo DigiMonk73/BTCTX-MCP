@@ -46,21 +46,23 @@ Branches).
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
   attention (a scheduled task on the owner's Mac).
-- **Grok** is a second set of eyes, never the developer of record (its
+- **Grok** is a second set of eyes, never the developer (its
   roles and passes: `docs/GROK-REVIEW.md`):
   - Grok Bot on the web brainstorms from links the owner gives it
     ("Working through GitHub");
   - Grok in Cursor is the finder: it reviews a pull request when the
     owner asks, and runs the release pass and the monthly area;
-  - Grok Build writes only a job the owner names, outside tax figures,
-    login and security, the database and StartOS, and never merges.
+  - Grok (in Cursor or Grok Build) writes only a job the owner names,
+    outside tax figures, login and security, the database and StartOS
+    (the manual names the files), and never merges.
 
   A Grok finding is a claim until Claude checks it, and every
   Grok-written change gets a fresh Claude review.
 
 Everything goes through GitHub under the owner's account, so each AI ends
 what it posts there with its name ("— Claude", "— Claude (reviewer)",
-"— Grok", "— Grok (Cursor)", "— Grok (Build)"), and Claude's commits carry its `Co-Authored-By` line.
+"— Grok", "— Grok (Cursor)", "— Grok (Build)"), and Claude's commits
+carry its `Co-Authored-By` line.
 
 ## Branches
 
@@ -640,8 +642,9 @@ and the README's "Reporting problems"; keep them.
   - outside reports with no answer, here, on Start9's fork or on the
     mirror;
   - how many security advisories are waiting (never their details);
-  - after a Grok pass, how many of its findings Claude confirmed and how
-    many it didn't, and the next monthly area (`docs/GROK-REVIEW.md`).
+  - the latest Grok pass, as Claude recorded it on #41: how many of its
+    findings Claude confirmed and how many it didn't, and the next
+    monthly area (`docs/GROK-REVIEW.md`).
 
 ## Reviews
 
