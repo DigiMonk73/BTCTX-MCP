@@ -1,7 +1,7 @@
 """
 The BTC price for a past day, from one place. Every historical valuation
 (an income deposit's basis, a spend's or gift's value, a BTC fee, the
-form's price Refresh, import autofill, year-end values) goes through
+sidebar's Date price, import autofill, year-end values) goes through
 daily_price(), so the same day always gets the same price.
 
 A day's price is its 00:00 UTC price (the daily open the sources publish),

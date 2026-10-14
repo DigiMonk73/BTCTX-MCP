@@ -3,8 +3,8 @@ A gift's, donation's or lost coins' value left blank is filled from the price
 when it's saved (#255), like an income deposit's value and a Spent's
 proceeds: the BTC price when its hour began (that day's where there's no
 hourly price) x the amount, marked fmv_from_price. A typed value, $0
-included, is kept. With no price it stays blank (never a 422: it isn't on
-any IRS form). An edit prices a value from the price again when its amount
+included, is kept. With no price it stays blank (never a 422: BitcoinTX
+fills no form with it). An edit prices a value from the price again when its amount
 or hour changes; the form sending it back isn't typing it. Ledger Review
 lists the ones with no value; its day-priced check, the tax report's list
 of priced values, the CSV round trip and the AI connector know the mark.

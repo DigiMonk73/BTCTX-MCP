@@ -281,8 +281,8 @@ def test_mempool_with_fallback_asks_the_public_history_for_older_days(sources, d
 
 
 def test_no_price_is_a_clear_422_everywhere_never_the_live_price(sources, auth_client):
-    """Income basis, Spent value, transfer fee and the form's Refresh all
-    refuse to guess; before, a failed day lookup used today's price."""
+    """Income basis, Spent value, transfer fee and a price asked for a day
+    all refuse to guess; before, a failed day lookup used today's price."""
     auth_client.delete("/api/transactions/delete_all")
     try:
         for body in (

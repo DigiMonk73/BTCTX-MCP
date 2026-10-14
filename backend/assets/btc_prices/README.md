@@ -2,7 +2,7 @@
 
 The hourly price history BitcoinTX values with when a transaction has no
 dollar amount of its own (an income or rebate deposit, a BTC network fee, a
-spend without a price, the Refresh button for a gift's value): **the price
+spend without a price, a gift's, donation's or lost coins' value): **the price
 of bitcoin when the transaction's hour began**, in UTC (issue #144), and
 holdings at the hour a tax year ends. This folder is that history's record.
 
