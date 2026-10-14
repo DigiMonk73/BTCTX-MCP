@@ -26,9 +26,9 @@ TWO_YEARS_BEFORE = "2023-03-14T12:00:00Z"
 
 @pytest.fixture(autouse=True)
 def _ledger(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def post(client, **body) -> dict:
@@ -136,7 +136,7 @@ def test_the_csv_export_and_import_carry_the_date(auth_client, test_engine):
     header, row = export.text.splitlines()[:2]
     column = header.split(",").index("acquired_at")
     assert row.split(",")[column] == "2023-03-14T12:00:00Z"
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
     [tx] = auth_client.get("/api/transactions").json()

@@ -5,7 +5,7 @@ import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -77,26 +77,68 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   expect(await listTx(page.request)).toHaveLength(6);
 });
 
-test("delete all transactions asks first", async ({ authedPage: page }) => {
+/** Settings → Delete, then the dialog with DELETE typed (#256). */
+async function deleteAll(page: Page, count: number) {
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: `Delete ${count} transactions` }).click();
+  await expect(page.getByText(`Deleted ${count} transactions`)).toBeVisible();
+}
+
+test("delete all: a dialog says what goes, deletes only once DELETE is typed, after a copy (#256)", async ({
+  authedPage: page, app,
+}) => {
   await seedKnownLedger(page.request);
   await openSettings(page);
-  page.once("dialog", (d) => void d.dismiss());
+  page.on("dialog", () => { throw new Error("no browser confirm any more"); });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
+  await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
+  await expect(dialog).toContainText("keeps a copy of the database in its data folder");
+  const go = dialog.getByRole("button", { name: "Delete 6 transactions" });
+  await expect(go).toBeDisabled();
+  await dialog.getByLabel("Type DELETE to confirm").fill("delete");
+  await expect(go).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await listTx(page.request)).toHaveLength(6);
+  // Nor does the server delete without it
+  expect((await page.request.delete("/api/transactions/delete_all")).status()).toBe(409);
   expect(await listTx(page.request)).toHaveLength(6);
 
-  page.once("dialog", (d) => {
-    expect(d.message()).toBe("Delete ALL transactions? This cannot be undone.");
-    void d.accept();
-  });
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("All transactions deleted.")).toBeVisible();
+  await deleteAll(page, 6);
+  await expect(page.getByText(/A copy of the database from before is kept/)).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
+  expect(readdirSync(path.join(app.dir, "backups")).filter((f) => f.startsWith("e2e-before-delete-all-"))).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("There are no transactions to delete.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("delete all: the dialog downloads the encrypted backup first (#256)", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
+  await dialog.getByRole("button", { name: "Download a backup first" }).click();
+  await dialog.getByLabel("Encrypt with password").fill("backup-secret");
+  await dialog.getByLabel("Repeat password").fill("backup-secret");
+  const download = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Download backup" }).click();
+  expect((await download).suggestedFilename()).toBe("bitcoin_backup.btx");
+  await expect(dialog.getByText("Backup downloaded.")).toBeVisible();
+  // Still asked: the backup deletes nothing
+  await expect(dialog.getByRole("button", { name: "Delete 6 transactions" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(await listTx(page.request)).toHaveLength(6);
 });
 
 test("encrypted backup downloads and restores", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  acceptDialogs(page); // the "Delete ALL transactions?" confirm below
   await openSettings(page);
   // Privacy audit 2026-09-29 (3d): the plain safety copies are mentioned
   await expect(page.getByText("unencrypted safety copies")).toBeVisible();
@@ -110,8 +152,7 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   const backup = (await d.path())!;
   await expect(page.getByText("Backup downloaded.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByText("All transactions deleted.")).toBeVisible();
+  await deleteAll(page, before.length);
   expect(await listTx(page.request)).toHaveLength(0);
 
   // A wrong password is refused and changes nothing.

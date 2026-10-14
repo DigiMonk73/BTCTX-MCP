@@ -74,7 +74,7 @@ def log(msg: str, level: str = "INFO"):
 
 def delete_all_transactions():
     """Clear all transactions for a fresh start."""
-    r = CLIENT.delete("/api/transactions/delete_all")
+    r = CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     if r.status_code not in (200, 204):
         log(f"Could not delete transactions: {r.status_code}", "FAIL")
         sys.exit(1)

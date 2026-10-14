@@ -33,9 +33,9 @@ def _set_client(auth_client):
 
 @pytest.fixture(autouse=True)
 def _clean_ledger():
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def deposit(**fields):

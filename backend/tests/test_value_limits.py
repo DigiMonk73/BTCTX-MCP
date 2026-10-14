@@ -32,9 +32,9 @@ READS = ("/api/transactions", "/api/calculations/average-cost-basis", "/api/repo
 @pytest.fixture(autouse=True)
 def empty_ledger(auth_client, monkeypatch):
     stub_daily_prices(monkeypatch, lambda day: 50000.0)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 @pytest.fixture

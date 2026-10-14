@@ -156,7 +156,7 @@ class Ledger:
         self.Session = sessionmaker(bind=engine)
 
     def reset(self) -> None:
-        assert self.client.delete("/api/transactions/delete_all").status_code == 204
+        assert self.client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
 
     def enter(self, txs: List[dict]) -> None:
         for tx in txs:

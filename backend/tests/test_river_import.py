@@ -81,7 +81,7 @@ def by_row(proposals, row_number: int):
 
 
 def delete_all_transactions():
-    r = CLIENT.delete("/api/transactions/delete_all")
+    r = CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     assert r.status_code in (200, 204)
 
 

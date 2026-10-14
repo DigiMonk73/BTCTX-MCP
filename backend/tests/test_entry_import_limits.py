@@ -52,9 +52,9 @@ def buys(count: int, start: datetime, every: timedelta = timedelta(hours=6)) -> 
 def empty_ledger(auth_client, ai_key_headers):
     """The session's ledger, emptied; yields the owner's client and a
     client with only the AI key."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield auth_client, TestClient(app, headers=ai_key_headers)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def count(client) -> int:

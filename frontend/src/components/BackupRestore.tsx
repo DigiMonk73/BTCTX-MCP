@@ -2,6 +2,7 @@ import React from "react";
 import api from "../api";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
+import { downloadEncryptedBackup } from "../utils/encryptedBackup";
 
 /** Settings' Backup & Restore section: the CSV export, the encrypted backup
  * and its restore. */
@@ -37,12 +38,7 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
     setMessage("");
 
     try {
-      const formData = new FormData();
-      formData.append("password", password);
-      const res = await api.post("/backup/download", formData, {
-        responseType: "blob",
-      });
-      const outcome = await downloadMessage(new Blob([res.data]), "bitcoin_backup.btx", "btx", "Backup");
+      const outcome = await downloadEncryptedBackup(password);
       if (outcome) setMessage(outcome);
     } catch {
       setMessage("Failed to download backup.");
@@ -89,7 +85,8 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
       <h3 className="section-title">Backup & Restore</h3>
       <p className="settings-option-subtitle">
         BitcoinTX also keeps a few unencrypted safety copies of its database in its data folder,
-        next to the database: from before updates and restores, and those an AI assistant makes.
+        next to the database: from before updates, restores and deleting every transaction, and
+        those an AI assistant makes.
       </p>
 
       <div className="settings-option">

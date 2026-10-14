@@ -15,6 +15,27 @@ All notable changes to BitcoinTX are documented in this file.
   `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
   with the next package release.
 
+### Changed
+- **Delete All and Create account ask before they wipe the ledger, and
+  keep a copy first** (#256). Settings → Data Management → **Delete** used
+  the browser's one-click confirm, and **Create account** on an install
+  with transactions deleted them all after a similar confirm, shown even on
+  an empty install and before the setup code was checked. Neither kept a
+  copy. Now:
+  - a dialog says what goes ("This deletes 118 transactions, 2023–2026"),
+    offers **Download a backup first** (the encrypted backup, which
+    Restore brings back; on Create account, how to get one after logging
+    in), and deletes only once you type `DELETE`;
+  - before anything is deleted, BitcoinTX keeps a copy of the database in
+    its data folder (`backups/btctx-before-delete-all-….db`, unencrypted,
+    the newest 5, apart from the copies made before updates), for help in
+    putting it back; no copy, nothing deleted;
+  - Create account checks the setup code or current password first, and
+    asks only when there are transactions to delete;
+  - the server refuses either delete without the typed `DELETE`
+    (`confirm=DELETE`; otherwise 409 says what would go). The AI key still
+    can't delete everything.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added

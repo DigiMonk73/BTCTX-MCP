@@ -30,7 +30,7 @@ def deposit(client, **fields) -> dict:
 
 
 def test_a_value_priced_at_the_hour_names_its_hour_and_source(auth_client, test_engine):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     with sessionmaker(bind=test_engine)() as db:
         hour = hourly_prices.hour_of(datetime(2026, 4, 1, 12, tzinfo=timezone.utc))
         db.add(BtcPriceHourly(hour=hour, usd=Decimal("68123.45"), source="mempool"))
@@ -47,7 +47,7 @@ def test_a_value_priced_at_the_hour_names_its_hour_and_source(auth_client, test_
 
 
 def test_a_value_priced_at_the_day_says_so(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     tx = deposit(auth_client)  # no hourly price here: the day's (the session stub's)
     assert tx["price_moment"] == "day"
     assert tx["price_used"] == {"at": "2026-04-01T00:00:00Z", "moment": "day", "source": "stub",
@@ -55,7 +55,7 @@ def test_a_value_priced_at_the_day_says_so(auth_client):
 
 
 def test_a_typed_value_has_none_and_reading_asks_nobody(auth_client, monkeypatch):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     tx = deposit(auth_client, cost_basis_usd="7000")
     assert tx["price_used"] is None
     priced = deposit(auth_client, timestamp="2026-04-02T08:00:00Z")
@@ -75,7 +75,7 @@ def test_a_typed_value_has_none_and_reading_asks_nobody(auth_client, monkeypatch
 def test_a_value_the_stored_price_didnt_give_names_no_price(auth_client, test_engine):
     """Review of #190: an imported value marked "from the price", or one priced on
     another day (a tax timezone changed since), isn't that price times the amount."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     tx = deposit(auth_client)
     with test_engine.begin() as conn:
         conn.execute(text("UPDATE transactions SET cost_basis_usd = 4321.00 WHERE id = :i"), {"i": tx["id"]})
@@ -84,7 +84,7 @@ def test_a_value_the_stored_price_didnt_give_names_no_price(auth_client, test_en
 
 def test_an_hour_from_the_year_files_names_bitstamp(auth_client, monkeypatch):
     """The year files' hours (Bitstamp's hourly opens): read once per list."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     hour = hourly_prices.hour_of(datetime(2026, 4, 1, 12, tzinfo=timezone.utc))
     line = pf.YearLine(2026, pf.year_start(2026), hour + 3600, 1, "x")
     reads = []
@@ -101,7 +101,7 @@ def test_an_hour_from_the_year_files_names_bitstamp(auth_client, monkeypatch):
 
 def test_an_inheritance_names_its_date_of_deaths_day(auth_client):
     """#154/#177: an inheritance is valued on the date of death as entered, its day's price."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     tx = deposit(auth_client, source="Inherited", acquired_at="2025-06-10T12:00:00Z")
     assert tx["price_moment"] == "day"
     assert tx["price_used"]["at"] == "2025-06-10T00:00:00Z" and tx["price_used"]["moment"] == "day"

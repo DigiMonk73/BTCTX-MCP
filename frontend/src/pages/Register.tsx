@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { extractErrorMessage } from '../utils/apiError';
 import { useToast } from '../contexts/useToast';
+import { CONFIRMATION, extentToConfirm, type LedgerExtent } from '../utils/deleteAll';
+import DeleteAllDialog from '../components/DeleteAllDialog';
 import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/credentials';
 import '../styles/login.css';
 
@@ -18,6 +20,8 @@ const RegisterPage: React.FC = () => {
   const [setupCode, setSetupCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // What a new account would delete: asked once the code or password is right (#256)
+  const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -59,38 +63,37 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    if (isDefault === false) {
-      if (!overridePassword) {
-        setErrorMsg("Account is already registered. Enter your current password to proceed.");
-        setIsSubmitting(false);
-        return;
-      }
-      if (!window.confirm("Warning: The account is already registered. Re-registering will delete all transactions and update your credentials. Proceed?")) {
-        setIsSubmitting(false);
-        return;
-      }
-    } else {
-      if (!window.confirm("This will update your username and password and delete any existing transactions. Continue?")) {
-        setIsSubmitting(false);
-        return;
-      }
+    if (isDefault === false && !overridePassword) {
+      setErrorMsg("Account is already registered. Enter your current password to proceed.");
+      setIsSubmitting(false);
+      return;
     }
+    await submit();
+  };
 
+  /**
+   * The server checks the setup code or current password first, then, when
+   * the ledger has transactions, answers what would go (409) until the
+   * owner confirms in the dialog; then it keeps a copy, deletes them and
+   * sets the new login, in one step.
+   */
+  const submit = async (confirm?: string) => {
+    setIsSubmitting(true);
     try {
-      // The server verifies authorization (default login, or the current
-      // password for an already-registered account), updates the
-      // credentials and clears transactions in one step.
       await api.post("/users/reset-account", {
         username,
         password,
         current_password: isDefault ? undefined : overridePassword,
         setup_code: isDefault && codeRequired ? setupCode.trim() : undefined,
+        confirm,
       });
-
       toast.success("Registration successful! Your credentials have been updated.");
       navigate('/login');
     } catch (err) {
-      setErrorMsg(extractErrorMessage(err) || "Failed to register. Please try again.");
+      const extent = confirm ? null : extentToConfirm(err);
+      if (extent) setToDelete(extent);
+      else setErrorMsg(extractErrorMessage(err) || "Failed to register. Please try again.");
+      if (confirm) setToDelete(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -181,6 +184,16 @@ const RegisterPage: React.FC = () => {
           <Link to="/login" className="link">Log in</Link>
         </div>
       </div>
+      {toDelete && (
+        <DeleteAllDialog
+          extent={toDelete}
+          title="Create a new account and delete every transaction?"
+          canDownloadBackup={false}
+          busy={isSubmitting}
+          onConfirm={() => void submit(CONFIRMATION)}
+          onCancel={() => setToDelete(null)}
+        />
+      )}
     </div>
   );
 };

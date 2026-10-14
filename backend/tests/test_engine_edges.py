@@ -14,7 +14,7 @@ LEDGER = [
 
 
 def enter_ledger(client):
-    client.delete("/api/transactions/delete_all")
+    client.delete("/api/transactions/delete_all?confirm=DELETE")
     return [client.post("/api/transactions", json=tx).json()["id"] for tx in LEDGER]
 
 
@@ -29,11 +29,11 @@ def test_editing_or_deleting_a_missing_transaction_is_404_and_changes_nothing(au
         lots = auth_client.get("/api/debug/lots").json()
         assert [(lot["created_txn_id"], lot["total_btc"]) for lot in lots] == [(buy_id, "1.00000000")]
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_a_btc_amount_over_21_million_is_refused(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2024-01-05T15:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
         amount="21000000.00000001", cost_basis_usd="1", fee_amount="0", fee_currency="BTC", source="MyBTC"))

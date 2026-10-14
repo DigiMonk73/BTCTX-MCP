@@ -50,9 +50,9 @@ CASES = {
 @pytest.fixture
 def clean(auth_client, monkeypatch):
     stub_daily_prices(monkeypatch, lambda day: 50000)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield auth_client
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 @pytest.mark.parametrize("case", list(CASES))

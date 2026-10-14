@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 
 from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password
-from backend.services import first_run, login_throttle
+from backend.services import first_run, login_throttle, wipe
 from backend.services.user import (
     get_all_users,
     get_user_by_username,
@@ -105,6 +105,8 @@ class AccountReset(BaseModel):
     password: str
     current_password: str | None = None
     setup_code: str | None = None
+    # "DELETE", typed in the dialog, when the ledger has transactions (#256)
+    confirm: str | None = None
 
     @field_validator("username", "password")
     @classmethod
@@ -126,7 +128,9 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     transactions. Allowed while the account still has the default login
     (with the setup code), or when current_password is
     the account's real password (verified here, server-side). Throttled like
-    the login.
+    the login. With transactions to delete, only with confirm=DELETE, asked
+    once the code or password is right: otherwise 409 says what would go,
+    and nothing changes. A copy of the database comes first (#256).
     """
     users = get_all_users(db)
     if not users:
@@ -136,8 +140,10 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
-    from backend.services.transaction import delete_all_transactions
-    delete_all_transactions(db)
+    refused = wipe.refusal(db, payload.confirm)
+    if refused is not None:
+        return refused
+    wipe.copy_then_delete(db)
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
     first_run.clear_code()
     login_throttle.remember_device(response, user)

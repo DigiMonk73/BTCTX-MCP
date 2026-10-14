@@ -35,7 +35,7 @@ def report(year):
 
 def test_year_end_snapshot_price_and_asset_summary(auth_client, test_engine):
     _setup(auth_client, test_engine)
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     tx(type="Buy", timestamp="2024-03-01T12:00:00Z", from_account_id=1, to_account_id=4,
        amount="1.0", cost_basis_usd="40000")
     tx(type="Sell", timestamp="2024-09-01T12:00:00Z", from_account_id=4, to_account_id=3,
@@ -59,7 +59,7 @@ def test_year_end_snapshot_price_and_asset_summary(auth_client, test_engine):
     # Live data is intact afterwards (the 2025 sale still counts)
     balances = {b["name"]: b["balance"] for b in CLIENT.get("/api/calculations/accounts/balances").json()}
     assert abs(balances["Exchange BTC"] - 0.3) < 1e-9
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def _ledger_rows():
@@ -75,7 +75,7 @@ def test_building_the_report_does_not_touch_the_ledger(auth_client, test_engine)
     writes nothing to the live database (it used to rebuild the whole ledger
     inside the request, holding the write lock, then throw the result away)."""
     _setup(auth_client, test_engine)
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     tx(type="Buy", timestamp="2024-01-10T12:00:00Z", from_account_id=1, to_account_id=4,
        amount="1.0", cost_basis_usd="20000")
     tx(type="Transfer", timestamp="2024-03-01T12:00:00Z", from_account_id=4, to_account_id=2,
@@ -94,7 +94,7 @@ def test_building_the_report_does_not_touch_the_ledger(auth_client, test_engine)
     assert _ledger_rows() == before
     held = sum(r["quantity"] for r in data["end_of_year_balances"] if r["asset"].startswith("BTC"))
     assert abs(held - 0.9999) < 1e-9          # 2025 sale excluded, only the fee left
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_engine):
@@ -104,7 +104,7 @@ def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_en
     from sqlalchemy import text
 
     _setup(auth_client, test_engine)
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     tx(type="Buy", timestamp="2024-03-01T12:00:00Z", from_account_id=1, to_account_id=4,
        amount="0.1", cost_basis_usd="4000")
     tx(type="Withdrawal", timestamp="2024-09-01T12:00:00Z", from_account_id=4, to_account_id=99,
@@ -112,6 +112,6 @@ def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_en
     with ENGINE.begin() as con:
         con.execute(text("UPDATE transactions SET purpose = 'Expenses' WHERE purpose = 'Spent'"))
     data = report(2024)
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     assert "expenses" not in data
     assert [(r["amount"], r["proceeds"]) for r in data["capital_gains_transactions"]] == [(0.01, 600.0)]

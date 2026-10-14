@@ -234,7 +234,7 @@ def test_database_reset():
     """Reset database by deleting all transactions."""
     subsection("Database Reset")
 
-    status, _ = api_delete("transactions/delete_all")
+    status, _ = api_delete("transactions/delete_all?confirm=DELETE")
     assert_true(status in (200, 204), "Delete all transactions")
 
     # Verify empty
@@ -451,7 +451,7 @@ def test_csv_roundtrip():
 
     # Delete all transactions
     subsection("Delete All Before Import")
-    status, _ = api_delete("transactions/delete_all")
+    status, _ = api_delete("transactions/delete_all?confirm=DELETE")
     assert_true(status in (200, 204), "Delete all transactions for roundtrip")
 
     # Verify empty
