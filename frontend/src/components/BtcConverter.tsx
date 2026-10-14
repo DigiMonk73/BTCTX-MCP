@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import { noPriceReason, type NoPrice } from "../utils/dashboard";
 import { browserTimezone } from "../utils/taxTimezone";
-import { zonedHourToIso } from "../utils/zonedTime";
+import { localDatetimeToIso } from "../utils/transactionForm";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
@@ -119,9 +119,9 @@ const BtcConverter: React.FC = () => {
 
     setBtcPrice(0);
     setNoPrice("loading");
-    const at = selectedHour === "" ? null : zonedHourToIso(selectedDate, Number(selectedHour), timezone);
+    const at = selectedHour === "" ? null : localDatetimeToIso(`${selectedDate}T${selectedHour.padStart(2, "0")}:00`);
     fetchPrice(at ? `/bitcoin/price/history?at=${encodeURIComponent(at)}` : `/bitcoin/price/history?date=${selectedDate}`);
-  }, [mode, selectedDate, selectedHour, timezone]);
+  }, [mode, selectedDate, selectedHour]);
 
   // Manual mode starts from the live price, fetched once
   const fetchManualPriceOnce = () => fetchPrice("/bitcoin/price");

@@ -291,7 +291,8 @@ test("Date with an hour: that hour on this device's clock, its UTC day's price h
   // The fake internet has day prices only, so the hour's price is its UTC day's.
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public" });
-  // The device's clock, whatever the tax timezone (#260): UTC would make it that UTC day's
+  // The device's clock, whatever the tax timezone (#260). Before, the hour was read in
+  // the tax timezone: with UTC here, the price shown would be the wrong UTC day's
   const tz = await page.request.put("/api/settings/tax-timezone", { data: { timezone: "UTC" } });
   expect(tz.ok(), await tz.text()).toBeTruthy();
   await page.reload();

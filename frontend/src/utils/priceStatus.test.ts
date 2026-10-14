@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TOR_REFUSED, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
@@ -14,9 +14,8 @@ const T1 = "2026-10-12T19:02:00Z"; // 2:02 pm in Chicago
 const T2 = "2026-10-12T19:04:00Z";
 
 // Times are this device's clock (#260): here, a computer in Chicago
-const testsTz = process.env.TZ;
-beforeAll(() => { process.env.TZ = "America/Chicago"; });
-afterAll(() => { process.env.TZ = testsTz; });
+beforeEach(() => { vi.stubEnv("TZ", "America/Chicago"); });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 describe("the status line", () => {
   it("says when nothing is contacted", () => {
@@ -29,15 +28,17 @@ describe("the status line", () => {
 
   it("names the source and the time of the last price, on this device's clock", () => {
     expect(clock(T1)).toBe("2:02 pm");
-    process.env.TZ = "Asia/Tokyo";
-    expect(clock(T1)).toBe("4:02 am"); // whatever the tax timezone: the device's own clock (#260)
-    process.env.TZ = "America/Chicago";
     expect(statusLine({ ...base, last_ok: { at: T1, from: "mempool" } }, ctx)).toEqual({
       tone: "ok", text: "Newer prices from your Mempool. Last price 2:02 pm.",
     });
     const pub = { ...base, source: "public" as const, last_ok: { at: T1, from: "kraken" } };
     expect(statusLine(pub, { ...ctx, tor: true }).text).toBe("Newer prices from public price sites, through Tor. Last price 2:02 pm.");
     expect(statusLine({ ...base, source: "public" }, ctx).text).toBe("Newer prices will come from public price sites.");
+  });
+
+  it("is the device's own clock, whatever the tax timezone (#260)", () => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+    expect(clock(T1)).toBe("4:02 am");
   });
 
   it("says your Mempool didn't answer, and what to do", () => {

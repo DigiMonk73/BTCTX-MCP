@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TOR_PLACEHOLDER,
   cannotSave,
@@ -114,6 +114,8 @@ describe("set by the server", () => {
 });
 
 describe("confirm once (#145, 2.9)", () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
+
   const unrecorded: NetworkSettingsData = { ...base, price_source: "public", confirmed: false };
 
   it("asks with the current choice pre-selected; Confirm saves it as it is", () => {
@@ -135,10 +137,9 @@ describe("confirm once (#145, 2.9)", () => {
     const chosen: NetworkSettingsData = {
       ...unrecorded, confirmed: true, chosen_at: "2026-10-14T20:12:00Z", chosen_via: "first-run",
     };
-    const testsTz = process.env.TZ;
-    process.env.TZ = "America/Chicago";
+    vi.stubEnv("TZ", "America/Chicago");
     expect(chosenWhen(chosen)).toBe("You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question.");
-    process.env.TZ = testsTz; // UTC
+    vi.stubEnv("TZ", "UTC");
     expect(chosenWhen({ ...chosen, chosen_via: "settings" })).toBe("You chose this on Oct 14, 2026 at 8:12 pm, in Settings.");
     expect(cardView(chosen, formFromSettings(chosen), false).label).toBe("Save");
   });

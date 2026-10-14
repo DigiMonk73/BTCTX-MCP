@@ -21,11 +21,14 @@ All notable changes to BitcoinTX are documented in this file.
   two zones: the Transactions list and the form in the computer's, but the
   price card ("From public price sites (Kraken) · 4:45 pm"), Settings'
   "Last price" and "You chose this … at" in the tax timezone, and the
-  sidebar's Date + hour picked the hour in the tax timezone. Now every clock
-  time shown, and the sidebar's hour, follows the device you look from (on
+  sidebar's Date + hour picked the hour in the tax timezone. Now these
+  times, and the sidebar's hour, follow the device you look from (on
   StartOS, your phone's or laptop's clock, not the server's). The tax
   timezone keeps deciding what it's for: the tax year, Form 8949's dates
-  and the report.
+  and the report. Two times stay as they were, each labelled: Ledger
+  Review's dates are in the tax timezone, since it sorts them into tax
+  years, and a value's "From the price … UTC" names the UTC hour whose
+  price it used.
 
 ### Fixed
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
