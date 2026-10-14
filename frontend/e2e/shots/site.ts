@@ -65,11 +65,14 @@ test.describe("in the Mac app", () => {
     await keyFile.evaluate((el) => { el.textContent = "~/Library/Application Support/BitcoinTX/mcp.json"; });
     await expect(keyFile).toHaveText("~/Library/Application Support/BitcoinTX/mcp.json");
     const box = (await ai.boundingBox())!;
+    // The section ends the page, so it can't scroll to the top: the whole
+    // section from the full page, in page coordinates (#242).
+    const scrollY = await page.evaluate(() => window.scrollY);
     const margin = 28; // the section's own padding, as on the page
-    const top = box.y + 2; // below the line between sections
+    const top = box.y + scrollY + 2; // below the line between sections
     await page.screenshot({
-      path: path.join(OUT, "settings.png"), animations: "disabled",
-      clip: { x: box.x - margin, y: top, width: box.width + 2 * margin, height: Math.min(box.height - 2, 867 - top) },
+      path: path.join(OUT, "settings.png"), animations: "disabled", fullPage: true,
+      clip: { x: box.x - margin, y: top, width: box.width + 2 * margin, height: box.height - 2 },
     });
   });
 });
