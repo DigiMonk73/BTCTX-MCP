@@ -4,8 +4,8 @@ import axios from "axios";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
-import { parseDecimal, parseTransaction } from "../utils/format";
-import { fmvPriceRequest, mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
+import { parseTransaction } from "../utils/format";
+import { mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
 import { getTaxTimezone } from "../utils/taxTimezone";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
@@ -41,7 +41,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const {
     register,
     handleSubmit,
-    setValue,
     reset,
     getValues,
     formState: { errors, isDirty },
@@ -93,26 +92,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     const newType = e.target.value as TransactionType;
     setCurrentType(newType);
     reset({ ...getValues(), type: newType, ...TYPE_DEFAULTS });
-  };
-
-  // The FMV of a gift, donation or loss: amount x the price that values its
-  // time (fmvPriceRequest).
-  const handleRefreshFmv = async () => {
-    try {
-      const formVals = getValues();
-      const request = fmvPriceRequest(formVals.timestamp);
-      const priceResponse = await api.get(request.url, { params: request.params });
-
-      const data = priceResponse.data;
-      const btcPrice = data?.USD ? parseDecimal(data.USD) : 0;
-      if (!btcPrice || btcPrice <= 0) {
-        throw new Error("Invalid price data from API");
-      }
-      const newFmv = parseDecimal(formVals.amount || 0) * btcPrice;
-      setValue("fmv_usd", Number(newFmv.toFixed(2)));
-    } catch {
-      toast.error("Failed to refresh FMV. Please try again.");
-    }
   };
 
   const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
@@ -201,7 +180,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
           </div>
 
-          <TypeFields type={currentType} onRefreshFmv={handleRefreshFmv} />
+          <TypeFields type={currentType} />
         </div>
 
         {/* Hidden delete trigger for TransactionPanel */}

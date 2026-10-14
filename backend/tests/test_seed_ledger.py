@@ -152,6 +152,8 @@ def test_every_value_a_price_would_fill_is_given():
             assert Decimal(row["fee_usd"]) > 0, row
         if (row.get("purpose") or "").lower() in ("gift", "donation"):
             assert Decimal(row["fmv_usd"]) > 0, row
+        if (row.get("purpose") or "").lower() == "lost":  # filled from the price too since #255
+            assert row.get("fmv_usd") is not None, row  # $0 typed, some of them
 
 
 def test_2026_rows_land_in_their_boxes(seeded):

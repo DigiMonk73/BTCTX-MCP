@@ -182,12 +182,14 @@ test.describe("withdrawals", () => {
       await page.getByLabel("Amount").fill("0.1");
       await page.getByLabel("Purpose").selectOption(purpose);
       await expect(page.getByLabel("Proceeds (USD)")).not.toBeEditable();
-      await page.getByRole("button", { name: "Refresh" }).click();
-      await expect(page.getByLabel("FMV (USD)")).toHaveValue(String(0.1 * HISTORICAL_PRICE));
+      // Left blank, it's filled from the price when saved (#255), as an income value is
+      await expect(page.getByLabel("FMV (USD)")).toHaveValue("");
+      await expect(page.getByText(/Leave blank to use the BTC price when that hour began/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);
       await saveForm(page);
 
       const tx = await lastTx(page);
-      expect(tx).toMatchObject({ type: "Withdrawal", purpose });
+      expect(tx).toMatchObject({ type: "Withdrawal", purpose, fmv_from_price: true });
       expect(Number(tx.fmv_usd)).toBe(0.1 * HISTORICAL_PRICE);
       expect(Number(tx.proceeds_usd ?? 0)).toBe(0);
       // No gain or loss for any of them (Lost too, finding F2).

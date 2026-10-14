@@ -162,6 +162,16 @@ So derived values must be recomputable from the Transaction row alone.
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
+- **Gift, Donation and Lost values** (#255): a blank `fmv_usd` on such a BTC
+  withdrawal is filled at save from the hour's price and marked
+  (`fmv_from_price`). An edit fills one it leaves blank, or a sale's $0 it
+  makes a gift when it sends no value (the form shows that $0 blank), and
+  prices a marked one again when the amount or hour changes
+  (`_gift_priced_by_edit`), at the transaction's one price. A value sent,
+  $0 included, is typed and kept (a marked one sent back unchanged stays
+  marked); with no price it stays blank (never a 422: it's on no form
+  BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
+  Never part of a gain.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update

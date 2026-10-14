@@ -32,14 +32,15 @@ the maintenance releases after promotion, 1.2.9 first.
 
 - [ ] **The price redesign's six small pieces** (#208; the next release,
       the owner's choice, 2026-10-13): "Recommended" beside "Chosen" in the
-      app when StartOS set your own Mempool; a blank value's hint, the Gift
-      form's Refresh and the sidebar's Auto price say where the price comes
-      from; the sidebar asks "Is Tor running?" when Tor fails; and the AI
-      connector says the hour and source of a value it filled.
+      app when StartOS set your own Mempool; a blank value's hint and the
+      sidebar's Auto price say where the price comes from (the Gift form's
+      Refresh is gone with #255: a blank value fills when saved and says its
+      hour and source); the sidebar asks "Is Tor running?" when Tor fails;
+      and the AI connector says the hour and source of a value it filled.
 - [ ] **StartOS keeps only whether a login was set, not the password**
       (#212; the next release, the owner's choice, 2026-10-13), with a
       package migration that drops the stored value.
-- [ ] **A gift, donation or lost value left blank is filled from the
+- [x] **A gift, donation or lost value left blank is filled from the
       price** (#255; 1.2.9, the owner's choice, 2026-10-14): when it's
       saved, from the BTC price when that hour began (that day's where
       there's no hourly price), shown as coming from the price, as income

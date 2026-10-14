@@ -128,9 +128,7 @@ def test_a_year_with_only_typed_values_says_so(auth_client, test_engine, clean):
     buy(auth_client)
     data = report(test_engine, 2024)
     assert data["priced_values"] == []
-    assert "Values from the BTC price None of 2024's income, rebate, inherited, spend or network fee values: each " \
-           "was entered with its transaction." \
-        in pdf_text(data)
+    assert "Values from the BTC price None of 2024's values: each was entered with its transaction." in pdf_text(data)
 
 
 def test_a_donation_brings_the_appraisal_note(auth_client, test_engine, clean):
@@ -144,6 +142,20 @@ def test_a_donation_brings_the_appraisal_note(auth_client, test_engine, clean):
          to_account_id=EXTERNAL, amount="0.01", fee_amount="0", fee_currency="BTC", purpose="Donation",
          fmv_usd="600")
     assert appraisal in pdf_text(report(test_engine, 2024))
+
+
+def test_a_gift_value_from_the_price_is_listed_and_the_notes_agree(auth_client, test_engine, clean, monkeypatch):
+    """#255: a gift's value filled from the price is in the list, and no note says gift values aren't."""
+    buy(auth_client, "2025-01-10T12:00:00Z")
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    post(auth_client, type="Withdrawal", timestamp="2025-05-01T12:34:00Z", from_account_id=EXCHANGE_BTC,
+         to_account_id=EXTERNAL, amount="0.01", fee_amount="0", fee_currency="BTC", purpose="Gift")
+    data = report(test_engine, 2025)
+    assert [(r["value"], r["usd"]) for r in data["priced_values"]] == [("Value (fair market value)", 500.0)]
+    text = pdf_text(data)
+    assert "isn't tracked this way" not in text and "network fee value of the year" not in text
+    assert "Every other value of the year was entered with its transaction." in text
+    assert "filled in before BitcoinTX 1.2.9 isn't marked as from the price" in text
 
 
 def test_the_priced_value_is_the_stored_one(auth_client, test_engine, clean, monkeypatch):

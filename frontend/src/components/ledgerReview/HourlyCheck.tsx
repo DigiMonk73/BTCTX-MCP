@@ -11,7 +11,8 @@ function signed(value: string): string {
 /** A year's totals that move, e.g. "income +$1000.10, fee values +$1.00" */
 function yearTotals(y: HourlyYear): string {
   const parts: [string, string][] = [
-    ["income", y.income], ["basis", y.basis], ["proceeds before fees", y.proceeds], ["fee values", y.fees],
+    ["income", y.income], ["basis", y.basis], ["proceeds before fees", y.proceeds], ["gift values", y.gift_values],
+    ["fee values", y.fees],
   ];
   const moved = parts.filter(([, v]) => Number(v) !== 0).map(([name, v]) => `${name} ${signed(v)}`);
   return moved.length ? moved.join(", ") : "no net change";

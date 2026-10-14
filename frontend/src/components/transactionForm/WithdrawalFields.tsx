@@ -9,7 +9,7 @@ import { isNotSold } from "../../utils/purposes";
  * A withdrawal; a BTC one also has its purpose, the fee's USD value, its
  * proceeds, and for a gift, donation or loss its fair market value.
  */
-const WithdrawalFields: React.FC<{ onRefreshFmv: () => void }> = ({ onRefreshFmv }) => {
+const WithdrawalFields: React.FC = () => {
   const { register, watch } = useFormContext<TransactionFormData>();
   const account = watch("account");
   const currency = watch("currency");
@@ -50,7 +50,7 @@ const WithdrawalFields: React.FC<{ onRefreshFmv: () => void }> = ({ onRefreshFmv
         />
       </div>
       {isBtc && <FeeValueField />}
-      {isBtc && <BtcWithdrawalValues notSold={notSold} onRefreshFmv={onRefreshFmv} />}
+      {isBtc && <BtcWithdrawalValues notSold={notSold} />}
     </>
   );
 };

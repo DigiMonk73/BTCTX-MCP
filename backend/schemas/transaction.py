@@ -325,6 +325,7 @@ class TransactionRead(TransactionBase):
     fee_usd_manual: bool = False  # fee_usd was typed by the user
     cost_basis_from_price: bool = False  # an income or rebate deposit's value came from a price
     proceeds_from_price: bool = False  # a Spent's proceeds came from a price
+    fmv_from_price: bool = False  # a Gift's, Donation's or Lost withdrawal's value came from a price (#255)
     price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
     price_used: PriceUsed | None = None  # that price, when this install has it (never asked for)
     created_at: datetime

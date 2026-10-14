@@ -58,6 +58,25 @@ All notable changes to BitcoinTX are documented in this file.
   - the server refuses either delete without the typed `DELETE`
     (`confirm=DELETE`; otherwise 409 says what would go). The AI key still
     can't delete everything.
+- **A gift's, donation's or lost coins' value left blank is filled from
+  the price** (#255). In the transaction form, a Withdrawal with purpose
+  Gift, Donation or Lost saved with its FMV (USD) blank kept no value
+  unless you pressed Refresh, and the tax report listed it as "not given";
+  the AI connector filled a gift's or donation's but not lost coins'. Now,
+  as for an income value or a spend's proceeds, a blank one is filled when
+  it's saved, from the BTC price when that hour began (that day's where
+  there's no hourly price), shown as "From the price", priced again when
+  you change its amount or time, and listed with the report's other values
+  from a price. The FMV box's **Refresh** button is gone: like an income
+  value, a blank one is filled when you save. A value you type, $0
+  included, is kept. With the price source Nobody (or no price found) it
+  stays blank. **Ledger Review** gets a check, "Gifts, donations and lost
+  coins with a $0 or blank value", that also finds the ones earlier
+  versions saved blank: saving one again fills it (a $0 one: clear its
+  FMV first). A gift, donation or loss is not a sale, so no gain changes;
+  nothing already saved changes either. The CSV file gains an `fmv_typed`
+  column, so a re-import keeps where the value came from. This adds a
+  database column (migration 0011, `fmv_from_price`).
 
 ### Fixed
 - **The River import's preview says what its fees and tags are** (#269).

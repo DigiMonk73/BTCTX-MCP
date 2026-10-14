@@ -31,6 +31,7 @@ from backend.services.tax_time import local_noon_utc
 from backend.constants import (
     ACCOUNT_ID_TO_NAME,
     ACCOUNT_NAME_TO_ID,
+    GIFT_LIKE_PURPOSES,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
     ACCOUNT_BANK,
@@ -68,11 +69,9 @@ CSV_COLUMNS = [
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
     "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed", "acquired_at",
-    "proceeds_typed", "price_moment",
+    "proceeds_typed", "price_moment", "fmv_typed",
 ]
 
-# Withdrawal purposes that aren't a sale; only these carry an FMV
-GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
 
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
 
@@ -189,6 +188,7 @@ class _Row:
     acquired_at: datetime | None = None
     proceeds_typed: str = ""
     price_moment: str | None = None
+    fmv_typed: str = ""
 
 
 def _validate_row(
@@ -338,8 +338,9 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
         "cost_basis_typed": (row.get("cost_basis_typed") or "").strip().lower(),
         "proceeds_typed": (row.get("proceeds_typed") or "").strip().lower(),
         "price_moment": (row.get("price_moment") or "").strip().lower() or None,
+        "fmv_typed": (row.get("fmv_typed") or "").strip().lower(),
     }
-    for column in ("fee_usd_typed", "cost_basis_typed", "proceeds_typed"):
+    for column in ("fee_usd_typed", "cost_basis_typed", "proceeds_typed", "fmv_typed"):
         if options[column] not in ("", "yes", "no"):
             raise _Rejected(_error(
                 row_number, column, f"Invalid {column} '{options[column]}'. Must be yes, no or blank.",
@@ -435,7 +436,8 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     if row.fmv_usd is None:
         return {}
     if row.tx_type == "Withdrawal" and (row.purpose or "").lower() in GIFT_LIKE_PURPOSES:
-        return {"fmv_usd": row.fmv_usd}
+        # "no" in fmv_typed: the value came from the price (#255), so an edit prices it again
+        return {"fmv_usd": row.fmv_usd, **({"fmv_from_price": True} if row.fmv_typed == "no" else {})}
     warnings.append(_warning(row.number, "fmv_usd", "fmv_usd is ignored: it is for Gift, Donation and Lost withdrawals."))
     return {}
 
@@ -784,7 +786,7 @@ TEMPLATE_ROWS = [
     ["2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
      "", "9000.00", "0.0001", "BTC", "", "Spent", "Spent BTC on purchase (taxable event)", "6.85"],
     ["2024-03-15T10:00:00Z", "Withdrawal", "0.1", "Wallet", "External",
-     "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value that day",
+     "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value when it left (blank: the price when that hour began)",
      "6.80", "6800.00"],
     ["2024-03-20T10:00:00Z", "Withdrawal", "0.05", "Wallet", "External",
      "", "", "0.0001", "BTC", "", "Donation", "Donated BTC to charity (non-taxable)", "6.70"],

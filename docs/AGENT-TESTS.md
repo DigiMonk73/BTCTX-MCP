@@ -128,7 +128,7 @@ listed at its default.
 | 7 | 2024-02-02 12:00 | Sell | Amount BTC `0.3`, Gross Proceeds (USD) `15000` | … Realized Gain: +$7,800.00 |
 | 8 | 2024-03-02 12:00 | Sell | Amount BTC `0.1`, Gross Proceeds (USD) `6000` | … Realized Gain: +$3,600.00 |
 | 9 | 2024-05-01 12:00 | Deposit | Account `Bitcoin Wallet`, Amount `0.02`, Source `Income`, Cost Basis (USD) `1000` | Transaction created successfully! |
-| 10 | 2024-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.1`, Purpose `Gift` | Transaction created successfully! |
+| 10 | 2024-06-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.1`, Purpose `Gift`, FMV (USD) `6700` | Transaction created successfully! |
 | 11 | 2025-01-10 12:00 | Buy | `Bank (auto-buy)`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
 | 12 | 2025-04-01 12:00 | Sell | Amount BTC `0.05`, Gross Proceeds (USD) `4000` | … Realized Gain: −$1,000.00 |
 | 13 | 2025-05-01 12:00 | Withdrawal | Account `Bitcoin Wallet`, Amount `0.1`, Purpose `Spent`, Proceeds (USD) `9000` | … Realized Gain: +$6,700.00 |
@@ -153,7 +153,7 @@ it's long-term. #14's fee is its own disposal.
 | Schedule D 2025 | line 2: 4000.00 / 5000.00 / (1000.00) · line 10: 10000.00 / 2532.30 / 7467.70 |
 | Complete Tax Report 2023 (no IRS forms for 2023 in the app) | 1. Summary › Capital gains and losses: Short-term 4 disposals, Proceeds $13,400.00, Cost basis $11,834.60, Net gain $1,565.40; Long-term 0, all $0.00 (the cover's Net capital gain is the same $1,565.40). 2. Capital gains and losses lists, as Proceeds / Cost basis / Gain: 06/01/2023 0.0002 BTC ($10.00 / $4.60 / $5.40), 09/10/2023 0.4 and 0.1 BTC, and 12/31/2023 0.01 BTC ($400.00 / $230.00 / $170.00). 5. Holdings at year end, lot by lot: 0.58980000 BTC at cost $13,565.40 and 0.40000000 BTC at $9,600.00, total 0.98980000 / $23,165.40, "Average cost: $23,404.12 per BTC"; each Market value = quantity × the price the report states, "the price at the hour the tax year ended (2024-01-01 05:00 UTC)" (midnight in New York; "…'s 00:00 UTC price" where there was no hourly price) |
 | Complete Tax Report 2025, 6. Using these forms | "This year's boxes: H and L", "Schedule D: lines 2 and 10"; the Bitcoin-only figures: line 7 ($1,000.00), line 15 $7,467.70, line 16 $6,467.70, "Line 16 isn't a loss, so line 21 doesn't apply." |
-| Complete Tax Report 2024 | 1. Summary › Bitcoin holdings, January 1, 2024: 0.98980000 BTC, Avg cost per BTC $23,404.12 (the same BTC as the 2023 report's year end). Summary › Income: Income $1,000.00, Total $1,000.00. 3. Income: 05/01/2024 Income 0.02000000 BTC $1,000.00. 4. Gifts, donations and lost coins: 06/01/2024 Gift 0.10000000 BTC, Fair market value "not given". 5. Holdings at year end, lot by lot: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
+| Complete Tax Report 2024 | 1. Summary › Bitcoin holdings, January 1, 2024: 0.98980000 BTC, Avg cost per BTC $23,404.12 (the same BTC as the 2023 report's year end). Summary › Income: Income $1,000.00, Total $1,000.00. 3. Income: 05/01/2024 Income 0.02000000 BTC $1,000.00. 4. Gifts, donations and lost coins: 06/01/2024 Gift 0.10000000 BTC, Fair market value $6,700.00. 5. Holdings at year end, lot by lot: 0.48980000 BTC at $11,265.40 and 0.02000000 BTC at $1,000.00, total 0.50980000 / $12,265.40 |
 | Transaction History CSV | 2023: 6 rows (the Dec 31 spend is in it, stamped `2024-01-01T04:30:00+00:00`) · 2024: 4 rows · 2025: 4 rows |
 
 **Loading it through the API.** Track B, and anywhere a step says "load
@@ -182,7 +182,7 @@ LEDGER = [
     {"type": "Sell", "timestamp": "2024-02-02T17:00:00Z", "from_account_id": 4, "to_account_id": 3, "amount": "0.3", "gross_proceeds_usd": "15000", "fee_amount": "0", "fee_currency": "USD"},
     {"type": "Sell", "timestamp": "2024-03-02T17:00:00Z", "from_account_id": 4, "to_account_id": 3, "amount": "0.1", "gross_proceeds_usd": "6000", "fee_amount": "0", "fee_currency": "USD"},
     {"type": "Deposit", "timestamp": "2024-05-01T16:00:00Z", "from_account_id": 99, "to_account_id": 2, "amount": "0.02", "cost_basis_usd": "1000", "fee_amount": "0", "fee_currency": "BTC", "source": "Income"},
-    {"type": "Withdrawal", "timestamp": "2024-06-01T16:00:00Z", "from_account_id": 2, "to_account_id": 99, "amount": "0.1", "fee_amount": "0", "fee_currency": "BTC", "purpose": "Gift"},
+    {"type": "Withdrawal", "timestamp": "2024-06-01T16:00:00Z", "from_account_id": 2, "to_account_id": 99, "amount": "0.1", "fee_amount": "0", "fee_currency": "BTC", "purpose": "Gift", "fmv_usd": "6700"},
     {"type": "Buy", "timestamp": "2025-01-10T17:00:00Z", "from_account_id": 1, "to_account_id": 4, "amount": "0.2", "cost_basis_usd": "20000", "fee_amount": "0", "fee_currency": "USD"},
     {"type": "Sell", "timestamp": "2025-04-01T16:00:00Z", "from_account_id": 4, "to_account_id": 3, "amount": "0.05", "gross_proceeds_usd": "4000", "fee_amount": "0", "fee_currency": "USD"},
     {"type": "Withdrawal", "timestamp": "2025-05-01T16:00:00Z", "from_account_id": 2, "to_account_id": 99, "amount": "0.1", "proceeds_usd": "9000", "fee_amount": "0", "fee_currency": "BTC", "purpose": "Spent"},
@@ -368,9 +368,8 @@ Start from the `clean` snapshot.
   figure is as in the expected-figures table. Section 7, "Notes", says how
   a blank value is priced (Bitstamp's hourly opening price, or your
   Mempool server's) and that the IRS approves no price source, and ends
-  with "Values from the BTC price": "None of YYYY's income, rebate,
-  inherited, spend or network fee values: each was entered with its
-  transaction" (every golden value is typed). Each report has section 6,
+  with "Values from the BTC price": "None of YYYY's values: each was
+  entered with its transaction" (every golden value is typed). Each report has section 6,
   "Using these forms" (before 7, "Notes"), for the preparer, with the
   one-wallet line and the disclaimer. RPT-6 checks the values once
   prices are on.
@@ -402,6 +401,14 @@ Start from the `clean` snapshot.
 - **REV-3** StartOS action **Recalculate Ledger**, once with the service
   running and once stopped. Expect its warning, then "Ledger Recalculated",
   and figures unchanged afterwards. Start the service again.
+- **REV-4** (#255, still Nobody) Add a Withdrawal from Wallet, purpose
+  **Gift**, `0.001` BTC, yesterday 12:00, FMV (USD) left blank. Expect: it
+  saves, and **Edit** shows FMV blank, no Refresh button beside it, and
+  "Its fair market value when it left. Leave blank to use the BTC price
+  when that hour began (that day's, where there's no hourly price)." Ledger Review > **Check again** lists it
+  under "Gifts, donations and lost coins with a $0 or blank value" ("Value
+  blank: the tax report lists it as not given (no price stored for that
+  day)."). Delete the gift; Check again: "Nothing to review."
 
 ### PRC: price sources
 
@@ -438,7 +445,13 @@ Start from the `clean` snapshot.
     Its $1,000.00 is made up, so this is correct. Every golden value is
     typed, so "Values priced at the day's price that the hour would
     change" is absent. Any other item is a FAIL.
-- **PRC-2c** (#260, right after PRC-2) Settings > Tax Timezone: `Asia/Tokyo`,
+- **PRC-2b** (#255, right after PRC-2) Add the REV-4 gift again (FMV
+  blank). Expect: **Edit** shows its FMV filled, 0.001 × the BTC price when
+  that hour began (to the cent), and "From the price: …" naming that hour
+  and the price site. Change the amount to `0.002` and save: the FMV
+  doubles (± a cent). Type `50` in FMV and save: Edit shows "Typed: you
+  typed this value; it's kept as it is." Delete the gift.
+- **PRC-2c** (#260, right after PRC-2b) Settings > Tax Timezone: `Asia/Tokyo`,
   **Save**. Expect: the Dashboard's price line ("From public price sites
   (…) · h:mm am/pm") and Settings' "Last price h:mm am/pm" show New York
   time (the browser's timezone), not Tokyo's; the Transactions list's
@@ -651,7 +664,7 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment`
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment,fmv_typed`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
   export downloaded." appears.
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both

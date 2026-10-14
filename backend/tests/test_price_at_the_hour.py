@@ -259,7 +259,7 @@ def test_the_csv_export_carries_the_marks_and_an_older_file_means_the_day(auth_c
     spend(auth_client)
     export = auth_client.get("/api/backup/csv").text
     header = export.splitlines()[0].split(",")
-    assert header[-2:] == ["proceeds_typed", "price_moment"]
+    assert header[-3:] == ["proceeds_typed", "price_moment", "fmv_typed"]
 
     def imported(text: str) -> list[dict]:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

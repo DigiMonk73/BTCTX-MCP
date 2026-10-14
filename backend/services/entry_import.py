@@ -27,7 +27,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, INHERITED_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -191,7 +191,7 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
         purpose = (tx_data.get("purpose") or "").lower()
         if purpose == "spent" and tx_data.get("proceeds_usd") is None:
             return "proceeds_usd"
-        if purpose in ("gift", "donation") and tx_data.get("fmv_usd") is None:
+        if purpose in GIFT_LIKE_PURPOSES and tx_data.get("fmv_usd") is None:
             return "fmv_usd"
     return None
 
@@ -202,7 +202,8 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
       - Income/Interest/Reward/Rebate deposits: cost basis = FMV at receipt;
         Inherited deposits: FMV on the date of death (acquired_at)
       - Spent withdrawals: proceeds = FMV of what was bought
-      - Gift/Donation withdrawals: fmv_usd for the tax report
+      - Gift/Donation/Lost withdrawals: fmv_usd for the tax report, as the
+        save fills a blank one (#255)
     Uses the price of the transaction's hour (else its day:
     services/hourly_prices.py), an inheritance its date of death's day price
     as the form does (#173); on lookup failure the field stays empty and
@@ -234,14 +235,10 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
             p.result.warnings.append(f"Could not fetch the BTC price for {moment}; {target} was left empty.")
             continue
         p.tx_data[target] = (priced.usd * p.tx_data["amount"]).quantize(Decimal("0.01"))
-        # From the price, not typed: an edit re-prices it (#76). A gift's
-        # value isn't on any form, and stays as filled.
-        if target == "cost_basis_usd":
-            p.tx_data["cost_basis_from_price"] = True
-        elif target == "proceeds_usd":
-            p.tx_data["proceeds_from_price"] = True
-        if target != "fmv_usd":
-            p.tx_data["price_moment"] = priced.moment
+        # From the price, not typed: an edit re-prices it (#76, #255)
+        p.tx_data[{"cost_basis_usd": "cost_basis_from_price", "proceeds_usd": "proceeds_from_price",
+                   "fmv_usd": "fmv_from_price"}[target]] = True
+        p.tx_data["price_moment"] = priced.moment
         p.result.autofilled_fields.append(target)
         # Drop the validator's "no <field> provided" warning — it's filled now
         p.result.warnings = [w for w in p.result.warnings if target not in w]

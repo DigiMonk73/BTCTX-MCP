@@ -496,7 +496,7 @@
       "amount": 0.002,
       "asset": "BTC",
       "date": "2023-11-25T12:00:00+00:00",
-      "fmv_usd": null,
+      "fmv_usd": 75.0,
       "proceeds_usd": 0.0,
       "type": "Lost"
      },
@@ -4433,7 +4433,7 @@
       "amount": 0.001,
       "asset": "BTC",
       "date": "2026-09-08T12:00:00+00:00",
-      "fmv_usd": null,
+      "fmv_usd": 148.0,
       "proceeds_usd": 0.0,
       "type": "Lost"
      }

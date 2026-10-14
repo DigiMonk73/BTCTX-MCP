@@ -77,9 +77,9 @@ def test_values_priced_at_the_day_are_listed_by_tax_year_with_what_moves(auth_cl
     assert "the price when its hour began (14:00 UTC)" in by_id[ledger["income"]]["issue"]
     assert found["years"] == [
         {"year": 2024, "count": 1, "listed": 1, "ids": [ledger["transfer"]],
-         "income": "0.00", "basis": "0.00", "proceeds": "0.00", "fees": "2.00"},
+         "income": "0.00", "basis": "0.00", "proceeds": "0.00", "gift_values": "0.00", "fees": "2.00"},
         {"year": 2025, "count": 3, "listed": 2, "ids": [ledger["income"], ledger["tiny"], ledger["spend"]],
-         "income": "1000.10", "basis": "1000.10", "proceeds": "500.00", "fees": "1.00"},
+         "income": "1000.10", "basis": "1000.10", "proceeds": "500.00", "gift_values": "0.00", "fees": "1.00"},
     ]
     assert len(found["explanation"]) == 3 and "filed" in found["explanation"][1]
     assert ledger["typed"] not in [i["id"] for i in found["items"]]

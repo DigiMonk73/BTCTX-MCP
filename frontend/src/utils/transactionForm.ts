@@ -1,21 +1,11 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { optionalDecimal, parseDecimal } from "./format";
+import { isNotSold } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
-}
-
-/** Where a form value's FMV Refresh asks for the price: for a moment past,
- * the price the server values that moment at (its hour's, as for every value
- * it fills); for one not yet come, the live price. */
-export function fmvPriceRequest(
-  localDatetime: string,
-  now = new Date(),
-): { url: string; params?: { at: string } } {
-  const at = localDatetimeToIso(localDatetime);
-  return new Date(at) < now ? { url: "/bitcoin/price/history", params: { at } } : { url: "/bitcoin/price" };
 }
 
 /**
@@ -135,7 +125,10 @@ function commonFormData(tx: ITransaction): TransactionFormData {
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,
-    fmv_usd: tx.fmv_usd ?? 0,
+    // Blank stays blank, so saving it fills it from the price (#255); a
+    // sale's $0 (older forms saved one on every withdrawal) shows blank too,
+    // so making it a gift fills it rather than sending $0 as the value
+    fmv_usd: isNotSold(tx.purpose) ? tx.fmv_usd : tx.fmv_usd || undefined,
     grossProceedsUSD: tx.gross_proceeds_usd ?? 0,
     brokerReporting: tx.broker_reporting ?? "",
     feeUSD: tx.fee_usd_manual && tx.fee_usd != null ? tx.fee_usd : undefined,
@@ -151,8 +144,10 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
   return {
     costBasisFromPrice: tx.cost_basis_from_price ?? false,
     proceedsFromPrice: tx.proceeds_from_price ?? false,
+    fmvFromPrice: tx.fmv_from_price ?? false,
     costBasisStored: tx.cost_basis_usd,
     proceedsStored: tx.gross_proceeds_usd ?? tx.proceeds_usd,
+    fmvStored: tx.fmv_usd,
     priceUsed: tx.price_used ?? null,
   };
 }

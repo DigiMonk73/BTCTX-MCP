@@ -86,7 +86,8 @@ class TransactionInput(BaseModel):
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
     purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")
     fmv_usd: UsdValue | None = Field(
-        default=None, description="Gift/Donation withdrawals: fair market value (auto-filled if omitted).")
+        default=None, description="Gift/Donation/Lost withdrawals: fair market value when it left "
+                                  "(that hour's price x amount if omitted).")
     fee_usd: UsdValue | None = Field(
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
                                   "price when its hour began is stored).")
@@ -393,7 +394,8 @@ async def review_ledger() -> ToolResult:
     by tax year, which only the owner can apply, in Settings (they change figures, and a
     year already filed is a question for a tax professional); Inherited deposits without a
     date of death; income or rebate deposits with a $0 or blank value, or with a typed value
-    far from that hour's price). Each item has its id, date, what looks
+    far from that hour's price; gifts, donations and lost coins with a $0 or blank value). Each
+    item has its id, date, what looks
     odd and what would change; `total` counts these. Last, a reminder (kind "reminder", not in
     `total`, not an error): My BTC and Gift deposits without a date originally acquired,
     with one explanation for the group; pass it on in short and suggest changing the Source
@@ -459,8 +461,10 @@ async def update_transaction(
     (at the hour) when you change its amount, the time's hour or the account, or move it there
     from another source (a switch among those four keeps it; sending back the value it already
     has doesn't make it typed); a Spent's proceeds that came from the price, when you change
-    its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed).
-    A value the user typed is kept.
+    its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed);
+    a Gift/Donation/Lost withdrawal's, when you change its amount or the time's hour, and a blank
+    one (or a Spent's $0 made a gift without fmv_usd) is filled from the price by any change.
+    A value the user typed is kept, $0 included: send fmv_usd 0 only when they mean $0.
     An Inherited deposit's is priced at its date of death (acquired_at), and again when that
     changes.
     acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like

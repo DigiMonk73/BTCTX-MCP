@@ -148,6 +148,7 @@ declare global {
     price_moment?: PriceMoment | null; // its priced values': the hour's price or the day's
     cost_basis_from_price?: boolean;  // an income or rebate value BitcoinTX filled in
     proceeds_from_price?: boolean;    // a Spent's proceeds BitcoinTX filled in
+    fmv_from_price?: boolean;         // a gift's, donation's or lost coins' value BitcoinTX filled in (#255)
     price_used?: PriceUsed | null;    // the stored price they came from (#145)
   }
 
@@ -188,6 +189,7 @@ declare global {
     price_moment?: PriceMoment | null;
     cost_basis_from_price?: boolean;
     proceeds_from_price?: boolean;
+    fmv_from_price?: boolean;
     price_used?: PriceUsed | null;
   }
 
@@ -284,8 +286,10 @@ declare global {
     // Where the saved values came from (#145): undefined for a new transaction
     costBasisFromPrice?: boolean;
     proceedsFromPrice?: boolean;
+    fmvFromPrice?: boolean;
     costBasisStored?: number;
     proceedsStored?: number;
+    fmvStored?: number;
     priceUsed?: PriceUsed | null;
     // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
     // An Inherited deposit's date of death (required)
