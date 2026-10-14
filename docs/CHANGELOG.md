@@ -15,6 +15,15 @@ All notable changes to BitcoinTX are documented in this file.
   `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
   with the next package release.
 
+### Fixed
+- **The CSV import's preview shows dollars as dollars** (#254). Settings →
+  Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
+  $50,000 deposit to Bank read "50000.00000000 BTC", and named the
+  accounts "Exchange Usd" and "Exchange Btc". It now shows a cash row's
+  amount in dollars ($50,000.00), a bitcoin row's in BTC, and the
+  accounts as the CSV file writes them (Exchange USD, Exchange BTC). Only
+  the preview was wrong: the import always read the amounts right.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added
