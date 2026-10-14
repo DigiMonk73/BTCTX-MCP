@@ -63,6 +63,10 @@ test("River import: preview statuses, edits, execute, re-import skips", async ({
   await expect(riverRow(page, 3)).toContainText("Review");
   for (const n of [4, 5, 6, 7]) await expect(r.getByLabel(`Include row ${n}`)).toBeChecked();
   await expect(riverRow(page, 4)).toContainText("New");
+  // Each fee with its unit, and a tagged payout's source under its type (#269)
+  await expect(riverRow(page, 4)).toContainText("$1.50");
+  await expect(riverRow(page, 5)).toContainText("$0.55");
+  await expect(riverRow(page, 6).getByText("Interest", { exact: true })).toBeVisible();
 
   // Edits: the interest payout's basis, the send's fee; leave out the sell.
   await riverRow(page, 6).getByLabel("Cost basis (USD)").fill("2.10");

@@ -60,6 +60,17 @@ export function importableRows(rows: EditableRow[]): EditableRow[] {
   return rows.filter((r) => r.include && r.proposal.status !== "matched");
 }
 
+/** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */
+function feeCurrency(r: EditableRow): "USD" | "BTC" {
+  return r.type === "Buy" || r.type === "Sell" ? "USD" : "BTC";
+}
+
+/** The fee as the preview shows it, with its unit as the other columns are: "$1.50", "0.00000200 BTC". */
+export function feeText(r: EditableRow): string {
+  if (!r.feeAmount) return "—";
+  return feeCurrency(r) === "USD" ? `$${r.feeAmount}` : `${r.feeAmount} BTC`;
+}
+
 /** A row of the import request. A fee is in USD on a Buy or Sell and in BTC
  * otherwise; only a Deposit has a source and only a Withdrawal a purpose. */
 export function importRow(r: EditableRow) {
@@ -72,7 +83,7 @@ export function importRow(r: EditableRow) {
     cost_basis_usd: r.costBasisUsd || null,
     proceeds_usd: r.proposal.proceeds_usd ?? null,
     fee_amount: r.feeAmount || null,
-    fee_currency: r.feeAmount ? (r.type === "Buy" || r.type === "Sell" ? "USD" : "BTC") : null,
+    fee_currency: r.feeAmount ? feeCurrency(r) : null,
     source: r.type === "Deposit" ? r.source : null,
     purpose: r.type === "Withdrawal" ? r.purpose : null,
     // The preview's value from the price, left as it was: not typed, so an

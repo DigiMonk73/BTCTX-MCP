@@ -1,5 +1,5 @@
 import React from "react";
-import { STATUS_LABEL, type EditableRow } from "../../utils/riverImport";
+import { STATUS_LABEL, feeText, type EditableRow } from "../../utils/riverImport";
 import BasisCell from "./BasisCell";
 import FundingCell from "./FundingCell";
 import TypeCell from "./TypeCell";
@@ -34,7 +34,7 @@ const RiverRow: React.FC<RiverRowProps> = ({ row, loading, onChange }) => {
       </td>
       <td className="river-cell-date">
         {new Date(p.date).toLocaleDateString()}
-        <span className="river-cell-time">
+        <span className="river-cell-sub">
           {new Date(p.date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
         </span>
       </td>
@@ -58,7 +58,7 @@ const RiverRow: React.FC<RiverRowProps> = ({ row, loading, onChange }) => {
             aria-label="Fee (BTC)"
           />
         ) : (
-          row.feeAmount || "—"
+          feeText(row)
         )}
       </td>
     </tr>
