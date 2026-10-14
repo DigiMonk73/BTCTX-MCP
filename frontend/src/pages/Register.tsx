@@ -5,7 +5,7 @@ import { extractErrorMessage } from '../utils/apiError';
 import { useToast } from '../contexts/useToast';
 import { CONFIRMATION, extentToConfirm, type LedgerExtent } from '../utils/deleteAll';
 import DeleteAllDialog from '../components/DeleteAllDialog';
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/credentials';
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, setupCodeHint, type SetupStatus } from '../utils/credentials';
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {
@@ -18,6 +18,8 @@ const RegisterPage: React.FC = () => {
   // Claiming the default login needs the first-run setup code.
   const [codeRequired, setCodeRequired] = useState(false);
   const [setupCode, setSetupCode] = useState('');
+  // The Mac app, also in a browser at its address
+  const [macServer, setMacServer] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   // What a new account would delete: asked once the code or password is right (#256)
@@ -29,11 +31,11 @@ const RegisterPage: React.FC = () => {
   useEffect(() => {
     const checkDefaultAccount = async () => {
       try {
-        const res = await api.get("/users/setup-status");
-        const status = res.data as { has_user: boolean; is_default: boolean; setup_code_required?: boolean };
+        const { data: status } = await api.get<SetupStatus>("/users/setup-status");
         // Still on the shipped admin/password login => first-run setup
         setIsDefault(status.is_default || !status.has_user);
         setCodeRequired(Boolean(status.setup_code_required));
+        setMacServer(Boolean(status.desktop));
       } catch {
         // Unknown: treat it as claimed, so the current password is asked for
         setIsDefault(false);
@@ -59,7 +61,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
     if (isDefault && codeRequired && !setupCode.trim()) {
-      setErrorMsg(`Enter the setup code. ${SETUP_CODE_HINT}`);
+      setErrorMsg(`Enter the setup code. ${setupCodeHint(macServer)}`);
       setIsSubmitting(false);
       return;
     }
@@ -144,7 +146,7 @@ const RegisterPage: React.FC = () => {
             <p id="password-rule" className="field-hint">{PASSWORD_RULE}</p>
           </div>
 
-          {/* A fresh Docker or source install: the code from the server's log */}
+          {/* A fresh install: the code from the server's log, or the Mac app's data folder */}
           {isDefault && codeRequired && (
             <div className="field">
               <label htmlFor="setup-code" className="field-label">Setup Code</label>
@@ -159,7 +161,7 @@ const RegisterPage: React.FC = () => {
                 aria-describedby="setup-code-hint"
                 className="input"
               />
-              <p id="setup-code-hint" className="field-hint">{SETUP_CODE_HINT}</p>
+              <p id="setup-code-hint" className="field-hint">{setupCodeHint(macServer)}</p>
             </div>
           )}
 

@@ -50,6 +50,14 @@ All notable changes to BitcoinTX are documented in this file.
   aren't sales: the tax report already gives them no gain or loss of their
   own. Now only a Sell and a Spent withdrawal show a gain line. Display
   only: no figure changes.
+- **The Mac app in a browser says where its setup code is** (#258). Opened
+  in a browser at its own address (`http://127.0.0.1:8765`), the Mac app's
+  login page explained the first-run setup code for Docker ("docker logs",
+  "/data"), and so did Create account and Settings, even in the app's own
+  window. They now say it is in `setup-code.txt` in BitcoinTX's data folder
+  (`~/Library/Application Support/BitcoinTX`) wherever the server is the
+  Mac app: the public `/api/users/setup-status` now says so (`desktop`).
+  Wording only.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

@@ -204,6 +204,9 @@ test("an install still on the default login logs in with the setup code and keep
   await page.request.post("/api/logout");
 
   await page.goto("/login");
+  // A server's code is in its log (the Mac app's text only on the Mac, #258)
+  await expect(page.locator("#login-setup-code-hint")).toContainText("docker logs");
+  await expect(page.locator("#login-setup-code-hint")).not.toContainText("Application Support");
   await page.getByLabel("Username").fill("admin");
   await page.getByLabel("Password", { exact: true }).fill("password");
   await page.getByRole("button", { name: "Log in" }).click();
@@ -301,6 +304,10 @@ test.describe("the Mac app", () => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
     await expect(page.getByLabel("Setup Code")).toBeVisible();
+    // Where the code is on a Mac, not a server's log (#258)
+    const hint = page.locator("#login-setup-code-hint");
+    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).not.toContainText("docker logs");
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("password");
     await page.getByRole("button", { name: "Log in" }).click();
@@ -310,6 +317,24 @@ test.describe("the Mac app", () => {
     const claim = await page.request.post("/api/users/reset-account", { data: { username: USER, password: PASSWORD } });
     expect(claim.status()).toBe(403);
     expect((await (await page.request.get("/api/users/setup-status")).json()).is_default).toBe(true);
+  });
+
+  test("in a browser, Create account says where the Mac app keeps the setup code", async ({ page }) => {
+    await page.goto("/register");
+    const hint = page.locator("#setup-code-hint");
+    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).not.toContainText("docker logs");
+  });
+
+  test("on the default login, Settings says where the Mac app keeps the setup code", async ({ page, app }) => {
+    const r = await page.request.post("/api/login", {
+      data: { username: "admin", password: "password", setup_code: setupCode(app) },
+    });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    await page.goto("/settings");
+    const hint = page.getByText("This is still the default login");
+    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).not.toContainText("docker logs");
   });
 
   test("a window that can't supply the code offers the typed field and says where it is", async ({ page, app }) => {

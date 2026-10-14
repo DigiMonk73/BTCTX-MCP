@@ -10,6 +10,7 @@ from pydantic import BaseModel, field_validator
 
 from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password
 from backend.services import first_run, login_throttle, wipe
+from backend.services.desktop import is_desktop
 from backend.services.user import (
     get_all_users,
     get_user_by_username,
@@ -88,8 +89,10 @@ def setup_status(db: Session = Depends(get_db)):
     """
     Public: whether the single account still has the shipped default login,
     and so whether logging in with it and claiming it need the first-run
-    setup code (never the code). Used by the Login and Register pages before
-    anyone is logged in.
+    setup code (never the code), and whether this is the Mac app, which
+    keeps the code in its data folder rather than a server's log (its pages
+    in a browser have no window to ask). Used by the Login and Register
+    pages before anyone is logged in.
     """
     users = get_all_users(db)
     is_default = bool(users) and first_run.is_default_account(users[0])
@@ -97,6 +100,7 @@ def setup_status(db: Session = Depends(get_db)):
         "has_user": bool(users),
         "is_default": is_default,
         "setup_code_required": is_default,
+        "desktop": is_desktop(),
     }
 
 

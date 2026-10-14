@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import { extractErrorMessage } from "../utils/apiError";
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from "../utils/credentials";
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, setupCodeHint, type SetupStatus } from "../utils/credentials";
 import TaxTimezoneSetting from "./TaxTimezoneSetting";
 
 /** The first (and only) user's id, or null. */
@@ -25,11 +25,15 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
   // needs the first-run setup code, like Register.
   const [setupCode, setSetupCode] = useState("");
   const [codeRequired, setCodeRequired] = useState(false);
+  const [macServer, setMacServer] = useState(false);
 
   useEffect(() => {
     api
-      .get("/users/setup-status")
-      .then((res) => setCodeRequired(Boolean((res.data as { setup_code_required?: boolean }).setup_code_required)))
+      .get<SetupStatus>("/users/setup-status")
+      .then((res) => {
+        setCodeRequired(Boolean(res.data.setup_code_required));
+        setMacServer(Boolean(res.data.desktop));
+      })
       .catch(() => setCodeRequired(false));
   }, []);
 
@@ -179,7 +183,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
             )}
             <p className="field-hint">
               New password: {PASSWORD_RULE.toLowerCase()} Any change needs your current password.
-              {codeRequired && ` This is still the default login: changing it needs the setup code. ${SETUP_CODE_HINT}`}
+              {codeRequired && ` This is still the default login: changing it needs the setup code. ${setupCodeHint(macServer)}`}
             </p>
           </div>
 

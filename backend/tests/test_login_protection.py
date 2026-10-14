@@ -416,7 +416,7 @@ def test_setup_status_flips_after_the_account_is_claimed(fresh_app):
         "username": "me", "password": "n3w-passw0rd", "setup_code": first_run.ensure_code()})
     assert r.status_code == 200
     assert anon().get("/api/users/setup-status").json() == {
-        "has_user": True, "is_default": False, "setup_code_required": False}
+        "has_user": True, "is_default": False, "setup_code_required": False, "desktop": False}
 
 
 # ---------------------------------------------------------------------------
@@ -505,7 +505,7 @@ def test_the_mac_app_needs_the_code_too(fresh_app, monkeypatch, caplog):
     assert stat.S_IMODE(os.stat(first_run.code_path()).st_mode) == 0o600
     assert code not in caplog.text
     assert mac_app().get("/api/users/setup-status").json() == {
-        "has_user": True, "is_default": True, "setup_code_required": True}
+        "has_user": True, "is_default": True, "setup_code_required": True, "desktop": True}
 
     r = mac_app().post("/api/login", json=DEFAULT)
     assert r.status_code == 403 and "enter the setup code" in r.json()["detail"]
@@ -544,7 +544,7 @@ def test_the_mac_window_sets_the_owners_login_and_keeps_the_ledger(fresh_app, mo
     # The code no longer matters, given or not
     assert mac_app().post("/api/login", json=dict(own, setup_code="WRNG-WRNG-WRNG")).status_code == 200
     assert mac_app().get("/api/users/setup-status").json() == {
-        "has_user": True, "is_default": False, "setup_code_required": False}
+        "has_user": True, "is_default": False, "setup_code_required": False, "desktop": True}
 
 
 REBINDING_PAGE = {"Host": "attacker.example:8765", "Origin": "http://attacker.example:8765",
