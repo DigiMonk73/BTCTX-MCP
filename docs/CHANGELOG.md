@@ -16,6 +16,16 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
+  900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
+  basis, proceeds and fees were off to the right and the table had to be
+  scrolled sideways. While a preview is open, Settings now widens (up to
+  1,240 px, the Dashboard's width), and the table is narrower: the time under the date, a
+  withdrawal's purpose or a deposit's source under its type, and the
+  account it goes to under the one it comes from (a Buy's Bank / Exchange
+  USD choice included). Every column now shows in a 1440-wide window; in a
+  narrower one (the Mac app opens at 1280) and on a phone the table still
+  scrolls sideways, less than before.
 - **Times on screen are this device's clock** (#260, the owner's choice).
   With a tax timezone other than the computer's, the screen showed times in
   two zones: the Transactions list and the form in the computer's, but the
@@ -38,6 +48,20 @@ All notable changes to BitcoinTX are documented in this file.
   amount in dollars ($50,000.00), a bitcoin row's in BTC, and the
   accounts as the CSV file writes them (Exchange USD, Exchange BTC). Only
   the preview was wrong: the import always read the amounts right.
+- **No gain line for a gift, a donation or lost coins** (#257). The
+  Transactions list showed one under these withdrawals ("Gain $0.00 ·
+  +0.00% · Long-term"), as if they were sales with a holding period. They
+  aren't sales: the tax report already gives them no gain or loss of their
+  own. Now only a Sell and a Spent withdrawal show a gain line. Display
+  only: no figure changes.
+- **The Mac app in a browser says where its setup code is** (#258). Opened
+  in a browser at its own address (`http://127.0.0.1:8765`), the Mac app's
+  login page explained the first-run setup code for Docker ("docker logs",
+  "/data"), and so did Create account and Settings, even in the app's own
+  window. They now say it is in `setup-code.txt` in BitcoinTX's data folder
+  (`~/Library/Application Support/BitcoinTX`) wherever the server is the
+  Mac app: the public `/api/users/setup-status` now says so (`desktop`).
+  Wording only.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
