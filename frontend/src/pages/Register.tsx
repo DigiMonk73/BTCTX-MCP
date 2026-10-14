@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { extractErrorMessage } from '../utils/apiError';
 import { useToast } from '../contexts/useToast';
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, SETUP_CODE_HINT } from '../utils/credentials';
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, setupCodeHint, type SetupStatus } from '../utils/credentials';
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {
@@ -16,6 +16,8 @@ const RegisterPage: React.FC = () => {
   // Claiming the default login needs the first-run setup code.
   const [codeRequired, setCodeRequired] = useState(false);
   const [setupCode, setSetupCode] = useState('');
+  // Where the code is: the Mac app's data folder, or the server's log
+  const [codeHint, setCodeHint] = useState(setupCodeHint(false));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
@@ -25,10 +27,11 @@ const RegisterPage: React.FC = () => {
     const checkDefaultAccount = async () => {
       try {
         const res = await api.get("/users/setup-status");
-        const status = res.data as { has_user: boolean; is_default: boolean; setup_code_required?: boolean };
+        const status = res.data as SetupStatus;
         // Still on the shipped admin/password login => first-run setup
         setIsDefault(status.is_default || !status.has_user);
         setCodeRequired(Boolean(status.setup_code_required));
+        setCodeHint(setupCodeHint(Boolean(status.desktop)));
       } catch {
         // Unknown: treat it as claimed, so the current password is asked for
         setIsDefault(false);
@@ -54,7 +57,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
     if (isDefault && codeRequired && !setupCode.trim()) {
-      setErrorMsg(`Enter the setup code. ${SETUP_CODE_HINT}`);
+      setErrorMsg(`Enter the setup code. ${codeHint}`);
       setIsSubmitting(false);
       return;
     }
@@ -152,7 +155,7 @@ const RegisterPage: React.FC = () => {
                 aria-describedby="setup-code-hint"
                 className="input"
               />
-              <p id="setup-code-hint" className="field-hint">{SETUP_CODE_HINT}</p>
+              <p id="setup-code-hint" className="field-hint">{codeHint}</p>
             </div>
           )}
 

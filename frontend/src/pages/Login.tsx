@@ -4,7 +4,7 @@ import api from '../api';
 import { extractErrorMessage } from '../utils/apiError';
 import "../styles/login.css";
 import { ensureTaxTimezone } from "../utils/taxTimezone";
-import { MAC_SETUP_CODE_HINT, SETUP_CODE_HINT } from "../utils/credentials";
+import { setupCodeHint, type SetupStatus } from "../utils/credentials";
 import { appWindowApi, onAppWindowApi } from "../utils/appWindow";
 import ChooseOwnLogin from "../components/ChooseOwnLogin";
 import { NO_SETUP_CODE, windowSetupCode } from "../utils/ownLogin";
@@ -23,6 +23,8 @@ const LoginPage: React.FC = () => {
   // /register claims it. Afterwards that page resets the account
   // (deleting every transaction), which "Create account" would hide.
   const [firstRun, setFirstRun] = useState(false);
+  // The Mac app, also in a browser at its address, without its window
+  const [macServer, setMacServer] = useState(false);
   const [setupCode, setSetupCode] = useState("");
   // The Mac app's own window, which can supply the setup code itself:
   // there the owner chooses a login instead (ChooseOwnLogin). Read at every
@@ -55,10 +57,11 @@ const LoginPage: React.FC = () => {
         // Not logged in — stay on login page
       });
     api
-      .get<{ setup_code_required?: boolean; is_default?: boolean }>("/users/setup-status")
+      .get<SetupStatus>("/users/setup-status")
       .then((res) => {
         setCodeRequired(Boolean(res.data.setup_code_required));
         setFirstRun(Boolean(res.data.is_default));
+        setMacServer(Boolean(res.data.desktop));
       })
       .catch(() => undefined);
   }, [navigate]);
@@ -163,7 +166,9 @@ const LoginPage: React.FC = () => {
                     className="input"
                   />
                   <p id="login-setup-code-hint" className="field-hint">
-                    Only while this install still has the default login (admin / password). {windowApi ? MAC_SETUP_CODE_HINT : SETUP_CODE_HINT}
+                    Only while this install still has the default login (admin / password).{" "}
+                    {setupCodeHint(Boolean(windowApi) || macServer)}
+                    {(windowApi || macServer) && " Once logged in, set your own username and password in Settings."}
                   </p>
                 </div>
               )}
