@@ -508,9 +508,9 @@ Start from the `clean` snapshot.
     note it).
   - **Nothing goes to public sites without the fallback:** save the address
     `https://mempool.invalid` (still fallback off). Expect
-    `GET $API/bitcoin/price` to answer 502, "Your mempool server didn't
-    answer, and falling back to public price sites is off. …", and the
-    Dashboard's price to read "Error": BitcoinTX asked no public site
+    `GET $API/bitcoin/price` to answer 502, "Your Mempool didn't answer,
+    and the backup (public price sites) is off. …", and the Dashboard's
+    price to read "No answer": BitcoinTX asked no public site
     instead. A price shown instead is a blocker FAIL. Then save
     `https://mempool.emzy.de` again.
   - StartOS's **My Mempool on this server** (the internal connection to
@@ -644,7 +644,7 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at`
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
   export downloaded." appears.
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
@@ -794,7 +794,8 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   (including fee 0.00020000)", and the ledger unchanged: 14 rows and every
   golden figure. Then add a $1 deposit to `Bank Account` and delete it.
   Expect both to work: a refused delete leaves the ledger usable.
-- **END-2** Log out, then on the login page click **Create account**.
+- **END-2** Log out, then open `$URL/register` (the login page has no
+  link to it).
   Expect: a **Current Password** field and no Setup Code. Enter a new
   username `fresh`, a 12+ character password and the current password.
   Expect the confirm "Warning: The account is already registered.
@@ -979,9 +980,10 @@ page's pictures".
 - **REF-3** The previous release's database, upgraded. Copy
   `LAB/ledgers/reference-vP.Q.R.db`, then `DATABASE_FILE=<copy> python -m
   backend.cli migrate` and `python scripts/reference_figures.py --db <copy>
-  --compare LAB/ledgers/reference-vP.Q.R.json`. Expect "No figure moved."
+  --compare LAB/ledgers/reference-vP.Q.R.json`. Expect no number moved
   (an update leaves stored figures alone; a figure this release adds, which
-  the older file lacks, isn't counted). Then `DATABASE_FILE=<copy> python
+  the older file lacks, isn't counted); a report's wording may differ where
+  the CHANGELOG says it changed. Then `DATABASE_FILE=<copy> python
   -m backend.cli recalculate` and compare again. Expect no difference,
   unless this release's CHANGELOG says a recalculation changes figures:
   then exactly those, and nothing else. BLOCKED when there is no previous
