@@ -114,14 +114,14 @@ test("River preview: every column fits a 1440-wide window, the page widens only 
   await page.getByRole("link", { name: "Settings" }).click();
   const narrow = await settingsWidth();
   await previewRiver(page);
+  await expect.poll(settingsWidth).toBeGreaterThan(narrow);
   const table = river(page).locator(".river-table");
   const fit = await table.evaluate((t) => ({ table: t.scrollWidth, room: t.closest(".table-scroll")!.clientWidth }));
   expect(fit.table).toBeLessThanOrEqual(fit.room);
-  expect(await settingsWidth()).toBeGreaterThan(narrow);
 
   await river(page).getByRole("button", { name: "Cancel" }).click();
   await expect(table).toHaveCount(0);
-  expect(await settingsWidth()).toBe(narrow);
+  await expect.poll(settingsWidth).toBe(narrow);
 });
 
 function data(page: Page) {

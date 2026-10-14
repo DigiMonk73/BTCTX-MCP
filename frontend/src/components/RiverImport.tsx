@@ -13,14 +13,14 @@ import "../styles/riverImport.css";
 
 /** `onPreviewShown(true)` while a preview is open: its table needs the
  * window's width, wider than the Settings card (#259). */
-const RiverImport: React.FC<{ onPreviewShown?: (shown: boolean) => void }> = ({ onPreviewShown }) => {
+const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ onPreviewShown }) => {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [showMatched, setShowMatched] = useState(false);
-  useEffect(() => onPreviewShown?.(preview !== null), [preview, onPreviewShown]);
+  useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
 
   const reset = () => {
     setFile(null);
