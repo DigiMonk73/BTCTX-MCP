@@ -1,7 +1,8 @@
 /**
  * The price status line (#145, plan 2.3): one line, words first, from
  * GET /api/bitcoin/price/status (backend/services/price_status.py). The
- * colour and the icon only repeat the words. Times are in the tax timezone.
+ * colour and the icon only repeat the words. Times are this device's clock
+ * (#260): the tax timezone decides tax years, not the time of day shown.
  */
 
 import type { Host, PriceSource } from "./priceSource";
@@ -56,26 +57,25 @@ export interface StatusLine {
 export interface StatusContext {
   backup: boolean;
   tor: boolean;
-  timezone: string;
   /** The Mempool's certificate may be trusted on the card (#188). */
   trustable?: boolean;
 }
 
-/** "2:04 pm" in the tax timezone. */
-export function clock(iso: string, timezone: string): string {
+/** "2:04 pm" on this device's clock, as the transaction list shows times (#260). */
+export function clock(iso: string): string {
   return new Date(iso)
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: timezone })
+    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
     .replace(/\s(AM|PM)$/, (_, m: string) => " " + m.toLowerCase());
 }
 
 const PUBLIC_SITES = "public price sites";
 
-function mempoolReason(what: Problem, at: string, ctx: StatusContext): string {
+function mempoolReason(what: Problem, at: string): string {
   if (what === "mempool_untrusted_certificate") {
     return "Your Mempool's certificate isn't trusted (a private one, like StartOS's home-network address), so BitcoinTX can't use it.";
   }
   if (what === "mempool_missing") return "Mempool isn't installed on this server yet.";
-  return `Your Mempool didn't answer at ${clock(at, ctx.timezone)}.`;
+  return `Your Mempool didn't answer at ${clock(at)}.`;
 }
 
 function mempoolFix(what: Problem, managed: boolean, backup: boolean, trustable = false): string {
@@ -108,12 +108,12 @@ function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   const { last_ok: ok, last_problem: problem } = st;
   // Why your Mempool last failed, kept when the backup failed after it
   const mine = problem?.what.startsWith("mempool") ? problem : (st.last_mempool_problem ?? null);
-  const reason = mine ? mempoolReason(mine.what, mine.at, ctx) : "Your Mempool didn't answer.";
+  const reason = mine ? mempoolReason(mine.what, mine.at) : "Your Mempool didn't answer.";
   if (problem && newer(problem.at, ok?.at)) {
     if (problem === mine) {
       return { tone: "warning", text: `${reason} ${mempoolFix(problem.what, st.managed, ctx.backup, ctx.trustable)}` };
     }
-    const at = clock(problem.at, ctx.timezone);
+    const at = clock(problem.at);
     const backup = problem.what === "tor_no_answer"
       ? `Public price sites didn't answer through Tor either, at ${at}. Is Tor running?`
       : `${capital(PUBLIC_SITES)} didn't answer either, at ${at}.`;
@@ -121,9 +121,9 @@ function mempoolLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   }
   if (ok && ok.from !== "mempool") {
     // #178: never "from your Mempool" while the backup gives the prices
-    return { tone: "warning", text: `${reason} Public price sites answered instead at ${clock(ok.at, ctx.timezone)}.` };
+    return { tone: "warning", text: `${reason} Public price sites answered instead at ${clock(ok.at)}.` };
   }
-  if (ok) return { tone: "ok", text: `Newer prices from your Mempool. Last price ${clock(ok.at, ctx.timezone)}.` };
+  if (ok) return { tone: "ok", text: `Newer prices from your Mempool. Last price ${clock(ok.at)}.` };
   return { tone: "idle", text: "Newer prices will come from your Mempool." };
 }
 
@@ -131,12 +131,12 @@ function publicLine(st: PriceStatus, ctx: StatusContext): StatusLine {
   const { last_ok: ok, last_problem: problem } = st;
   const via = ctx.tor ? ", through Tor" : "";
   if (problem && newer(problem.at, ok?.at)) {
-    const at = clock(problem.at, ctx.timezone);
+    const at = clock(problem.at);
     return problem.what === "tor_no_answer"
       ? { tone: "warning", text: `Public price sites didn't answer through Tor at ${at}. Is Tor running?` }
       : { tone: "warning", text: `Public price sites didn't answer at ${at}. BitcoinTX asks again in a few minutes.` };
   }
-  if (ok) return { tone: "ok", text: `Newer prices from public price sites${via}. Last price ${clock(ok.at, ctx.timezone)}.` };
+  if (ok) return { tone: "ok", text: `Newer prices from public price sites${via}. Last price ${clock(ok.at)}.` };
   return { tone: "idle", text: `Newer prices will come from public price sites${via}.` };
 }
 

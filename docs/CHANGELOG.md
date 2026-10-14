@@ -26,6 +26,19 @@ All notable changes to BitcoinTX are documented in this file.
   USD choice included). Every column now shows in a 1440-wide window; in a
   narrower one (the Mac app opens at 1280) and on a phone the table still
   scrolls sideways, less than before.
+- **Times on screen are this device's clock** (#260, the owner's choice).
+  With a tax timezone other than the computer's, the screen showed times in
+  two zones: the Transactions list and the form in the computer's, but the
+  price card ("From public price sites (Kraken) · 4:45 pm"), Settings'
+  "Last price" and "You chose this … at" in the tax timezone, and the
+  sidebar's Date + hour picked the hour in the tax timezone. Now these
+  times, and the sidebar's hour, follow the device you look from (on
+  StartOS, your phone's or laptop's clock, not the server's). The tax
+  timezone keeps deciding what it's for: the tax year, Form 8949's dates
+  and the report. Two kinds of time stay as they were, each labelled:
+  Ledger Review's dates are in the tax timezone, as `cli review` and the
+  AI connector see the same items, and a price's hour ("From the price: …
+  at 14:00 UTC") is named in UTC wherever it's shown.
 - **A gift's, donation's or lost coins' value left blank is filled from
   the price** (#255). In the transaction form, a Withdrawal with purpose
   Gift, Donation or Lost saved with its FMV (USD) blank kept no value
@@ -47,6 +60,13 @@ All notable changes to BitcoinTX are documented in this file.
   database column (migration 0011, `fmv_from_price`).
 
 ### Fixed
+- **The River import's preview says what its fees and tags are** (#269).
+  The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
+  "0.00000200", with no unit, and an Interest payout showed only as
+  "Deposit". It now writes "$1.50" and "0.00000200 BTC", as the other
+  columns do, and a deposit River tagged shows its source under its type
+  ("Deposit" over "Interest"). Display only: the import always read them
+  right.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the

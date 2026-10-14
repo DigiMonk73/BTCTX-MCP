@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TOR_PLACEHOLDER,
   cannotSave,
@@ -114,30 +114,34 @@ describe("set by the server", () => {
 });
 
 describe("confirm once (#145, 2.9)", () => {
+  afterEach(() => { vi.unstubAllEnvs(); });
+
   const unrecorded: NetworkSettingsData = { ...base, price_source: "public", confirmed: false };
 
   it("asks with the current choice pre-selected; Confirm saves it as it is", () => {
     const form = formFromSettings(unrecorded);
-    const view = cardView(unrecorded, form, true, "UTC");
+    const view = cardView(unrecorded, form, true);
     expect(view.title).toBe("Please confirm where BitcoinTX gets prices");
     expect([view.current, view.label, view.canSave, view.when]).toEqual(["public", "Confirm", true, null]);
     expect(waitingToConfirm(unrecorded)).toBe(true);
   });
 
   it("a changed choice is saved with Use this; nothing to confirm when the server sets it", () => {
-    const view = cardView(unrecorded, { ...formFromSettings(unrecorded), source: "off" }, true, "UTC");
+    const view = cardView(unrecorded, { ...formFromSettings(unrecorded), source: "off" }, true);
     expect([view.label, view.canSave]).toEqual(["Use this", true]);
     expect(waitingToConfirm({ ...unrecorded, managed: true })).toBe(false);
     expect(waitingToConfirm({ ...base, confirmed: true })).toBe(false);
   });
 
-  it("says when and where a recorded choice was made, in the tax timezone", () => {
+  it("says when and where a recorded choice was made, on this device's clock (#260)", () => {
     const chosen: NetworkSettingsData = {
       ...unrecorded, confirmed: true, chosen_at: "2026-10-14T20:12:00Z", chosen_via: "first-run",
     };
-    expect(chosenWhen(chosen, "America/Chicago")).toBe("You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question.");
-    expect(chosenWhen({ ...chosen, chosen_via: "settings" }, "UTC")).toBe("You chose this on Oct 14, 2026 at 8:12 pm, in Settings.");
-    expect(cardView(chosen, formFromSettings(chosen), false, "UTC").label).toBe("Save");
+    vi.stubEnv("TZ", "America/Chicago");
+    expect(chosenWhen(chosen)).toBe("You chose this on Oct 14, 2026 at 3:12 pm, in the first-run question.");
+    vi.stubEnv("TZ", "UTC");
+    expect(chosenWhen({ ...chosen, chosen_via: "settings" })).toBe("You chose this on Oct 14, 2026 at 8:12 pm, in Settings.");
+    expect(cardView(chosen, formFromSettings(chosen), false).label).toBe("Save");
   });
 });
 

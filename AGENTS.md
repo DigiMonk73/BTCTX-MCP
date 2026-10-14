@@ -237,6 +237,9 @@ So derived values must be recomputable from the Transaction row alone.
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
   `backend/services/tax_time.py`. Never slice a year with naive UTC dates.
+  Times on screen are the device's clock (#260), except Ledger Review's
+  (the tax timezone, as `cli review` and the AI see them) and a price's
+  hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
   (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
   2026-01-01 and never moved G/J; self-custody spends and fees I/L. A

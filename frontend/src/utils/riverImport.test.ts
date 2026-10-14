@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
+import { feeText, importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
 
 function proposal(overrides: Partial<RiverProposal> = {}): RiverProposal {
   return {
@@ -31,6 +31,16 @@ describe("toEditableRow", () => {
       costBasisUsd: "12.50", feeAmount: "0.00000500", purpose: "Spent", source: "MyBTC",
     });
     expect(toEditableRow(proposal())).toMatchObject({ costBasisUsd: "", feeAmount: "" });
+  });
+});
+
+describe("feeText (#269)", () => {
+  it("writes a fee with its unit: dollars on a Buy or Sell, BTC otherwise", () => {
+    const row = (type: string, fee_amount?: string) => toEditableRow(proposal({ type, fee_amount }));
+    expect(feeText(row("Buy", "1.50"))).toBe("$1.50");
+    expect(feeText(row("Sell", "0.55"))).toBe("$0.55");
+    expect(feeText(row("Withdrawal", "0.00000200"))).toBe("0.00000200 BTC");
+    expect(feeText(row("Deposit"))).toBe("—");
   });
 });
 
