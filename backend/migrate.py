@@ -157,7 +157,7 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
-    prune_backups(db_path, keep, kind)
+    prune_backups(db_path, keep, kind, spare=dest)
     return dest
 
 
@@ -206,18 +206,21 @@ def backup_copies(db_path: Path, kind: str = "before", label: str | None = None)
     )
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> list[Path]:
+def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before",
+                  spare: Path | None = None) -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
-    copies more: _ai_copies_held) and delete the others. Only files this
-    module wrote (<stem>-<kind>-*.db) are touched. Returns the deleted paths.
+    copies more: _ai_copies_held) and delete the others, never `spare`: the
+    copy just made, which a clock set back would date before older ones.
+    Only files this module wrote (<stem>-<kind>-*.db) are touched. Returns
+    the deleted paths.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
     held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
     removed = []
     for old in copies[keep:]:
-        if old in held:
+        if old in held or old == spare:
             continue
         try:
             old.unlink()

@@ -57,17 +57,20 @@ def refusal(db: Session, confirm: str | None) -> JSONResponse | None:
     what = extent(db)
     if what["transactions"] == 0:
         return None
-    detail = f"This deletes all {_describe(what)}. To go ahead, confirm with {CONFIRMATION}."
+    every = "all " if what["transactions"] > 1 else ""
+    detail = f"This deletes {every}{_describe(what)}. To go ahead, confirm with {CONFIRMATION}."
     return JSONResponse(status_code=409, content={"detail": detail, **what})
 
 
 def copy_then_delete(db: Session) -> int:
     """A copy of the database, then every transaction deleted; how many.
-    No copy, nothing deleted (500)."""
+    A copy that fails deletes nothing (500)."""
     if db.query(Transaction.id).first() is None:
         return 0
     db_path = sqlite_file(db.get_bind())
-    if db_path is not None:
+    if db_path is None:  # not a database file (a test's in-memory one): nothing to copy
+        logger.warning("Deleting every transaction of a database that isn't a file: no copy")
+    else:
         try:
             dest = backup_sqlite(db_path, COPY_LABEL, kind=DELETE_KIND, keep=DELETE_COPIES_KEPT)
         except (OSError, sqlite3.Error) as e:

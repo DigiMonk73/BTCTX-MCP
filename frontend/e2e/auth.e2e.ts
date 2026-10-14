@@ -106,6 +106,7 @@ test("Create account on an install with transactions: the code first, then the d
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
   await dialog.getByRole("button", { name: "Delete 1 transaction" }).click();
   await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText(/A copy of the database from before is kept/)).toBeVisible();
   await loginViaUi(page);
   expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(0);
 });

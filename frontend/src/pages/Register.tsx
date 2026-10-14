@@ -87,7 +87,10 @@ const RegisterPage: React.FC = () => {
         setup_code: isDefault && codeRequired ? setupCode.trim() : undefined,
         confirm,
       });
-      toast.success("Registration successful! Your credentials have been updated.");
+      toast.success(
+        "Registration successful! Your credentials have been updated." +
+          (confirm ? " A copy of the database from before is kept in BitcoinTX's data folder (in backups, unencrypted)." : ""),
+      );
       navigate('/login');
     } catch (err) {
       const extent = confirm ? null : extentToConfirm(err);

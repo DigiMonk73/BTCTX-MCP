@@ -96,12 +96,16 @@ test("delete all: a dialog says what goes, deletes only once DELETE is typed, af
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
   await expect(dialog).toContainText("keeps a copy of the database in its data folder");
+  // The keyboard stays in the dialog
+  for (let i = 0; i < 8; i++) await page.keyboard.press("Tab");
+  expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   const go = dialog.getByRole("button", { name: "Delete 6 transactions" });
   await expect(go).toBeDisabled();
   await dialog.getByLabel("Type DELETE to confirm").fill("delete");
   await expect(go).toBeDisabled();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeFocused(); // back where it was
   expect(await listTx(page.request)).toHaveLength(6);
   // Nor does the server delete without it
   expect((await page.request.delete("/api/transactions/delete_all")).status()).toBe(409);

@@ -98,6 +98,38 @@ def test_the_newest_five_delete_copies_are_kept_apart_from_the_others(auth_clien
         upgrade_copy.unlink(missing_ok=True)
 
 
+def test_the_copy_just_made_is_kept_even_when_the_clock_went_back(ledger, test_engine):
+    """Five copies dated after now (a clock set back): the new one is the
+    oldest by date, and pruning used to delete it right after it was made."""
+    import os
+    import time
+    later = time.time() + 86400
+    db = Path(test_engine.url.database)
+    folder = db.parent / migrate.BACKUP_DIRNAME
+    folder.mkdir(exist_ok=True)
+    future = []
+    for n in range(migrate.DELETE_COPIES_KEPT):
+        copy = folder / f"{db.stem}-before-delete-all-20990101T00000{n}Z.db"
+        copy.write_bytes(b"")
+        os.utime(copy, (later + n, later + n))
+        future.append(copy)
+    try:
+        assert ledger.delete(CONFIRMED).status_code == 204
+        made = [c for c in delete_copies(test_engine) if c not in future]
+        assert len(made) == 1 and rows_in(made[0]) == 3
+    finally:
+        for copy in future:
+            copy.unlink(missing_ok=True)
+
+
+def test_one_transaction_reads_as_one(auth_client):
+    auth_client.delete(CONFIRMED)
+    deposit(auth_client)
+    r = auth_client.delete(DELETE_ALL)
+    assert r.status_code == 409 and r.json()["detail"] == "This deletes 1 transaction, 2024. To go ahead, confirm with DELETE."
+    auth_client.delete(CONFIRMED)
+
+
 def test_no_copy_no_delete(ledger, monkeypatch):
     def full_disk(*args, **kwargs):
         raise OSError("No space left on device")

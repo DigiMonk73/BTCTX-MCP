@@ -665,7 +665,7 @@ Set `KEY` to the key from AI-3, and use
   **Download a backup first**; **Delete 14 transactions** stays disabled
   until `DELETE` is typed (`delete` doesn't do). **Cancel**, then log in
   with curl as in SEC-4 (`-c jar`) and send
-  `curl --cacert ca.crt -s -b jar -X DELETE $API/transactions/delete_all`:
+  `curl --cacert ca.crt -s -w '\n%{http_code}\n' -b jar -X DELETE $API/transactions/delete_all`:
   expect 409, "This deletes all 14 transactions, 2023–2025. To go ahead,
   confirm with DELETE.", and still 14 transactions. Then **Delete** again,
   type `DELETE`, **Delete 14 transactions**. Expect
@@ -809,11 +809,18 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
 - **END-2** Log out, then open `$URL/register` (the login page shows no
   link to it once the account is claimed).
   Expect: a **Current Password** field and no Setup Code. Enter a new
-  username `fresh`, a 12+ character password and the current password.
-  Expect the confirm "Warning: The account is already registered.
-  Re-registering will delete all transactions and update your credentials.
-  Proceed?", then "Registration successful! Your credentials have been
-  updated.". Logging in as `fresh` shows an empty ledger.
+  username `fresh`, a 12+ character password and a wrong current password:
+  expect it refused, with no dialog. Then the right one. Expect a dialog
+  (not the browser's confirm, #256) "Create a new account and delete every
+  transaction?" saying "This deletes 14 transactions, 2023–2025", that a
+  copy is kept in the data folder, and how to download a backup after
+  logging in (a **Log in** link; no download button, not being logged in).
+  **Delete 14 transactions** stays disabled until `DELETE` is typed. Type
+  it and click it. Expect "Registration successful! Your credentials have
+  been updated. A copy of the database from before is kept in BitcoinTX's
+  data folder (in backups, unencrypted).", and `ls /data/backups` (as in
+  IMP-3) listing one more `btctx-before-delete-all-….db`. Logging in as
+  `fresh` shows an empty ledger.
 - **END-3** Uninstall BitcoinTX and revert the VM to `clean`.
 
 ---
