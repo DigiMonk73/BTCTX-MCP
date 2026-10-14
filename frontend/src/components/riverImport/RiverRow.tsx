@@ -1,5 +1,4 @@
 import React from "react";
-import { formatLocalDateTime } from "../../utils/format";
 import { STATUS_LABEL, type EditableRow } from "../../utils/riverImport";
 import BasisCell from "./BasisCell";
 import FundingCell from "./FundingCell";
@@ -33,7 +32,12 @@ const RiverRow: React.FC<RiverRowProps> = ({ row, loading, onChange }) => {
           {STATUS_LABEL[p.status]}
         </span>
       </td>
-      <td className="river-cell-date">{formatLocalDateTime(p.date)}</td>
+      <td className="river-cell-date">
+        {new Date(p.date).toLocaleDateString()}
+        <span className="river-cell-time">
+          {new Date(p.date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+        </span>
+      </td>
       <TypeCell {...cell} />
       <FundingCell {...cell} />
       <td className="river-cell-num">{p.amount} BTC</td>

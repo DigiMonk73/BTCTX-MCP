@@ -108,6 +108,22 @@ test("River import rejects a file that isn't a River export", async ({ authedPag
   expect(await listTx(page.request)).toHaveLength(0);
 });
 
+test("River preview: every column fits a 1440-wide window, the page widens only while it's open (#259)", async ({ authedPage: page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const settingsWidth = () => page.locator(".settings-page").evaluate((e) => e.clientWidth);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const narrow = await settingsWidth();
+  await previewRiver(page);
+  await expect.poll(settingsWidth).toBeGreaterThan(narrow);
+  const table = river(page).locator(".river-table");
+  const fit = await table.evaluate((t) => ({ table: t.scrollWidth, room: t.closest(".table-scroll")!.clientWidth }));
+  expect(fit.table).toBeLessThanOrEqual(fit.room);
+
+  await river(page).getByRole("button", { name: "Cancel" }).click();
+  await expect(table).toHaveCount(0);
+  await expect.poll(settingsWidth).toBe(narrow);
+});
+
 function data(page: Page) {
   return page.getByRole("region", { name: "Data Management" });
 }

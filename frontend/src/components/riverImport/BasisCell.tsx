@@ -15,17 +15,19 @@ const BasisCell: React.FC<BasisCellProps> = ({ row, editable, loading, onChange 
   return (
     <td className="river-cell-num">
       {row.type === "Deposit" && editable ? (
-        <span className="river-basis-edit">
-          $
-          <input
-            type="text"
-            inputMode="decimal"
-            value={row.costBasisUsd}
-            disabled={loading}
-            onChange={(e) => onChange({ costBasisUsd: e.target.value })}
-            className="input input-sm river-num-input"
-            aria-label="Cost basis (USD)"
-          />
+        <span className="river-stack river-stack-end">
+          <span className="river-basis-edit">
+            $
+            <input
+              type="text"
+              inputMode="decimal"
+              value={row.costBasisUsd}
+              disabled={loading}
+              onChange={(e) => onChange({ costBasisUsd: e.target.value })}
+              className="input input-sm river-num-input"
+              aria-label="Cost basis (USD)"
+            />
+          </span>
           {p.basis_autofilled && row.costBasisUsd === String(p.cost_basis_usd) && (
             <span className="river-autofill" title="Estimated from the historical BTC price — edit if you know the exact value">
               est.
