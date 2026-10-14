@@ -29,6 +29,7 @@ from backend.services.transaction import (
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
+    ACCOUNT_ID_TO_NAME,
     ACCOUNT_NAME_TO_ID,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
@@ -439,14 +440,25 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
+def _amount_currency(row: _Row) -> str:
+    """BTC for a trade or a move in or out of a BTC account, else USD (a
+    deposit, withdrawal or transfer of cash)."""
+    if row.tx_type in ("Buy", "Sell") or row.from_id in BTC_ACCOUNTS or row.to_id in BTC_ACCOUNTS:
+        return "BTC"
+    return "USD"
+
+
 def _preview(row: _Row) -> CSVRowPreview:
+    # The accounts' usual names, as the CSV export writes them ("Exchange
+    # USD", not the typed name in title case, #254)
     return CSVRowPreview(
         row_number=row.number,
         date=row.timestamp,
         type=row.tx_type,
         amount=row.amount,
-        from_account=row.from_name.title(),
-        to_account=row.to_name.title(),
+        amount_currency=_amount_currency(row),
+        from_account=ACCOUNT_ID_TO_NAME[row.from_id],
+        to_account=ACCOUNT_ID_TO_NAME[row.to_id],
         cost_basis_usd=row.cost_basis_usd,
         proceeds_usd=row.proceeds_usd,
         fee_amount=row.fee_amount,

@@ -1,9 +1,17 @@
 import React from "react";
-import { formatLocalDateTime } from "../utils/format";
+import { formatBtc, formatLocalDateTime, formatUsd, parseDecimal } from "../utils/format";
 
 const ERRORS_SHOWN = 10;
 const WARNINGS_SHOWN = 5;
 const ROWS_SHOWN = 50;
+
+/** The amount in what it is: dollars for a cash move, else bitcoin (#254). */
+function rowAmount(tx: CSVRowPreview): string {
+  const amount = parseDecimal(tx.amount);
+  return tx.amount_currency === "USD" ? formatUsd(amount) : formatBtc(amount);
+}
+
+const usdOrDash = (value?: string) => (value ? formatUsd(parseDecimal(value)) : "-");
 
 /** A CSV import's preview: counts, errors, warnings and the first rows, with
  * the Import and Cancel buttons. */
@@ -80,11 +88,11 @@ const CsvImportPreview: React.FC<{
                 <td>{tx.row_number}</td>
                 <td>{formatLocalDateTime(tx.date)}</td>
                 <td>{tx.type}</td>
-                <td>{tx.amount} BTC</td>
+                <td>{rowAmount(tx)}</td>
                 <td>{tx.from_account}</td>
                 <td>{tx.to_account}</td>
-                <td>{tx.cost_basis_usd ? `$${tx.cost_basis_usd}` : "-"}</td>
-                <td>{tx.proceeds_usd ? `$${tx.proceeds_usd}` : "-"}</td>
+                <td>{usdOrDash(tx.cost_basis_usd)}</td>
+                <td>{usdOrDash(tx.proceeds_usd)}</td>
               </tr>
             ))}
           </tbody>
