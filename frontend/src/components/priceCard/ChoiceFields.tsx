@@ -46,7 +46,9 @@ const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
           ? "An .onion address is reached through Tor."
           : tor.onStartOS
             ? "Turn on Use Tor in StartOS's Price Source & Privacy action, or type another proxy's address."
-            : `Hides your IP address too. Needs Tor running. ${TOR_REFUSED}`}
+            : ticked
+              ? `Hides your IP address too. Needs Tor running. ${TOR_REFUSED}`
+              : "Hides your IP address too. Needs Tor running."}
       </p>
       {ticked && (
         <>
