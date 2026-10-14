@@ -12,7 +12,8 @@ interface TypeCellProps {
 /** The row's type, a choice when River's row can be read more than one way,
  * with a withdrawal's purpose (a choice) or a deposit's source under it: a
  * choice too, or River's tag (an Interest payout's "Interest"). A withdrawal
- * River tagged has only BitcoinTX's default purpose, so none is shown. */
+ * that isn't a choice (one already in the ledger) would show only
+ * BitcoinTX's default purpose, so none is shown. */
 const TypeCell: React.FC<TypeCellProps> = ({ row, editable, loading, onChange }) => {
   const choices = row.proposal.type_choices;
   const choosable = choices.length > 1 && editable;
