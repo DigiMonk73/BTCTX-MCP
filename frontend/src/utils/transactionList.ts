@@ -1,6 +1,7 @@
 // The Transactions page's list: its order, the page shown, the day
 // headings and a row's gain line.
 import { formatSignedUsd, parseDecimal } from "./format";
+import { isNotSold } from "./purposes";
 
 /** Newest first: by date, or by when they were added (id). */
 export function sortTransactions(transactions: ITransaction[], sortMode: SortMode): ITransaction[] {
@@ -36,15 +37,12 @@ export function groupByDay(transactions: ITransaction[]): [string, ITransaction[
   return Object.entries(groups);
 }
 
-// A gift, donation or lost coins aren't a sale: no gain or loss of their own
-// (the tax report says so), so no gain line either (#257). Spent is a sale.
-const NOT_A_SALE = new Set(["gift", "donation", "lost"]);
-
-/** A sell's or spend's gain: "Gain +$1.00 · +2.00% · Long-term"; "" for
- * anything else, or with no basis and no gain. */
+/** A sale's gain: "Gain +$1.00 · +2.00% · Long-term" for a Sell or a
+ * Withdrawal, "" with no basis and no gain. A gift, a donation or lost coins
+ * aren't sales, so they get none (#257). */
 export function gainLabel(tx: ITransaction): string {
   if (tx.type !== "Sell" && tx.type !== "Withdrawal") return "";
-  if (tx.type === "Withdrawal" && NOT_A_SALE.has((tx.purpose ?? "").toLowerCase())) return "";
+  if (tx.type === "Withdrawal" && isNotSold(tx.purpose)) return "";
   if (tx.cost_basis_usd == null || tx.realized_gain_usd == null) return "";
   const gain = parseDecimal(tx.realized_gain_usd);
   const basis = parseDecimal(tx.cost_basis_usd);

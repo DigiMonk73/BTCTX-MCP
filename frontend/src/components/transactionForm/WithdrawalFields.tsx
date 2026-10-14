@@ -3,8 +3,7 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import BtcWithdrawalValues from "./BtcWithdrawalValues";
 import FeeValueField from "./FeeValueField";
-
-const NOT_SOLD = ["Gift", "Donation", "Lost"];
+import { isNotSold } from "../../utils/purposes";
 
 /**
  * A withdrawal; a BTC one also has its purpose, the fee's USD value, its
@@ -17,7 +16,7 @@ const WithdrawalFields: React.FC<{ onRefreshFmv: () => void }> = ({ onRefreshFmv
   const purpose = watch("purpose");
   const showPurpose = account === "Wallet" || (account === "Exchange" && currency === "BTC");
   const isBtc = currency === "BTC";
-  const notSold = NOT_SOLD.includes(purpose ?? "");
+  const notSold = isNotSold(purpose);
 
   return (
     <>

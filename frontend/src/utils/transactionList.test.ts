@@ -64,8 +64,9 @@ describe("gainLabel", () => {
   });
 
   it("shows none for a gift, a donation or lost coins: they aren't sales (#257)", () => {
+    // As saved: a basis, and a gain of 0 ("Gain $0.00 · +0.00% · Long-term" before)
     for (const purpose of ["Gift", "Donation", "Lost", "gift"]) {
-      expect(gainLabel(disposal("Withdrawal", purpose))).toBe("");
+      expect(gainLabel({ ...disposal("Withdrawal", purpose), realized_gain_usd: 0 })).toBe("");
     }
   });
 
