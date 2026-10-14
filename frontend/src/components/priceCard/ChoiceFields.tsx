@@ -1,5 +1,6 @@
 import React from "react";
 import { MEMPOOL_PLACEHOLDER, TOR_PLACEHOLDER, isOnion, torOffered, type PriceForm } from "../../utils/priceSource";
+import { TOR_REFUSED } from "../../utils/priceStatus";
 
 interface Props {
   form: PriceForm;
@@ -23,7 +24,7 @@ const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
           <span>Through Tor</span>
         </label>
         <p id="price-tor-help" className="price-help">
-          Tor on this server, set in StartOS: every request to a public site, and an .onion, goes through it.
+          Tor on this server, set in StartOS: every request to a public site, and an .onion, goes through it. {TOR_REFUSED}
         </p>
       </div>
     );
@@ -45,7 +46,9 @@ const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
           ? "An .onion address is reached through Tor."
           : tor.onStartOS
             ? "Turn on Use Tor in StartOS's Price Source & Privacy action, or type another proxy's address."
-            : "Hides your IP address too. Needs Tor running."}
+            : ticked
+              ? `Hides your IP address too. Needs Tor running. ${TOR_REFUSED}`
+              : "Hides your IP address too. Needs Tor running."}
       </p>
       {ticked && (
         <>

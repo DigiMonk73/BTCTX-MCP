@@ -66,6 +66,7 @@ class Sites:
         self.volume = {h: "1.5" for h in prices}
         self.mempool = None
         self.bitstamp_down = False
+        self.bitstamp_refuses = None  # a status Bitstamp answers instead (403, 302): what Tor's exits get
         self.requests = []
         self.after_request = None
 
@@ -75,6 +76,9 @@ class Sites:
             self.after_request(self)
         if request.url.host == "www.bitstamp.net" and self.bitstamp_down:
             return httpx.Response(503)
+        if request.url.host == "www.bitstamp.net" and self.bitstamp_refuses:
+            return httpx.Response(self.bitstamp_refuses, headers={"location": str(request.url)},
+                                  text="<HTML><HEAD><TITLE>Loading</TITLE></HEAD></HTML>")
         if request.url.host == "www.bitstamp.net":
             start = int(request.url.params["start"])
             rows = [{"timestamp": str(h), "open": str(self.bitstamp[h]), "volume": self.volume[h]}
@@ -497,7 +501,8 @@ def test_the_download_status_follows_the_download(sites, db):
     use(price_source="off")
     status = hp.download_status()
     assert status == {"until": "2026-03-14T23:00Z", "first_year": 2025, "shipped": False, "years_total": 2,
-                      "years_done": 0, "state": "not_allowed", "failed_at": None, "mismatched": []}
+                      "years_done": 0, "state": "not_allowed", "failed_at": None, "refused": False,
+                      "mismatched": []}
     use(price_source="public")
     assert hp.download_status()["state"] == "waiting"
     seen = []
@@ -529,3 +534,22 @@ def test_the_download_status_names_a_failure_and_a_year_that_didnt_match(sites, 
     assert status["years_done"] == 1 and status["mismatched"] == [2025] and status["state"] == "waiting"
     (hp.folder() / "2026.csv").write_text("hour_utc,usd\n", encoding="utf-8")  # damaged on disk
     assert hp.download_status()["years_done"] == 0
+
+
+@pytest.mark.parametrize("answer", [403, 302])
+def test_a_refused_download_says_so_and_a_silent_one_doesnt(sites, db, answer):
+    """Bitstamp gives Tor's exits a block (403) or a challenge page (302)
+    instead of prices (#241): the status says it refused, so the card
+    doesn't ask whether Tor is running. A site that doesn't answer isn't
+    a refusal."""
+    sites.bitstamp_refuses = answer
+    hp.start_download()
+    finish_download()
+    status = hp.download_status()
+    assert status["state"] == "failed" and status["refused"] is True
+    hp._state["failed_at"] -= hp.RETRY_SECONDS
+    assert hp.download_status()["refused"] is False  # only while the failure is shown
+    sites.bitstamp_refuses, sites.bitstamp_down = None, True
+    hp.start_download()
+    finish_download()
+    assert hp.download_status()["refused"] is False
