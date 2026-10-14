@@ -454,7 +454,7 @@ Start from the `clean` snapshot.
   `'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=2'` each
   return JSON, not a 403.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
-  reload. Expect the Dashboard price to read "Error": requests must fail
+  reload. Expect the Dashboard price to read "No answer": requests must fail
   rather than go out directly. Start Tor: the price is back.
 - **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
   hourly price history's one-time download over real Tor (#144). It was
@@ -471,7 +471,7 @@ Start from the `clean` snapshot.
     "Hourly BTC prices: the download from Bitstamp failed: …". After that
     line, **no "checked" line may appear until Tor is started and the
     service restarted**: a request must fail rather than go out directly
-    (as PRC-3's "Error"); one then is a blocker FAIL. (A "checked" line
+    (as PRC-3's "No answer"); one then is a blocker FAIL. (A "checked" line
     just before the failed line can be a year that finished as Tor
     stopped.)
   - Start Tor, then restart the service. Expect the download to resume:
@@ -794,8 +794,8 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   (including fee 0.00020000)", and the ledger unchanged: 14 rows and every
   golden figure. Then add a $1 deposit to `Bank Account` and delete it.
   Expect both to work: a refused delete leaves the ledger usable.
-- **END-2** Log out, then open `$URL/register` (the login page has no
-  link to it).
+- **END-2** Log out, then open `$URL/register` (the login page shows no
+  link to it once the account is claimed).
   Expect: a **Current Password** field and no Setup Code. Enter a new
   username `fresh`, a 12+ character password and the current password.
   Expect the confirm "Warning: The account is already registered.
