@@ -19,8 +19,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
-  scrolled sideways. While a preview is open, Settings now uses the
-  window's width, and the table is narrower: the time under the date, a
+  scrolled sideways. While a preview is open, Settings now widens (up to
+  1,240 px, the Dashboard's width), and the table is narrower: the time under the date, a
   withdrawal's purpose or a deposit's source under its type, and the
   account it goes to under the one it comes from (a Buy's Bank / Exchange
   USD choice included). Every column now shows in a 1440-wide window; in a
