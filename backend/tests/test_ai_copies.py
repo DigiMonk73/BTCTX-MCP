@@ -350,7 +350,9 @@ def test_a_week_of_hourly_changes_keeps_the_first_copy_of_each_day(ledger):
         day = datetime.fromtimestamp(when, timezone.utc).date()
         if day > today - timedelta(days=7):
             first_each_day.setdefault(day, amount)
-    assert len(first_each_day) == 7
+    # 7 days, or 6 in a UTC day's first two hours: the last copy (two hours
+    # ago) is yesterday's, so today has none yet
+    assert len(first_each_day) in (6, 7)
     kept = {amounts(copy)[ids[1]] for copy in backup_copies(path, "ai")}
     assert set(first_each_day.values()) <= kept
 
