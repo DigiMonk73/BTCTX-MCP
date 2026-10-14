@@ -74,12 +74,12 @@ def expected_holdings(before):
 
 @pytest.fixture
 def ledger(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for tx in LEDGER:
         r = auth_client.post("/api/transactions", json=tx)
         assert r.status_code == 200, (tx, r.text)
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def report(engine, year):

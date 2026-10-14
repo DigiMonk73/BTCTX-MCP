@@ -21,7 +21,7 @@ Run: python backend/tests/test_comprehensive_transactions.py
 Requires: Backend running at http://127.0.0.1:8000
 """
 
-from backend.tests.conftest import default_login
+from backend.tests.conftest import default_login, remove_temp_db, temp_db_file
 import pytest
 import sys
 from decimal import Decimal, ROUND_HALF_DOWN
@@ -74,7 +74,7 @@ def log(msg: str, level: str = "INFO"):
 
 def delete_all_transactions():
     """Clear all transactions for a fresh start."""
-    r = CLIENT.delete("/api/transactions/delete_all")
+    r = CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     if r.status_code not in (200, 204):
         log(f"Could not delete transactions: {r.status_code}", "FAIL")
         sys.exit(1)
@@ -2138,12 +2138,9 @@ if __name__ == "__main__":
     from backend.main import app
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    import tempfile
-    import os
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    engine = create_engine(f"sqlite:///{tmp.name}", connect_args={"check_same_thread": False})
+    db_file = temp_db_file()  # its own folder: the copies made beside it go too
+    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
     init_test_db(engine)
 
     TestSessionLocal = sessionmaker(bind=engine)
@@ -2165,5 +2162,5 @@ if __name__ == "__main__":
     exit_code = run_all_tests()
     app.dependency_overrides.clear()
     engine.dispose()
-    os.unlink(tmp.name)
+    remove_temp_db(db_file)
     sys.exit(exit_code)

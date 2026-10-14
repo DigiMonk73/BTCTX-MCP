@@ -27,14 +27,14 @@ def snapshot(client):
 
 @pytest.fixture
 def ledger(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     ids = {}
     for name, tx in (("deposit", DEPOSIT), ("buy", BUY), ("transfer", TRANSFER), ("sell", SELL)):
         r = auth_client.post("/api/transactions", json=tx)
         assert r.status_code == 200, r.text
         ids[name] = r.json()["id"]
     yield ids
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_deleting_a_buy_later_rows_spend_is_refused_and_changes_nothing(auth_client, ledger):

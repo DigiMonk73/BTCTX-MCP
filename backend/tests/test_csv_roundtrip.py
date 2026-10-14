@@ -69,20 +69,20 @@ def odd_price(monkeypatch):
 
 @pytest.fixture
 def ledger(auth_client, odd_price):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
     auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"})
     for tx in LEDGER:
         r = auth_client.post("/api/transactions", json=tx)
         assert r.status_code == 200, (tx, r.text)
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
 
 
 def round_trip(client):
     exported = client.get("/api/backup/csv").text
-    assert client.delete("/api/transactions/delete_all").status_code == 204
+    assert client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
     preview = client.post("/api/import/preview", files=csv_file(exported)).json()
     assert preview["can_import"] and preview["valid_rows"] == len(LEDGER), preview
     assert preview["errors"] == [] and preview["warnings"] == [], preview
@@ -140,7 +140,7 @@ BANK = "2024-01-01T12:00:00Z,Deposit,1000,External,Bank,,,,,,,"
     ("2024-01-02T12:00:00Z,Buy,0.01,Bank,Exchange BTC,500,,,,,,,,abc,", "fmv_usd", None),
 ])
 def test_bad_values_in_the_new_columns_are_errors(auth_client, row, column, message):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     preview = auth_client.post("/api/import/preview", files=csv_file(f"{HEADER}\n{BANK}\n{row}\n")).json()
     errors = [e for e in preview["errors"] if e["row_number"] == 3]
     assert [e["column"] for e in errors] == [column]
@@ -156,7 +156,7 @@ def test_bad_values_in_the_new_columns_are_errors(auth_client, row, column, mess
     ("2024-01-02T12:00:00Z,Buy,0.01,Bank,Exchange BTC,500,,,,,,,,600,", "fmv_usd"),
 ])
 def test_a_value_the_row_cant_use_is_a_warning_and_left_out(auth_client, row, column):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     content = f"{HEADER}\n{BANK}\n{row}\n"
     preview = auth_client.post("/api/import/preview", files=csv_file(content)).json()
     assert preview["can_import"] and preview["errors"] == []
@@ -164,7 +164,7 @@ def test_a_value_the_row_cant_use_is_a_warning_and_left_out(auth_client, row, co
     assert auth_client.post("/api/import/execute", files=csv_file(content)).status_code == 200
     buy = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Buy")
     assert buy["fee_usd"] is None and buy["fmv_usd"] is None
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 @pytest.mark.parametrize("fee, currency, stored", [
@@ -173,19 +173,19 @@ def test_a_value_the_row_cant_use_is_a_warning_and_left_out(auth_client, row, co
     ("0", "", (0.0, "USD")),       # its currency filled as for any fee
 ])
 def test_a_blank_fee_is_no_fee_and_a_zero_fee_is_kept(auth_client, fee, currency, stored):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     row = f"2024-01-02T12:00:00Z,Buy,0.01,Bank,Exchange BTC,500,,{fee},{currency},,,,,,"
     r = auth_client.post("/api/import/execute", files=csv_file(f"{HEADER}\n{BANK}\n{row}\n"))
     assert r.status_code == 200, r.text
     buy = next(t for t in auth_client.get("/api/transactions").json() if t["type"] == "Buy")
     fee_amount = None if buy["fee_amount"] is None else float(buy["fee_amount"])
     assert (fee_amount, buy["fee_currency"]) == stored
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_a_row_the_ledger_refuses_says_why_and_saves_nothing(auth_client, monkeypatch):
     """A BTC fee without fee_usd and no price to value it: the import says so (not a 500)."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     stub_daily_prices(monkeypatch, lambda day: None)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
     content = (f"{HEADER}\n{BANK}\n"
@@ -203,7 +203,7 @@ def test_the_template_imports_as_it_is_with_prices_off(auth_client, monkeypatch)
     four rows with a BTC fee left fee_usd blank, so before a price source was
     chosen, or with prices off, the import stopped at "No BTC price is
     stored" and saved nothing."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     stub_daily_prices(monkeypatch, lambda day: None)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
     template = auth_client.get("/api/import/template").text
@@ -212,7 +212,7 @@ def test_the_template_imports_as_it_is_with_prices_off(auth_client, monkeypatch)
     r = auth_client.post("/api/import/execute", files=csv_file(template))
     assert r.status_code == 200, r.text
     assert len(auth_client.get("/api/transactions").json()) == len(TEMPLATE_ROWS)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, test_engine, monkeypatch):
@@ -222,7 +222,7 @@ def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, t
     $2,000 to $4,000 and LONG to SHORT. Same-time rows now import in the
     file's order, which is the ledger's order in an export."""
     stub_daily_prices(monkeypatch, lambda day: 50000)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for tx in (
         dict(type="Buy", timestamp="2023-01-02T12:00:00Z", from_account_id=1, to_account_id=4,
              amount="0.5", cost_basis_usd="10000"),
@@ -245,20 +245,20 @@ def test_csv_round_trip_keeps_the_order_of_same_time_transactions(auth_client, t
     before = ledger_state(auth_client, test_engine)
 
     exported = auth_client.get("/api/backup/csv").text
-    assert auth_client.delete("/api/transactions/delete_all").status_code == 204
+    assert auth_client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
     r = auth_client.post("/api/import/execute", files=csv_file(exported))
     assert r.status_code == 200, r.text
 
     assert sell() == (Decimal("2000"), "LONG")
     assert ledger_state(auth_client, test_engine) == before
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_a_sale_listed_before_its_same_time_buy_says_to_reorder(auth_client):
     """Same-time rows now import in the file's order: a hand-made file that
     lists a sale before the same-day buy paying for it is refused (nothing
     saved), and the message says how to fix the file."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     header = ",".join(CSV_COLUMNS)
     blank = {c: "" for c in CSV_COLUMNS}
     rows = [

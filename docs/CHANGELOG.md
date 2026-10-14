@@ -39,6 +39,25 @@ All notable changes to BitcoinTX are documented in this file.
   Ledger Review's dates are in the tax timezone, as `cli review` and the
   AI connector see the same items, and a price's hour ("From the price: …
   at 14:00 UTC") is named in UTC wherever it's shown.
+- **Delete All and Create account ask before they wipe the ledger, and
+  keep a copy first** (#256). Settings → Data Management → **Delete** used
+  the browser's one-click confirm, and **Create account** on an install
+  with transactions deleted them all after a similar confirm, shown even on
+  an empty install and before the setup code was checked. Neither kept a
+  copy. Now:
+  - a dialog says what goes ("This deletes 118 transactions, 2023–2026"),
+    offers **Download a backup first** (the encrypted backup, which
+    Restore brings back; on Create account, how to get one after logging
+    in), and deletes only once you type `DELETE`;
+  - before anything is deleted, BitcoinTX keeps a copy of the database in
+    its data folder (`backups/btctx-before-delete-all-….db`, unencrypted,
+    the newest 5, apart from the copies made before updates), for help in
+    putting it back; no copy, nothing deleted;
+  - Create account checks the setup code or current password first, and
+    asks only when there are transactions to delete;
+  - the server refuses either delete without the typed `DELETE`
+    (`confirm=DELETE`; otherwise 409 says what would go). The AI key still
+    can't delete everything.
 - **A gift's, donation's or lost coins' value left blank is filled from
   the price** (#255). In the transaction form, a Withdrawal with purpose
   Gift, Donation or Lost saved with its FMV (USD) blank kept no value

@@ -103,13 +103,13 @@ class _EndOfDraftYear(datetime):
 def test_forms_print_from_the_drafts_marked_on_every_page(auth_client, data_dir, monkeypatch, cover):
     make_draft(data_dir / draft_forms.FOLDER_NAME / str(YEAR), cover=cover)
     monkeypatch.setattr("backend.services.transaction.datetime", _EndOfDraftYear)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for tx in _sale(YEAR):
         assert auth_client.post("/api/transactions", json=tx).status_code == 200
     try:
         r = auth_client.get("/api/reports/irs_reports", params={"year": YEAR})
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     assert r.status_code == 200, r.text
     pages = PdfReader(io.BytesIO(r.content)).pages
     texts = [p.extract_text() or "" for p in pages]
@@ -235,13 +235,13 @@ def test_the_shipped_draft_prints_marked_on_every_page(auth_client, monkeypatch,
     monkeypatch.setattr(draft_forms, "SHIPPED_DIR", REAL_SHIPPED)
     monkeypatch.setattr(draft_forms, "today", lambda: date(year, 12, 31))
     monkeypatch.setattr("backend.services.transaction.datetime", _EndOfDraftYear)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     try:
         for tx in _sale(year):
             assert auth_client.post("/api/transactions", json=tx).status_code == 200
         r = auth_client.get("/api/reports/irs_reports", params={"year": year})
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     assert r.status_code == 200, r.text
     texts = [p.extract_text() or "" for p in PdfReader(io.BytesIO(r.content)).pages]
     assert len(texts) == 3 and all(draft_forms.DRAFT_MARK in t for t in texts)

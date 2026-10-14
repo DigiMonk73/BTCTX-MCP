@@ -32,10 +32,10 @@ def _setup(auth_client, test_engine):
 
 @pytest.fixture(autouse=True)
 def _clean():
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
     yield
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def set_tz(name):

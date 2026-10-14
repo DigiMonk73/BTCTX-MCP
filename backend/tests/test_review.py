@@ -12,7 +12,7 @@ BANK, WALLET, EXCH_BTC, EXTERNAL = 1, 2, 4, 99
 
 @pytest.fixture
 def ledger(auth_client, test_engine):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     # Rows as older versions saved them: inserted directly, since today's
     # validation refuses some of them.
     rows = [
@@ -40,7 +40,7 @@ def ledger(auth_client, test_engine):
     with test_engine.connect() as con:
         before = con.execute(text("SELECT * FROM transactions ORDER BY id")).all()
     yield before
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def ids(review, key):
@@ -90,7 +90,7 @@ def test_review_dates_are_in_the_tax_timezone(auth_client, test_engine, ledger):
 
 def test_review_amounts_have_eight_decimals(auth_client, test_engine):
     """A 5-satoshi amount reads 0.00000005, not 5E-8 (#74)."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     with test_engine.begin() as con:
         con.execute(text(
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
@@ -102,13 +102,13 @@ def test_review_amounts_have_eight_decimals(auth_client, test_engine):
         item = next(c for c in review["checks"] if c["key"] == "zero_proceeds_spend")["items"][0]
         assert item["amount"] == "0.00000005"
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
     """A transfer of 60 satoshis whose fee was valued off the day's price:
     its amount reads 0.00000060, never exponent form (#74)."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
     try:
         assert post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=EXCH_BTC,
@@ -122,13 +122,13 @@ def test_review_fee_text_has_eight_decimals(auth_client, test_engine):
         item = next(c for c in review["checks"] if c["key"] == "day_priced_values")["items"][0]
         assert item["amount"] == "0.00000060" and item["change"].startswith("Fee value $2.00 -> "), item
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_review_lists_income_deposits_with_a_zero_or_blank_value(auth_client, test_engine):
     """#77: an income deposit at $0 or blank reports no income, which the
     income rules forbid; it slipped past both basis checks."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     rows = [(960, "0"), (961, None), (962, "500")]  # $0, blank, valued
     with test_engine.begin() as con:
         for tx_id, basis in rows:
@@ -144,7 +144,7 @@ def test_review_lists_income_deposits_with_a_zero_or_blank_value(auth_client, te
         assert zero["issue"].startswith("Basis $0.00") and blank["issue"].startswith("Basis blank")
         assert "it is $500.00" in zero["issue"] and "$500.00 if you clear it" in zero["change"]  # 0.01 at $50,000
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_review_lists_zero_income_even_without_a_price(auth_client, test_engine, monkeypatch):
@@ -152,7 +152,7 @@ def test_review_lists_zero_income_even_without_a_price(auth_client, test_engine,
     deposit is still listed, without its value, and counted in no_price_for."""
     from backend.tests.conftest import stub_daily_prices
 
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     stub_daily_prices(monkeypatch, lambda day: None)
     with test_engine.begin() as con:
         con.execute(text(
@@ -165,7 +165,7 @@ def test_review_lists_zero_income_even_without_a_price(auth_client, test_engine,
         assert item["id"] == 970 and "(no price stored for that day)" in item["issue"]
         assert review["no_price_for"] == [970]
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_review_needs_login():
@@ -181,7 +181,7 @@ def priced(auth_client, test_engine):
     """A transfer whose fee value came from the live price (12.00 where the
     day's price gives 10.00), one with a typed value, and an income deposit
     valued at another day's price (F42)."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     post = lambda **b: auth_client.post("/api/transactions", json=b)  # noqa: E731
     assert post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
                 amount="100000", fee_amount="0", fee_currency="USD", source="N/A").status_code == 200
@@ -197,7 +197,7 @@ def priced(auth_client, test_engine):
         con.execute(text("UPDATE transactions SET fee_usd = '12.00' WHERE id = :id"), {"id": live["id"]})
     assert auth_client.post("/api/transactions/recalculate").status_code == 200
     yield live["id"], typed["id"], income["id"]
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def fee_proceeds(test_engine, tx_id):
@@ -245,7 +245,7 @@ def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_c
     """After upgrading, rows computed by the old rules are listed old -> new
     (here a spend whose fee wasn't taken off its proceeds, #157, and a Lost
     withdrawal with a loss), and nothing is written."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     post = lambda **b: auth_client.post("/api/transactions", json=b).json()  # noqa: E731
     try:
         post(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
@@ -283,7 +283,7 @@ def test_review_shows_what_recalculation_would_change_and_changes_nothing(auth_c
             assert con.execute(text("SELECT * FROM transactions ORDER BY id")).all() == before
             assert con.execute(text("SELECT * FROM lot_disposals ORDER BY id")).all() == disposals
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_a_deposit_without_basis_asks_for_a_gifts_basis(auth_client):

@@ -48,10 +48,10 @@ def pdf_text(data: dict) -> str:
 
 @pytest.fixture
 def clean(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
     auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_holdings_are_valued_when_the_tax_year_ends_and_the_next_one_starts_there(

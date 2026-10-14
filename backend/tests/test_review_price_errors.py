@@ -35,7 +35,7 @@ def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engin
     here, so the fee check doesn't raise first)."""
     from sqlalchemy import text
 
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     with test_engine.begin() as con:
         con.execute(text(
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
@@ -50,4 +50,4 @@ def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engin
         with pytest.raises(RuntimeError, match="database is locked"):
             auth_client.get("/api/review")
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

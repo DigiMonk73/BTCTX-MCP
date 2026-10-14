@@ -55,6 +55,14 @@ AI_CHANGE_LABEL = "before-changing"
 # Copies before Ledger Review's hourly check is applied (#144), kept apart:
 # applying one item at a time must not push out the pre-upgrade copy.
 REVIEW_COPIES_KEPT = 5
+# Copies before every transaction is deleted (Delete All, or Create account
+# on an install with transactions, #256), kept apart for the same reason: a
+# few deletes and re-imports must not push out the pre-upgrade copy.
+DELETE_KIND = "before-delete"
+DELETE_COPIES_KEPT = 5
+# Every kind of copy. A kind may start with another's name ("before-delete",
+# "before"): each one's listing leaves the longer kinds' copies out.
+COPY_KINDS = ("before", DELETE_KIND, "ai", "review")
 # A copy being written: a name no listing of copies matches.
 PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
@@ -126,10 +134,11 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
-    and pre-restore; "ai": asked for with the AI key, or made before its
-    changes; "review": before Ledger Review's hourly check is applied)
-    keeps its own newest `keep` (and "ai" more: prune_backups), so one kind
-    never pushes out the other.
+    and pre-restore; "before-delete": before every transaction is deleted;
+    "ai": asked for with the AI key, or made before its changes; "review":
+    before Ledger Review's hourly check is applied) keeps its own newest
+    `keep` (and "ai" more: prune_backups), so one kind never pushes out the
+    other.
 
     It is written under a name no listing matches and renamed once
     complete: a copy that fails (a full disk) leaves nothing that looks
@@ -148,7 +157,7 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
-    prune_backups(db_path, keep, kind)
+    prune_backups(db_path, keep, kind, spare=dest)
     return dest
 
 
@@ -189,25 +198,29 @@ def backup_copies(db_path: Path, kind: str = "before", label: str | None = None)
     <dir>/backups/, newest first."""
     dest_dir = db_path.parent / BACKUP_DIRNAME
     pattern = f"{db_path.stem}-{kind}-{label}-*.db" if label else f"{db_path.stem}-{kind}-*.db"
+    longer = tuple(f"{db_path.stem}-{k}-" for k in COPY_KINDS if k.startswith(f"{kind}-"))
     return sorted(
-        dest_dir.glob(pattern),
+        (p for p in dest_dir.glob(pattern) if not p.name.startswith(longer)),
         key=lambda p: (p.stat().st_mtime_ns, p.name),
         reverse=True,
     )
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before") -> list[Path]:
+def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before",
+                  spare: Path | None = None) -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
-    copies more: _ai_copies_held) and delete the others. Only files this
-    module wrote (<stem>-<kind>-*.db) are touched. Returns the deleted paths.
+    copies more: _ai_copies_held) and delete the others, never `spare`: the
+    copy just made, which a clock set back would date before older ones.
+    Only files this module wrote (<stem>-<kind>-*.db) are touched. Returns
+    the deleted paths.
     """
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
     held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
     removed = []
     for old in copies[keep:]:
-        if old in held:
+        if old in held or old == spare:
             continue
         try:
             old.unlink()

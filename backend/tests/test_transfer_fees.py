@@ -36,9 +36,9 @@ def _no_network(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _clean_ledger():
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    CLIENT.delete("/api/transactions/delete_all")
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def create(**tx):

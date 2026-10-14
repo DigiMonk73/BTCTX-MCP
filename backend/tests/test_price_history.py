@@ -283,7 +283,7 @@ def test_mempool_with_fallback_asks_the_public_history_for_older_days(sources, d
 def test_no_price_is_a_clear_422_everywhere_never_the_live_price(sources, auth_client):
     """Income basis, Spent value, transfer fee and a price asked for a day
     all refuse to guess; before, a failed day lookup used today's price."""
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     try:
         for body in (
             dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
@@ -311,7 +311,7 @@ def test_no_price_is_a_clear_422_everywhere_never_the_live_price(sources, auth_c
         assert r.status_code == 200, r.text
         assert D(r.json()["fee_usd"]) == D("6.10") and r.json()["fee_usd_manual"] is True
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_no_price_messages_speak_to_the_form_as_well_as_the_api(sources, auth_client, funded):
@@ -335,7 +335,7 @@ def test_the_price_asked_at_a_moment_is_the_one_the_server_values_it_at(auth_cli
     and the server's income valuation read the same price: since #144, its
     hour's, each hour here its own."""
     stub_prices_at(monkeypatch, lambda when: 60000 + when.hour)
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     try:
         asked = auth_client.get("/api/bitcoin/price/history", params={"at": "2024-05-01T12:00:00.000Z"}).json()["USD"]
         assert asked == 60012.0
@@ -345,12 +345,12 @@ def test_the_price_asked_at_a_moment_is_the_one_the_server_values_it_at(auth_cli
         assert r.status_code == 200, r.text
         assert D(r.json()["cost_basis_usd"]) == (D(str(asked)) * D("0.5")).quantize(D("0.01"))
     finally:
-        auth_client.delete("/api/transactions/delete_all")
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 @pytest.fixture
 def funded(auth_client):
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     for body in (
         dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
              amount="100000", fee_amount="0", fee_currency="USD", source="N/A"),
@@ -359,7 +359,7 @@ def funded(auth_client):
     ):
         assert auth_client.post("/api/transactions", json=body).status_code == 200
     yield
-    auth_client.delete("/api/transactions/delete_all")
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def transfer(client, **kw):

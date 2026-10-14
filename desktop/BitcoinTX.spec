@@ -169,6 +169,7 @@ hidden_imports = [
     "backend.services.hourly_review",
     "backend.services.outbound",
     "backend.services.mempool_trust",
+    "backend.services.wipe",
     "socksio",
     "httpcore._async.socks_proxy",
     "backend.secret_key",
