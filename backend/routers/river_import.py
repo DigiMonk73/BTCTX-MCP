@@ -14,6 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
+from backend.constants import ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth
 from backend.schemas.river_import import (
@@ -278,15 +279,25 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
 
 
 def _ledger_amount(row: RiverExecuteRow) -> Decimal:
-    """River leaves a transfer's fee out of its amount; BitcoinTX's, the
-    CSV's and the save's, has a BTC fee in (ledger_amount). The row check
-    then compares the fee with what the save will see (#285's review). A
-    fee the row check refuses stays out, so its error names the fee."""
-    fee = row.fee_amount
-    if fee is None or fee < 0 or _parse_decimal(number_text(fee), BTC_PLACES) is None:
+    """
+    River leaves a transfer's fee out of its amount; BitcoinTX's, the CSV's
+    and the save's, has a BTC fee in (ledger_amount). The row check then
+    compares the fee with what the save will see (#285's review). The fee
+    goes in only for a transfer from a bitcoin account, with an amount and a
+    fee the row check takes, each read as it reads them ("transfer", " btc");
+    any other row keeps River's amount, so its error names its own column.
+    """
+    sender = ACCOUNT_NAME_TO_ID.get(row.from_account.strip().lower())
+    if row.type.strip().title() != "Transfer" or sender not in BTC_ACCOUNTS:
         return row.amount
-    tx_type = row.type.strip().title()  # as the row check reads it: "transfer" is a Transfer (#277)
-    return ledger_amount(tx_type, row.amount, fee, row.fee_currency)
+    if not (_btc_number(row.amount) and row.amount > 0 and _btc_number(row.fee_amount) and row.fee_amount > 0):
+        return row.amount
+    return ledger_amount("Transfer", row.amount, row.fee_amount, (row.fee_currency or "").strip().upper() or None)
+
+
+def _btc_number(value: Decimal | None) -> bool:
+    """A number the row check takes in a BTC column (8 places, 10 digits)."""
+    return value is not None and _parse_decimal(number_text(value), BTC_PLACES) is not None
 
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
