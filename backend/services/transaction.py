@@ -12,7 +12,7 @@ import logging
 import unicodedata
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal, ROUND_HALF_DOWN, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from collections import defaultdict
 
 from fastapi import HTTPException
@@ -38,6 +38,10 @@ from backend.constants import (
 )
 
 CENT = Decimal("0.01")
+# How an exact half cent of a share goes (a lot's cost, a disposal's
+# proceeds): up, as the IRS rounds to whole dollars (#100)
+SHARE_ROUNDING = ROUND_HALF_UP
+
 logger = logging.getLogger(__name__)
 
 
@@ -1137,6 +1141,32 @@ def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
     )
 
 
+def _cost_of_first(lot: BitcoinLot, btc: Decimal) -> Decimal:
+    """What a lot's first `btc` cost: its share of the lot's cost, to the
+    cent; all of the lot costs exactly the lot's cost (#100)."""
+    if not lot.total_btc or btc <= 0:
+        return Decimal("0")
+    if btc >= lot.total_btc:
+        return Decimal(lot.cost_basis_usd)
+    return (lot.cost_basis_usd * btc / lot.total_btc).quantize(CENT, rounding=SHARE_ROUNDING)
+
+
+def piece_cost(lot: BitcoinLot, qty: Decimal) -> Decimal:
+    """
+    The cost of `qty` BTC about to be taken from `lot` (its remaining_btc
+    not yet lowered): what the lot's taken BTC cost with this piece, less
+    without it. Rounded as a running total, not piece by piece, so a lot's
+    pieces add up to its cost to the cent, however small they are (#100).
+    """
+    taken = lot.total_btc - lot.remaining_btc
+    return _cost_of_first(lot, taken + qty) - _cost_of_first(lot, taken)
+
+
+def cost_left(lot: BitcoinLot) -> Decimal:
+    """The cost of a lot's BTC not yet taken: its cost less its pieces'."""
+    return Decimal(lot.cost_basis_usd) - _cost_of_first(lot, lot.total_btc - lot.remaining_btc)
+
+
 class _FifoDisposal:
     """
     A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
@@ -1163,7 +1193,7 @@ class _FifoDisposal:
             if qty == self.remaining_fee:
                 proceeds = self.fee_usd - self.fee_proceeds_so_far
             else:
-                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(Decimal("0.01"), rounding=SHARE_ROUNDING)
             self.fee_proceeds_so_far += proceeds
             self.record(lot, qty, proceeds, gain_zero=False, is_fee=True)
             self.remaining_fee -= qty
@@ -1173,14 +1203,13 @@ class _FifoDisposal:
                 proceeds = self.total_proceeds - self.proceeds_so_far
             else:
                 proceeds = (qty / self.amount_btc * self.total_proceeds).quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+                    Decimal("0.01"), rounding=SHARE_ROUNDING)
             self.proceeds_so_far += proceeds
             self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)
             self.remaining_amount -= qty
 
     def record(self, lot: BitcoinLot, qty: Decimal, proceeds: Decimal, gain_zero: bool, is_fee: bool) -> None:
-        cost_per_btc = lot.cost_basis_usd / lot.total_btc if lot.total_btc else Decimal("0")
-        basis = (cost_per_btc * qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+        basis = piece_cost(lot, qty)
         self.db.add(LotDisposal(
             lot_id=lot.id,
             transaction_id=self.tx.id,
@@ -1495,28 +1524,28 @@ class _LotMove:
 
     def take_from(self, lot: BitcoinLot) -> None:
         btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
-        cost_per_btc = (
-            lot.cost_basis_usd / lot.total_btc if lot.total_btc > 0 else Decimal("0")
-        )
-        lot.remaining_btc -= btc_to_use
-        self.db.add(lot)
         self.remaining_outflow -= btc_to_use
 
+        # The fee's piece first, then the moved one, each with its cost
+        # taken from the lot in turn (piece_cost), so none is lost (#100)
         portion_for_fee = min(btc_to_use, self.remaining_fee)
         portion_for_dest = btc_to_use - portion_for_fee
         if portion_for_fee > 0:
-            self.dispose_fee(lot, portion_for_fee, cost_per_btc)
+            self.dispose_fee(lot, portion_for_fee, piece_cost(lot, portion_for_fee))
+            lot.remaining_btc -= portion_for_fee
         if portion_for_dest > 0:
-            self.to_destination.append((portion_for_dest, cost_per_btc, lot.acquired_date, lot.inherited))
+            self.to_destination.append(
+                (portion_for_dest, piece_cost(lot, portion_for_dest), lot.acquired_date, lot.inherited))
+            lot.remaining_btc -= portion_for_dest
+        self.db.add(lot)
 
-    def dispose_fee(self, lot: BitcoinLot, portion: Decimal, cost_per_btc: Decimal) -> None:
-        disposal_basis = (cost_per_btc * portion).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+    def dispose_fee(self, lot: BitcoinLot, portion: Decimal, disposal_basis: Decimal) -> None:
         fee_usd = _stored_fee_usd(self.tx, self.fee_btc, self.db)
         if portion == self.remaining_fee:
             proceeds_for_fee = fee_usd - self.fee_proceeds_so_far
         else:
             proceeds_for_fee = (fee_usd * portion / self.fee_btc).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_DOWN)
+                Decimal("0.01"), rounding=SHARE_ROUNDING)
         self.fee_proceeds_so_far += proceeds_for_fee
         self.db.add(LotDisposal(
             lot_id=lot.id,
@@ -1531,10 +1560,9 @@ class _LotMove:
         self.remaining_fee -= portion
 
     def add_destination_lots(self) -> None:
-        for amt_btc, cost_per_btc, acquired_date, inherited in self.to_destination:
+        for amt_btc, cost_portion, acquired_date, inherited in self.to_destination:
             if acquired_date.tzinfo is None:
                 acquired_date = acquired_date.replace(tzinfo=timezone.utc)
-            cost_portion = (cost_per_btc * amt_btc).quantize(Decimal("0.01"), rounding=ROUND_HALF_DOWN)
             self.db.add(BitcoinLot(
                 created_txn_id=self.tx.id,
                 acquired_date=acquired_date,
