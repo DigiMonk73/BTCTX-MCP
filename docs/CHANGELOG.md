@@ -170,8 +170,25 @@ All notable changes to BitcoinTX are documented in this file.
   transfer between a dollar account and a bitcoin account. Preview now
   refuses each of them with the reason, as the import does; so do the AI
   connector's entry check and the River import, which share the row check.
-  Nothing wrong was ever saved: the import is all or nothing. A few other
-  rows still pass Preview and fail only at Import (#285).
+  Nothing wrong was ever saved: the import is all or nothing.
+- **The CSV preview refuses every row the save's own checks of a row would**
+  (#285). After #266, Preview still called some rows valid that **Import**
+  then refused, the whole file with them: a sell's fee over its proceeds, a bitcoin
+  transfer's fee over its amount, a deposit's or withdrawal's fee in the
+  other currency (also a dollar deposit's fee with no currency, which the
+  import takes as bitcoin), more than 21,000,000 BTC, a date before 2009 or
+  more than a day ahead (one in the next day is still only a warning), and
+  a purpose or source over 64 characters. Preview now refuses each with
+  the save's own words, through the save's own checks, so the two can't
+  drift apart; the AI connector's entry check and the River import, which
+  share the row check, refuse them there too. (A row the ledger has too
+  little bitcoin for is still found only at Import.) Also, the CSV guide's
+  troubleshooting table said a deposit goes only to Wallet or Exchange
+  BTC; Bank and Exchange USD take deposits too. And in the River import, a
+  dollar transfer with a fee and no fee currency was saved with the fee
+  added to its amount ($101 for $100), and a fee currency written with a
+  space (" BTC") was left out of a bitcoin transfer's amount; both now save
+  as the CSV import does.
 
 ### Development
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5

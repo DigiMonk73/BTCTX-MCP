@@ -168,3 +168,57 @@ def test_river_send_with_fee_converts_to_fee_inclusive_amount():
     # Re-importing the same file recognizes the converted row
     again = river_preview([send])["proposals"][0]
     assert again["status"] == "matched"
+
+
+BANK, EXCHANGE_USD = 1, 3
+NAMES = {EXCHANGE_BTC: "Exchange BTC", WALLET: "Wallet", BANK: "Bank", EXCHANGE_USD: "Exchange USD"}
+
+
+def river_transfer(src, dst, amount, fee, fee_currency):
+    """One transfer through the River import's execute, on a ledger with
+    bitcoin in both BTC accounts and dollars in Bank."""
+    for account, value in ((EXCHANGE_BTC, "0.01"), (WALLET, "0.01"), (BANK, "1000")):
+        basis = {"cost_basis_usd": "1000.00", "source": "MyBTC"} if account != BANK else {}
+        r = create(type="Deposit", timestamp="2024-01-01T00:00:00Z", from_account_id=EXTERNAL,
+                   to_account_id=account, amount=value, **basis)
+        assert r.status_code == 200, r.text
+    return CLIENT.post("/api/import/river/execute", json={"rows": [{
+        "date": "2024-02-15T10:00:00Z", "type": "Transfer", "amount": amount,
+        "from_account": NAMES[src], "to_account": NAMES[dst], "fee_amount": fee, "fee_currency": fee_currency,
+    }]})
+
+
+@pytest.mark.parametrize("src, dst, amount, fee, fee_currency, saved", [
+    (EXCHANGE_BTC, WALLET, "0.00001", "0.00002", "BTC", "0.00003"),   # a send whose fee is more than it
+    (EXCHANGE_BTC, WALLET, "0.00001", "0.00002", None, "0.00003"),    # the same, no fee currency
+    (EXCHANGE_BTC, WALLET, "0.00002", "0.00002", "BTC", "0.00004"),   # a fee as large as it
+    (EXCHANGE_BTC, WALLET, "0.001", "0.000005", "BTC", "0.001005"),   # an ordinary send
+    (EXCHANGE_BTC, WALLET, "0.001", "0.000005", " btc", "0.001005"),  # the currency as the row check reads it
+    (WALLET, EXCHANGE_BTC, "0.00001", "0.00002", "BTC", "0.00003"),   # a receive, its fee typed above it
+    (WALLET, EXCHANGE_BTC, "0.001", None, None, "0.001"),             # an ordinary receive
+    (BANK, EXCHANGE_USD, "100", "1", None, "100"),                    # dollars: a fee is never in the amount
+])
+def test_a_river_transfer_is_checked_with_its_fee_in(src, dst, amount, fee, fee_currency, saved):
+    """River's amount leaves the fee out. The row check compared a fee with
+    it and refused transfers the save takes (#285's review); it now sees
+    BitcoinTX's amount, a BTC fee in, as the save does."""
+    r = river_transfer(src, dst, amount, fee, fee_currency)
+    assert r.status_code == 200, r.text
+    moved = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer"]
+    assert [Decimal(t["amount"]) for t in moved] == [Decimal(saved)]
+
+
+@pytest.mark.parametrize("src, dst, amount, fee, fee_currency, says", [
+    (EXCHANGE_BTC, WALLET, "0", "0.00001", "BTC", "Amount must be positive."),
+    (EXCHANGE_BTC, WALLET, "1E+1000000", "0.00001", "BTC", "Invalid amount '1E+1000000'"),  # not a 500
+    (EXCHANGE_BTC, WALLET, "1E-40", "0.00001", "BTC", "Invalid amount '1E-40'"),
+    (WALLET, WALLET, "0", "0.00001", "BTC", "Amount must be positive."),
+    (BANK, EXCHANGE_USD, "100", "0.0001", "BTC", "A transfer from this account pays its fee in USD."),
+])
+def test_a_river_transfer_the_row_check_refuses_says_why(src, dst, amount, fee, fee_currency, says):
+    """The fee goes into the amount only when the row check takes both, and
+    the sender holds bitcoin: otherwise the error names what's wrong, as
+    before (#285's re-check), and nothing is saved."""
+    r = river_transfer(src, dst, amount, fee, fee_currency)
+    assert r.status_code == 400 and says in r.json()["detail"], r.text
+    assert not [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer"]

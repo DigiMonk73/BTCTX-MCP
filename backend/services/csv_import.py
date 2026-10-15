@@ -21,11 +21,16 @@ from backend.schemas.transaction import (
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USD_AMOUNT_CENTS, USER_ACCOUNTS,
+    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
+    amount_problem,
     create_transaction_record,
+    fee_currency_problem,
     has_control_character,
     original_date_problem,
-    past_the_cent,
+    sell_fee_problem,
+    text_problem,
+    timestamp_problem,
+    transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -217,7 +222,7 @@ def _validate_row(
 
 def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParseError]) -> _Row:
     """The row's values, in the order they're checked; _Rejected at the first
-    that fails. A date in the future is a warning."""
+    that fails. A date in the next day (which the save takes) is a warning."""
     timestamp = _required_date(row, row_number, tz)
     if timestamp > datetime.now(timezone.utc):
         warnings.append(_warning(row_number, "date", "Date is in the future."))
@@ -227,7 +232,7 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     account_errors = _validate_accounts_for_type(tx_type, from_id, to_id, row_number)
     if account_errors:
         raise _Rejected(*account_errors)
-    _check_usd_amount(amount, tx_type, from_id, to_id, row_number)
+    _check_amount_limits(amount, tx_type, from_id, to_id, row_number)
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
@@ -269,6 +274,9 @@ def _required_date(row: dict[str, str], row_number: int, tz) -> datetime:
         raise _Rejected(_error(
             row_number, "date", f"Invalid date format: '{date_str}'. Use ISO8601 (e.g., 2024-01-15T10:30:00Z).",
         ))
+    problem = timestamp_problem(timestamp)  # the save's dates (#285)
+    if problem:
+        raise _Rejected(_error(row_number, "date", problem))
     return timestamp
 
 
@@ -298,11 +306,13 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     return amount
 
 
-def _check_usd_amount(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int) -> None:
-    """The save's rule for an amount in dollars (transaction.past_the_cent,
-    #266): cents at most. The column itself takes a BTC amount's 8 places."""
-    if _amount_currency(tx_type, from_id, to_id) == "USD" and past_the_cent(amount):
-        raise _Rejected(_error(row_number, "amount", USD_AMOUNT_CENTS))
+def _check_amount_limits(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int) -> None:
+    """The save's limits for the amount (transaction.amount_problem, #266,
+    #285): cents at most in dollars, 21,000,000 at most in bitcoin. The
+    column itself takes a BTC amount's 8 places."""
+    problem = amount_problem(amount, tx_type, _amount_currency(tx_type, from_id, to_id))
+    if problem:
+        raise _Rejected(_error(row_number, "amount", problem))
 
 
 def _required_accounts(row: dict[str, str], row_number: int) -> tuple[str, int, str, int]:
@@ -375,6 +385,9 @@ def _options(row: dict[str, str], row_number: int, tx_type: str) -> dict[str, st
             row_number, "fee_currency", f"Invalid fee currency '{options['fee_currency']}'. Must be USD or BTC.",
         ))
     for column in ("source", "purpose"):
+        problem = text_problem(column, options[column])  # the save's length (#285)
+        if problem:
+            raise _Rejected(_error(row_number, column, problem))
         if options[column] and has_control_character(options[column]):
             raise _Rejected(_error(row_number, column, TEXT_ON_ONE_LINE.format(column)))
     return options
@@ -452,12 +465,18 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
-def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str:
+def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str | None:
     """What the amount is counted in, as the ledger counts it
     (transaction._check_amount): the receiving account's currency for a
     Deposit or Buy, the sending account's otherwise."""
-    account = to_id if tx_type in ("Deposit", "Buy") else from_id
-    return "BTC" if account in BTC_ACCOUNTS else "USD"
+    return _currency(to_id if tx_type in ("Deposit", "Buy") else from_id)
+
+
+def _currency(account_id: int) -> str | None:
+    """An account's currency; None for External."""
+    if account_id == ACCOUNT_EXTERNAL:
+        return None
+    return "BTC" if account_id in BTC_ACCOUNTS else "USD"
 
 
 def _preview(row: _Row) -> CSVRowPreview:
@@ -645,6 +664,25 @@ def _trade_rules(row: _Row):
         yield _error(row.number, column, f"{column} is required for {row.tx_type} transactions.")
     if row.fee_currency and row.fee_currency != "USD":
         yield _error(row.number, "fee_currency", f"{row.tx_type} fee must be in USD.")
+    elif row.tx_type == "Sell" and row.proceeds_usd is not None:
+        yield from _problem(row, "fee_amount", sell_fee_problem(row.proceeds_usd, row.fee_amount or Decimal(0)))
+
+
+def _problem(row: _Row, column: str, problem: str | None):
+    """The save's problem with the row (a transaction helper's), as its error."""
+    if problem:
+        yield _error(row.number, column, problem)
+
+
+def _fee_currency_rules(row: _Row):
+    """A deposit's or withdrawal's fee in its account's currency, as the save
+    sees it: the currency given, else the one the import fills in (#285)."""
+    fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
+    problem = fee_currency_problem(
+        row.tx_type, row.fee_amount or Decimal(0), fee_cur, _currency(row.from_id), _currency(row.to_id))
+    if problem and not row.fee_currency:
+        problem += f" (fee_currency is blank: the import uses {fee_cur})"
+    yield from _problem(row, "fee_currency", problem)
 
 
 # What a blank value in a deposit valued when acquired becomes, by source
@@ -655,6 +693,7 @@ _VALUED_AS = {
 
 
 def _deposit_rules(row: _Row):
+    yield from _fee_currency_rules(row)
     source = row.source
     into_btc = row.to_id in BTC_ACCOUNTS
     if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
@@ -675,6 +714,7 @@ def _deposit_rules(row: _Row):
 
 
 def _withdrawal_rules(row: _Row):
+    yield from _fee_currency_rules(row)
     if row.from_id not in BTC_ACCOUNTS:
         return
     purpose = (row.purpose or "").lower()
@@ -693,6 +733,9 @@ def _transfer_rules(row: _Row):
     expected = "BTC" if row.from_id in BTC_ACCOUNTS else "USD"
     if row.fee_currency and row.fee_currency != expected:
         yield _error(row.number, "fee_currency", f"A transfer from this account pays its fee in {expected}.")
+    else:  # a fee in the account's currency, comparable with the amount
+        yield from _problem(row, "fee_amount", transfer_fee_problem(
+            _currency(row.from_id), row.fee_amount or Decimal(0), row.amount))
     if row.from_id == row.to_id and row.from_id in BTC_ACCOUNTS and not row.fee_amount:
         yield _error(row.number, "fee_amount", SAME_ACCOUNT_NEEDS_FEE)
 

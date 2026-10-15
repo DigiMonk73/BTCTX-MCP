@@ -1674,6 +1674,11 @@ TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or ot
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 USD_AMOUNT_CENTS = "A USD amount can have at most 2 decimal places."
+BTC_AMOUNT_CAP = "A BTC amount can't be more than 21,000,000."
+BEFORE_BITCOIN = "The date is before Bitcoin existed (3 January 2009)."
+DATE_AHEAD = "The date is in the future."
+SELL_FEE_OVER_PROCEEDS = "The sell's fee is more than its proceeds."
+TRANSFER_FEE_OVER_AMOUNT = "Transfer fee exceeds the amount sent (amount includes the fee)."
 
 # The API's rule for each money field (schemas/transaction.py), checked here
 # too, on the value and on the value as stored: the imports build their rows
@@ -1738,15 +1743,69 @@ def _checked_type(data: dict) -> str:
     return tx_type
 
 
+# The save's rules as helpers that return what's wrong (None when nothing
+# is): the save calls them, and so does the CSV preview, so the preview
+# refuses what the save's checks of a row refuse (#266, #285). The ledger's
+# balance is the save's alone.
+
+def timestamp_problem(ts: datetime) -> str | None:
+    """Not before Bitcoin, nor more than a day ahead (a naive time is UTC)."""
+    ts_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+    if ts_utc < GENESIS:
+        return BEFORE_BITCOIN
+    if ts_utc > datetime.now(timezone.utc) + timedelta(days=1):
+        return DATE_AHEAD
+    return None
+
+
+def amount_problem(amount: Decimal, tx_type: str, currency: str | None) -> str | None:
+    """An amount counted in `currency` (its main account's: the receiver's
+    for a Deposit or Buy, else the sender's): cents at most in dollars
+    (a Buy's amount is bitcoin), at most 21,000,000 in bitcoin."""
+    if currency == "USD" and tx_type != "Buy" and _past_the_cent(amount):
+        return USD_AMOUNT_CENTS
+    if currency == "BTC" and amount > MAX_BTC:
+        return BTC_AMOUNT_CAP
+    return None
+
+
+def fee_currency_problem(tx_type: str, fee: Decimal, fee_cur: str, from_currency: str | None,
+                         to_currency: str | None) -> str | None:
+    """A withdrawal's fee in the currency of the account it leaves, a
+    deposit's in that of the account it reaches."""
+    if fee > 0 and tx_type in ("Withdrawal", "Deposit"):
+        currency = from_currency if tx_type == "Withdrawal" else to_currency
+        if currency is not None and fee_cur and fee_cur != currency:
+            return f"A {tx_type.lower()} fee must be in {currency}, the account's currency."
+    return None
+
+
+def sell_fee_problem(gross: Decimal, fee: Decimal) -> str | None:
+    """A sell's fee comes out of its proceeds: never more than them."""
+    return SELL_FEE_OVER_PROCEEDS if fee > gross else None
+
+
+def transfer_fee_problem(from_currency: str | None, fee: Decimal, amount: Decimal | None) -> str | None:
+    """A bitcoin transfer's amount includes its fee: never less than it."""
+    if from_currency == "BTC" and amount is not None and fee > amount:
+        return TRANSFER_FEE_OVER_AMOUNT
+    return None
+
+
+def text_problem(key: str, value) -> str | None:
+    """A purpose or source the save keeps: at most MAX_TEXT characters."""
+    if value is not None and len(str(value)) > MAX_TEXT:
+        return f"{key} is too long (at most {MAX_TEXT} characters)."
+    return None
+
+
 def _check_timestamp(data: dict) -> None:
     ts = data.get("timestamp")
     if ts is None:
         _bad("A date and time is required.")
-    ts_utc = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
-    if ts_utc < GENESIS:
-        _bad("The date is before Bitcoin existed (3 January 2009).")
-    if ts_utc > datetime.now(timezone.utc) + timedelta(days=1):
-        _bad("The date is in the future.")
+    problem = timestamp_problem(ts)
+    if problem:
+        _bad(problem)
     # Whole seconds: stored as text and compared as text, a fraction sorted
     # before the whole second ("...00.5Z" < "...00Z", a sale half a second
     # into a year fell in the year before).
@@ -1786,15 +1845,13 @@ def _check_amount(data: dict, tx_type: str, from_acct: Account | None, to_acct: 
     amount = Decimal(amount)
     # The account the amount is counted in: the sender, or for a deposit the receiver.
     main_acct = to_acct if tx_type in ("Deposit", "Buy") else from_acct
-    if main_acct is not None and main_acct.currency == "USD" and tx_type != "Buy" and past_the_cent(amount):
-        _bad(USD_AMOUNT_CENTS)
-    if main_acct is not None and main_acct.currency == "BTC" and amount > MAX_BTC:
-        _bad("A BTC amount can't be more than 21,000,000.")
+    problem = amount_problem(amount, tx_type, main_acct.currency if main_acct is not None else None)
+    if problem:
+        _bad(problem)
 
 
-def past_the_cent(amount: Decimal) -> bool:
-    """More than 2 decimal places, trailing zeros aside ("1.230" has 2): the
-    save's rule for an amount counted in dollars, the CSV preview's too."""
+def _past_the_cent(amount: Decimal) -> bool:
+    """More than 2 decimal places, trailing zeros aside ("1.230" has 2)."""
     return -amount.normalize().as_tuple().exponent > 2
 
 
@@ -1813,10 +1870,10 @@ def _check_fee_currency(data: dict, tx_type: str, fee: Decimal, from_acct: Accou
     fee_cur = (data.get("fee_currency") or "").upper()
     if fee_cur and fee_cur not in FEE_CURRENCIES:
         _bad(FEE_CURRENCY_UNKNOWN)
-    if fee > 0 and tx_type in ("Withdrawal", "Deposit"):
-        acct = from_acct if tx_type == "Withdrawal" else to_acct
-        if acct is not None and fee_cur and fee_cur != acct.currency:
-            _bad(f"A {tx_type.lower()} fee must be in {acct.currency}, the account's currency.")
+    problem = fee_currency_problem(tx_type, fee, fee_cur, from_acct.currency if from_acct else None,
+                                   to_acct.currency if to_acct else None)
+    if problem:
+        _bad(problem)
 
 
 def _check_sell_proceeds(data: dict, fee: Decimal) -> None:
@@ -1825,8 +1882,9 @@ def _check_sell_proceeds(data: dict, fee: Decimal) -> None:
         gross = data.get("proceeds_usd")
     if gross is None:
         _bad("A sell needs its proceeds (gross_proceeds_usd).")
-    if fee > Decimal(gross):
-        _bad("The sell's fee is more than its proceeds.")
+    problem = sell_fee_problem(Decimal(gross), fee)
+    if problem:
+        _bad(problem)
 
 
 def _set_canonical_spellings(data: dict, kept_text: frozenset = frozenset()) -> None:
@@ -1836,8 +1894,9 @@ def _set_canonical_spellings(data: dict, kept_text: frozenset = frozenset()) -> 
     `kept_text`: the ones an edit leaves as stored, not checked for that."""
     for key, choices in (("purpose", WITHDRAWAL_PURPOSES), ("source", DEPOSIT_SOURCES)):
         value = data.get(key)
-        if value is not None and len(str(value)) > MAX_TEXT:
-            _bad(f"{key} is too long (at most {MAX_TEXT} characters).")
+        problem = text_problem(key, value)
+        if problem:
+            _bad(problem)
         canonical = _canonical(value, choices)
         if canonical:
             data[key] = canonical
@@ -1983,11 +2042,10 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
                 detail="Transfer from BTC => fee must be BTC."
             )
         amount = tx_data.get("amount")  # absent on partial updates
-        if from_acct and from_acct.currency == "BTC" and amount is not None and fee_amt > Decimal(amount):
-            raise HTTPException(
-                status_code=400,
-                detail="Transfer fee exceeds the amount sent (amount includes the fee)."
-            )
+        problem = transfer_fee_problem(from_acct.currency if from_acct else None, fee_amt,
+                                       Decimal(amount) if amount is not None else None)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
         if from_acct and from_acct.currency == "USD" and fee_cur != "USD":
             raise HTTPException(
                 status_code=400,

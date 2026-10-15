@@ -14,6 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
+from backend.constants import ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth
 from backend.schemas.river_import import (
@@ -25,7 +26,8 @@ from backend.schemas.river_import import (
 )
 from backend.schemas.csv_import import CSVParseError
 from backend.services import hourly_prices
-from backend.services.csv_import import _validate_row, execute_import, number_text
+from backend.schemas.transaction import BTC_PLACES
+from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -235,9 +237,8 @@ def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
 
 
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
-    """Each row checked by the CSV import's row check, then a Transfer's
-    amount given its BTC fee (BitcoinTX's meaning), once both are known to
-    be numbers within their limits; 400 listing the first five errors when
+    """Each row checked by the CSV import's row check, its Transfer's amount
+    with its BTC fee in (_csv_row); 400 listing the first five errors when
     any row has one."""
     tx_datas = []
     all_errors: list[str] = []
@@ -246,7 +247,6 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
-            tx_data["amount"] = ledger_amount(tx_data["type"], tx_data["amount"], row.fee_amount, row.fee_currency)
             tx_datas.append(tx_data)
     if all_errors:
         detail = "Rows have errors: " + "; ".join(all_errors[:5])
@@ -257,12 +257,13 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
 
 
 def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
-    """A row as the CSV import reads it: text, River's own amounts."""
+    """A row as the CSV import reads it: text, River's own amounts but a
+    Transfer's, which is BitcoinTX's (_ledger_amount)."""
     ts = row.date
     return {
         "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": row.type,
-        "amount": number_text(row.amount),
+        "amount": number_text(_ledger_amount(row)),
         "from_account": row.from_account,
         "to_account": row.to_account,
         "cost_basis_usd": number_text(row.cost_basis_usd),
@@ -275,6 +276,28 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
         "cost_basis_typed": row.cost_basis_typed or "",
         "price_moment": (row.price_moment or "") if row.cost_basis_typed == "no" else "",
     }
+
+
+def _ledger_amount(row: RiverExecuteRow) -> Decimal:
+    """
+    River leaves a transfer's fee out of its amount; BitcoinTX's, the CSV's
+    and the save's, has a BTC fee in (ledger_amount). The row check then
+    compares the fee with what the save will see (#285's review). The fee
+    goes in only for a transfer from a bitcoin account, with an amount and a
+    fee the row check takes, each read as it reads them ("transfer", " btc");
+    any other row keeps River's amount, so its error names its own column.
+    """
+    sender = ACCOUNT_NAME_TO_ID.get(row.from_account.strip().lower())
+    if row.type.strip().title() != "Transfer" or sender not in BTC_ACCOUNTS:
+        return row.amount
+    if not (_btc_number(row.amount) and row.amount > 0 and _btc_number(row.fee_amount) and row.fee_amount > 0):
+        return row.amount
+    return ledger_amount("Transfer", row.amount, row.fee_amount, (row.fee_currency or "").strip().upper() or None)
+
+
+def _btc_number(value: Decimal | None) -> bool:
+    """A number the row check takes in a BTC column (8 places, 10 digits)."""
+    return value is not None and _parse_decimal(number_text(value), BTC_PLACES) is not None
 
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
