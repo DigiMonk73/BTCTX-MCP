@@ -167,9 +167,10 @@ All notable changes to BitcoinTX are documented in this file.
   rows of one term), or in the cost a transfer carried to its new lot, left
   them the same, so Review said there was nothing to review while Schedule
   D's lines, the form's rows or the coins' cost would change. It now also
-  compares each transaction's short- and long-term gains when it has both,
-  and the cost of the lots it made, and lists one whose rows alone would
-  be split differently. Since 0.9.2 (when the check came in).
+  compares each transaction's short- and long-term gains where its rows
+  are, or would be, of both terms, and the lots it made and their cost; and
+  it lists one whose rows, or lots, alone would be split differently.
+  Since 0.9.2 (when the check came in).
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
