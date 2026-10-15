@@ -164,11 +164,12 @@ All notable changes to BitcoinTX are documented in this file.
   Its check of the figures Recalculate Ledger would change compared each
   transaction's totals only. A recalculation that moved a cent between two
   rows of one sale (between a short-term and a long-term lot's row, or two
-  Form 8949 rows of one term) left them the same, so Review said there was
-  nothing to review while Schedule D's lines or the form's rows would
-  change. It now also compares each transaction's short- and long-term
-  gains, and lists one whose rows alone would be split differently. Since
-  0.9.2 (when the check came in).
+  rows of one term), or in the cost a transfer carried to its new lot, left
+  them the same, so Review said there was nothing to review while Schedule
+  D's lines, the form's rows or the coins' cost would change. It now also
+  compares each transaction's short- and long-term gains when it has both,
+  and the cost of the lots it made, and lists one whose rows alone would
+  be split differently. Since 0.9.2 (when the check came in).
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

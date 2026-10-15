@@ -317,10 +317,14 @@ def _sale_from_two_lots(auth_client, test_engine, second_lot_day: str) -> int:
     return sale["id"]
 
 
-def _recalc_changes(auth_client) -> dict:
+def _recalc_items(auth_client) -> dict:
     review = auth_client.get("/api/review").json()
     check = next(c for c in review["checks"] if c["key"] == "recalc_changes")
-    return {i["id"]: i["changes"] for i in check["items"]}
+    return {i["id"]: i for i in check["items"]}
+
+
+def _recalc_changes(auth_client) -> dict:
+    return {tx_id: item["changes"] for tx_id, item in _recalc_items(auth_client).items()}
 
 
 def test_review_sees_a_cent_move_between_a_sales_short_and_long_term_rows(auth_client, test_engine):
@@ -341,7 +345,35 @@ def test_review_sees_a_cent_move_between_two_rows_of_one_term(auth_client, test_
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     try:
         sale = _sale_from_two_lots(auth_client, test_engine, "2023-03-01")
-        changes = _recalc_changes(auth_client)
-        assert list(changes) == [sale] and list(changes[sale]) == ["form_8949_rows"]
+        items = _recalc_items(auth_client)
+        assert list(items) == [sale]
+        assert items[sale]["change"] == "Its rows, lot by lot, would be split differently; its totals stay the same."
+        old, new = items[sale]["changes"]["lot_rows"]
+        assert [(r["term"], r["proceeds"], r["gain"]) for r in old] == [("LONG", "0.50", "-49.50"),
+                                                                        ("LONG", "0.51", "-59.49")]
+        assert [(r["term"], r["proceeds"], r["gain"]) for r in new] == [("LONG", "0.51", "-49.49"),
+                                                                        ("LONG", "0.50", "-59.50")]
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_review_sees_a_cent_move_in_the_cost_a_transfer_carried(auth_client, test_engine):
+    """#296: 0.003 BTC bought for $1.00 and moved in two transfers of 0.001.
+    Today the second carries $0.34 (the running total, #100); 1.2.8 gave each
+    $0.33. A ledger saved that way lists the second transfer, though no
+    transaction's own figure or disposal moves."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    post = lambda **b: auth_client.post("/api/transactions", json=b).json()  # noqa: E731
+    try:
+        post(type="Deposit", timestamp="2024-01-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+             amount="10", fee_amount="0", fee_currency="USD", source="N/A")
+        post(type="Buy", timestamp="2024-01-02T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+             amount="0.003", cost_basis_usd="1.00", fee_amount="0", fee_currency="USD")
+        moves = [post(type="Transfer", timestamp=f"2024-02-0{day}T12:00:00Z", from_account_id=EXCH_BTC,
+                      to_account_id=WALLET, amount="0.001", fee_amount="0", fee_currency="BTC") for day in (1, 2)]
+        with test_engine.begin() as con:
+            con.execute(text("UPDATE bitcoin_lots SET cost_basis_usd = '0.33' WHERE created_txn_id = :t"),
+                        {"t": moves[1]["id"]})
+        assert _recalc_changes(auth_client) == {moves[1]["id"]: {"lot_cost": ["0.33", "0.34"]}}
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
