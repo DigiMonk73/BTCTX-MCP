@@ -55,9 +55,11 @@ Checks:
   right, so nothing fixes these; a value from a price is day_priced_values'.
 
 - recalc_changes: every transaction whose stored figures Recalculate Ledger
-  would change (proceeds, basis, gain), old -> new. Found by running the
-  recalculation and rolling it back. After an upgrade this is where the
-  fixes that change existing figures show up (Lost at $0 gain, a
+  would change, old -> new: its proceeds, basis and gain, its lot
+  disposals' gain (each term's too when it has both), the cost of the lots
+  it made, or else only how its rows split, lot by lot (#296). Found by
+  running the recalculation and rolling it back. After an upgrade this is
+  where the fixes that change existing figures show up (Lost at $0 gain, a
   withdrawal's network fee as its own disposal), before anything moves.
   Any add, edit or delete recalculates everything too.
 
@@ -75,11 +77,10 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
-from backend.models.transaction import LotDisposal, Transaction
+from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
@@ -239,6 +240,10 @@ def _is_zero_or_blank(value) -> bool:
 
 
 FIGURES = ("proceeds_usd", "cost_basis_usd", "realized_gain_usd")
+# From its lot disposals' gains and the lots it made (#296); each term's
+# gain (Schedule D's two lines) where its rows are, or were, of both terms
+ROW_TOTALS = ("taxable_gain", "lot_cost")
+TERM_GAINS = ("short_term_gain", "long_term_gain")
 
 
 def simulate_recalculation(db: Session):
@@ -249,35 +254,89 @@ def simulate_recalculation(db: Session):
     """
     from backend.services.transaction import recalculate_all_transactions
 
-    def snapshot():
-        figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
-        for tx_id, gain in db.query(LotDisposal.transaction_id, func.sum(LotDisposal.realized_gain_usd)) \
-                .group_by(LotDisposal.transaction_id):
-            if tx_id in figures:
-                figures[tx_id]["taxable_gain"] = gain
-        return figures
-
-    before = snapshot()
+    before = _snapshot(db)
     try:
         recalculate_all_transactions(db)
         db.flush()
-        after = snapshot()
+        after = _snapshot(db)
     except Exception as exc:  # e.g. a missing price: say so, change nothing
         db.rollback()
         return None, str(getattr(exc, "detail", exc))
     db.rollback()
+    return _differences(before, after), None
 
-    def same(a, b):
-        return (a is None and b is None) or (a is not None and b is not None and Decimal(a) == Decimal(b))
 
+def _snapshot(db: Session) -> dict[int, dict[str, Any]]:
+    """Each transaction's stored figures, its lot disposals' and its lots'."""
+    figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
+    for tx_id, rows in _disposal_rows(db).items():
+        if tx_id in figures:
+            figures[tx_id].update(_row_figures(rows))
+    for tx_id, lots in _lots_made(db).items():
+        if tx_id in figures:
+            figures[tx_id].update(lots)
+    return figures
+
+
+def _differences(before: dict, after: dict) -> dict[int, dict[str, tuple]]:
+    """Per transaction, each figure that moves, old -> new; or, when none
+    does, its rows or the lots it made, if only how they split moves (#296)."""
     changes = {}
     for tx_id, old in before.items():
         new = after.get(tx_id, {})
-        diff = {f: (old.get(f), new.get(f)) for f in FIGURES + ("taxable_gain",)
-                if not same(old.get(f), new.get(f))}
+        terms = old.get("terms", frozenset()) | new.get("terms", frozenset())
+        keys = FIGURES + ROW_TOTALS + (TERM_GAINS if len(terms) == 2 else ())
+        diff = {f: (old.get(f), new.get(f)) for f in keys if not _same(old.get(f), new.get(f))}
+        if not diff:
+            diff = {key: (old.get(part), new.get(part)) for key, part in (("lot_rows", "rows"), ("lot_split", "lots"))
+                    if old.get(part) != new.get(part)}
         if diff:
             changes[tx_id] = diff
-    return changes, None
+    return changes
+
+
+def _same(a, b) -> bool:
+    return (a is None and b is None) or (a is not None and b is not None and Decimal(a) == Decimal(b))
+
+
+def _disposal_rows(db: Session) -> dict[int, list[LotDisposal]]:
+    """Each transaction's lot disposals, in the order they were made."""
+    rows: dict[int, list[LotDisposal]] = {}
+    for d in db.query(LotDisposal).order_by(LotDisposal.transaction_id, LotDisposal.id):
+        rows.setdefault(d.transaction_id, []).append(d)
+    return rows
+
+
+def _row_figures(rows: list[LotDisposal]) -> dict[str, Any]:
+    """A transaction's taxable gain (its network fees' included), each
+    term's gain (Schedule D's two lines), the terms its rows are of, and its
+    rows lot by lot."""
+    gain = dict.fromkeys(TERM_GAINS, Decimal(0))
+    for d in rows:
+        gain["long_term_gain" if d.holding_period == "LONG" else "short_term_gain"] += Decimal(d.realized_gain_usd or 0)
+    return {
+        "taxable_gain": sum(gain.values(), Decimal(0)),
+        **gain,
+        # A row with no term stored (before 0.7) is short-term, as the reports count it
+        "terms": frozenset("LONG" if d.holding_period == "LONG" else "SHORT" for d in rows),
+        "rows": [{"term": d.holding_period, "fee": bool(d.is_fee), "btc": btc_text(d.disposed_btc),
+                  "basis": _money(d.disposal_basis_usd), "proceeds": _money(d.proceeds_usd_for_that_portion),
+                  "gain": _money(d.realized_gain_usd)} for d in rows],
+    }
+
+
+def _lots_made(db: Session) -> dict[int, dict[str, Any]]:
+    """The lots each transaction made, and their cost: a transfer's is the
+    cost it moved, which a recalculation can change by a cent (#296)."""
+    made: dict[int, list[BitcoinLot]] = {}
+    for lot in db.query(BitcoinLot):
+        made.setdefault(lot.created_txn_id, []).append(lot)
+    return {tx_id: {
+        "lot_cost": sum((Decimal(lot.cost_basis_usd or 0) for lot in lots), Decimal(0)),
+        "lots": sorted(({"acquired": as_utc(lot.acquired_date).isoformat(), "btc": btc_text(lot.total_btc),
+                         "cost": _money(lot.cost_basis_usd)} for lot in lots),
+                       key=lambda lot: (lot["acquired"], Decimal(lot["btc"]), Decimal(lot["cost"] or 0))),
+    } for tx_id, lots in made.items()}
 
 
 def build_review(db: Session) -> dict[str, Any]:
@@ -352,7 +411,22 @@ def _row_issues(t: Transaction, tz):
 
 # How the recalculation items name the figures.
 FIGURE_NAMES = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized_gain_usd": "gain",
-                "taxable_gain": "taxable gain incl. network fees"}
+                "taxable_gain": "taxable gain incl. network fees", "short_term_gain": "short-term gain",
+                "long_term_gain": "long-term gain", "lot_cost": "cost of the lots it made"}
+
+
+# A transaction's totals stay, and only how its rows, or the lots it made,
+# split them moves (#296)
+SPLITS = {"lot_rows": "Its rows, lot by lot, would be split differently",
+          "lot_split": "The lots it made would differ (their dates, BTC or cost)"}
+
+
+def _change_text(diff: dict) -> str:
+    """What would change, in words: old -> new for each figure, or how it splits."""
+    if any(f in SPLITS for f in diff):
+        return "; ".join(SPLITS[f] for f in SPLITS if f in diff) + "; its totals stay the same."
+    return "; ".join(f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
+                     for f, (old, new) in diff.items()) + "."
 
 
 def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
@@ -360,10 +434,9 @@ def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
     items = []
     for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
         t = db.get(Transaction, tx_id)
-        parts = [f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
-                 for f, (old, new) in diff.items()]
-        item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
-        item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
+        item = _item(t, tz, "Stored figures differ from what the current rules give.", _change_text(diff))
+        item["changes"] = {f: list(pair) if f in SPLITS else [_money(pair[0]), _money(pair[1])]
+                           for f, pair in diff.items()}
         items.append(item)
     return items
 
