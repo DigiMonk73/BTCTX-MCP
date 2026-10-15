@@ -15,6 +15,7 @@ from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
+from backend.services.transaction import cost_left
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +78,8 @@ def get_average_cost_basis(db: Session) -> Decimal:
 
     for lot in lots:
         if lot.total_btc > 0:
-            # fraction of the original lot still held
-            fraction_left = (lot.remaining_btc / lot.total_btc).quantize(SAT, rounding=ROUND_HALF_DOWN)
-            # leftover cost basis for that fraction
-            leftover_cost_basis = (lot.cost_basis_usd * fraction_left).quantize(CENT, rounding=ROUND_HALF_DOWN)
-
             total_btc_remaining += lot.remaining_btc
-            total_cost_basis_remaining += leftover_cost_basis
+            total_cost_basis_remaining += cost_left(lot)  # the lot's cost less its pieces' (#100)
 
     if total_btc_remaining == 0:
         return Decimal("0")

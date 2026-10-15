@@ -16,21 +16,25 @@ summary, income, rebates, gifts and year-end lots:
 
 `--compare` lists every difference from testdata/reference_figures.json for
 2024 and 2025 (`--years` for others). backend/tests/test_independent_figures.py
-runs it for every year with `--rounding half-down` and fails on a
-difference. Dates are taken in UTC, the reference figures' tax time zone.
+runs it for every year and fails on a difference. Dates are taken in UTC,
+the reference figures' tax time zone.
 
 Amounts stay exact (fractions) until they are rounded to the cent. Three
-conventions are the app's, shared on purpose so the two agree to the cent:
+conventions are the ledger's (AGENTS.md "Tax invariants", Lot cost), shared
+on purpose so the two agree to the cent:
 - a disposal's proceeds are shared among its lots in cents, and the last lot
   takes what's left, so the rows report all of them (the amount realized);
-- each row's basis is its exact share, rounded on its own, so a lot's rows
-  can add up to a cent less or more than its cost (#100; this check can't
-  see that);
-- an exact half cent rounds up by default, as the IRS rounds to whole
-  dollars; `--rounding half-down` rounds it down, as the app does (#100).
-  The app rounds a 28-digit intermediate, so a tie whose division doesn't
-  end rounds up there: none is in the reference ledger, and one would make
-  the test fail rather than pass by accident.
+- a lot's cost is claimed as a running total (#100): a piece taken from it
+  costs what the lot's BTC taken so far costs with it, in cents, less what
+  it cost without it, so a lot's pieces add up to its cost, a moved piece
+  starts its new lot with that cost, and what's held carries the rest;
+- an exact half cent rounds up, as the IRS rounds to whole dollars and the
+  app does (#100); `--rounding half-down` rounds it down, as the app did
+  before. The app multiplies before it divides with 28 significant digits,
+  so for any amount a ledger holds an exact half cent stays exact; only
+  products past 28 digits (amounts near the columns' limits) could round a
+  tie the other way. None is in the reference ledger, and one would make the
+  test fail rather than pass by accident.
 
 A test tool: it lives in scripts/, which no build ships.
 """
@@ -40,7 +44,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field, replace
+from copy import copy
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
 from fractions import Fraction
@@ -76,12 +81,18 @@ ROUNDING = {"half-up": ROUND_HALF_UP, "half-down": ROUND_HALF_DOWN}
 class Lot:
     """BTC acquired together: its basis travels with it, by the satoshi."""
 
-    quantity: Fraction
-    basis: Fraction
+    quantity: Fraction  # left
+    basis: Fraction  # the cost of what's left
     acquired: datetime
     covered: bool
     order: int
     inherited: bool = False
+    total: Fraction = field(init=False)  # as acquired
+    cost: Fraction = field(init=False)
+    taken: Fraction = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.total, self.cost, self.taken = self.quantity, self.basis, Fraction(0)
 
 
 @dataclass
@@ -123,8 +134,9 @@ class Ledger:
             if quantity == 0:
                 break
             used = min(quantity, lot.quantity)
-            basis = lot.basis * used / lot.quantity
+            basis = self.cost_of(lot, lot.taken + used) - self.cost_of(lot, lot.taken)
             pieces.append((lot, used, basis))
+            lot.taken += used
             lot.quantity -= used
             lot.basis -= basis
             quantity -= used
@@ -132,6 +144,10 @@ class Ledger:
             raise ValueError(f"not enough BTC in account {account}")
         self.lots[account] = [lot for lot in self.lots[account] if lot.quantity]
         return pieces
+
+    def cost_of(self, lot: Lot, btc: Fraction) -> Fraction:
+        """What a lot's first `btc` BTC cost, in cents (all of it: exactly its cost)."""
+        return lot.cost if btc >= lot.total else Fraction(_cents(lot.cost * btc / lot.total, self.rounding))
 
 
 def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:
@@ -193,7 +209,7 @@ def main() -> int:
     parser.add_argument("--compare", action="store_true", help="compare with the reference figures")
     parser.add_argument("--years", type=int, nargs="+", default=[2024, 2025])
     parser.add_argument("--rounding", choices=ROUNDING, default="half-up",
-                        help="how an exact half cent rounds (the app: half-down)")
+                        help="how an exact half cent rounds (the app: half-up)")
     args = parser.parse_args()
     ledger = replay(json.loads(LEDGER.read_text())["transactions"], ROUNDING[args.rounding])
     if args.year:
@@ -213,7 +229,7 @@ def _moment(text: str) -> datetime:
 def _close_years_before(ledger: Ledger, year: int) -> None:
     """Keep each year's closing lots, once the ledger has moved past it."""
     for closed in range(ledger.year or year, year):
-        ledger.holdings[closed] = [(BTC_ACCOUNTS[account], replace(lot))
+        ledger.holdings[closed] = [(BTC_ACCOUNTS[account], copy(lot))
                                    for account, lots in ledger.lots.items() for lot in lots]
     ledger.year = max(ledger.year or year, year)
 

@@ -292,7 +292,8 @@ class LedgerEntry(Base):
 class BitcoinLot(Base):
     """
     BTC acquired by a Buy or Deposit, or moved by a Transfer (which keeps the
-    source lot's acquisition date and a pro-rated share of its basis).
+    source lot's acquisition date and its share of the basis, claimed as
+    a running total so none is lost: transaction.piece_cost, #100).
     Disposals and transfers take from remaining_btc, oldest lot first.
     """
 

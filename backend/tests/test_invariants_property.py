@@ -38,6 +38,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.services.reports.reporting_core import generate_report_data
+from backend.services.transaction import cost_left
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
 SAT = Decimal("0.00000001")
@@ -220,7 +221,6 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
     assert balances["Exchange BTC"] == Decimal(model.exch) * SAT
 
     tz = ledger.tax_zone()
-    n_ops = len(txs)
     with ledger.Session() as db:
         txs_db = {t.id: t for t in db.query(Transaction).all()}
         lots = db.query(BitcoinLot).all()
@@ -264,18 +264,17 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             else:
                 assert total == tx.fee_usd, (tx_id, total, tx.fee_usd)
 
-        # Basis conservation (rounding: at most a cent per operation).
+        # Basis conservation, to the cent (#100): what was acquired is what
+        # the disposals claimed plus what's held, through any sells, spends,
+        # fees, transfers and consolidations; no piece claims less than 0.
         acquired_basis = sum(
             (lot.cost_basis_usd for lot in lots if txs_db[lot.created_txn_id].type in ("Buy", "Deposit")),
             Decimal(0),
         )
-        remaining_basis = sum(
-            (lot.cost_basis_usd * lot.remaining_btc / lot.total_btc for lot in lots if lot.total_btc),
-            Decimal(0),
-        )
+        remaining_basis = sum((cost_left(lot) for lot in lots), Decimal(0))
         disposed_basis = sum((d.disposal_basis_usd for d in disposals), Decimal(0))
-        assert abs(acquired_basis - remaining_basis - disposed_basis) <= CENT * n_ops, (
-            acquired_basis, remaining_basis, disposed_basis)
+        assert all(d.disposal_basis_usd >= 0 for d in disposals)
+        assert acquired_basis == remaining_basis + disposed_basis, (acquired_basis, remaining_basis, disposed_basis)
 
         # Form 8949 = Schedule D = the year's taxable disposals.
         years = sorted({local_date(t.timestamp, tz).year for t in txs_db.values()})

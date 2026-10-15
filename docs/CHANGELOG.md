@@ -115,6 +115,29 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
+  sold, spent, paid out as network fees or moved in pieces, each piece's
+  cost basis was its share of the lot's cost rounded to the cent on its
+  own, and an exact half cent was rounded down. So a lot's pieces could add
+  up to a few cents more or less than what it cost (up to half a cent a
+  piece; most with many tiny disposals, such as network fees of a few
+  hundred satoshis), and gains could be off by those cents either way. Every release from 0.8.0 (the
+  oldest tagged) to 1.2.8. Now a lot's cost is claimed as a running total:
+  each piece costs what the lot's bitcoin taken so far costs with it, less
+  without it, so a lot's pieces always add up to exactly what it cost, and
+  what's still held carries the rest. An exact half cent rounds up, as the
+  IRS rounds to whole dollars, both for a piece's cost and when a sale's or
+  spend's proceeds, or a fee's value, are shared among lots. On the
+  reference test ledger, cost basis rises and gains fall by 1 to 2 cents a
+  year (2024–2026, long-term); no proceeds and no year-end holdings total
+  changes.
+
+  **What to do:** nothing urgent; the difference is cents. A ledger saved
+  by an earlier version keeps its figures until it's recalculated: run
+  Recalculate Ledger (Settings) to bring them up to date. Ledger Review
+  doesn't always show these changes, since a cent can move between two
+  rows of one transaction. Any tax year with a lot sold, spent or moved in
+  pieces can be affected, by a few cents either way.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

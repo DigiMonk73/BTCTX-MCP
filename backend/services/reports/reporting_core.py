@@ -29,7 +29,7 @@ from backend.services.reports.form_8949 import (
 )
 
 from backend.services import hourly_prices, price_history
-from backend.services.transaction import price_used, recalculate_all_transactions
+from backend.services.transaction import cost_left, price_used, recalculate_all_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -179,13 +179,8 @@ def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]
 
     results = []
     for lot in open_lots:
-        # fraction leftover in the partial-lot
-        fraction = Decimal("1.0")
-        if lot.total_btc and lot.total_btc > 0:
-            fraction = lot.remaining_btc / lot.total_btc
-
-        # cost basis leftover for that fraction
-        partial_cost = (lot.cost_basis_usd * fraction).quantize(Decimal("0.01"), ROUND_HALF_DOWN)
+        # The cost of what's left: the lot's cost less its pieces' (#100)
+        partial_cost = cost_left(lot)
         avg_basis = partial_cost / lot.remaining_btc
 
         # market value as of Jan 1
@@ -314,12 +309,7 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
 
     for lot in open_lots:
         rem_btc = lot.remaining_btc
-        if lot.total_btc > 0:
-            fraction_remaining = rem_btc / lot.total_btc
-        else:
-            fraction_remaining = Decimal("1.0")
-
-        partial_cost = (lot.cost_basis_usd * fraction_remaining).quantize(Decimal("0.01"), ROUND_HALF_DOWN)
+        partial_cost = cost_left(lot)  # the lot's cost less its pieces' (#100)
         cur_value = None if eoy_price is None else \
             (rem_btc * eoy_price).quantize(Decimal("0.01"), ROUND_HALF_DOWN)
 
