@@ -7,6 +7,7 @@ deposit unchanged stored the moved day. It is stored as the date given,
 form showed.
 """
 
+import csv
 import io
 import sqlite3
 from datetime import date
@@ -123,30 +124,62 @@ def test_a_time_without_a_timezone_is_the_date_written(auth_client):
     assert deposit(auth_client, acquired_at="2021-03-15T02:00:00")["acquired_at"] == "2021-03-15"
 
 
+# 13:00 UTC on April 1 is 03:00 on April 2 in Kiritimati: after noon in UTC
+AFTER_NOON = "2025-04-01T13:00:00Z"
+
+
+def exported_date(client) -> str:
+    rows = list(csv.DictReader(io.StringIO(client.get("/api/backup/csv").text)))
+    return rows[0]["acquired_at"]
+
+
 def test_a_deposit_the_timezone_change_put_before_its_date_can_still_be_edited(auth_client):
-    """Deposited at 11:00 UTC on April 1, April 2 in Kiritimati, with that
-    day as its date originally acquired. In UTC the deposit is on April 1:
-    an edit that keeps the date and the deposit's day is saved, the lot
-    stays at the deposit, and the CSV export writes the day the ledger uses,
-    so it imports back. A new date after the deposit is still refused."""
+    """Deposited on April 2 in Kiritimati, with that day as its date
+    originally acquired. In UTC the deposit is on April 1: an edit that
+    keeps the date and the deposit's day is saved, and the coins count from
+    the deposit. A new date after the deposit is still refused."""
     set_timezone(auth_client, KIRITIMATI)
-    tx = deposit(auth_client, timestamp="2025-04-01T11:00:00Z", acquired_at="2025-04-02")
+    tx = deposit(auth_client, timestamp=AFTER_NOON, acquired_at="2025-04-02")
     set_timezone(auth_client, "UTC")
     for edit in ({"amount": "0.2"}, {"amount": "0.3", "acquired_at": "2025-04-02",
-                                     "timestamp": "2025-04-01T11:00:00Z"}):  # what the form sends
+                                     "timestamp": AFTER_NOON}):  # what the form sends
         r = auth_client.put(f"/api/transactions/{tx['id']}", json=edit)
         assert r.status_code == 200 and r.json()["acquired_at"] == "2025-04-02", r.text
     [lot] = auth_client.get("/api/debug/lots").json()
-    assert lot["acquired_date"].startswith("2025-04-01T11:00:00")
+    assert lot["acquired_date"].startswith("2025-04-01T13:00:00")
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={"acquired_at": "2025-04-03"})
     assert r.status_code == 422 and "can't be after the deposit's date" in r.text
+
+
+def test_such_a_deposit_exports_to_the_same_lot(auth_client):
+    """Its coins count from the deposit (13:00): exported as April 1, they
+    would count from noon and could be sold before another lot of that day.
+    A My BTC row without a date counts from the deposit, so it imports back
+    to the same lot."""
+    set_timezone(auth_client, KIRITIMATI)
+    deposit(auth_client, timestamp=AFTER_NOON, acquired_at="2025-04-02")
+    set_timezone(auth_client, "UTC")
     export = auth_client.get("/api/backup/csv")
-    assert ",2025-04-01," in export.text and "2025-04-02" not in export.text
+    assert exported_date(auth_client) == ""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
     [lot] = auth_client.get("/api/debug/lots").json()
-    assert lot["acquired_date"].startswith("2025-04-01T11:00:00")
+    assert lot["acquired_date"].startswith("2025-04-01T13:00:00")
+
+
+def test_such_an_inheritance_exports_its_date_of_death_for_the_owner_to_correct(auth_client):
+    """A date of death is required and prices the deposit: it isn't
+    replaced; the import names the row."""
+    set_timezone(auth_client, KIRITIMATI)
+    deposit(auth_client, source="Inherited", timestamp=AFTER_NOON, acquired_at="2025-04-02")
+    set_timezone(auth_client, "UTC")
+    export = auth_client.get("/api/backup/csv")
+    assert exported_date(auth_client) == "2025-04-02"
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    r = auth_client.post("/api/import/preview", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
+    [error] = r.json()["errors"]
+    assert error["column"] == "acquired_at" and "can't be after the deposit's date" in error["message"]
 
 
 @pytest.mark.parametrize("timezone, stored, listed", [

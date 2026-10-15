@@ -229,8 +229,10 @@ def _moment(text: str) -> datetime:
 
 def _noon_of(text: str) -> datetime:
     """Noon of a date originally acquired, in UTC (the reference figures'
-    tax timezone); a time given with it stands for its date there."""
-    day = _moment(text).astimezone(timezone.utc).date() if len(text) > 10 else date.fromisoformat(text)
+    tax timezone): a time given with it stands for its date there, one
+    without a timezone for the date written."""
+    given = _moment(text) if len(text) > 10 else datetime.fromisoformat(text)
+    day = given.astimezone(timezone.utc).date() if given.tzinfo else given.date()
     return datetime.combine(day, time(12), tzinfo=timezone.utc)
 
 

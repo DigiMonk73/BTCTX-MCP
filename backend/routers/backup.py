@@ -32,7 +32,7 @@ from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
 
 logger = logging.getLogger(__name__)
 
@@ -297,14 +297,20 @@ def export_transactions_csv(
 
 def _date_acquired(txn: Transaction, tz) -> str:
     """
-    The date originally acquired (or of death) the ledger uses: the date
-    stored, or the deposit's own day when a change of tax timezone since put
-    the deposit on the day before it (its lot is never after the deposit,
-    #185), so the file imports back to the same lots.
+    The date originally acquired (or of death) as stored. A change of tax
+    timezone since the save can put the deposit on the day before its date:
+    its coins then count from the deposit itself (_lot_acquired, #185), as
+    a My BTC or Gift row without a date does, so that one goes blank and
+    imports back to the same lot (its own day, at noon, could sort before
+    another lot of that day). An Inherited deposit needs its date of death,
+    which also prices it: it goes as stored, and the import names the row
+    to correct.
     """
     if txn.acquired_at is None:
         return ""
-    return min(txn.acquired_at, local_date(txn.timestamp, tz)).isoformat()
+    if txn.acquired_at > local_date(txn.timestamp, tz) and (txn.source or "").lower() != INHERITED_SOURCE:
+        return ""
+    return txn.acquired_at.isoformat()
 
 
 def _export_row(txn: Transaction, tz) -> dict[str, str]:
