@@ -15,7 +15,6 @@ test("a double-clicked Save creates one transaction", async ({ authedPage: page 
   // Two clicks as fast as a double-click; the button disables while saving.
   await page.getByRole("button", { name: "Save Transaction" }).dblclick();
   await expect(page.getByRole("heading", { name: "Add Transaction" })).toHaveCount(0);
-  await page.unroute("**/api/transactions");
   expect(await listTx(page.request)).toHaveLength(1);
 });
 

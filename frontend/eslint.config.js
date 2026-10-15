@@ -41,11 +41,18 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: { ...globals.node, ...globals.browser },
     },
+    // Interception turned off mid-test loses a request the browser paused in
+    // that moment (#275): a `times` route as it expires, or an unroute
     rules: {
       'no-restricted-syntax': ['error', {
-        selector: "CallExpression[callee.property.name='route'] > ObjectExpression > Property[key.name='times']",
+        selector: "CallExpression[callee.property.name='route'] > ObjectExpression > "
+          + ":matches(Property[key.name='times'], Property[key.value='times'])",
         message: "A route with `times` turns Playwright's interception off as it expires, and a request "
           + 'made in that moment never goes out (#275): keep one route for the test, route.fallback() once done.',
+      }, {
+        selector: "CallExpression[callee.property.name=/^unroute(All)?$/]",
+        message: "An unroute turns Playwright's interception off, and a request made in that moment never "
+          + 'goes out (#275): keep the route for the test, route.fallback() once done.',
       }],
     },
   },
