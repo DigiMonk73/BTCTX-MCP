@@ -119,9 +119,9 @@ All notable changes to BitcoinTX are documented in this file.
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
   own, and an exact half cent was rounded down. So a lot's pieces could add
-  up to a cent or two more or less than what it cost (most with many tiny
-  disposals, such as network fees of a few hundred satoshis), and gains
-  could be off by those cents either way. Every release from 0.8.0 (the
+  up to a few cents more or less than what it cost (up to half a cent a
+  piece; most with many tiny disposals, such as network fees of a few
+  hundred satoshis), and gains could be off by those cents either way. Every release from 0.8.0 (the
   oldest tagged) to 1.2.8. Now a lot's cost is claimed as a running total:
   each piece costs what the lot's bitcoin taken so far costs with it, less
   without it, so a lot's pieces always add up to exactly what it cost, and
@@ -137,7 +137,7 @@ All notable changes to BitcoinTX are documented in this file.
   Recalculate Ledger (Settings) to bring them up to date. Ledger Review
   doesn't always show these changes, since a cent can move between two
   rows of one transaction. Any tax year with a lot sold, spent or moved in
-  pieces can be affected, by a cent or two either way.
+  pieces can be affected, by a few cents either way.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

@@ -1202,8 +1202,8 @@ class _FifoDisposal:
             if qty == self.remaining_amount:
                 proceeds = self.total_proceeds - self.proceeds_so_far
             else:
-                # Multiplied before divided: a share that is exactly half a
-                # cent stays exact, and rounds up (#100)
+                # Multiplied before divided: for any amount a ledger holds, a
+                # share that is exactly half a cent stays exact and rounds up (#100)
                 proceeds = (self.total_proceeds * qty / self.amount_btc).quantize(CENT, rounding=SHARE_ROUNDING)
             self.proceeds_so_far += proceeds
             self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)

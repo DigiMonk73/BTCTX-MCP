@@ -30,11 +30,11 @@ on purpose so the two agree to the cent:
   starts its new lot with that cost, and what's held carries the rest;
 - an exact half cent rounds up, as the IRS rounds to whole dollars and the
   app does (#100); `--rounding half-down` rounds it down, as the app did
-  before. The app multiplies before it divides, so an exact half cent stays
-  exact; a share whose division doesn't end is rounded to 28 digits first,
-  so one within about 1e-26 of a half cent could go the other way there:
-  none is in the reference ledger, and one would make the test fail rather
-  than pass by accident.
+  before. The app multiplies before it divides with 28 significant digits,
+  so for any amount a ledger holds an exact half cent stays exact; only
+  products past 28 digits (amounts near the columns' limits) could round a
+  tie the other way. None is in the reference ledger, and one would make the
+  test fail rather than pass by accident.
 
 A test tool: it lives in scripts/, which no build ships.
 """
