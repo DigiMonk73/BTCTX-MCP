@@ -697,8 +697,20 @@ Set `KEY` to the key from AI-3, and use
   "Deleted 14 transactions, 2023–2025. A copy of the database from before
   is kept in BitcoinTX's data folder (in backups, unencrypted).", an empty
   Dashboard, and `start-cli package attach btctx -n btctx -- ls /data/backups`
-  listing one `btctx-before-delete-all-….db`. Then Preview BAK-1's CSV.
-  Expect "14 valid / 14 total rows". Click **Import 14 Transactions** and
+  listing one `btctx-before-delete-all-….db`. Save this file as
+  `fee-account.csv`:
+
+  ```csv
+  date,type,amount,from_account,to_account
+  2024-01-05T12:00:00Z,Deposit,1,External,BTC Fees
+  ```
+
+  Choose it, then **Preview**. Expect it refused at Preview, before any
+  Import (#266): "0 valid / 1 total rows", "Row 2 (to_account): Invalid
+  account 'btc fees'. Must be one of: Bank, Wallet, Exchange USD, Exchange
+  BTC, External." and **Import 0 Transactions** disabled. **Cancel**
+  (it clears the chosen file). Then choose BAK-1's CSV again and
+  **Preview**. Expect "14 valid / 14 total rows". Click **Import 14 Transactions** and
   confirm. Expect "Successfully imported 14 transaction(s)." and **every
   golden figure**: the file carries the fees' USD values, so nothing is
   priced again.
