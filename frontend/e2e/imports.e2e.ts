@@ -95,19 +95,23 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
   expect(Number(buy.fee_amount)).toBe(1.5);
   expect(all.find((t) => t.type === "Sell")).toBeUndefined();
 
-  // Re-import: what was imported as River had it is matched; the send whose
-  // fee was edited differs from River, so it needs review; the sell is new.
+  // Re-import: what was imported is matched, the send whose fee was edited
+  // too (River's own amount, #253); row 3 still needs review; the sell is new.
   await previewRiver(page);
-  await expect(r.getByText("3 already in ledger")).toBeVisible();
-  await expect(r.getByText("2 need review")).toBeVisible();
+  await expect(r.getByText("4 already in ledger")).toBeVisible();
+  await expect(r.getByText("1 need review")).toBeVisible();
   await expect(r.getByText("1 new")).toBeVisible();
-  await expect(riverRow(page, 7)).toContainText("Review");
   await expect(riverRow(page, 5)).toContainText("New");
 
-  // A row already in the ledger, ticked, is imported all the same (#253).
-  await r.getByRole("button", { name: "Show 3 already-imported row(s)" }).click();
+  // A row already in the ledger, ticked, is imported all the same, and stays
+  // in sight when the others are hidden (#253).
+  await r.getByRole("button", { name: "Show 4 already-imported row(s)" }).click();
+  await expect(riverRow(page, 7)).toContainText("In ledger");
   await r.getByLabel("Include row 2").check();
-  for (const n of [3, 5, 7]) await r.getByLabel(`Include row ${n}`).uncheck();
+  await r.getByRole("button", { name: "Hide already-imported rows" }).click();
+  await expect(r.getByLabel("Include row 2")).toBeChecked();
+  await expect(r.getByLabel("Include row 4")).toHaveCount(0);
+  for (const n of [3, 5]) await r.getByLabel(`Include row ${n}`).uncheck();
   await r.getByRole("button", { name: "Import 1 Transaction(s)" }).click();
   await expect(page.getByText(/Imported 1/i)).toBeVisible();
   const after = await listTx(page.request);

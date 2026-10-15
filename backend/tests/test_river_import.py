@@ -300,6 +300,7 @@ class TestPreview:
         assert data["matched_count"] == 0
         assert [p["status"] for p in data["proposals"]] == [STATUS_DISCREPANCY, "new"]
         assert "recorded 24 hours earlier" in data["proposals"][0]["discrepancy"]
+        assert data["proposals"][0]["near_amount"] is False  # same amount: ticked
 
     def test_a_row_edited_after_its_import_is_in_the_ledger_when_imported_again(self):
         """The owner's River rule: a purpose or source changed after the
@@ -345,6 +346,7 @@ class TestPreview:
         p = data["proposals"][0]
         assert p["status"] == STATUS_DISCREPANCY
         assert "different amount" in p["discrepancy"]
+        assert p["near_amount"] is True  # the preview leaves it unticked (owner, 2026-10-15)
 
     def test_a_tiny_amount_in_the_discrepancy_has_eight_decimals(self):
         """str() of a Decimal under 0.000001 is "5.2E-7" (#74)."""
@@ -401,6 +403,38 @@ class TestExecute:
         result = execute([{**rows[0], "not_a_duplicate": True}])
         assert result["imported_count"] == 1 and result["skipped_existing"] == 0
         assert len(CLIENT.get("/api/transactions").json()) == 2
+
+    def test_a_send_imported_with_another_fee_or_as_a_withdrawal_is_in_the_ledger(self):
+        """The review of #277: River's amount is compared, so a send the owner
+        imported with another fee, or as a Withdrawal, isn't imported again."""
+        for edit in ({"fee_amount": "0.00000600"}, {"type": "Withdrawal", "to_account": "External", "purpose": "Spent"}):
+            delete_all_transactions()
+            create_tx({
+                "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+                "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+                "source": "MyBTC",
+            })
+            rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[8]]))
+            rows[0].update(edit)
+            assert execute(rows)["imported_count"] == 1
+            again = preview([SYNTHETIC_ROWS[8]])
+            assert again["proposals"][0]["status"] == STATUS_MATCHED, edit
+
+    def test_a_ticked_row_keeps_its_match_so_an_identical_one_beside_it_is_imported(self):
+        """The review of #277: the same payout twice in the file, once in the
+        ledger. The preview shows one "In ledger" and one new; ticking both
+        imports both."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7]])))
+        data = preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[7]])
+        assert sorted(p["status"] for p in data["proposals"]) == ["matched", "new"]
+        rows = [
+            {**row, "not_a_duplicate": p["status"] == STATUS_MATCHED}
+            for row, p in zip(proposals_to_execute_rows(data, statuses=("new", STATUS_MATCHED)), data["proposals"])
+        ]
+        result = execute(rows)
+        assert result["imported_count"] == 2 and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == 3
 
     def test_a_similar_row_is_imported(self):
         """The guard leaves out only duplicates: a similar row the owner keeps is imported."""

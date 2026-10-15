@@ -246,6 +246,21 @@ class TestDedup:
         out = execute([another])
         assert out["imported_count"] == 1 and out["skipped_duplicates"] == 0 and tx_count() == 2
 
+    def test_a_flagged_row_keeps_its_match_so_an_identical_one_beside_it_is_saved(self):
+        """The review of #277: the same payout twice, once recorded. The
+        preview's duplicate, flagged, takes the match; the other stays ready."""
+        execute([INTEREST])
+        assert [r["status"] for r in preview([INTEREST, INTEREST])["results"]] == ["duplicate", "ready"]
+        rows = [dict(INTEREST, not_a_duplicate=True), INTEREST]
+        assert [r["status"] for r in preview(rows)["results"]] == ["ready", "ready"]
+        out = execute(rows)
+        assert out["imported_count"] == 2 and out["skipped_duplicates"] == 0 and tx_count() == 3
+
+    def test_a_gap_under_a_minute_is_said_so(self):
+        execute([dict(INTEREST, date="2025-03-20T12:00:59Z")])
+        res = preview([dict(INTEREST, date="2025-03-20T12:01:10Z")])["results"][0]
+        assert any("recorded less than a minute earlier" in w for w in res["warnings"])
+
     def test_a_date_alone_matches_that_day_in_the_tax_timezone(self):
         """A row without a time matches any time that day; the next day's is only similar."""
         assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200

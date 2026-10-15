@@ -23,12 +23,13 @@ export const STATUS_LABEL: Record<RiverProposal["status"], string> = {
   discrepancy: "Review",
 };
 
-/** A preview row as it starts: ticked unless it's already in the ledger
- * (a row to review is never left out by itself, #253). */
+/** A preview row as it starts: ticked unless it's already in the ledger,
+ * or matched only by a near amount, most likely the same move typed by hand
+ * (a row of the same amount to review is never left out by itself, #253). */
 export function toEditableRow(p: RiverProposal): EditableRow {
   return {
     proposal: p,
-    include: p.status !== "matched",
+    include: p.status === "new" || (p.status === "discrepancy" && !p.near_amount),
     type: p.type,
     fromAccount: p.from_account,
     toAccount: p.to_account,

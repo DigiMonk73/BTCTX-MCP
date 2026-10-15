@@ -65,6 +65,7 @@ declare global {
     status: "new" | "matched" | "discrepancy";
     matched_tx_id?: number;
     discrepancy?: string;
+    near_amount?: boolean;
   }
 
   interface RiverPreviewResponse {

@@ -86,8 +86,9 @@ All notable changes to BitcoinTX are documented in this file.
   its source or value, and skipped it: two Interest payouts of the same
   amount a day apart, or an Inherited deposit beside an Interest deposit of
   the same amount and time. The skipped one's income and cost basis were
-  missing from every report. Verified in 1.2.8; the rule is older. Now
-  (the owner's rule):
+  missing from every report. Every version since 0.7.0 (the River import)
+  and 0.8.0 (the AI connector, which reused its check); verified in 1.2.8.
+  Now (the owner's rule):
   - **A duplicate** is the same kind, BTC amount and minute as a recorded
     transaction. The AI connector also compares the source or purpose, and
     a Buy's price, and a date given alone matches that day. A duplicate is
@@ -96,10 +97,12 @@ All notable changes to BitcoinTX are documented in this file.
   - **A similar row,** the same amount within 48 hours with anything else
     different, is never skipped by itself. It's shown with the match and
     what differs, and saved unless you remove it; in the River preview it
-    starts ticked (it used to start unticked).
-  - A River row compares nothing else: its source and purpose are the
-    preview's or your own edits, so a re-import of a row you changed isn't
-    recorded twice.
+    starts ticked (it used to start unticked). A River send whose amount is
+    only near one you typed by hand (within 20 %) still starts unticked, as
+    before: it's most likely that move, typed with a rounded amount.
+  - A River row compares nothing else, and its amount is River's: its
+    source, purpose, fee and type are the preview's or your own edits, so
+    a re-import of a row you changed isn't recorded twice.
 
   **What to do:** if you added transactions through the AI connector or
   imported River files, check that payouts of the same amount within two

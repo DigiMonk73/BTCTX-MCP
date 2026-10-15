@@ -33,6 +33,7 @@ class RiverProposalOut(BaseModel):
     status: str  # "new" | "matched" | "discrepancy"
     matched_tx_id: int | None = None
     discrepancy: str | None = None
+    near_amount: bool = False  # a "discrepancy" matched only by a near amount: starts unticked (#253)
 
 
 class RiverPreviewResponse(BaseModel):

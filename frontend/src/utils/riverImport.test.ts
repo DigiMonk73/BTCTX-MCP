@@ -22,6 +22,8 @@ describe("toEditableRow", () => {
     expect(toEditableRow(proposal()).include).toBe(true);
     expect(toEditableRow(proposal({ status: "matched" })).include).toBe(false);
     expect(toEditableRow(proposal({ status: "discrepancy" })).include).toBe(true);
+    // A near amount only: most likely the same move typed by hand (the owner's choice)
+    expect(toEditableRow(proposal({ status: "discrepancy", near_amount: true })).include).toBe(false);
   });
 
   it("starts from River's values, with Spent and MyBTC when it has none", () => {

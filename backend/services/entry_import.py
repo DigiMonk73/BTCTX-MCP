@@ -42,10 +42,12 @@ from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
 from backend.services.river_import import (
-    STATUS_DISCREPANCY,
     STATUS_MATCHED,
+    STATUS_NEW,
+    DuplicateRule,
     RiverProposal,
     annotate_duplicates,
+    same_ledger_amount,
 )
 from backend.services.transaction import (
     create_transaction_record,
@@ -295,33 +297,39 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     return out
 
 
+ENTRY_RULE = DuplicateRule(same_amount=same_ledger_amount, differences=_entry_differences)
+
+
 def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool = False) -> None:
     """
     The duplicate rule (D1, #253). The same type, BTC amount, source or
     purpose and minute as a transaction in the ledger (a row given as a date
     alone: the same day), and for a Buy the same cost basis => duplicate,
     left out, unless the row says not_a_duplicate (the user said it's
-    another transaction). The same amount within 48 hours with anything else
-    different, or a BTC move of a near amount => possible_duplicate: written
-    unless removed, the warning naming the match and what differs.
-    exact_only (execute's double-submit guard) looks for duplicates only.
+    another transaction): it's then ready, and still takes its match, so an
+    identical row beside it is checked as the preview checked it. The same
+    amount within 48 hours with anything else different, or a BTC move of a
+    near amount => possible_duplicate: written unless removed, the warning
+    naming the match and what differs. exact_only (execute's double-submit
+    guard) looks for duplicates only.
     """
-    checked = [p for p in prepared if p.tx_data is not None and not p.not_a_duplicate]
-    if not checked:
+    valid = [p for p in prepared if p.tx_data is not None]
+    if not valid:
         return
-    stubs = [_stub(p) for p in checked]
-    annotate_duplicates(stubs, db, exact_only=exact_only, differences=_entry_differences)
-    for p, stub in zip(checked, stubs):
+    stubs = [_stub(p) for p in valid]
+    annotate_duplicates(stubs, db, exact_only=exact_only, rule=ENTRY_RULE)
+    for p, stub in zip(valid, stubs):
+        if stub.status == STATUS_NEW or p.not_a_duplicate:
+            continue
+        p.result.matched_transaction_id = stub.matched_tx_id
         if stub.status == STATUS_MATCHED:
             p.result.status = STATUS_DUPLICATE
-            p.result.matched_transaction_id = stub.matched_tx_id
             p.result.warnings.append(
                 f"Already recorded as tx #{stub.matched_tx_id} (the same type, BTC amount, source or purpose "
                 f"and time): left out. If the user says it's another transaction, send it with not_a_duplicate."
             )
-        elif stub.status == STATUS_DISCREPANCY:
+        else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
-            p.result.matched_transaction_id = stub.matched_tx_id
             p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
 
 

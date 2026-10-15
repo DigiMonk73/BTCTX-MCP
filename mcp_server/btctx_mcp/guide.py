@@ -197,7 +197,8 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    (minus anything they rejected). The write is all-or-nothing. A duplicate
    the user says is another transaction (two payouts of the same amount at
    the same time, say) goes with not_a_duplicate: true, and is saved. Never
-   set it without their word.
+   set it without their word. If add_transactions fails or times out, check
+   list_transactions before sending such a row again: it may be saved.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its

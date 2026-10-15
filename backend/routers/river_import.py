@@ -102,6 +102,7 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
         status=p.status,
         matched_tx_id=p.matched_tx_id,
         discrepancy=p.discrepancy,
+        near_amount=p.near_amount,
     )
 
 
@@ -179,11 +180,12 @@ def execute_river_import(
         )
 
     tx_datas = _validated_rows(payload.rows)
-    stubs = [_stub(i, tx_data) for i, tx_data in enumerate(tx_datas, start=1)]
-    checked = [stub for stub, row in zip(stubs, payload.rows) if not row.not_a_duplicate]
-    annotate_duplicates(checked, db, exact_only=True)
+    stubs = [_stub(i, tx_data, row) for i, (tx_data, row) in enumerate(zip(tx_datas, payload.rows), start=1)]
+    # Every row is checked, so a ticked one takes its match as in the preview
+    annotate_duplicates(stubs, db, exact_only=True)
     new_tx_datas = [
-        tx_data for tx_data, stub in zip(tx_datas, stubs) if stub.status == STATUS_NEW
+        tx_data for tx_data, stub, row in zip(tx_datas, stubs, payload.rows)
+        if stub.status == STATUS_NEW or row.not_a_duplicate
     ]
     skipped = len(tx_datas) - len(new_tx_datas)
 
@@ -263,8 +265,9 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
     }
 
 
-def _stub(row_number: int, tx_data: dict) -> RiverProposal:
-    """A checked row in the shape the duplicate check reads."""
+def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
+    """A checked row in the shape the duplicate check reads: River's amount
+    and fee, as the preview's proposal had them."""
     return RiverProposal(
         row_number=row_number,
         timestamp=tx_data["timestamp"],
@@ -272,7 +275,9 @@ def _stub(row_number: int, tx_data: dict) -> RiverProposal:
         type=tx_data["type"],
         from_account_id=tx_data["from_account_id"],
         to_account_id=tx_data["to_account_id"],
-        amount=tx_data["amount"],
+        amount=row.amount,
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
+        fee_amount=row.fee_amount,
+        fee_currency=row.fee_currency,
     )

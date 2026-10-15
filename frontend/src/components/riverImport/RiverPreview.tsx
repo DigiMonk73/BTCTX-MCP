@@ -21,9 +21,11 @@ interface RiverPreviewProps {
 const RiverPreview: React.FC<RiverPreviewProps> = ({
   preview, rows, loading, showMatched, onToggleMatched, onRowChange, onImport, onCancel,
 }) => {
+  // A row already in the ledger shows when asked for, or once ticked: never
+  // imported out of sight (#253)
   const visibleRows = showMatched
     ? rows
-    : rows.filter((r) => r.proposal.status !== "matched");
+    : rows.filter((r) => r.proposal.status !== "matched" || r.include);
   const discrepancies = rows.filter((r) => r.proposal.status === "discrepancy");
   const importCount = importableRows(rows).length;
 
@@ -76,8 +78,10 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
           <strong>Possible matches with your ledger</strong>
           <p className="river-discrepancy-hint">
             These look like transactions you already recorded, but something
-            differs. They&apos;re ticked, so they&apos;re imported: untick a row if
-            it&apos;s the one already in your ledger.
+            differs. Those of the same amount are ticked, so they&apos;re
+            imported: untick one if it&apos;s the one already in your ledger. Those
+            of a different amount are left out: tick one if it&apos;s another
+            transaction.
           </p>
           <ul>
             {discrepancies.map((r) => (
