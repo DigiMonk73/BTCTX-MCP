@@ -143,6 +143,16 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **Nothing saved while Delete All runs is lost** (#276). Delete All (and
+  Create account on an install with transactions) copied the database,
+  then deleted every transaction: a transaction saved in between, by the AI
+  connector at that very moment, was in neither. And on an empty ledger,
+  which needs no typed `DELETE`, one saved just after that check was
+  deleted without it (kept only in the copy). The check, the copy and the
+  delete now hold the database's write lock together, so such a save waits
+  until the delete is done and is kept. If another save holds the lock too
+  long (more than 5 seconds), nothing is copied or deleted, and the message
+  says to try again. Not seen in use: the gaps were a few milliseconds.
 - **Edit reads a purpose saved in another case** (#273). A withdrawal an
   older version saved as "spent" (or "gift", "donation", "lost") opened in
   Edit with **Purpose** blank, and **Update transaction** did nothing until
