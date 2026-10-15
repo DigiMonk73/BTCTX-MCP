@@ -231,9 +231,9 @@ From `backend/requirements.in`:
 
 | Package | Pinned | Risk | Notes |
 |---------|--------|------|-------|
-| `fastapi` | 0.142.2 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
+| `fastapi` | 0.143.0 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
 | `starlette` | 1.7.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event` |
-| `pydantic` | 2.13.5 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
+| `pydantic` | 2.14.1 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
 | `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
 | `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`, which reads each answer as a stream under a deadline and a size limit (`BoundedClient`: run `test_request_limits.py` after an update); also used by the MCP server |
@@ -247,10 +247,10 @@ From `backend/requirements.in`:
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone; update yearly |
-| `pypdf` | 6.19.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
+| `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.4.10 | High | Complete Tax Report and transaction history PDFs. Stay on 4.4.x (see below) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.4 | Low | Test only: property tests |
+| `hypothesis` | 6.168.5 | Low | Test only: property tests. 6.168.5 is the last for Python 3.10 (see below) |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
 ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.
@@ -271,6 +271,7 @@ take the upgrade.
 | `eslint` | 10.x | Major (eslintrc removal, Node ≥ 20.19) | Move together with `eslint-plugin-react-hooks` 7.x, whose preset shapes our flat config uses |
 | `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass |
 | `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.11 or later (Docker and StartOS 3.11, the Mac app 3.13) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
+| `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it) | CI stops testing Python 3.10 (with SQLAlchemy 2.1 above) |
 
 ---
 

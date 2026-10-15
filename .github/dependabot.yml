@@ -89,6 +89,10 @@ updates:
       - dependency-name: ruff
       - dependency-name: pip-audit
       - dependency-name: uv
+    ignore:
+      # Deferred: 6.169 needs Python 3.11; CI still tests 3.10 (MAINTENANCE.md)
+      - dependency-name: hypothesis
+        versions: [">=6.169"]
     groups:
       dev-tools:
         update-types: [minor, patch]
