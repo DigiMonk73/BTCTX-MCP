@@ -151,6 +151,41 @@ All notable changes to BitcoinTX are documented in this file.
   and saves as before. A deposit's source was already read this way. The
   Transactions list and Ledger Review show the listed spelling too ("Spent",
   not "spent"). Display only: nothing stored changes, and no figure moves.
+- **The CSV preview refuses the fee accounts, dollar amounts past the cent
+  and transfers across currencies** (#266). Settings → Import Transactions
+  (CSV) → **Preview** called these rows valid, and **Import** then refused
+  them, the whole file with them: a row naming the ledger's own BTC Fees
+  or USD Fees account (a withdrawal from BTC Fees wasn't even asked for its
+  purpose), a dollar amount with more than 2 decimal places, and a
+  transfer between a dollar account and a bitcoin account. Preview now
+  refuses each of them with the reason, as the import does; so do the AI
+  connector's entry check and the River import, which share the row check.
+  Nothing wrong was ever saved: the import is all or nothing. A few other
+  rows still pass Preview and fail only at Import (#285).
+
+### Development
+- **The Ledger Review click-through test no longer hangs now and then**
+  (#275, which #189 also was). The test fakes a failed apply with a
+  Playwright route used once. As that route expires, Playwright turns its
+  request interception off, and the review's reload, which the browser
+  paused in that moment, was never continued: it never left the browser,
+  the panel stayed on "Checking..." until the test timed out, and the
+  required Chromium check failed now and then. The test now keeps one
+  route for the whole test, refusing the first apply and passing the rest
+  through, and a lint rule refuses a `times` route or an unroute in the
+  click-through tests. BitcoinTX itself was never at fault: the server was
+  never asked.
+- **Test files run under pytest only** (#272). Six test files had a runner
+  of their own, and five failed when run that way: two were old scripts
+  for a server at `127.0.0.1:8000` with no pytest test in them (removed:
+  `test_backdated_fifo.py` and `test_user_patch.py`, whose scenarios other
+  tests cover), one ran `pytest` from the PATH, and two lacked conftest.py's
+  setup (stubbed prices, temp folders), so they also wrote `setup-code.txt`
+  into `backend/`. The runners are gone; a test checks no test file gets
+  one back. `pre_commit_tests.py`, which CI runs as a script, keeps its
+  own and no longer runs the two removed scripts. `.gitignore` now ignores
+  `setup-code.txt` and `*.orig` (a comment after the pattern made it match
+  nothing).
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

@@ -30,6 +30,8 @@ venv.bak/
 # --- Environment Variables ---
 .env
 .btctx_secret_key
+# The first-run setup code, written next to the database (from a checkout: backend/)
+setup-code.txt
 .env.*
 .env_backup
 
@@ -74,14 +76,15 @@ pytest_cache/
 .tox/
 
 # --- FastAPI/Uvicorn ---
-logs/  # Log directory (if used for Uvicorn or other services)
+# Log directory (if used for Uvicorn or other services)
+logs/
 
 # --- Optional Backend Artifacts ---
 backend/create_db.py
 
 # --- Git-Specific ---
-*.orig  # Merge conflict backup files
-.gitignore  # Ensure `.gitignore` itself is tracked
+# Merge conflict backup files
+*.orig
 
 # --- Additional Notes ---
 # Add any other temporary or sensitive directories/files specific to your development setup here.
