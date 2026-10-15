@@ -332,4 +332,3 @@ class TestSecurityProperties:
         assert user.verify_password(password_with_null) is True
         # Should not match truncated version
         assert user.verify_password("before") is False
-

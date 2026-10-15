@@ -2035,4 +2035,3 @@ class TestBuyFromBank:
             None
         )
         assert buy_lot is not None, "Should create a Bitcoin lot"
-

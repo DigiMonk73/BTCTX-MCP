@@ -1999,4 +1999,3 @@ def test_complex_scenario():
     actual_gain = float(sell_detail.get("realized_gain_usd", 0))
     expected_gain = 34950.0 - actual_basis
     assert_true(abs(actual_gain - expected_gain) < 2.0, f"Sell gain calculation correct (got ${actual_gain})")
-

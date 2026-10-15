@@ -145,8 +145,8 @@ All notable changes to BitcoinTX are documented in this file.
   Wording only.
 
 ### Development
-- **Test files run under pytest only** (#272). Five test files could also
-  run on their own, and every one failed that way: two were old scripts
+- **Test files run under pytest only** (#272). Six test files had a runner
+  of their own, and five failed when run that way: two were old scripts
   for a server at `127.0.0.1:8000` with no pytest test in them (removed:
   `test_backdated_fifo.py` and `test_user_patch.py`, whose scenarios other
   tests cover), one ran `pytest` from the PATH, and two lacked conftest.py's
