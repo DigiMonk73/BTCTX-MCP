@@ -552,6 +552,9 @@ async def test_update_transaction_sets_and_clears_the_date_originally_acquired(m
     tx_id = (await call(mcp_client, "add_transactions", {"transactions": [deposit]}))["created"][0]["id"]
     updated = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "2022-01-05"})
     assert updated["acquired_at"] == "2022-01-05"
+    # 20:00 in Chicago is 02:00 UTC the next day: still January 5
+    timed = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "2022-01-05 20:00"})
+    assert timed["acquired_at"] == "2022-01-05"
     cleared = await call(mcp_client, "update_transaction", {"transaction_id": tx_id, "acquired_at": "none"})
     assert "acquired_at" not in cleared
 

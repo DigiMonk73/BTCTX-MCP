@@ -256,30 +256,44 @@ All notable changes to BitcoinTX are documented in this file.
   as the CSV import does.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
-  in the tax timezone and shown again as that moment's date in whatever the
-  tax timezone was later. After the tax timezone changed by many hours
-  (from UTC+14 to UTC, for example), the form showed the day before or
-  after, and saving the deposit unchanged stored that day. A day can move a
+  in the tax timezone, and used as that moment's date in whatever the tax
+  timezone was later. After the tax timezone changed by 12 hours or more
+  (UTC+14 to UTC, or UTC to UTC+12, for example), the form, the holding
+  period, Form 8949 column (b) and an inheritance priced again used the day
+  before or after, with no save needed, and saving the deposit kept it.
+  Smaller changes could move a date stored with a time of day: one the CSV
+  import, the AI connector or the API took with a time, and a date that was
+  the deposit's own day for a deposit made before noon. A day can move a
   holding period across the one-year line (long-term or short-term), change
   which coins are sold first, and price an inheritance on the wrong day.
   Every version since 1.2.6 (the date originally acquired) and 1.2.8 (the
-  date of death); only after a tax-timezone change, of more than 12 hours
-  for a date entered alone (a date the CSV import or the AI connector took
-  with a time of day could move with less). Now the date itself is stored:
-  `acquired_at` is a date, `YYYY-MM-DD`, in the API, the CSV export and the
-  AI connector, and no timezone change moves it. Its lot is at noon of that
-  date in the tax timezone, as before, and a date given with a time stands
-  for its date in the tax timezone. The upgrade (migration 0012) stores each
-  deposit's date as the form shows it today. Ledger Review now compares the
-  lots a recalculation would make by their dates, so a lot only moved to
-  noon of its own day isn't listed.
+  date of death). Now the date itself is stored: `acquired_at` is a date,
+  `YYYY-MM-DD`, in the API, the CSV export and the AI connector, and no
+  timezone change moves it. A date given with a time stands for its date
+  in the tax timezone. The deposit's coins count from noon of that date in
+  the tax timezone, never after the deposit, as before for a date entered
+  alone. An edit that keeps the date is saved even if a timezone change
+  has since put the deposit on the day before it, and the CSV export then
+  writes the deposit's day, which is the date its coins count from. The
+  app's page is now checked with the server on every load, so a browser
+  can't keep showing an older version's form.
 
-  **What to do:** most ledgers need nothing. If you changed the tax
-  timezone by many hours after entering a My BTC, Gift or Inherited
-  deposit's date, check those dates against your records and correct any
-  that moved (saving recalculates the ledger): the upgrade can't tell a
-  date an earlier unchanged save moved from one you entered, so it keeps
-  the date shown.
+  The upgrade (migration 0012) stores each date as the form showed it,
+  which is the date the reports used. Which timezone a date was entered in
+  isn't known, so a date an earlier timezone change moved keeps the moved
+  day. For a date given with a time, or entered before a timezone change,
+  the coins now count from noon of that day instead of that time. That
+  moves no date and no holding period, but where two lots in one account
+  fall on the same day, it can change which one a later sale takes first,
+  and so its gain. Ledger Review now compares lots by their dates, so a
+  lot that only moves within its day isn't listed by itself.
+
+  **What to do:** right after upgrading, open Ledger Review before saving
+  anything. If "A recalculation would change" lists a sale, its gain moves
+  because of the order above; Recalculate Ledger applies it (so does any
+  save). If you changed the tax timezone by many hours after entering a My
+  BTC, Gift or Inherited deposit's date, check those dates against your
+  records and correct any that moved. Most ledgers need nothing.
 
 ### Development
 - **The certificate test no longer fails 1 run in 256** (#299).

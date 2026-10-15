@@ -27,6 +27,8 @@ frontend_dist = os.environ.get(
     "BTCTX_FRONTEND_DIST",
     os.path.join(os.path.dirname(__file__), "../frontend/dist")
 )
+# The app's page is checked with the server on every load (FrontendFiles)
+PAGE_NOT_CACHED = {"Cache-Control": "no-cache"}
 
 from backend.secret_key import app_secret_key
 
@@ -205,7 +207,7 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
     if exc.status_code == 404 and not is_api and not is_file:
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
-            return FileResponse(index_path, media_type="text/html")
+            return FileResponse(index_path, media_type="text/html", headers=PAGE_NOT_CACHED)
 
     # For API routes or non-404 errors, return JSON response (with the
     # exception's headers, e.g. Retry-After on a 429)
@@ -366,6 +368,22 @@ def health(db: Session = Depends(get_db)):
 
 from fastapi.staticfiles import StaticFiles
 
+
+class FrontendFiles(StaticFiles):
+    """The built frontend, whose page (index.html) is checked with the
+    server on every load: a browser kept an older version's page for hours
+    after an upgrade, and that page reads the API as its version did (a
+    date originally acquired read through a JavaScript Date showed the day
+    before, and saved it, #185). The bundle's files are named by their
+    content, so they keep the browser's usual caching."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers.update(PAGE_NOT_CACHED)
+        return response
+
+
 # html=True serves index.html for "/" and folders only; spa_fallback_handler
 # serves it for the frontend's own routes.
-app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
+app.mount("/", FrontendFiles(directory=frontend_dist, html=True), name="frontend")

@@ -391,6 +391,13 @@ Start from the `clean` snapshot.
   - Dashboard Total Net Capital Gains still +$19,433.10.
 - **TZ-2** Set it back to `America/New_York`. Expect: every golden figure
   is back.
+- **TZ-2b** A date stays the date entered (#185). Add a Deposit into
+  Exchange BTC, Source **MyBTC**, `0.01` BTC on `2025-04-01`, cost basis
+  `500`, **Date originally acquired** `2023-03-14`. Set the tax timezone
+  to `Pacific/Kiritimati`, then edit the deposit: the field still shows
+  03/14/2023; save it unchanged. Set the tax timezone back to
+  `America/New_York` and edit it again: still 03/14/2023. Delete it.
+  Expect: every golden figure as before.
 
 ### REV: Ledger Review and Recalculate
 

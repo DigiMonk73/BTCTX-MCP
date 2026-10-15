@@ -31,6 +31,7 @@ from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.services.reports.safe_text import csv_text
+from backend.services.tax_time import get_tax_timezone, local_date
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, VALUED_AT_RECEIPT
 
 logger = logging.getLogger(__name__)
@@ -281,7 +282,8 @@ def export_transactions_csv(
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS)
     writer.writeheader()
-    writer.writerows(_export_row(txn) for txn in transactions)
+    tz = get_tax_timezone(db)
+    writer.writerows(_export_row(txn, tz) for txn in transactions)
     filename = f"btctx_transactions_{datetime.now().strftime('%Y-%m-%d')}.csv"
 
     return PlainTextResponse(
@@ -293,7 +295,19 @@ def export_transactions_csv(
     )
 
 
-def _export_row(txn: Transaction) -> dict[str, str]:
+def _date_acquired(txn: Transaction, tz) -> str:
+    """
+    The date originally acquired (or of death) the ledger uses: the date
+    stored, or the deposit's own day when a change of tax timezone since put
+    the deposit on the day before it (its lot is never after the deposit,
+    #185), so the file imports back to the same lots.
+    """
+    if txn.acquired_at is None:
+        return ""
+    return min(txn.acquired_at, local_date(txn.timestamp, tz)).isoformat()
+
+
+def _export_row(txn: Transaction, tz) -> dict[str, str]:
     """
     The transaction as a CSV row of the values the user entered: a Sell's or
     Withdrawal's basis comes from its lots and isn't exported, and its
@@ -325,7 +339,7 @@ def _export_row(txn: Transaction) -> dict[str, str]:
         "broker_reporting": csv_text(txn.broker_reporting),
         "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
         "cost_basis_typed": _basis_typed(txn),
-        "acquired_at": txn.acquired_at.isoformat() if txn.acquired_at else "",  # a date (#185)
+        "acquired_at": _date_acquired(txn, tz),
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",

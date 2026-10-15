@@ -330,9 +330,9 @@ def _lots_made(db: Session, tz) -> dict[int, dict[str, Any]]:
     """The lots each transaction made, and their cost: a transfer's is the
     cost it moved, which a recalculation can change by a cent (#296). Each
     dated in the tax timezone, as the holding period and Form 8949 date it:
-    a lot moved to another hour of its day (a date originally acquired
-    given with a time is a lot at noon since #185) changes no figure, and
-    a change of order it makes shows in the rows."""
+    a lot moved to another hour of its day (a deposit's lot is at noon of
+    its date originally acquired, whatever time was given with it) changes
+    no figure, and a change of order it makes shows in the rows."""
     made: dict[int, list[BitcoinLot]] = {}
     for lot in db.query(BitcoinLot):
         made.setdefault(lot.created_txn_id, []).append(lot)

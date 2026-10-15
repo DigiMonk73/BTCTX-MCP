@@ -7,6 +7,7 @@ deposit unchanged stored the moved day. It is stored as the date given,
 form showed.
 """
 
+import io
 import sqlite3
 from datetime import date
 from decimal import Decimal
@@ -105,14 +106,61 @@ def test_the_ai_import_keeps_a_date_alone_as_given(auth_client):
     assert saved["acquired_at"] == "2021-03-14"
 
 
-@pytest.mark.parametrize("stored, listed", [
-    ("2021-03-14T03:00:00Z", False),  # its own day: no figure moves
-    ("2021-03-13T12:00:00Z", True),  # another day: the holding period can
+def test_the_ai_preview_checks_the_date_in_the_tax_timezone(auth_client):
+    """A deposit dated April 2 in Kiritimati is April 1 in UTC: its own day
+    as the date originally acquired isn't after it there."""
+    set_timezone(auth_client, KIRITIMATI)
+    row = {"date": "2025-04-02", "type": "Deposit", "amount": "0.1", "from_account": "External",
+           "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "2000", "acquired_at": "2025-04-02"}
+    [result] = auth_client.post("/api/import/entries/preview", json={"rows": [row]}).json()["results"]
+    assert result["status"] == "ready", result
+
+
+def test_a_time_without_a_timezone_is_the_date_written(auth_client):
+    """The API read "2021-03-15T02:00:00" as UTC: March 14 in Chicago. A
+    time without a timezone is in the tax timezone, as the imports read it."""
+    set_timezone(auth_client, "America/Chicago")
+    assert deposit(auth_client, acquired_at="2021-03-15T02:00:00")["acquired_at"] == "2021-03-15"
+
+
+def test_a_deposit_the_timezone_change_put_before_its_date_can_still_be_edited(auth_client):
+    """Deposited at 11:00 UTC on April 1, April 2 in Kiritimati, with that
+    day as its date originally acquired. In UTC the deposit is on April 1:
+    an edit that keeps the date and the deposit's day is saved, the lot
+    stays at the deposit, and the CSV export writes the day the ledger uses,
+    so it imports back. A new date after the deposit is still refused."""
+    set_timezone(auth_client, KIRITIMATI)
+    tx = deposit(auth_client, timestamp="2025-04-01T11:00:00Z", acquired_at="2025-04-02")
+    set_timezone(auth_client, "UTC")
+    for edit in ({"amount": "0.2"}, {"amount": "0.3", "acquired_at": "2025-04-02",
+                                     "timestamp": "2025-04-01T11:00:00Z"}):  # what the form sends
+        r = auth_client.put(f"/api/transactions/{tx['id']}", json=edit)
+        assert r.status_code == 200 and r.json()["acquired_at"] == "2025-04-02", r.text
+    [lot] = auth_client.get("/api/debug/lots").json()
+    assert lot["acquired_date"].startswith("2025-04-01T11:00:00")
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"acquired_at": "2025-04-03"})
+    assert r.status_code == 422 and "can't be after the deposit's date" in r.text
+    export = auth_client.get("/api/backup/csv")
+    assert ",2025-04-01," in export.text and "2025-04-02" not in export.text
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
+    assert r.status_code == 200, r.text
+    [lot] = auth_client.get("/api/debug/lots").json()
+    assert lot["acquired_date"].startswith("2025-04-01T11:00:00")
+
+
+@pytest.mark.parametrize("timezone, stored, listed", [
+    ("UTC", "2021-03-14T03:00:00Z", False),  # its own day: no figure moves
+    ("UTC", "2021-03-13T12:00:00Z", True),  # another day: the holding period can move
+    ("America/Chicago", "2021-03-15T03:00:00Z", False),  # March 14 in Chicago, though March 15 in UTC
 ])
-def test_ledger_review_lists_a_lot_only_when_its_date_would_change(auth_client, test_engine, stored, listed):
-    """A date given with a time made its lot at that time; since #185 the
-    lot is at noon of the date. Ledger Review lists what a recalculation
-    would change, and a lot moved within its own day changes no figure."""
+def test_ledger_review_lists_a_lot_only_when_its_date_would_change(auth_client, test_engine, timezone, stored,
+                                                                    listed):
+    """A deposit's lot is at noon of its date originally acquired; one given
+    with a time was at that time. Ledger Review lists what a recalculation
+    would change, and a lot moved within its own day, in the tax timezone,
+    changes no figure."""
+    set_timezone(auth_client, timezone)
     tx = deposit(auth_client, acquired_at="2021-03-14")
     with test_engine.begin() as con:
         con.execute(text("UPDATE bitcoin_lots SET acquired_date = :at WHERE created_txn_id = :t"),
@@ -121,24 +169,50 @@ def test_ledger_review_lists_a_lot_only_when_its_date_would_change(auth_client, 
     assert [item["id"] for item in check["items"]] == ([tx["id"]] if listed else [])
 
 
-def _database_at_0011(tmp_path, setting: str | None):
-    db = tmp_path / "btctx.db"
-    engine = create_engine(f"sqlite:///{db}")
+def test_the_page_is_checked_with_the_server_on_every_load(tmp_path, monkeypatch):
+    """A page cached from an older version read the date through a
+    JavaScript Date: the day before in a US timezone, saved by an unchanged
+    edit. The page is never reused unchecked; the bundle's files are."""
+    from fastapi.testclient import TestClient
+    from starlette.applications import Starlette
+
+    import backend.main as main
+
+    (tmp_path / "index.html").write_text("<!doctype html><title>BitcoinTX</title>")
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "index-abc123.js").write_text("console.log(1)")
+    monkeypatch.setattr(main, "frontend_dist", str(tmp_path))
+    assert TestClient(main.app).get("/transactions").headers["cache-control"] == "no-cache"
+    files = Starlette()
+    files.mount("/", main.FrontendFiles(directory=tmp_path, html=True))
+    client = TestClient(files)
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert "cache-control" not in client.get("/assets/index-abc123.js").headers
+
+
+# A deposit at noon UTC with a date originally acquired stored as noon on
+# March 14 in Kiritimati, one without, and one whose date is its own
+# morning's (stored at the deposit, before noon)
+ROWS_AT_0011 = [(1, "2025-04-01T12:00:00Z", "2021-03-13T22:00:00Z"), (2, "2025-04-01T12:00:00Z", None),
+                (3, "2025-04-01T09:00:00Z", "2025-04-01T09:00:00Z")]
+
+
+def _database_at_0011(path, setting: str | None):
+    engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as conn:
         cfg = alembic_config()
         cfg.attributes["connection"] = conn
         command.upgrade(cfg, "0011")
-    con = sqlite3.connect(str(db))
+    con = sqlite3.connect(str(path))
     if setting:
         con.execute("INSERT INTO app_settings (key, value) VALUES ('tax_timezone', ?)", (setting,))
     con.executemany(
         "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount, "
-        "fee_currency, source, cost_basis_usd, acquired_at) VALUES (?, 'Deposit', '2025-04-01T12:00:00Z', 99, 4, "
-        "'0.1', '0', 'BTC', 'MyBTC', '2000', ?)",
-        [(1, "2021-03-13T22:00:00Z"), (2, None)])  # noon on March 14 in Kiritimati
+        "fee_currency, source, cost_basis_usd, acquired_at) VALUES (?, 'Deposit', ?, 99, 4, '0.1', '0', 'BTC', "
+        "'MyBTC', '2000', ?)", ROWS_AT_0011)
     con.commit()
     con.close()
-    return db, engine
+    return engine
 
 
 def _dates(db) -> list[tuple]:
@@ -159,13 +233,34 @@ def test_migration_0012_stores_the_date_the_form_showed(tmp_path, monkeypatch, s
         monkeypatch.setenv("BTCTX_TIMEZONE", server_setting)
     else:
         monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
-    db, engine = _database_at_0011(tmp_path, setting)
+    db = tmp_path / "btctx.db"
+    engine = _database_at_0011(db, setting)
     upgrade_database(engine, backup=False)
-    assert _dates(db) == [(1, shown), (2, None)]
+    assert _dates(db) == [(1, shown), (2, None), (3, "2025-04-01")]
     with engine.begin() as conn:
         cfg = alembic_config()
         cfg.attributes["connection"] = conn
         command.downgrade(cfg, "0011")
-    # Back to noon of that date in the same timezone
-    assert _dates(db) == [(1, "2021-03-13T22:00:00Z" if setting or server_setting else "2021-03-13T12:00:00Z"),
-                          (2, None)]
+    # Back to noon of that date in the same timezone, never after the deposit
+    # (in UTC, noon on April 1 is after row 3's 09:00)
+    in_kiritimati = bool(setting or server_setting)
+    assert _dates(db) == [(1, "2021-03-13T22:00:00Z" if in_kiritimati else "2021-03-13T12:00:00Z"), (2, None),
+                          (3, "2025-03-31T22:00:00Z" if in_kiritimati else "2025-04-01T09:00:00Z")]
+
+
+def test_a_backup_from_before_0012_is_restored_with_its_own_timezone(tmp_path):
+    """A restore upgrades the backup's own database first, so its dates
+    are read in its own tax timezone, whatever the live one's is."""
+    from backend.database import init_db
+    from backend.services.backup import make_backup, restore_backup
+
+    old = tmp_path / "old.db"
+    _database_at_0011(old, KIRITIMATI).dispose()
+    btx = tmp_path / "old.btx"
+    make_backup("pw", btx, db_path=old)
+    live = tmp_path / "live" / "btctx.db"
+    live.parent.mkdir()
+    engine = create_engine(f"sqlite:///{live}", connect_args={"check_same_thread": False})
+    init_db(engine)
+    restore_backup("pw", btx, db_path=live, engine=engine)
+    assert _dates(live) == [(1, "2021-03-14"), (2, None), (3, "2025-04-01")]

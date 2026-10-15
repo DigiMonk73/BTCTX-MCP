@@ -402,7 +402,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     # Text an edit leaves as stored stays as it is (rows saved before the
     # one-line rule load and edit; the form sends them back unchanged)
     kept_text = frozenset(k for k in ("purpose", "source") if tx_data.get(k, getattr(tx, k)) == getattr(tx, k))
-    _validate_transaction(merged, db, check_source=check_source, kept_text=kept_text)
+    _validate_transaction(merged, db, check_source=check_source, kept_text=kept_text, stored=tx)
     if _fill_fee_currency(merged, db):  # e.g. a fee_amount sent on its own
         tx_data["fee_currency"] = merged["fee_currency"]
     for key in ("type", "purpose", "source", "timestamp", "acquired_at"):  # canonical spellings, whole seconds
@@ -1390,11 +1390,15 @@ def date_of_death(when: date | datetime, db: Session) -> date:
 def original_date(when: date | datetime, tz) -> date:
     """
     A date originally acquired (or of death) as the date it is: a date as
-    given, a moment as its date in the tax timezone, never its UTC day:
-    more than 12 hours ahead of UTC (UTC+13, +14) noon is the day before in
-    UTC, 12 hours behind (UTC-12) the day after (#177).
+    given, a time without a timezone as the date written (it is in the tax
+    timezone, as the imports read it), a moment as its date in the tax
+    timezone, never its UTC day: more than 12 hours ahead of UTC (UTC+13,
+    +14) noon is the day before in UTC, 12 hours behind (UTC-12) the day
+    after (#177).
     """
-    return local_date(when, tz) if isinstance(when, datetime) else when
+    if not isinstance(when, datetime):
+        return when
+    return when.date() if when.tzinfo is None else local_date(when, tz)
 
 
 def date_of_death_price(db: Session, when: date | datetime) -> hourly_prices.Priced:
@@ -1753,14 +1757,15 @@ def _bad(detail: str):
 
 
 def _validate_transaction(data: dict, db: Session, check_source: bool = True,
-                          kept_text: frozenset = frozenset()) -> None:
+                          kept_text: frozenset = frozenset(), stored: Transaction | None = None) -> None:
     """
     Reject input the ledger would record wrongly, with a clear message; set
     canonical spellings in `data`. Used on create, and on update with the
     stored row merged with the change, so a partial edit is checked as a
     whole transaction. check_source=False keeps a deposit's stored source
-    unchecked (an edit that doesn't change it). The checks run in a fixed
-    order, and the first that fails is the message.
+    unchecked (an edit that doesn't change it); `stored` is the row an edit
+    changes. The checks run in a fixed order, and the first that fails is
+    the message.
     """
     tx_type = _checked_type(data)
     _check_timestamp(data)
@@ -1774,7 +1779,7 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True,
         _check_sell_proceeds(data, fee)
     _set_canonical_spellings(data, kept_text)
     _check_type_requirements(data, tx_type, check_source, from_acct, to_acct)
-    _check_original_date(data, tx_type, to_acct, db)
+    _check_original_date(data, tx_type, to_acct, db, stored)
 
 
 def _checked_type(data: dict) -> str:
@@ -2009,12 +2014,12 @@ def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Accou
 
 
 def original_date_problem(tx_type: str | None, source: str | None, into_btc: bool, acquired: date,
-                          deposit: datetime, tz) -> str | None:
+                          deposit: datetime | None, tz) -> str | None:
     """
     Why a date originally acquired can't go on this row, or None. Only on a
     My BTC, Gift or Inherited deposit (its date of death) into a BTC account,
     no earlier than the day Bitcoin began and no later than the deposit's
-    day in the tax timezone.
+    day in the tax timezone (deposit None: not compared).
     """
     if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
         return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
@@ -2022,12 +2027,13 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
     what = "The date of death" if _is_inherited({"source": source}) else "The date originally acquired"
     if acquired < GENESIS.date():
         return f"{what} is before Bitcoin existed (3 January 2009)."
-    if acquired > local_date(deposit, tz):
+    if deposit is not None and acquired > local_date(deposit, tz):
         return f"{what} can't be after the deposit's date."
     return None
 
 
-def _check_original_date(data: dict, tx_type: str, to_acct: Account | None, db: Session) -> None:
+def _check_original_date(data: dict, tx_type: str, to_acct: Account | None, db: Session,
+                         stored: Transaction | None) -> None:
     """
     The date originally acquired, checked and stored as a date (#185): the
     date the owner gave stays that date whatever the tax timezone becomes.
@@ -2038,8 +2044,16 @@ def _check_original_date(data: dict, tx_type: str, to_acct: Account | None, db: 
         return
     tz = get_tax_timezone(db)
     acquired = original_date(acquired, tz)
+    deposit = data["timestamp"]
+    # An edit that keeps the date and the deposit's day isn't refused for
+    # them: a change of tax timezone since can put the deposit on the day
+    # before its date, and every edit of the deposit would fail (its lot is
+    # never after the deposit: _lot_acquired)
+    if stored is not None and acquired == stored.acquired_at \
+            and local_date(deposit, tz) == local_date(stored.timestamp, tz):
+        deposit = None
     into_btc = to_acct is not None and to_acct.currency == "BTC"
-    problem = original_date_problem(tx_type, data.get("source"), into_btc, acquired, data["timestamp"], tz)
+    problem = original_date_problem(tx_type, data.get("source"), into_btc, acquired, deposit, tz)
     if problem:
         _bad(problem)
     data["acquired_at"] = acquired

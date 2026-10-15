@@ -10,11 +10,15 @@ of that date in the tax timezone of the recalculation that makes it.
 
 Existing rows: each moment becomes its date in this database's tax timezone
 (the app_settings row, else BTCTX_TIMEZONE, else UTC, as
-tax_time.get_tax_timezone_name), which is the date the form shows today. A
-date an earlier timezone change already moved can't be told apart: it keeps
-the date shown. A restored backup is converted with its own setting. No
-figure changes: the next recalculation makes the same lots, at the same
-moments, from these dates.
+tax_time.get_tax_timezone_name), which is the date the form, the holding
+period and Form 8949 use today. Which timezone a date was entered in isn't
+known, so one an earlier timezone change moved keeps the date shown. A
+restored backup is converted with its own setting. Lots aren't rebuilt
+here; the next recalculation puts a deposit's lot at noon of its date in
+the tax timezone. That is the moment it had for a date entered alone in
+this timezone; a date given with a time (CSV, the AI connector, the API),
+or entered before a timezone change, moves within its day, which can change
+which of two same-day lots a sale takes first (Ledger Review lists it).
 
 Revision ID: 0012
 Revises: 0011
@@ -45,10 +49,11 @@ def downgrade() -> None:
 def _rewrite(convert) -> None:
     bind = op.get_bind()
     tz = _tax_timezone(bind)
-    rows = bind.execute(sa.text("SELECT id, acquired_at FROM transactions WHERE acquired_at IS NOT NULL")).all()
+    rows = bind.execute(sa.text(
+        "SELECT id, acquired_at, timestamp FROM transactions WHERE acquired_at IS NOT NULL")).all()
     for row in rows:
         bind.execute(sa.text("UPDATE transactions SET acquired_at = :value WHERE id = :id"),
-                     {"value": convert(str(row.acquired_at).strip(), tz), "id": row.id})
+                     {"value": convert(str(row.acquired_at).strip(), str(row.timestamp), tz), "id": row.id})
 
 
 def _tax_timezone(bind) -> ZoneInfo:
@@ -57,19 +62,23 @@ def _tax_timezone(bind) -> ZoneInfo:
     return ZoneInfo(name or os.getenv("BTCTX_TIMEZONE") or "UTC")
 
 
-def _as_date(text: str, tz: ZoneInfo) -> str:
-    """A stored moment ('...Z', or naive as UTC) as its date in `tz`; a date stays."""
+def _as_date(text: str, _deposit: str, tz: ZoneInfo) -> str:
+    """A stored moment as its date in `tz`; a date stays."""
     if len(text) == 10:
         return text
-    moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(tz).date().isoformat()
+    return _moment(text).astimezone(tz).date().isoformat()
 
 
-def _as_moment(text: str, tz: ZoneInfo) -> str:
-    """A date back to noon in `tz`, in UTC, as stored before 0012."""
+def _as_moment(text: str, deposit: str, tz: ZoneInfo) -> str:
+    """A date back to a moment as stored before 0012: noon in `tz`, never
+    after the deposit."""
     if len(text) != 10:
         return text
-    noon = datetime.combine(date.fromisoformat(text), time(12), tzinfo=tz).astimezone(timezone.utc)
-    return noon.isoformat().replace("+00:00", "Z")
+    noon = datetime.combine(date.fromisoformat(text), time(12), tzinfo=tz)
+    return min(noon, _moment(deposit)).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _moment(text: str) -> datetime:
+    """A stored UTC timestamp ('...Z', '+00:00', or naive as UTC)."""
+    moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    return moment.replace(tzinfo=timezone.utc) if moment.tzinfo is None else moment
