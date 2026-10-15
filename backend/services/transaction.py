@@ -1910,8 +1910,11 @@ def _check_fee_currency(data: dict, tx_type: str, fee: Decimal, from_acct: Accou
     if fee_cur and fee_cur not in FEE_CURRENCIES:
         _bad(FEE_CURRENCY_UNKNOWN)
     from_cur, to_cur = (from_acct.currency if from_acct else None), (to_acct.currency if to_acct else None)
-    problem = fee_currency_problem(tx_type, fee, fee_cur, from_cur, to_cur) or fee_cents_problem(
-        fee, fee_currency_used(tx_type, fee_cur, from_cur, to_cur))
+    own = fee_currency_used(tx_type, None, from_cur, to_cur)
+    # A fee in another currency than its type's gets that message (here or
+    # in the fee rules), not the cents one
+    cents = fee_cents_problem(fee, fee_cur or own) if fee_cur in ("", own) else None
+    problem = fee_currency_problem(tx_type, fee, fee_cur, from_cur, to_cur) or cents
     if problem:
         _bad(problem)
 

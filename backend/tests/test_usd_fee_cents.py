@@ -78,3 +78,40 @@ def test_the_csv_preview_refuses_a_dollar_fee_past_the_cent():
     result = parse_csv_file(csv.encode())
     assert [(e.column, e.message) for e in result.errors] == [
         ("fee_amount", "A USD fee can have at most 2 decimal places.")]
+
+
+BUY_ROW = {"date": "2024-01-02T12:00:00Z", "type": "Buy", "amount": "0.001", "from_account": "Bank",
+           "to_account": "Exchange BTC", "cost_basis_usd": "1.00", "fee_amount": "0.005", "fee_currency": "USD"}
+CENTS = "A USD fee can have at most 2 decimal places."
+
+
+def test_the_ai_connectors_import_refuses_a_dollar_fee_past_the_cent():
+    preview = CLIENT.post("/api/import/entries/preview", json={"rows": [BUY_ROW]})
+    assert preview.status_code == 200, preview.text
+    [result] = preview.json()["results"]
+    assert result["status"] == "invalid" and CENTS in result["errors"], result
+    r = CLIENT.post("/api/import/entries/execute", json={"rows": [BUY_ROW]})
+    assert r.status_code == 400 and r.json()["detail"] == f"Rows have errors: Row 1: {CENTS[:-1]}. No transactions" \
+        " were saved.", r.text
+
+
+def test_river_refuses_a_dollar_fee_past_the_cent():
+    r = CLIENT.post("/api/import/river/execute", json={"rows": [dict(BUY_ROW, fee_currency=None)]})
+    assert r.status_code == 400 and r.json()["detail"] == f"Rows have errors: Row 1: {CENTS}", r.text
+
+
+def test_an_edit_to_a_dollar_fee_past_the_cent_is_refused():
+    tx = buy("0.50").json()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"fee_amount": "0.005"})
+    assert r.status_code == 422 and r.json()["detail"] == CENTS, r.text
+
+
+def test_a_dollar_fee_on_a_bitcoin_transfer_is_told_its_currency_first():
+    """The fee's currency is the first thing wrong, whatever its places."""
+    assert buy("0.50").status_code == 200
+    r = CLIENT.post("/api/transactions", json=dict(
+        type="Transfer", timestamp="2024-01-04T12:00:00Z", from_account_id=EXCHANGE_BTC, to_account_id=WALLET,
+        amount="0.0005", fee_amount="0.005", fee_currency="USD"))
+    assert r.json()["detail"] == "Transfer from BTC => fee must be BTC.", r.text
+    csv = f"{HEADER}\n2024-01-04T12:00:00Z,Transfer,0.0005,Wallet,Exchange BTC,,,0.005,USD,,\n"
+    assert [e.message for e in parse_csv_file(csv.encode()).errors] == ["A transfer from this account pays its fee in BTC."]

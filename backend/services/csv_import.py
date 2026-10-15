@@ -26,6 +26,7 @@ from backend.services.transaction import (
     create_transaction_record,
     fee_cents_problem,
     fee_currency_problem,
+    fee_currency_used,
     has_control_character,
     original_date_problem,
     sell_fee_problem,
@@ -659,7 +660,11 @@ def _validate_type_specific(row: _Row) -> tuple[list[CSVParseError], list[CSVPar
 
 
 def _fee_cents_rule(row: _Row):
-    """A fee in dollars is in cents, in the currency the import sends (#298)."""
+    """A fee in dollars is in cents, in the currency the import sends (#298);
+    a fee given in another currency than its type's gets that error alone."""
+    own = fee_currency_used(row.tx_type, None, _currency(row.from_id), _currency(row.to_id))
+    if row.fee_currency and row.fee_currency != own:
+        return
     fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
     yield from _problem(row, "fee_amount", fee_cents_problem(row.fee_amount or Decimal(0), fee_cur))
 
