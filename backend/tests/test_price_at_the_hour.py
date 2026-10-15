@@ -552,11 +552,12 @@ def a_price_a_day(monkeypatch):
 
 
 def test_an_inheritance_is_valued_on_the_date_entered_in_any_tax_timezone(auth_client, kiritimati, monkeypatch):
-    """#177: the date of death 2025-05-20 is stored as noon in Kiritimati,
-    2025-05-19 22:00 UTC; it was valued at 2025-05-19's price."""
+    """#177: the date of death 2025-05-20 was stored as noon in Kiritimati,
+    2025-05-19 22:00 UTC, and valued at 2025-05-19's price. Stored as the
+    date since #185."""
     a_price_a_day(monkeypatch)
     tx = deposit(auth_client, timestamp="2025-06-01T00:00:00Z", source="Inherited", acquired_at="2025-05-20")
-    assert tx["acquired_at"].startswith("2025-05-19T22:00:00")
+    assert tx["acquired_at"] == "2025-05-20"
     assert (tx["cost_basis_usd"], tx["price_moment"]) == ("2000.00", "day")
     assert edit(auth_client, tx, acquired_at="2025-05-20")["cost_basis_usd"] == "2000.00"  # unchanged save
     assert edit(auth_client, tx, acquired_at="2025-05-19")["cost_basis_usd"] == "1900.00"

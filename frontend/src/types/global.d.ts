@@ -144,7 +144,7 @@ declare global {
     broker_reporting?: BrokerReporting | null;
     fee_usd?: string | number | null; // a BTC fee's stored USD value
     fee_usd_manual?: boolean;         // typed by the user
-    acquired_at?: string | null;      // a My BTC / Gift deposit's date originally acquired
+    acquired_at?: string | null;      // a My BTC / Gift deposit's date originally acquired, YYYY-MM-DD
     price_moment?: PriceMoment | null; // its priced values': the hour's price or the day's
     cost_basis_from_price?: boolean;  // an income or rebate value BitcoinTX filled in
     proceeds_from_price?: boolean;    // a Spent's proceeds BitcoinTX filled in

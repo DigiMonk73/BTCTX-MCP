@@ -130,7 +130,7 @@ def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
         if tx_data.get(key):
             view[key] = tx_data[key]
     if tx_data.get("acquired_at"):
-        view["acquired_at"] = tx_data["acquired_at"].astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        view["acquired_at"] = tx_data["acquired_at"].isoformat()  # a date (#185)
     return view
 
 
@@ -153,7 +153,9 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             "notes": "",
             "acquired_at": _normalize_date(row.acquired_at, tz) if row.acquired_at else "",
         }
-        tx_data, _preview, errors, warnings = _validate_row(str_row, i)
+        # The tax timezone: a date originally acquired given with a time is
+        # its date there (#185); every row's own date is already in UTC
+        tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz)
         error_msgs = [e.message for e in errors]
 
         if tx_data is not None and row.fee_usd is not None:

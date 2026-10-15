@@ -315,8 +315,8 @@ Start from the `clean` snapshot.
 - **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
   on `2025-04-01`, cost basis `500`. Expect a **Date originally acquired**
   field (it isn't there for Income or for a Bank deposit); enter
-  `2023-03-14` and save. Edit it: the field shows 03/14/2023 (its day in
-  the tax timezone), and saving the edit unchanged keeps it. Ledger Review shows "Nothing to review." and no
+  `2023-03-14` and save. Edit it: the field shows 03/14/2023 (the date
+  entered, #185), and saving the edit unchanged keeps it. Ledger Review shows "Nothing to review." and no
   "Reminder: My BTC and Gift deposits counted from their deposit date". Delete it. Expect:
   every golden figure as before.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add

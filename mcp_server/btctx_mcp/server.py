@@ -475,9 +475,10 @@ async def update_transaction(
     A value the user typed is kept, $0 included: send fmv_usd 0 only when they mean $0.
     An Inherited deposit's is priced at its date of death (acquired_at), and again when that
     changes.
-    acquired_at (MyBTC/Gift deposit) sets when the coins were originally acquired, read like
-    date; "none" clears it (the holding period then starts at the deposit). For an Inherited
-    deposit it is the date of death, which it must keep."""
+    acquired_at (MyBTC/Gift deposit) sets the date the coins were originally acquired, kept as
+    that date (a date and time stands for its date in the tax timezone); "none" clears it (the
+    holding period then starts at the deposit). For an Inherited deposit it is the date of
+    death, which it must keep."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)
@@ -499,7 +500,7 @@ async def update_transaction(
     if broker_reporting is not None:
         changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
     if acquired_at is not None:
-        changes["acquired_at"] = None if acquired_at.strip().lower() == "none" else await _timestamp_from(acquired_at)
+        changes["acquired_at"] = None if acquired_at.strip().lower() == "none" else await _date_from(acquired_at)
     if not changes:
         raise ToolError("No changes given.")
 
@@ -533,6 +534,16 @@ async def _timestamp_from(date: str) -> str:
     if parsed is None:
         raise ToolError(f"Invalid date '{date}'.")
     return _in_utc(parsed, await _tax_zone(), time(12)).replace(microsecond=0).isoformat()
+
+
+async def _date_from(date: str) -> str:
+    """A date originally acquired (or of death), which BitcoinTX keeps as a date (#185): a date
+    alone is sent as it is, never moved by a timezone; a date and time as add_transactions
+    reads it (BitcoinTX takes its date in the tax timezone)."""
+    parsed = _parse_date_text(date.strip())
+    if parsed is None:
+        raise ToolError(f"Invalid date '{date}'.")
+    return parsed[0].date().isoformat() if parsed[1] else await _timestamp_from(date)
 
 
 async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any], proceeds_given: bool) -> None:

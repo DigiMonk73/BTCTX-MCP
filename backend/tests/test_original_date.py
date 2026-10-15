@@ -135,12 +135,12 @@ def test_the_csv_export_and_import_carry_the_date(auth_client, test_engine):
     export = auth_client.get("/api/backup/csv")
     header, row = export.text.splitlines()[:2]
     column = header.split(",").index("acquired_at")
-    assert row.split(",")[column] == "2023-03-14T12:00:00Z"
+    assert row.split(",")[column] == "2023-03-14"  # a date (#185)
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     r = auth_client.post("/api/import/execute", files={"file": ("x.csv", io.BytesIO(export.content), "text/csv")})
     assert r.status_code == 200, r.text
     [tx] = auth_client.get("/api/transactions").json()
-    assert tx["acquired_at"].startswith("2023-03-14")
+    assert tx["acquired_at"] == "2023-03-14"
 
 
 def test_the_ai_connectors_import_takes_the_date(auth_client):
@@ -212,20 +212,25 @@ def test_0007_adds_an_empty_column_and_changes_nothing(tmp_path):
 
 
 def test_coins_acquired_the_morning_of_the_deposit_are_allowed(auth_client):
-    """Days compare in the tax timezone: a date alone (noon) on the day of a
-    10:00 deposit is fine, and is stored no later than the deposit itself."""
+    """Days compare in the tax timezone: a date alone on the day of a 10:00
+    deposit is fine, and its lot (noon of that date) is no later than the
+    deposit itself."""
     tx = deposit(auth_client, timestamp="2025-04-01T10:00:00Z", acquired_at="2025-04-01")
-    assert tx["acquired_at"] == "2025-04-01T10:00:00Z"
+    assert tx["acquired_at"] == "2025-04-01"
+    [lot] = auth_client.get("/api/debug/lots").json()
+    assert lot["acquired_date"].startswith("2025-04-01T10:00:00")
 
 
-def test_a_date_alone_is_noon_in_the_tax_timezone(auth_client, test_engine):
+def test_a_date_alone_is_kept_and_its_lot_is_at_noon_in_the_tax_timezone(auth_client, test_engine):
     """Column (b) shows the date given, in a New York tax timezone too: read as
     midnight UTC it would be the day before there."""
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
     assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
     try:
         tx = deposit(auth_client, acquired_at="2023-03-14")
-        assert tx["acquired_at"] == "2023-03-14T16:00:00Z"
+        assert tx["acquired_at"] == "2023-03-14"
+        [lot] = auth_client.get("/api/debug/lots").json()
+        assert lot["acquired_date"].startswith("2023-03-14T16:00:00")  # noon in New York
         sell(auth_client)
         assert rows_2025(test_engine)[0]["date_acquired"] == "03/14/2023"
     finally:

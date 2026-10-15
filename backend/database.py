@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 The database: the SQLAlchemy engine and sessions for DATABASE_FILE (SQLite;
-DATABASE_URL overrides it), the UTC timestamp column type, and the startup
+DATABASE_URL overrides it), the UTC timestamp and plain date column types, and the startup
 step that migrates the schema and seeds the default login and the six fixed
 accounts. Everything persistent lives in DATABASE_FILE's directory
 (docs/STARTOS_COMPATIBILITY.md).
@@ -87,6 +87,26 @@ class UTCDateTime(TypeDecorator):
             return None
         value = value.replace("Z", "+00:00")
         return datetime.datetime.fromisoformat(value)
+
+
+class PlainDate(TypeDecorator):
+    """
+    A calendar date with no time or timezone, stored as 'YYYY-MM-DD' (#185):
+    a date the owner typed reads back as that date whatever the tax
+    timezone becomes. A datetime is refused: the caller decides its date.
+    """
+    cache_ok = True
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, datetime.datetime) or not isinstance(value, datetime.date):
+            raise TypeError(f"PlainDate takes a date, not {type(value).__name__}")
+        return value.isoformat()
+
+    def process_result_value(self, value, dialect):
+        return None if value is None else datetime.date.fromisoformat(value)
 
 
 def get_db():

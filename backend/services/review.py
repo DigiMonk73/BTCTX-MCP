@@ -84,7 +84,7 @@ from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
-from backend.services.tax_time import as_utc, get_tax_timezone
+from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 
 
 # key -> (title, what the owner can do)
@@ -254,11 +254,12 @@ def simulate_recalculation(db: Session):
     """
     from backend.services.transaction import recalculate_all_transactions
 
-    before = _snapshot(db)
+    tz = get_tax_timezone(db)
+    before = _snapshot(db, tz)
     try:
         recalculate_all_transactions(db)
         db.flush()
-        after = _snapshot(db)
+        after = _snapshot(db, tz)
     except Exception as exc:  # e.g. a missing price: say so, change nothing
         db.rollback()
         return None, str(getattr(exc, "detail", exc))
@@ -266,13 +267,13 @@ def simulate_recalculation(db: Session):
     return _differences(before, after), None
 
 
-def _snapshot(db: Session) -> dict[int, dict[str, Any]]:
+def _snapshot(db: Session, tz) -> dict[int, dict[str, Any]]:
     """Each transaction's stored figures, its lot disposals' and its lots'."""
     figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
     for tx_id, rows in _disposal_rows(db).items():
         if tx_id in figures:
             figures[tx_id].update(_row_figures(rows))
-    for tx_id, lots in _lots_made(db).items():
+    for tx_id, lots in _lots_made(db, tz).items():
         if tx_id in figures:
             figures[tx_id].update(lots)
     return figures
@@ -325,15 +326,19 @@ def _row_figures(rows: list[LotDisposal]) -> dict[str, Any]:
     }
 
 
-def _lots_made(db: Session) -> dict[int, dict[str, Any]]:
+def _lots_made(db: Session, tz) -> dict[int, dict[str, Any]]:
     """The lots each transaction made, and their cost: a transfer's is the
-    cost it moved, which a recalculation can change by a cent (#296)."""
+    cost it moved, which a recalculation can change by a cent (#296). Each
+    dated in the tax timezone, as the holding period and Form 8949 date it:
+    a lot moved to another hour of its day (a date originally acquired
+    given with a time is a lot at noon since #185) changes no figure, and
+    a change of order it makes shows in the rows."""
     made: dict[int, list[BitcoinLot]] = {}
     for lot in db.query(BitcoinLot):
         made.setdefault(lot.created_txn_id, []).append(lot)
     return {tx_id: {
         "lot_cost": sum((Decimal(lot.cost_basis_usd or 0) for lot in lots), Decimal(0)),
-        "lots": sorted(({"acquired": as_utc(lot.acquired_date).isoformat(), "btc": btc_text(lot.total_btc),
+        "lots": sorted(({"acquired": local_date(lot.acquired_date, tz).isoformat(), "btc": btc_text(lot.total_btc),
                          "cost": _money(lot.cost_basis_usd)} for lot in lots),
                        key=lambda lot: (lot["acquired"], Decimal(lot["btc"]), Decimal(lot["cost"] or 0))),
     } for tx_id, lots in made.items()}

@@ -104,9 +104,9 @@ def validate_usd_storable(value: Decimal) -> Decimal:
 
 
 def _date_alone(value):
-    """A date with no time ("2021-03-14") stays a date: the service reads it
-    as noon in the tax timezone, as every date alone is read. Parsed as a
-    datetime it would be midnight UTC, the day before in a US tax timezone."""
+    """A date with no time ("2021-03-14") stays a date, which the service
+    keeps as it is (#185). Parsed as a datetime it would be midnight UTC,
+    the day before in a US tax timezone."""
     if isinstance(value, str) and len(value.strip()) == 10:
         return date.fromisoformat(value.strip())
     return value
@@ -138,11 +138,12 @@ class TransactionBase(BaseModel):
     acquired_at: datetime | date | None = Field(
         default=None,
         description=(
-            "My BTC or Gift deposit into a BTC account only: when the coins were "
-            "originally acquired (by the giver, for a gift). A date alone means noon "
-            "in the tax timezone. The holding period and Form 8949 column (b) use it. "
-            "Omit or null: the deposit's own date. An Inherited deposit's is the date "
-            "of death, and required."
+            "My BTC or Gift deposit into a BTC account only: the date the coins were "
+            "originally acquired (by the giver, for a gift), YYYY-MM-DD, kept as that "
+            "date whatever the tax timezone becomes; a date and time stands for its "
+            "date in the tax timezone. The holding period and Form 8949 column (b) use "
+            "it. Omit or null: the deposit's own date. An Inherited deposit's is the "
+            "date of death, and required."
         ),
     )
     broker_reporting: BrokerReporting | None = Field(

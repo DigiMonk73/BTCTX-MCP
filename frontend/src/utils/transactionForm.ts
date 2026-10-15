@@ -203,24 +203,13 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
 };
 
 /** A saved transaction as the form shows it for editing; a date originally
- * acquired as its day in the tax timezone, the day the server reads back. */
-export function mapTransactionToFormData(tx: ITransaction, taxTimezone = "UTC"): TransactionFormData {
+ * acquired as the date stored, YYYY-MM-DD (#185: a date, which no timezone
+ * moves; never read through a Date, which would). */
+export function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
   const typeFormData = TYPE_FORM_DATA[tx.type];
   const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
-  if (tx.acquired_at) form.acquiredDate = dayIn(tx.acquired_at, taxTimezone);
+  if (tx.acquired_at) form.acquiredDate = tx.acquired_at;
   return form;
-}
-
-/** A moment's calendar day in a timezone, as YYYY-MM-DD. Not the browser's
- * day, nor the UTC day: in New Zealand's summer, or for a time early in a
- * Tokyo morning, those are the day before, and a save would move it there. */
-export function dayIn(iso: string, timezone: string): string {
-  const options = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
-  try {
-    return new Intl.DateTimeFormat("en-CA", { ...options, timeZone: timezone }).format(new Date(iso));
-  } catch {
-    return new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" }).format(new Date(iso));
-  }
 }
 
 /** What the payload says depends on the transaction's type. */
@@ -294,9 +283,8 @@ export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "acco
   return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
 }
 
-/** The date originally acquired, as a date alone (the server reads it as
- * noon in the tax timezone); null = none, so an edit to another source
- * clears it. */
+/** The date originally acquired, as a date alone (the server keeps it as
+ * that date); null = none, so an edit to another source clears it. */
 function acquiredAt(data: TransactionFormData): string | null {
   return takesOriginalDate(data) && data.acquiredDate ? data.acquiredDate : null;
 }

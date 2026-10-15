@@ -254,6 +254,32 @@ All notable changes to BitcoinTX are documented in this file.
   added to its amount ($101 for $100), and a fee currency written with a
   space (" BTC") was left out of a bitcoin transfer's amount; both now save
   as the CSV import does.
+- **A date originally acquired, or a date of death, stays the date you
+  entered** (tax figures, #185). These dates were stored as noon of that day
+  in the tax timezone and shown again as that moment's date in whatever the
+  tax timezone was later. After the tax timezone changed by many hours
+  (from UTC+14 to UTC, for example), the form showed the day before or
+  after, and saving the deposit unchanged stored that day. A day can move a
+  holding period across the one-year line (long-term or short-term), change
+  which coins are sold first, and price an inheritance on the wrong day.
+  Every version since 1.2.6 (the date originally acquired) and 1.2.8 (the
+  date of death); only after a tax-timezone change, of more than 12 hours
+  for a date entered alone (a date the CSV import or the AI connector took
+  with a time of day could move with less). Now the date itself is stored:
+  `acquired_at` is a date, `YYYY-MM-DD`, in the API, the CSV export and the
+  AI connector, and no timezone change moves it. Its lot is at noon of that
+  date in the tax timezone, as before, and a date given with a time stands
+  for its date in the tax timezone. The upgrade (migration 0012) stores each
+  deposit's date as the form shows it today. Ledger Review now compares the
+  lots a recalculation would make by their dates, so a lot only moved to
+  noon of its own day isn't listed.
+
+  **What to do:** most ledgers need nothing. If you changed the tax
+  timezone by many hours after entering a My BTC, Gift or Inherited
+  deposit's date, check those dates against your records and correct any
+  that moved (saving recalculates the ledger): the upgrade can't tell a
+  date an earlier unchanged save moved from one you entered, so it keeps
+  the date shown.
 
 ### Development
 - **The certificate test no longer fails 1 run in 256** (#299).
