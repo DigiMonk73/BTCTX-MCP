@@ -129,7 +129,7 @@ class TransactionBase(BaseModel):
     )
     fee_amount: Decimal | None = Field(
         default=None,
-        description="Fee amount: BTC to 8 decimal places, or USD in cents (#298)."
+        description="Fee amount: BTC to 8 decimal places, or USD in cents."
     )
     fee_currency: str | None = None
 
