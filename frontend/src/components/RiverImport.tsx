@@ -7,7 +7,7 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
-import { importRow, importableRows, toEditableRow, type EditableRow } from "../utils/riverImport";
+import { importRequestRows, importableRows, toEditableRow, type EditableRow } from "../utils/riverImport";
 import RiverPreview from "./riverImport/RiverPreview";
 import "../styles/riverImport.css";
 
@@ -62,7 +62,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
     }
     setLoading(true);
     try {
-      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: toImport.map(importRow) });
+      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: importRequestRows(rows) });
       toast.success(res.data.message);
       reset();
     } catch (err) {

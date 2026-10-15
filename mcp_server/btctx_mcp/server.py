@@ -427,10 +427,11 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 @with_version_notice
 async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
-    the user's confirmation. Duplicates are skipped, unless the user says one is another
-    transaction: then send that row with not_a_duplicate true. Rows previewed as
-    possible_duplicate ARE saved, so drop any the user says is already recorded. The same
-    row limits as preview_transactions."""
+    the user's confirmation, with the previewed rows. Duplicates are skipped (keep them in the
+    list: dropping one can leave an identical row beside it skipped instead), unless the user
+    says one is another transaction: then send that row with not_a_duplicate true. Rows
+    previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
+    The same row limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
 
 

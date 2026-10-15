@@ -9,11 +9,13 @@ database), this flow is designed for ongoing incremental imports.
 from __future__ import annotations
 
 import logging
+from datetime import timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
+from backend.constants import ACCOUNT_EXTERNAL, ACCOUNT_NAME_TO_ID
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth
 from backend.schemas.river_import import (
@@ -166,12 +168,14 @@ def execute_river_import(
     Every row is re-validated server-side with the same rules as the
     onboarding CSV import, then re-checked against the ledger for
     duplicates (double-submit guard), except a row the owner ticked though
-    the preview found it in the ledger (not_a_duplicate, #253).
-    All-or-nothing: any failure rolls back the entire batch.
+    the preview found it in the ledger (not_a_duplicate, #253); a row it
+    found there and the owner left unticked (left_out) is checked, never
+    imported. All-or-nothing: any failure rolls back the entire batch.
     """
     _require_auth(request)
 
-    if not payload.rows:
+    kept = [row for row in payload.rows if not row.left_out]
+    if not kept:
         raise HTTPException(status_code=400, detail="No rows to import.")
     if len(payload.rows) > MAX_ROWS:
         raise HTTPException(
@@ -179,15 +183,8 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    tx_datas = _validated_rows(payload.rows)
-    stubs = [_stub(i, tx_data, row) for i, (tx_data, row) in enumerate(zip(tx_datas, payload.rows), start=1)]
-    # Every row is checked, so a ticked one takes its match as in the preview
-    annotate_duplicates(stubs, db, exact_only=True)
-    new_tx_datas = [
-        tx_data for tx_data, stub, row in zip(tx_datas, stubs, payload.rows)
-        if stub.status == STATUS_NEW or row.not_a_duplicate
-    ]
-    skipped = len(tx_datas) - len(new_tx_datas)
+    new_tx_datas = _rows_to_import(payload.rows, db)
+    skipped = len(kept) - len(new_tx_datas)
 
     if not new_tx_datas:
         return RiverImportResponse(
@@ -222,6 +219,24 @@ def execute_river_import(
     )
 
 
+def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
+    """The checked rows to import: every row the preview showed, a ticked
+    one and one left out alike, takes its match as in the preview (#253);
+    then the ones not in the ledger, and those the owner ticked though they
+    are, are imported."""
+    tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
+    checked = [(None if row.left_out else next(tx_datas), row) for row in rows]
+    stubs = [
+        _left_out_stub(i, row) if tx_data is None else _stub(i, tx_data, row)
+        for i, (tx_data, row) in enumerate(checked, start=1)
+    ]
+    annotate_duplicates(stubs, db, exact_only=True)
+    return [
+        tx_data for (tx_data, row), stub in zip(checked, stubs)
+        if tx_data is not None and (stub.status == STATUS_NEW or row.not_a_duplicate)
+    ]
+
+
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     """Each row checked by the CSV import's row check, then a Transfer's
     amount given its BTC fee (BitcoinTX's meaning), once both are known to
@@ -234,7 +249,7 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
-            tx_data["amount"] = ledger_amount(row.type, tx_data["amount"], row.fee_amount, row.fee_currency)
+            tx_data["amount"] = ledger_amount(tx_data["type"], tx_data["amount"], row.fee_amount, row.fee_currency)
             tx_datas.append(tx_data)
     if all_errors:
         detail = "Rows have errors: " + "; ".join(all_errors[:5])
@@ -278,6 +293,23 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         amount=row.amount,
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
+        fee_amount=row.fee_amount,
+        fee_currency=row.fee_currency,
+    )
+
+
+def _left_out_stub(row_number: int, row: RiverExecuteRow) -> RiverProposal:
+    """A row left out, in the same shape: the preview's own, unedited, so it
+    isn't validated (a row the owner doesn't import can't stop the import)."""
+    ts = row.date if row.date.tzinfo else row.date.replace(tzinfo=timezone.utc)
+    return RiverProposal(
+        row_number=row_number,
+        timestamp=ts.astimezone(timezone.utc),
+        river_tag=None,
+        type=row.type,
+        from_account_id=ACCOUNT_NAME_TO_ID.get(row.from_account.lower(), ACCOUNT_EXTERNAL),
+        to_account_id=ACCOUNT_NAME_TO_ID.get(row.to_account.lower(), ACCOUNT_EXTERNAL),
+        amount=row.amount,
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
     )

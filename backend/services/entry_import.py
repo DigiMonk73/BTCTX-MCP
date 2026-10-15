@@ -297,7 +297,7 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     return out
 
 
-ENTRY_RULE = DuplicateRule(same_amount=same_ledger_amount, differences=_entry_differences)
+ENTRY_RULE = DuplicateRule(amounts=(same_ledger_amount,), differences=_entry_differences)
 
 
 def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool = False) -> None:

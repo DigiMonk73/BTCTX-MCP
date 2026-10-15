@@ -208,10 +208,13 @@ So derived values must be recomputable from the Transaction row alone.
   also need the same type, source or purpose and a Buy's basis
   (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
-  the preview's or the owner's edits. The user can override a duplicate
-  (`not_a_duplicate`), which still takes its match. The same amount within
-  48 hours with anything else different is only similar: flagged, never
-  skipped by itself; a River send of only a near amount starts unticked.
+  the preview's or the owner's edits; a ledger amount is matched before
+  River's. The user can override a duplicate (`not_a_duplicate`), which
+  still takes its match, and River's import sends the rows left unticked
+  too (`left_out`), so each check matches as the preview did. The same
+  amount within 48 hours with anything else different is only similar:
+  flagged, never skipped by itself; a River bitcoin move of only a near
+  amount starts unticked.
 - **Prices**: every valuation goes through `services/hourly_prices.price_at`
   (#144): the opening price of the moment's UTC hour (the tax timezone never
   changes the hour), else the UTC day's 00:00 price

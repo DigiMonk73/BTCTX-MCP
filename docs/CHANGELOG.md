@@ -97,9 +97,10 @@ All notable changes to BitcoinTX are documented in this file.
   - **A similar row,** the same amount within 48 hours with anything else
     different, is never skipped by itself. It's shown with the match and
     what differs, and saved unless you remove it; in the River preview it
-    starts ticked (it used to start unticked). A River send whose amount is
-    only near one you typed by hand (within 20 %) still starts unticked, as
-    before: it's most likely that move, typed with a rounded amount.
+    starts ticked (it used to start unticked). A River bitcoin move (a send
+    or a receive) whose amount is only near one you typed by hand (within
+    20 %) still starts unticked, as before: it's most likely that move,
+    typed with a rounded amount.
   - A River row compares nothing else, and its amount is River's: its
     source, purpose, fee and type are the preview's or your own edits, so
     a re-import of a row you changed isn't recorded twice.

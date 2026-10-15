@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feeText, importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
+import { feeText, importRequestRows, importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
 
 function proposal(overrides: Partial<RiverProposal> = {}): RiverProposal {
   return {
@@ -74,6 +74,17 @@ describe("importableRows", () => {
   });
 });
 
+describe("importRequestRows", () => {
+  it("sends the ticked rows, and those in the ledger left unticked as left out (#253)", () => {
+    const ticked = toEditableRow(proposal({ row_number: 2 }));
+    const unticked = { ...toEditableRow(proposal({ row_number: 3 })), include: false };
+    const matched = toEditableRow(proposal({ row_number: 4, status: "matched" }));
+    const tickedMatch = { ...toEditableRow(proposal({ row_number: 5, status: "matched" })), include: true };
+    const sent = importRequestRows([ticked, unticked, matched, tickedMatch]);
+    expect(sent.map((r) => [r.left_out, r.not_a_duplicate])).toEqual([[false, false], [true, false], [false, true]]);
+  });
+});
+
 describe("importRow", () => {
   it("sends a BTC fee on a transfer, and no source or purpose", () => {
     const row = { ...toEditableRow(proposal()), feeAmount: "0.00000600" };
@@ -82,7 +93,7 @@ describe("importRow", () => {
       from_account: "Exchange BTC", to_account: "Wallet",
       cost_basis_usd: null, proceeds_usd: null,
       fee_amount: "0.00000600", fee_currency: "BTC", source: null, purpose: null, cost_basis_typed: null,
-      price_moment: null, not_a_duplicate: false,
+      price_moment: null, not_a_duplicate: false, left_out: false,
     });
   });
 

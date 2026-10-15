@@ -21,6 +21,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from functools import partial
 from decimal import Decimal
 from typing import Any
 
@@ -475,9 +476,11 @@ def _as_utc(ts: datetime) -> datetime:
 @dataclass(frozen=True)
 class DuplicateRule:
     """What a row must share with a recorded transaction of a compatible
-    kind, besides the minute, to be it (#253): its amount, and nothing that
-    `differences` names (each difference as the note says it)."""
-    same_amount: Callable[[RiverProposal, Transaction], bool]
+    kind, besides the minute, to be it (#253): an amount, and nothing that
+    `differences` names (each difference as the note says it). The amount
+    tests are tried in turn, each over every row, so a row of the same
+    ledger amount takes its match before one that has only River's."""
+    amounts: tuple[Callable[[RiverProposal, Transaction], bool], ...]
     differences: Callable[[RiverProposal, Transaction], list[str]]
 
 
@@ -489,7 +492,7 @@ def same_ledger_amount(proposal: RiverProposal, tx: Transaction) -> bool:
 def _same_river_amount(proposal: RiverProposal, tx: Transaction) -> bool:
     """River's own amount: a send the owner imported with another fee, or as
     a Withdrawal (its fee on top), is still that send (#253)."""
-    return same_ledger_amount(proposal, tx) or proposal.amount == _river_amount(tx)
+    return proposal.amount == _river_amount(tx)
 
 
 def _river_amount(tx: Transaction) -> Decimal:
@@ -509,7 +512,7 @@ def _nothing_else(_proposal: RiverProposal, _tx: Transaction) -> list[str]:
 # minute is the same event. A row's source, purpose, fee and values are the
 # preview's defaults or the owner's own edits, so a re-import of an edited
 # row isn't recorded twice.
-RIVER_RULE = DuplicateRule(same_amount=_same_river_amount, differences=_nothing_else)
+RIVER_RULE = DuplicateRule(amounts=(same_ledger_amount, _same_river_amount), differences=_nothing_else)
 
 
 def annotate_duplicates(
@@ -539,16 +542,20 @@ def annotate_duplicates(
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set()
     by_time = sorted(proposals, key=lambda p: p.timestamp)
-    for proposal in by_time:
-        _match_exactly(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids, rule, tz)
+
+    def each_new(match, types=None) -> None:
+        """One pass: `match` for every row still new (of `types`), in time order."""
+        for proposal in by_time:
+            if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
+                match(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
+
+    for same_amount in rule.amounts:
+        each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz))
     if exact_only:
         return
-    for proposal in by_time:
-        if proposal.status == STATUS_NEW:
-            _match_similar(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids, rule, tz)
-    for proposal in by_time:
-        if proposal.status == STATUS_NEW and proposal.type in ("Transfer", "Withdrawal"):
-            _match_roughly(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
+    for same_amount in rule.amounts:
+        each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz))
+    each_new(_match_roughly, types=("Transfer", "Withdrawal"))
 
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
@@ -574,10 +581,11 @@ def _same_moment(proposal: RiverProposal, tx: Transaction, tz) -> bool:
     return _as_utc(tx.timestamp).replace(second=0, microsecond=0) == proposal.timestamp.replace(second=0, microsecond=0)
 
 
-def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set, rule, tz) -> None:
+def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
+                   same_amount, differences, tz) -> None:
     same = [
         tx for tx in candidates
-        if rule.same_amount(proposal, tx) and _same_moment(proposal, tx, tz) and not rule.differences(proposal, tx)
+        if same_amount(proposal, tx) and _same_moment(proposal, tx, tz) and not differences(proposal, tx)
     ]
     best = _nearest(proposal, same)
     if best is None:
@@ -587,14 +595,15 @@ def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_MATCHED
 
 
-def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set, rule, tz) -> None:
-    best = _nearest(proposal, [tx for tx in candidates if rule.same_amount(proposal, tx)])
+def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
+                   same_amount, differences, tz) -> None:
+    best = _nearest(proposal, [tx for tx in candidates if same_amount(proposal, tx)])
     if best is None:
         return
     used_tx_ids.add(best.id)
     proposal.matched_tx_id = best.id
     proposal.status = STATUS_DISCREPANCY
-    what = [_when_recorded(proposal, best, tz), *rule.differences(proposal, best)]
+    what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
     proposal.discrepancy = (
         f"Same BTC amount as tx #{best.id} ({best.type} {btc_text(best.amount or 0)} BTC), "
         f"{'; '.join(what)}: it may be the same transaction"

@@ -63,6 +63,14 @@ export function importableRows(rows: EditableRow[]): EditableRow[] {
   return rows.filter((r) => r.include);
 }
 
+/** The import request's rows: the ticked ones, and each one the preview
+ * found in the ledger left unticked (`left_out`, never imported), so the
+ * server's check matches every row as the preview did and an identical row
+ * beside it isn't taken for it (#253). */
+export function importRequestRows(rows: EditableRow[]) {
+  return rows.filter((r) => r.include || r.proposal.status === "matched").map(importRow);
+}
+
 /** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */
 function feeCurrency(r: EditableRow): "USD" | "BTC" {
   return r.type === "Buy" || r.type === "Sell" ? "USD" : "BTC";
@@ -95,7 +103,8 @@ export function importRow(r: EditableRow) {
     price_moment: basisFromPrice(r) ? (r.proposal.price_moment ?? null) : null,
     // Ticked though it's in the ledger: another transaction, so the import's
     // check for a second click lets it through (#253)
-    not_a_duplicate: r.proposal.status === "matched",
+    not_a_duplicate: r.include && r.proposal.status === "matched",
+    left_out: !r.include,
   };
 }
 

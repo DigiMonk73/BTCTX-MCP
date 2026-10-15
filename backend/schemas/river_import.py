@@ -71,6 +71,9 @@ class RiverExecuteRow(BaseModel):
     # The owner ticked a row the preview found already in the ledger: it's
     # another transaction, imported all the same (#253)
     not_a_duplicate: bool = False
+    # A row the preview found in the ledger, left unticked: never imported,
+    # sent so the check matches every row as the preview did (#253)
+    left_out: bool = False
 
 
 class RiverExecuteRequest(BaseModel):

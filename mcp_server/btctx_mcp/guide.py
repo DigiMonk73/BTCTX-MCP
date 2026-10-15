@@ -194,7 +194,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    enough BTC - usually a missing earlier transaction), and affected_existing
    (backdating changes gains on earlier-recorded sales).
 3. Only after the user confirms, call add_transactions with the same rows
-   (minus anything they rejected). The write is all-or-nothing. A duplicate
+   (minus anything they rejected; keep duplicates in: they're skipped
+   anyway, and dropping one can leave an identical row beside it taken for
+   the recorded one). The write is all-or-nothing. A duplicate
    the user says is another transaction (two payouts of the same amount at
    the same time, say) goes with not_a_duplicate: true, and is saved. Never
    set it without their word. If add_transactions fails or times out, check

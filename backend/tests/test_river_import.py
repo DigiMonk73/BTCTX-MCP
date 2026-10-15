@@ -240,6 +240,28 @@ def proposals_to_execute_rows(data: Dict, statuses=("new",)) -> List[Dict]:
     ]
 
 
+def default_request(data: Dict) -> List[Dict]:
+    """The import the preview's default ticks send, as the River screen sends
+    it (riverImport.ts importRequestRows): ticked rows, and each row in the
+    ledger left unticked as left_out."""
+    keys = ("date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
+            "fee_amount", "fee_currency", "source", "purpose")
+    out = []
+    for p in data["proposals"]:
+        ticked = p["status"] == "new" or (p["status"] == STATUS_DISCREPANCY and not p["near_amount"])
+        if ticked or p["status"] == STATUS_MATCHED:
+            out.append({**{k: p[k] for k in keys}, "left_out": not ticked})
+    return out
+
+
+def seed_exchange_btc():
+    create_tx({
+        "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+        "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+        "source": "MyBTC",
+    })
+
+
 class TestPreview:
     def test_fresh_db_all_rows_new_and_fmv_autofilled(self):
         delete_all_transactions()
@@ -435,6 +457,64 @@ class TestExecute:
         result = execute(rows)
         assert result["imported_count"] == 2 and result["skipped_existing"] == 0
         assert len(CLIENT.get("/api/transactions").json()) == 3
+
+    @pytest.mark.parametrize("in_file, recorded, imported", [(2, 1, 1), (3, 1, 2), (3, 2, 1)])
+    def test_the_default_import_saves_every_new_row_beside_identical_ones_in_the_ledger(self, in_file, recorded, imported):
+        """The re-check of #277: a row in the ledger left unticked is sent as
+        left_out, so it keeps its match and the identical "New" one beside it
+        is imported (on develop it was skipped)."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7]] * recorded)))
+        data = preview([SYNTHETIC_ROWS[7]] * in_file)
+        assert sorted(p["status"] for p in data["proposals"]) == ["matched"] * recorded + ["new"] * (in_file - recorded)
+        result = execute(default_request(data))
+        assert result["imported_count"] == imported and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == recorded + imported
+
+    def test_a_row_of_the_same_ledger_amount_takes_its_match_first(self):
+        """The re-check of #277: a tagged Withdrawal matched only by River's
+        amount took the Transfer that the identical send should match, and
+        was never saved."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        create_tx({
+            "type": "Transfer", "timestamp": "2026-03-10T10:00:00Z", "from_account_id": 4, "to_account_id": 2,
+            "amount": "0.00010200", "fee_amount": "0.00000200", "fee_currency": "BTC",
+        })
+        data = preview([SYNTHETIC_ROWS[10], "2026-03-10 10:00:00,0.00010000,BTC,,,0.00000200,BTC,"])
+        assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
+        result = execute(default_request(data))
+        assert result["imported_count"] == 1
+        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+
+    def test_a_receive_given_a_fee_or_a_withdrawal_imported_as_a_transfer_is_in_the_ledger(self):
+        """River's own amount, for the other moves the owner can edit (the re-check of #277)."""
+        for row, edit in (
+            (SYNTHETIC_ROWS[9], {"fee_amount": "0.00000300", "fee_currency": "BTC"}),
+            (SYNTHETIC_ROWS[10], {"type": "Transfer", "to_account": "Wallet", "purpose": None}),
+        ):
+            delete_all_transactions()
+            seed_exchange_btc()
+            create_tx({
+                "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 2,
+                "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+                "source": "MyBTC",
+            })
+            rows = proposals_to_execute_rows(preview([row]))
+            rows[0].update(edit)
+            assert execute(rows)["imported_count"] == 1
+            assert preview([row])["proposals"][0]["status"] == STATUS_MATCHED, edit
+
+    def test_a_lowercase_type_is_saved_with_its_fee_and_caught_the_second_time(self):
+        """The re-check of #277: the fee went in by the type as written ("transfer")."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        row = {"date": "2026-02-15T10:00:00Z", "type": "transfer", "amount": "0.00100000",
+               "from_account": "Exchange BTC", "to_account": "Wallet", "fee_amount": "0.00000500", "fee_currency": "BTC"}
+        assert execute([row])["imported_count"] == 1
+        transfer = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer")
+        assert Decimal(str(transfer["amount"])) == Decimal("0.00100500")
+        assert execute([row])["skipped_existing"] == 1
 
     def test_a_similar_row_is_imported(self):
         """The guard leaves out only duplicates: a similar row the owner keeps is imported."""
