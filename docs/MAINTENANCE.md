@@ -271,7 +271,7 @@ take the upgrade.
 | `eslint` | 10.x | Major (eslintrc removal, Node ≥ 20.19) | Move together with `eslint-plugin-react-hooks` 7.x, whose preset shapes our flat config uses |
 | `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass |
 | `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.11 or later (Docker and StartOS 3.11, the Mac app 3.13) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
-| `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it) | CI stops testing Python 3.10 (with SQLAlchemy 2.1 above) |
+| `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it). #294 | No CI job installs `requirements-dev.txt` on Python 3.10: not before SQLAlchemy 2.1, and not while a 3.10 job for the connector alone remains |
 
 ---
 

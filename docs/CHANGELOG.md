@@ -164,6 +164,10 @@ All notable changes to BitcoinTX are documented in this file.
   rows still pass Preview and fail only at Import (#285).
 
 ### Development
+- **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
+  (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
+  and CI still tests 3.10; deferred in #294). Nothing that ships changes;
+  uv 0.13 rebuilds the locks unchanged.
 - **The Ledger Review click-through test no longer hangs now and then**
   (#275, which #189 also was). The test fakes a failed apply with a
   Playwright route used once. As that route expires, Playwright turns its
