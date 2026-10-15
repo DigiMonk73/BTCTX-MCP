@@ -23,7 +23,7 @@ from backend.models.transaction import (
     LotDisposal,
 )
 from backend.models.account import Account
-from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, local_date, tax_year_bounds
+from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 from backend.services.reports.form_8949 import (
     INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
 )
@@ -523,7 +523,7 @@ def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
             and source in VALUED_AT_RECEIPT:
         if source == INHERITED_SOURCE and tx.acquired_at is not None:
             yield "Value (cost basis)", tx.cost_basis_usd, \
-                f"Its date of death's ({local_date(tx.acquired_at, tz)}) 00:00 UTC price"
+                f"Its date of death's ({tx.acquired_at}) 00:00 UTC price"
         else:
             name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
             yield name, tx.cost_basis_usd, _price_used(tx)

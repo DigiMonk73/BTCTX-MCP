@@ -166,10 +166,16 @@ def main():
     app_url = os.environ["BTCTX_DESKTOP_URL"]
     api = DesktopAPI(app_url)
 
-    # Create the webview window with the API
+    # Create the webview window with the API. The version in the first
+    # page's address: pywebview's private mode clears WebKit's stored data
+    # as the window opens, but not before it loads, and a page 1.2.8 or
+    # earlier cached without Cache-Control must never be shown again
+    # unchecked: it reads the API as that version did (#185)
+    from backend.version import app_version
+
     window = webview.create_window(
         title=app_name(),
-        url=f"{app_url}/",
+        url=f"{app_url}/?v={app_version()}",
         width=1280,
         height=800,
         min_size=(800, 600),

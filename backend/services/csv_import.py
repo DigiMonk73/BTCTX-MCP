@@ -9,7 +9,7 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -28,6 +28,7 @@ from backend.services.transaction import (
     fee_currency_problem,
     fee_currency_used,
     has_control_character,
+    original_date,
     original_date_problem,
     sell_fee_problem,
     text_problem,
@@ -193,7 +194,7 @@ class _Row:
     broker_reporting: str | None
     fee_usd_typed: str
     cost_basis_typed: str
-    acquired_at: datetime | None = None
+    acquired_at: date | None = None
     proceeds_typed: str = ""
     price_moment: str | None = None
     fmv_typed: str = ""
@@ -253,9 +254,10 @@ def _check_original_date(row: _Row, tz) -> None:
         raise _Rejected(_error(row.number, "acquired_at", problem))
 
 
-def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime | None:
+def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> date | None:
     """A My BTC or Gift deposit's date originally acquired, or an Inherited
-    deposit's date of death, read like `date`."""
+    deposit's date of death, read like `date`: the date it is, a time given
+    with it standing for its date in the tax timezone (#185)."""
     text = (row.get("acquired_at") or "").strip()
     if not text:
         return None
@@ -264,7 +266,7 @@ def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> datetime 
         raise _Rejected(_error(
             row_number, "acquired_at", f"Invalid acquired_at '{text}'. Use a date such as 2021-03-14.",
         ))
-    return acquired
+    return original_date(acquired, tz)
 
 
 def _required_date(row: dict[str, str], row_number: int, tz) -> datetime:

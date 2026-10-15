@@ -47,7 +47,7 @@ import json
 import sys
 from copy import copy
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, time, timezone
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -227,6 +227,15 @@ def _moment(text: str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
+def _noon_of(text: str) -> datetime:
+    """Noon of a date originally acquired, in UTC (the reference figures'
+    tax timezone): a time given with it stands for its date there, one
+    without a timezone for the date written."""
+    given = _moment(text)
+    day = given.astimezone(timezone.utc).date() if given.tzinfo else given.date()
+    return datetime.combine(day, time(12), tzinfo=timezone.utc)
+
+
 def _close_years_before(ledger: Ledger, year: int) -> None:
     """Keep each year's closing lots, once the ledger has moved past it."""
     for closed in range(ledger.year or year, year):
@@ -242,8 +251,9 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
     # A My BTC or Gift deposit's holding period runs from when it was first
     # acquired (the giver's date for a gift: IRC §1223(2)). Inherited coins
     # are acquired at the death (IRC §1014: their basis is their value then)
-    # and long-term whenever sold (§1223(9)).
-    acquired = _moment(tx["acquired_at"]) if tx.get("acquired_at") else when
+    # and long-term whenever sold (§1223(9)). That is a date: noon of it,
+    # never after the deposit.
+    acquired = min(_noon_of(tx["acquired_at"]), when) if tx.get("acquired_at") else when
     ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False,
                    inherited=tx.get("source") == "Inherited")
     # Income is its value at receipt, which is also its basis; a rebate is

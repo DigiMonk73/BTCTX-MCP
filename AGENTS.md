@@ -202,8 +202,8 @@ So derived values must be recomputable from the Transaction row alone.
   (IRC §1014), the deposit's required `acquired_at`, which also dates its lot;
   valued like income deposits but on that date (`VALUED_AT_RECEIPT`: typed, or
   that day's price, priced again when the date of death changes; the date is
-  the one entered: `acquired_at`'s date in the tax timezone, not its UTC day,
-  `transaction.date_of_death`, #177), never income. Every disposal of its
+  the one entered, stored as a date that no tax timezone change moves,
+  `transaction.date_of_death`, #177, #185), never income. Every disposal of its
   coins is long-term (§1223(9)) with INHERITED in Form 8949 column (b):
   `bitcoin_lots.inherited`, kept through transfers. Ledger Review doesn't
   compare its value with the day's price (an estate's value can rightly
@@ -261,7 +261,9 @@ So derived values must be recomputable from the Transaction row alone.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date
-  originally acquired (`acquired_at`) when given, else the deposit's date;
+  originally acquired (`acquired_at`, a plain date since #185: its lot is at
+  noon of it in the tax timezone, never after the deposit) when given, else
+  the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
   Inherited coins are long-term whatever the dates (above).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,

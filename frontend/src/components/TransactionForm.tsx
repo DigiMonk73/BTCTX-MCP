@@ -6,7 +6,6 @@ import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { parseTransaction } from "../utils/format";
 import { mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
-import { getTaxTimezone } from "../utils/taxTimezone";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
 import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
@@ -55,14 +54,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Load the transaction to edit, or start a new one.
   useEffect(() => {
     if (transactionId) {
-      // The tax timezone too: a date originally acquired shows as its day there
-      Promise.all([
-        api.get<ITransactionRaw>(`/transactions/${transactionId}`),
-        getTaxTimezone().then((tz) => tz.timezone, () => "UTC"),
-      ])
-        .then(([res, taxTimezone]) => {
+      api.get<ITransactionRaw>(`/transactions/${transactionId}`)
+        .then((res) => {
           const tx = parseTransaction(res.data);
-          reset(mapTransactionToFormData(tx, taxTimezone));
+          reset(mapTransactionToFormData(tx));
           setCurrentType(tx.type);
         })
         .catch(() => {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTransactionPayload,
-  dayIn,
   localDatetimeToIso,
   mapTransactionToFormData,
   transferDestinations,
@@ -289,8 +288,8 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
   it("an Inherited deposit's date of death comes back into the same field (#154)", () => {
     const form = mapTransactionToFormData(tx({
       type: "Deposit", from_account_id: 99, to_account_id: 4, amount: 0.02, cost_basis_usd: 2100,
-      fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01T18:00:00Z", // noon in Chicago
-    }), "America/Chicago");
+      fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01",
+    }));
     expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", account: "Exchange" });
     // A row saved before 1.1.0 as free text "inherited" reads back as Inherited, and so does
     // every other source in another case (#273)
@@ -302,25 +301,13 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
     expect(buildTransactionPayload(form)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
   });
 
-  it("round-trips the date as a date alone (the server reads it as noon in the tax timezone)", () => {
+  it("round-trips the date as the date stored, which no timezone moves (#185)", () => {
+    // Read through a Date, "2021-03-14" is UTC midnight: March 13 in New York or Chicago
     const body = buildTransactionPayload(mapTransactionToFormData(tx({
       type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
-      fee_currency: "BTC", source: "MyBTC", acquired_at: "2021-03-14T16:00:00Z", // noon in New York
-    }), "America/New_York"));
+      fee_currency: "BTC", source: "MyBTC", acquired_at: "2021-03-14",
+    })));
     expect(body.acquired_at).toBe("2021-03-14");
-  });
-
-  it("shows the date as its day in the tax timezone, so a save doesn't move it", () => {
-    const deposit = (acquired_at: string) => tx({
-      type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
-      fee_currency: "BTC", source: "MyBTC", acquired_at,
-    });
-    // Noon on Jan 15 in Auckland's summer (UTC+13) is Jan 14 in UTC
-    expect(mapTransactionToFormData(deposit("2023-01-14T23:00:00Z"), "Pacific/Auckland").acquiredDate).toBe("2023-01-15");
-    // Stored at a 05:00 Tokyo deposit (the day's coins): March 31 in UTC, April 1 in Tokyo
-    expect(mapTransactionToFormData(deposit("2025-03-31T20:00:00Z"), "Asia/Tokyo").acquiredDate).toBe("2025-04-01");
-    expect(mapTransactionToFormData(deposit("2023-03-14T17:00:00Z"), "America/Chicago").acquiredDate).toBe("2023-03-14");
-    expect(dayIn("2023-03-14T17:00:00Z", "Not/AZone")).toBe("2023-03-14");
   });
 
   it("is sent only for My BTC or Gift into a BTC account; otherwise null", () => {

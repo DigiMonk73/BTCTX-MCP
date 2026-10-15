@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from backend.database import Base, UTCDateTime
+from backend.database import Base, PlainDate, UTCDateTime
 
 
 class Transaction(Base):
@@ -165,12 +165,14 @@ class Transaction(Base):
             "account values it again. A typed value is kept."
         ),
     )
-    # After cost_basis_from_price, where migration 0007 added it
+    # After cost_basis_from_price, where migration 0007 added it; a date
+    # since 0012 (#185)
     acquired_at = Column(
-        UTCDateTime,
+        PlainDate,
         nullable=True,
         doc=(
-            "A My BTC or Gift deposit's date originally acquired: its lot's "
+            "A My BTC or Gift deposit's date originally acquired, or an "
+            "Inherited one's date of death: a calendar date, its lot's "
             "acquisition date (holding period, Form 8949 column (b), FIFO). "
             "NULL: the deposit's own date."
         ),
