@@ -24,6 +24,7 @@ from backend.services.transaction import (
     FEE_CURRENCIES, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
     amount_problem,
     create_transaction_record,
+    fee_cents_problem,
     fee_currency_problem,
     has_control_character,
     original_date_problem,
@@ -653,8 +654,14 @@ def _validate_accounts_for_type(tx_type: str, from_id: int, to_id: int, row_numb
 
 def _validate_type_specific(row: _Row) -> tuple[list[CSVParseError], list[CSVParseError]]:
     """The type's own rules: (errors, warnings)."""
-    found = list(_TYPE_RULES[row.tx_type](row))
+    found = [*_TYPE_RULES[row.tx_type](row), *_fee_cents_rule(row)]
     return [f for f in found if f.severity == "error"], [f for f in found if f.severity == "warning"]
+
+
+def _fee_cents_rule(row: _Row):
+    """A fee in dollars is in cents, in the currency the import sends (#298)."""
+    fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
+    yield from _problem(row, "fee_amount", fee_cents_problem(row.fee_amount or Decimal(0), fee_cur))
 
 
 def _trade_rules(row: _Row):

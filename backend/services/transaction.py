@@ -1694,6 +1694,7 @@ TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or ot
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
 USD_AMOUNT_CENTS = "A USD amount can have at most 2 decimal places."
+USD_FEE_CENTS = "A USD fee can have at most 2 decimal places."
 BTC_AMOUNT_CAP = "A BTC amount can't be more than 21,000,000."
 BEFORE_BITCOIN = "The date is before Bitcoin existed (3 January 2009)."
 DATE_AHEAD = "The date is in the future."
@@ -1800,6 +1801,24 @@ def fee_currency_problem(tx_type: str, fee: Decimal, fee_cur: str, from_currency
     return None
 
 
+def fee_currency_used(tx_type: str, fee_cur: str | None, from_currency: str | None,
+                      to_currency: str | None) -> str | None:
+    """The currency a fee is saved in: the one given, else the one its type
+    takes (USD for a Buy or Sell, else the currency of the account it's paid
+    from, or for a deposit the one it reaches); None when that's unknown."""
+    if fee_cur:
+        return fee_cur
+    if tx_type in ("Buy", "Sell"):
+        return "USD"
+    return to_currency if tx_type == "Deposit" else from_currency
+
+
+def fee_cents_problem(fee: Decimal, currency: str | None) -> str | None:
+    """A fee in dollars is in cents: the ledger keeps no fraction of one, so
+    a $0.005 fee would be lost from a lot's cost (#298)."""
+    return USD_FEE_CENTS if currency == "USD" and _past_the_cent(fee) else None
+
+
 def sell_fee_problem(gross: Decimal, fee: Decimal) -> str | None:
     """A sell's fee comes out of its proceeds: never more than them."""
     return SELL_FEE_OVER_PROCEEDS if fee > gross else None
@@ -1890,8 +1909,9 @@ def _check_fee_currency(data: dict, tx_type: str, fee: Decimal, from_acct: Accou
     fee_cur = (data.get("fee_currency") or "").upper()
     if fee_cur and fee_cur not in FEE_CURRENCIES:
         _bad(FEE_CURRENCY_UNKNOWN)
-    problem = fee_currency_problem(tx_type, fee, fee_cur, from_acct.currency if from_acct else None,
-                                   to_acct.currency if to_acct else None)
+    from_cur, to_cur = (from_acct.currency if from_acct else None), (to_acct.currency if to_acct else None)
+    problem = fee_currency_problem(tx_type, fee, fee_cur, from_cur, to_cur) or fee_cents_problem(
+        fee, fee_currency_used(tx_type, fee_cur, from_cur, to_cur))
     if problem:
         _bad(problem)
 
@@ -2013,16 +2033,17 @@ def _fill_fee_currency(data: dict, db: Session) -> bool:
     """
     if data.get("fee_currency") or Decimal(data.get("fee_amount") or 0) <= 0:
         return False
-    tx_type = data.get("type")
-    if tx_type in ("Buy", "Sell"):
-        data["fee_currency"] = "USD"
-        return True
-    acct_id = data.get("to_account_id") if tx_type == "Deposit" else data.get("from_account_id")
-    acct = db.get(Account, acct_id) if acct_id else None
-    if acct is None:
+    currency = fee_currency_used(data.get("type"), None, _currency_of(data.get("from_account_id"), db),
+                                 _currency_of(data.get("to_account_id"), db))
+    if currency is None:
         return False
-    data["fee_currency"] = acct.currency
+    data["fee_currency"] = currency
     return True
+
+
+def _currency_of(account_id: int | None, db: Session) -> str | None:
+    acct = db.get(Account, account_id) if account_id else None
+    return acct.currency if acct else None
 
 
 def _fill_stored_fee_currency(tx: Transaction, db: Session) -> None:
