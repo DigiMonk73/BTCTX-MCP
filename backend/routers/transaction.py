@@ -143,11 +143,8 @@ def delete_all_transactions_endpoint(request: Request, confirm: str | None = Non
     (backups/, "before-delete"). Login only (never the AI key).
     """
     _require_login_to_delete_all(request)
-    refused = wipe.refusal(db, confirm)
-    if refused is not None:
-        return refused
-    # 204 No Content: the deleted count is intentionally not returned.
-    wipe.copy_then_delete(db)
+    # The 409, or 204 No Content: the deleted count is intentionally not returned.
+    return wipe.delete_all(db, confirm)
 
 
 @router.delete("/{transaction_id}", status_code=204)

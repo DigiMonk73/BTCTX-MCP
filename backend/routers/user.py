@@ -144,10 +144,9 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
-    refused = wipe.refusal(db, payload.confirm)
+    refused = wipe.delete_all(db, payload.confirm)
     if refused is not None:
         return refused
-    wipe.copy_then_delete(db)
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
     first_run.clear_code()
     login_throttle.remember_device(response, user)

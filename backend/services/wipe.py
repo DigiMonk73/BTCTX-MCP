@@ -3,8 +3,9 @@ Deleting every transaction (#256): Settings' Delete All, and Create account
 on an install that has transactions. Either needs the confirmation the
 owner types in its dialog ("DELETE"), and gets a safety copy of the database
 first, in the same request (<data dir>/backups/, kind "before-delete").
-The copy and the delete hold SQLite's write lock together (#276), so a
-transaction saved meanwhile (the AI connector's) is in the copy or waits.
+The check of that confirmation, the copy and the delete hold SQLite's write
+lock together (#276): a transaction saved meanwhile (the AI connector's)
+waits until after the delete.
 """
 
 from __future__ import annotations
@@ -65,28 +66,42 @@ def refusal(db: Session, confirm: str | None) -> JSONResponse | None:
     return JSONResponse(status_code=409, content={"detail": detail, **what})
 
 
+def delete_all(db: Session, confirm: str | None) -> JSONResponse | None:
+    """
+    Every transaction deleted, after a copy of the database: None. Only
+    when confirmed, or with nothing to delete; otherwise the 409 refusal,
+    nothing deleted. The check, the copy and the delete hold one write lock
+    (#276): they see the same ledger, and what is saved meanwhile waits
+    until after the delete.
+    """
+    _hold_write_lock(db)
+    refused = refusal(db, confirm)
+    if refused is not None:
+        db.rollback()  # the lock goes
+        return refused
+    _copy_then_delete(db)
+    return None
+
+
 def _hold_write_lock(db: Session) -> None:
     """SQLite's write lock for this session's transaction, until its commit
-    or rollback: other saves wait for it (5 s at most, then fail), so none
-    lands between the copy and the delete. A busy database (an import
-    holding the lock longer) deletes nothing (503)."""
-    db.flush()
-    if db.connection().connection.dbapi_connection.in_transaction:
-        return  # this session has written already: the lock is its own
+    or rollback: other saves wait for it (5 s at most, then fail). A busy
+    database (an import holding the lock longer) deletes nothing (503). A
+    session that has a transaction open already fails here, loudly."""
     try:
         db.execute(text("BEGIN IMMEDIATE"))
     except OperationalError as e:
+        if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
+            raise
         logger.warning("Deleting every transaction: the database is busy, nothing deleted")
         raise HTTPException(
             status_code=503, detail="Not deleted: BitcoinTX was busy saving something else. Try again."
         ) from e
 
 
-def copy_then_delete(db: Session) -> int:
+def _copy_then_delete(db: Session) -> int:
     """A copy of the database, then every transaction deleted; how many.
-    Both under one write lock (#276): what is saved meanwhile waits until
-    after the delete. A copy that fails deletes nothing (500)."""
-    _hold_write_lock(db)
+    A copy that fails deletes nothing (500). Ends the lock's transaction."""
     if db.query(Transaction.id).first() is None:
         db.commit()  # nothing to delete: the lock goes
         return 0
