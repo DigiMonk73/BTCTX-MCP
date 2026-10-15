@@ -56,7 +56,8 @@ BENCH_RUNS = 9
 VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 # The backup copy's name and time.
 VOLATILE_MCP_KEYS = {"file", "created"}
-VOLATILE_SETTINGS = ("key_sha256",)
+# Hashes of the AI key, and of the login sessions each run opens anew.
+VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.

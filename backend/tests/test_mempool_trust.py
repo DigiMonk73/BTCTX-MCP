@@ -144,9 +144,21 @@ def test_another_servers_certificate_isnt_trusted_by_a_trusted_root(auth_client,
         other.shutdown()
 
 
+def _another(fingerprint: str) -> str:
+    """The fingerprint with its first byte changed, whatever it was: writing
+    a fixed "AB" over it was no change when it already began with AB, about
+    1 run in 256 (#299)."""
+    return ("01" if fingerprint.startswith("00") else "00") + fingerprint[2:]
+
+
+def test_another_fingerprint_is_always_another():
+    for fingerprint in ("AB:E7:04", "00:E7:04", "01:E7:04", "FF:00:00"):
+        assert _another(fingerprint) != fingerprint and len(_another(fingerprint)) == len(fingerprint)
+
+
 def test_a_changed_certificate_isnt_trusted(auth_client, home_server):
     url, fingerprint = home_server
-    r = auth_client.put(CERTIFICATE, json={"sha256": "AB:" + fingerprint[3:]})
+    r = auth_client.put(CERTIFICATE, json={"sha256": _another(fingerprint)})
     assert r.status_code == 409 and "changed since it was shown" in r.json()["detail"]
     assert auth_client.get(NETWORK).json()["mempool_certificate"] is None
 
