@@ -234,10 +234,16 @@ def proposals_to_execute_rows(data: Dict, statuses=("new",)) -> List[Dict]:
         "source", "purpose",
     )
     return [
-        {k: p[k] for k in keys}
+        {**{k: p[k] for k in keys}, **found_in_ledger(p)}
         for p in data["proposals"]
         if p["status"] in statuses
     ]
+
+
+def found_in_ledger(p: Dict) -> Dict:
+    """What the River screen sends with a row the preview found in the ledger:
+    the transaction it matched, kept for it at the import (#253)."""
+    return {"matched_tx_id": p["matched_tx_id"]} if p["status"] == STATUS_MATCHED else {}
 
 
 def default_request(data: Dict) -> List[Dict]:
@@ -250,8 +256,16 @@ def default_request(data: Dict) -> List[Dict]:
     for p in data["proposals"]:
         ticked = p["status"] == "new" or (p["status"] == STATUS_DISCREPANCY and not p["near_amount"])
         if ticked or p["status"] == STATUS_MATCHED:
-            out.append({**{k: p[k] for k in keys}, "left_out": not ticked})
+            out.append({**{k: p[k] for k in keys}, **found_in_ledger(p), "left_out": not ticked})
     return out
+
+
+def seed_wallet_btc():
+    create_tx({
+        "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+        "source": "MyBTC",
+    })
 
 
 def seed_exchange_btc():
@@ -513,14 +527,16 @@ class TestExecute:
         ({"not_a_duplicate": True, "fee_amount": "0.00000600"}, {}),
         ({"left_out": True, "type": "Withdrawal", "to_account": "External", "purpose": "Spent"}, {}),
     ])
-    def test_an_edit_doesnt_move_a_match_at_the_import(self, first, second):
+    def test_an_edit_doesnt_move_a_match_at_the_import(self, first, second, row=None):
         """The second re-check of #277: the same send twice in the file, once
-        recorded. The preview's "In ledger" row is matched first at the
-        import, whatever the owner edited, so the "New" one is saved."""
+        recorded. The preview's "In ledger" row keeps its match at the import,
+        whatever the owner edited, so the "New" one is saved."""
+        row = row or self.SEND
         delete_all_transactions()
         seed_exchange_btc()
-        execute(proposals_to_execute_rows(preview([self.SEND])))
-        data = preview([self.SEND, self.SEND])
+        seed_wallet_btc()
+        execute(proposals_to_execute_rows(preview([row])))
+        data = preview([row, row])
         assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, "new"]
         rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
         rows[0].update(first)
@@ -528,6 +544,32 @@ class TestExecute:
         result = execute(rows)
         imported = 1 if first.get("left_out") else 2
         assert result["imported_count"] == imported and result["skipped_existing"] == 0, result
+
+    def test_a_receive_ticked_and_made_a_deposit_keeps_its_match(self):
+        """The third re-check of #277: a Deposit can't match the recorded
+        Transfer, so before the preview's matches were kept, the identical
+        "New" receive took it and wasn't saved."""
+        as_deposit = {"not_a_duplicate": True, "type": "Deposit", "from_account": "External", "source": "MyBTC",
+                      "cost_basis_usd": "60.00"}
+        self.test_an_edit_doesnt_move_a_match_at_the_import(as_deposit, {}, row=SYNTHETIC_ROWS[9])
+
+    def test_a_second_submit_of_a_row_made_a_deposit_is_caught(self):
+        """The third re-check of #277: the receive was first imported with a
+        fee; the file has it twice, the "New" one made a Deposit. Sent twice,
+        the request saves the Deposit once."""
+        delete_all_transactions()
+        seed_wallet_btc()
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[9]]))
+        rows[0].update({"fee_amount": "0.00000300", "fee_currency": "BTC"})
+        execute(rows)
+        data = preview([SYNTHETIC_ROWS[9], SYNTHETIC_ROWS[9]])
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0]["left_out"] = True
+        rows[1].update({"type": "Deposit", "from_account": "External", "source": "MyBTC", "cost_basis_usd": "60.00"})
+        assert execute(rows)["imported_count"] == 1
+        again = execute(rows)
+        assert again["imported_count"] == 0 and again["skipped_existing"] == 1
+        assert sum(t["type"] == "Deposit" and t["to_account_id"] == 4 for t in CLIENT.get("/api/transactions").json()) == 1
 
     def test_a_new_row_edited_as_the_first_import_was_is_saved(self):
         """The second re-check of #277: the send was imported as a Withdrawal.

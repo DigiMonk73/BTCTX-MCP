@@ -18,7 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from functools import partial
@@ -111,10 +111,6 @@ class RiverProposal:
     # Matched only by a near amount (a BTC move typed by hand): the preview
     # leaves it unticked, as it's most likely that move (owner, 2026-10-15, #253)
     near_amount: bool = False
-    # At an import, a row the preview found in the ledger (left unticked, or
-    # ticked as another transaction): matched before the others, so an edit
-    # of it can't hand its match to an identical row (#253)
-    matched_before: bool = False
 
     @property
     def from_account(self) -> str:
@@ -524,16 +520,19 @@ def annotate_duplicates(
     db: Session,
     exact_only: bool = False,
     rule: DuplicateRule = RIVER_RULE,
+    reserved_tx_ids: Collection[int] = (),
 ) -> None:
     """
     Mark proposals that are already in the ledger, or look like it (#253).
+    No proposal is matched to a transaction in `reserved_tx_ids` (at a River
+    import: the preview's matches of the rows it found in the ledger).
 
     Pass 1 (a duplicate, STATUS_MATCHED): a compatible type, the same amount
     and minute (a row given as a date alone: the same day in the tax
     timezone), and no difference, as `rule` says; greedy nearest-timestamp,
-    one existing tx matches at most one proposal. The rows matched_before
-    go first, and within each amount test a transaction of the row's own
-    type before one of another compatible type.
+    one existing tx matches at most one proposal. Within each amount test,
+    a transaction of the row's own type is tried before one of another
+    compatible type.
 
     Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
     anything else different; its note says what. Never left out by itself.
@@ -546,23 +545,19 @@ def annotate_duplicates(
     """
     existing: list[Transaction] = db.query(Transaction).all()
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
-    used_tx_ids: set = set()
+    used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
 
-    def each_new(match, types=None, matched_before=None) -> None:
-        """One pass: `match` for every row still new (of `types`, and
-        matched_before or not when it's given), in time order."""
+    def each_new(match, types=None) -> None:
+        """One pass: `match` for every row still new (of `types`), in time order."""
         for proposal in by_time:
-            if proposal.status != STATUS_NEW or (types is not None and proposal.type not in types):
-                continue
-            if matched_before in (None, proposal.matched_before):
+            if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
                 match(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
 
-    for first in (True, False):
-        for same_amount in rule.amounts:
-            for same_type in (True, False):
-                each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz,
-                                 same_type=same_type), matched_before=first)
+    for same_amount in rule.amounts:
+        for same_type in (True, False):
+            each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz,
+                             same_type=same_type))
     if exact_only:
         return
     for same_amount in rule.amounts:

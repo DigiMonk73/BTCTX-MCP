@@ -68,11 +68,12 @@ class RiverExecuteRow(BaseModel):
     # price_moment says ("hour" or "day")
     cost_basis_typed: str | None = None
     price_moment: str | None = None
-    # The owner ticked a row the preview found already in the ledger: it's
-    # another transaction, imported all the same (#253)
+    # A row the preview found in the ledger (#253): the transaction it
+    # matched, kept for it at the import whatever the owner edited. The row
+    # is imported only when ticked as another transaction (not_a_duplicate);
+    # left_out, unticked, it's never imported nor even read.
+    matched_tx_id: int | None = None
     not_a_duplicate: bool = False
-    # A row the preview found in the ledger, left unticked: never imported,
-    # sent so the check matches every row as the preview did (#253)
     left_out: bool = False
 
 

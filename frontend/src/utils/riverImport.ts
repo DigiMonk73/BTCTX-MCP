@@ -64,13 +64,12 @@ export function importableRows(rows: EditableRow[]): EditableRow[] {
 }
 
 /** The import request's rows: the ticked ones, and each one the preview
- * found in the ledger left unticked (`left_out`, never imported) as the
- * preview gave it, edits undone, so the server's check matches every row as
- * the preview did and an identical row beside it isn't taken for it (#253). */
+ * found in the ledger left unticked (`left_out`, never imported). Each row
+ * found in the ledger carries the transaction it matched, which the server
+ * keeps for it, so an identical row beside it isn't taken for it, whatever
+ * the owner edited (#253). */
 export function importRequestRows(rows: EditableRow[]) {
-  return rows
-    .filter((r) => r.include || r.proposal.status === "matched")
-    .map((r) => importRow(r.include ? r : toEditableRow(r.proposal)));
+  return rows.filter((r) => r.include || r.proposal.status === "matched").map(importRow);
 }
 
 /** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */
@@ -103,8 +102,10 @@ export function importRow(r: EditableRow) {
     // edit of the deposit prices it again (#76); and the price's moment
     cost_basis_typed: basisFromPrice(r) ? "no" : null,
     price_moment: basisFromPrice(r) ? (r.proposal.price_moment ?? null) : null,
-    // Ticked though it's in the ledger: another transaction, so the import's
-    // check for a second click lets it through (#253)
+    // Found in the ledger: the transaction it matched, kept for it; ticked,
+    // it's another transaction, so the import's check for a second click
+    // lets it through (#253)
+    matched_tx_id: r.proposal.status === "matched" ? (r.proposal.matched_tx_id ?? null) : null,
     not_a_duplicate: r.include && r.proposal.status === "matched",
     left_out: !r.include,
   };

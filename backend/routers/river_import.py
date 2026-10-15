@@ -9,13 +9,11 @@ database), this flow is designed for ongoing incremental imports.
 from __future__ import annotations
 
 import logging
-from datetime import timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXTERNAL, ACCOUNT_NAME_TO_ID
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth
 from backend.schemas.river_import import (
@@ -167,10 +165,9 @@ def execute_river_import(
 
     Every row is re-validated server-side with the same rules as the
     onboarding CSV import, then re-checked against the ledger for
-    duplicates (double-submit guard), except a row the owner ticked though
-    the preview found it in the ledger (not_a_duplicate, #253); a row it
-    found there and the owner left unticked (left_out) is checked, never
-    imported. All-or-nothing: any failure rolls back the entire batch.
+    duplicates (double-submit guard), but for the rows the preview found
+    there, whose matches are kept for them (#253). All-or-nothing: any
+    failure rolls back the entire batch.
     """
     _require_auth(request)
 
@@ -220,21 +217,19 @@ def execute_river_import(
 
 
 def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
-    """The checked rows to import. Every row the preview found in the ledger,
-    a ticked one and one left out alike, is matched first, so it takes its
-    match as in the preview whatever the owner edited (#253); then the ones
-    not in the ledger, and those the owner ticked though they are, are
-    imported."""
+    """The checked rows to import (#253). The transaction the preview matched
+    to each row it found in the ledger (matched_tx_id), ticked or left out,
+    is kept for that row, so the owner's edits can't move a match; the row
+    is imported when ticked as another transaction. Every other row is
+    checked against the rest of the ledger (the double-submit guard)."""
     tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
-    checked = [(None if row.left_out else next(tx_datas), row) for row in rows]
-    stubs = [
-        _left_out_stub(i, row) if tx_data is None else _stub(i, tx_data, row)
-        for i, (tx_data, row) in enumerate(checked, start=1)
-    ]
-    annotate_duplicates(stubs, db, exact_only=True)
+    kept = [(next(tx_datas), row) for row in rows if not row.left_out]
+    unmatched = {i: _stub(i + 1, tx_data, row) for i, (tx_data, row) in enumerate(kept) if row.matched_tx_id is None}
+    reserved = {row.matched_tx_id for row in rows if row.matched_tx_id is not None}
+    annotate_duplicates(list(unmatched.values()), db, exact_only=True, reserved_tx_ids=reserved)
     return [
-        tx_data for (tx_data, row), stub in zip(checked, stubs)
-        if tx_data is not None and (stub.status == STATUS_NEW or row.not_a_duplicate)
+        tx_data for i, (tx_data, row) in enumerate(kept)
+        if row.not_a_duplicate or (i in unmatched and unmatched[i].status == STATUS_NEW)
     ]
 
 
@@ -296,24 +291,4 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         proceeds_usd=tx_data.get("proceeds_usd"),
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
-        matched_before=row.not_a_duplicate,
-    )
-
-
-def _left_out_stub(row_number: int, row: RiverExecuteRow) -> RiverProposal:
-    """A row left out, in the same shape: the preview's own (the River screen
-    sends it unedited), so it isn't validated (a row the owner doesn't
-    import can't stop the import)."""
-    ts = row.date if row.date.tzinfo else row.date.replace(tzinfo=timezone.utc)
-    return RiverProposal(
-        row_number=row_number,
-        timestamp=ts.astimezone(timezone.utc),
-        river_tag=None,
-        type=row.type,
-        from_account_id=ACCOUNT_NAME_TO_ID.get(row.from_account.lower(), ACCOUNT_EXTERNAL),
-        to_account_id=ACCOUNT_NAME_TO_ID.get(row.to_account.lower(), ACCOUNT_EXTERNAL),
-        amount=row.amount,
-        fee_amount=row.fee_amount,
-        fee_currency=row.fee_currency,
-        matched_before=True,
     )

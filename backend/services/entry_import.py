@@ -325,8 +325,9 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
         if stub.status == STATUS_MATCHED:
             p.result.status = STATUS_DUPLICATE
             p.result.warnings.append(
-                f"Already recorded as tx #{stub.matched_tx_id} (the same type, BTC amount, source or purpose "
-                f"and time): left out. If the user says it's another transaction, send it with not_a_duplicate."
+                f"Already recorded as tx #{stub.matched_tx_id} (the same type, BTC amount, source or purpose, "
+                f"a Buy's cost basis, and time): left out. If the user says it's another transaction, send it "
+                f"with not_a_duplicate."
             )
         else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE

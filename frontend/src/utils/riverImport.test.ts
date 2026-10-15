@@ -78,13 +78,12 @@ describe("importRequestRows", () => {
   it("sends the ticked rows, and those in the ledger left unticked as left out (#253)", () => {
     const ticked = toEditableRow(proposal({ row_number: 2 }));
     const unticked = { ...toEditableRow(proposal({ row_number: 3 })), include: false };
-    const matched = toEditableRow(proposal({ row_number: 4, status: "matched" }));
-    const tickedMatch = { ...toEditableRow(proposal({ row_number: 5, status: "matched" })), include: true };
-    const sent = importRequestRows([ticked, unticked, matched, tickedMatch]);
-    expect(sent.map((r) => [r.left_out, r.not_a_duplicate])).toEqual([[false, false], [true, false], [false, true]]);
-    // Ticked, edited, unticked: sent as the preview gave it
-    const edited = { ...matched, ...typeChange(matched, "Withdrawal"), feeAmount: "0.00000600" };
-    expect(importRequestRows([edited])[0]).toMatchObject({ type: "Transfer", fee_amount: null, left_out: true });
+    const found = (row_number: number, include: boolean) =>
+      ({ ...toEditableRow(proposal({ row_number, status: "matched", matched_tx_id: row_number * 10 })), include });
+    const sent = importRequestRows([ticked, unticked, found(4, false), found(5, true)]);
+    expect(sent.map((r) => [r.left_out, r.not_a_duplicate, r.matched_tx_id])).toEqual([
+      [false, false, null], [true, false, 40], [false, true, 50],
+    ]);
   });
 });
 
@@ -96,7 +95,7 @@ describe("importRow", () => {
       from_account: "Exchange BTC", to_account: "Wallet",
       cost_basis_usd: null, proceeds_usd: null,
       fee_amount: "0.00000600", fee_currency: "BTC", source: null, purpose: null, cost_basis_typed: null,
-      price_moment: null, not_a_duplicate: false, left_out: false,
+      price_moment: null, matched_tx_id: null, not_a_duplicate: false, left_out: false,
     });
   });
 
