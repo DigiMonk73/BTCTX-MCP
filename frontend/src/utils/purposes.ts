@@ -1,3 +1,6 @@
+// A deposit's sources and a withdrawal's purposes: which purposes aren't a
+// sale, the form's lists, and a saved one in its listed spelling.
+
 // A BTC withdrawal's purposes that aren't a sale: a gift, a donation, lost
 // coins. They have no gain or loss of their own (the tax report says so);
 // what they carry is their value, the fair market value (FMV).

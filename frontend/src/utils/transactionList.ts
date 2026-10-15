@@ -52,10 +52,20 @@ export function gainLabel(tx: ITransaction): string {
   return [`${gain >= 0 ? "Gain" : "Loss"} ${formatSignedUsd(gain)}`, pct, term].filter(Boolean).join(" \u00b7 ");
 }
 
+/** A transaction, or one of Ledger Review's items. */
+type Described = { type: string; source?: string | null; purpose?: string | null };
+
 /** A deposit's source or a withdrawal's purpose as the list shows it: in its
  * listed spelling (an older version may have saved "spent", #273), "" for
  * none. */
-export function sourceOrPurpose(tx: ITransaction): string {
+export function sourceOrPurpose(tx: Described): string {
   const shown = tx.type === "Deposit" ? listedSource(tx.source) : listedPurpose(tx.purpose);
   return shown === "N/A" ? "" : shown;
+}
+
+/** "Withdrawal (Spent)", or the type alone with no source or purpose ("Sell"),
+ * as Ledger Review lists an item. */
+export function typeWithSourceOrPurpose(item: Described): string {
+  const extra = sourceOrPurpose(item);
+  return extra ? `${item.type} (${extra})` : item.type;
 }

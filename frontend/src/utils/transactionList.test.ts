@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { gainLabel, groupByDay, pageOf, sortTransactions, sourceOrPurpose } from "./transactionList";
+import {
+  gainLabel, groupByDay, pageOf, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
+} from "./transactionList";
 
 const tx = (id: number, timestamp: string) => ({ id, timestamp }) as ITransaction;
 
@@ -90,5 +92,14 @@ describe("sourceOrPurpose", () => {
     expect(sourceOrPurpose(row("Withdrawal", { purpose: "n/a" }))).toBe("");
     expect(sourceOrPurpose(row("Deposit", { source: undefined }))).toBe("");
     expect(sourceOrPurpose(row("Withdrawal", { purpose: "Travel" }))).toBe("Travel");
+  });
+});
+
+describe("typeWithSourceOrPurpose", () => {
+  it("names the source or purpose in brackets, and leaves them out with none (Ledger Review)", () => {
+    expect(typeWithSourceOrPurpose({ type: "Withdrawal", purpose: "spent", source: null })).toBe("Withdrawal (Spent)");
+    expect(typeWithSourceOrPurpose({ type: "Deposit", purpose: null, source: "income" })).toBe("Deposit (Income)");
+    expect(typeWithSourceOrPurpose({ type: "Sell", purpose: null, source: null })).toBe("Sell");
+    expect(typeWithSourceOrPurpose({ type: "Withdrawal", purpose: "N/A", source: null })).toBe("Withdrawal");
   });
 });
