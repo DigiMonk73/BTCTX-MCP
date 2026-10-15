@@ -134,10 +134,10 @@ All notable changes to BitcoinTX are documented in this file.
 
   **What to do:** nothing urgent; the difference is cents. A ledger saved
   by an earlier version keeps its figures until it's recalculated: run
-  Recalculate Ledger (Settings) to bring them up to date. Ledger Review
-  doesn't always show these changes, since a cent can move between two
-  rows of one transaction. Any tax year with a lot sold, spent or moved in
-  pieces can be affected, by a few cents either way.
+  Recalculate Ledger (Settings) to bring them up to date; Ledger Review
+  lists the transactions it would change first. Any tax year with a lot
+  sold, spent or moved in pieces can be affected, by a few cents either
+  way.
 - **No proceeds row below zero** (#297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot
@@ -160,6 +160,15 @@ All notable changes to BitcoinTX are documented in this file.
   line moves.
 
   **What to do:** as above, Recalculate Ledger (Settings).
+- **Ledger Review sees a cent moved between a transaction's rows** (#296).
+  Its check of the figures Recalculate Ledger would change compared each
+  transaction's totals only. A recalculation that moved a cent between two
+  rows of one sale (between a short-term and a long-term lot's row, or two
+  Form 8949 rows of one term) left them the same, so Review said there was
+  nothing to review while Schedule D's lines or the form's rows would
+  change. It now also compares each transaction's short- and long-term
+  gains, and lists one whose rows alone would be split differently. Since
+  0.9.2 (when the check came in).
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

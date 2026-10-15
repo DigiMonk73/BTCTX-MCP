@@ -292,3 +292,56 @@ def test_a_deposit_without_basis_asks_for_a_gifts_basis(auth_client):
     review = auth_client.get("/api/review").json()
     check = next(c for c in review["checks"] if c["key"] == "deposit_without_basis")
     assert "(for a gift, the giver's cost basis)" in check["action"]
+
+
+def _sale_from_two_lots(auth_client, test_engine, second_lot_day: str) -> int:
+    """0.001 BTC bought for $50.00 on 2023-01-02 and 0.001 for $60.00 on
+    `second_lot_day`, both sold on 2024-06-01 for $1.01. Each row's proceeds
+    are $0.505: today's rule gives the first lot $0.51 and the second $0.50.
+    Its rows are then stored the other way round, as an older version could
+    leave them (#296); the sale's totals stay the same."""
+    post = lambda **b: auth_client.post("/api/transactions", json=b).json()  # noqa: E731
+    post(type="Deposit", timestamp="2023-01-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=BANK,
+         amount="1000", fee_amount="0", fee_currency="USD", source="N/A")
+    for day, cost in (("2023-01-02", "50.00"), (second_lot_day, "60.00")):
+        post(type="Buy", timestamp=f"{day}T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+             amount="0.001", cost_basis_usd=cost, fee_amount="0", fee_currency="USD")
+    sale = post(type="Sell", timestamp="2024-06-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=3,
+                amount="0.002", gross_proceeds_usd="1.01", fee_amount="0", fee_currency="USD")
+    with test_engine.begin() as con:
+        first, second = con.execute(text("SELECT id FROM lot_disposals WHERE transaction_id = :t ORDER BY id"),
+                                    {"t": sale["id"]}).scalars().all()
+        for row, proceeds, gain in ((first, "0.50", "-49.50"), (second, "0.51", "-59.49")):
+            con.execute(text("UPDATE lot_disposals SET proceeds_usd_for_that_portion = :p,"
+                             " realized_gain_usd = :g WHERE id = :id"), {"p": proceeds, "g": gain, "id": row})
+    return sale["id"]
+
+
+def _recalc_changes(auth_client) -> dict:
+    review = auth_client.get("/api/review").json()
+    check = next(c for c in review["checks"] if c["key"] == "recalc_changes")
+    return {i["id"]: i["changes"] for i in check["items"]}
+
+
+def test_review_sees_a_cent_move_between_a_sales_short_and_long_term_rows(auth_client, test_engine):
+    """#296: the sale's totals don't move, but its long-term row gains a
+    cent and its short-term row loses one, so Schedule D's lines would."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    try:
+        sale = _sale_from_two_lots(auth_client, test_engine, "2024-03-01")
+        assert _recalc_changes(auth_client) == {sale: {"long_term_gain": ["-49.50", "-49.49"],
+                                                       "short_term_gain": ["-59.49", "-59.50"]}}
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_review_sees_a_cent_move_between_two_rows_of_one_term(auth_client, test_engine):
+    """#296: both lots long-term, so no term's total moves either, but two
+    Form 8949 rows would."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    try:
+        sale = _sale_from_two_lots(auth_client, test_engine, "2023-03-01")
+        changes = _recalc_changes(auth_client)
+        assert list(changes) == [sale] and list(changes[sale]) == ["form_8949_rows"]
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

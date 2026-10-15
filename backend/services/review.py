@@ -75,7 +75,6 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
@@ -239,6 +238,8 @@ def _is_zero_or_blank(value) -> bool:
 
 
 FIGURES = ("proceeds_usd", "cost_basis_usd", "realized_gain_usd")
+# From its lot disposals: all of them, and each term's (Schedule D, #296)
+ROW_TOTALS = ("taxable_gain", "short_term_gain", "long_term_gain")
 
 
 def simulate_recalculation(db: Session):
@@ -251,10 +252,9 @@ def simulate_recalculation(db: Session):
 
     def snapshot():
         figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
-        for tx_id, gain in db.query(LotDisposal.transaction_id, func.sum(LotDisposal.realized_gain_usd)) \
-                .group_by(LotDisposal.transaction_id):
+        for tx_id, rows in _disposal_rows(db).items():
             if tx_id in figures:
-                figures[tx_id]["taxable_gain"] = gain
+                figures[tx_id].update(_row_figures(rows))
         return figures
 
     before = snapshot()
@@ -273,11 +273,37 @@ def simulate_recalculation(db: Session):
     changes = {}
     for tx_id, old in before.items():
         new = after.get(tx_id, {})
-        diff = {f: (old.get(f), new.get(f)) for f in FIGURES + ("taxable_gain",)
+        diff = {f: (old.get(f), new.get(f)) for f in FIGURES + ROW_TOTALS
                 if not same(old.get(f), new.get(f))}
+        if not diff and old.get("rows") != new.get("rows"):
+            # Only the split between its Form 8949 rows moves (#296)
+            diff["form_8949_rows"] = (old.get("rows"), new.get("rows"))
         if diff:
             changes[tx_id] = diff
     return changes, None
+
+
+def _disposal_rows(db: Session) -> dict[int, list[LotDisposal]]:
+    """Each transaction's lot disposals, in the order they were made."""
+    rows: dict[int, list[LotDisposal]] = {}
+    for d in db.query(LotDisposal).order_by(LotDisposal.transaction_id, LotDisposal.id):
+        rows.setdefault(d.transaction_id, []).append(d)
+    return rows
+
+
+def _row_figures(rows: list[LotDisposal]) -> dict[str, Any]:
+    """A transaction's taxable gain (its network fees' included), its short-
+    and long-term gains (Schedule D's lines), and its Form 8949 rows."""
+    gain = {"SHORT": Decimal(0), "LONG": Decimal(0)}
+    for d in rows:
+        gain["LONG" if d.holding_period == "LONG" else "SHORT"] += Decimal(d.realized_gain_usd or 0)
+    return {
+        "taxable_gain": gain["SHORT"] + gain["LONG"],
+        "short_term_gain": gain["SHORT"],
+        "long_term_gain": gain["LONG"],
+        "rows": [(d.holding_period, d.is_fee, btc_text(d.disposed_btc), _money(d.disposal_basis_usd),
+                  _money(d.proceeds_usd_for_that_portion), _money(d.realized_gain_usd)) for d in rows],
+    }
 
 
 def build_review(db: Session) -> dict[str, Any]:
@@ -352,7 +378,8 @@ def _row_issues(t: Transaction, tz):
 
 # How the recalculation items name the figures.
 FIGURE_NAMES = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized_gain_usd": "gain",
-                "taxable_gain": "taxable gain incl. network fees"}
+                "taxable_gain": "taxable gain incl. network fees", "short_term_gain": "short-term gain",
+                "long_term_gain": "long-term gain"}
 
 
 def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
@@ -360,10 +387,15 @@ def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
     items = []
     for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
         t = db.get(Transaction, tx_id)
-        parts = [f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
-                 for f, (old, new) in diff.items()]
-        item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
-        item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
+        if "form_8949_rows" in diff:  # its totals stay: only the split between its rows moves (#296)
+            change = "Its Form 8949 rows would be split differently; its totals stay the same."
+            item = _item(t, tz, "Stored figures differ from what the current rules give.", change)
+            item["changes"] = {"form_8949_rows": [list(map(list, rows)) for rows in diff["form_8949_rows"]]}
+        else:
+            parts = [f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
+                     for f, (old, new) in diff.items()]
+            item = _item(t, tz, "Stored figures differ from what the current rules give.", "; ".join(parts) + ".")
+            item["changes"] = {f: [_money(old), _money(new)] for f, (old, new) in diff.items()}
         items.append(item)
     return items
 
