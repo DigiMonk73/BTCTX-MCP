@@ -2,7 +2,8 @@
 CSV import rules found in the v0.9.2 hardening sweep (F10, F25, F30, F12):
 dates follow the tax timezone, malformed numbers are errors, a USD transfer's
 fee is in USD, a BTC withdrawal needs a purpose. And the preview refuses
-what the import would (#266).
+the fee accounts, dollar amounts past the cent and transfers across
+currencies, as the save does (#266).
 """
 
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import sessionmaker
 
 from backend.constants import ACCOUNT_NAME_TO_ID
-from backend.services.csv_import import _default_fee_currency, parse_csv_file
+from backend.services.csv_import import parse_csv_file
 from backend.services.transaction import create_transaction_record
 
 HEADER = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes"
@@ -192,7 +193,7 @@ def _save_data(row: str) -> dict:
     return {
         "type": tx_type, "timestamp": datetime(2024, 1, 5, 18, tzinfo=timezone.utc), "amount": Decimal(amount),
         "from_account_id": from_id, "to_account_id": to_id, "fee_amount": Decimal(0),
-        "fee_currency": _default_fee_currency(tx_type, from_id), "purpose": "Spent",
+        "fee_currency": "USD", "purpose": "Spent",  # no fee: its currency doesn't matter
     }
 
 
