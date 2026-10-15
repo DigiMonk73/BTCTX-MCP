@@ -133,6 +133,14 @@ describe("Withdrawal", () => {
     expect(mapTransactionToFormData(tx({ ...spend, purpose: "Travel" })).purpose).toBe("Travel");
     expect(mapTransactionToFormData(tx({ ...spend, purpose: undefined })).purpose).toBe("N/A");
   });
+
+  it("reads a gift's value the same way, spaces and all (#273's review)", () => {
+    // " gift " opened as Gift with its typed $0 blank, so a save priced it
+    const gift = { ...spend, purpose: " gift ", fmv_usd: 0, gross_proceeds_usd: undefined, proceeds_usd: undefined };
+    const form = mapTransactionToFormData(tx(gift));
+    expect(form).toMatchObject({ purpose: "Gift", fmv_usd: 0 });
+    expect(buildTransactionPayload(form).fmv_usd).toBe(0);
+  });
 });
 
 describe("transferDestinations", () => {

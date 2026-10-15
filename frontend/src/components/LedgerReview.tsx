@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../api";
+import { listedPurpose, listedSource } from "../utils/purposes";
 import HourlyCheck from "./ledgerReview/HourlyCheck";
 import type { HourlyPick, LedgerReviewResponse, ReviewCheck } from "./ledgerReview/types";
 
@@ -14,7 +15,7 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
     {check.items.map((item) => (
       <li key={item.id}>
         #{item.id} · {item.date} · {item.type} (
-        {item.type === "Deposit" ? item.source : item.purpose}) · {item.amount} BTC —{" "}
+        {item.type === "Deposit" ? listedSource(item.source) : listedPurpose(item.purpose)}) · {item.amount} BTC —{" "}
         {item.issue} {item.change}
       </li>
     ))}

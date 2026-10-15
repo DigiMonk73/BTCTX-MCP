@@ -148,8 +148,9 @@ All notable changes to BitcoinTX are documented in this file.
   Edit with **Purpose** blank, and **Update transaction** did nothing until
   a purpose was picked again, without saying why. The form now reads the
   saved purpose ignoring case, as the server always has, so it shows Spent
-  and saves as before. A deposit's source was already read this way. Display
-  only: nothing stored changes, and no figure moves.
+  and saves as before. A deposit's source was already read this way. The
+  Transactions list and Ledger Review show the listed spelling too ("Spent",
+  not "spent"). Display only: nothing stored changes, and no figure moves.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

@@ -1,7 +1,7 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { optionalDecimal, parseDecimal } from "./format";
-import { isNotSold } from "./purposes";
+import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -152,17 +152,6 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
   };
 }
 
-const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
-const WITHDRAWAL_PURPOSES: WithdrawalPurpose[] = ["N/A", "Spent", "Gift", "Donation", "Lost"];
-
-/** A saved source or purpose as the form lists it, matched ignoring case as
- * the server reads it: a row saved by an older version may say "inherited"
- * (Inherited, #154) or "spent" (Spent, #273). Other text stays as saved. */
-function listed<T extends string>(choices: T[], saved: string | null | undefined): T {
-  const wanted = (saved ?? "N/A").trim().toLowerCase();
-  return choices.find((c) => c.toLowerCase() === wanted) ?? (saved as T);
-}
-
 /** Each type's own form fields, read back from a saved transaction. */
 const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
   Deposit: (tx) => {
@@ -171,7 +160,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: listed(DEPOSIT_SOURCES, tx.source),
+      source: listedSource(tx.source),
     };
   },
   Withdrawal: (tx) => {
@@ -180,7 +169,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      purpose: listed(WITHDRAWAL_PURPOSES, tx.purpose),
+      purpose: listedPurpose(tx.purpose),
       // Stored proceeds_usd is net of the BTC fee; edit the user's gross
       proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
     };

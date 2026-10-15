@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { listedPurpose, listedSource } from "../../utils/purposes";
 import type { HourlyPick, HourlyYear, ReviewCheck, ReviewItem } from "./types";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -24,7 +25,7 @@ const ItemRow: React.FC<{ item: ReviewItem; ticked: boolean; onTick: (id: number
   <li>
     <label>
       <input type="checkbox" checked={ticked} onChange={() => onTick(item.id)} /> #{item.id} · {item.date} ·{" "}
-      {item.type} ({item.type === "Deposit" ? item.source : item.purpose}) · {item.amount} BTC — {item.issue}{" "}
+      {item.type} ({item.type === "Deposit" ? listedSource(item.source) : listedPurpose(item.purpose)}) · {item.amount} BTC — {item.issue}{" "}
       {item.change}
     </label>
   </li>
