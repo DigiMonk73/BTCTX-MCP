@@ -148,7 +148,7 @@ class Ledger:
 
     def cost_of(self, lot: Lot, btc: Fraction) -> Fraction:
         """What a lot's first `btc` BTC cost, in cents (all of it: exactly its cost)."""
-        return lot.cost if btc >= lot.total else Fraction(_cents(lot.cost * btc / lot.total, self.rounding))
+        return _share_so_far(lot.cost, btc, lot.total, self)
 
 
 def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:

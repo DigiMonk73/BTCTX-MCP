@@ -1148,6 +1148,8 @@ def _cents_of_part(value: Decimal, part: Decimal, whole: Decimal) -> Decimal:
         return Decimal("0")
     if part >= whole:
         return Decimal(value)
+    # Multiplied before divided: for any amount a ledger holds, a share that
+    # is exactly half a cent stays exact and rounds up (#295's review)
     return (value * part / whole).quantize(CENT, rounding=SHARE_ROUNDING)
 
 
@@ -1487,8 +1489,8 @@ class _LotMove:
     """
     A BTC transfer's amount (fee included) taken from the source's lots,
     oldest first. The fee's part is disposed of at the fee's stored USD
-    value (split by BTC when it spans lots; the last part takes the
-    remainder so the parts add up to fee_usd exactly). The rest becomes
+    value (its running share per lot when it spans lots, so the parts add
+    up to fee_usd exactly and none is below zero, #297). The rest becomes
     lots in the destination, each keeping its source lot's acquisition date
     and share of basis.
     """
