@@ -273,7 +273,7 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
         )
         remaining_basis = sum((cost_left(lot) for lot in lots), Decimal(0))
         disposed_basis = sum((d.disposal_basis_usd for d in disposals), Decimal(0))
-        assert all(d.disposal_basis_usd >= 0 for d in disposals)
+        assert all(d.disposal_basis_usd >= 0 and d.proceeds_usd_for_that_portion >= 0 for d in disposals)  # #297
         assert acquired_basis == remaining_basis + disposed_basis, (acquired_basis, remaining_basis, disposed_basis)
 
         # Form 8949 = Schedule D = the year's taxable disposals.

@@ -158,9 +158,10 @@ So derived values must be recomputable from the Transaction row alone.
   costs what the lot's BTC taken so far costs with it, in cents, less
   without it (`transaction.piece_cost`), so a lot's pieces add up to its
   cost, and what's held carries the rest (`cost_left`: holdings, the
-  dashboard). An exact half cent of a share rounds up (`SHARE_ROUNDING`),
-  for a piece's cost and for proceeds shared among a disposal's lots (the
-  last lot takes what's left).
+  dashboard). A disposal's proceeds and a fee's value are shared among its
+  lots the same way (`running_share`, #297), so its rows add up to them
+  exactly and none is below zero. An exact half cent of a share rounds up
+  (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again).
