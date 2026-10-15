@@ -317,7 +317,8 @@ def _row_figures(rows: list[LotDisposal]) -> dict[str, Any]:
     return {
         "taxable_gain": sum(gain.values(), Decimal(0)),
         **gain,
-        "terms": frozenset(d.holding_period for d in rows),
+        # A row with no term stored (before 0.7) is short-term, as the reports count it
+        "terms": frozenset("LONG" if d.holding_period == "LONG" else "SHORT" for d in rows),
         "rows": [{"term": d.holding_period, "fee": bool(d.is_fee), "btc": btc_text(d.disposed_btc),
                   "basis": _money(d.disposal_basis_usd), "proceeds": _money(d.proceeds_usd_for_that_portion),
                   "gain": _money(d.realized_gain_usd)} for d in rows],
@@ -417,7 +418,7 @@ FIGURE_NAMES = {"proceeds_usd": "proceeds", "cost_basis_usd": "basis", "realized
 # A transaction's totals stay, and only how its rows, or the lots it made,
 # split them moves (#296)
 SPLITS = {"lot_rows": "Its rows, lot by lot, would be split differently",
-          "lot_split": "The lots it made would share their cost differently"}
+          "lot_split": "The lots it made would differ (their dates, BTC or cost)"}
 
 
 def _change_text(diff: dict) -> str:

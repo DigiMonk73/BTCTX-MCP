@@ -423,7 +423,27 @@ def test_review_sees_the_lots_a_transfer_made_share_their_cost_differently(auth_
         assert list(items) == [move["id"]] and list(items[move["id"]]["changes"]) == ["lot_split"]
         old, new = items[move["id"]]["changes"]["lot_split"]
         assert [lot["cost"] for lot in old] == ["0.51", "0.69"] and [lot["cost"] for lot in new] == ["0.50", "0.70"]
-        assert items[move["id"]]["change"] == ("The lots it made would share their cost differently;"
+        assert items[move["id"]]["change"] == ("The lots it made would differ (their dates, BTC or cost);"
                                               " its totals stay the same.")
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_review_counts_a_row_without_a_term_as_short_term(auth_client, test_engine):
+    """A row stored with no term (before 0.7) counts as short-term, as the
+    reports count it: a mixed-term sale whose long-term row lost its term
+    shows its gain moving back to the long-term line."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    try:
+        sale = _sale_from_two_lots(auth_client, test_engine, "2024-03-01")
+        with test_engine.begin() as con:
+            con.execute(text("UPDATE lot_disposals SET holding_period = NULL, proceeds_usd_for_that_portion = '0.51',"
+                             " realized_gain_usd = '-49.49' WHERE transaction_id = :t AND holding_period = 'LONG'"),
+                        {"t": sale})
+            con.execute(text("UPDATE lot_disposals SET proceeds_usd_for_that_portion = '0.50',"
+                             " realized_gain_usd = '-59.50' WHERE transaction_id = :t AND holding_period = 'SHORT'"),
+                        {"t": sale})
+        assert _recalc_changes(auth_client) == {sale: {"short_term_gain": ["-108.99", "-59.50"],
+                                                       "long_term_gain": ["0.00", "-49.49"]}}
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
