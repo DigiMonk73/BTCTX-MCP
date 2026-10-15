@@ -1744,8 +1744,9 @@ def _checked_type(data: dict) -> str:
 
 
 # The save's rules as helpers that return what's wrong (None when nothing
-# is): the save calls them, and so does the CSV preview, so a row the
-# preview passes is one the save takes (#266, #285).
+# is): the save calls them, and so does the CSV preview, so the preview
+# refuses what the save's checks of a row refuse (#266, #285). The ledger's
+# balance is the save's alone.
 
 def timestamp_problem(ts: datetime) -> str | None:
     """Not before Bitcoin, nor more than a day ahead (a naive time is UTC)."""

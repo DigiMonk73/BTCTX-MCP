@@ -25,7 +25,8 @@ from backend.schemas.river_import import (
 )
 from backend.schemas.csv_import import CSVParseError
 from backend.services import hourly_prices
-from backend.services.csv_import import _validate_row, execute_import, number_text
+from backend.schemas.transaction import BTC_PLACES
+from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
@@ -235,9 +236,8 @@ def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
 
 
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
-    """Each row checked by the CSV import's row check, then a Transfer's
-    amount given its BTC fee (BitcoinTX's meaning), once both are known to
-    be numbers within their limits; 400 listing the first five errors when
+    """Each row checked by the CSV import's row check, its Transfer's amount
+    with its BTC fee in (_csv_row); 400 listing the first five errors when
     any row has one."""
     tx_datas = []
     all_errors: list[str] = []
@@ -246,7 +246,6 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
-            tx_data["amount"] = ledger_amount(tx_data["type"], tx_data["amount"], row.fee_amount, row.fee_currency)
             tx_datas.append(tx_data)
     if all_errors:
         detail = "Rows have errors: " + "; ".join(all_errors[:5])
@@ -257,12 +256,13 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
 
 
 def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
-    """A row as the CSV import reads it: text, River's own amounts."""
+    """A row as the CSV import reads it: text, River's own amounts but a
+    Transfer's, which is BitcoinTX's (_ledger_amount)."""
     ts = row.date
     return {
         "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": row.type,
-        "amount": number_text(row.amount),
+        "amount": number_text(_ledger_amount(row)),
         "from_account": row.from_account,
         "to_account": row.to_account,
         "cost_basis_usd": number_text(row.cost_basis_usd),
@@ -275,6 +275,18 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
         "cost_basis_typed": row.cost_basis_typed or "",
         "price_moment": (row.price_moment or "") if row.cost_basis_typed == "no" else "",
     }
+
+
+def _ledger_amount(row: RiverExecuteRow) -> Decimal:
+    """River leaves a transfer's fee out of its amount; BitcoinTX's, the
+    CSV's and the save's, has a BTC fee in (ledger_amount). The row check
+    then compares the fee with what the save will see (#285's review). A
+    fee the row check refuses stays out, so its error names the fee."""
+    fee = row.fee_amount
+    if fee is None or fee < 0 or _parse_decimal(number_text(fee), BTC_PLACES) is None:
+        return row.amount
+    tx_type = row.type.strip().title()  # as the row check reads it: "transfer" is a Transfer (#277)
+    return ledger_amount(tx_type, row.amount, fee, row.fee_currency)
 
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:

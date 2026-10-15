@@ -465,7 +465,7 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
-def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str:
+def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str | None:
     """What the amount is counted in, as the ledger counts it
     (transaction._check_amount): the receiving account's currency for a
     Deposit or Buy, the sending account's otherwise."""
@@ -678,8 +678,11 @@ def _fee_currency_rules(row: _Row):
     """A deposit's or withdrawal's fee in its account's currency, as the save
     sees it: the currency given, else the one the import fills in (#285)."""
     fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
-    yield from _problem(row, "fee_currency", fee_currency_problem(
-        row.tx_type, row.fee_amount or Decimal(0), fee_cur, _currency(row.from_id), _currency(row.to_id)))
+    problem = fee_currency_problem(
+        row.tx_type, row.fee_amount or Decimal(0), fee_cur, _currency(row.from_id), _currency(row.to_id))
+    if problem and not row.fee_currency:
+        problem += f" (fee_currency is blank: the import uses {fee_cur})"
+    yield from _problem(row, "fee_currency", problem)
 
 
 # What a blank value in a deposit valued when acquired becomes, by source
@@ -730,10 +733,11 @@ def _transfer_rules(row: _Row):
     expected = "BTC" if row.from_id in BTC_ACCOUNTS else "USD"
     if row.fee_currency and row.fee_currency != expected:
         yield _error(row.number, "fee_currency", f"A transfer from this account pays its fee in {expected}.")
+    else:  # a fee in the account's currency, comparable with the amount
+        yield from _problem(row, "fee_amount", transfer_fee_problem(
+            _currency(row.from_id), row.fee_amount or Decimal(0), row.amount))
     if row.from_id == row.to_id and row.from_id in BTC_ACCOUNTS and not row.fee_amount:
         yield _error(row.number, "fee_amount", SAME_ACCOUNT_NEEDS_FEE)
-    yield from _problem(row, "fee_amount", transfer_fee_problem(
-        _currency(row.from_id), row.fee_amount or Decimal(0), row.amount))
 
 
 _TYPE_RULES = {

@@ -2,7 +2,7 @@
 CSV import rules found in the v0.9.2 hardening sweep (F10, F25, F30, F12):
 dates follow the tax timezone, malformed numbers are errors, a USD transfer's
 fee is in USD, a BTC withdrawal needs a purpose. And the preview refuses
-what the save refuses: the fee accounts, dollar amounts past the cent and
+what the save's checks of a row refuse: the fee accounts, dollar amounts past the cent and
 transfers across currencies (#266), and through the save's own helpers a
 fee over the proceeds or the amount, a fee in the wrong currency, more
 than 21,000,000 BTC, a date before 2009 or more than a day ahead, and a
@@ -147,6 +147,9 @@ USD_CENTS = "A USD amount can have at most 2 decimal places."
 ONE_CURRENCY = ("Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
                 "dollars between Bank and Exchange USD.")
 
+BLANK_FEE_CURRENCY = "A deposit fee must be in USD, the account's currency. (fee_currency is blank: the import uses BTC)"
+BTC_TRANSFER_FEE = "A transfer from this account pays its fee in BTC."
+
 # #266: rows the preview passed and the import then refused (the whole file)
 REFUSED_AT_IMPORT = [
     ("2024-01-05,Deposit,1,External,BTC Fees,,,,,,,", FEE_ACCOUNT.format("btc fees")),
@@ -163,11 +166,14 @@ REFUSED_AT_IMPORT = [
     ("2024-01-05,Withdrawal,100,Bank,External,,,0.0001,BTC,,,", "A withdrawal fee must be in USD, the account's currency."),
     ("2024-01-05,Deposit,100,External,Bank,,,0.0001,BTC,,,", "A deposit fee must be in USD, the account's currency."),
     # No fee currency: the import fills in BTC for any deposit, which a USD account refuses
-    ("2024-01-05,Deposit,100,External,Bank,,,1,,,,", "A deposit fee must be in USD, the account's currency."),
+    ("2024-01-05,Deposit,100,External,Bank,,,1,,,,", BLANK_FEE_CURRENCY),
     ("2024-01-05,Deposit,100,External,Bank,,,1,USD,,,", None),
     ("2024-01-05,Deposit,0.1,External,Wallet,100,,1,USD,MyBTC,,", "A deposit fee must be in BTC, the account's currency."),
     ("2024-01-05,Transfer,0.0001,Wallet,Exchange BTC,,,0.001,BTC,,,",
      "Transfer fee exceeds the amount sent (amount includes the fee)."),
+    # A USD fee on a BTC transfer: its currency is the error, never also compared with the amount
+    ("2024-01-05,Transfer,0.1,Wallet,Exchange BTC,,,1,USD,,,", BTC_TRANSFER_FEE),
+    ("2024-01-05,Transfer,0.1,Wallet,Wallet,,,1,USD,,,", BTC_TRANSFER_FEE),
     ("2024-01-05,Deposit,30000000,External,Wallet,1,,,,MyBTC,,", "A BTC amount can't be more than 21,000,000."),
     ("2008-06-01,Deposit,100,External,Bank,,,,,,,", "The date is before Bitcoin existed (3 January 2009)."),
     ("2099-01-01,Deposit,100,External,Bank,,,,,,,", "The date is in the future."),
@@ -226,7 +232,9 @@ def _save_data(row: str) -> dict:
 
 # What the save says for each of the preview's reasons
 SAVE_SAYS = {FEE_ACCOUNT.format("btc fees"): "Unknown account id 5.", FEE_ACCOUNT.format("usd fees"): "Unknown account id 6.",
-             USD_CENTS: USD_CENTS, ONE_CURRENCY: "Transfer => same currency required."}
+             USD_CENTS: USD_CENTS, ONE_CURRENCY: "Transfer => same currency required.",
+             BLANK_FEE_CURRENCY: "A deposit fee must be in USD, the account's currency.",
+             BTC_TRANSFER_FEE: "Transfer from BTC => fee must be BTC."}
 
 
 @pytest.mark.parametrize("row, message", [(r, m) for r, m in REFUSED_AT_IMPORT if m])
