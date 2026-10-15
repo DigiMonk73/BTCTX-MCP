@@ -1193,7 +1193,7 @@ class _FifoDisposal:
             if qty == self.remaining_fee:
                 proceeds = self.fee_usd - self.fee_proceeds_so_far
             else:
-                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(Decimal("0.01"), rounding=SHARE_ROUNDING)
+                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(CENT, rounding=SHARE_ROUNDING)
             self.fee_proceeds_so_far += proceeds
             self.record(lot, qty, proceeds, gain_zero=False, is_fee=True)
             self.remaining_fee -= qty
@@ -1202,8 +1202,9 @@ class _FifoDisposal:
             if qty == self.remaining_amount:
                 proceeds = self.total_proceeds - self.proceeds_so_far
             else:
-                proceeds = (qty / self.amount_btc * self.total_proceeds).quantize(
-                    Decimal("0.01"), rounding=SHARE_ROUNDING)
+                # Multiplied before divided: a share that is exactly half a
+                # cent stays exact, and rounds up (#100)
+                proceeds = (self.total_proceeds * qty / self.amount_btc).quantize(CENT, rounding=SHARE_ROUNDING)
             self.proceeds_so_far += proceeds
             self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)
             self.remaining_amount -= qty
@@ -1544,8 +1545,7 @@ class _LotMove:
         if portion == self.remaining_fee:
             proceeds_for_fee = fee_usd - self.fee_proceeds_so_far
         else:
-            proceeds_for_fee = (fee_usd * portion / self.fee_btc).quantize(
-                Decimal("0.01"), rounding=SHARE_ROUNDING)
+            proceeds_for_fee = (fee_usd * portion / self.fee_btc).quantize(CENT, rounding=SHARE_ROUNDING)
         self.fee_proceeds_so_far += proceeds_for_fee
         self.db.add(LotDisposal(
             lot_id=lot.id,

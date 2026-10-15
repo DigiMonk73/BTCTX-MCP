@@ -113,6 +113,16 @@ def test_a_half_cent_of_proceeds_rounds_up_and_the_last_lot_takes_the_rest():
     assert [proceeds for _, proceeds in disposals()] == [Decimal("0.51"), Decimal("0.50")]
 
 
+def test_an_exact_half_cent_of_proceeds_is_kept_exact_until_rounded():
+    """$27,999.93 shared 5:9: the first lot's share is exactly $9,999.975.
+    Divided before multiplied, it came out a hair under the half cent at 28
+    digits and went down; it goes up (the review of #295)."""
+    buy("0.05", "1000.00", day=1)
+    buy("0.09", "1000.00", day=2)
+    sell("0.14", "27999.93", 1)
+    assert [proceeds for _, proceeds in disposals()] == [Decimal("9999.98"), Decimal("17999.95")]
+
+
 @settings(max_examples=200, deadline=None)
 @given(
     sats=st.integers(min_value=1, max_value=10**10),

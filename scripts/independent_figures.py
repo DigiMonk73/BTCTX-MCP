@@ -16,7 +16,8 @@ summary, income, rebates, gifts and year-end lots:
 
 `--compare` lists every difference from testdata/reference_figures.json for
 2024 and 2025 (`--years` for others). backend/tests/test_independent_figures.py
-runs it for every year and fails on a difference. Dates are taken in UTC, the reference figures' tax time zone.
+runs it for every year and fails on a difference. Dates are taken in UTC,
+the reference figures' tax time zone.
 
 Amounts stay exact (fractions) until they are rounded to the cent. Three
 conventions are the ledger's (AGENTS.md "Tax invariants", Lot cost), shared
@@ -29,9 +30,11 @@ on purpose so the two agree to the cent:
   starts its new lot with that cost, and what's held carries the rest;
 - an exact half cent rounds up, as the IRS rounds to whole dollars and the
   app does (#100); `--rounding half-down` rounds it down, as the app did
-  before. The app rounds a 28-digit intermediate, so a tie whose division
-  doesn't end rounds up there: none is in the reference ledger, and one
-  would make the test fail rather than pass by accident.
+  before. The app multiplies before it divides, so an exact half cent stays
+  exact; a share whose division doesn't end is rounded to 28 digits first,
+  so one within about 1e-26 of a half cent could go the other way there:
+  none is in the reference ledger, and one would make the test fail rather
+  than pass by accident.
 
 A test tool: it lives in scripts/, which no build ships.
 """
@@ -41,7 +44,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field, replace
+from copy import copy
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
 from fractions import Fraction
@@ -225,7 +229,7 @@ def _moment(text: str) -> datetime:
 def _close_years_before(ledger: Ledger, year: int) -> None:
     """Keep each year's closing lots, once the ledger has moved past it."""
     for closed in range(ledger.year or year, year):
-        ledger.holdings[closed] = [(BTC_ACCOUNTS[account], replace(lot))
+        ledger.holdings[closed] = [(BTC_ACCOUNTS[account], copy(lot))
                                    for account, lots in ledger.lots.items() for lot in lots]
     ledger.year = max(ledger.year or year, year)
 
