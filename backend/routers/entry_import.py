@@ -175,7 +175,7 @@ async def execute_entries(
         detail = "Rows have errors: " + " | ".join(msgs[:5])
         if len(msgs) > 5:
             detail += f" ...and {len(msgs) - 5} more"
-        raise HTTPException(status_code=400, detail=detail + ". No transactions were saved.")
+        raise HTTPException(status_code=400, detail=detail.rstrip(".") + ". No transactions were saved.")
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
 

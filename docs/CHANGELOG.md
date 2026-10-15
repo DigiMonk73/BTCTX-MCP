@@ -171,6 +171,15 @@ All notable changes to BitcoinTX are documented in this file.
   are, or would be, of both terms, and the lots it made and their cost; and
   it lists one whose rows, or lots, alone would be split differently.
   Since 0.9.2 (when the check came in).
+- **A fee in dollars is in cents** (#298). A fee's decimals were checked
+  as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
+  $0.005 was accepted and then lost from the lot's cost when stored in
+  cents ($1.00 plus $0.005 was a $1.00 lot; $0.006 made it a cent more).
+  Now a fee in dollars, typed or filled in for its type, can have at most
+  2 decimal places ("A USD fee can have at most 2 decimal places."), in the
+  form, the API, the CSV preview, the AI connector's import and River's. A
+  bitcoin fee keeps its 8. Every release from 0.8.0; a fee typed with more
+  than 2 decimals was needed.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
