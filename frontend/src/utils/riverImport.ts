@@ -64,11 +64,13 @@ export function importableRows(rows: EditableRow[]): EditableRow[] {
 }
 
 /** The import request's rows: the ticked ones, and each one the preview
- * found in the ledger left unticked (`left_out`, never imported), so the
- * server's check matches every row as the preview did and an identical row
- * beside it isn't taken for it (#253). */
+ * found in the ledger left unticked (`left_out`, never imported) as the
+ * preview gave it, edits undone, so the server's check matches every row as
+ * the preview did and an identical row beside it isn't taken for it (#253). */
 export function importRequestRows(rows: EditableRow[]) {
-  return rows.filter((r) => r.include || r.proposal.status === "matched").map(importRow);
+  return rows
+    .filter((r) => r.include || r.proposal.status === "matched")
+    .map((r) => importRow(r.include ? r : toEditableRow(r.proposal)));
 }
 
 /** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */

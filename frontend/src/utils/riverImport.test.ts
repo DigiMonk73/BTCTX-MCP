@@ -82,6 +82,9 @@ describe("importRequestRows", () => {
     const tickedMatch = { ...toEditableRow(proposal({ row_number: 5, status: "matched" })), include: true };
     const sent = importRequestRows([ticked, unticked, matched, tickedMatch]);
     expect(sent.map((r) => [r.left_out, r.not_a_duplicate])).toEqual([[false, false], [true, false], [false, true]]);
+    // Ticked, edited, unticked: sent as the preview gave it
+    const edited = { ...matched, ...typeChange(matched, "Withdrawal"), feeAmount: "0.00000600" };
+    expect(importRequestRows([edited])[0]).toMatchObject({ type: "Transfer", fee_amount: null, left_out: true });
   });
 });
 

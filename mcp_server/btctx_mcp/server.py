@@ -412,8 +412,8 @@ async def review_ledger() -> ToolResult:
 @with_version_notice
 async def preview_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
-    flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose
-    and minute, or day for a date alone) or like one (possible_duplicate: the same amount
+    flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
+    a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
     holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
     before add_transactions. At most 500 rows a call, and fewer dated before the ledger's

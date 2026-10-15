@@ -111,6 +111,10 @@ class RiverProposal:
     # Matched only by a near amount (a BTC move typed by hand): the preview
     # leaves it unticked, as it's most likely that move (owner, 2026-10-15, #253)
     near_amount: bool = False
+    # At an import, a row the preview found in the ledger (left unticked, or
+    # ticked as another transaction): matched before the others, so an edit
+    # of it can't hand its match to an identical row (#253)
+    matched_before: bool = False
 
     @property
     def from_account(self) -> str:
@@ -527,7 +531,9 @@ def annotate_duplicates(
     Pass 1 (a duplicate, STATUS_MATCHED): a compatible type, the same amount
     and minute (a row given as a date alone: the same day in the tax
     timezone), and no difference, as `rule` says; greedy nearest-timestamp,
-    one existing tx matches at most one proposal.
+    one existing tx matches at most one proposal. The rows matched_before
+    go first, and within each amount test a transaction of the row's own
+    type before one of another compatible type.
 
     Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
     anything else different; its note says what. Never left out by itself.
@@ -543,14 +549,20 @@ def annotate_duplicates(
     used_tx_ids: set = set()
     by_time = sorted(proposals, key=lambda p: p.timestamp)
 
-    def each_new(match, types=None) -> None:
-        """One pass: `match` for every row still new (of `types`), in time order."""
+    def each_new(match, types=None, matched_before=None) -> None:
+        """One pass: `match` for every row still new (of `types`, and
+        matched_before or not when it's given), in time order."""
         for proposal in by_time:
-            if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
+            if proposal.status != STATUS_NEW or (types is not None and proposal.type not in types):
+                continue
+            if matched_before in (None, proposal.matched_before):
                 match(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
 
-    for same_amount in rule.amounts:
-        each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz))
+    for first in (True, False):
+        for same_amount in rule.amounts:
+            for same_type in (True, False):
+                each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz,
+                                 same_type=same_type), matched_before=first)
     if exact_only:
         return
     for same_amount in rule.amounts:
@@ -582,10 +594,11 @@ def _same_moment(proposal: RiverProposal, tx: Transaction, tz) -> bool:
 
 
 def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
-                   same_amount, differences, tz) -> None:
+                   same_amount, differences, tz, same_type: bool = False) -> None:
     same = [
         tx for tx in candidates
-        if same_amount(proposal, tx) and _same_moment(proposal, tx, tz) and not differences(proposal, tx)
+        if (tx.type == proposal.type or not same_type)
+        and same_amount(proposal, tx) and _same_moment(proposal, tx, tz) and not differences(proposal, tx)
     ]
     best = _nearest(proposal, same)
     if best is None:

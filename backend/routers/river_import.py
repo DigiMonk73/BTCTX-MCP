@@ -220,10 +220,11 @@ def execute_river_import(
 
 
 def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
-    """The checked rows to import: every row the preview showed, a ticked
-    one and one left out alike, takes its match as in the preview (#253);
-    then the ones not in the ledger, and those the owner ticked though they
-    are, are imported."""
+    """The checked rows to import. Every row the preview found in the ledger,
+    a ticked one and one left out alike, is matched first, so it takes its
+    match as in the preview whatever the owner edited (#253); then the ones
+    not in the ledger, and those the owner ticked though they are, are
+    imported."""
     tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
     checked = [(None if row.left_out else next(tx_datas), row) for row in rows]
     stubs = [
@@ -295,12 +296,14 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         proceeds_usd=tx_data.get("proceeds_usd"),
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
+        matched_before=row.not_a_duplicate,
     )
 
 
 def _left_out_stub(row_number: int, row: RiverExecuteRow) -> RiverProposal:
-    """A row left out, in the same shape: the preview's own, unedited, so it
-    isn't validated (a row the owner doesn't import can't stop the import)."""
+    """A row left out, in the same shape: the preview's own (the River screen
+    sends it unedited), so it isn't validated (a row the owner doesn't
+    import can't stop the import)."""
     ts = row.date if row.date.tzinfo else row.date.replace(tzinfo=timezone.utc)
     return RiverProposal(
         row_number=row_number,
@@ -312,4 +315,5 @@ def _left_out_stub(row_number: int, row: RiverExecuteRow) -> RiverProposal:
         amount=row.amount,
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
+        matched_before=True,
     )

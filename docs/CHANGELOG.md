@@ -104,6 +104,10 @@ All notable changes to BitcoinTX are documented in this file.
   - A River row compares nothing else, and its amount is River's: its
     source, purpose, fee and type are the preview's or your own edits, so
     a re-import of a row you changed isn't recorded twice.
+  - Also fixed at the River import's save: a row the preview showed as New
+    beside an identical one already in the ledger was skipped all the same.
+    Every row the preview found in the ledger is now checked first, ticked
+    or not, so the import saves exactly the rows you tick.
 
   **What to do:** if you added transactions through the AI connector or
   imported River files, check that payouts of the same amount within two

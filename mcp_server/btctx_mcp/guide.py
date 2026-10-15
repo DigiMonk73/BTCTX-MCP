@@ -186,9 +186,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    original cost basis of MyBTC/Gift deposits). Don't invent cost basis.
 2. Call preview_transactions. Nothing is saved. Show the user a compact
    table: date, type, amount, from -> to, USD values, simulated gain/loss.
-   Call out: duplicates (the same type, BTC amount, source or purpose and
-   minute as a recorded transaction, or the same day for a date alone - will
-   be skipped), possible duplicates (the same amount within 48 hours with
+   Call out: duplicates (the same type, BTC amount, source or purpose, a
+   Buy's cost basis, and minute as a recorded transaction, or the same day
+   for a date alone - will be skipped), possible duplicates (the same amount within 48 hours with
    something else different, or a transfer of a near amount; the warning
    says what - saved unless dropped, so ask), auto-filled USD values, rejected rows (e.g. not
    enough BTC - usually a missing earlier transaction), and affected_existing

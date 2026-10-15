@@ -209,9 +209,11 @@ So derived values must be recomputable from the Transaction row alone.
   (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits; a ledger amount is matched before
-  River's. The user can override a duplicate (`not_a_duplicate`), which
-  still takes its match, and River's import sends the rows left unticked
-  too (`left_out`), so each check matches as the preview did. The same
+  River's, and a transaction of the row's own type first. The user can
+  override a duplicate (`not_a_duplicate`), which still takes its match;
+  River's import also sends the rows the preview found in the ledger and
+  left unticked (`left_out`, as the preview gave them), and matches all of
+  those first, so an edit can't move a match at the save. The same
   amount within 48 hours with anything else different is only similar:
   flagged, never skipped by itself; a River bitcoin move of only a near
   amount starts unticked.

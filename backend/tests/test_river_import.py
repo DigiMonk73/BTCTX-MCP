@@ -505,6 +505,62 @@ class TestExecute:
             assert execute(rows)["imported_count"] == 1
             assert preview([row])["proposals"][0]["status"] == STATUS_MATCHED, edit
 
+    SEND = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,"
+    TAGGED = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,Withdrawal"
+
+    @pytest.mark.parametrize("first, second", [
+        ({"not_a_duplicate": True, "type": "Withdrawal", "to_account": "External", "purpose": "Spent"}, {}),
+        ({"not_a_duplicate": True, "fee_amount": "0.00000600"}, {}),
+        ({"left_out": True, "type": "Withdrawal", "to_account": "External", "purpose": "Spent"}, {}),
+    ])
+    def test_an_edit_doesnt_move_a_match_at_the_import(self, first, second):
+        """The second re-check of #277: the same send twice in the file, once
+        recorded. The preview's "In ledger" row is matched first at the
+        import, whatever the owner edited, so the "New" one is saved."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        execute(proposals_to_execute_rows(preview([self.SEND])))
+        data = preview([self.SEND, self.SEND])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, "new"]
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0].update(first)
+        rows[1].update(second)
+        result = execute(rows)
+        imported = 1 if first.get("left_out") else 2
+        assert result["imported_count"] == imported and result["skipped_existing"] == 0, result
+
+    def test_a_new_row_edited_as_the_first_import_was_is_saved(self):
+        """The second re-check of #277: the send was imported as a Withdrawal.
+        The file has it twice; the "New" one, set to Withdrawal as well, no
+        longer takes the match of the "In ledger" one."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        as_withdrawal = {"type": "Withdrawal", "to_account": "External", "purpose": "Spent"}
+        rows = proposals_to_execute_rows(preview([self.SEND]))
+        rows[0].update(as_withdrawal)
+        execute(rows)
+        data = preview([self.SEND, self.SEND])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, "new"]
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0]["left_out"] = True
+        rows[1].update(as_withdrawal)
+        result = execute(rows)
+        assert result["imported_count"] == 1 and result["skipped_existing"] == 0, result
+
+    def test_a_send_imported_with_another_fee_keeps_its_match_beside_a_tagged_withdrawal(self):
+        """The second re-check of #277: within River's amount, a transaction of
+        the row's own type is matched first, so the tagged Withdrawal at the
+        same minute is new and saved."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        rows = proposals_to_execute_rows(preview([self.SEND]))
+        rows[0]["fee_amount"] = "0.00000600"
+        execute(rows)
+        data = preview([self.TAGGED, self.SEND])
+        assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
+        assert execute(default_request(data))["imported_count"] == 1
+        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+
     def test_a_lowercase_type_is_saved_with_its_fee_and_caught_the_second_time(self):
         """The re-check of #277: the fee went in by the type as written ("transfer")."""
         delete_all_transactions()
