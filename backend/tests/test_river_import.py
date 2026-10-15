@@ -439,6 +439,10 @@ class TestExecute:
         result = execute([{**rows[0], "not_a_duplicate": True}])
         assert result["imported_count"] == 1 and result["skipped_existing"] == 0
         assert len(CLIENT.get("/api/transactions").json()) == 2
+        # The lead review of 6ac27ac: the same request sent again saves nothing more
+        again = execute([{**rows[0], "not_a_duplicate": True}])
+        assert again["imported_count"] == 0 and again["skipped_existing"] == 1
+        assert len(CLIENT.get("/api/transactions").json()) == 2
 
     def test_a_send_imported_with_another_fee_or_as_a_withdrawal_is_in_the_ledger(self):
         """The review of #277: River's amount is compared, so a send the owner
@@ -544,6 +548,7 @@ class TestExecute:
         result = execute(rows)
         imported = 1 if first.get("left_out") else 2
         assert result["imported_count"] == imported and result["skipped_existing"] == 0, result
+        assert execute(rows)["imported_count"] == 0  # sent again: nothing more
 
     def test_a_receive_ticked_and_made_a_deposit_keeps_its_match(self):
         """The third re-check of #277: a Deposit can't match the recorded

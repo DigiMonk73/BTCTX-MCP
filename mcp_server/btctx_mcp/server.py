@@ -98,8 +98,8 @@ class TransactionInput(BaseModel):
                                   "deposits: the date of death (required).")
     not_a_duplicate: bool | None = Field(
         default=None, description="true only when the user says this row is another transaction than the one "
-                                  "preview_transactions matched as a duplicate: it's then saved. Never set it "
-                                  "on your own.")
+                                  "preview_transactions matched as a duplicate: it's then saved, once (sent "
+                                  "again, it's left out). Never set it on your own.")
 
 
 _client: BtctxClient | None = None

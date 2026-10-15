@@ -305,33 +305,55 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     The duplicate rule (D1, #253). The same type, BTC amount, source or
     purpose and minute as a transaction in the ledger (a row given as a date
     alone: the same day), and for a Buy the same cost basis => duplicate,
-    left out, unless the row says not_a_duplicate (the user said it's
-    another transaction): it's then ready, and still takes its match, so an
-    identical row beside it is checked as the preview checked it. The same
-    amount within 48 hours with anything else different, or a BTC move of a
-    near amount => possible_duplicate: written unless removed, the warning
-    naming the match and what differs. exact_only (execute's double-submit
-    guard) looks for duplicates only.
+    left out. A row that says not_a_duplicate (the user said it's another
+    transaction) is freed only from the transaction it matched: it still
+    takes that match, so an identical row beside it is checked as in the
+    preview, and is checked again against the rest of the ledger, so a
+    repeated add_transactions doesn't save it twice. The same amount within
+    48 hours with anything else different, or a BTC move of a near amount
+    => possible_duplicate: written unless removed, the warning naming the
+    match and what differs. exact_only (execute's double-submit guard)
+    looks for duplicates only.
     """
     valid = [p for p in prepared if p.tx_data is not None]
     if not valid:
         return
     stubs = [_stub(p) for p in valid]
     annotate_duplicates(stubs, db, exact_only=exact_only, rule=ENTRY_RULE)
+    _check_overrides_again(valid, stubs, db)
     for p, stub in zip(valid, stubs):
-        if stub.status == STATUS_NEW or p.not_a_duplicate:
+        if stub.status == STATUS_NEW or (p.not_a_duplicate and stub.status != STATUS_MATCHED):
             continue
         p.result.matched_transaction_id = stub.matched_tx_id
         if stub.status == STATUS_MATCHED:
             p.result.status = STATUS_DUPLICATE
-            p.result.warnings.append(
-                f"Already recorded as tx #{stub.matched_tx_id} (the same type, BTC amount, source or purpose, "
-                f"a Buy's cost basis, and time): left out. If the user says it's another transaction, send it "
-                f"with not_a_duplicate."
-            )
+            p.result.warnings.append(_duplicate_warning(p, stub.matched_tx_id))
         else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
             p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
+
+
+def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> None:
+    """Each row the user says is another transaction, and that matched one,
+    checked again without the transactions the rows matched: it's new unless
+    the ledger holds another copy (the one an earlier add_transactions
+    saved)."""
+    taken = {stub.matched_tx_id for stub in stubs if stub.status == STATUS_MATCHED}
+    again = {
+        i: _stub(p) for i, (p, stub) in enumerate(zip(valid, stubs))
+        if p.not_a_duplicate and stub.status == STATUS_MATCHED
+    }
+    annotate_duplicates(list(again.values()), db, exact_only=True, rule=ENTRY_RULE, reserved_tx_ids=taken)
+    for i, stub in again.items():
+        stubs[i] = stub
+
+
+def _duplicate_warning(p: PreparedRow, tx_id: int) -> str:
+    if p.not_a_duplicate:
+        return (f"Recorded again as tx #{tx_id}, besides the transaction the user said it isn't (the same request "
+                f"sent twice?): left out.")
+    return (f"Already recorded as tx #{tx_id} (the same type, BTC amount, source or purpose, a Buy's cost basis, "
+            f"and time): left out. If the user says it's another transaction, send it with not_a_duplicate.")
 
 
 # Dry run

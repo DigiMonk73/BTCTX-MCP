@@ -219,18 +219,19 @@ def execute_river_import(
 def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
     """The checked rows to import (#253). The transaction the preview matched
     to each row it found in the ledger (matched_tx_id), ticked or left out,
-    is kept for that row, so the owner's edits can't move a match; the row
-    is imported when ticked as another transaction. Every other row is
-    checked against the rest of the ledger (the double-submit guard)."""
+    is kept for that row, so the owner's edits can't move a match. A ticked
+    one (another transaction, not_a_duplicate) is then checked like every
+    other row against the rest of the ledger: the double-submit guard, so a
+    request sent again finds the copies the first one saved."""
     tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
     kept = [(next(tx_datas), row) for row in rows if not row.left_out]
-    unmatched = {i: _stub(i + 1, tx_data, row) for i, (tx_data, row) in enumerate(kept) if row.matched_tx_id is None}
+    checked = {
+        i: _stub(i + 1, tx_data, row) for i, (tx_data, row) in enumerate(kept)
+        if row.matched_tx_id is None or row.not_a_duplicate
+    }
     reserved = {row.matched_tx_id for row in rows if row.matched_tx_id is not None}
-    annotate_duplicates(list(unmatched.values()), db, exact_only=True, reserved_tx_ids=reserved)
-    return [
-        tx_data for i, (tx_data, row) in enumerate(kept)
-        if row.not_a_duplicate or (i in unmatched and unmatched[i].status == STATUS_NEW)
-    ]
+    annotate_duplicates(list(checked.values()), db, exact_only=True, reserved_tx_ids=reserved)
+    return [tx_data for i, (tx_data, _row) in enumerate(kept) if i in checked and checked[i].status == STATUS_NEW]
 
 
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:

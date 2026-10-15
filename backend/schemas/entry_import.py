@@ -38,7 +38,7 @@ class EntryRow(BaseModel):
     not_a_duplicate: bool = Field(
         default=False,
         description="True only when the user says this row is another transaction than the one the preview "
-                    "matched as a duplicate: it's then saved (#253).",
+                    "matched as a duplicate: it's then saved, once (sent again, it's left out) (#253).",
     )
 
 

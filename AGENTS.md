@@ -210,7 +210,9 @@ So derived values must be recomputable from the Transaction row alone.
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits. The amount tests go in turn (the
   ledger amount, then River's), and within each a transaction of the row's
-  own type first. The user can override a duplicate (`not_a_duplicate`).
+  own type first. The user can override a duplicate (`not_a_duplicate`),
+  which frees it only from the transaction it matched: it's checked against
+  the rest, so a resent request doesn't save it twice.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a

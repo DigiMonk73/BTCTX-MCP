@@ -245,6 +245,11 @@ class TestDedup:
         assert preview([another])["results"][0]["status"] == "ready"
         out = execute([another])
         assert out["imported_count"] == 1 and out["skipped_duplicates"] == 0 and tx_count() == 2
+        # The lead review of 6ac27ac: a repeated add_transactions (a retry after a timeout) saves it once
+        again = execute([another])
+        assert again["imported_count"] == 0 and again["skipped_duplicates"] == 1 and tx_count() == 2
+        res = preview([another])["results"][0]
+        assert res["status"] == "duplicate" and any("sent twice" in w for w in res["warnings"])
 
     def test_a_flagged_row_keeps_its_match_so_an_identical_one_beside_it_is_saved(self):
         """The review of #277: the same payout twice, once recorded. The
@@ -255,6 +260,7 @@ class TestDedup:
         assert [r["status"] for r in preview(rows)["results"]] == ["ready", "ready"]
         out = execute(rows)
         assert out["imported_count"] == 2 and out["skipped_duplicates"] == 0 and tx_count() == 3
+        assert execute(rows)["imported_count"] == 0 and tx_count() == 3  # sent again: nothing more
 
     def test_a_gap_under_a_minute_is_said_so(self):
         execute([dict(INTEREST, date="2025-03-20T12:00:59Z")])

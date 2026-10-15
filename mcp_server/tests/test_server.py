@@ -200,6 +200,8 @@ async def test_a_duplicate_the_user_says_is_another_transaction_is_added(mcp_cli
     assert preview["results"][0]["status"] == "duplicate"
     added = await call(mcp_client, "add_transactions", {"transactions": [{**BUY, "not_a_duplicate": True}]})
     assert added["imported_count"] == 1 and added["skipped_duplicates"] == 0
+    again = await call(mcp_client, "add_transactions", {"transactions": [{**BUY, "not_a_duplicate": True}]})
+    assert again["imported_count"] == 0 and again["skipped_duplicates"] == 1  # a retry saves it once
 
 
 async def test_a_listed_spend_shows_its_gross_beside_its_after_fee_proceeds(mcp_client):
