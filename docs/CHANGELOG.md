@@ -166,7 +166,11 @@ All notable changes to BitcoinTX are documented in this file.
   share the row check, refuse them there too. (A row the ledger has too
   little bitcoin for is still found only at Import.) Also, the CSV guide's
   troubleshooting table said a deposit goes only to Wallet or Exchange
-  BTC; Bank and Exchange USD take deposits too.
+  BTC; Bank and Exchange USD take deposits too. And in the River import, a
+  dollar transfer with a fee and no fee currency was saved with the fee
+  added to its amount ($101 for $100), and a fee currency written with a
+  space (" BTC") was left out of a bitcoin transfer's amount; both now save
+  as the CSV import does.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
