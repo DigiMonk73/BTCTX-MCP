@@ -21,7 +21,7 @@ from backend.schemas.transaction import (
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    FEE_CURRENCIES, TEXT_ON_ONE_LINE,
+    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
     create_transaction_record,
     has_control_character,
     original_date_problem,
@@ -226,6 +226,7 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     account_errors = _validate_accounts_for_type(tx_type, from_id, to_id, row_number)
     if account_errors:
         raise _Rejected(*account_errors)
+    _check_usd_amount(amount, tx_type, from_id, to_id, row_number)
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
@@ -296,6 +297,13 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     return amount
 
 
+def _check_usd_amount(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int) -> None:
+    """The save's rule for an amount in dollars (transaction._check_amount,
+    #266): cents at most. The column itself takes a BTC amount's 8 places."""
+    if _amount_currency(tx_type, from_id, to_id) == "USD" and -amount.normalize().as_tuple().exponent > USD_PLACES:
+        raise _Rejected(_error(row_number, "amount", "A USD amount can have at most 2 decimal places."))
+
+
 def _required_accounts(row: dict[str, str], row_number: int) -> tuple[str, int, str, int]:
     """(from name, from id, to name, to id): both names given before either
     is looked up."""
@@ -306,7 +314,8 @@ def _required_accounts(row: dict[str, str], row_number: int) -> tuple[str, int, 
     if not to_name:
         raise _Rejected(_error(row_number, "to_account", "To account is required."))
     for column, name in (("from_account", from_name), ("to_account", to_name)):
-        if name not in ACCOUNT_NAME_TO_ID:
+        # The save's accounts: BTC Fees and USD Fees are the ledger's own (#266)
+        if ACCOUNT_NAME_TO_ID.get(name) not in USER_ACCOUNTS:
             raise _Rejected(_error(row_number, column, f"Invalid account '{name}'. Must be one of: {ACCOUNT_NAMES}."))
     return from_name, ACCOUNT_NAME_TO_ID[from_name], to_name, ACCOUNT_NAME_TO_ID[to_name]
 
@@ -442,11 +451,11 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
-def _amount_currency(row: _Row) -> str:
+def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str:
     """What the amount is counted in, as the ledger counts it
     (transaction._check_amount): the receiving account's currency for a
     Deposit or Buy, the sending account's otherwise."""
-    account = row.to_id if row.tx_type in ("Deposit", "Buy") else row.from_id
+    account = to_id if tx_type in ("Deposit", "Buy") else from_id
     return "BTC" if account in BTC_ACCOUNTS else "USD"
 
 
@@ -458,7 +467,7 @@ def _preview(row: _Row) -> CSVRowPreview:
         date=row.timestamp,
         type=row.tx_type,
         amount=row.amount,
-        amount_currency=_amount_currency(row),
+        amount_currency=_amount_currency(row.tx_type, row.from_id, row.to_id),
         from_account=ACCOUNT_ID_TO_NAME[row.from_id],
         to_account=ACCOUNT_ID_TO_NAME[row.to_id],
         cost_basis_usd=row.cost_basis_usd,
@@ -596,6 +605,10 @@ _ACCOUNT_RULES = {
         # Only Wallet or Exchange BTC can send to itself: a consolidation (#159)
         ("to_account", lambda f, t: f == t and f not in BTC_ACCOUNTS,
          "Transfer must have different from_account and to_account."),
+        # The save's rule: one currency (#266)
+        ("to_account", lambda f, t: ACCOUNT_EXTERNAL not in (f, t) and (f in BTC_ACCOUNTS) != (t in BTC_ACCOUNTS),
+         "Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
+         "dollars between Bank and Exchange USD."),
     ],
     "Buy": [
         ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD),

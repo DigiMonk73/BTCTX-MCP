@@ -1,11 +1,14 @@
 """
 CSV import rules found in the v0.9.2 hardening sweep (F10, F25, F30, F12):
 dates follow the tax timezone, malformed numbers are errors, a USD transfer's
-fee is in USD, a BTC withdrawal needs a purpose.
+fee is in USD, a BTC withdrawal needs a purpose. And the preview refuses
+what the import would (#266).
 """
 
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from backend.services.csv_import import parse_csv_file
 
@@ -128,3 +131,49 @@ def test_the_preview_says_what_each_amount_is_in_and_names_the_accounts_as_usual
         ("BTC", "External", "Wallet"),
         ("BTC", "Wallet", "Wallet"),
     ]
+
+
+FEE_ACCOUNT = "Invalid account '{}'. Must be one of: Bank, Wallet, Exchange USD, Exchange BTC, External."
+USD_CENTS = "A USD amount can have at most 2 decimal places."
+ONE_CURRENCY = ("Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
+                "dollars between Bank and Exchange USD.")
+
+# #266: rows the preview passed and the import then refused (the whole file)
+REFUSED_AT_IMPORT = [
+    ("2024-01-05,Deposit,1,External,BTC Fees,,,,,,,", FEE_ACCOUNT.format("btc fees")),
+    ("2024-01-05,Deposit,100,External,usd fees,,,,,,,", FEE_ACCOUNT.format("usd fees")),
+    ("2024-01-05,Withdrawal,0.1,BTC Fees,External,,,,,,,", FEE_ACCOUNT.format("btc fees")),  # no purpose asked
+    ("2024-01-05,Deposit,50000.125,External,Bank,,,,,,,", USD_CENTS),
+    ("2024-01-05,Withdrawal,20.001,Exchange USD,External,,,,,,,", USD_CENTS),
+    ("2024-01-05,Transfer,100.5,Bank,Exchange USD,,,,,,,", None),  # cents are fine
+    ("2024-01-05,Transfer,100,Bank,Wallet,,,,,,,", ONE_CURRENCY),
+    ("2024-01-05,Transfer,0.1,Exchange BTC,Exchange USD,,,,,,,", ONE_CURRENCY),
+]
+
+
+@pytest.mark.parametrize("row, message", REFUSED_AT_IMPORT)
+def test_the_preview_refuses_what_the_import_refuses(row, message):
+    r = parse(row)
+    assert messages(r) == ([message] if message else []), messages(r)
+
+
+def test_a_usd_amount_with_trailing_zeros_has_its_cents_only():
+    r = parse(
+        "2024-01-05,Deposit,50000.120,External,Bank,,,,,,,",
+        "2024-01-05,Deposit,0.123,External,Wallet,5,,,,MyBTC,,",  # bitcoin: 8 places
+    )
+    assert not r.errors, messages(r)
+
+
+@pytest.mark.parametrize("row, message", REFUSED_AT_IMPORT)
+def test_a_row_the_preview_passes_is_saved(auth_client, row, message):
+    """The preview and the import agree, each way (#266)."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    funds = "2024-01-01,Deposit,1000,External,Bank,,,,,,,\n2024-01-01,Deposit,1,External,Wallet,100,,,,MyBTC,,\n"
+    content = {"file": ("rows.csv", f"{HEADER}\n{funds}{row}\n".encode(), "text/csv")}
+    preview = auth_client.post("/api/import/preview", files=content).json()
+    assert preview["can_import"] is (message is None), preview
+    if message is None:
+        assert auth_client.post("/api/import/execute", files=content).status_code == 200
+        assert len(auth_client.get("/api/transactions").json()) == 3
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

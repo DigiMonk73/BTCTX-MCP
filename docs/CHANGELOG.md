@@ -143,6 +143,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **The CSV import's preview refuses what the import would** (#266).
+  Settings → Import Transactions (CSV) → **Preview** called some rows valid
+  that **Import** then refused, the whole file with them: a row naming the
+  ledger's own BTC Fees or USD Fees account (a withdrawal from BTC Fees
+  wasn't even asked for its purpose), a dollar amount with more than 2
+  decimal places, and a transfer between a dollar account and a bitcoin
+  account. Preview now refuses each of these rows with the reason, as the
+  import does. Nothing wrong was ever saved: the import is all or nothing.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
