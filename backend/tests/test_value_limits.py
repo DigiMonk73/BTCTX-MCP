@@ -95,11 +95,13 @@ def test_the_ai_keys_import_refuses_a_value_too_large(auth_client, ai, rows, fie
 
 # The largest values the database gives back within their rule, so they
 # save and list. SQLite keeps the money columns as 64-bit floats, read back
-# with the column's places: LARGEST_USD comes back as 9999999999999998.00,
-# LARGEST_AMOUNT as 9999999999.99999809. One cent or one satoshi more
-# (ROUNDS_UP_*) comes back as 10^16 or 10^10, past the rule, and is refused.
+# with the column's places: LARGEST_USD comes back as 9999999999999998.00.
+# One cent or one satoshi more (ROUNDS_UP_*) comes back as 10^16 or 10^10,
+# past the rule, and is refused. A USD fee is in cents (#298) in the 8-place
+# fee column: LARGEST_USD_FEE comes back as typed, where 9999999999.99 comes
+# back as 9999999999.98999977, past the cent.
 LARGEST_USD = "9999999999999998.99"
-LARGEST_AMOUNT = "9999999999.99999904"
+LARGEST_USD_FEE = "9999999999.75"
 
 
 def test_the_largest_values_still_save_and_list(auth_client, ai):
@@ -112,7 +114,7 @@ def test_the_largest_values_still_save_and_list(auth_client, ai):
         {"date": "2024-03-02T12:00:00Z", "type": "Transfer", "amount": "1", "from_account": "Wallet",
          "to_account": "Exchange BTC"},
         {"date": "2024-03-03T12:00:00Z", "type": "Sell", "amount": "1", "from_account": "Exchange BTC",
-         "to_account": "Exchange USD", "proceeds_usd": LARGEST_USD, "fee_amount": LARGEST_AMOUNT,
+         "to_account": "Exchange USD", "proceeds_usd": LARGEST_USD, "fee_amount": LARGEST_USD_FEE,
          "fee_currency": "USD"},
     ]
     rows = [{k: v for k, v in row.items() if v is not None} for row in rows]
