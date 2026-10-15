@@ -2,7 +2,8 @@
 Deleting every transaction (#256): Settings' Delete All and Create account
 on an install with transactions need the typed confirmation (DELETE), say
 first what would go, and keep a copy of the database before anything goes
-(backups/, "before-delete", newest 5, apart from the other copies).
+(backups/, "before-delete", newest 5, apart from the other copies). The
+copy and the delete hold the write lock together (#276).
 """
 
 import sqlite3
@@ -10,10 +11,13 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from backend import migrate
+from backend.database import get_db
 from backend.main import app
-from backend.services import first_run
+from backend.services import first_run, wipe
 
 DELETE_ALL = "/api/transactions/delete_all"
 CONFIRMED = f"{DELETE_ALL}?confirm=DELETE"
@@ -141,6 +145,32 @@ def test_no_copy_no_delete(ledger, monkeypatch):
     assert count(ledger) == 3
 
 
+def test_a_save_during_the_copy_waits_until_after_the_delete(ledger, test_engine, monkeypatch):
+    """#276: a transaction saved between the copy and the delete was in
+    neither. Now it waits for the delete (here it gives up at once)."""
+    real_copy = wipe.backup_sqlite
+    saving = []
+
+    def copy_then_save(db_path, *args, **kwargs):
+        dest = real_copy(db_path, *args, **kwargs)
+        other = sqlite3.connect(db_path, timeout=0.1)  # the AI connector, saving
+        try:
+            other.execute("INSERT INTO transactions (type, timestamp) VALUES ('Deposit', '2024-12-01T12:00:00Z')")
+            other.commit()
+            saving.append("saved")
+        except sqlite3.OperationalError as e:
+            saving.append(str(e))
+        finally:
+            other.close()
+        return dest
+
+    monkeypatch.setattr(wipe, "backup_sqlite", copy_then_save)
+    assert ledger.delete(CONFIRMED).status_code == 204
+    assert saving == ["database is locked"]  # it had to wait
+    assert rows_in(delete_copies(test_engine)[0]) == 3
+    assert count(ledger) == 0
+
+
 def test_the_ai_key_can_neither_delete_everything_nor_ask_what_would_go(ledger, ai_key_headers):
     key_only = TestClient(app)
     assert key_only.get(DELETE_ALL, headers=ai_key_headers).status_code == 403
@@ -156,13 +186,51 @@ def anon() -> TestClient:
     return TestClient(app)
 
 
-def with_transactions(n=2) -> None:
-    """Transactions on the fresh install's default login."""
+def with_transactions(n=2) -> TestClient:
+    """Transactions on the fresh install's default login; its client."""
     me = anon()
     assert me.post("/api/login", json={"username": "admin", "password": "password",
                                        "setup_code": first_run.ensure_code()}).status_code == 200
     for i in range(n):
         deposit(me, f"202{4 + i}-01-02T12:00:00Z")
+    return me
+
+
+@pytest.fixture
+def impatient_app(fresh_app):
+    """fresh_app's database, its requests waiting at most 0.1 s for SQLite's
+    write lock (5 s in the app). Yields the engine."""
+    engine = create_engine(fresh_app.kw["bind"].url, connect_args={"check_same_thread": False, "timeout": 0.1})
+    Session = sessionmaker(bind=engine)
+
+    def override():
+        db = Session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    previous = app.dependency_overrides[get_db]
+    app.dependency_overrides[get_db] = override
+    yield engine
+    app.dependency_overrides[get_db] = previous
+    engine.dispose()
+
+
+def test_a_busy_database_deletes_nothing(impatient_app):
+    """Another save holding the write lock longer than the wait: nothing
+    copied, nothing deleted, and a message that says so (#276)."""
+    me = with_transactions()
+    other = sqlite3.connect(impatient_app.url.database)
+    other.execute("BEGIN IMMEDIATE")  # an import, saving
+    try:
+        r = me.delete(CONFIRMED)
+    finally:
+        other.rollback()
+        other.close()
+    assert r.status_code == 503 and r.json()["detail"].startswith("Not deleted"), r.text
+    assert count(me) == 2
+    assert delete_copies(impatient_app) == []
 
 
 def test_create_account_with_transactions_asks_once_the_code_is_right(fresh_app):

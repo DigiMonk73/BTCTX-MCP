@@ -143,6 +143,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **Nothing saved while Delete All runs is lost** (#276). Delete All (and
+  Create account on an install with transactions) copied the database,
+  then deleted every transaction: a transaction saved in between, by the AI
+  connector at that very moment, was in neither. The copy and the delete
+  now hold the database's write lock together, so such a save waits until
+  the delete is done and is kept. If another save holds the lock too long
+  (more than 5 seconds), nothing is copied or deleted, and the message
+  says to try again. Not seen in use: the gap was a few milliseconds.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
