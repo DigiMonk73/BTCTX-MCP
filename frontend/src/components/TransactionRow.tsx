@@ -5,7 +5,7 @@
 import React from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Minus, Plus, type LucideIcon } from "lucide-react";
 import { formatBtc, formatUsd } from "../utils/format";
-import { gainLabel } from "../utils/transactionList";
+import { gainLabel, sourceOrPurpose } from "../utils/transactionList";
 
 function accountIdToName(id: number | null): string {
   if (id === null) return "N/A";
@@ -42,9 +42,8 @@ function resolveDisplayAccount(tx: ITransaction): string {
 }
 
 function formatExtra(tx: ITransaction): string {
-  const { type, source, purpose } = tx;
-  if (type === "Deposit" && source && source !== "N/A") return source;
-  if (type === "Withdrawal" && purpose && purpose !== "N/A") return purpose;
+  const { type } = tx;
+  if (type === "Deposit" || type === "Withdrawal") return sourceOrPurpose(tx);
   // A BTC account sent to itself records only its fee (#159)
   if (type === "Transfer" && tx.from_account_id === tx.to_account_id) {
     return tx.from_account_id === 2 ? "Consolidation" : "Between exchanges";
