@@ -203,8 +203,9 @@ So derived values must be recomputable from the Transaction row alone.
   `proceeds_usd` (gross) = Received + fee.
 - **Import duplicates** (#253, the owner's rule): the AI connector's and the
   River import's check (`river_import.annotate_duplicates`) leaves out only
-  a duplicate: the same kind, BTC amount and minute as a transaction in the
-  ledger (a date given alone: that day in the tax timezone). The AI's rows
+  a duplicate: the same kind (going the same way), BTC amount and minute as
+  a transaction in the ledger (a date given alone: that day in the tax
+  timezone). The AI's rows
   also need the same type, source or purpose and a Buy's basis
   (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are

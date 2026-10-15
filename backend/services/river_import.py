@@ -566,12 +566,15 @@ def annotate_duplicates(
 
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
-    """The unmatched transactions of a compatible type within the window."""
+    """The unmatched transactions of a compatible type within the window,
+    going the same way: from the row's account or to it, so a send never
+    matches a deposit, nor a receive a withdrawal (#253)."""
     types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
         and tx.type in types
+        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
 

@@ -71,7 +71,7 @@ class RiverExecuteRow(BaseModel):
     # A row the preview found in the ledger (#253): the transaction it
     # matched, kept for it at the import whatever the owner edited. The row
     # is imported only when ticked as another transaction (not_a_duplicate);
-    # left_out, unticked, it's never imported nor even read.
+    # left_out, unticked, it's never imported and only its matched_tx_id counts.
     matched_tx_id: int | None = None
     not_a_duplicate: bool = False
     left_out: bool = False

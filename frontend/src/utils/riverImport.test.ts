@@ -84,6 +84,9 @@ describe("importRequestRows", () => {
     expect(sent.map((r) => [r.left_out, r.not_a_duplicate, r.matched_tx_id])).toEqual([
       [false, false, null], [true, false, 40], [false, true, 50],
     ]);
+    // Ticked, given a mistyped fee, unticked: sent as the preview gave it, so it can't stop the import
+    const edited = { ...found(4, false), feeAmount: "0.000006x" };
+    expect(importRequestRows([edited])[0]).toMatchObject({ fee_amount: null, left_out: true, matched_tx_id: 40 });
   });
 });
 
