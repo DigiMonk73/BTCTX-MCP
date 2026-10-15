@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Comprehensive Transaction Test Suite for BitcoinTX
 
@@ -17,11 +16,11 @@ Tests:
 9. Double-entry ledger balance verification
 10. Edge cases (insufficient funds, backdating, zero fees, etc.)
 
-Run: python backend/tests/test_comprehensive_transactions.py
-Requires: Backend running at http://127.0.0.1:8000
+Run with pytest (`make test-fast`, or `python -m pytest` on this file):
+conftest.py gives it a temp database, stubbed prices and a logged-in
+client. It has no runner of its own (#272).
 """
 
-from backend.tests.conftest import default_login, remove_temp_db, temp_db_file
 import pytest
 import sys
 from decimal import Decimal, ROUND_HALF_DOWN
@@ -48,12 +47,6 @@ WALLET_BTC = 2      # Bitcoin wallet
 EXCHANGE_USD = 3    # Exchange USD balance
 EXCHANGE_BTC = 4    # Exchange BTC balance
 BTC_FEES = 5        # BTC Fees account (auto-created)
-
-# Test tracking
-TESTS_RUN = 0
-TESTS_PASSED = 0
-TESTS_FAILED = 0
-FAILURES = []
 
 
 # =============================================================================
@@ -171,51 +164,31 @@ def get_ledger_entries(tx_id: Optional[int] = None) -> List[Dict]:
 
 def assert_equal(actual, expected, description: str) -> bool:
     """Assert two values are equal with tolerance for floats."""
-    global TESTS_RUN, TESTS_PASSED, TESTS_FAILED, FAILURES
-    TESTS_RUN += 1
-
     # Handle Decimal/float comparisons
     if isinstance(actual, (int, float, Decimal)) and isinstance(expected, (int, float, Decimal)):
         actual_f = float(actual)
         expected_f = float(expected)
         if abs(actual_f - expected_f) < 0.01:  # 1 cent tolerance
-            TESTS_PASSED += 1
             log(f"{description}: {actual_f} == {expected_f}", "PASS")
             return True
-        else:
-            TESTS_FAILED += 1
-            msg = f"{description}: Expected {expected_f}, got {actual_f}"
-            log(msg, "FAIL")
-            FAILURES.append(msg)
-            raise AssertionError(msg)
+        msg = f"{description}: Expected {expected_f}, got {actual_f}"
     else:
         if actual == expected:
-            TESTS_PASSED += 1
             log(f"{description}: {actual} == {expected}", "PASS")
             return True
-        else:
-            TESTS_FAILED += 1
-            msg = f"{description}: Expected {expected}, got {actual}"
-            log(msg, "FAIL")
-            FAILURES.append(msg)
-            raise AssertionError(msg)
+        msg = f"{description}: Expected {expected}, got {actual}"
+    log(msg, "FAIL")
+    raise AssertionError(msg)
 
 
 def assert_true(condition: bool, description: str) -> bool:
     """Assert a condition is true."""
-    global TESTS_RUN, TESTS_PASSED, TESTS_FAILED, FAILURES
-    TESTS_RUN += 1
-
     if condition:
-        TESTS_PASSED += 1
         log(description, "PASS")
         return True
-    else:
-        TESTS_FAILED += 1
-        msg = f"{description} (condition was False)"
-        log(msg, "FAIL")
-        FAILURES.append(msg)
-        raise AssertionError(msg)
+    msg = f"{description} (condition was False)"
+    log(msg, "FAIL")
+    raise AssertionError(msg)
 
 
 def round_btc(value: float) -> float:
@@ -2026,141 +1999,3 @@ def test_complex_scenario():
     actual_gain = float(sell_detail.get("realized_gain_usd", 0))
     expected_gain = 34950.0 - actual_basis
     assert_true(abs(actual_gain - expected_gain) < 2.0, f"Sell gain calculation correct (got ${actual_gain})")
-
-
-# =============================================================================
-# MAIN EXECUTION
-# =============================================================================
-
-def run_all_tests():
-    """Run all test suites."""
-    print("=" * 70)
-    print("COMPREHENSIVE TRANSACTION TEST SUITE - BitcoinTX")
-    print("=" * 70)
-    print()
-
-    tests = [
-        # Deposit tests
-        ("Deposit USD to Bank", test_deposit_usd_to_bank),
-        ("Deposit USD to Exchange", test_deposit_usd_to_exchange),
-        ("Deposit BTC as Income", test_deposit_btc_income),
-        ("Deposit BTC as Interest", test_deposit_btc_interest),
-        ("Deposit BTC as Reward", test_deposit_btc_reward),
-        ("Deposit BTC as Gift", test_deposit_btc_gift),
-
-        # Buy tests
-        ("Buy BTC Basic", test_buy_btc_basic),
-
-        # Sell tests
-        ("Sell BTC Basic", test_sell_btc_basic),
-        ("Sell BTC Long Term", test_sell_btc_long_term),
-        ("Sell with Loss", test_sell_with_loss),
-
-        # Withdrawal tests
-        ("Withdrawal BTC Spent", test_withdrawal_btc_spent),
-        ("Withdrawal BTC Gift", test_withdrawal_btc_gift),
-        ("Withdrawal BTC Donation", test_withdrawal_btc_donation),
-        ("Withdrawal BTC Lost", test_withdrawal_btc_lost),
-
-        # Transfer tests
-        ("Transfer BTC with Fee", test_transfer_btc_with_fee),
-        ("Transfer Zero Fee", test_transfer_zero_fee),
-
-        # FIFO tests
-        ("FIFO Basic Ordering", test_fifo_basic_ordering),
-        ("FIFO Partial Lot", test_fifo_partial_lot),
-        ("FIFO Multi-Lot", test_fifo_multi_lot),
-        ("FIFO Backdated Recalculation", test_fifo_backdated_recalculation),
-        ("Same Timestamp Tiebreaker", test_same_timestamp_tiebreaker),
-
-        # Edge cases
-        ("Insufficient BTC Balance", test_insufficient_btc_balance),
-        ("Very Small Amounts", test_very_small_amounts),
-        ("Very Large Amounts", test_very_large_amounts),
-
-        # Fee tests
-        ("USD Fee on Buy", test_fee_usd_on_buy),
-        ("USD Fee on Sell", test_fee_usd_on_sell),
-
-        # Ledger and aggregate tests
-        ("Double-Entry Ledger Balance", test_double_entry_ledger_balance),
-        ("Aggregate Short-Term Gains", test_aggregate_gains_short_term),
-        ("Aggregate Mixed Gains", test_aggregate_gains_mixed),
-        ("Average Cost Basis", test_average_cost_basis),
-        ("Fee Aggregation", test_gains_and_losses_fees),
-        ("Holding Period Boundary", test_holding_period_boundary),
-        ("Income BTC Aggregation", test_income_btc_aggregation),
-        ("Multiple Account Types", test_multiple_accounts),
-
-        # Complex scenario
-        ("Complex Real-World Scenario", test_complex_scenario),
-    ]
-
-    for name, test_func in tests:
-        print()
-        try:
-            test_func()
-        except Exception as e:
-            global TESTS_RUN, TESTS_FAILED, FAILURES
-            TESTS_RUN += 1
-            TESTS_FAILED += 1
-            msg = f"TEST '{name}' raised exception: {e}"
-            log(msg, "FAIL")
-            FAILURES.append(msg)
-
-    # Summary
-    print()
-    print("=" * 70)
-    print("TEST SUMMARY")
-    print("=" * 70)
-    print(f"Total Tests Run:  {TESTS_RUN}")
-    print(f"Tests Passed:     {TESTS_PASSED}")
-    print(f"Tests Failed:     {TESTS_FAILED}")
-    print()
-
-    if FAILURES:
-        print("FAILURES:")
-        for f in FAILURES:
-            print(f"  - {f}")
-        print()
-
-    if TESTS_FAILED == 0:
-        print("🎉 ALL TESTS PASSED!")
-        return 0
-    else:
-        print(f"❌ {TESTS_FAILED} TEST(S) FAILED")
-        return 1
-
-
-if __name__ == "__main__":
-    from backend.tests.conftest import init_test_db
-    from backend.database import get_db
-    from backend.main import app
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    db_file = temp_db_file()  # its own folder: the copies made beside it go too
-    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
-    init_test_db(engine)
-
-    TestSessionLocal = sessionmaker(bind=engine)
-
-    def override_get_db():
-        db = TestSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-    CLIENT = TestClient(app)
-    r = CLIENT.post("/api/login", json=default_login())
-    if r.status_code != 200:
-        print(f"ERROR: Login failed: {r.status_code}")
-        sys.exit(1)
-
-    exit_code = run_all_tests()
-    app.dependency_overrides.clear()
-    engine.dispose()
-    remove_temp_db(db_file)
-    sys.exit(exit_code)

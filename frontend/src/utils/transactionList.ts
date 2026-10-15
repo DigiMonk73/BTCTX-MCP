@@ -1,7 +1,7 @@
 // The Transactions page's list: its order, the page shown, the day
 // headings and a row's gain line.
 import { formatSignedUsd, parseDecimal } from "./format";
-import { isNotSold } from "./purposes";
+import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
 /** Newest first: by date, or by when they were added (id). */
 export function sortTransactions(transactions: ITransaction[], sortMode: SortMode): ITransaction[] {
@@ -50,4 +50,22 @@ export function gainLabel(tx: ITransaction): string {
   const term = tx.holding_period === "LONG" ? "Long-term" : tx.holding_period === "SHORT" ? "Short-term" : "";
   const pct = basis !== 0 ? `${gain >= 0 ? "+" : "\u2212"}${Math.abs((gain / basis) * 100).toFixed(2)}%` : "";
   return [`${gain >= 0 ? "Gain" : "Loss"} ${formatSignedUsd(gain)}`, pct, term].filter(Boolean).join(" \u00b7 ");
+}
+
+/** A transaction, or one of Ledger Review's items. */
+type Described = { type: string; source?: string | null; purpose?: string | null };
+
+/** A deposit's source or a withdrawal's purpose as the list shows it: in its
+ * listed spelling (an older version may have saved "spent", #273), "" for
+ * none. */
+export function sourceOrPurpose(tx: Described): string {
+  const shown = tx.type === "Deposit" ? listedSource(tx.source) : listedPurpose(tx.purpose);
+  return shown === "N/A" ? "" : shown;
+}
+
+/** "Withdrawal (Spent)", or the type alone with no source or purpose ("Sell"),
+ * as Ledger Review lists an item. */
+export function typeWithSourceOrPurpose(item: Described): string {
+  const extra = sourceOrPurpose(item);
+  return extra ? `${item.type} (${extra})` : item.type;
 }

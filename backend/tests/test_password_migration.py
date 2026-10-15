@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 backend/tests/test_password_migration.py
 
@@ -15,22 +14,14 @@ These tests verify:
 
 Usage:
     pytest backend/tests/test_password_migration.py -v
-
-    Or run directly:
-    python backend/tests/test_password_migration.py
 """
 
 from __future__ import annotations
 
 from backend.tests.conftest import default_login
 
-import sys
 import bcrypt
 import pytest
-from pathlib import Path
-
-# Add backend to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.models.user import User
 
@@ -341,21 +332,3 @@ class TestSecurityProperties:
         assert user.verify_password(password_with_null) is True
         # Should not match truncated version
         assert user.verify_password("before") is False
-
-
-# =============================================================================
-# MAIN - Run tests directly
-# =============================================================================
-
-def run_tests():
-    """Run all tests and print results."""
-    import subprocess
-    result = subprocess.run(
-        ["pytest", __file__, "-v", "--tb=short"],
-        capture_output=False
-    )
-    return result.returncode
-
-
-if __name__ == "__main__":
-    sys.exit(run_tests())

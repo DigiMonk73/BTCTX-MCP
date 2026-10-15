@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Test Suite: PDF Content Verification
 
@@ -7,8 +6,8 @@ contain the correct data, not just that they were generated successfully.
 
 Uses pypdf to extract text from PDFs and verify expected values.
 
-Run: pytest backend/tests/test_pdf_content.py -v
-Requires: Backend running at http://127.0.0.1:8000
+Run: pytest backend/tests/test_pdf_content.py -v (conftest.py gives it a
+temp database and a logged-in client)
 """
 
 import pytest

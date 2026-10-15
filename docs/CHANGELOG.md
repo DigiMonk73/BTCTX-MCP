@@ -153,6 +153,14 @@ All notable changes to BitcoinTX are documented in this file.
   until the delete is done and is kept. If another save holds the lock too
   long (more than 5 seconds), nothing is copied or deleted, and the message
   says to try again. Not seen in use: the gaps were a few milliseconds.
+- **Edit reads a purpose saved in another case** (#273). A withdrawal an
+  older version saved as "spent" (or "gift", "donation", "lost") opened in
+  Edit with **Purpose** blank, and **Update transaction** did nothing until
+  a purpose was picked again, without saying why. The form now reads the
+  saved purpose ignoring case, as the server always has, so it shows Spent
+  and saves as before. A deposit's source was already read this way. The
+  Transactions list and Ledger Review show the listed spelling too ("Spent",
+  not "spent"). Display only: nothing stored changes, and no figure moves.
 - **The CSV preview refuses the fee accounts, dollar amounts past the cent
   and transfers across currencies** (#266). Settings → Import Transactions
   (CSV) → **Preview** called these rows valid, and **Import** then refused
@@ -177,6 +185,17 @@ All notable changes to BitcoinTX are documented in this file.
   through, and a lint rule refuses a `times` route or an unroute in the
   click-through tests. BitcoinTX itself was never at fault: the server was
   never asked.
+- **Test files run under pytest only** (#272). Six test files had a runner
+  of their own, and five failed when run that way: two were old scripts
+  for a server at `127.0.0.1:8000` with no pytest test in them (removed:
+  `test_backdated_fifo.py` and `test_user_patch.py`, whose scenarios other
+  tests cover), one ran `pytest` from the PATH, and two lacked conftest.py's
+  setup (stubbed prices, temp folders), so they also wrote `setup-code.txt`
+  into `backend/`. The runners are gone; a test checks no test file gets
+  one back. `pre_commit_tests.py`, which CI runs as a script, keeps its
+  own and no longer runs the two removed scripts. `.gitignore` now ignores
+  `setup-code.txt` and `*.orig` (a comment after the pattern made it match
+  nothing).
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

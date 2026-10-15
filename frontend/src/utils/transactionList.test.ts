@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { gainLabel, groupByDay, pageOf, sortTransactions } from "./transactionList";
+import {
+  gainLabel, groupByDay, pageOf, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
+} from "./transactionList";
 
 const tx = (id: number, timestamp: string) => ({ id, timestamp }) as ITransaction;
 
@@ -73,5 +75,31 @@ describe("gainLabel", () => {
   it("shows none for a deposit, or with no basis and no gain", () => {
     expect(gainLabel(disposal("Deposit"))).toBe("");
     expect(gainLabel({ ...disposal("Sell"), cost_basis_usd: 0, realized_gain_usd: 0 })).toBe("");
+  });
+});
+
+describe("sourceOrPurpose", () => {
+  const row = (type: string, fields: Partial<ITransaction>) => ({ type, ...fields }) as ITransaction;
+
+  it("shows a spelling an older version saved as the listed one (#273)", () => {
+    expect(sourceOrPurpose(row("Withdrawal", { purpose: "spent" }))).toBe("Spent");
+    expect(sourceOrPurpose(row("Withdrawal", { purpose: " GIFT " }))).toBe("Gift");
+    expect(sourceOrPurpose(row("Deposit", { source: "income" }))).toBe("Income");
+    expect(sourceOrPurpose(row("Deposit", { source: "MyBTC" }))).toBe("MyBTC");
+  });
+
+  it("shows nothing for none, and other text as saved", () => {
+    expect(sourceOrPurpose(row("Withdrawal", { purpose: "n/a" }))).toBe("");
+    expect(sourceOrPurpose(row("Deposit", { source: undefined }))).toBe("");
+    expect(sourceOrPurpose(row("Withdrawal", { purpose: "Travel" }))).toBe("Travel");
+  });
+});
+
+describe("typeWithSourceOrPurpose", () => {
+  it("names the source or purpose in brackets, and leaves them out with none (Ledger Review)", () => {
+    expect(typeWithSourceOrPurpose({ type: "Withdrawal", purpose: "spent", source: null })).toBe("Withdrawal (Spent)");
+    expect(typeWithSourceOrPurpose({ type: "Deposit", purpose: null, source: "income" })).toBe("Deposit (Income)");
+    expect(typeWithSourceOrPurpose({ type: "Sell", purpose: null, source: null })).toBe("Sell");
+    expect(typeWithSourceOrPurpose({ type: "Withdrawal", purpose: "N/A", source: null })).toBe("Withdrawal");
   });
 });
