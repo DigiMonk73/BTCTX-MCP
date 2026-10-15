@@ -153,8 +153,9 @@ All notable changes to BitcoinTX are documented in this file.
   A disposal's total never changes. Its rows can each move by a cent, and
   its last row by a few cents (at most half a cent for each lot it took
   from). Where its lots fall on both sides of the one-year mark, or in two
-  Form 8949 boxes, Schedule D's short- and long-term lines (or those boxes'
-  totals) can move by those cents, one up and one down. On the reference
+  Form 8949 boxes, the Schedule D lines of those terms or boxes (short- and
+  long-term, or two boxes' lines such as 1b and 2) can move by those cents,
+  one up and one down. On the reference
   test ledger, two rows of one 2026 spend swap a cent, and no Schedule D
   line moves.
 
