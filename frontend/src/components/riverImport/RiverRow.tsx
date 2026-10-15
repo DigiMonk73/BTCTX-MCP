@@ -10,19 +10,19 @@ interface RiverRowProps {
   onChange: (patch: Partial<EditableRow>) => void;
 }
 
-/** One row of the River preview. A row already in the ledger can't be
- * changed or imported. */
+/** One row of the River preview. A row already in the ledger starts
+ * unticked; ticked, it's imported all the same and can be changed (#253). */
 const RiverRow: React.FC<RiverRowProps> = ({ row, loading, onChange }) => {
   const p = row.proposal;
-  const isMatched = p.status === "matched";
-  const cell = { row, editable: !isMatched, loading, onChange };
+  const leftOut = p.status === "matched" && !row.include;
+  const cell = { row, editable: !leftOut, loading, onChange };
   return (
-    <tr className={isMatched ? "river-row-matched" : undefined}>
+    <tr className={leftOut ? "river-row-matched" : undefined}>
       <td className="river-col-include">
         <input
           type="checkbox"
           checked={row.include}
-          disabled={isMatched || loading}
+          disabled={loading}
           onChange={(e) => onChange({ include: e.target.checked })}
           aria-label={`Include row ${p.row_number}`}
         />
@@ -46,7 +46,7 @@ const RiverRow: React.FC<RiverRowProps> = ({ row, loading, onChange }) => {
         {p.proceeds_usd ? `$${p.proceeds_usd}` : "—"}
       </td>
       <td className="river-cell-num">
-        {row.type === "Transfer" && !isMatched ? (
+        {row.type === "Transfer" && !leftOut ? (
           <input
             type="text"
             inputMode="decimal"

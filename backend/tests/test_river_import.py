@@ -234,10 +234,46 @@ def proposals_to_execute_rows(data: Dict, statuses=("new",)) -> List[Dict]:
         "source", "purpose",
     )
     return [
-        {k: p[k] for k in keys}
+        {**{k: p[k] for k in keys}, **found_in_ledger(p)}
         for p in data["proposals"]
         if p["status"] in statuses
     ]
+
+
+def found_in_ledger(p: Dict) -> Dict:
+    """What the River screen sends with a row the preview found in the ledger:
+    the transaction it matched, kept for it at the import (#253)."""
+    return {"matched_tx_id": p["matched_tx_id"]} if p["status"] == STATUS_MATCHED else {}
+
+
+def default_request(data: Dict) -> List[Dict]:
+    """The import the preview's default ticks send, as the River screen sends
+    it (riverImport.ts importRequestRows): ticked rows, and each row in the
+    ledger left unticked as left_out."""
+    keys = ("date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
+            "fee_amount", "fee_currency", "source", "purpose")
+    out = []
+    for p in data["proposals"]:
+        ticked = p["status"] == "new" or (p["status"] == STATUS_DISCREPANCY and not p["near_amount"])
+        if ticked or p["status"] == STATUS_MATCHED:
+            out.append({**{k: p[k] for k in keys}, **found_in_ledger(p), "left_out": not ticked})
+    return out
+
+
+def seed_wallet_btc():
+    create_tx({
+        "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+        "source": "MyBTC",
+    })
+
+
+def seed_exchange_btc():
+    create_tx({
+        "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+        "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+        "source": "MyBTC",
+    })
 
 
 class TestPreview:
@@ -255,42 +291,68 @@ class TestPreview:
         assert interest["basis_autofilled"] is True
         assert interest["price_moment"] == "day"  # no hourly prices in tests: the day's
 
-    def test_existing_tx_marked_matched(self):
+    def test_the_same_kind_amount_and_minute_is_in_the_ledger(self):
+        """River's rule (owner, 2026-10-14, #253): nothing else is compared,
+        so a Buy recorded at another cost basis is still that Buy."""
         delete_all_transactions()
-        # Manual entry ~3h off River's timestamp, same amount/basis
         create_tx({
-            "type": "Buy",
-            "timestamp": ts(1, 5, 15),
-            "from_account_id": 1,
-            "to_account_id": 4,
-            "amount": "0.00030000",
-            "fee_amount": "0",
-            "fee_currency": "USD",
-            "cost_basis_usd": "25.00",
+            "type": "Buy", "timestamp": "2026-01-05T12:00:40Z", "from_account_id": 1, "to_account_id": 4,
+            "amount": "0.00030000", "fee_amount": "0", "fee_currency": "USD", "cost_basis_usd": "10.00",
         })
         data = preview(SYNTHETIC_ROWS)
         matched = [p for p in data["proposals"] if p["status"] == STATUS_MATCHED]
-        assert len(matched) == 1
-        assert matched[0]["row_number"] == 2
+        assert [p["row_number"] for p in matched] == [2]
         assert data["new_count"] == len(SYNTHETIC_ROWS) - 1
 
-    def test_same_amount_different_basis_is_discrepancy(self):
+    def test_the_same_amount_hours_apart_is_similar_not_left_out(self):
+        """#253: a manual entry 3 hours off River's time was "In ledger" and
+        skipped; it may be another transaction, so it's one to review."""
         delete_all_transactions()
         create_tx({
-            "type": "Buy",
-            "timestamp": ts(1, 5, 15),
-            "from_account_id": 1,
-            "to_account_id": 4,
-            "amount": "0.00030000",
-            "fee_amount": "0",
-            "fee_currency": "USD",
-            "cost_basis_usd": "10.00",  # wrong basis vs River's $25
+            "type": "Buy", "timestamp": ts(1, 5, 15), "from_account_id": 1, "to_account_id": 4,
+            "amount": "0.00030000", "fee_amount": "0", "fee_currency": "USD", "cost_basis_usd": "25.00",
         })
         data = preview(SYNTHETIC_ROWS)
+        assert data["matched_count"] == 0
         disc = [p for p in data["proposals"] if p["status"] == STATUS_DISCREPANCY]
-        assert len(disc) == 1
-        assert disc[0]["row_number"] == 2
-        assert "differs" in disc[0]["discrepancy"]
+        assert [p["row_number"] for p in disc] == [2]
+        assert disc[0]["discrepancy"] == (
+            f"Same BTC amount as tx #{disc[0]['matched_tx_id']} (Buy 0.00030000 BTC), "
+            "recorded 3 hours later: it may be the same transaction"
+        )
+
+    def test_a_payout_of_the_same_amount_a_day_later_is_not_in_the_ledger(self):
+        """#253's River reproduction: the 02-02 payout was "In ledger"."""
+        delete_all_transactions()
+        create_tx({
+            "type": "Deposit", "timestamp": "2026-02-01T09:00:00Z", "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.00002000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "2.00",
+            "source": "Interest",
+        })
+        data = preview([
+            "2026-02-02 09:00:00,,,0.00002000,BTC,,,Interest",
+            "2026-02-03 08:00:00,,,0.00002000,BTC,,,Interest",
+        ])
+        assert data["matched_count"] == 0
+        assert [p["status"] for p in data["proposals"]] == [STATUS_DISCREPANCY, "new"]
+        assert "recorded 24 hours earlier" in data["proposals"][0]["discrepancy"]
+        assert data["proposals"][0]["near_amount"] is False  # same amount: ticked
+
+    def test_a_row_edited_after_its_import_is_in_the_ledger_when_imported_again(self):
+        """The owner's River rule: a purpose or source changed after the
+        import isn't compared, so a re-import doesn't record it twice."""
+        delete_all_transactions()
+        create_tx({
+            "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+            "source": "MyBTC",
+        })
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]]))
+        rows[0]["source"] = "Reward"   # the Interest payout
+        rows[1]["purpose"] = "Gift"    # the tagged Withdrawal
+        assert execute(rows)["imported_count"] == 2
+        data = preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, STATUS_MATCHED]
 
     def test_approximate_manual_transfer_is_fuzzy_discrepancy(self):
         delete_all_transactions()
@@ -320,6 +382,7 @@ class TestPreview:
         p = data["proposals"][0]
         assert p["status"] == STATUS_DISCREPANCY
         assert "different amount" in p["discrepancy"]
+        assert p["near_amount"] is True  # the preview leaves it unticked (owner, 2026-10-15)
 
     def test_a_tiny_amount_in_the_discrepancy_has_eight_decimals(self):
         """str() of a Decimal under 0.000001 is "5.2E-7" (#74)."""
@@ -363,6 +426,224 @@ class TestExecute:
         result2 = execute(rows)
         assert result2["imported_count"] == 0
         assert result2["skipped_existing"] == len(rows)
+
+    def test_a_row_in_the_ledger_the_owner_ticks_is_imported(self):
+        """#253 (D1): a duplicate is left out by default, and can be overridden."""
+        delete_all_transactions()
+        data = preview([SYNTHETIC_ROWS[7]])
+        execute(proposals_to_execute_rows(data))
+        again = preview([SYNTHETIC_ROWS[7]])
+        assert again["proposals"][0]["status"] == STATUS_MATCHED
+        rows = proposals_to_execute_rows(again, statuses=(STATUS_MATCHED,))
+        assert execute(rows)["skipped_existing"] == 1  # not ticked: the guard leaves it out
+        result = execute([{**rows[0], "not_a_duplicate": True}])
+        assert result["imported_count"] == 1 and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == 2
+        # The lead review of 6ac27ac: the same request sent again saves nothing more
+        again = execute([{**rows[0], "not_a_duplicate": True}])
+        assert again["imported_count"] == 0 and again["skipped_existing"] == 1
+        assert len(CLIENT.get("/api/transactions").json()) == 2
+
+    def test_a_send_imported_with_another_fee_or_as_a_withdrawal_is_in_the_ledger(self):
+        """The review of #277: River's amount is compared, so a send the owner
+        imported with another fee, or as a Withdrawal, isn't imported again."""
+        for edit in ({"fee_amount": "0.00000600"}, {"type": "Withdrawal", "to_account": "External", "purpose": "Spent"}):
+            delete_all_transactions()
+            create_tx({
+                "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 4,
+                "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+                "source": "MyBTC",
+            })
+            rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[8]]))
+            rows[0].update(edit)
+            assert execute(rows)["imported_count"] == 1
+            again = preview([SYNTHETIC_ROWS[8]])
+            assert again["proposals"][0]["status"] == STATUS_MATCHED, edit
+
+    def test_a_ticked_row_keeps_its_match_so_an_identical_one_beside_it_is_imported(self):
+        """The review of #277: the same payout twice in the file, once in the
+        ledger. The preview shows one "In ledger" and one new; ticking both
+        imports both."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7]])))
+        data = preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[7]])
+        assert sorted(p["status"] for p in data["proposals"]) == ["matched", "new"]
+        rows = [
+            {**row, "not_a_duplicate": p["status"] == STATUS_MATCHED}
+            for row, p in zip(proposals_to_execute_rows(data, statuses=("new", STATUS_MATCHED)), data["proposals"])
+        ]
+        result = execute(rows)
+        assert result["imported_count"] == 2 and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == 3
+
+    @pytest.mark.parametrize("in_file, recorded, imported", [(2, 1, 1), (3, 1, 2), (3, 2, 1)])
+    def test_the_default_import_saves_every_new_row_beside_identical_ones_in_the_ledger(self, in_file, recorded, imported):
+        """The re-check of #277: a row in the ledger left unticked is sent as
+        left_out, so it keeps its match and the identical "New" one beside it
+        is imported (on develop it was skipped)."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7]] * recorded)))
+        data = preview([SYNTHETIC_ROWS[7]] * in_file)
+        assert sorted(p["status"] for p in data["proposals"]) == ["matched"] * recorded + ["new"] * (in_file - recorded)
+        result = execute(default_request(data))
+        assert result["imported_count"] == imported and result["skipped_existing"] == 0
+        assert len(CLIENT.get("/api/transactions").json()) == recorded + imported
+
+    def test_a_row_of_the_same_ledger_amount_takes_its_match_first(self):
+        """The re-check of #277: a tagged Withdrawal matched only by River's
+        amount took the Transfer that the identical send should match, and
+        was never saved."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        create_tx({
+            "type": "Transfer", "timestamp": "2026-03-10T10:00:00Z", "from_account_id": 4, "to_account_id": 2,
+            "amount": "0.00010200", "fee_amount": "0.00000200", "fee_currency": "BTC",
+        })
+        data = preview([SYNTHETIC_ROWS[10], "2026-03-10 10:00:00,0.00010000,BTC,,,0.00000200,BTC,"])
+        assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
+        result = execute(default_request(data))
+        assert result["imported_count"] == 1
+        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+
+    def test_a_receive_given_a_fee_or_a_withdrawal_imported_as_a_transfer_is_in_the_ledger(self):
+        """River's own amount, for the other moves the owner can edit (the re-check of #277)."""
+        for row, edit in (
+            (SYNTHETIC_ROWS[9], {"fee_amount": "0.00000300", "fee_currency": "BTC"}),
+            (SYNTHETIC_ROWS[10], {"type": "Transfer", "to_account": "Wallet", "purpose": None}),
+        ):
+            delete_all_transactions()
+            seed_exchange_btc()
+            create_tx({
+                "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 2,
+                "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
+                "source": "MyBTC",
+            })
+            rows = proposals_to_execute_rows(preview([row]))
+            rows[0].update(edit)
+            assert execute(rows)["imported_count"] == 1
+            assert preview([row])["proposals"][0]["status"] == STATUS_MATCHED, edit
+
+    SEND = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,"
+    TAGGED = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,Withdrawal"
+
+    @pytest.mark.parametrize("first, second", [
+        ({"not_a_duplicate": True, "type": "Withdrawal", "to_account": "External", "purpose": "Spent"}, {}),
+        ({"not_a_duplicate": True, "fee_amount": "0.00000600"}, {}),
+        ({"left_out": True, "type": "Withdrawal", "to_account": "External", "purpose": "Spent"}, {}),
+    ])
+    def test_an_edit_doesnt_move_a_match_at_the_import(self, first, second, row=None):
+        """The second re-check of #277: the same send twice in the file, once
+        recorded. The preview's "In ledger" row keeps its match at the import,
+        whatever the owner edited, so the "New" one is saved."""
+        row = row or self.SEND
+        delete_all_transactions()
+        seed_exchange_btc()
+        seed_wallet_btc()
+        execute(proposals_to_execute_rows(preview([row])))
+        data = preview([row, row])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, "new"]
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0].update(first)
+        rows[1].update(second)
+        result = execute(rows)
+        imported = 1 if first.get("left_out") else 2
+        assert result["imported_count"] == imported and result["skipped_existing"] == 0, result
+        assert execute(rows)["imported_count"] == 0  # sent again: nothing more
+
+    def test_a_receive_ticked_and_made_a_deposit_keeps_its_match(self):
+        """The third re-check of #277: a Deposit can't match the recorded
+        Transfer, so before the preview's matches were kept, the identical
+        "New" receive took it and wasn't saved."""
+        as_deposit = {"not_a_duplicate": True, "type": "Deposit", "from_account": "External", "source": "MyBTC",
+                      "cost_basis_usd": "60.00"}
+        self.test_an_edit_doesnt_move_a_match_at_the_import(as_deposit, {}, row=SYNTHETIC_ROWS[9])
+
+    def test_a_second_submit_of_a_row_made_a_deposit_is_caught(self):
+        """The third re-check of #277: the receive was first imported with a
+        fee; the file has it twice, the "New" one made a Deposit. Sent twice,
+        the request saves the Deposit once."""
+        delete_all_transactions()
+        seed_wallet_btc()
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[9]]))
+        rows[0].update({"fee_amount": "0.00000300", "fee_currency": "BTC"})
+        execute(rows)
+        data = preview([SYNTHETIC_ROWS[9], SYNTHETIC_ROWS[9]])
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0]["left_out"] = True
+        rows[1].update({"type": "Deposit", "from_account": "External", "source": "MyBTC", "cost_basis_usd": "60.00"})
+        assert execute(rows)["imported_count"] == 1
+        again = execute(rows)
+        assert again["imported_count"] == 0 and again["skipped_existing"] == 1
+        assert sum(t["type"] == "Deposit" and t["to_account_id"] == 4 for t in CLIENT.get("/api/transactions").json()) == 1
+
+    def test_a_send_never_matches_a_deposit(self):
+        """The fourth re-check of #277: a tagged Withdrawal made a Transfer was
+        taken for a Deposit into Exchange BTC of the same amount and minute,
+        though it goes the other way."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        create_tx({
+            "type": "Deposit", "timestamp": "2026-02-15T10:00:00Z", "from_account_id": 99, "to_account_id": 4,
+            "amount": "0.00100000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "100.00",
+            "source": "MyBTC",
+        })
+        data = preview([self.TAGGED])
+        assert data["proposals"][0]["status"] == "new"
+        rows = proposals_to_execute_rows(data)
+        rows[0].update({"type": "Transfer", "to_account": "Wallet", "purpose": None})
+        assert execute(rows)["imported_count"] == 1
+
+    def test_a_new_row_edited_as_the_first_import_was_is_saved(self):
+        """The second re-check of #277: the send was imported as a Withdrawal.
+        The file has it twice; the "New" one, set to Withdrawal as well, no
+        longer takes the match of the "In ledger" one."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        as_withdrawal = {"type": "Withdrawal", "to_account": "External", "purpose": "Spent"}
+        rows = proposals_to_execute_rows(preview([self.SEND]))
+        rows[0].update(as_withdrawal)
+        execute(rows)
+        data = preview([self.SEND, self.SEND])
+        assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, "new"]
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_MATCHED, "new"))
+        rows[0]["left_out"] = True
+        rows[1].update(as_withdrawal)
+        result = execute(rows)
+        assert result["imported_count"] == 1 and result["skipped_existing"] == 0, result
+
+    def test_a_send_imported_with_another_fee_keeps_its_match_beside_a_tagged_withdrawal(self):
+        """The second re-check of #277: within River's amount, a transaction of
+        the row's own type is matched first, so the tagged Withdrawal at the
+        same minute is new and saved."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        rows = proposals_to_execute_rows(preview([self.SEND]))
+        rows[0]["fee_amount"] = "0.00000600"
+        execute(rows)
+        data = preview([self.TAGGED, self.SEND])
+        assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
+        assert execute(default_request(data))["imported_count"] == 1
+        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+
+    def test_a_lowercase_type_is_saved_with_its_fee_and_caught_the_second_time(self):
+        """The re-check of #277: the fee went in by the type as written ("transfer")."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        row = {"date": "2026-02-15T10:00:00Z", "type": "transfer", "amount": "0.00100000",
+               "from_account": "Exchange BTC", "to_account": "Wallet", "fee_amount": "0.00000500", "fee_currency": "BTC"}
+        assert execute([row])["imported_count"] == 1
+        transfer = next(t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer")
+        assert Decimal(str(transfer["amount"])) == Decimal("0.00100500")
+        assert execute([row])["skipped_existing"] == 1
+
+    def test_a_similar_row_is_imported(self):
+        """The guard leaves out only duplicates: a similar row the owner keeps is imported."""
+        delete_all_transactions()
+        execute(proposals_to_execute_rows(preview(["2026-02-01 09:00:00,,,0.00002000,BTC,,,Interest"])))
+        data = preview(["2026-02-02 09:00:00,,,0.00002000,BTC,,,Interest"])
+        rows = proposals_to_execute_rows(data, statuses=(STATUS_DISCREPANCY,))
+        assert len(rows) == 1
+        assert execute(rows)["imported_count"] == 1
 
     def test_sell_lands_at_rivers_received_amount(self):
         """The fee is subtracted once: net proceeds (Form 8949) and the cash

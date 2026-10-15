@@ -102,6 +102,7 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
         status=p.status,
         matched_tx_id=p.matched_tx_id,
         discrepancy=p.discrepancy,
+        near_amount=p.near_amount,
     )
 
 
@@ -163,13 +164,15 @@ def execute_river_import(
     Import the final (possibly user-edited) rows atomically.
 
     Every row is re-validated server-side with the same rules as the
-    onboarding CSV import, then re-checked against the ledger for exact
-    duplicates (double-submit guard). All-or-nothing: any failure rolls
-    back the entire batch.
+    onboarding CSV import, then re-checked against the ledger for
+    duplicates (double-submit guard), but for the rows the preview found
+    there, whose matches are kept for them (#253). All-or-nothing: any
+    failure rolls back the entire batch.
     """
     _require_auth(request)
 
-    if not payload.rows:
+    kept = [row for row in payload.rows if not row.left_out]
+    if not kept:
         raise HTTPException(status_code=400, detail="No rows to import.")
     if len(payload.rows) > MAX_ROWS:
         raise HTTPException(
@@ -177,13 +180,8 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    tx_datas = _validated_rows(payload.rows)
-    stubs = [_stub(i, tx_data) for i, tx_data in enumerate(tx_datas, start=1)]
-    annotate_duplicates(stubs, db, exact_only=True)
-    new_tx_datas = [
-        tx_data for tx_data, stub in zip(tx_datas, stubs) if stub.status == STATUS_NEW
-    ]
-    skipped = len(tx_datas) - len(new_tx_datas)
+    new_tx_datas = _rows_to_import(payload.rows, db)
+    skipped = len(kept) - len(new_tx_datas)
 
     if not new_tx_datas:
         return RiverImportResponse(
@@ -218,6 +216,24 @@ def execute_river_import(
     )
 
 
+def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
+    """The checked rows to import (#253). The transaction the preview matched
+    to each row it found in the ledger (matched_tx_id), ticked or left out,
+    is kept for that row, so the owner's edits can't move a match. A ticked
+    one (another transaction, not_a_duplicate) is then checked like every
+    other row against the rest of the ledger: the double-submit guard, so a
+    request sent again finds the copies the first one saved."""
+    tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
+    kept = [(next(tx_datas), row) for row in rows if not row.left_out]
+    checked = {
+        i: _stub(i + 1, tx_data, row) for i, (tx_data, row) in enumerate(kept)
+        if row.matched_tx_id is None or row.not_a_duplicate
+    }
+    reserved = {row.matched_tx_id for row in rows if row.matched_tx_id is not None}
+    annotate_duplicates(list(checked.values()), db, exact_only=True, reserved_tx_ids=reserved)
+    return [tx_data for i, (tx_data, _row) in enumerate(kept) if i in checked and checked[i].status == STATUS_NEW]
+
+
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     """Each row checked by the CSV import's row check, then a Transfer's
     amount given its BTC fee (BitcoinTX's meaning), once both are known to
@@ -230,7 +246,7 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
-            tx_data["amount"] = ledger_amount(row.type, tx_data["amount"], row.fee_amount, row.fee_currency)
+            tx_data["amount"] = ledger_amount(tx_data["type"], tx_data["amount"], row.fee_amount, row.fee_currency)
             tx_datas.append(tx_data)
     if all_errors:
         detail = "Rows have errors: " + "; ".join(all_errors[:5])
@@ -261,8 +277,9 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
     }
 
 
-def _stub(row_number: int, tx_data: dict) -> RiverProposal:
-    """A checked row in the shape the duplicate check reads."""
+def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
+    """A checked row in the shape the duplicate check reads: River's amount
+    and fee, as the preview's proposal had them."""
     return RiverProposal(
         row_number=row_number,
         timestamp=tx_data["timestamp"],
@@ -270,7 +287,9 @@ def _stub(row_number: int, tx_data: dict) -> RiverProposal:
         type=tx_data["type"],
         from_account_id=tx_data["from_account_id"],
         to_account_id=tx_data["to_account_id"],
-        amount=tx_data["amount"],
+        amount=row.amount,
         cost_basis_usd=tx_data.get("cost_basis_usd"),
         proceeds_usd=tx_data.get("proceeds_usd"),
+        fee_amount=row.fee_amount,
+        fee_currency=row.fee_currency,
     )

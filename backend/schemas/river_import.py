@@ -33,6 +33,7 @@ class RiverProposalOut(BaseModel):
     status: str  # "new" | "matched" | "discrepancy"
     matched_tx_id: int | None = None
     discrepancy: str | None = None
+    near_amount: bool = False  # a "discrepancy" matched only by a near amount: starts unticked (#253)
 
 
 class RiverPreviewResponse(BaseModel):
@@ -67,6 +68,13 @@ class RiverExecuteRow(BaseModel):
     # price_moment says ("hour" or "day")
     cost_basis_typed: str | None = None
     price_moment: str | None = None
+    # A row the preview found in the ledger (#253): the transaction it
+    # matched, kept for it at the import whatever the owner edited. The row
+    # is imported only when ticked as another transaction (not_a_duplicate);
+    # left_out, unticked, it's never imported and only its matched_tx_id counts.
+    matched_tx_id: int | None = None
+    not_a_duplicate: bool = False
+    left_out: bool = False
 
 
 class RiverExecuteRequest(BaseModel):

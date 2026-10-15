@@ -7,7 +7,7 @@ write them.
 
 Reuses the battle-tested pieces of the other importers:
   - csv_import._validate_row         row validation (account names, type rules)
-  - river_import.annotate_duplicates  exact / fuzzy dedup against the ledger
+  - river_import.annotate_duplicates  duplicate / similar check against the ledger
   - transaction.create_transaction_record  the real ledger + FIFO logic
 
 The preview runs the real create path inside the request's DB session and
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -37,15 +37,17 @@ from backend.schemas.entry_import import (
     SimulatedResult,
 )
 from backend.services import hourly_prices
-from backend.services.tax_time import local_noon_utc
+from backend.services.tax_time import local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
 from backend.services.river_import import (
-    STATUS_DISCREPANCY,
+    STATUS_MATCHED,
     STATUS_NEW,
+    DuplicateRule,
     RiverProposal,
     annotate_duplicates,
+    same_ledger_amount,
 )
 from backend.services.transaction import (
     create_transaction_record,
@@ -75,6 +77,8 @@ class PreparedRow:
     row: int
     tx_data: dict[str, Any] | None = None
     result: EntryResult = None
+    day: date | None = None  # given as a date alone: its day in the tax timezone (#253)
+    not_a_duplicate: bool = False  # the user said it's another transaction (#253)
 
 
 # Validation
@@ -98,10 +102,15 @@ def _normalize_date(raw: str, tz) -> str:
         # e.g. 01/15/2024 or "2024-01-15 10:00:00 UTC", read as the CSV import reads them
         dt = _parse_date(raw, tz)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ") if dt else raw  # None: _validate_row reports it
-    date_only = len(raw) <= 10 and ":" not in raw
     if dt.tzinfo is None:
-        dt = local_noon_utc(dt.date(), tz) if date_only else dt.replace(tzinfo=tz)
+        dt = local_noon_utc(dt.date(), tz) if _date_only(raw) else dt.replace(tzinfo=tz)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _date_only(raw: str) -> bool:
+    """A date given without a time ("2025-03-20", "03/20/2025")."""
+    raw = (raw or "").strip()
+    return bool(raw) and len(raw) <= 10 and ":" not in raw
 
 
 def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
@@ -171,6 +180,8 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             row=i,
             tx_data=None if error_msgs else tx_data,
             result=result,
+            day=local_date(tx_data["timestamp"], tz) if tx_data and _date_only(row.date) else None,
+            not_a_duplicate=row.not_a_duplicate,
         ))
     return prepared
 
@@ -257,46 +268,92 @@ def _stub(p: PreparedRow) -> RiverProposal:
         amount=d["amount"],
         cost_basis_usd=d.get("cost_basis_usd"),
         proceeds_usd=d.get("proceeds_usd"),
+        source=d.get("source"),
+        purpose=d.get("purpose"),
+        day=p.day,
     )
+
+
+def _label(value: str | None) -> str:
+    """A source or purpose to compare: case and "N/A" aside."""
+    text = (value or "").strip().lower()
+    return "" if text == "n/a" else text
+
+
+def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
+    """What else a row the AI sends must share with a transaction to be it
+    (D1, #253): its type, its source or purpose, and a Buy's cost basis (a
+    Buy at another price can be another purchase). A Sell's proceeds aren't
+    compared: the stored ones are recomputed net of fees."""
+    if tx.type != row.type:
+        return [f"recorded as a {tx.type}, not a {row.type}"]
+    out = [
+        f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
+        for name in ("source", "purpose")
+        if _label(getattr(tx, name)) != _label(getattr(row, name))
+    ]
+    if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
+        out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
+    return out
+
+
+ENTRY_RULE = DuplicateRule(amounts=(same_ledger_amount,), differences=_entry_differences)
 
 
 def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool = False) -> None:
     """
-    Exact match (same type family, same BTC amount, ±48h, and for a Buy the
-    same cost basis) => duplicate, never written.
-    Same amount at another cost basis, or a fuzzy BTC-move match (±20%
-    amount) => possible_duplicate: flagged for the AI to ask about, written
-    unless removed. (A Buy at another price used to be a duplicate, so a
-    second purchase of the same amount could never be saved.)
+    The duplicate rule (D1, #253). The same type, BTC amount, source or
+    purpose and minute as a transaction in the ledger (a row given as a date
+    alone: the same day), and for a Buy the same cost basis => duplicate,
+    left out. A row that says not_a_duplicate (the user said it's another
+    transaction) is freed only from the transaction it matched: it still
+    takes that match, so an identical row beside it is checked as in the
+    preview, and is checked again against the rest of the ledger, so a
+    repeated add_transactions doesn't save it twice. The same amount within
+    48 hours with anything else different, or a BTC move of a near amount
+    => possible_duplicate: written unless removed, the warning naming the
+    match and what differs. exact_only (execute's double-submit guard)
+    looks for duplicates only.
     """
     valid = [p for p in prepared if p.tx_data is not None]
     if not valid:
         return
-
-    exact_stubs = [_stub(p) for p in valid]
-    annotate_duplicates(exact_stubs, db, exact_only=True)
-    fuzzy_stubs: list[RiverProposal | None] = [None] * len(valid)
-    if not exact_only:
-        fuzzy_stubs = [_stub(p) for p in valid]
-        annotate_duplicates(fuzzy_stubs, db)
-
-    for p, exact, fuzzy in zip(valid, exact_stubs, fuzzy_stubs):
-        if exact.status == STATUS_DISCREPANCY:
-            recorded = db.get(Transaction, exact.matched_tx_id)
-            p.result.status = STATUS_POSSIBLE_DUPLICATE
-            p.result.matched_transaction_id = exact.matched_tx_id
-            p.result.warnings.append(
-                f"A {exact.type} of the same BTC amount within 48 hours is already recorded "
-                f"(#{exact.matched_tx_id}, cost basis ${Decimal(recorded.cost_basis_usd or 0):.2f}); "
-                f"this one's is ${Decimal(exact.cost_basis_usd):.2f}. Save it only if it's another purchase."
-            )
-        elif exact.status != STATUS_NEW:
+    stubs = [_stub(p) for p in valid]
+    annotate_duplicates(stubs, db, exact_only=exact_only, rule=ENTRY_RULE)
+    _check_overrides_again(valid, stubs, db)
+    for p, stub in zip(valid, stubs):
+        if stub.status == STATUS_NEW or (p.not_a_duplicate and stub.status != STATUS_MATCHED):
+            continue
+        p.result.matched_transaction_id = stub.matched_tx_id
+        if stub.status == STATUS_MATCHED:
             p.result.status = STATUS_DUPLICATE
-            p.result.matched_transaction_id = exact.matched_tx_id
-        elif fuzzy is not None and fuzzy.status == STATUS_DISCREPANCY:
+            p.result.warnings.append(_duplicate_warning(p, stub.matched_tx_id))
+        else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
-            p.result.matched_transaction_id = fuzzy.matched_tx_id
-            p.result.warnings.append(fuzzy.discrepancy)
+            p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
+
+
+def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> None:
+    """Each row the user says is another transaction, and that matched one,
+    checked again without the transactions the rows matched: it's new unless
+    the ledger holds another copy (the one an earlier add_transactions
+    saved)."""
+    taken = {stub.matched_tx_id for stub in stubs if stub.status == STATUS_MATCHED}
+    again = {
+        i: _stub(p) for i, (p, stub) in enumerate(zip(valid, stubs))
+        if p.not_a_duplicate and stub.status == STATUS_MATCHED
+    }
+    annotate_duplicates(list(again.values()), db, exact_only=True, rule=ENTRY_RULE, reserved_tx_ids=taken)
+    for i, stub in again.items():
+        stubs[i] = stub
+
+
+def _duplicate_warning(p: PreparedRow, tx_id: int) -> str:
+    if p.not_a_duplicate:
+        return (f"Recorded again as tx #{tx_id}, besides the transaction the user said it isn't (the same request "
+                f"sent twice?): left out.")
+    return (f"Already recorded as tx #{tx_id} (the same type, BTC amount, source or purpose, a Buy's cost basis, "
+            f"and time): left out. If the user says it's another transaction, send it with not_a_duplicate.")
 
 
 # Dry run

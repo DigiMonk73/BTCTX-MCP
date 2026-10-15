@@ -96,6 +96,10 @@ class TransactionInput(BaseModel):
                                   "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
                                   "Form 8949's date acquired use it; omitted, the deposit's date. Inherited "
                                   "deposits: the date of death (required).")
+    not_a_duplicate: bool | None = Field(
+        default=None, description="true only when the user says this row is another transaction than the one "
+                                  "preview_transactions matched as a duplicate: it's then saved, once (sent "
+                                  "again, it's left out). Never set it on your own.")
 
 
 _client: BtctxClient | None = None
@@ -408,8 +412,10 @@ async def review_ledger() -> ToolResult:
 @with_version_notice
 async def preview_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices,
-    flag rows already in the ledger, and simulate the FIFO result (gain/loss, holding period,
-    balances afterward). NOTHING is saved. Always call this and show the user the result
+    flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
+    a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
+    within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
+    holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
     before add_transactions. At most 500 rows a call, and fewer dated before the ledger's
     latest entry (each recalculates the whole ledger; the error says how many): split a long
     list by date, oldest first, and preview and add each part before the next."""
@@ -421,9 +427,11 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 @with_version_notice
 async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
-    the user's confirmation. Rows exactly matching an existing transaction are skipped; rows
-    previewed as possible_duplicate ARE saved, so drop any the user rejected. The same row
-    limits as preview_transactions."""
+    the user's confirmation, with the previewed rows. Duplicates are skipped (keep them in the
+    list: dropping one can leave an identical row beside it skipped instead), unless the user
+    says one is another transaction: then send that row with not_a_duplicate true. Rows
+    previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
+    The same row limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
 
 

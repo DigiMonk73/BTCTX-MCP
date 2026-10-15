@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feeText, importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
+import { feeText, importRequestRows, importRow, importableRows, toEditableRow, typeChange } from "./riverImport";
 
 function proposal(overrides: Partial<RiverProposal> = {}): RiverProposal {
   return {
@@ -18,10 +18,12 @@ function proposal(overrides: Partial<RiverProposal> = {}): RiverProposal {
 }
 
 describe("toEditableRow", () => {
-  it("ticks only new rows", () => {
+  it("ticks every row but one already in the ledger: a row to review is imported (#253)", () => {
     expect(toEditableRow(proposal()).include).toBe(true);
     expect(toEditableRow(proposal({ status: "matched" })).include).toBe(false);
-    expect(toEditableRow(proposal({ status: "discrepancy" })).include).toBe(false);
+    expect(toEditableRow(proposal({ status: "discrepancy" })).include).toBe(true);
+    // A near amount only: most likely the same move typed by hand (the owner's choice)
+    expect(toEditableRow(proposal({ status: "discrepancy", near_amount: true })).include).toBe(false);
   });
 
   it("starts from River's values, with Spent and MyBTC when it has none", () => {
@@ -60,11 +62,31 @@ describe("typeChange", () => {
 });
 
 describe("importableRows", () => {
-  it("leaves out unticked rows and rows already in the ledger", () => {
+  it("takes the ticked rows, one already in the ledger too when it's ticked (#253)", () => {
     const ticked = toEditableRow(proposal({ row_number: 2 }));
     const unticked = { ...toEditableRow(proposal({ row_number: 3 })), include: false };
-    const matched = { ...toEditableRow(proposal({ row_number: 4, status: "matched" })), include: true };
+    const matched = toEditableRow(proposal({ row_number: 4, status: "matched" }));
     expect(importableRows([ticked, unticked, matched])).toEqual([ticked]);
+    const tickedMatch = { ...matched, include: true };
+    expect(importableRows([ticked, unticked, tickedMatch])).toEqual([ticked, tickedMatch]);
+    expect(importRow(tickedMatch).not_a_duplicate).toBe(true);
+    expect(importRow(ticked).not_a_duplicate).toBe(false);
+  });
+});
+
+describe("importRequestRows", () => {
+  it("sends the ticked rows, and those in the ledger left unticked as left out (#253)", () => {
+    const ticked = toEditableRow(proposal({ row_number: 2 }));
+    const unticked = { ...toEditableRow(proposal({ row_number: 3 })), include: false };
+    const found = (row_number: number, include: boolean) =>
+      ({ ...toEditableRow(proposal({ row_number, status: "matched", matched_tx_id: row_number * 10 })), include });
+    const sent = importRequestRows([ticked, unticked, found(4, false), found(5, true)]);
+    expect(sent.map((r) => [r.left_out, r.not_a_duplicate, r.matched_tx_id])).toEqual([
+      [false, false, null], [true, false, 40], [false, true, 50],
+    ]);
+    // Ticked, given a mistyped fee, unticked: sent as the preview gave it, so it can't stop the import
+    const edited = { ...found(4, false), feeAmount: "0.000006x" };
+    expect(importRequestRows([edited])[0]).toMatchObject({ fee_amount: null, left_out: true, matched_tx_id: 40 });
   });
 });
 
@@ -76,7 +98,7 @@ describe("importRow", () => {
       from_account: "Exchange BTC", to_account: "Wallet",
       cost_basis_usd: null, proceeds_usd: null,
       fee_amount: "0.00000600", fee_currency: "BTC", source: null, purpose: null, cost_basis_typed: null,
-      price_moment: null,
+      price_moment: null, matched_tx_id: null, not_a_duplicate: false, left_out: false,
     });
   });
 

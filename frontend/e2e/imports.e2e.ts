@@ -9,7 +9,7 @@ const RIVER_HEADER =
 // Row numbers count the header as row 1.
 const RIVER_ROWS = [
   "2026-01-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy", //            row 2: matched
-  "2026-01-12 12:00:00,25.00,USD,0.00031000,BTC,,,Buy", //            row 3: discrepancy
+  "2026-01-12 12:00:00,25.00,USD,0.00031000,BTC,,,Buy", //            row 3: discrepancy (similar)
   "2026-02-03 15:30:00,148.50,USD,0.00180000,BTC,1.50,USD,Buy", //    row 4: new
   "2026-02-10 16:00:00,0.00050000,BTC,55.00,USD,0.55,USD,Sell", //    row 5: new
   "2026-02-01 09:00:00,,,0.00002000,BTC,,,Interest", //               row 6: new
@@ -35,13 +35,15 @@ async function previewRiver(page: Page) {
   await expect(r.getByText("6 rows in file")).toBeVisible();
 }
 
-test("River import: preview statuses, edits, execute, re-import skips", async ({ authedPage: page }) => {
+test("River import: preview statuses, edits, execute, re-import; a ticked duplicate is imported (#253)", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   const tx = (d: Record<string, string | number>) => createTx(page.request, {
     type: "Buy", from_account_id: 1, to_account_id: 4, fee_amount: "0", fee_currency: "USD", ...d,
   });
-  await tx({ timestamp: "2026-01-05T15:00:00Z", amount: "0.00030000", cost_basis_usd: "25.00" });
-  await tx({ timestamp: "2026-01-12T15:00:00Z", amount: "0.00031000", cost_basis_usd: "10.00" });
+  // The same kind, amount and minute as row 2 (another basis: River compares
+  // nothing else, #253); row 3's amount 3 hours later: only similar
+  await tx({ timestamp: "2026-01-05T12:00:00Z", amount: "0.00030000", cost_basis_usd: "10.00" });
+  await tx({ timestamp: "2026-01-12T15:00:00Z", amount: "0.00031000", cost_basis_usd: "25.00" });
   const before = (await listTx(page.request)).length;
 
   await previewRiver(page);
@@ -49,17 +51,19 @@ test("River import: preview statuses, edits, execute, re-import skips", async ({
   await expect(r.getByText("4 new")).toBeVisible();
   await expect(r.getByText("1 already in ledger")).toBeVisible();
   await expect(r.getByText("1 need review")).toBeVisible();
-  await expect(r.getByText(/Row 3: .*differs/)).toBeVisible();
+  await expect(r.getByText(/Row 3: Same BTC amount as tx #\d+ \(Buy 0\.00031000 BTC\), recorded 3 hours later/)).toBeVisible();
 
-  // Matched rows are hidden until asked for, and can't be ticked.
+  // Matched rows are hidden until asked for, and start unticked (#253).
   await expect(r.getByLabel("Include row 2")).toHaveCount(0);
   await r.getByRole("button", { name: "Show 1 already-imported row(s)" }).click();
-  await expect(r.getByLabel("Include row 2")).toBeDisabled();
+  await expect(r.getByLabel("Include row 2")).toBeEnabled();
+  await expect(r.getByLabel("Include row 2")).not.toBeChecked();
   await expect(riverRow(page, 2)).toContainText("In ledger");
+  await expect(r.getByText(/Tick one to import it anyway/)).toBeVisible();
   await r.getByRole("button", { name: "Hide already-imported rows" }).click();
 
-  // Discrepancies start unticked; new rows start ticked.
-  await expect(r.getByLabel("Include row 3")).not.toBeChecked();
+  // A row to review starts ticked, as new rows do: never left out by itself (#253).
+  await expect(r.getByLabel("Include row 3")).toBeChecked();
   await expect(riverRow(page, 3)).toContainText("Review");
   for (const n of [4, 5, 6, 7]) await expect(r.getByLabel(`Include row ${n}`)).toBeChecked();
   await expect(riverRow(page, 4)).toContainText("New");
@@ -68,10 +72,12 @@ test("River import: preview statuses, edits, execute, re-import skips", async ({
   await expect(riverRow(page, 5)).toContainText("$0.55");
   await expect(riverRow(page, 6).getByText("Interest", { exact: true })).toBeVisible();
 
-  // Edits: the interest payout's basis, the send's fee; leave out the sell.
+  // Edits: the interest payout's basis, the send's fee; leave out the sell,
+  // and row 3, the buy already recorded.
   await riverRow(page, 6).getByLabel("Cost basis (USD)").fill("2.10");
   await riverRow(page, 7).getByLabel("Fee (BTC)").fill("0.00000600");
   await r.getByLabel("Include row 5").uncheck();
+  await r.getByLabel("Include row 3").uncheck();
 
   const dialogs = acceptDialogs(page);
   await r.getByRole("button", { name: "Import 3 Transaction(s)" }).click();
@@ -89,16 +95,28 @@ test("River import: preview statuses, edits, execute, re-import skips", async ({
   expect(Number(buy.fee_amount)).toBe(1.5);
   expect(all.find((t) => t.type === "Sell")).toBeUndefined();
 
-  // Re-import: what was imported as River had it is matched; the send whose
-  // fee was edited differs from River, so it needs review; the sell is new.
+  // Re-import: what was imported is matched, the send whose fee was edited
+  // too (River's own amount, #253); row 3 still needs review; the sell is new.
   await previewRiver(page);
-  await expect(r.getByText("3 already in ledger")).toBeVisible();
-  await expect(r.getByText("2 need review")).toBeVisible();
+  await expect(r.getByText("4 already in ledger")).toBeVisible();
+  await expect(r.getByText("1 need review")).toBeVisible();
   await expect(r.getByText("1 new")).toBeVisible();
-  await expect(riverRow(page, 7)).toContainText("Review");
   await expect(riverRow(page, 5)).toContainText("New");
-  await r.getByRole("button", { name: "Cancel" }).click();
-  await expect(r.getByText("rows in file")).toHaveCount(0);
+
+  // A row already in the ledger, ticked, is imported all the same, and stays
+  // in sight when the others are hidden (#253).
+  await r.getByRole("button", { name: "Show 4 already-imported row(s)" }).click();
+  await expect(riverRow(page, 7)).toContainText("In ledger");
+  await r.getByLabel("Include row 2").check();
+  await r.getByRole("button", { name: "Hide already-imported rows" }).click();
+  await expect(r.getByLabel("Include row 2")).toBeChecked();
+  await expect(r.getByLabel("Include row 4")).toHaveCount(0);
+  for (const n of [3, 5]) await r.getByLabel(`Include row ${n}`).uncheck();
+  await r.getByRole("button", { name: "Import 1 Transaction(s)" }).click();
+  await expect(page.getByText(/Imported 1/i)).toBeVisible();
+  const after = await listTx(page.request);
+  expect(after).toHaveLength(before + 4);
+  expect(after.filter((t) => t.type === "Buy" && Number(t.amount) === 0.0003)).toHaveLength(2);
 });
 
 test("River import rejects a file that isn't a River export", async ({ authedPage: page }) => {

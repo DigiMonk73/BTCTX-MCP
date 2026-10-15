@@ -23,11 +23,13 @@ export const STATUS_LABEL: Record<RiverProposal["status"], string> = {
   discrepancy: "Review",
 };
 
-/** A preview row as it starts: only new rows are ticked for import. */
+/** A preview row as it starts: ticked unless it's already in the ledger,
+ * or matched only by a near amount, most likely the same move typed by hand
+ * (a row of the same amount to review is never left out by itself, #253). */
 export function toEditableRow(p: RiverProposal): EditableRow {
   return {
     proposal: p,
-    include: p.status === "new",
+    include: p.status === "new" || (p.status === "discrepancy" && !p.near_amount),
     type: p.type,
     fromAccount: p.from_account,
     toAccount: p.to_account,
@@ -55,9 +57,22 @@ export function typeChange(row: EditableRow, newType: string): Partial<EditableR
   return { type: newType, fromAccount: accounts.from, toAccount: accounts.to };
 }
 
-/** The rows to import: ticked, and not already in the ledger. */
+/** The rows to import: the ticked ones, a row already in the ledger
+ * included when the owner ticks it (#253). */
 export function importableRows(rows: EditableRow[]): EditableRow[] {
-  return rows.filter((r) => r.include && r.proposal.status !== "matched");
+  return rows.filter((r) => r.include);
+}
+
+/** The import request's rows: the ticked ones, and each one the preview
+ * found in the ledger left unticked (`left_out`, never imported), as the
+ * preview gave it, so an edit left in it can't stop the import. Each row
+ * found in the ledger carries the transaction it matched, which the server
+ * keeps for it, so an identical row beside it isn't taken for it, whatever
+ * the owner edited (#253). */
+export function importRequestRows(rows: EditableRow[]) {
+  return rows
+    .filter((r) => r.include || r.proposal.status === "matched")
+    .map((r) => importRow(r.include ? r : toEditableRow(r.proposal)));
 }
 
 /** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */
@@ -90,6 +105,12 @@ export function importRow(r: EditableRow) {
     // edit of the deposit prices it again (#76); and the price's moment
     cost_basis_typed: basisFromPrice(r) ? "no" : null,
     price_moment: basisFromPrice(r) ? (r.proposal.price_moment ?? null) : null,
+    // Found in the ledger: the transaction it matched, kept for it; ticked,
+    // it's another transaction, so the import's check for a second click
+    // lets it through (#253)
+    matched_tx_id: r.proposal.status === "matched" ? (r.proposal.matched_tx_id ?? null) : null,
+    not_a_duplicate: r.include && r.proposal.status === "matched",
+    left_out: !r.include,
   };
 }
 

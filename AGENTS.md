@@ -201,6 +201,26 @@ So derived values must be recomputable from the Transaction row alone.
   differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
+- **Import duplicates** (#253, the owner's rule): the AI connector's and the
+  River import's check (`river_import.annotate_duplicates`) leaves out only
+  a duplicate: the same kind (going the same way), BTC amount and minute as
+  a transaction in the ledger (a date given alone: that day in the tax
+  timezone). The AI's rows
+  also need the same type, source or purpose and a Buy's basis
+  (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
+  amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
+  the preview's or the owner's edits. The amount tests go in turn (the
+  ledger amount, then River's), and within each a transaction of the row's
+  own type first. The user can override a duplicate (`not_a_duplicate`),
+  which frees it only from the transaction it matched: it's checked against
+  the rest, so a resent request doesn't save it twice.
+  At River's save, each row the preview found in the ledger, ticked or
+  left unticked (`left_out`), comes with the transaction the preview
+  matched (`matched_tx_id`), which is kept for it, so an edit can't move a
+  match; the other rows are checked against the rest. The same
+  amount within 48 hours with anything else different is only similar:
+  flagged, never skipped by itself; a River bitcoin move of only a near
+  amount starts unticked.
 - **Prices**: every valuation goes through `services/hourly_prices.price_at`
   (#144): the opening price of the moment's UTC hour (the tax timezone never
   changes the hour), else the UTC day's 00:00 price
