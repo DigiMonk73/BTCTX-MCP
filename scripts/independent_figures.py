@@ -22,8 +22,9 @@ the reference figures' tax time zone.
 Amounts stay exact (fractions) until they are rounded to the cent. Three
 conventions are the ledger's (AGENTS.md "Tax invariants", Lot cost), shared
 on purpose so the two agree to the cent:
-- a disposal's proceeds are shared among its lots in cents, and the last lot
-  takes what's left, so the rows report all of them (the amount realized);
+- a disposal's proceeds are shared among its lots as a running total in
+  cents (#297), so the rows report all of them (the amount realized) and
+  none is below zero;
 - a lot's cost is claimed as a running total (#100): a piece taken from it
   costs what the lot's BTC taken so far costs with it, in cents, less what
   it cost without it, so a lot's pieces add up to its cost, a moved piece
@@ -147,7 +148,7 @@ class Ledger:
 
     def cost_of(self, lot: Lot, btc: Fraction) -> Fraction:
         """What a lot's first `btc` BTC cost, in cents (all of it: exactly its cost)."""
-        return lot.cost if btc >= lot.total else Fraction(_cents(lot.cost * btc / lot.total, self.rounding))
+        return _share_so_far(lot.cost, btc, lot.total, self)
 
 
 def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:
@@ -324,13 +325,20 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
 
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
              when: datetime, reporting: str | None) -> None:
-    """One row per lot. Each gets its share of the proceeds in cents, and the
-    last what is left, so the rows report all of them (the amount realized)."""
-    total, left = sum(quantity for _, quantity, _ in pieces), proceeds
-    for number, (lot, quantity, basis) in enumerate(pieces, 1):
-        share = left if number == len(pieces) else Fraction(_cents(proceeds * quantity / total, ledger.rounding))
-        left -= share
+    """One row per lot, each with its share of the proceeds as a running
+    total in cents: the proceeds for the BTC so far with this lot, less
+    without it. So the rows report all of the proceeds (the amount realized)
+    and none is below zero (#297)."""
+    total, before = sum(quantity for _, quantity, _ in pieces), Fraction(0)
+    for lot, quantity, basis in pieces:
+        share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
+        before += quantity
         ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting, lot.inherited))
+
+
+def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
+    """`part` of `whole`'s share of `value`, in cents (all of it: exactly `value`)."""
+    return value if part >= whole else Fraction(_cents(value * part / whole, ledger.rounding))
 
 
 def _form_row(row: Row, year: int, rounding: str) -> dict:

@@ -228,10 +228,10 @@ IRS's and the ledger's documented rules, importing nothing of the app
 (#150). `backend/tests/test_independent_figures.py` fails on any difference
 in those from `reference_figures.json`, so a change meant to move figures
 also changes the rule it follows there, or it was a bug. Three conventions
-are shared on purpose (the script's docstring, AGENTS.md "Lot cost"):
-proceeds shared among a disposal's lots with the last taking what's left, a
-lot's cost claimed as a running total, and an exact half cent rounded up
-(#100):
+are shared on purpose (the script's docstring, AGENTS.md "Lot cost"): a
+lot's cost claimed as a running total (#100), a disposal's proceeds shared
+among its lots as a running total too (#297), and an exact half cent
+rounded up:
 
 ```bash
 python scripts/independent_figures.py --compare --years 2023 2024 2025 2026

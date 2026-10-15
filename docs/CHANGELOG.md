@@ -138,6 +138,28 @@ All notable changes to BitcoinTX are documented in this file.
   doesn't always show these changes, since a cent can move between two
   rows of one transaction. Any tax year with a lot sold, spent or moved in
   pieces can be affected, by a few cents either way.
+- **No proceeds row below zero** (#297). When a sale, a spend or a network
+  fee took bitcoin from several lots, each lot's share of the proceeds (or
+  of the fee's value) was rounded to the cent on its own, and the last lot
+  took what was left. The rounded shares could add up to more than the
+  whole, so the last row's proceeds came out negative: six 1-satoshi lots
+  sold together for $0.03 gave five rows of $0.01 and one of −$0.02. With
+  ordinary lots it could happen too, rarely: when a sale reached only a few
+  satoshis into its last lot. From 0.9.2 to 1.2.8 for a
+  network fee's rows, and from 1.2.2 to 1.2.8 for a sale's or spend's
+  proceeds. Now the shares are a running total, like a lot's cost above:
+  no row is below zero.
+
+  A disposal's total never changes. Its rows can each move by a cent, and
+  its last row by a few cents (at most half a cent for each lot it took
+  from). Where its lots fall on both sides of the one-year mark, or in two
+  Form 8949 boxes, the Schedule D lines of those terms or boxes (short- and
+  long-term, or two boxes' lines such as 1b and 2) can move by those cents,
+  one up and one down. On the reference
+  test ledger, two rows of one 2026 spend swap a cent, and no Schedule D
+  line moves.
+
+  **What to do:** as above, Recalculate Ledger (Settings).
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as

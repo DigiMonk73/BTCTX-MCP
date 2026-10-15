@@ -3437,9 +3437,9 @@
      "date_acquired": "01/20/2023",
      "date_sold": "07/01/2026",
      "description": "0.00770500 BTC",
-     "gain_loss": "954.75",
+     "gain_loss": "954.76",
      "holding_period": "LONG",
-     "proceeds": "1116.55"
+     "proceeds": "1116.56"
     },
     {
      "box": "L",
@@ -3457,9 +3457,9 @@
      "date_acquired": "02/15/2023",
      "date_sold": "07/01/2026",
      "description": "0.00847500 BTC",
-     "gain_loss": "1033.22",
+     "gain_loss": "1033.21",
      "holding_period": "LONG",
-     "proceeds": "1228.15"
+     "proceeds": "1228.14"
     },
     {
      "box": "L",
@@ -3671,10 +3671,10 @@
       "cost": 161.8,
       "date_acquired": "2023-01-20T09:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 954.75,
+      "gain_loss": 954.76,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1116.55,
+      "proceeds": 1116.56,
       "type": "Withdrawal"
      },
      {
@@ -3697,10 +3697,10 @@
       "cost": 194.93,
       "date_acquired": "2023-02-15T14:00:00+00:00",
       "date_sold": "2026-07-01T12:00:00+00:00",
-      "gain_loss": 1033.22,
+      "gain_loss": 1033.21,
       "holding_period": "LONG",
       "kind": "Spend",
-      "proceeds": 1228.15,
+      "proceeds": 1228.14,
       "type": "Withdrawal"
      },
      {
@@ -3890,8 +3890,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 161.8,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1116.55,
-      "realized_gain_usd": 954.75
+      "proceeds_usd_for_that_portion": 1116.56,
+      "realized_gain_usd": 954.76
      },
      {
       "amount_disposed": 0.02985,
@@ -3910,8 +3910,8 @@
       "date_sold": "2026-07-01T12:00:00+00:00",
       "disposal_basis_usd": 194.93,
       "holding_period": "LONG",
-      "proceeds_usd_for_that_portion": 1228.15,
-      "realized_gain_usd": 1033.22
+      "proceeds_usd_for_that_portion": 1228.14,
+      "realized_gain_usd": 1033.21
      },
      {
       "amount_disposed": 0.05,

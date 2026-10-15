@@ -29,11 +29,10 @@ independent = _script()
 
 def test_an_independent_calculation_gives_the_apps_figures():
     # The script shares three conventions with the app on purpose (its
-    # docstring): proceeds shared among lots with the last taking what's
-    # left, a lot's cost claimed as a running total, and an exact half cent
-    # rounded up (#100). With those, every Form 8949 row, Schedule D line,
-    # box total, gains summary, income figure, rebate, gift and year-end lot
-    # of every year must be the same.
+    # docstring): a lot's cost and a disposal's proceeds shared as running
+    # totals (#100, #297), and an exact half cent rounded up. With those,
+    # every Form 8949 row, Schedule D line, box total, gains summary, income
+    # figure, rebate, gift and year-end lot of every year must be the same.
     transactions = json.loads(independent.LEDGER.read_text())["transactions"]
     ledger = independent.replay(transactions, independent.ROUNDING["half-up"])
     saved = json.loads(independent.FIGURES.read_text())["years"]

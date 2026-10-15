@@ -1141,39 +1141,48 @@ def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
     )
 
 
-def _cost_of_first(lot: BitcoinLot, btc: Decimal) -> Decimal:
-    """What a lot's first `btc` cost: its share of the lot's cost, to the
-    cent; all of the lot costs exactly the lot's cost (#100)."""
-    if not lot.total_btc or btc <= 0:
+def _cents_of_part(value: Decimal, part: Decimal, whole: Decimal) -> Decimal:
+    """`part` of `whole`'s share of `value`, to the cent; all of it is
+    exactly `value`."""
+    if not whole or part <= 0:
         return Decimal("0")
-    if btc >= lot.total_btc:
-        return Decimal(lot.cost_basis_usd)
-    return (lot.cost_basis_usd * btc / lot.total_btc).quantize(CENT, rounding=SHARE_ROUNDING)
+    if part >= whole:
+        return Decimal(value)
+    # Multiplied before divided: for any amount a ledger holds, a share that
+    # is exactly half a cent stays exact and rounds up (#295's review)
+    return (value * part / whole).quantize(CENT, rounding=SHARE_ROUNDING)
+
+
+def running_share(value: Decimal, before: Decimal, qty: Decimal, whole: Decimal) -> Decimal:
+    """
+    The share of `value` for `qty` of `whole`, once `before` of it has had
+    its shares: the running total's cents with it, less without it. Rounded
+    as a running total, not share by share, so the shares add up to `value`
+    to the cent and none is below zero, however small they are: a lot's cost
+    among its pieces (#100), a disposal's proceeds or a fee's value among
+    its lots (#297).
+    """
+    return _cents_of_part(value, before + qty, whole) - _cents_of_part(value, before, whole)
 
 
 def piece_cost(lot: BitcoinLot, qty: Decimal) -> Decimal:
-    """
-    The cost of `qty` BTC about to be taken from `lot` (its remaining_btc
-    not yet lowered): what the lot's taken BTC cost with this piece, less
-    without it. Rounded as a running total, not piece by piece, so a lot's
-    pieces add up to its cost to the cent, however small they are (#100).
-    """
-    taken = lot.total_btc - lot.remaining_btc
-    return _cost_of_first(lot, taken + qty) - _cost_of_first(lot, taken)
+    """The cost of `qty` BTC about to be taken from `lot` (its remaining_btc
+    not yet lowered): its running share of the lot's cost (#100)."""
+    return running_share(lot.cost_basis_usd, lot.total_btc - lot.remaining_btc, qty, lot.total_btc)
 
 
 def cost_left(lot: BitcoinLot) -> Decimal:
     """The cost of a lot's BTC not yet taken: its cost less its pieces'."""
-    return Decimal(lot.cost_basis_usd) - _cost_of_first(lot, lot.total_btc - lot.remaining_btc)
+    return Decimal(lot.cost_basis_usd) - _cents_of_part(
+        lot.cost_basis_usd, lot.total_btc - lot.remaining_btc, lot.total_btc)
 
 
 class _FifoDisposal:
     """
     A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
-    fee's part before the amount's, each with its share of the proceeds.
-    The last part of each takes what is left, so the parts add up exactly
-    to the fee's value (fee_usd; a spend's at most its gross) and to the
-    proceeds.
+    fee's part before the amount's, each with its running share of the
+    fee's value (fee_usd; a spend's at most its gross) or of the proceeds,
+    so the parts add up to them exactly and none is below zero (#297).
     """
 
     def __init__(self, tx: Transaction, amount_btc: Decimal, total_proceeds: Decimal, not_a_sale: bool,
@@ -1183,29 +1192,17 @@ class _FifoDisposal:
         self.fee_btc, self.fee_usd = fee_btc, fee_usd
         self.remaining_amount = amount_btc
         self.remaining_fee = fee_btc
-        self.proceeds_so_far = Decimal("0")
-        self.fee_proceeds_so_far = Decimal("0")
         self.tz = get_tax_timezone(db)
 
     def take_from(self, lot: BitcoinLot) -> None:
         if self.remaining_fee > 0 and lot.remaining_btc > 0:
             qty = min(lot.remaining_btc, self.remaining_fee)
-            if qty == self.remaining_fee:
-                proceeds = self.fee_usd - self.fee_proceeds_so_far
-            else:
-                proceeds = (self.fee_usd * qty / self.fee_btc).quantize(CENT, rounding=SHARE_ROUNDING)
-            self.fee_proceeds_so_far += proceeds
+            proceeds = running_share(self.fee_usd, self.fee_btc - self.remaining_fee, qty, self.fee_btc)
             self.record(lot, qty, proceeds, gain_zero=False, is_fee=True)
             self.remaining_fee -= qty
         if self.remaining_amount > 0 and lot.remaining_btc > 0:
             qty = min(lot.remaining_btc, self.remaining_amount)
-            if qty == self.remaining_amount:
-                proceeds = self.total_proceeds - self.proceeds_so_far
-            else:
-                # Multiplied before divided: for any amount a ledger holds, a
-                # share that is exactly half a cent stays exact and rounds up (#100)
-                proceeds = (self.total_proceeds * qty / self.amount_btc).quantize(CENT, rounding=SHARE_ROUNDING)
-            self.proceeds_so_far += proceeds
+            proceeds = running_share(self.total_proceeds, self.amount_btc - self.remaining_amount, qty, self.amount_btc)
             self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)
             self.remaining_amount -= qty
 
@@ -1492,8 +1489,8 @@ class _LotMove:
     """
     A BTC transfer's amount (fee included) taken from the source's lots,
     oldest first. The fee's part is disposed of at the fee's stored USD
-    value (split by BTC when it spans lots; the last part takes the
-    remainder so the parts add up to fee_usd exactly). The rest becomes
+    value (its running share per lot when it spans lots, so the parts add
+    up to fee_usd exactly and none is below zero, #297). The rest becomes
     lots in the destination, each keeping its source lot's acquisition date
     and share of basis.
     """
@@ -1502,7 +1499,6 @@ class _LotMove:
         self.tx, self.btc_outflow, self.fee_btc, self.db = tx, btc_outflow, fee_btc, db
         self.remaining_outflow = btc_outflow
         self.remaining_fee = fee_btc
-        self.fee_proceeds_so_far = Decimal("0")
         self.to_destination: list[tuple[Decimal, Decimal, datetime, bool]] = []
 
     def take_all(self, lots: list[BitcoinLot]) -> None:
@@ -1542,11 +1538,7 @@ class _LotMove:
 
     def dispose_fee(self, lot: BitcoinLot, portion: Decimal, disposal_basis: Decimal) -> None:
         fee_usd = _stored_fee_usd(self.tx, self.fee_btc, self.db)
-        if portion == self.remaining_fee:
-            proceeds_for_fee = fee_usd - self.fee_proceeds_so_far
-        else:
-            proceeds_for_fee = (fee_usd * portion / self.fee_btc).quantize(CENT, rounding=SHARE_ROUNDING)
-        self.fee_proceeds_so_far += proceeds_for_fee
+        proceeds_for_fee = running_share(fee_usd, self.fee_btc - self.remaining_fee, portion, self.fee_btc)
         self.db.add(LotDisposal(
             lot_id=lot.id,
             transaction_id=self.tx.id,

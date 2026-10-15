@@ -228,7 +228,8 @@ class TestSells:
         """Bug hunt 2026-09-29: each lot's share of a sale's proceeds was
         rounded on its own and nothing took the remainder: $100.00 over three
         equal lots was 3 x 33.33, so $99.99 on Form 8949 and as the sale's
-        proceeds. The last share now takes the remainder."""
+        proceeds. The shares now add up to the proceeds (a running total,
+        #297)."""
         from backend.models.transaction import LotDisposal
         from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 
