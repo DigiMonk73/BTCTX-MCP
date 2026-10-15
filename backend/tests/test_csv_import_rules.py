@@ -2,8 +2,11 @@
 CSV import rules found in the v0.9.2 hardening sweep (F10, F25, F30, F12):
 dates follow the tax timezone, malformed numbers are errors, a USD transfer's
 fee is in USD, a BTC withdrawal needs a purpose. And the preview refuses
-the fee accounts, dollar amounts past the cent and transfers across
-currencies, as the save does (#266).
+what the save refuses: the fee accounts, dollar amounts past the cent and
+transfers across currencies (#266), and through the save's own helpers a
+fee over the proceeds or the amount, a fee in the wrong currency, more
+than 21,000,000 BTC, a date before 2009 or more than a day ahead, and a
+purpose or source over 64 characters (#285).
 """
 
 from datetime import datetime, timezone
@@ -154,6 +157,22 @@ REFUSED_AT_IMPORT = [
     ("2024-01-05,Transfer,100.5,Bank,Exchange USD,,,,,,,", None),  # cents are fine
     ("2024-01-05,Transfer,100,Bank,Wallet,,,,,,,", ONE_CURRENCY),
     ("2024-01-05,Transfer,0.1,Exchange BTC,Exchange USD,,,,,,,", ONE_CURRENCY),
+    # #285: the save's other checks, each with the save's own message
+    ("2024-01-05,Sell,0.1,Exchange BTC,Exchange USD,,5,10,USD,,,", "The sell's fee is more than its proceeds."),
+    ("2024-01-05,Sell,0.1,Exchange BTC,Exchange USD,,10,10,USD,,,", None),  # a fee as large as the proceeds
+    ("2024-01-05,Withdrawal,100,Bank,External,,,0.0001,BTC,,,", "A withdrawal fee must be in USD, the account's currency."),
+    ("2024-01-05,Deposit,100,External,Bank,,,0.0001,BTC,,,", "A deposit fee must be in USD, the account's currency."),
+    # No fee currency: the import fills in BTC for any deposit, which a USD account refuses
+    ("2024-01-05,Deposit,100,External,Bank,,,1,,,,", "A deposit fee must be in USD, the account's currency."),
+    ("2024-01-05,Deposit,100,External,Bank,,,1,USD,,,", None),
+    ("2024-01-05,Deposit,0.1,External,Wallet,100,,1,USD,MyBTC,,", "A deposit fee must be in BTC, the account's currency."),
+    ("2024-01-05,Transfer,0.0001,Wallet,Exchange BTC,,,0.001,BTC,,,",
+     "Transfer fee exceeds the amount sent (amount includes the fee)."),
+    ("2024-01-05,Deposit,30000000,External,Wallet,1,,,,MyBTC,,", "A BTC amount can't be more than 21,000,000."),
+    ("2008-06-01,Deposit,100,External,Bank,,,,,,,", "The date is before Bitcoin existed (3 January 2009)."),
+    ("2099-01-01,Deposit,100,External,Bank,,,,,,,", "The date is in the future."),
+    ("2024-01-05,Withdrawal,100,Bank,External,,,,,," + "x" * 70 + ",", "purpose is too long (at most 64 characters)."),
+    ("2024-01-05,Withdrawal,100,Bank,External,,,,,," + "x" * 64 + ",", None),
 ]
 
 
@@ -174,27 +193,35 @@ def test_a_usd_amount_with_trailing_zeros_has_its_cents_only():
 @pytest.mark.parametrize("row, message", REFUSED_AT_IMPORT)
 def test_a_row_the_preview_passes_is_saved(auth_client, row, message):
     """What the preview passes, the import saves; what it refuses, it
-    can't import (#266)."""
+    can't import (#266, #285)."""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-    funds = "2024-01-01,Deposit,1000,External,Bank,,,,,,,\n2024-01-01,Deposit,1,External,Wallet,100,,,,MyBTC,,\n"
+    funds = ("2024-01-01,Deposit,1000,External,Bank,,,,,,,\n2024-01-01,Deposit,1,External,Wallet,100,,,,MyBTC,,\n"
+             "2024-01-01,Deposit,1,External,Exchange BTC,100,,,,MyBTC,,\n")
     content = {"file": ("rows.csv", f"{HEADER}\n{funds}{row}\n".encode(), "text/csv")}
     preview = auth_client.post("/api/import/preview", files=content).json()
     assert preview["can_import"] is (message is None), preview
     if message is None:
         assert auth_client.post("/api/import/execute", files=content).status_code == 200
-        assert len(auth_client.get("/api/transactions").json()) == 3
+        assert len(auth_client.get("/api/transactions").json()) == 4
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def _save_data(row: str) -> dict:
-    """A refused row as the save would get it: its type, time, amount and accounts."""
-    date, tx_type, amount, from_name, to_name = row.split(",")[:5]
+    """A refused row as the save would get it: its date (noon UTC), type,
+    amount, accounts, proceeds (a Sell's are its gross), fee, source and
+    purpose. A fee with no currency is in BTC, as the import fills it in
+    for a deposit."""
+    date, tx_type, amount, from_name, to_name, _basis, proceeds, fee, fee_cur, source, purpose = row.split(",")[:11]
     from_id, to_id = (ACCOUNT_NAME_TO_ID[n.strip().lower()] for n in (from_name, to_name))
-    return {
-        "type": tx_type, "timestamp": datetime(2024, 1, 5, 18, tzinfo=timezone.utc), "amount": Decimal(amount),
-        "from_account_id": from_id, "to_account_id": to_id, "fee_amount": Decimal(0),
-        "fee_currency": "USD", "purpose": "Spent",  # no fee: its currency doesn't matter
+    data = {
+        "type": tx_type, "timestamp": datetime.fromisoformat(date).replace(hour=12, tzinfo=timezone.utc),
+        "amount": Decimal(amount), "from_account_id": from_id, "to_account_id": to_id,
+        "fee_amount": Decimal(fee or 0), "fee_currency": fee_cur or ("BTC" if fee else "USD"),
+        "source": source or None, "purpose": purpose or "Spent",
     }
+    if proceeds:
+        data["gross_proceeds_usd" if tx_type == "Sell" else "proceeds_usd"] = Decimal(proceeds)
+    return data
 
 
 # What the save says for each of the preview's reasons
@@ -205,12 +232,13 @@ SAVE_SAYS = {FEE_ACCOUNT.format("btc fees"): "Unknown account id 5.", FEE_ACCOUN
 @pytest.mark.parametrize("row, message", [(r, m) for r, m in REFUSED_AT_IMPORT if m])
 def test_the_save_refuses_each_row_the_preview_refuses(test_engine, row, message):
     """The preview is never stricter than the save (#266's review): if the
-    save ever takes one of these rows, the preview's rule has to go too."""
+    save ever takes one of these rows, the preview's rule has to go too.
+    Since #285 the rules are the save's own helpers, with its messages."""
     db = sessionmaker(bind=test_engine)()
     try:
         with pytest.raises(HTTPException) as refused:
             create_transaction_record(_save_data(row), db, auto_commit=False)
-        assert refused.value.detail == SAVE_SAYS[message]
+        assert refused.value.detail == SAVE_SAYS.get(message, message)  # #285's: the same words
     finally:
         db.rollback()
         db.close()

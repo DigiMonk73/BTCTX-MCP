@@ -118,7 +118,7 @@ COMMON_ERRORS = [
     ["\"purpose required for Withdrawal\"", "Add purpose: Spent, Gift, Donation, or Lost"],
     ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
     ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],
-    ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Wallet or Exchange BTC"],
+    ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
     ["\"Transfer must have different from_account and to_account\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
     ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
 ]
