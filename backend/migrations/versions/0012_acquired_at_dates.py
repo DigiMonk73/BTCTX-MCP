@@ -16,10 +16,10 @@ known, so one an earlier timezone change moved keeps the date shown. A
 restored backup is converted with its own setting. Lots aren't rebuilt
 here; the next recalculation puts a deposit's lot at noon of its date in
 the tax timezone, never after the deposit. That is the moment it had for a
-date entered alone in
-this timezone; a date given with a time (CSV, the AI connector, the API),
-or entered before a timezone change, moves within its day, which can change
-which of two same-day lots a sale takes first (Ledger Review lists it).
+date entered alone in this timezone; a date given with a time (CSV, the AI
+connector, the API), or entered before a timezone change, moves within its
+day, which can change which of two same-day lots a sale takes first
+(Ledger Review lists it).
 
 Revision ID: 0012
 Revises: 0011

@@ -257,8 +257,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
-  timezone was later. After the tax timezone changed by about 12 hours or more
-  (UTC+14 to UTC, or UTC to UTC+12, for example), the form, the holding
+  timezone was later. After the tax timezone changed by about 12 hours or
+  more (UTC+14 to UTC, or UTC to UTC+12, for example), the form, the holding
   period, Form 8949 column (b) and an inheritance priced again used the day
   before or after, with no save needed, and saving the deposit kept it.
   Smaller changes could move a date stored with a time of day: one the CSV
@@ -269,35 +269,39 @@ All notable changes to BitcoinTX are documented in this file.
   Every version since 1.2.6 (the date originally acquired) and 1.2.8 (the
   date of death). Now the date itself is stored: `acquired_at` is a date,
   `YYYY-MM-DD`, in the API, the CSV export and the AI connector, and no
-  timezone change moves it. A date given with a time stands for its date
-  in the tax timezone. The deposit's coins count from noon of that date in
-  the tax timezone, never after the deposit, as before for a date entered
-  alone. An edit that keeps the date is saved even if a timezone change
-  has since put the deposit on the day before it; its coins then count
-  from the deposit itself, so the CSV export leaves such a My BTC or Gift
-  date blank, which means the same (an Inherited date of death is exported
-  as it is, and the import asks for it to be corrected). From this version
-  on, the app's page is checked with the server every time it loads, so a
-  browser can't keep showing an older version's form.
+  timezone change moves it. A date given with a time stands for its date in
+  the tax timezone. The deposit's coins count from noon of that date in the
+  tax timezone, never after the deposit, as before for a date entered alone.
+  An edit that keeps the date is saved even if a timezone change has since
+  put the deposit on the day before it; its coins then count from the
+  deposit itself, so the CSV export leaves such a My BTC or Gift date blank,
+  which means the same (Ledger Review's reminder then lists the deposit). An
+  Inherited date of death is exported as it is, and the import refuses it;
+  importing under the old tax timezone, then changing it back, keeps every
+  figure. From this version on, the app's page is checked with the server
+  every time it loads, so a browser can't keep showing an older version's
+  form.
 
-  The upgrade (migration 0012) stores each date as the form showed it,
-  which is the date the reports used. Which timezone a date was entered in
-  isn't known, so a date an earlier timezone change moved keeps the moved
-  day. For a date given with a time, or entered before a timezone change,
-  the coins now count from noon of that day instead of that time. That
-  moves no date and no holding period, but where two lots in one account
-  fall on the same day, it can change which one a later sale takes first,
-  and so its gain. Ledger Review now compares lots by their dates, so a
-  lot that only moves within its day isn't listed by itself.
+  The upgrade (migration 0012) stores each date as the form showed it, which
+  is the date the reports used. Which timezone a date was entered in isn't
+  known, so a date an earlier timezone change moved keeps the moved day. For
+  a date given with a time, or entered before a timezone change, the coins
+  now count from noon of that day instead of that time. That moves no date
+  and no holding period, but where two lots in one account fall on the same
+  day, it can change which one a later sale takes first, and so its gain.
+  Ledger Review now compares lots by their dates, so a lot that only moves
+  within its day isn't listed by itself.
 
-  **What to do:** right after upgrading, reload BitcoinTX's page once (the
-  Mac app does it by itself): a browser can keep 1.2.8's page, which shows
-  these dates a day early in a tax timezone behind UTC (the Americas) and
-  saves that day with any edit of the deposit. Then open Ledger Review before saving anything. If
+  **What to do:** right after upgrading, reload BitcoinTX's page (the Mac
+  app does it by itself). A browser can keep showing 1.2.8's page for a
+  while, which shows these dates a day early in a tax timezone behind UTC
+  (the Americas) and saves that day with any edit of the deposit: if an edit
+  form shows a date originally acquired or of death a day early, don't save;
+  reload the page. Then open Ledger Review before saving anything. If
   "Figures that Recalculate Ledger would change" lists a sale, its gain
-  moves because of the order above; Recalculate Ledger applies it (so
-  does any save). If you changed the tax timezone by many hours after entering a My
-  BTC, Gift or Inherited deposit's date, check those dates against your
+  moves because of the order above; Recalculate Ledger applies it (so does
+  any save). If you changed the tax timezone by many hours after entering a
+  My BTC, Gift or Inherited deposit's date, check those dates against your
   records and correct any that moved. Most ledgers need nothing.
 
 ### Development

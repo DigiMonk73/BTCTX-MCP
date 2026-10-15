@@ -297,3 +297,12 @@ def test_a_backup_from_before_0012_is_restored_with_its_own_timezone(tmp_path):
     init_db(engine)
     restore_backup("pw", btx, db_path=live, engine=engine)
     assert _dates(live) == [(1, "2021-03-14"), (2, None), (3, "2025-04-01")]
+
+
+def test_the_mac_app_opens_its_page_at_an_address_of_its_version():
+    """A page 1.2.8 cached without Cache-Control is kept under "/": the Mac
+    app's window opens another address, so it can't be shown again."""
+    from pathlib import Path
+
+    entrypoint = (Path(__file__).resolve().parents[2] / "desktop" / "entrypoint.py").read_text()
+    assert 'url=f"{app_url}/?v={app_version()}"' in entrypoint

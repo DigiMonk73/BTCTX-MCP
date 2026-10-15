@@ -167,9 +167,10 @@ def main():
     api = DesktopAPI(app_url)
 
     # Create the webview window with the API. The version in the first
-    # page's address: WebKit keeps its cache across restarts, and a page an
-    # older version served without Cache-Control (before 1.2.9) could be
-    # shown again unchecked, reading the API as that version did (#185)
+    # page's address: pywebview's private mode clears WebKit's stored data
+    # as the window opens, but not before it loads, and a page 1.2.8 or
+    # earlier cached without Cache-Control must never be shown again
+    # unchecked: it reads the API as that version did (#185)
     from backend.version import app_version
 
     window = webview.create_window(
