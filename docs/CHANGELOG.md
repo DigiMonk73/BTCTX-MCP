@@ -144,6 +144,18 @@ All notable changes to BitcoinTX are documented in this file.
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
 
+### Development
+- **The Ledger Review click-through test no longer hangs now and then**
+  (#275, which #189 also was). The test fakes a failed apply with a
+  Playwright route used once. Once used, Playwright turns its request
+  interception off without waiting, and the review's reload, sent in that
+  moment, never left the browser: the panel stayed on "Checking..." until
+  the test timed out, and the required Chromium check failed now and then.
+  The test now keeps one route for the whole test, refusing the first
+  apply and passing the rest through, and a lint rule refuses a `times`
+  route in the click-through tests. BitcoinTX itself was never at fault:
+  the server was never asked.
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added

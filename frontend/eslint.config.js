@@ -41,5 +41,12 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: { ...globals.node, ...globals.browser },
     },
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "CallExpression[callee.property.name='route'] > ObjectExpression > Property[key.name='times']",
+        message: "A route with `times` turns Playwright's interception off as it expires, and a request "
+          + 'made in that moment never goes out (#275): keep one route for the test, route.fallback() once done.',
+      }],
+    },
   },
 )
