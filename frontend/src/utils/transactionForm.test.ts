@@ -118,6 +118,21 @@ describe("Withdrawal", () => {
       roundTrip({ ...spend, purpose: "Gift", broker_reporting: "proceeds" }).broker_reporting,
     ).toBeNull();
   });
+
+  it("reads a purpose an older version saved in another case as the listed one (#273)", () => {
+    // "spent" showed a blank Purpose, and Update did nothing until one was picked
+    const form = mapTransactionToFormData(tx({ ...spend, purpose: "spent", broker_reporting: "proceeds" }));
+    expect(form.purpose).toBe("Spent");
+    expect(buildTransactionPayload(form)).toMatchObject({
+      purpose: "Spent", proceeds_usd: 5000, broker_reporting: "proceeds",
+    });
+    for (const [saved, listed] of [["gift", "Gift"], ["DONATION", "Donation"], [" lost ", "Lost"], ["n/a", "N/A"]]) {
+      expect(mapTransactionToFormData(tx({ ...spend, purpose: saved })).purpose).toBe(listed);
+    }
+    // Text that isn't a listed purpose stays as saved
+    expect(mapTransactionToFormData(tx({ ...spend, purpose: "Travel" })).purpose).toBe("Travel");
+    expect(mapTransactionToFormData(tx({ ...spend, purpose: undefined })).purpose).toBe("N/A");
+  });
 });
 
 describe("transferDestinations", () => {
@@ -269,9 +284,13 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
       fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01T18:00:00Z", // noon in Chicago
     }), "America/Chicago");
     expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", account: "Exchange" });
-    // A row saved before 1.1.0 as free text "inherited" reads back as Inherited
-    expect(mapTransactionToFormData(tx({ type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.01,
-      fee_currency: "BTC", source: "inherited" })).source).toBe("Inherited");
+    // A row saved before 1.1.0 as free text "inherited" reads back as Inherited, and so does
+    // every other source in another case (#273)
+    for (const [saved, listed] of [["inherited", "Inherited"], ["income", "Income"], ["REBATE", "Rebate"],
+      ["mybtc", "MyBTC"], [" interest ", "Interest"]]) {
+      expect(mapTransactionToFormData(tx({ type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.01,
+        fee_currency: "BTC", source: saved })).source).toBe(listed);
+    }
     expect(buildTransactionPayload(form)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
   });
 

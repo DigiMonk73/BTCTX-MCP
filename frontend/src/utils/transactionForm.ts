@@ -153,12 +153,14 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
 }
 
 const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
+const WITHDRAWAL_PURPOSES: WithdrawalPurpose[] = ["N/A", "Spent", "Gift", "Donation", "Lost"];
 
-/** A saved deposit's source as the form lists it: a row saved before 1.1.0
- * may say "inherited", which is Inherited (#154). */
-function depositSource(saved: string | null | undefined): DepositSource {
+/** A saved source or purpose as the form lists it, matched ignoring case as
+ * the server reads it: a row saved by an older version may say "inherited"
+ * (Inherited, #154) or "spent" (Spent, #273). Other text stays as saved. */
+function listed<T extends string>(choices: T[], saved: string | null | undefined): T {
   const wanted = (saved ?? "N/A").trim().toLowerCase();
-  return DEPOSIT_SOURCES.find((s) => s.toLowerCase() === wanted) ?? (saved as DepositSource);
+  return choices.find((c) => c.toLowerCase() === wanted) ?? (saved as T);
 }
 
 /** Each type's own form fields, read back from a saved transaction. */
@@ -169,7 +171,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: depositSource(tx.source),
+      source: listed(DEPOSIT_SOURCES, tx.source),
     };
   },
   Withdrawal: (tx) => {
@@ -178,7 +180,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      purpose: (tx.purpose ?? "N/A") as WithdrawalPurpose,
+      purpose: listed(WITHDRAWAL_PURPOSES, tx.purpose),
       // Stored proceeds_usd is net of the BTC fee; edit the user's gross
       proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
     };
