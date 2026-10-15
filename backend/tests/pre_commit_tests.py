@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import ast
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -297,7 +296,9 @@ def check_absolute_paths_in_reports() -> bool:
 
 
 # =============================================================================
-# SECTION 2: API TESTS (Transaction/FIFO Integrity)
+# SECTION 2: API TESTS (a server at 127.0.0.1:8000). The transactions' and
+# FIFO's checks are pytest's (test_comprehensive_transactions.py), which has
+# no runner of its own (#272).
 # =============================================================================
 
 def check_backend_running() -> bool:
@@ -307,71 +308,6 @@ def check_backend_running() -> bool:
         r = requests.get("http://127.0.0.1:8000/api/accounts/", timeout=5)
         return r.ok
     except Exception:
-        return False
-
-
-def run_comprehensive_transaction_tests() -> bool:
-    """Run the comprehensive transaction test suite."""
-    project_root = Path(__file__).parent.parent.parent
-    test_script = project_root / "backend" / "tests" / "test_comprehensive_transactions.py"
-
-    if not test_script.exists():
-        record_result("Transaction Integrity", "Comprehensive transaction tests", False, "test script not found")
-        return False
-
-    try:
-        result = subprocess.run(
-            [sys.executable, str(test_script)],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            cwd=str(project_root)
-        )
-
-        # Check for success message in output
-        passed = "ALL TESTS PASSED" in result.stdout
-
-        if not passed:
-            # Extract failure count
-            match = re.search(r'(\d+) TEST\(S\) FAILED', result.stdout)
-            details = match.group(0) if match else "Tests failed"
-        else:
-            details = ""
-
-        record_result("Transaction Integrity", "Comprehensive transaction tests", passed, details)
-        return passed
-    except subprocess.TimeoutExpired:
-        record_result("Transaction Integrity", "Comprehensive transaction tests", False, "Timeout (>120s)")
-        return False
-    except Exception as e:
-        record_result("Transaction Integrity", "Comprehensive transaction tests", False, str(e))
-        return False
-
-
-def run_backdated_fifo_test() -> bool:
-    """Run the backdated FIFO recalculation test."""
-    project_root = Path(__file__).parent.parent.parent
-    test_script = project_root / "backend" / "tests" / "test_backdated_fifo.py"
-
-    if not test_script.exists():
-        record_result("Transaction Integrity", "Backdated FIFO recalculation", False, "test script not found")
-        return False
-
-    try:
-        result = subprocess.run(
-            [sys.executable, str(test_script)],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            cwd=str(project_root)
-        )
-
-        passed = "PASS" in result.stdout and "FAIL" not in result.stdout
-        details = "" if passed else "Backdated recalculation failed"
-        record_result("Transaction Integrity", "Backdated FIFO recalculation", passed, details)
-        return passed
-    except Exception as e:
-        record_result("Transaction Integrity", "Backdated FIFO recalculation", False, str(e))
         return False
 
 
@@ -686,18 +622,6 @@ def run_api_tests(quick: bool = False) -> int:
         return 0
 
     failures = 0
-
-    # Transaction integrity tests
-    log("Transaction Integrity Tests", "SECTION")
-    print()
-
-    if not quick:
-        if not run_comprehensive_transaction_tests():
-            failures += 1
-        if not run_backdated_fifo_test():
-            failures += 1
-    else:
-        log("Skipping comprehensive tests (--quick mode)", "WARN")
 
     # Report generation tests
     log("Report Generation Tests", "SECTION")

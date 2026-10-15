@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Test Suite: Volume/Stress Testing, Edge Cases, and IRS Form Validation
 
@@ -10,8 +9,8 @@ This pytest-compatible test suite covers:
 5. Schedule D totals verification
 6. Year-specific form differences (2024 vs 2025)
 
-Run: pytest backend/tests/test_stress_and_forms.py -v
-Requires: Backend running at http://127.0.0.1:8000
+Run: pytest backend/tests/test_stress_and_forms.py -v (conftest.py gives it
+a temp database and a logged-in client)
 """
 
 import pytest
@@ -2037,10 +2036,3 @@ class TestBuyFromBank:
         )
         assert buy_lot is not None, "Should create a Bitcoin lot"
 
-
-# =============================================================================
-# MAIN EXECUTION (for running outside pytest)
-# =============================================================================
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

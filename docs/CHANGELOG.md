@@ -144,6 +144,19 @@ All notable changes to BitcoinTX are documented in this file.
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
 
+### Development
+- **Test files run under pytest only** (#272). Five test files could also
+  run on their own, and every one failed that way: two were old scripts
+  for a server at `127.0.0.1:8000` with no pytest test in them (removed:
+  `test_backdated_fifo.py` and `test_user_patch.py`, whose scenarios other
+  tests cover), one ran `pytest` from the PATH, and two lacked conftest.py's
+  setup (stubbed prices, temp folders), so they also wrote `setup-code.txt`
+  into `backend/`. The runners are gone; a test checks no test file gets
+  one back. `pre_commit_tests.py`, which CI runs as a script, keeps its
+  own and no longer runs the two removed scripts. `.gitignore` now ignores
+  `setup-code.txt` and `*.orig` (a comment after the pattern made it match
+  nothing).
+
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
 ### Added

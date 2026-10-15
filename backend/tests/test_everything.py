@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 COMPREHENSIVE TEST SUITE - Tests EVERYTHING in BitcoinTX
 
@@ -11,26 +10,17 @@ This script performs end-to-end testing of all app functionality:
 6. Account balance verification
 7. Short-term vs Long-term gains verification
 
-Usage:
-    python backend/tests/test_everything.py [--skip-seed] [--verbose]
-
-Options:
-    --skip-seed    Don't reset database, use existing data
-    --verbose      Show detailed output
-
-Runs in-process on a temporary database (pytest, or directly as a script).
+Run with pytest (`make test-fast`, or `python -m pytest` on this file):
+conftest.py gives it a temp database, stubbed prices and a logged-in
+client. It has no runner of its own (#272).
 """
 
 from __future__ import annotations
 
-from backend.tests.conftest import default_login, remove_temp_db, temp_db_file
-
-import argparse
 import csv
 import io
 import json
 import os
-import sys
 import tempfile
 from decimal import Decimal
 from pathlib import Path
@@ -51,19 +41,6 @@ ACCOUNT_EXCHANGE_BTC = 4
 ACCOUNT_BTC_FEES = 5
 ACCOUNT_USD_FEES = 6
 ACCOUNT_EXTERNAL = 99
-
-# Test tracking
-class RunResults:
-    def __init__(self):
-        self.total = 0
-        self.passed = 0
-        self.failed = 0
-        self.skipped = 0
-        self.failures: List[str] = []
-        self.warnings: List[str] = []
-
-RESULTS = RunResults()
-VERBOSE = False
 
 # Authenticated TestClient (set by autouse fixture from conftest.py)
 CLIENT: TestClient = None
@@ -124,56 +101,31 @@ def subsection(title: str):
 # =============================================================================
 
 def assert_true(condition: bool, description: str) -> bool:
-    RESULTS.total += 1
     if condition:
-        RESULTS.passed += 1
         log(description, "PASS")
         return True
-    else:
-        RESULTS.failed += 1
-        RESULTS.failures.append(description)
-        log(description, "FAIL")
-        raise AssertionError(description)
+    log(description, "FAIL")
+    raise AssertionError(description)
 
 
 def assert_equal(actual, expected, description: str, tolerance: float = 0.01) -> bool:
-    RESULTS.total += 1
-
     if isinstance(actual, (int, float, Decimal)) and isinstance(expected, (int, float, Decimal)):
         actual_f = float(actual)
         expected_f = float(expected)
         if abs(actual_f - expected_f) < tolerance:
-            RESULTS.passed += 1
-            if VERBOSE:
-                log(f"{description}: {actual_f} == {expected_f}", "PASS")
-            else:
-                log(description, "PASS")
+            log(f"{description}: {actual_f} == {expected_f}", "PASS")
             return True
-        else:
-            RESULTS.failed += 1
-            msg = f"{description}: Expected {expected_f}, got {actual_f}"
-            RESULTS.failures.append(msg)
-            log(msg, "FAIL")
-            raise AssertionError(msg)
+        msg = f"{description}: Expected {expected_f}, got {actual_f}"
     else:
         if actual == expected:
-            RESULTS.passed += 1
-            if VERBOSE:
-                log(f"{description}: {actual} == {expected}", "PASS")
-            else:
-                log(description, "PASS")
+            log(f"{description}: {actual} == {expected}", "PASS")
             return True
-        else:
-            RESULTS.failed += 1
-            msg = f"{description}: Expected {expected}, got {actual}"
-            RESULTS.failures.append(msg)
-            log(msg, "FAIL")
-            raise AssertionError(msg)
+        msg = f"{description}: Expected {expected}, got {actual}"
+    log(msg, "FAIL")
+    raise AssertionError(msg)
 
 
 def skip_test(description: str, reason: str):
-    RESULTS.total += 1
-    RESULTS.skipped += 1
     log(f"{description} - SKIPPED: {reason}", "SKIP")
 
 
@@ -270,12 +222,10 @@ def test_seed_database():
             created += 1
         else:
             failed += 1
-            if VERBOSE:
-                log(f"Failed to create tx {tx.get('id')}: {result}", "WARN")
+            log(f"Failed to create tx {tx.get('id')}: {result}", "WARN")
 
     assert_true(created > 0, f"Seeded {created} transactions")
     if failed > 0:
-        RESULTS.warnings.append(f"{failed} transactions failed to seed")
         log(f"{failed} transactions failed to seed", "WARN")
 
     # Verify count
@@ -362,12 +312,8 @@ def test_reports():
             if r.status_code == 200:
                 is_pdf = r.content[:4] == b'%PDF'
                 assert_true(is_pdf, f"Complete Tax Report {year} is valid PDF")
-                if VERBOSE:
-                    log(f"  PDF size: {len(r.content)} bytes", "INFO")
             elif r.status_code == 404:
                 log(f"Complete Tax Report {year}: No data (acceptable)", "PASS")
-                RESULTS.total += 1
-                RESULTS.passed += 1
             else:
                 assert_true(False, f"Complete Tax Report {year} - HTTP {r.status_code}")
         except Exception as e:
@@ -382,8 +328,6 @@ def test_reports():
             elif r.status_code in (400, 404):
                 # 400 can mean no taxable events for the year
                 log(f"IRS Forms {year}: No taxable events (acceptable)", "PASS")
-                RESULTS.total += 1
-                RESULTS.passed += 1
             else:
                 assert_true(False, f"IRS Forms {year} - HTTP {r.status_code}")
         except Exception as e:
@@ -398,8 +342,6 @@ def test_reports():
                 assert_true(is_csv, f"Transaction History CSV {year} is valid")
             elif r.status_code == 404:
                 log(f"Transaction History CSV {year}: No data (acceptable)", "PASS")
-                RESULTS.total += 1
-                RESULTS.passed += 1
             else:
                 assert_true(False, f"Transaction History CSV {year} - HTTP {r.status_code}")
         except Exception as e:
@@ -414,8 +356,6 @@ def test_reports():
                 assert_true(is_pdf, f"Transaction History PDF {year} is valid PDF")
             elif r.status_code == 404:
                 log(f"Transaction History PDF {year}: No data (acceptable)", "PASS")
-                RESULTS.total += 1
-                RESULTS.passed += 1
             else:
                 assert_true(False, f"Transaction History PDF {year} - HTTP {r.status_code}")
         except Exception as e:
@@ -472,7 +412,6 @@ def test_csv_roundtrip():
         assert_true(imported_count > 0, f"Imported {imported_count} transactions")
 
         if errors:
-            RESULTS.warnings.append(f"Import had {len(errors)} errors")
             log(f"Import had {len(errors)} errors", "WARN")
             for err in errors[:5]:
                 log(f"  - {err}", "WARN")
@@ -658,7 +597,6 @@ def test_transaction_types():
             assert_true(True, f"Withdrawal purpose '{p}' exists")
         else:
             log(f"Withdrawal purpose '{p}' not found (optional)", "WARN")
-            RESULTS.warnings.append(f"Missing withdrawal purpose: {p}")
 
     subsection("Deposit Source Coverage")
 
@@ -674,7 +612,6 @@ def test_transaction_types():
             assert_true(True, f"Deposit source '{s}' exists")
         else:
             log(f"Deposit source '{s}' not found (optional)", "WARN")
-            RESULTS.warnings.append(f"Missing deposit source: {s}")
 
 
 # =============================================================================
@@ -748,131 +685,3 @@ def test_authenticated_endpoints():
     # Should fail gracefully with 400
     assert_true(r.status_code == 400, "Empty CSV import rejected properly")
 
-
-# =============================================================================
-# MAIN
-# =============================================================================
-
-def print_summary():
-    """Print test summary."""
-    print()
-    print(colored("=" * 70, Colors.BOLD))
-    print(colored("  TEST SUMMARY", Colors.BOLD))
-    print(colored("=" * 70, Colors.BOLD))
-    print()
-
-    print(f"  Total Tests:  {RESULTS.total}")
-    print(f"  {colored('Passed:', Colors.GREEN)}     {RESULTS.passed}")
-    print(f"  {colored('Failed:', Colors.RED)}     {RESULTS.failed}")
-    print(f"  {colored('Skipped:', Colors.YELLOW)}    {RESULTS.skipped}")
-    print()
-
-    if RESULTS.failures:
-        print(colored("  FAILURES:", Colors.RED))
-        for f in RESULTS.failures[:20]:
-            print(f"    - {f}")
-        if len(RESULTS.failures) > 20:
-            print(f"    ... and {len(RESULTS.failures) - 20} more")
-        print()
-
-    if RESULTS.warnings:
-        print(colored("  WARNINGS:", Colors.YELLOW))
-        for w in RESULTS.warnings[:10]:
-            print(f"    - {w}")
-        if len(RESULTS.warnings) > 10:
-            print(f"    ... and {len(RESULTS.warnings) - 10} more")
-        print()
-
-    if RESULTS.failed == 0:
-        print(colored("  ✅ ALL TESTS PASSED!", Colors.GREEN))
-    else:
-        print(colored(f"  ❌ {RESULTS.failed} TEST(S) FAILED", Colors.RED))
-
-    print()
-
-    return RESULTS.failed
-
-
-def main():
-    global VERBOSE, CLIENT
-
-    parser = argparse.ArgumentParser(description="Comprehensive test suite for BitcoinTX")
-    parser.add_argument("--skip-seed", action="store_true", help="Skip database reset and seeding")
-    parser.add_argument("--verbose", action="store_true", help="Show detailed output")
-    args = parser.parse_args()
-
-    VERBOSE = args.verbose
-
-    print()
-    print(colored("=" * 70, Colors.BOLD))
-    print(colored("  BITCTX COMPREHENSIVE TEST SUITE", Colors.BOLD))
-    print(colored("=" * 70, Colors.BOLD))
-    print()
-
-    # Set up isolated test database and TestClient
-    from backend.tests.conftest import init_test_db
-    from backend.database import get_db
-    from backend.main import app
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    db_file = temp_db_file()  # its own folder: the copies made beside it go too
-    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
-    init_test_db(engine)
-
-    TestSessionLocal = sessionmaker(bind=engine)
-
-    def override_get_db():
-        db = TestSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-    CLIENT = TestClient(app)
-    r = CLIENT.post("/api/login", json=default_login())
-    if r.status_code != 200:
-        print(colored(f"ERROR: Login failed: {r.status_code}", Colors.RED))
-        sys.exit(1)
-
-    log("TestClient ready (isolated database)", "PASS")
-
-    # Run tests
-    try:
-        if not args.skip_seed:
-            section("DATABASE SETUP")
-            test_database_reset()
-            test_seed_database()
-        else:
-            log("Skipping database reset/seed (--skip-seed)", "WARN")
-
-        test_api_endpoints()
-        test_reports()
-        test_csv_roundtrip()
-        test_fifo_integrity()
-        test_gains_losses()
-        test_transaction_types()
-        test_holding_periods()
-        test_authenticated_endpoints()
-
-    except KeyboardInterrupt:
-        print()
-        log("Tests interrupted by user", "WARN")
-    except Exception as e:
-        print()
-        log(f"Test suite error: {e}", "FAIL")
-        RESULTS.failed += 1
-
-    # Cleanup
-    app.dependency_overrides.clear()
-    engine.dispose()
-    remove_temp_db(db_file)
-
-    # Summary
-    failures = print_summary()
-    return 1 if failures > 0 else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
