@@ -153,6 +153,30 @@ All notable changes to BitcoinTX are documented in this file.
   until the delete is done and is kept. If another save holds the lock too
   long (more than 5 seconds), nothing is copied or deleted, and the message
   says to try again. Not seen in use: the gaps were a few milliseconds.
+- **The CSV preview refuses the fee accounts, dollar amounts past the cent
+  and transfers across currencies** (#266). Settings → Import Transactions
+  (CSV) → **Preview** called these rows valid, and **Import** then refused
+  them, the whole file with them: a row naming the ledger's own BTC Fees
+  or USD Fees account (a withdrawal from BTC Fees wasn't even asked for its
+  purpose), a dollar amount with more than 2 decimal places, and a
+  transfer between a dollar account and a bitcoin account. Preview now
+  refuses each of them with the reason, as the import does; so do the AI
+  connector's entry check and the River import, which share the row check.
+  Nothing wrong was ever saved: the import is all or nothing. A few other
+  rows still pass Preview and fail only at Import (#285).
+
+### Development
+- **The Ledger Review click-through test no longer hangs now and then**
+  (#275, which #189 also was). The test fakes a failed apply with a
+  Playwright route used once. As that route expires, Playwright turns its
+  request interception off, and the review's reload, which the browser
+  paused in that moment, was never continued: it never left the browser,
+  the panel stayed on "Checking..." until the test timed out, and the
+  required Chromium check failed now and then. The test now keeps one
+  route for the whole test, refusing the first apply and passing the rest
+  through, and a lint rule refuses a `times` route or an unroute in the
+  click-through tests. BitcoinTX itself was never at fault: the server was
+  never asked.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

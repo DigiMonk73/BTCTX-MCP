@@ -28,7 +28,7 @@ updates:
       # Deferred: output drift in the tax report PDFs (MAINTENANCE.md)
       - dependency-name: reportlab
         versions: [">=4.5"]
-      # Deferred: 2.1 needs Python 3.11; BitcoinTX supports 3.10
+      # Deferred: 2.1 needs Python 3.11; the app still supports 3.10 from source (MAINTENANCE.md)
       - dependency-name: sqlalchemy
         versions: [">=2.1"]
 
