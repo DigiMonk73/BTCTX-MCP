@@ -1,6 +1,6 @@
 # The frontend is built on the build machine's own architecture: the output
 # is static files, so a multi-arch build doesn't run npm under emulation.
-FROM --platform=$BUILDPLATFORM node:22-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS frontend-builder
 
 WORKDIR /app/frontend
 # The manifests first, so a source-only change reuses the npm ci layer.
