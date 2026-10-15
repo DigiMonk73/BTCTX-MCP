@@ -1673,6 +1673,7 @@ FEE_CURRENCY_UNKNOWN = "fee_currency must be USD or BTC."
 TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or other control character."
 DEPOSIT_SOURCE_UNKNOWN = "A deposit's source must be one of: " + ", ".join(DEPOSIT_SOURCES) + "."
 SAME_ACCOUNT_NEEDS_FEE = "A move within the same account records only its network fee: enter the fee."
+USD_AMOUNT_CENTS = "A USD amount can have at most 2 decimal places."
 
 # The API's rule for each money field (schemas/transaction.py), checked here
 # too, on the value and on the value as stored: the imports build their rows
@@ -1785,11 +1786,16 @@ def _check_amount(data: dict, tx_type: str, from_acct: Account | None, to_acct: 
     amount = Decimal(amount)
     # The account the amount is counted in: the sender, or for a deposit the receiver.
     main_acct = to_acct if tx_type in ("Deposit", "Buy") else from_acct
-    if main_acct is not None and main_acct.currency == "USD" and tx_type != "Buy":
-        if -amount.normalize().as_tuple().exponent > 2:
-            _bad("A USD amount can have at most 2 decimal places.")
+    if main_acct is not None and main_acct.currency == "USD" and tx_type != "Buy" and past_the_cent(amount):
+        _bad(USD_AMOUNT_CENTS)
     if main_acct is not None and main_acct.currency == "BTC" and amount > MAX_BTC:
         _bad("A BTC amount can't be more than 21,000,000.")
+
+
+def past_the_cent(amount: Decimal) -> bool:
+    """More than 2 decimal places, trailing zeros aside ("1.230" has 2): the
+    save's rule for an amount counted in dollars, the CSV preview's too."""
+    return -amount.normalize().as_tuple().exponent > 2
 
 
 def _check_not_negative(data: dict, fee: Decimal) -> None:

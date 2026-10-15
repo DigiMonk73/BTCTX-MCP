@@ -6,11 +6,16 @@ what the import would (#266).
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
+from fastapi import HTTPException
+from sqlalchemy.orm import sessionmaker
 
-from backend.services.csv_import import parse_csv_file
+from backend.constants import ACCOUNT_NAME_TO_ID
+from backend.services.csv_import import _default_fee_currency, parse_csv_file
+from backend.services.transaction import create_transaction_record
 
 HEADER = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes"
 CHICAGO = ZoneInfo("America/Chicago")
@@ -167,7 +172,8 @@ def test_a_usd_amount_with_trailing_zeros_has_its_cents_only():
 
 @pytest.mark.parametrize("row, message", REFUSED_AT_IMPORT)
 def test_a_row_the_preview_passes_is_saved(auth_client, row, message):
-    """The preview and the import agree, each way (#266)."""
+    """What the preview passes, the import saves; what it refuses, it
+    can't import (#266)."""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     funds = "2024-01-01,Deposit,1000,External,Bank,,,,,,,\n2024-01-01,Deposit,1,External,Wallet,100,,,,MyBTC,,\n"
     content = {"file": ("rows.csv", f"{HEADER}\n{funds}{row}\n".encode(), "text/csv")}
@@ -177,3 +183,33 @@ def test_a_row_the_preview_passes_is_saved(auth_client, row, message):
         assert auth_client.post("/api/import/execute", files=content).status_code == 200
         assert len(auth_client.get("/api/transactions").json()) == 3
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def _save_data(row: str) -> dict:
+    """A refused row as the save would get it: its type, time, amount and accounts."""
+    date, tx_type, amount, from_name, to_name = row.split(",")[:5]
+    from_id, to_id = (ACCOUNT_NAME_TO_ID[n.strip().lower()] for n in (from_name, to_name))
+    return {
+        "type": tx_type, "timestamp": datetime(2024, 1, 5, 18, tzinfo=timezone.utc), "amount": Decimal(amount),
+        "from_account_id": from_id, "to_account_id": to_id, "fee_amount": Decimal(0),
+        "fee_currency": _default_fee_currency(tx_type, from_id), "purpose": "Spent",
+    }
+
+
+# What the save says for each of the preview's reasons
+SAVE_SAYS = {FEE_ACCOUNT.format("btc fees"): "Unknown account id 5.", FEE_ACCOUNT.format("usd fees"): "Unknown account id 6.",
+             USD_CENTS: USD_CENTS, ONE_CURRENCY: "Transfer => same currency required."}
+
+
+@pytest.mark.parametrize("row, message", [(r, m) for r, m in REFUSED_AT_IMPORT if m])
+def test_the_save_refuses_each_row_the_preview_refuses(test_engine, row, message):
+    """The preview is never stricter than the save (#266's review): if the
+    save ever takes one of these rows, the preview's rule has to go too."""
+    db = sessionmaker(bind=test_engine)()
+    try:
+        with pytest.raises(HTTPException) as refused:
+            create_transaction_record(_save_data(row), db, auto_commit=False)
+        assert refused.value.detail == SAVE_SAYS[message]
+    finally:
+        db.rollback()
+        db.close()

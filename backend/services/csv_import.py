@@ -21,10 +21,11 @@ from backend.schemas.transaction import (
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
+    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USD_AMOUNT_CENTS, USER_ACCOUNTS,
     create_transaction_record,
     has_control_character,
     original_date_problem,
+    past_the_cent,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.tax_time import local_noon_utc
@@ -298,10 +299,10 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
 
 
 def _check_usd_amount(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int) -> None:
-    """The save's rule for an amount in dollars (transaction._check_amount,
+    """The save's rule for an amount in dollars (transaction.past_the_cent,
     #266): cents at most. The column itself takes a BTC amount's 8 places."""
-    if _amount_currency(tx_type, from_id, to_id) == "USD" and -amount.normalize().as_tuple().exponent > USD_PLACES:
-        raise _Rejected(_error(row_number, "amount", "A USD amount can have at most 2 decimal places."))
+    if _amount_currency(tx_type, from_id, to_id) == "USD" and past_the_cent(amount):
+        raise _Rejected(_error(row_number, "amount", USD_AMOUNT_CENTS))
 
 
 def _required_accounts(row: dict[str, str], row_number: int) -> tuple[str, int, str, int]:
