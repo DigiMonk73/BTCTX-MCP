@@ -1,7 +1,7 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { optionalDecimal, parseDecimal } from "./format";
-import { isNotSold } from "./purposes";
+import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -152,15 +152,6 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
   };
 }
 
-const DEPOSIT_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];
-
-/** A saved deposit's source as the form lists it: a row saved before 1.1.0
- * may say "inherited", which is Inherited (#154). */
-function depositSource(saved: string | null | undefined): DepositSource {
-  const wanted = (saved ?? "N/A").trim().toLowerCase();
-  return DEPOSIT_SOURCES.find((s) => s.toLowerCase() === wanted) ?? (saved as DepositSource);
-}
-
 /** Each type's own form fields, read back from a saved transaction. */
 const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
   Deposit: (tx) => {
@@ -169,7 +160,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      source: depositSource(tx.source),
+      source: listedSource(tx.source),
     };
   },
   Withdrawal: (tx) => {
@@ -178,7 +169,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
-      purpose: (tx.purpose ?? "N/A") as WithdrawalPurpose,
+      purpose: listedPurpose(tx.purpose),
       // Stored proceeds_usd is net of the BTC fee; edit the user's gross
       proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
     };
