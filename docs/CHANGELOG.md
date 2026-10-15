@@ -236,6 +236,14 @@ All notable changes to BitcoinTX are documented in this file.
   as the CSV import does.
 
 ### Development
+- **The certificate test no longer fails 1 run in 256** (#299).
+  `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
+  writing `AB` over the first byte; when the test server's new certificate
+  already began with `AB`, nothing changed, the app rightly trusted it, and
+  the required Python check failed. It now changes the first byte whatever
+  it is. And `scripts/equivalence_check.py` no longer reports the
+  `open_sessions` setting, whose login session hashes are new on every run,
+  as a difference in every ledger.
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
   (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
   and CI still tests 3.10; deferred in #294). Nothing that ships changes;
