@@ -151,6 +151,23 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **An old gift, donation or lost coins saved with spaces in its purpose is
+  no longer a sale** (tax figures, #342). Before 0.9.2 a withdrawal's
+  purpose was saved as typed, and before 1.1.0 a deposit's source, so an
+  old ledger can hold `" gift "` or `" Income "`. The screens read those as
+  Gift and Income, but the figures didn't. A bitcoin withdrawal of
+  `" gift "`, `" donation "` or `" lost "` counted as a sale on Form 8949
+  (at $0 when nothing was recorded as received, so its whole basis showed
+  as a loss), and was missing from the tax report's gifts. A deposit of `" Income "`, `" Interest "` or `" Reward "` was left
+  out of the income totals, and `" Rebate "` out of the rebates. Ledger
+  Review listed `" spent "` as a purpose it didn't know. Every version
+  through 1.2.8. Now each counts exactly as its listed spelling, everywhere.
+  **Affected:** only ledgers started before 0.9.2 (a purpose) or 1.1.0 (a
+  source) that hold such a row; Gift, `"GIFT"` and blank always worked.
+  **What to do:** Ledger Review's "figures a recalculation would change"
+  shows what moves. Then Recalculate Ledger (any edit or delete does it
+  too). If you filed a return from BitcoinTX's figures, a gift, donation or
+  loss listed there as a sale, or income left out, would be in that year.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

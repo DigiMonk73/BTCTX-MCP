@@ -88,7 +88,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
@@ -408,7 +408,7 @@ def build_review(db: Session) -> dict[str, Any]:
 def _row_issues(t: Transaction, tz):
     """(check, item) for each check a withdrawal or deposit fails on its own."""
     yield from _purpose_issues(t, tz)
-    purpose = (t.purpose or "").lower()
+    purpose = normalized(t.purpose)
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0:
         yield "zero_proceeds_spend", _item(
@@ -423,13 +423,13 @@ def _row_issues(t: Transaction, tz):
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() in DATED_FROM_DEPOSIT and t.acquired_at is None:
+            and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() == INHERITED_SOURCE and t.acquired_at is None:
+            and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
         yield "inherited_without_date", _item(t, tz, "No date of death.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and (t.source or "").lower() not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
+            and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _item(
             t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
             "A basis you enter lowers the gain when this BTC is sold by the same amount.",
@@ -439,7 +439,7 @@ def _row_issues(t: Transaction, tz):
 def _purpose_issues(t: Transaction, tz):
     """A BTC withdrawal with a purpose BitcoinTX doesn't know (#61)."""
     if t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS \
-            and (t.purpose or "").lower() not in KNOWN_PURPOSES:
+            and normalized(t.purpose) not in KNOWN_PURPOSES:
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
         yield "withdrawal_purpose_unknown", _item(
             t, tz, f"Purpose {named}: {_counted_as(t)}",
@@ -540,11 +540,11 @@ def _day_priced_item(t: Transaction, tz, change: dict[str, Any]) -> dict[str, An
 
 def _is_valued_deposit(t: Transaction) -> bool:
     """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in DAY_VALUED
+    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in DAY_VALUED
 
 
 def _is_income(t: Transaction) -> bool:
-    return (t.source or "").lower() in INCOME_SOURCES
+    return normalized(t.source) in INCOME_SOURCES
 
 
 def _income_without_value_items(db: Session, rows: list[Transaction], tz, missing: list[int]) -> list[dict[str, Any]]:
@@ -580,7 +580,7 @@ def _gift_without_value_items(db: Session, rows: list[Transaction], tz, missing:
     items = []
     for t in rows:
         if not (t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
-                and (t.purpose or "").lower() in GIFT_LIKE_PURPOSES and _is_zero_or_blank(t.fmv_usd)):
+                and normalized(t.purpose) in GIFT_LIKE_PURPOSES and _is_zero_or_blank(t.fmv_usd)):
             continue
         issue = "Value blank: the tax report lists it as not given" if t.fmv_usd is None else "Value $0.00"
         market = _market_price(db, t, missing)

@@ -32,7 +32,7 @@ from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 
 logger = logging.getLogger(__name__)
 
@@ -308,7 +308,7 @@ def _date_acquired(txn: Transaction, tz) -> str:
     """
     if txn.acquired_at is None:
         return ""
-    if txn.acquired_at > local_date(txn.timestamp, tz) and (txn.source or "").lower() != INHERITED_SOURCE:
+    if txn.acquired_at > local_date(txn.timestamp, tz) and normalized(txn.source) != INHERITED_SOURCE:
         return ""
     return txn.acquired_at.isoformat()
 
@@ -325,7 +325,7 @@ def _export_row(txn: Transaction, tz) -> dict[str, str]:
     """
     txn_type = (txn.type or "").lower()
     btc_fee = (txn.fee_currency or "").upper() == "BTC" and bool(txn.fee_amount)
-    gift_like = txn_type == "withdrawal" and (txn.purpose or "").lower() in GIFT_LIKE_PURPOSES
+    gift_like = txn_type == "withdrawal" and normalized(txn.purpose) in GIFT_LIKE_PURPOSES
     entered_proceeds = txn.gross_proceeds_usd if txn.gross_proceeds_usd is not None else txn.proceeds_usd
     return {
         "date": txn.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.timestamp else "",
@@ -355,7 +355,7 @@ def _export_row(txn: Transaction, tz) -> dict[str, str]:
 def _proceeds_typed(txn: Transaction) -> str:
     """A Spent's proceeds: yes if typed, no if priced (an edit prices them
     again); blank otherwise."""
-    spent = (txn.type or "").lower() == "withdrawal" and (txn.purpose or "").lower() == "spent"
+    spent = (txn.type or "").lower() == "withdrawal" and normalized(txn.purpose) == "spent"
     if not spent or txn.gross_proceeds_usd is None:
         return ""
     return "no" if txn.proceeds_from_price else "yes"
@@ -364,7 +364,7 @@ def _proceeds_typed(txn: Transaction) -> str:
 def _basis_typed(txn: Transaction) -> str:
     """An income or rebate deposit's basis: yes if typed, no if priced (so a
     re-import keeps re-pricing it on edits, #76); blank otherwise."""
-    valued = (txn.type or "").lower() == "deposit" and (txn.source or "").lower() in VALUED_AT_RECEIPT \
+    valued = (txn.type or "").lower() == "deposit" and normalized(txn.source) in VALUED_AT_RECEIPT \
         and txn.to_account_id in BTC_ACCOUNTS
     if not valued or txn.cost_basis_usd is None:
         return ""

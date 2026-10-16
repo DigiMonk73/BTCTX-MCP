@@ -37,6 +37,9 @@ cleanup commit, never inside a behaviour change.
    - Errors: `HTTPException` with the exact user-facing text; the tests, the
      frontend and the MCP guide match on it.
    - `except`: the narrowest exception the code expects.
+   - A saved purpose or source: compared through `constants.normalized`
+     (lowercase, trimmed, as the screens read it), never `.lower()` alone,
+     and in Python rather than SQL (#342).
    - Logs: no amounts, dates or addresses at INFO or above
      (`test_privacy.py`); no DEBUG line that only echoes a function's input
      or every row.

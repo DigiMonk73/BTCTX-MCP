@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -250,7 +250,7 @@ def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
         if not _is_btc_deposit(tx) or not tx.source:
             continue
         deposit_usd = tx.cost_basis_usd or Decimal("0.0")
-        source_lower = tx.source.lower()
+        source_lower = normalized(tx.source)
 
         if source_lower == "income":
             total_income += deposit_usd
@@ -425,7 +425,7 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
     for tx in txns:
         if not _is_btc_deposit(tx) or not tx.source:
             continue
-        source_lower = tx.source.lower()
+        source_lower = normalized(tx.source)
         if source_lower not in ("income", "reward", "interest"):
             continue
 
@@ -457,7 +457,7 @@ def _build_rebates(txns: list[Transaction]) -> list[dict[str, Any]]:
     value at receipt is its cost basis, and it is never income."""
     return [{"date": tx.timestamp.isoformat() if tx.timestamp else "", "amount": float(tx.amount or 0),
              "value_usd": float(tx.cost_basis_usd or 0)}
-            for tx in txns if _is_btc_deposit(tx) and (tx.source or "").lower() == REBATE_SOURCE]
+            for tx in txns if _is_btc_deposit(tx) and normalized(tx.source) == REBATE_SOURCE]
 
 
 def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]:
@@ -471,7 +471,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
             continue
         if not tx.purpose:
             continue
-        purpose_lower = tx.purpose.lower()
+        purpose_lower = normalized(tx.purpose)
         if purpose_lower in GIFT_LIKE_PURPOSES:
             row = {
                 "date": tx.timestamp.isoformat() if tx.timestamp else "",
@@ -518,7 +518,7 @@ def _from_where(tx: Transaction, db: Session | None, years: dict) -> str:
 
 def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
     """(what, USD, which price) for each of a transaction's values from a price."""
-    source = (tx.source or "").lower()
+    source = normalized(tx.source)
     if tx.cost_basis_from_price and tx.cost_basis_usd is not None and _is_btc_deposit(tx) \
             and source in VALUED_AT_RECEIPT:
         if source == INHERITED_SOURCE and tx.acquired_at is not None:
@@ -528,10 +528,10 @@ def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
             name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
             yield name, tx.cost_basis_usd, _price_used(tx)
     if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and tx.type == "Withdrawal" \
-            and (tx.purpose or "").lower() == "spent":
+            and normalized(tx.purpose) == "spent":
         yield "Proceeds (before fees)", tx.gross_proceeds_usd, _price_used(tx)
     if tx.fmv_from_price and tx.fmv_usd is not None and tx.type == "Withdrawal" \
-            and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+            and normalized(tx.purpose) in GIFT_LIKE_PURPOSES:
         yield "Value (fair market value)", tx.fmv_usd, _price_used(tx)
     if tx.fee_usd is not None and not tx.fee_usd_manual and (tx.fee_currency or "").upper() == "BTC" \
             and Decimal(tx.fee_amount or 0) > 0:

@@ -25,7 +25,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.migrate import REVIEW_COPIES_KEPT, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
@@ -48,7 +48,7 @@ def hourly_changes(db: Session, ids=None, year: int | None = None, wait: bool = 
         q = q.filter(Transaction.id.in_(list(ids)))
     changes = []
     for t in q.order_by(Transaction.timestamp, Transaction.id).all():
-        if (t.source or "").lower() == INHERITED_SOURCE:
+        if normalized(t.source) == INHERITED_SOURCE:
             continue  # valued at the date of death's day by rule
         tax_year = local_date(t.timestamp, tz).year
         if year is not None and tax_year != year:
@@ -113,13 +113,13 @@ def _change_for(db: Session, t: Transaction, wait: bool) -> dict[str, Any] | Non
 def _priced_values(t: Transaction):
     """(field, stored value, BTC it values) for each value that came from a price."""
     if t.cost_basis_from_price and t.cost_basis_usd is not None and t.type == "Deposit" \
-            and t.to_account_id in BTC_ACCOUNTS and (t.source or "").lower() in VALUED_AT_RECEIPT:
+            and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in VALUED_AT_RECEIPT:
         yield "cost_basis_usd", t.cost_basis_usd, Decimal(t.amount)
     if t.proceeds_from_price and t.gross_proceeds_usd is not None and t.type == "Withdrawal" \
-            and (t.purpose or "").lower() == "spent":
+            and normalized(t.purpose) == "spent":
         yield "gross_proceeds_usd", t.gross_proceeds_usd, Decimal(t.amount)
     if t.fmv_from_price and t.fmv_usd is not None and t.type == "Withdrawal" \
-            and (t.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+            and normalized(t.purpose) in GIFT_LIKE_PURPOSES:
         yield "fmv_usd", t.fmv_usd, Decimal(t.amount)
     if t.fee_usd is not None and not t.fee_usd_manual and (t.fee_currency or "").upper() == "BTC" \
             and Decimal(t.fee_amount or 0) > 0:

@@ -8,12 +8,11 @@ import logging
 from datetime import date, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Literal
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
-from backend.constants import ACCOUNT_EXCHANGE_BTC
+from backend.constants import ACCOUNT_EXCHANGE_BTC, GIFT_LIKE_PURPOSES, normalized
 from backend.services.calculation import btc_text
 from backend.services.tax_time import format_tax_date, get_tax_timezone, local_date, tax_year_bounds
 
@@ -77,33 +76,36 @@ class Form8949Row:
 
 
 
-# Compared lower-cased, as the ledger does: rows saved before input was
-# normalized may say "gift" (they have $0 gain and aren't sales).
-# Gifts, donations and lost assets are reported separately, not as gains.
-NON_TAXABLE_PURPOSES = ('gift', 'donation', 'lost')
+# Gift, Donation and Lost withdrawals aren't sales: no gain or loss of their
+# own, reported separately (constants.GIFT_LIKE_PURPOSES, lowercase)
+NON_TAXABLE_PURPOSES = GIFT_LIKE_PURPOSES
 
 
 def taxable_disposals(db: Session, start, end) -> list[LotDisposal]:
     """
     The lot disposals that go on Form 8949 for [start, end): sales, spends
-    and network fees (a gift's fee too); not gifts, donations or lost coins. The complete tax
-    report's capital-gains sections use the same list, so they can't
-    disagree with the forms. Only a withdrawal can be a gift: a Sell is
-    always here, whatever an old type change left in its purpose.
+    and network fees (a gift's fee too); not gifts, donations or lost coins,
+    which are reported separately. The complete tax report's capital-gains
+    sections use the same list, so they can't disagree with the forms. Only
+    a withdrawal can be a gift: a Sell is always here, whatever an old type
+    change left in its purpose. The purpose is compared as the ledger
+    compares it (constants.normalized: an old row's " gift " is a gift,
+    #342), in Python, not SQL, so the two can't differ.
     """
-    return (
+    disposals = (
         db.query(LotDisposal)
           .join(LotDisposal.transaction)
+          .options(contains_eager(LotDisposal.transaction))
           .filter(Transaction.timestamp >= start, Transaction.timestamp < end)
-          .filter(
-              LotDisposal.is_fee
-              | (Transaction.type != "Withdrawal")
-              | (Transaction.purpose.is_(None))
-              | (~func.lower(Transaction.purpose).in_(NON_TAXABLE_PURPOSES))
-          )
           .order_by(Transaction.timestamp, LotDisposal.id)
           .all()
     )
+    return [d for d in disposals if d.is_fee or not _not_a_sale(d.transaction)]
+
+
+def _not_a_sale(tx: Transaction) -> bool:
+    """A Gift, Donation or Lost withdrawal."""
+    return tx.type == "Withdrawal" and normalized(tx.purpose) in NON_TAXABLE_PURPOSES
 
 
 def build_form_8949_and_schedule_d(

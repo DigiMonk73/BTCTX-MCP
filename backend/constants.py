@@ -73,6 +73,16 @@ VALUED_AT_RECEIPT = INCOME_SOURCES | {REBATE_SOURCE, INHERITED_SOURCE}
 # (lowercase). No gain or loss of their own; what they carry is their value,
 # the fair market value (fmv_usd), filled from the price when left blank (#255).
 GIFT_LIKE_PURPOSES = ("gift", "donation", "lost")
+
+
+def normalized(text) -> str:
+    """A purpose or source as the lists here hold it: lowercase, without the
+    spaces around it, as the screens read it (frontend/src/utils/purposes.ts).
+    A row saved before the input was checked (0.9.2 for a purpose, 1.1.0 for
+    a source) may say " gift " (#342); none is ""."""
+    return str(text or "").strip().lower()
+
+
 # Deposit sources whose coins can have been acquired before the deposit (a
 # date originally acquired, #91): the user's own, a gift with the giver's
 # basis, or an inheritance (the date of death)
