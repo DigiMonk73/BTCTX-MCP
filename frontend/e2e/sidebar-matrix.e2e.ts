@@ -8,7 +8,8 @@
 // names the day. The browser itself asks nobody but BitcoinTX, from its
 // first request on.
 import {
-  test, expect, outsideRequests, claimAccount, loginViaUi, fakePastPrice, CURRENT_PRICE,
+  test, expect, outsideRequests, claimAccount, loginViaUi, choosePriceSource, fakePastPrice, CURRENT_PRICE,
+  PRICE_CHOICE_SAVED, type PriceChoice,
   type App, type OutsideRequest,
 } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
@@ -29,12 +30,6 @@ const TOR_STOPPED = "socks5h://tor.invalid:9050";
 const STARTOS_MEMPOOL = "http://10.0.3.1:32768"; // fixtures: priceSource "startos"
 
 type Price = number | "not chosen yet" | "offline" | "no answer" | "No price";
-type Network = {
-  price_source: "off" | "public" | "mempool";
-  mempool_url?: string;
-  mempool_fallback?: boolean;
-  proxy_url?: string;
-};
 
 /** Every request the browser makes from now on to anywhere but BitcoinTX. */
 function watchBrowser(page: Page, app: App): string[] {
@@ -52,15 +47,6 @@ async function logIn(page: Page, app: App): Promise<string[]> {
   await claimAccount(page.request, app);
   await loginViaUi(page);
   return browser;
-}
-
-/** Save a price source as Settings → Privacy & network does, then load the page again. */
-async function choose(page: Page, network: Network) {
-  const r = await page.request.put("/api/settings/network", {
-    data: { mempool_url: null, mempool_fallback: false, proxy_url: null, ...network },
-  });
-  expect(r.ok(), await r.text()).toBeTruthy();
-  await page.reload();
 }
 
 const DAY_SECONDS = 86_400;
@@ -232,21 +218,21 @@ test("not chosen yet: nothing is asked and Manual works; picking public sites br
 
 test("off: nothing is asked; Auto and Date say so, Manual works", async ({ page, app }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "off" });
+  await choosePriceSource(page, { price_source: "off" });
   await useEveryMode(page, "offline", "No price");
   expect(sentOut(app, browser)).toEqual([]);
 });
 
 test("public sites: the prices, asked directly", async ({ page, app }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "public" });
+  await choosePriceSource(page, { price_source: "public" });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken" });
   expect(proxies(sentOut(app, browser))).toEqual([null]);
 });
 
 test("public sites through Tor: the prices, every request through the proxy", async ({ page, app }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "public", proxy_url: TOR });
+  await choosePriceSource(page, { price_source: "public", proxy_url: TOR });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken, through Tor" });
   expect(proxies(sentOut(app, browser))).toEqual([TOR]);
 });
@@ -255,21 +241,21 @@ test("public sites with Tor stopped: no price, asks whether Tor is running; noth
   page, app,
 }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "public", proxy_url: TOR_STOPPED });
+  await choosePriceSource(page, { price_source: "public", proxy_url: TOR_STOPPED });
   await useEveryMode(page, "no answer", "No price", { torDown: true });
   expect(proxies(sentOut(app, browser))).toEqual([TOR_STOPPED]);
 });
 
 test("own mempool server: the prices, from it alone", async ({ page, app }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Your Mempool" });
   expect(origins(sentOut(app, browser))).toEqual([MEMPOOL]);
 });
 
 test("own mempool server down, no backup: no price, and no public site is asked", async ({ page, app }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN });
   await useEveryMode(page, "no answer", "No price");
   expect(origins(sentOut(app, browser))).toEqual([MEMPOOL_DOWN]);
 });
@@ -278,7 +264,7 @@ test("own mempool server with the public backup: the backup isn't asked while it
   page, app,
 }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL, mempool_fallback: true });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL, mempool_fallback: true });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Your Mempool" });
   // Besides your Mempool, only the hourly history's one-time download, which the
   // backup starts when saved (#145): Bitstamp's fixed hourly blocks, no date in them
@@ -290,7 +276,7 @@ test("own mempool server down, with the public backup: the prices from the publi
   page, app,
 }) => {
   const browser = await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
   await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken" }); // the backup answered
   const sent = sentOut(app, browser).filter((r) => !historyDownload(r));
   expect(origins(sent)[0]).toBe(MEMPOOL_DOWN); // asked first
@@ -314,13 +300,16 @@ async function holdLivePrices(page: Page) {
   return { held, state };
 }
 
-/** Save a choice and send the card's event at once, while an answer may be on its way. */
-async function saveInPlace(page: Page, choice: Record<string, unknown>) {
+/**
+ * Save a choice and send the card's event at once, as choosePriceSource does
+ * but without waiting for the sidebar's answer first: one may be on its way.
+ */
+async function saveInPlace(page: Page, choice: PriceChoice) {
   const r = await page.request.put("/api/settings/network", {
     data: { mempool_url: null, mempool_fallback: false, proxy_url: null, ...choice },
   });
   expect(r.ok(), await r.text()).toBeTruthy();
-  await page.evaluate(() => window.dispatchEvent(new Event("btctx:price-choice-saved")));
+  await page.evaluate((event) => window.dispatchEvent(new Event(event)), PRICE_CHOICE_SAVED);
 }
 
 test("saved in place: an answer for the old choice arriving last is dropped (#327)", async ({ page, app }) => {
@@ -340,7 +329,7 @@ test("saved in place: an answer for the old choice arriving last is dropped (#32
 
 test("saved in place: the old price never shows the new choice's source (review of #319)", async ({ page, app }) => {
   await logIn(page, app);
-  await choose(page, { price_source: "public" });
+  await choosePriceSource(page, { price_source: "public" });
   const sidebar = page.getByRole("complementary");
   await expect(sidebar.getByText(/^Kraken · \d{1,2}:\d\d [ap]m$/)).toBeVisible();
   const live = await holdLivePrices(page);
@@ -361,11 +350,10 @@ test("Date with an hour: that hour on this device's clock, its UTC day's price h
   // The fake internet has day prices only, so the hour's price is its UTC day's.
   const browser = await logIn(page, app);
   // Tax timezone UTC, unlike this device's (#260): an hour read in the tax timezone
-  // would show the picked UTC day's price, not the device hour's. Saved before
-  // choose()'s reload: Playwright's WebKit crashes at a second one (#231).
+  // would show the picked UTC day's price, not the device hour's.
   const tz = await page.request.put("/api/settings/tax-timezone", { data: { timezone: "UTC" } });
   expect(tz.ok(), await tz.text()).toBeTruthy();
-  await choose(page, { price_source: "public" });
+  await choosePriceSource(page, { price_source: "public" });
   const sidebar = page.getByRole("complementary");
   await sidebar.getByRole("button", { name: "Date" }).click();
   await sidebar.getByLabel("Select date").fill(DAY);
@@ -402,7 +390,7 @@ test.describe("the Mac app", () => {
 
   test("off: nothing is asked; Auto and Date say so, Manual works", async ({ page, app }) => {
     const browser = await logIn(page, app);
-    await choose(page, { price_source: "off" });
+    await choosePriceSource(page, { price_source: "off" });
     await useEveryMode(page, "offline", "No price");
     expect(sentOut(app, browser)).toEqual([]);
   });

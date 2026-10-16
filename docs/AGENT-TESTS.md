@@ -996,7 +996,8 @@ point, leave it alone, touch nothing in it, and record that.
   **Export** opens a save dialog, then "Saved to: <path>", and the PDF
   matches the 2025 figures.
 - **MAC-4** Settings > Connect an AI Assistant. Expect: **Reset key**
-  instead of Create; the Setup prompt says no key or address is needed; and
+  instead of Create, and no "No AI key yet" line (#238: the app wrote its
+  key at start); the Setup prompt says no key or address is needed; and
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
   nothing after `--` except the method options; on a Mac with BitcoinTX

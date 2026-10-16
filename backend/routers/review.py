@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, conint
 from sqlalchemy.orm import Session
 
+from backend.constants import FIRST_TAX_YEAR, LAST_TAX_YEAR
 from backend.database import get_db
 from backend.services.hourly_review import apply_hourly_prices
 from backend.services.review import build_review
@@ -33,7 +34,7 @@ class HourlyPrices(BaseModel):
     """The transactions to price at their hour: these ids, or a whole tax year."""
     # One SQL IN (...) each: well under SQLite's 32,766 variables
     ids: list[conint(ge=1, le=2**63 - 1)] | None = Field(default=None, min_length=1, max_length=10000)
-    year: int | None = Field(default=None, ge=2009, le=2100)
+    year: int | None = Field(default=None, ge=FIRST_TAX_YEAR, le=LAST_TAX_YEAR)
 
 
 @router.post("/hourly-prices")
