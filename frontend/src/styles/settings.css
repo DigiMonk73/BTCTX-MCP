@@ -21,6 +21,8 @@
    it lines up with the title. An auto margin, not align-self: in a column
    (stacked or narrow) layout it does nothing. */
 .option-info { display: flex; flex-direction: column; flex: 1; min-width: 0; margin-bottom: auto; }
+/* A note inside a row (the Mac app's "No AI key yet", #238): apart from the line above */
+.option-info > .note { margin-top: var(--space-2); }
 .settings-option-title { font-size: var(--text-sm); font-weight: var(--font-medium); }
 .settings-option-subtitle {
   margin: 2px 0 0;
