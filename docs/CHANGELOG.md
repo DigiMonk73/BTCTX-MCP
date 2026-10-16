@@ -615,6 +615,30 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing used it: the connector's version notice already read the
   package's version.
 
+### StartOS package
+- **Restoring a StartOS backup, as StartOS does it** (#323). The package's
+  README said a backup made on an older version is migrated forward when
+  it's restored, and its README and instructions said to go back by
+  restoring a backup. StartOS keeps the installed package in each backup,
+  so a restore brings back the version the backup was made with (the next
+  update migrates it, and only then runs that update's steps), and it
+  restores a service only while it isn't installed. The README now says
+  what a restore brings back, and the instructions say how to go back:
+  uninstall BitcoinTX, which deletes its data (its `backups/` copies too),
+  then restore a backup made before the update; anything entered after
+  that backup is lost.
+- **Price Source & Privacy says where each Mempool goes** (#246). In
+  testing, **My Mempool on this server** was read as "my Mempool, wherever
+  it is", and no box for an address appeared, since that choice means the
+  Mempool service installed on this StartOS server. Its label now says so
+  ("installed here, recommended", or "install Mempool here first"), and
+  **Decide in BitcoinTX instead** says "also for a Mempool on another
+  machine", whose address you type in the app. The action's description
+  and its message after a Mempool choice say the same, in all five
+  languages. The instructions (in English) also say which of another
+  server's addresses to use: the one on your home network (often
+  192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
+
 ### Development
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
