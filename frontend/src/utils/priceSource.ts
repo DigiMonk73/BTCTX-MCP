@@ -169,6 +169,16 @@ export function managedBanner(s: NetworkSettingsData): string | null {
   return "Set by this server's settings (BTCTX_PRICE_SOURCE), so it can't be changed here.";
 }
 
+/**
+ * Whether a choice is "Recommended" beside "Chosen" (#145 plan 2.4, #208):
+ * your Mempool, set by StartOS and installed there (StartOS gives its address
+ * only then, and its action recommends it only then). Never on the Mac app or
+ * Docker: finding a Mempool would mean asking the network before a choice.
+ */
+export function recommended(choice: PriceSource, s: NetworkSettingsData): boolean {
+  return choice === "mempool" && s.price_source === "mempool" && s.host === "startos" && Boolean(s.mempool_url);
+}
+
 /** How a server-set address reads: StartOS's internal ones aren't for people. */
 export function shownAddress(s: NetworkSettingsData, what: "mempool" | "tor"): string | null {
   const url = what === "mempool" ? s.mempool_url : s.proxy_url;

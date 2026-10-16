@@ -4,9 +4,46 @@ import {
   PRICE_CHOICES,
   isOnion,
   managedBanner,
+  recommended,
   shownAddress,
   type NetworkSettingsData,
+  type PriceChoice,
 } from "../../utils/priceSource";
+
+/** Under the chosen one: your Mempool's address and backup, and Tor's. */
+const ChosenDetails: React.FC<{ choice: PriceChoice; settings: NetworkSettingsData }> = ({ choice: c, settings }) => {
+  const mempool = shownAddress(settings, "mempool");
+  const tor = shownAddress(settings, "tor");
+  return (
+    <>
+      {c.value === "mempool" && (
+        <span className="price-detail">
+          {mempool ?? "No address"}
+          {settings.mempool_fallback ? " · if it can't answer, public price sites" : ""}
+        </span>
+      )}
+      {tor && (c.value === "public" || settings.mempool_fallback || isOnion(settings.mempool_url ?? "")) && (
+        <span className="price-detail">Through Tor: {tor}</span>
+      )}
+    </>
+  );
+};
+
+/** One choice of the read-only list. */
+const ReadOnlyChoice: React.FC<{ choice: PriceChoice; settings: NetworkSettingsData }> = ({ choice: c, settings }) => {
+  const chosen = c.value === settings.price_source;
+  return (
+    <li className={chosen ? "price-choice chosen" : "price-choice"}>
+      <span className="price-choice-label">
+        {c.label}
+        {chosen && <span className="badge badge-accent">✓ Chosen</span>}
+        {recommended(c.value, settings) && <span className="badge">Recommended</span>}
+      </span>
+      <span className="price-help">{c.help}</span>
+      {chosen && <ChosenDetails choice={c} settings={settings} />}
+    </li>
+  );
+};
 
 /**
  * The choice the server sets (StartOS's action, or a Docker server's
@@ -15,8 +52,6 @@ import {
  */
 const ReadOnlyChoices: React.FC<{ settings: NetworkSettingsData }> = ({ settings }) => {
   const banner = managedBanner(settings);
-  const mempool = shownAddress(settings, "mempool");
-  const tor = shownAddress(settings, "tor");
   return (
     <>
       {banner && (
@@ -26,27 +61,7 @@ const ReadOnlyChoices: React.FC<{ settings: NetworkSettingsData }> = ({ settings
       )}
       {settings.invalid ? null /* the status line says so */ : (
         <ul className="price-choices read-only" aria-label="Where BitcoinTX gets newer prices">
-          {PRICE_CHOICES.map((c) => {
-            const chosen = c.value === settings.price_source;
-            return (
-              <li key={c.value} className={chosen ? "price-choice chosen" : "price-choice"}>
-                <span className="price-choice-label">
-                  {c.label}
-                  {chosen && <span className="badge badge-accent">✓ Chosen</span>}
-                </span>
-                <span className="price-help">{c.help}</span>
-                {chosen && c.value === "mempool" && (
-                  <span className="price-detail">
-                    {mempool ?? "No address"}
-                    {settings.mempool_fallback ? " · if it can't answer, public price sites" : ""}
-                  </span>
-                )}
-                {chosen && tor && (c.value === "public" || settings.mempool_fallback || isOnion(settings.mempool_url ?? "")) && (
-                  <span className="price-detail">Through Tor: {tor}</span>
-                )}
-              </li>
-            );
-          })}
+          {PRICE_CHOICES.map((c) => <ReadOnlyChoice key={c.value} choice={c} settings={settings} />)}
         </ul>
       )}
     </>

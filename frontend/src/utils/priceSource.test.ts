@@ -9,6 +9,7 @@ import {
   managedBanner,
   payloadFromForm,
   priceFormChanged,
+  recommended,
   shownAddress,
   torOffered,
   type NetworkSettingsData,
@@ -159,5 +160,30 @@ describe("Tor on StartOS (#145, the amendment's C)", () => {
     expect(form.tor).toBe(true);
     expect(priceFormChanged(saved, form)).toBe(false);
     expect(cannotSave(form)).toBeNull();
+  });
+});
+
+describe("Recommended beside Chosen (#145 plan 2.4, #208)", () => {
+  const STARTOS_MEMPOOL = "http://10.0.3.1:32768";
+  const set = (over: Partial<NetworkSettingsData>): NetworkSettingsData => ({ ...base, managed: true, ...over });
+
+  it("only your Mempool, set by StartOS and installed there", () => {
+    const startos = set({ host: "startos", price_source: "mempool", mempool_url: STARTOS_MEMPOOL });
+    expect(recommended("mempool", startos)).toBe(true);
+    expect(["public", "off"].map((c) => recommended(c as "public" | "off", startos))).toEqual([false, false]);
+  });
+
+  it("not when Mempool isn't installed (StartOS gives no address)", () => {
+    expect(recommended("mempool", set({ host: "startos", price_source: "mempool", mempool_url: null }))).toBe(false);
+  });
+
+  it("never on the Mac app or Docker, nor for public sites on StartOS", () => {
+    for (const host of ["mac", "server"] as const) {
+      expect(recommended("mempool", set({ host, price_source: "mempool", mempool_url: NODE }))).toBe(false);
+      expect(recommended("mempool", { ...base, host, price_source: "mempool", mempool_url: NODE })).toBe(false);
+    }
+    expect(recommended("public", set({ host: "startos", price_source: "public" }))).toBe(false);
+    expect(recommended("mempool", set({ host: "startos", price_source: "public", mempool_url: STARTOS_MEMPOOL })))
+      .toBe(false);
   });
 });
