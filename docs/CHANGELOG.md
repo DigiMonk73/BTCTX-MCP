@@ -176,14 +176,19 @@ All notable changes to BitcoinTX are documented in this file.
   purpose must be Spent, Gift, Donation or Lost, but a ledger started
   before then can hold one with another purpose (such as "Expenses") or
   none. Such a withdrawal counts as a sale: at the proceeds saved with it,
-  or, saved before 0.8.0 recorded them, at $0, so its whole cost basis
-  shows as a loss on Form 8949. Ledger Review didn't point them out; it now
-  lists them, saying what each counts as. Nothing changes until you choose.
-  **Affected:** ledgers started before 0.9.2 with such a withdrawal, in the
-  tax year it falls in. **What to do:** open Ledger Review, and edit each
-  withdrawal under "BTC withdrawals whose purpose isn't Spent, Gift,
-  Donation or Lost" to choose its purpose (a gift, a donation and lost
-  coins have no gain). Saving it recalculates the ledger.
+  or, saved before 0.8.0 recorded them that way, at $0, so its whole cost
+  basis shows as a loss on Form 8949. Such an older row may still show its
+  proceeds until the next recalculation sets them to $0. Ledger Review
+  didn't point them out; it now lists them, saying what each counts as and
+  naming any proceeds a recalculation would drop. Nothing changes until
+  you choose. **Affected:** ledgers started before 0.9.2 with such a
+  withdrawal, in the tax year it falls in. **What to do:** open Ledger
+  Review and, before you edit anything, write down each amount listed
+  under "BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost"
+  as saved with it: the first save recalculates the ledger, which sets
+  those to $0. Then edit each one to choose its purpose: as Spent, enter
+  what you got for it as its proceeds; a gift, a donation and lost coins
+  have no gain.
 - **Texts no longer say adding a transaction recalculates the ledger**
   (#172). Ledger Review's note on the figures Recalculate Ledger would
   change, and 1.2.8's release note on spend fees (#157), said adding any
