@@ -412,7 +412,9 @@ Start from the `clean` snapshot.
   **Gift**, `0.001` BTC, yesterday 12:00, FMV (USD) left blank. Expect: it
   saves, and **Edit** shows FMV blank, no Refresh button beside it, and
   "Its fair market value when it left. Leave blank to use the BTC price
-  when that hour began (that day's, where there's no hourly price)." Ledger Review > **Check again** lists it
+  when that hour began (that day's, where there's no hourly price). Unless
+  BitcoinTX already has that hour's price, type it: you chose Nobody."
+  (#208: where a blank value's price comes from.) Ledger Review > **Check again** lists it
   under "Gifts, donations and lost coins with a $0 or blank value" ("Value
   blank: the tax report lists it as not given (no price stored for that
   day)."). Delete the gift; Check again: "Nothing to review."
@@ -426,7 +428,7 @@ Start from the `clean` snapshot.
   Then:
   - Settings > Privacy & Network reads "Set in StartOS. To change it:
     BitcoinTX › Actions › Price Source & Privacy.", with **Public price
-    sites** marked "✓ Chosen", no choices to click and no Save button. Its
+    sites** marked "✓ Chosen" (not "Recommended"), no choices to click and no Save button. Its
     status line reads "Newer prices from public price sites. Last price …"
     once the Dashboard has shown a price.
   - Dashboard: a price above $0 and "Block Height: N" with N > 900,000.
@@ -516,8 +518,9 @@ Start from the `clean` snapshot.
   - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
     answers `"moment": "hour"`.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
-  Expect: a price and block height, and the log line "Price history from
-  your mempool server: N days". Without Mempool installed, StartOS shows
+  Expect: a price and block height, the log line "Price history from
+  your mempool server: N days", and in Settings > Privacy & Network **My
+  own Mempool** marked "✓ Chosen" and "Recommended" (#208). Without Mempool installed, StartOS shows
   the dependency as missing and the price error says to install and start
   Mempool.
 - **PRC-4b** (needs internet, not Mempool) The app's own-mempool path,

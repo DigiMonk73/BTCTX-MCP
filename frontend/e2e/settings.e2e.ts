@@ -523,6 +523,7 @@ test.describe("prices set by StartOS", () => {
     const chosen = net.locator(".price-choice.chosen");
     await expect(chosen).toContainText("My own Mempool");
     await expect(chosen).toContainText("✓ Chosen");
+    await expect(chosen.getByText("Recommended", { exact: true })).toBeVisible(); // set by StartOS (#208)
     await expect(chosen).toContainText("Mempool on this server");
     await expect(net).not.toContainText("10.0.3.1"); // StartOS's internal address isn't for people
     await expect(net.getByRole("radio")).toHaveCount(0);

@@ -2,6 +2,7 @@ import React from "react";
 import { useFormContext } from "react-hook-form";
 import { formatUsd } from "../../utils/format";
 import { priceUsedWords } from "../../utils/priceUsed";
+import { useBlankPriceSource } from "./useBlankPriceSource";
 
 /**
  * A BTC fee's USD value (transfers and BTC withdrawals), shown once there is
@@ -10,6 +11,7 @@ import { priceUsedWords } from "../../utils/priceUsed";
  */
 const FeeValueField: React.FC = () => {
   const { register, watch } = useFormContext<TransactionFormData>();
+  const priced = useBlankPriceSource(); // before the early return: hooks run every render
   const fee = watch("fee");
   if (!fee || Number.isNaN(fee) || fee <= 0) return null;
   const stored = watch("feeUSDStored");
@@ -31,7 +33,7 @@ const FeeValueField: React.FC = () => {
         {stored != null && !manual
           ? `Stored: ${formatUsd(stored)} (fee × ${used ? priceUsedWords(used) : `${moment} BTC price`}). Type a value to replace it.`
           : "Leave blank to use fee × the BTC price when that hour began (that day's, where there's no "
-            + "hourly price), or type what the fee was worth."}
+            + `hourly price), or type what the fee was worth. ${priced}`.trim()}
       </small>
     </div>
   );

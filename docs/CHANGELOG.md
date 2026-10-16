@@ -78,6 +78,22 @@ All notable changes to BitcoinTX are documented in this file.
   column, so a re-import keeps where the value came from. This adds a
   database column (migration 0011, `fmv_from_price`).
 
+- **A blank value's hint says where its price comes from** (#208). In the
+  transaction form, the hint under a value BitcoinTX fills from the price
+  when left blank (an income or rebate deposit's value, a spend's
+  proceeds, a gift's, donation's or lost coins' value, a BTC fee's value)
+  now ends with where that price comes from: "Hourly prices to Oct 12,
+  2026 are stored in BitcoinTX; newer ones come from your Mempool" (or
+  public price sites), or "It comes from public price sites" while the
+  hourly history isn't downloaded. With Nobody it says to type it, and
+  before a source is chosen or confirmed, where to do that. An
+  inheritance's value (the date of death's price) keeps its own hint.
+- **"Recommended" beside "Chosen" when StartOS set your Mempool** (#208).
+  On StartOS, with **My Mempool on this server** chosen in the Price Source
+  & Privacy action, Settings › Privacy & network marks it "✓ Chosen" and
+  "Recommended", as the action does. The Mac app and Docker never mark
+  one: finding a Mempool would mean asking your network before you choose.
+
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the

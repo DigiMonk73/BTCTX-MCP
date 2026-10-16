@@ -2,10 +2,11 @@ import React from "react";
 import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import BrokerReportingField from "./BrokerReportingField";
+import { useBlankPriceSource } from "./useBlankPriceSource";
 
 /** A gift's, donation's or lost coins' fair market value: blank means that
  * hour's price, filled when it's saved (#255), as an income value is. */
-const FmvField: React.FC = () => {
+const FmvField: React.FC<{ priced: string }> = ({ priced }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
   const fmv = watch("fmv_usd");
   return (
@@ -21,7 +22,7 @@ const FmvField: React.FC = () => {
       <small className="field-hint">
         {fmv == null || Number.isNaN(fmv)
           ? "Its fair market value when it left. Leave blank to use the BTC price when that hour began " +
-            "(that day's, where there's no hourly price)."
+            `(that day's, where there's no hourly price). ${priced}`.trim()
           : "Its fair market value when it left."}
       </small>
       <ValueOrigin fromPrice="fmvFromPrice" stored="fmvStored" shown="fmv_usd" />
@@ -34,6 +35,7 @@ const FmvField: React.FC = () => {
  * means that hour's price too, #255). */
 const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
+  const priced = useBlankPriceSource(); // where a blank value's price comes from (#208)
   const spent = watch("purpose") === "Spent";
   const proceeds = watch("proceeds_usd");
   const fee = watch("fee");
@@ -52,7 +54,7 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
         {spent && (proceeds == null || Number.isNaN(proceeds)) && (
           <small className="field-hint">
             Leave blank to use the BTC price when that hour began as the proceeds (that day's, where
-            there's no hourly price).
+            there's no hourly price). {priced}
           </small>
         )}
         {spent && (proceeds ?? 0) > 0 && (fee ?? 0) > 0 && (
@@ -70,7 +72,7 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
 
       {spent && <BrokerReportingField />}
 
-      {notSold && <FmvField />}
+      {notSold && <FmvField priced={priced} />}
     </>
   );
 };

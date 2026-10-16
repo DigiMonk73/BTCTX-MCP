@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TOR_REFUSED, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
+import { TOR_REFUSED, blankPriceSource, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -204,5 +204,41 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     expect(olderValuesNote("off", false, history)).toMatch(/choose Public price sites until the download finishes, then Nobody/);
     expect(olderValuesNote("off", false, { ...history, state: "complete" })).toBeNull();
     expect(olderValuesNote("public", false, history)).toBeNull();
+  });
+});
+
+describe("where a blank value's price comes from (#208, plan 2.5)", () => {
+  const done = { ...history, state: "complete" as const, years_done: 14 };
+  const st = (over: Partial<PriceStatus>, h: PriceStatus["history"] = done): PriceStatus => ({ ...base, ...over, history: h });
+
+  it("the stored hourly prices, then the choice", () => {
+    expect(blankPriceSource(st({ source: "mempool" })))
+      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from your Mempool.");
+    expect(blankPriceSource(st({ source: "public" })))
+      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from public price sites.");
+    expect(blankPriceSource(st({ source: "public" }, { ...history, shipped: true })))
+      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from public price sites.");
+  });
+
+  it("with Nobody, after the stored ones: type it", () => {
+    expect(blankPriceSource(st({ source: "off" })))
+      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; after that, type it: you chose Nobody.");
+    expect(blankPriceSource(st({ source: "off" }, history)))
+      .toBe("Unless BitcoinTX already has that hour's price, type it: you chose Nobody.");
+  });
+
+  it("the history not downloaded yet: the choice alone", () => {
+    expect(blankPriceSource(st({ source: "public" }, { ...history, state: "downloading" })))
+      .toBe("It comes from public price sites.");
+    expect(blankPriceSource(st({ source: "mempool" }, history))).toBe("It comes from your Mempool.");
+  });
+
+  it("nothing asked yet, or ever: what to do instead", () => {
+    expect(blankPriceSource(st({ source: "unset" }, history)))
+      .toBe("Unless BitcoinTX already has that hour's price, choose where BitcoinTX gets prices (on the Dashboard), or type it.");
+    expect(blankPriceSource(st({ source: "public", waiting: true })))
+      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; after that, confirm where BitcoinTX gets prices (on the Dashboard), or type it.");
+    expect(blankPriceSource(st({ source: "off", invalid: true, managed: true }, history)))
+      .toBe("Unless BitcoinTX already has that hour's price, type it: this server's price settings aren't valid.");
   });
 });

@@ -219,6 +219,39 @@ function notChosenLine(span: string): HistoryLine {
   };
 }
 
+/** Where newer prices come from, for a blank value's hint. */
+const NEWER_FROM: Partial<Record<PriceStatus["source"], string>> = {
+  mempool: "your Mempool",
+  public: "public price sites",
+};
+
+/** What a blank value needs when nothing is asked: the way forward, in the hint's words. */
+function noAsking(st: PriceStatus): string {
+  if (st.invalid) return "type it: this server's price settings aren't valid";
+  if (st.waiting) return "confirm where BitcoinTX gets prices (on the Dashboard), or type it";
+  if (st.source === "unset") return "choose where BitcoinTX gets prices (on the Dashboard), or type it";
+  return "type it: you chose Nobody";
+}
+
+/**
+ * Where a blank value's price comes from, after the form's "Leave blank to
+ * use the BTC price when that hour began" (#208, plan 2.5): the hourly prices
+ * BitcoinTX holds, then the price choice; when nothing is asked, what to do.
+ * From the status, which asks nobody.
+ */
+export function blankPriceSource(st: PriceStatus): string {
+  const h = st.history;
+  const held = h.until && (h.shipped || h.state === "complete") ? untilDay(h.until) : null;
+  const from = st.invalid || st.waiting ? undefined : NEWER_FROM[st.source];
+  if (held) {
+    const stored = `Hourly prices to ${held} are stored in BitcoinTX`;
+    return from ? `${stored}; newer ones come from ${from}.` : `${stored}; after that, ${noAsking(st)}.`;
+  }
+  if (from) return `It comes from ${from}.`;
+  const next = noAsking(st);
+  return `Unless BitcoinTX already has that hour's price, ${next}.`;
+}
+
 /** Under a chosen Mempool without its backup, or Nobody: what that means for older values. */
 export function olderValuesNote(source: string, backup: boolean, h: HistoryStatus | undefined): string | null {
   if (h?.shipped || h?.state === "complete") return null;

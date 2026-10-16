@@ -3,6 +3,7 @@ import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
+import { useBlankPriceSource } from "./useBlankPriceSource";
 
 // Valued when acquired: the server fills a blank basis from that hour's price
 // (an inheritance's: the date of death's day price, #173)
@@ -22,18 +23,19 @@ const SOURCE_HINTS: Record<string, string> = {
     "(IRC §1014, §1223(9)).",
 };
 
-/** What the Cost Basis field asks for: a gift's basis is the giver's (#115). */
-function basisHint(source: string | undefined, valued: boolean): string {
+/** What the Cost Basis field asks for: a gift's basis is the giver's (#115); a blank
+ * value's price says where it comes from (`priced`, #208). */
+function basisHint(source: string | undefined, valued: boolean, priced: string): string {
   if (source === "Inherited") {
     return "Its USD value on the date of death, or on the estate's alternate valuation date if it chose one. " +
       "If the estate's Form 8971, Schedule A, gives a value marked as having increased the estate tax, your " +
       "basis can't be more. Leave blank to use the date of death's BTC price.";
   }
   if (source === "Rebate") {
-    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED}`;
+    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED} ${priced}`.trim();
   }
   if (valued) {
-    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED}`;
+    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED} ${priced}`.trim();
   }
   if (source === "Gift") {
     return "The giver's cost basis: what they paid for these coins (type 0 if unknown).";
@@ -81,6 +83,7 @@ const OriginalDateField: React.FC<{ inherited: boolean }> = ({ inherited }) => {
 /** A deposit; a BTC one also has its source and cost basis. */
 const DepositFields: React.FC = () => {
   const { register, watch, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
+  const priced = useBlankPriceSource();
   const account = watch("account");
   const currency = watch("currency");
   const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
@@ -148,7 +151,7 @@ const DepositFields: React.FC = () => {
           {errors.costBasisUSD && (
             <span className="field-error">{errors.costBasisUSD.message}</span>
           )}
-          <small className="field-hint">{basisHint(source, isValued)}</small>
+          <small className="field-hint">{basisHint(source, isValued, priced)}</small>
           {isValued && <ValueOrigin fromPrice="costBasisFromPrice" stored="costBasisStored" shown="costBasisUSD" />}
         </div>
       )}
