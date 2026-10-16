@@ -36,7 +36,10 @@ class User(Base):
 
     def verify_password(self, password: str) -> bool:
         """Whether `password` matches the stored hash."""
-        encoded = password.encode('utf-8')
+        try:
+            encoded = password.encode('utf-8')
+        except UnicodeEncodeError:  # a lone surrogate: not text, so never the password (#210)
+            return False
         # bcrypt only reads 72 bytes and raises for more; a longer password never matches.
         if len(encoded) > 72:
             return False

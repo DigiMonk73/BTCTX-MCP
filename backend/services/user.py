@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 from backend.models.user import User
-from backend.schemas.user import UserCreate, UserUpdate
+from backend.schemas.user import UserCreate, UserUpdate, is_text
 from backend.session_auth import end_all_sessions
 
 
@@ -14,7 +14,10 @@ def get_all_users(db: Session) -> list[User]:
 
 
 def get_user_by_username(username: str, db: Session) -> User | None:
-    """The user with that name, or None."""
+    """The user with that name, or None (for a name that isn't text too,
+    which SQLite can't look up: schemas/user.is_text)."""
+    if not is_text(username):
+        return None
     return db.query(User).filter(User.username == username).first()
 
 
