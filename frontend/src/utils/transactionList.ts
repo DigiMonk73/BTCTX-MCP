@@ -63,6 +63,11 @@ export function sourceOrPurpose(tx: Described): string {
   return shown === "N/A" ? "" : shown;
 }
 
+/** A Ledger Review item's amount: "0.10000000 BTC", or "$500.00" for a move of dollars. */
+export function reviewAmount(item: { amount: string; unit?: string }): string {
+  return item.unit === "USD" ? `$${item.amount}` : `${item.amount} BTC`;
+}
+
 /** "Withdrawal (Spent)", or the type alone with no source or purpose ("Sell"),
  * as Ledger Review lists an item. */
 export function typeWithSourceOrPurpose(item: Described): string {
