@@ -25,6 +25,7 @@ from backend.database import get_db
 from backend.models.app_setting import AppSetting
 from backend.models.transaction import Transaction
 from backend.models.user import User
+from backend.schemas.user import NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
 from backend.services import ai_key, first_run, outbound
@@ -52,6 +53,14 @@ def _require_auth(request: Request):
     return user_id
 
 
+def _require_text_password(password: str) -> None:
+    """A backup's password is form data, which a part's own charset (such
+    as unicode_escape) can fill with a lone surrogate: the key can't be
+    derived from it, so a 422 rather than a server error (#313)."""
+    if not is_text(password):
+        raise HTTPException(status_code=422, detail=NOT_TEXT.format("password"))
+
+
 @router.post("/download", response_class=StreamingResponse)
 def download_encrypted_backup(
     request: Request,
@@ -64,6 +73,7 @@ def download_encrypted_backup(
     Uses BackgroundTasks to clean up temp file after streaming completes.
     """
     _require_auth(request)
+    _require_text_password(password)
     with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
         temp_path = Path(temp_file.name)
         make_backup(password, temp_path)
@@ -207,6 +217,7 @@ def restore_encrypted_backup(
     Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
+    _require_text_password(password)
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None

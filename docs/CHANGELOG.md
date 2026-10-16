@@ -163,6 +163,18 @@ All notable changes to BitcoinTX are documented in this file.
   action, it comes back once, at the next update. Its text now says to run
   the Recalculate Ledger action in StartOS once, after Ledger Review. It
   reaches StartOS with the next package release.
+- **Text that isn't text is refused, not a server error** (#313). A JSON
+  string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
+  isn't a character and can't be saved. Sent in a transaction's purpose, an
+  AI entry or the tax timezone, it gave a server error (500), with nothing
+  saved. Now every JSON request holding one is refused, once its login is
+  checked and before its route runs, with a 422 naming the field, whether
+  the JSON is in UTF-8, UTF-16 or UTF-32. The login and the account routes keep their own answer
+  (#210). A backup's password, which a form's charset can turn into such
+  text, is refused the same way when you download or restore a backup. A
+  request whose body isn't UTF-8 text, sent without a JSON type, also gave
+  a 500 instead of its 422. No form in the app and no AI connector tool
+  sends such text.
 - **A save made while Ledger Review checks the ledger no longer fails**
   (#335). Ledger Review (also `cli review` and the AI connector's
   `review_ledger`) works out what Recalculate Ledger would change by
