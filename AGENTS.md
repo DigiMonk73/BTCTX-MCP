@@ -145,7 +145,8 @@ from the Transaction row alone.
 - **Withdrawal fee**: a BTC network fee on a withdrawal is on top of `amount`
   and is its own disposal (`lot_disposals.is_fee`, oldest BTC first) at
   `fee_usd`, taxable even for Gift/Donation/Lost and never broker-reported.
-  A Spent's fee is a cost of the spend (Treas. Reg. §1.1001-7(b)(2)(ii)(A),
+  A Spent's fee (and that of a withdrawal `counts_as_spent`, under
+  "Proceeds") is a cost of the spend (Treas. Reg. §1.1001-7(b)(2)(ii)(A),
   #157, all years): its proceeds are the gross for `amount` less `fee_usd`,
   so the spend and its fee together realize the gross (a fee worth more
   than the gross takes only the gross). The transaction's own
@@ -177,9 +178,10 @@ from the Transaction row alone.
   an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
   the owner's rule, #61): at its gross, or, saved before 0.8.0 with no
   gross, at its stored `proceeds_usd` (no fee offset to undo: only a
-  Spent's had one), which becomes its gross; with none stored, $0, never
-  priced by a recalculation, and that stored amount is never written over
-  (#329). Ledger Review lists them until the owner chooses.
+  Spent's had one), which is kept as its gross. With none above $0 stored
+  (blank, or 1.2.8's 0, #329) it stays as it was: a $0 sale, its fee at its
+  value, no gross recorded and never priced by a recalculation
+  (`_received_known`). Ledger Review lists them until the owner chooses.
 - **Gift, Donation and Lost values** (#255): a blank `fmv_usd` on such a BTC
   withdrawal is filled at save from the hour's price and marked
   (`fmv_from_price`). An edit fills one it leaves blank, or a sale's $0 it

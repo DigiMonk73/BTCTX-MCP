@@ -451,12 +451,15 @@ def _purpose_issues(t: Transaction, tz):
 def _counted_as(t: Transaction) -> str:
     """What a withdrawal of unknown purpose counts as: Spent (#61), at its
     gross, or at the proceeds_usd a row saved before 0.8.0 holds, which a
-    recalculation makes its gross; else at $0
+    recalculation makes its gross; else at $0, none recorded, whether blank
+    or the 0 a 1.2.8 recalculation left (#329)
     (transaction._withdrawal_gross_proceeds)."""
-    if t.gross_proceeds_usd is not None:
-        return f"counted as Spent, with ${_money(t.gross_proceeds_usd)} proceeds."
+    fee = " before its network fee" if (t.fee_currency or "").upper() == "BTC" \
+        and Decimal(t.fee_amount or 0) > 0 else ""
+    if not _is_zero_or_blank(t.gross_proceeds_usd):
+        return f"counted as Spent, with ${_money(t.gross_proceeds_usd)} proceeds{fee}."
     if not _is_zero_or_blank(t.proceeds_usd):
-        return f"counted as Spent, with the ${_money(t.proceeds_usd)} proceeds saved with it."
+        return f"counted as Spent, with the ${_money(t.proceeds_usd)} proceeds saved with it{fee}."
     return "counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss."
 
 

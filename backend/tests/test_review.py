@@ -626,3 +626,27 @@ def test_a_withdrawal_of_unknown_purpose_counts_exactly_as_spent(auth_client, te
         assert _figures(test_engine, 975)[:2] == (Decimal("693.00"), Decimal("593.00"))
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_withdrawal_whose_amount_1_2_8_erased_stays_none_recorded(auth_client, test_engine):
+    """1.2.8's recalculations left 0, not a blank, in an old unknown-purpose
+    row's proceeds (#329). Counted as Spent (#61), it still has nothing
+    recorded: no $0 gross is saved, Ledger Review keeps sending the owner to
+    the copy that holds the amount, and its fee keeps its value."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [(980, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None,
+                           None)])
+    _withdrawal_with_fee(test_engine, 981, WALLET, "Expenses", None, "0")
+    try:
+        for _ in range(2):
+            assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        assert _stored(test_engine, 981, "gross_proceeds_usd") is None
+        assert _stored(test_engine, 981, "proceeds_usd") == Decimal("0.00")
+        assert _figures(test_engine, 981)[2] == [(False, Decimal("0.00"), Decimal("-100.00")),
+                                                 (True, Decimal("7.00"), Decimal("6.00"))]
+        check = next(c for c in auth_client.get("/api/review").json()["checks"]
+                     if c["key"] == "withdrawal_purpose_unknown")
+        assert [i["issue"] for i in check["items"]] == [
+            'Purpose "Expenses": counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss.']
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
