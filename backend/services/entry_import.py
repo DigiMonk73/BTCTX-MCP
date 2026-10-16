@@ -56,6 +56,7 @@ from backend.services.transaction import (
     date_of_death_price,
     ensure_fee_account_exists,
     price_used,
+    values_from_price,
 )
 
 logger = logging.getLogger(__name__)
@@ -408,6 +409,8 @@ def simulate(
                 proceeds_usd=tx.proceeds_usd,
                 realized_gain_usd=tx.realized_gain_usd,
                 holding_period=tx.holding_period,
+                gross_proceeds_usd=tx.gross_proceeds_usd,
+                fmv_usd=tx.fmv_usd,
                 fee_usd=tx.fee_usd if (tx.fee_currency or "").upper() == "BTC" else None,
                 from_price=from_price(tx, db, years),
             )
@@ -421,22 +424,13 @@ def simulate(
 def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromPrice | None:
     """
     Which of a saved (or simulated) transaction's values BitcoinTX filled in
-    from a price, and that price (services/transaction.price_used, which
-    reads the stored one and asks nobody), for the AI connector (#208): its
-    preview and add answers say which hour and source each came from. The
-    names are the row's own ("proceeds_usd": a Spent's, before its fee).
-    None when every value was given.
+    from a price (transaction.values_from_price), and that price
+    (transaction.price_used, which reads the stored one and asks nobody), for
+    the AI connector (#208): its preview and add answers say which hour and
+    source each came from. None when every value was given.
     """
-    filled = [name for name, from_the_price in (
-        ("cost_basis_usd", tx.cost_basis_from_price),
-        ("proceeds_usd", tx.proceeds_from_price),
-        ("fmv_usd", tx.fmv_from_price),
-        # As transaction._priced_amounts: a BTC fee's value, unless typed
-        ("fee_usd", tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0),
-    ) if from_the_price]
-    if not filled:
-        return None
-    return FromPrice(values=filled, **(price_used(tx, db, years) or {}))
+    values = values_from_price(tx)
+    return FromPrice(values=values, **(price_used(tx, db, years) or {})) if values else None
 
 
 def _create_until_refused(

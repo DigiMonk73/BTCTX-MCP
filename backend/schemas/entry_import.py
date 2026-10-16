@@ -48,10 +48,12 @@ class EntryRequest(BaseModel):
 
 class FromPrice(BaseModel):
     """
-    The values BitcoinTX filled in from a price, and that price (#208, #145
-    plan 2.5): its UTC hour's start, or the day's ("moment"), where it came
-    from and USD per BTC, as the transaction API's price_used gives them.
-    The price is left out when the stored one no longer gives the value.
+    The values BitcoinTX filled in from a price, named as the transactions
+    API names them (gross_proceeds_usd: a Spent's proceeds before its fee),
+    and that price (#208, #145 plan 2.5): its UTC hour's start, or the day's
+    ("moment"; an inheritance's: its date of death), where it came from and
+    USD per BTC, as price_used gives them. The price is left out when the
+    stored one no longer gives the value (priced elsewhere: an import).
     """
     values: list[str]
     at: str | None = None
@@ -66,8 +68,10 @@ class SimulatedResult(BaseModel):
     proceeds_usd: Decimal | None = None
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+    gross_proceeds_usd: Decimal | None = None  # a sale's or Spent's proceeds before the fee
+    fmv_usd: Decimal | None = None  # a gift's, donation's or lost coins' value
     fee_usd: Decimal | None = None  # a BTC fee's USD value
-    from_price: FromPrice | None = None
+    from_price: FromPrice | None = None  # which of these came from a price, and that price (#208)
 
 
 class EntryResult(BaseModel):

@@ -80,14 +80,19 @@ All notable changes to BitcoinTX are documented in this file.
 
 - **The AI connector says which price a value it filled came from**
   (#208). When BitcoinTX fills a value from the BTC price (an income or
-  rebate value, a spend's proceeds, a gift's value, a BTC fee's value),
+  rebate value, an inheritance's value at its date of death, a spend's
+  proceeds, a gift's, donation's or lost coins' value, a BTC fee's value),
   `preview_transactions` (each row's `simulated.from_price`),
-  `add_transactions` (each created row's `from_price`) and
-  `list_transactions` (`from_price`) now say which values and that price:
-  the hour it began (or the day, where there's no hourly price) in UTC,
-  where it came from and USD per BTC. The preview also gives a BTC fee's
-  value (`simulated.fee_usd`). The AI guide asks the AI to tell you, e.g.
-  "cost basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
+  `add_transactions` (each created row's `from_price`),
+  `list_transactions` and `update_transaction` (`from_price`) now say
+  which values and that price: the hour it began (or the day, where
+  there's no hourly price, and for an inheritance its date of death) in
+  UTC, where it came from and USD per BTC. The values are named as the
+  transactions API names them (a spend's `gross_proceeds_usd`, before its
+  fee), and the preview now also gives them (`gross_proceeds_usd`,
+  `fmv_usd`, a BTC fee's `fee_usd`). The transactions API lists them too
+  (`values_from_price`). The AI guide asks the AI to tell you, e.g. "cost
+  basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
   2024-03-01 (Bitstamp)". Only `get_btc_price` and the tax report said it
   before. The AI key reaches no new route.
 

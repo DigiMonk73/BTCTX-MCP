@@ -256,18 +256,11 @@ def _parse_filter_date(value: str | None) -> tuple[datetime, bool] | None:
     return parsed
 
 
-# A listed transaction's values BitcoinTX filled in from a price, by the flag that says so
-FILLED_FROM_PRICE = (("cost_basis_from_price", "cost_basis_usd"), ("proceeds_from_price", "gross_proceeds_usd"),
-                     ("fmv_from_price", "fmv_usd"))
-
-
 def _from_price(tx: dict[str, Any]) -> dict[str, Any] | None:
-    """Which values BitcoinTX filled in from a price and that price, as the
-    preview and add answers give them (#208): its hour or day (UTC), source
-    and USD per BTC (the API's price_used, when the stored price gives the value)."""
-    values = [name for flag, name in FILLED_FROM_PRICE if tx.get(flag)]
-    if tx.get("fee_usd") is not None and not tx.get("fee_usd_manual") and Decimal(str(tx.get("fee_amount") or 0)) > 0:
-        values.append("fee_usd")  # a BTC fee's value, unless typed
+    """Which values BitcoinTX filled in from a price, and that price: its hour or day
+    (UTC), source and USD per BTC, as the preview and add answers give them (#208).
+    From the API's values_from_price and price_used (services/transaction.py)."""
+    values = tx.get("values_from_price") or []
     return {"values": values, **(tx.get("price_used") or {})} if values else None
 
 
@@ -430,8 +423,8 @@ async def review_ledger() -> ToolResult:
 @with_version_notice
 async def preview_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Dry run: validate transactions, auto-fill missing USD values from historical prices
-    (each row's simulated.from_price says which values and the price: its hour or day in UTC,
-    source and USD per BTC; simulated.fee_usd is a BTC fee's value),
+    (each row's simulated.from_price says which of simulated's values and the price: its hour
+    or day in UTC, source and USD per BTC; gross_proceeds_usd is before the fee),
     flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
@@ -499,7 +492,8 @@ async def update_transaction(
     acquired_at (MyBTC/Gift deposit) sets the date the coins were originally acquired, kept as
     that date (a date and time stands for its date in the tax timezone); "none" clears it (the
     holding period then starts at the deposit). For an Inherited deposit it is the date of
-    death, which it must keep."""
+    death, which it must keep. The answer is the transaction as list_transactions shows it,
+    from_price included."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)

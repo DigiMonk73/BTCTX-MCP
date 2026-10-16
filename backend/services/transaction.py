@@ -500,31 +500,43 @@ def price_used(tx: Transaction, db: Session, years: dict | None = None) -> dict 
     beside a priced fee keep their own "typed" mark in the form. None otherwise. `years`: a cache
     of the year files for one request (a list of many transactions).
     """
-    values = _priced_amounts(tx)
+    values = priced_values(tx)
     if not values or tx.price_moment not in ("hour", "day") or tx.timestamp is None:
         return None
     when = tx.timestamp
     if _is_inherited({"source": tx.source}) and tx.acquired_at is not None:
         when = date_of_death(tx.acquired_at, db)  # a date: its day's price (#154, #177)
     found = hourly_prices.stored_price_at(db, when, tx.price_moment, years)
-    if found is None or not any(abs(found.usd * btc - usd) <= CENT for usd, btc in values):
+    if found is None or not any(abs(found.usd * btc - usd) <= CENT for _field, usd, btc in values):
         return None
     return {"at": found.at.isoformat().replace("+00:00", "Z"), "moment": found.moment,
             "source": found.source, "usd_per_btc": found.usd}
 
 
-def _priced_amounts(tx: Transaction) -> list[tuple[Decimal, Decimal]]:
-    """(USD value, BTC it values) for each value BitcoinTX filled in from a price."""
+def priced_values(tx: Transaction) -> list[tuple[str, Decimal, Decimal]]:
+    """
+    Each value BitcoinTX filled in from a price, as (its field, USD value, BTC
+    it values): an income, rebate or inheritance value, a Spent's proceeds
+    before its fee, a gift's, donation's or lost coins' value, and a BTC
+    fee's value unless typed. A mark without its value (a deposit moved to
+    Bank) isn't one. For price_used, and for which values the API and the AI
+    connector say came from a price (#208).
+    """
     out = []
     if tx.cost_basis_from_price and tx.cost_basis_usd is not None:
-        out.append((Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
+        out.append(("cost_basis_usd", Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
     if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
-        out.append((Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
+        out.append(("gross_proceeds_usd", Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
     if tx.fmv_from_price and tx.fmv_usd is not None:
-        out.append((Decimal(tx.fmv_usd), Decimal(tx.amount or 0)))
+        out.append(("fmv_usd", Decimal(tx.fmv_usd), Decimal(tx.amount or 0)))
     if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
-        out.append((Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
+        out.append(("fee_usd", Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
     return out
+
+
+def values_from_price(tx: Transaction) -> list[str]:
+    """The fields priced_values names: the values BitcoinTX filled in from a price (#208)."""
+    return [field for field, _usd, _btc in priced_values(tx)]
 
 
 def _valuation_point(edited: dict, tx: Transaction, tz):
