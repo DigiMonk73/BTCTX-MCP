@@ -412,7 +412,9 @@ Start from the `clean` snapshot.
   **Gift**, `0.001` BTC, yesterday 12:00, FMV (USD) left blank. Expect: it
   saves, and **Edit** shows FMV blank, no Refresh button beside it, and
   "Its fair market value when it left. Leave blank to use the BTC price
-  when that hour began (that day's, where there's no hourly price)." Ledger Review > **Check again** lists it
+  when that hour began (that day's, where there's no hourly price). Unless
+  BitcoinTX already has that hour's price, type it: you chose Nobody."
+  (#208: where a blank value's price comes from.) Ledger Review > **Check again** lists it
   under "Gifts, donations and lost coins with a $0 or blank value" ("Value
   blank: the tax report lists it as not given (no price stored for that
   day)."). Delete the gift; Check again: "Nothing to review."
@@ -426,7 +428,7 @@ Start from the `clean` snapshot.
   Then:
   - Settings > Privacy & Network reads "Set in StartOS. To change it:
     BitcoinTX › Actions › Price Source & Privacy.", with **Public price
-    sites** marked "✓ Chosen", no choices to click and no Save button. Its
+    sites** marked "✓ Chosen" (not "Recommended"), no choices to click and no Save button. Its
     status line reads "Newer prices from public price sites. Last price …"
     once the Dashboard has shown a price.
   - Dashboard: a price above $0 and "Block Height: N" with N > 900,000.
@@ -468,10 +470,13 @@ Start from the `clean` snapshot.
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
-  dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
-  Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
+  dashboard's price, and under it where it came from and when, in short
+  ("Kraken · 2:04 pm"; pointing at it shows the Dashboard's words).
+  **Manual** with `50000`: USD `100` gives BTC `0.002` and Sats `200000`.
+  Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
-  **Use Tor**. Expect: a price on the Dashboard.
+  **Use Tor**. Expect: a price on the Dashboard, and under the sidebar's
+  Auto price "Kraken, through Tor · …" (or Bitstamp).
   Bitstamp is the price history's only site since #161 (and the live
   price's fallback), and PRC-2 already downloaded the history without Tor,
   so check Bitstamp through Tor directly, with Tor on your machine (the
@@ -482,7 +487,8 @@ Start from the `clean` snapshot.
   return JSON, not a 403.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "No answer": requests must fail
-  rather than go out directly. Start Tor: the price is back.
+  rather than go out directly. The sidebar reads "BTC Price: no answer" with
+  "Is Tor running?" and **Type a price** (#208). Start Tor: the price is back.
 - **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
   hourly price history's one-time download over real Tor (#144). It was
   only tested with stubs and a direct download while it was built.
@@ -516,8 +522,9 @@ Start from the `clean` snapshot.
   - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
     answers `"moment": "hour"`.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
-  Expect: a price and block height, and the log line "Price history from
-  your mempool server: N days". Without Mempool installed, StartOS shows
+  Expect: a price and block height, the log line "Price history from
+  your mempool server: N days", and in Settings > Privacy & Network **My
+  own Mempool** marked "✓ Chosen" and "Recommended" (#208). Without Mempool installed, StartOS shows
   the dependency as missing and the price error says to install and start
   Mempool.
 - **PRC-4b** (needs internet, not Mempool) The app's own-mempool path,

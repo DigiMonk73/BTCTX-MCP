@@ -88,6 +88,50 @@ All notable changes to BitcoinTX are documented in this file.
   again": an open app that couldn't write its key has no file on its first
   start, and leaves the earlier run's file after that.
   `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
+- **The sidebar's price says where it came from and when** (part of
+  #208). Under the Sats Converter's Auto price, a short line names its
+  source and time as the Dashboard does: "Kraken · 2:04 pm", "Kraken,
+  through Tor · 2:04 pm" or "Your Mempool · 2:04 pm" (pointing at it shows
+  the Dashboard's words). It's one line however narrow the window, so the
+  calculator below doesn't move when you switch modes. Right after a new
+  price choice is saved, the sidebar shows "…" until the new price comes,
+  and an answer for the old choice still on its way is dropped (#327: it
+  could replace the new one). Clicking the mode already in use (Auto,
+  Manual or Date) no longer clears it: Auto chosen again showed "…" until
+  its next poll, two minutes later (#328).
+- **The sidebar asks "Is Tor running?" when Tor doesn't answer** (part of
+  #208 and #241). When public price sites are asked through Tor and none
+  could be reached through it, the sidebar now says "Is Tor running?"
+  beside **Type a price**, as the Dashboard and the price card do. When a
+  site answered with a refusal, as Bitstamp does Tor's exits (#241), it
+  doesn't ask, since Tor is running; the price card has said what to do
+  then since 1.2.8 (#240).
+- **A blank value's hint says where its price comes from** (part of
+  #208). In the transaction form, the hint under a value BitcoinTX fills
+  from the price when left blank (an income or rebate deposit's value, a
+  spend's proceeds, a gift's, donation's or lost coins' value, a BTC fee's
+  value) now ends with where that price comes from, as BitcoinTX looks it
+  up:
+  - with the hourly history downloaded: "Hourly prices from 2013 to Oct
+    12, 2026 are stored in BitcoinTX; newer ones come from public price
+    sites" (or "your Mempool, else public price sites" with its backup, or
+    "your Mempool where it has them; otherwise type it" without);
+  - before that: "It comes from public price sites" (or your Mempool with
+    its backup). Your Mempool alone has prices only from when it began
+    recording, so the hint says to type an older hour's value. Through
+    Tor, where Bitstamp refuses BitcoinTX's requests (#241), it says an
+    older hour may need typing;
+  - with Nobody it says to type it; before a source is chosen or
+    confirmed, where to do that; and on StartOS with Mempool chosen but
+    not installed, that it isn't installed yet.
+
+  An inheritance's value (the date of death's price) says the same where
+  none would be found, Tor included.
+- **"Recommended" beside "Chosen" when StartOS set your Mempool** (part of
+  #208). On StartOS, with **My Mempool on this server** chosen in the Price
+  Source & Privacy action and Mempool installed, Settings › Privacy &
+  network marks it "✓ Chosen" and "Recommended", as the action does. The Mac app and Docker never mark
+  one: finding a Mempool would mean asking your network before you choose.
 
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as
@@ -182,6 +226,51 @@ All notable changes to BitcoinTX are documented in this file.
   are, or would be, of both terms, and the lots it made and their cost; and
   it lists one whose rows, or lots, alone would be split differently.
   Since 0.9.2 (when the check came in).
+- **Ledger Review lists bitcoin withdrawals whose purpose BitcoinTX
+  doesn't know** (tax figures, #61). Since 0.9.2 a bitcoin withdrawal's
+  purpose must be Spent, Gift, Donation or Lost, but a ledger started
+  before then can hold one with another purpose (such as "Expenses") or
+  none. Such a withdrawal counts as a sale: at the proceeds saved with it,
+  or, saved before 0.8.0 recorded them that way, at $0, so its whole cost
+  basis shows as a loss on Form 8949. Ledger Review didn't point them out;
+  it now lists them, saying what each counts as and naming any amount
+  still saved with it. Nothing changes until you choose. **Affected:**
+  ledgers started before 0.9.2 with such a withdrawal, in the tax year it
+  falls in. **What to do:** open Ledger Review and edit each withdrawal
+  under "BTC withdrawals whose purpose isn't Spent, Gift, Donation or
+  Lost" to choose its purpose: as Spent, enter what you got for it (the
+  amount saved with it, if one is listed) as its proceeds; a gift, a
+  donation and lost coins have no gain. One listed as "none recorded":
+  see the next entry.
+- **A recalculation keeps what an old withdrawal of unknown purpose
+  received** (tax figures, #329). A bitcoin withdrawal saved before 0.8.0
+  kept what was received in an older field. When its purpose isn't Spent,
+  Gift, Donation or Lost (the entry above), BitcoinTX counts it as a sale
+  at $0, and up to 1.2.7 a recalculation left that amount alone. 1.2.8
+  wrote $0 over it on every recalculation (Recalculate Ledger, which its
+  update asked for on StartOS, an edit or a delete, an entry dated before
+  the latest, applying hourly prices), erasing the only record of it. The
+  reported figures didn't change, the sale was already at $0, but the
+  amount needed to correct it was gone. It is kept again. **Affected:**
+  ledgers started before 0.8.0 holding such a withdrawal, from their first
+  recalculation under 1.2.8. **What to do:** in Ledger Review, a
+  withdrawal under "BTC withdrawals whose purpose isn't Spent, Gift,
+  Donation or Lost" listed as "none recorded" may have lost its amount.
+  The copy of your database BitcoinTX made before updating to 1.2.8
+  (`backups/btctx-before-schema-0010-….db` in its data folder) still holds
+  it, as `proceeds_usd` in the `transactions` table, which any SQLite viewer
+  shows. On StartOS that folder, `/data/backups/`, is reached only over SSH
+  or in a StartOS backup. Look it up there, then choose the withdrawal's
+  purpose and, as Spent, enter it as its proceeds. Don't restore that copy
+  over your ledger: everything entered since would be lost.
+- **Texts no longer say adding a transaction recalculates the ledger**
+  (#172). Ledger Review's note on the figures Recalculate Ledger would
+  change, and 1.2.8's release note on spend fees (#157), said adding any
+  transaction recalculates everything too. Only one dated before the latest
+  does: one dated after the others adds only its own figures, so an older
+  row kept its old figures. Editing or deleting any transaction, or
+  Recalculate Ledger, applies the newest rules to every row, as both now
+  say.
 - **A fee in dollars is in cents** (#298). A fee's decimals were checked
   as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
   $0.005 was accepted and then lost from the lot's cost when stored in
@@ -226,6 +315,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **The IRS forms no longer fill the log with pypdf warnings** (#124).
+  Each time BitcoinTX read an IRS form's text (to check a draft form's year
+  and pages, as when the next year's preview is offered), pypdf logged a
+  warning for each font that fontTools wasn't installed, with the font's
+  whole width table: on the StartOS test server, 183 lines of about 2 KB
+  after making one ledger's forms, burying real errors. The forms were
+  always right. That one warning is now left out; pypdf's others still
+  show. No new dependency.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
@@ -236,6 +333,17 @@ All notable changes to BitcoinTX are documented in this file.
   until the delete is done and is kept. If another save holds the lock too
   long (more than 5 seconds), nothing is copied or deleted, and the message
   says to try again. Not seen in use: the gaps were a few milliseconds.
+- **The newest database copies are the ones kept** (#308). BitcoinTX keeps
+  the newest few copies of each kind in its data folder's `backups/` (before
+  an update or a restore, before Delete All, before Ledger Review's hourly
+  prices, and the AI's), sorted by the time their files were written. Copies
+  made within one tick of the filesystem's clock share that time, and then
+  their names decided, which sort the wrong way (`…Z-2.db` before `…Z.db`):
+  the oldest of them could be kept and the newest deleted, and the next copy
+  could take a deleted copy's name. They now sort by the second and number
+  in their names too, and a new copy never takes a deleted one's name.
+  Copies made seconds apart, as in use, were always right; no figure is
+  involved.
 - **Edit reads a purpose saved in another case** (#273). A withdrawal an
   older version saved as "spent" (or "gift", "donation", "lost") opened in
   Edit with **Purpose** blank, and **Update transaction** did nothing until
@@ -678,8 +786,8 @@ All notable changes to BitcoinTX are documented in this file.
   tax year; each overstated the gain by its fee's value (usually a few
   dollars), so reports showed slightly more tax, never less. **What to
   do:** after updating, Ledger Review lists each spend whose figures
-  change, old and new; then run Recalculate Ledger (Settings), or add or
-  edit any transaction, which recalculates too. Returns already filed
+  change, old and new; then run Recalculate Ledger (Settings), or edit or
+  delete any transaction, which recalculates too. Returns already filed
   overstated the gain by these fees; whether to amend over a few dollars is
   for you or your tax professional to decide.
 - **The AI connector lists a Sell's or spend's gross proceeds** (#157):

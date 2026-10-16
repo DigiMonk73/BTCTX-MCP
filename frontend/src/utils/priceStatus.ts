@@ -59,6 +59,8 @@ export interface StatusContext {
   tor: boolean;
   /** The Mempool's certificate may be trusted on the card (#188). */
   trustable?: boolean;
+  /** Your Mempool chosen with no address: StartOS gives none while it isn't installed (#208's hint). */
+  mempoolMissing?: boolean;
 }
 
 /** "2:04 pm" on this device's clock, as the transaction list shows times (#260). */
@@ -217,6 +219,83 @@ function notChosenLine(span: string): HistoryLine {
     tone: "idle",
     text: `Hourly prices, ${span}: downloaded once from Bitstamp when you choose Public price sites, or My own Mempool with its backup, each year checked against a fingerprint that comes with BitcoinTX. Nothing in the download names your dates.`,
   };
+}
+
+/** What a blank value needs when nothing is asked: the way forward, in the hint's words. */
+function noAsking(st: PriceStatus): string {
+  if (st.invalid) return "type it: this server's price settings aren't valid";
+  if (st.waiting) return "confirm where BitcoinTX gets prices (on the Dashboard), or type it";
+  if (st.source === "unset") return "choose where BitcoinTX gets prices (on the Dashboard), or type it";
+  return "type it: you chose Nobody";
+}
+
+/** Whether BitcoinTX asks anyone for a price now: not with Nobody, before a choice or its confirmation, or invalid settings. */
+function asking(st: PriceStatus): boolean {
+  return !st.invalid && !st.waiting && (st.source === "public" || st.source === "mempool");
+}
+
+/** Your Mempool alone: it has prices only from when it began recording (as olderValuesNote says). */
+function mempoolOnly(st: PriceStatus, ctx: StatusContext): boolean {
+  return st.source === "mempool" && !ctx.backup;
+}
+
+/** The way forward when nobody would be asked for this value, or null: nothing is asked, or your Mempool alone isn't installed. */
+function cannotAsk(st: PriceStatus, ctx: StatusContext): string | null {
+  if (!asking(st)) return noAsking(st);
+  return mempoolOnly(st, ctx) && ctx.mempoolMissing ? "type it: Mempool isn't installed on this server yet" : null;
+}
+
+/** Where newer prices come from: public sites, or your Mempool, with its backup or alone. */
+function newerFrom(st: PriceStatus, ctx: StatusContext): string {
+  if (st.source === "public") return "public price sites";
+  if (ctx.mempoolMissing) return "public price sites, until Mempool is installed on this server";
+  return ctx.backup ? "your Mempool, else public price sites" : "your Mempool where it has them; otherwise type it";
+}
+
+/** Public sites asked through Tor: Bitstamp refuses BitcoinTX's requests there (#241), so no past prices download. */
+function throughTorRefused(st: PriceStatus, ctx: StatusContext): boolean {
+  return ctx.tor && (st.source === "public" || ctx.backup);
+}
+
+function torWarning(what: "hour" | "date"): string {
+  return `Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older ${what} may have no price: then type the value.`;
+}
+
+/**
+ * Where a blank value's price comes from, after the form's "Leave blank to
+ * use the BTC price when that hour began" (#208, plan 2.5), as price_at finds
+ * it (services/hourly_prices.py): the hourly prices BitcoinTX holds, then the
+ * choice (your Mempool only where it recorded, else typed; with its backup,
+ * public sites, which through Tor give no past prices, #241); when nothing is
+ * asked, what to do. From the status and the saved choice, which ask nobody.
+ */
+export function blankPriceSource(st: PriceStatus, ctx: StatusContext): string {
+  const h = st.history;
+  const stop = cannotAsk(st, ctx);
+  if (h.until && (h.shipped || h.state === "complete")) {
+    const stored = `Hourly prices from ${h.first_year ?? 2013} to ${untilDay(h.until)} are stored in BitcoinTX`;
+    return stop ? `${stored}; after that, ${stop}.` : `${stored}; newer ones come from ${newerFrom(st, ctx)}.`;
+  }
+  if (stop) return `Unless BitcoinTX already has that hour's price, ${stop}.`;
+  if (mempoolOnly(st, ctx)) {
+    return "Your Mempool has prices only from when it began recording: for an older hour, unless BitcoinTX already has its price, type the value.";
+  }
+  const from = `It comes from ${newerFrom(st, ctx)}.`;
+  return throughTorRefused(st, ctx) ? `${from} ${torWarning("hour")}` : from;
+}
+
+/**
+ * The same for a day's price (an inheritance's, on the date of death): what
+ * to do where nobody is asked, your Mempool alone hasn't that day, or Tor
+ * keeps past prices from downloading; "" where the day's price is found (#208).
+ */
+export function blankDayPriceSource(st: PriceStatus, ctx: StatusContext): string {
+  const stop = cannotAsk(st, ctx);
+  if (stop) return `Unless BitcoinTX already has that day's price, ${stop}.`;
+  if (mempoolOnly(st, ctx)) {
+    return "Your Mempool has prices only from when it began recording: for an older date, unless BitcoinTX already has its price, type the value.";
+  }
+  return throughTorRefused(st, ctx) ? torWarning("date") : "";
 }
 
 /** Under a chosen Mempool without its backup, or Nobody: what that means for older values. */
