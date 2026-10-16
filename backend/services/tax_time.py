@@ -62,13 +62,36 @@ def set_tax_timezone(db: Session, name: str) -> str:
     return name
 
 
+DATE_OUT_OF_RANGE = "The date is out of range: BitcoinTX takes dates from 3 January 2009 to today."
+
+
+class DateOutOfRange(ValueError):
+    """
+    A moment that falls outside the years Python's dates hold (1 to 9999)
+    once moved to another timezone: 9999-12-31 west of UTC, 0001-01-01 east
+    of it. Never a transaction's date: refused with DATE_OUT_OF_RANGE, as a
+    422 (main.py) or a row's error, not a server error (#211).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(DATE_OUT_OF_RANGE)
+
+
+def moved(ts: datetime, tz) -> datetime:
+    """The aware `ts` in `tz`, or DateOutOfRange."""
+    try:
+        return ts.astimezone(tz)
+    except OverflowError:
+        raise DateOutOfRange() from None
+
+
 def as_utc(ts: datetime) -> datetime:
     """Stored timestamps are UTC; SQLite may hand them back naive."""
-    return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
+    return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else moved(ts, timezone.utc)
 
 
 def local_date(ts: datetime, tz: ZoneInfo) -> date:
-    return as_utc(ts).astimezone(tz).date()
+    return moved(as_utc(ts), tz).date()
 
 
 def format_tax_date(ts: datetime, tz: ZoneInfo) -> str:
@@ -90,5 +113,6 @@ def local_noon_utc(d: date, tz: ZoneInfo) -> datetime:
 
 __all__ = [
     "validate_timezone", "get_tax_timezone_name", "get_tax_timezone", "set_tax_timezone",
+    "DATE_OUT_OF_RANGE", "DateOutOfRange", "moved",
     "as_utc", "local_date", "format_tax_date", "tax_year_bounds", "local_noon_utc",
 ]

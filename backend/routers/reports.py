@@ -3,6 +3,8 @@ Report downloads: the IRS Form 8949 and Schedule D (the year's templates,
 filled with pypdf), the complete tax report and the transaction history.
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Response, Query, HTTPException
 from sqlalchemy.orm import Session
 from io import BytesIO
@@ -16,6 +18,7 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _BACKEND_DIR = os.path.dirname(_THIS_DIR)
 _ASSETS_DIR = os.path.join(_BACKEND_DIR, "assets", "irs_templates")
 
+from backend.constants import FIRST_TAX_YEAR, LAST_TAX_YEAR
 from backend.database import get_db
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
@@ -62,9 +65,13 @@ def get_report_years(db: Session = Depends(get_db)) -> dict[str, list[int]]:
     }
 
 
+# A tax year asked for: a report of any other is a 422 naming `year` (#211)
+TaxYear = Annotated[int, Query(ge=FIRST_TAX_YEAR, le=LAST_TAX_YEAR)]
+
+
 @reports_router.get("/complete_tax_report")
 def get_complete_tax_report(
-    year: int,
+    year: TaxYear,
     db: Session = Depends(get_db),
 ):
     """The complete tax report PDF of one tax year."""
@@ -163,7 +170,7 @@ def get_irs_reports(
 
 @reports_router.get("/simple_transaction_history")
 def get_simple_transaction_history(
-    year: int,
+    year: TaxYear,
     format: str = Query("csv", pattern="^(csv|pdf)$"),
     db: Session = Depends(get_db),
 ):
