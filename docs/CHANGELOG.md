@@ -237,6 +237,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **The IRS forms no longer fill the log with pypdf warnings** (#124).
+  Each time BitcoinTX read an IRS form's text (to check a draft form's year
+  and pages, as when the next year's preview is offered), pypdf logged a
+  warning for each font that fontTools wasn't installed, with the font's
+  whole width table: on the StartOS test server, 183 lines of about 2 KB
+  after making one ledger's forms, burying real errors. The forms were
+  always right. That one warning is now left out; pypdf's others still
+  show. No new dependency.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
