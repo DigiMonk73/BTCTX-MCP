@@ -427,6 +427,16 @@ from the Transaction row alone.
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
+- A JSON body whose text (or a key) holds a lone surrogate (`"\ud800"`)
+  is refused, 422 naming the field, before the route runs
+  (`main.refuse_text_that_isnt_text`, #313): it can't be saved or quoted
+  back. Every logged-in router lists it after its login check
+  (`main.LOGGED_IN`; a new router uses it too), so an anonymous request
+  gets its 401 and never costs a walk. It checks only routes that take a
+  JSON body, as FastAPI reads one. The login and `/api/users` routes
+  have their own check (#210): a login or current password that isn't text
+  is a wrong one; a new username or password, a 422. Form data is each
+  route's own to check (a backup's password: `backup._require_text_password`).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI
