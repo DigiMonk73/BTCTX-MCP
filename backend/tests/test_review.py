@@ -4,8 +4,12 @@ rows worth a second look (F1, F2, F15). GET /api/review, the CLI and the MCP
 tool all show the same lists; nothing is changed.
 """
 
+from decimal import Decimal
+
 import pytest
 from sqlalchemy import text
+
+from backend.services.review import CENT
 
 BANK, WALLET, EXCH_BTC, EXTERNAL = 1, 2, 4, 99
 
@@ -445,5 +449,124 @@ def test_review_counts_a_row_without_a_term_as_short_term(auth_client, test_engi
                         {"t": sale})
         assert _recalc_changes(auth_client) == {sale: {"short_term_gain": ["-108.99", "-59.50"],
                                                        "long_term_gain": ["0.00", "-49.49"]}}
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def _insert(test_engine, rows):
+    """Rows as older versions saved them, written directly, each day's noon
+    as UTCDateTime stores it: (id, type, day, from, to, amount, source,
+    purpose, basis, gross, proceeds, gain)."""
+    with test_engine.begin() as con:
+        for tx_id, typ, day, frm, to, amount, source, purpose, basis, gross, proceeds, gain in rows:
+            con.execute(text(
+                "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount,"
+                " fee_amount, fee_currency, source, purpose, cost_basis_usd, gross_proceeds_usd, proceeds_usd,"
+                " realized_gain_usd)"
+                " VALUES (:id, :type, :day, :frm, :to, :amount, '0', :cur, :source, :purpose, :basis, :gross,"
+                " :proceeds, :gain)"),
+                dict(id=tx_id, type=typ, day=f"{day}T12:00:00Z", frm=frm, to=to, amount=amount,
+                     cur="USD" if BANK in (frm, to) else "BTC", source=source, purpose=purpose, basis=basis,
+                     gross=gross, proceeds=proceeds, gain=gain))
+
+
+def _stored(test_engine, tx_id, column):
+    with test_engine.connect() as con:
+        value = con.execute(text(f"SELECT {column} FROM transactions WHERE id = :id"), {"id": tx_id}).scalar()
+    return None if value is None else Decimal(str(value)).quantize(CENT)
+
+
+def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client, test_engine):
+    """#61: before the purpose was checked, a BTC withdrawal could be saved
+    with another ("Expenses") or none. It counts as a sale, at $0 proceeds
+    when no gross was recorded: a row from before 0.8.0 may still hold its
+    proceeds (kept by a recalculation, #329), and the item names them. The
+    API can't make such a row, so it's written directly."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [
+        (940, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (941, "Deposit", "2024-01-02", EXTERNAL, EXCH_BTC, "1", "MyBTC", None, "1000", None, None, None),
+        (942, "Deposit", "2024-01-02", EXTERNAL, BANK, "1000", "N/A", None, None, None, None, None),
+        (943, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Expenses", None, None, None, None),
+        (944, "Withdrawal", "2024-02-02", EXCH_BTC, EXTERNAL, "0.1", None, None, None, None, None, None),
+        (945, "Withdrawal", "2024-02-03", WALLET, EXTERNAL, "0.1", None, "Payment", None, "450", None, None),
+        (946, "Withdrawal", "2024-02-04", WALLET, EXTERNAL, "0.1", None, "spent", None, "450", None, None),
+        (947, "Withdrawal", "2024-02-05", BANK, EXTERNAL, "100", None, "Rent", None, None, None, None),  # dollars
+        (948, "Withdrawal", "2024-02-06", WALLET, EXTERNAL, "0.1", None, "Expenses", None, None, "700", None),
+        (949, "Withdrawal", "2024-02-07", WALLET, EXTERNAL, "0.1", None, "   ", None, None, None, None),
+    ])
+    try:
+        with test_engine.connect() as con:
+            before = con.execute(text("SELECT * FROM transactions ORDER BY id")).all()
+        check = next(c for c in auth_client.get("/api/review").json()["checks"]
+                     if c["key"] == "withdrawal_purpose_unknown")
+        assert [(i["id"], i["issue"]) for i in check["items"]] == [
+            (943, 'Purpose "Expenses": counted as a sale at $0 proceeds (none recorded), so its whole basis '
+                  "shows as a loss."),
+            (944, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
+                  "as a loss."),
+            (945, 'Purpose "Payment": counted as a sale with $450.00 proceeds.'),
+            (948, 'Purpose "Expenses": $700.00 proceeds saved with it, but counted as a sale at $0 until you '
+                  "choose."),
+            (949, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
+                  "as a loss."),
+        ]
+        assert "An amount listed as saved with it stays saved until you do." in check["action"]
+        assert "backups/btctx-before-schema-0010-….db" in check["action"]
+        with test_engine.connect() as con:
+            assert con.execute(text("SELECT * FROM transactions ORDER BY id")).all() == before
+        # What the items say is what a recalculation makes of them
+        assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        assert [(_stored(test_engine, i, "proceeds_usd"), _stored(test_engine, i, "realized_gain_usd"))
+                for i in (943, 944, 945, 948, 949)] == [(None, Decimal("-100.00"))] * 2 \
+            + [(Decimal("450.00"), Decimal("350.00")), (Decimal("700.00"), Decimal("-100.00")),
+               (None, Decimal("-100.00"))]  # proceeds as stored (#329), the gain a $0 sale's
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_only_an_edit_a_delete_or_an_earlier_dated_add_recalculates(auth_client, test_engine):
+    """#172: Ledger Review's recalculation text said adding any transaction
+    recalculates everything too. One dated after the others adds only its
+    own lines and lots; an edit or a delete recalculates."""
+    action = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "recalc_changes")["action"]
+    assert "Editing or deleting any transaction also recalculates everything." in action
+    assert "Adding" not in action
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # a Lost withdrawal saved with a loss: a recalculation makes it $0
+        (950, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (951, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+    ])
+    try:
+        added = auth_client.post("/api/transactions", json=dict(
+            type="Deposit", timestamp="2024-03-01T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+            amount="0.5", source="MyBTC", cost_basis_usd="100"))
+        assert added.status_code == 200, added.text
+        assert _stored(test_engine, 951, "realized_gain_usd") == Decimal("-100.00")
+        edited = auth_client.put(f"/api/transactions/{added.json()['id']}", json={"amount": "0.6"})
+        assert edited.status_code == 200, edited.text
+        assert _stored(test_engine, 951, "realized_gain_usd") == Decimal("0.00")
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_recalculation_keeps_what_an_unknown_purpose_withdrawal_received(auth_client, test_engine):
+    """#329: from 1.2.8 (#157), every recalculation wrote 0 over a BTC
+    withdrawal's stored proceeds_usd. For one whose purpose BitcoinTX doesn't
+    know, saved before 0.8.0 recorded a gross, that erased the only record
+    of what was received (#61). It's kept again, as up to 1.2.7; a Spent's
+    $0 (#157) and a gift's none stay."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [
+        (960, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (961, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Expenses", None, None, "700", None),
+        (962, "Withdrawal", "2024-02-02", WALLET, EXTERNAL, "0.1", None, "Spent", None, "0", "300", None),
+        (963, "Withdrawal", "2024-02-03", WALLET, EXTERNAL, "0.1", None, "Gift", None, None, "50", None),
+    ])
+    try:
+        for _ in range(2):
+            assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        assert [_stored(test_engine, i, "proceeds_usd") for i in (961, 962, 963)] == \
+            [Decimal("700.00"), Decimal("0.00"), None]
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

@@ -13,6 +13,14 @@ Checks:
   looks the same; only the owner can tell.
 - lost_with_loss (F2): a Lost withdrawal whose stored gain isn't $0. Lost
   now counts like a gift ($0 gain); Recalculate Ledger removes the old loss.
+- withdrawal_purpose_unknown (#61): a BTC withdrawal whose purpose isn't
+  Spent, Gift, Donation or Lost (blank, or free text such as "Expenses"),
+  which only a ledger from before that check can hold. It counts as a sale,
+  and with no gross recorded (gross_proceeds_usd blank, from before 0.8.0)
+  at $0, so its whole basis shows as a loss. Such a row may still hold its
+  proceeds in proceeds_usd, which a recalculation keeps (1.2.8's erased
+  them, #329): the item names them. Only the owner knows which purpose it
+  was; nothing changes until they choose.
 - deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
   (source MyBTC, Gift, Inherited, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
@@ -61,7 +69,8 @@ Checks:
   running the recalculation and rolling it back. After an upgrade this is
   where the fixes that change existing figures show up (Lost at $0 gain, a
   withdrawal's network fee as its own disposal), before anything moves.
-  Any add, edit or delete recalculates everything too.
+  Editing or deleting any transaction recalculates everything too (adding
+  one only when it's dated before the latest, #172).
 
 The price checks read the local price history (and fill it from the
 network if a day is missing; an hourly year not downloaded yet isn't
@@ -91,8 +100,8 @@ from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 CHECKS: dict[str, tuple] = {
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
-        "Back up first, then run Recalculate Ledger (Settings) when you agree. Adding, editing or "
-        "deleting any transaction also recalculates everything.",
+        "Back up first, then run Recalculate Ledger (Settings) when you agree. Editing or deleting any "
+        "transaction also recalculates everything.",
     ),
     "day_priced_values": (
         "Values priced at the day's price that the hour would change",
@@ -107,6 +116,14 @@ CHECKS: dict[str, tuple] = {
     "lost_with_loss": (
         "Lost withdrawals still carrying a loss",
         "Recalculate Ledger sets their gain to $0 (Lost now counts like a gift).",
+    ),
+    "withdrawal_purpose_unknown": (
+        "BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost",
+        "Edit each one and choose its purpose: Spent (you paid for something with it), Gift, Donation or Lost. "
+        "An amount listed as saved with it stays saved until you do. One listed as none recorded may have lost "
+        "its amount to a recalculation by 1.2.8: the copy of the database made before that update "
+        "(backups/btctx-before-schema-0010-….db in BitcoinTX's data folder) still holds it, as proceeds_usd. "
+        "Look it up there; don't restore that copy, which would lose everything entered since.",
     ),
     "deposit_without_basis": (
         "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
@@ -174,6 +191,9 @@ DAY_VALUED = VALUED_AT_RECEIPT - {INHERITED_SOURCE}
 # Deposits with a date originally acquired the reminder is about: an
 # Inherited one must have its date of death (#154), so it's never missing
 DATED_FROM_DEPOSIT = ORIGINAL_DATE_SOURCES - {INHERITED_SOURCE}
+# A BTC withdrawal's purposes (transaction.WITHDRAWAL_PURPOSES): any other is
+# from before they were checked, and counts as a sale (#61)
+KNOWN_PURPOSES = {"spent", *GIFT_LIKE_PURPOSES}
 
 # Explanations shown once for a whole group: the reminders', and the hourly check's
 EXPLANATIONS: dict[str, tuple[str, ...]] = {
@@ -386,6 +406,7 @@ def build_review(db: Session) -> dict[str, Any]:
 
 def _row_issues(t: Transaction, tz):
     """(check, item) for each check a withdrawal or deposit fails on its own."""
+    yield from _purpose_issues(t, tz)
     purpose = (t.purpose or "").lower()
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0:
@@ -412,6 +433,30 @@ def _row_issues(t: Transaction, tz):
             t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
             "A basis you enter lowers the gain when this BTC is sold by the same amount.",
         )
+
+
+def _purpose_issues(t: Transaction, tz):
+    """A BTC withdrawal with a purpose BitcoinTX doesn't know (#61)."""
+    if t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS \
+            and (t.purpose or "").lower() not in KNOWN_PURPOSES:
+        named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
+        yield "withdrawal_purpose_unknown", _item(
+            t, tz, f"Purpose {named}: {_counted_as(t)}",
+            "As Spent, enter what you got for it (an amount saved with it, if any) as its proceeds; as Gift, "
+            "Donation or Lost it has no gain.",
+        )
+
+
+def _counted_as(t: Transaction) -> str:
+    """What a withdrawal of unknown purpose counts as: a sale at its gross,
+    else at $0 (transaction._withdrawal_gross_proceeds). A row saved before
+    0.8.0 has no gross, but may hold what was received in proceeds_usd,
+    which a recalculation keeps (#329) until the owner chooses."""
+    if t.gross_proceeds_usd is not None:
+        return f"counted as a sale with ${_money(t.gross_proceeds_usd)} proceeds."
+    if not _is_zero_or_blank(t.proceeds_usd):
+        return f"${_money(t.proceeds_usd)} proceeds saved with it, but counted as a sale at $0 until you choose."
+    return "counted as a sale at $0 proceeds (none recorded), so its whole basis shows as a loss."
 
 
 # How the recalculation items name the figures.
