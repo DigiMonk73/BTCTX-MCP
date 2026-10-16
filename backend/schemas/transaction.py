@@ -9,8 +9,10 @@ from __future__ import annotations
 from enum import Enum
 from pydantic import BaseModel, Field, field_serializer, field_validator, ConfigDict
 from typing import Literal
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
+
+from backend.services.tax_time import as_utc
 
 # backend.constants.BROKER_REPORTING_VALUES
 BrokerReporting = Literal["none", "proceeds", "basis"]
@@ -122,6 +124,14 @@ def _date_alone(value):
     return value
 
 
+def _in_range(value):
+    """A date and time given with an offset, refused when it falls outside
+    Python's years in UTC (tax_time.DateOutOfRange, #211)."""
+    if isinstance(value, datetime) and value.tzinfo is not None:
+        as_utc(value)
+    return value
+
+
 class TransactionBase(BaseModel):
     """
     A transaction as entered: its type, accounts, amount, fee and USD
@@ -201,18 +211,17 @@ class TransactionBase(BaseModel):
     def date_alone_stays_a_date(cls, v):
         return _date_alone(v)
 
+    @field_validator("acquired_at")
+    def acquired_in_range(cls, v):
+        return _in_range(v)
+
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
-        Ensures timestamps are UTC for consistent audit trails.
+        Ensures timestamps are UTC for consistent audit trails. A moment outside Python's
+        years once in UTC is refused (tax_time.DateOutOfRange, #211).
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
     @field_validator("amount")
     def validate_amount(cls, v: Decimal | None) -> Decimal | None:
@@ -279,18 +288,17 @@ class TransactionUpdate(BaseModel):
     def date_alone_stays_a_date(cls, v):
         return _date_alone(v)
 
+    @field_validator("acquired_at")
+    def acquired_in_range(cls, v):
+        return _in_range(v)
+
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
-        Ensures updated timestamps remain UTC-consistent.
+        Ensures updated timestamps remain UTC-consistent. A moment outside Python's
+        years once in UTC is refused (tax_time.DateOutOfRange, #211).
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
     @field_validator("amount")
     def validate_amount(cls, v: Decimal | None) -> Decimal | None:
@@ -441,13 +449,7 @@ class BitcoinLotCreate(BitcoinLotBase):
         """
         Ensures acquired_date is UTC for consistent tax holding period calculation.
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
 
 class BitcoinLotRead(BitcoinLotBase):
