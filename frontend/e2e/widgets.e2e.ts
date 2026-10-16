@@ -125,8 +125,9 @@ test("converter: choosing the mode in use again changes nothing (#328)", async (
   await sidebar.getByRole("button", { name: "Auto" }).click();
   await expect(sidebar.getByText("BTC Price: $60,000.00", { exact: true })).toBeVisible();
   await expect(sidebar.getByText("BTC Price: …", { exact: true })).toHaveCount(0);
-  // Manual chosen again keeps the price typed there
+  // Manual chosen again keeps the price typed there (typed once its starting price, the live one, is in)
   await sidebar.getByRole("button", { name: "Manual" }).click();
+  await expect(sidebar.getByLabel("BTC Price (USD)")).toHaveValue("60000");
   await sidebar.getByLabel("BTC Price (USD)").fill("100000");
   await sidebar.getByRole("button", { name: "Manual" }).click();
   await expect(sidebar.getByLabel("BTC Price (USD)")).toHaveValue("100000");
