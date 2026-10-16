@@ -185,7 +185,9 @@ def _copy_sqlite(db_path: Path, dest: Path) -> None:
 
 
 # A copy's name ends in the UTC second it was made and, for a later copy of
-# that second, its number: <stem>-<kind>-<label>-<second>[-<n>].db
+# that second, its number: <stem>-<kind>-<label>-<second>[-<n>].db. The
+# number counts per label: two labels of one kind (an upgrade's copy and a
+# restore's) made in the same tick are both 1, and their spelling decides.
 _MADE = re.compile(r"-(\d{8}T\d{6}Z)(?:-(\d+))?\.db$")
 
 
@@ -195,7 +197,8 @@ def _second() -> str:
 
 def _made(copy: Path) -> tuple[str, int]:
     """(second, number) from a copy's name: the order the copies of one
-    second were made in (the first has no number: 1)."""
+    second were made in (the first has no number: 1). A name it can't read
+    gives ("", 0): the oldest of the copies that share its file time."""
     found = _MADE.search(copy.name)
     return (found[1], int(found[2] or 1)) if found else ("", 0)
 

@@ -193,7 +193,9 @@ Change these only together with the package (`startos/`):
 - **Logging:** `LOG_LEVEL` env (default INFO).
 - **Volume:** data at `/data`, database path from `DATABASE_FILE`. Only the
   newest 5 pre-upgrade/pre-restore copies, 5 copies before Ledger Review's
-  hourly prices were applied, and of the AI copies (asked for, or made
+  hourly prices were applied, 5 copies before every transaction was deleted
+  (Delete All, or Create account on a ledger with transactions:
+  `btctx-before-delete-all-…`), and of the AI copies (asked for, or made
   before the AI key's first change in an hour) the newest 3, plus for a
   week the oldest and each day's first before a change (at most 11), are
   kept in `/data/backups/`.

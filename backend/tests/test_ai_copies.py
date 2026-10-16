@@ -427,9 +427,10 @@ def test_other_kinds_keep_only_their_newest(db_file):
 
 def test_copies_with_the_same_file_time_keep_the_newest(db_file, monkeypatch):
     """#308: copies made within one tick of a coarse filesystem clock share a
-    file time, and then their names decided, which sort the wrong way
-    ("…Z-2.db" before "…Z.db"): pruning kept the first copy of the second and
-    dropped the newest, and the next copy took a pruned copy's name."""
+    file time. Their names then give their order (the second, then the
+    number), so pruning keeps the newest, and a new copy is numbered after
+    every one of its second, never taking a pruned copy's name. (By name
+    alone they sorted the wrong way, "…Z-2.db" before "…Z.db".)"""
     path, session = db_file
     monkeypatch.setattr(migrate, "_second", lambda: "20261015T120000Z")
     replace = os.replace
