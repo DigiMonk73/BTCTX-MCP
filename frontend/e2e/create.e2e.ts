@@ -168,6 +168,8 @@ test.describe("withdrawals", () => {
     await page.getByLabel("Purpose").selectOption("Spent");
     await expect(page.getByLabel("Proceeds (USD)")).toHaveValue("");
     await expect(page.getByText(/Leave blank to use the BTC price when that hour began as the proceeds/)).toBeVisible();
+    // ...and where it comes from (#208): this server asks public price sites
+    await expect(page.getByText(/as the proceeds .*(newer ones come|It comes) from public price sites\.$/)).toBeVisible();
     await page.getByLabel("Proceeds (USD)").fill("0");
     await expect(page.getByText(/You selected "Spent" but "Proceeds \(USD\)" is 0/)).toBeVisible();
   });

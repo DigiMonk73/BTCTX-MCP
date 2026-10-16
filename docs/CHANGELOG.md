@@ -106,6 +106,32 @@ All notable changes to BitcoinTX are documented in this file.
   site answered with a refusal, as Bitstamp does Tor's exits (#241), it
   doesn't ask, since Tor is running; the price card has said what to do
   then since 1.2.8 (#240).
+- **A blank value's hint says where its price comes from** (part of
+  #208). In the transaction form, the hint under a value BitcoinTX fills
+  from the price when left blank (an income or rebate deposit's value, a
+  spend's proceeds, a gift's, donation's or lost coins' value, a BTC fee's
+  value) now ends with where that price comes from, as BitcoinTX looks it
+  up:
+  - with the hourly history downloaded: "Hourly prices from 2013 to Oct
+    12, 2026 are stored in BitcoinTX; newer ones come from public price
+    sites" (or "your Mempool, else public price sites" with its backup, or
+    "your Mempool where it has them; otherwise type it" without);
+  - before that: "It comes from public price sites" (or your Mempool with
+    its backup). Your Mempool alone has prices only from when it began
+    recording, so the hint says to type an older hour's value. Through
+    Tor, where Bitstamp refuses BitcoinTX's requests (#241), it says an
+    older hour may need typing;
+  - with Nobody it says to type it; before a source is chosen or
+    confirmed, where to do that; and on StartOS with Mempool chosen but
+    not installed, that it isn't installed yet.
+
+  An inheritance's value (the date of death's price) says the same where
+  none would be found, Tor included.
+- **"Recommended" beside "Chosen" when StartOS set your Mempool** (part of
+  #208). On StartOS, with **My Mempool on this server** chosen in the Price
+  Source & Privacy action and Mempool installed, Settings › Privacy &
+  network marks it "✓ Chosen" and "Recommended", as the action does. The Mac app and Docker never mark
+  one: finding a Mempool would mean asking your network before you choose.
 - **The AI connector says which price a value it filled came from**
   (#208). When BitcoinTX fills a value from the BTC price (an income or
   rebate value, an inheritance's value at its date of death, a spend's
@@ -254,6 +280,14 @@ All notable changes to BitcoinTX are documented in this file.
   (`~/Library/Application Support/BitcoinTX`) wherever the server is the
   Mac app: the public `/api/users/setup-status` now says so (`desktop`).
   Wording only.
+- **The IRS forms no longer fill the log with pypdf warnings** (#124).
+  Each time BitcoinTX read an IRS form's text (to check a draft form's year
+  and pages, as when the next year's preview is offered), pypdf logged a
+  warning for each font that fontTools wasn't installed, with the font's
+  whole width table: on the StartOS test server, 183 lines of about 2 KB
+  after making one ledger's forms, burying real errors. The forms were
+  always right. That one warning is now left out; pypdf's others still
+  show. No new dependency.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
