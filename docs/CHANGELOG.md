@@ -78,6 +78,17 @@ All notable changes to BitcoinTX are documented in this file.
   column, so a re-import keeps where the value came from. This adds a
   database column (migration 0011, `fmv_from_price`).
 
+- **The Mac app says when it has no AI key, and how to get one** (#238).
+  If the app can't write its AI key file when it starts, it runs with no
+  key until **Reset key** (or the next start). Settings › Connect an AI
+  Assistant now says "No AI key yet: press Reset key." instead of only
+  describing the key file. And the AI connector, finding no key file, or
+  one whose app is gone, adds "or, if it's open, press Reset key in its
+  Settings (Connect an AI Assistant)" to "Open the BitcoinTX app and try
+  again": an open app that couldn't write its key has no file on its first
+  start, and leaves the earlier run's file after that.
+  `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
+
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
@@ -323,6 +334,27 @@ All notable changes to BitcoinTX are documented in this file.
   any save). If you changed the tax timezone by many hours after entering a
   My BTC, Gift or Inherited deposit's date, check those dates against your
   records and correct any that moved. Most ledgers need nothing.
+- **Input that can never be valid gets a refusal, not a server error**
+  (#210, #218, #211). These requests were answered "Internal Server
+  Error" (500) instead of saying what was wrong. Nothing was saved, and
+  only the logged-in owner (or the AI key, for the AI connector's entries)
+  could send most of them. Every version up to 1.2.8. Now:
+  - a password or username that isn't text (a lone surrogate, `"\ud800"`,
+    which JSON can carry but no keyboard types) is a wrong one at login or
+    as the current password (401 or 403, counted like any other), and a
+    new password or username like it is refused with a 422 that says so
+    (#210);
+  - a JSON number too large for a computer's numbers (`1e999`, read as
+    infinity), or `NaN`, gets a 422 that names the field and leaves the
+    value out (#218);
+  - a date at the very edge of the calendar, such as 9999-12-31 23:59:59 in
+    a US tax timezone or `0001-01-01T00:00:00+05:00`, is refused as "out of
+    range", naming the field (the date or the date originally acquired), in
+    the CSV import, the AI connector's entries and the API; a Complete Tax
+    Report or transaction history for a year before 2009 or after 2100 is
+    a 422 naming the year, as Form 8949 already refused one; and a CSV or
+    River file with a field over 131,072 characters gets "The file can't
+    be read as CSV" (#211).
 
 ### Development
 - **The certificate test no longer fails 1 run in 256** (#299).

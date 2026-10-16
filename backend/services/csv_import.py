@@ -29,6 +29,7 @@ from backend.services.transaction import (
     fee_currency_used,
     has_control_character,
     original_date,
+    original_date_name,
     original_date_problem,
     sell_fee_problem,
     text_problem,
@@ -37,7 +38,7 @@ from backend.services.transaction import (
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
 from backend.services.reports.safe_text import csv_text
-from backend.services.tax_time import local_noon_utc
+from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
     ACCOUNT_ID_TO_NAME,
     ACCOUNT_NAME_TO_ID,
@@ -111,6 +112,21 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
     the tax timezone: a date without a timezone is local to it, and a date
     alone means noon there (as the MCP entry import reads it).
     """
+    try:
+        return _parse_rows(content, tz)
+    except csv.Error as exc:
+        result = ParseResult()
+        result.errors.append(unreadable_csv(exc))
+        return result
+
+
+def unreadable_csv(exc: csv.Error) -> CSVParseError:
+    """The csv module couldn't read the file (a field over its 131,072
+    characters, say): a file error, not a server error (#211)."""
+    return _file_error(f"The file can't be read as CSV ({exc}).")
+
+
+def _parse_rows(content: bytes, tz) -> ParseResult:
     result = ParseResult()
     reader = csv.DictReader(io.StringIO(_decode(content)))
     header_error = _header_error(reader.fieldnames)
@@ -282,19 +298,26 @@ def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> date | No
     text = (row.get("acquired_at") or "").strip()
     if not text:
         return None
-    acquired = _parse_date(text, tz)
-    if acquired is None:
-        raise _Rejected(_error(
-            row_number, "acquired_at", f"Invalid acquired_at '{text}'. Use a date such as 2021-03-14.",
-        ))
-    return original_date(acquired, tz)
+    try:
+        acquired = _parse_date(text, tz)
+        if acquired is not None:
+            return original_date(acquired, tz)
+    except DateOutOfRange:
+        what = original_date_name(row.get("source"))
+        raise _Rejected(_error(row_number, "acquired_at", date_out_of_range(what))) from None
+    raise _Rejected(_error(
+        row_number, "acquired_at", f"Invalid acquired_at '{text}'. Use a date such as 2021-03-14.",
+    ))
 
 
 def _required_date(row: dict[str, str], row_number: int, tz) -> datetime:
     date_str = row.get("date", "").strip()
     if not date_str:
         raise _Rejected(_error(row_number, "date", "Date is required."))
-    timestamp = _parse_date(date_str, tz)
+    try:
+        timestamp = _parse_date(date_str, tz)
+    except DateOutOfRange as exc:
+        raise _Rejected(_error(row_number, "date", str(exc))) from None
     if timestamp is None:
         raise _Rejected(_error(
             row_number, "date", f"Invalid date format: '{date_str}'. Use ISO8601 (e.g., 2024-01-15T10:30:00Z).",
@@ -543,7 +566,8 @@ def _parse_date(date_str: str, tz=timezone.utc) -> datetime | None:
     The date as a UTC datetime. A time without a timezone is local to `tz`
     (the tax timezone), and a date alone means noon there: read as UTC,
     "2024-01-01" would be Dec 31 2023 in a US tax timezone, another tax
-    year. "Z", an offset or " UTC" is honored.
+    year. "Z", an offset or " UTC" is honored. One outside Python's years
+    in UTC raises DateOutOfRange (#211).
     """
     for fmt, has_tz, date_only in _DATE_FORMATS:
         try:
@@ -556,7 +580,7 @@ def _parse_date(date_str: str, tz=timezone.utc) -> datetime | None:
             return local_noon_utc(dt.date(), tz)
         if not has_tz:
             dt = dt.replace(tzinfo=tz)
-        return dt.astimezone(timezone.utc)
+        return as_utc(dt)
 
     return None
 

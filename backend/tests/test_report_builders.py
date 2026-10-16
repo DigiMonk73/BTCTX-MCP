@@ -141,10 +141,10 @@ def test_a_long_report_keeps_every_row_its_headers_and_page_numbers():
 
 
 def test_transaction_history_of_a_year_without_transactions(auth_client):
-    r = auth_client.get("/api/reports/simple_transaction_history", params={"year": 2001, "format": "pdf"})
+    r = auth_client.get("/api/reports/simple_transaction_history", params={"year": 2010, "format": "pdf"})
     assert r.status_code == 200
-    assert "TAX YEAR 2001 Transaction History" in pdf_text(r.content)
-    assert "No transactions in 2001. " in pdf_text(r.content) + " "
+    assert "TAX YEAR 2010 Transaction History" in pdf_text(r.content)
+    assert "No transactions in 2010. " in pdf_text(r.content) + " "
 
 
 def row(box: str) -> Form8949Row:
