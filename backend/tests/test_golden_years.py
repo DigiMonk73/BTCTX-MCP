@@ -146,13 +146,13 @@ EXPECTED = {
 def golden(auth_client, test_engine):
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
     for tx in LEDGER:
         r = auth_client.post("/api/transactions", json=tx)
         assert r.status_code == 200, (tx, r.text)
     yield sessionmaker(bind=test_engine)
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})
 
 
 def _normalize(forms):

@@ -134,7 +134,7 @@ def _sessions_of(Session):
 def _print_ledger(rows: list[dict], timezone: str, Session) -> dict:
     c = TestClient(app)
     seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
-    assert c.put("/api/settings/tax-timezone", json={"timezone": timezone}).status_code == 200
+    assert c.put("/api/settings/tax-timezone", json={"timezone": timezone, "chosen": True}).status_code == 200
     assert seed_ledger.seed(c, rows) == len(rows)
     years = c.get("/api/reports/years").json()
     result = {"pages": {}, "reports": {}, "rows": {}}

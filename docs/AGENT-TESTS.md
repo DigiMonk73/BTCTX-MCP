@@ -208,7 +208,7 @@ def call(method, path, body=None):
 call("POST", "/api/login", {"username": os.environ["BTCTX_USER"], "password": os.environ["BTCTX_PASSWORD"]})
 if call("GET", "/api/transactions"):
     sys.exit("The ledger is not empty: load the golden ledger only into an empty test install.")
-call("PUT", "/api/settings/tax-timezone", {"timezone": "America/New_York"})
+call("PUT", "/api/settings/tax-timezone", {"timezone": "America/New_York", "chosen": True})
 for tx in LEDGER:
     call("POST", "/api/transactions", tx)
 print(len(call("GET", "/api/transactions")), "transactions loaded; tax timezone America/New_York")
@@ -251,8 +251,8 @@ Start from the `clean` snapshot.
 - **AUTH-2** Log in with the wrong password, then with `admin` /
   `password`. Expect both times: "Invalid username or password."
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
-  Settings > Tax Timezone reads "Current: America/New_York": the first login
-  adopts the browser's timezone.
+  Settings > Tax Timezone reads "Current: America/New_York": a login adopts
+  the browser's timezone while the ledger is empty (#334).
 - **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
   other pages), nothing chosen, its status line "Not chosen yet: nothing is
   contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
