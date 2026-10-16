@@ -44,7 +44,8 @@ def update_account(account_id: int, account: AccountUpdate, db: Session = Depend
 
 @router.delete("/{account_id}", status_code=204)
 def delete_account(account_id: int, db: Session = Depends(get_db)):
-    """Delete an account: 204, or 404 when it doesn't exist or is in use."""
+    """Delete an account: 204; 404 when it doesn't exist; 400 for a fixed
+    account; 409 while transactions name it."""
     success = account_service.delete_account(account_id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Account not found or cannot be deleted.")
