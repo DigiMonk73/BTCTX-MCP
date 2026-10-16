@@ -120,6 +120,27 @@ test("saving an edit without changes changes nothing", async ({ authedPage: page
   expect(normalize(after)).toEqual(normalize(created));
 });
 
+test("a few sats start as plain digits, never 5e-8, and save unchanged (#101)", async ({ authedPage: page }) => {
+  await seedFunds(page.request);
+  const created = await createTx(page.request, {
+    type: "Withdrawal", timestamp: TS, from_account_id: 4, to_account_id: 99, amount: "0.00000005",
+    purpose: "Spent", gross_proceeds_usd: "0.01", fee_amount: "0.00000003", fee_currency: "BTC", fee_usd: "0.01",
+  });
+  expect([created.amount, created.fee_amount]).toEqual(["0.00000005", "0.00000003"]); // the API writes them out
+  await openEdit(page, "Withdrawal");
+  await expect(page.getByLabel("Amount", { exact: true })).toHaveValue("0.00000005");
+  await expect(page.getByLabel("Fee (BTC)")).toHaveValue("0.00000003");
+  // The same amount typed again is no change: Escape closes without asking
+  await page.getByLabel("Amount", { exact: true }).fill("0.00000005");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "Edit Transaction" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Discard changes?" })).toHaveCount(0);
+  await openEdit(page, "Withdrawal");
+  await saveForm(page, "Update Transaction");
+  const after = (await listTx(page.request)).find((t) => t.id === created.id)!;
+  expect(normalize(after)).toEqual(normalize(created));
+});
+
 test("delete asks once, then removes the transaction", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await createTx(page.request, CASES[4].tx);

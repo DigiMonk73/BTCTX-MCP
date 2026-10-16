@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from pydantic import BaseModel, field_validator
 
-from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password
+from backend.schemas.user import UserCreate, UserRead, UserUpdate, check_new_password, check_text
 from backend.services import first_run, login_throttle, wipe
 from backend.services.desktop import is_desktop
 from backend.services.user import (
@@ -118,6 +118,11 @@ class AccountReset(BaseModel):
         if not v.strip():
             raise ValueError("can't be empty")
         return v
+
+    @field_validator("username")
+    @classmethod
+    def username_is_text(cls, v: str) -> str:
+        return check_text(v, "username")
 
     @field_validator("password")
     @classmethod

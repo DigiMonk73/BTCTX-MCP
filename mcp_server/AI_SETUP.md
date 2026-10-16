@@ -193,14 +193,14 @@ BitcoinTX upgrade.
 
 | Error | Cause |
 |---|---|
-| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
+| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
 | `BitcoinTX no longer uses your password …` | The configuration still has `BTCTX_PASSWORD`: section 3 |
 | `AI access is turned off` | Off by default: the user turns on **Let AI assistants use BitcoinTX** in BitcoinTX **Settings → Connect an AI Assistant** |
 | `AI key not accepted …` | The placeholder is still there, the key was copied wrong, or it was replaced or revoked: the user makes a new one (**New key**) |
 | `… the AI key can't do this …` | On purpose (logging in, passwords, restore, imports, delete-all, settings): the user does it in BitcoinTX itself |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | `… no /api/import/entries endpoint`, or a 404 from `review_ledger` or `backup_ledger` | BitcoinTX is older than the server: update BitcoinTX, or pin the server to its version |
-| `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself |
+| `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself. If it's open, it may not have been able to write its key file when it started: the user presses **Reset key** in **Settings → Connect an AI Assistant** |
 | The app doesn't list the server | It wasn't restarted, or it can't find `uvx` (use the full path) |
 
 More: [README.md](README.md) in this folder.

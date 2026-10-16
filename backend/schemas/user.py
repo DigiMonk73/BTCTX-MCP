@@ -13,9 +13,30 @@ PASSWORD_TOO_SHORT = f"The password must be at least {MIN_PASSWORD_LENGTH} chara
 MAX_PASSWORD_BYTES = 72
 PASSWORD_TOO_LONG = (f"The password can be at most {MAX_PASSWORD_BYTES} characters "
                      "(fewer with accented letters or symbols).")
+NOT_TEXT = "The {} holds a character that isn't text (a lone surrogate): choose another."
+
+
+def is_text(value: str) -> bool:
+    """
+    Whether `value` is real text. A JSON string can hold a lone surrogate
+    ("\\ud800"), which no keyboard types and UTF-8 can't encode: bcrypt and
+    SQLite would fail on it with a server error (#210).
+    """
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def check_text(value: str, what: str) -> str:
+    if not is_text(value):
+        raise ValueError(NOT_TEXT.format(what))
+    return value
 
 
 def check_new_password(password: str) -> str:
+    check_text(password, "password")
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(PASSWORD_TOO_SHORT)
     if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
@@ -28,6 +49,11 @@ class UserBase(BaseModel):
     Shared user fields. 'username' is the primary unique identifier.
     """
     username: str
+
+    @field_validator("username")
+    @classmethod
+    def username_is_text(cls, v: str) -> str:
+        return check_text(v, "username")
 
 
 class UserCreate(UserBase):
@@ -63,6 +89,11 @@ class UserUpdate(BaseModel):
         if v is not None and not v.strip():
             raise ValueError("can't be empty")
         return v
+
+    @field_validator("username")
+    @classmethod
+    def username_is_text(cls, v: str | None) -> str | None:
+        return v if v is None else check_text(v, "username")
 
     @field_validator("password")
     @classmethod

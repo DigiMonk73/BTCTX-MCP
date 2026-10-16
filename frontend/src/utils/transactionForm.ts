@@ -1,6 +1,6 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
-import { optionalDecimal, parseDecimal } from "./format";
+import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
@@ -184,8 +184,8 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       fromCurrency,
       toCurrency: accountCurrency(toId),
       amountFrom: tx.amount,
-      // A BTC transfer's fee comes out of the amount: what arrived is the rest
-      amountTo: fromCurrency === "BTC" ? tx.amount - (tx.fee_amount ?? 0) : tx.amount,
+      // A BTC transfer's fee comes out of the amount: what arrived is the rest, to the satoshi
+      amountTo: fromCurrency === "BTC" ? Number((tx.amount - (tx.fee_amount ?? 0)).toFixed(8)) : tx.amount,
     };
   },
   Buy: (tx) => ({
@@ -210,6 +210,20 @@ export function mapTransactionToFormData(tx: ITransaction): TransactionFormData 
   const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
   if (tx.acquired_at) form.acquiredDate = tx.acquired_at;
   return form;
+}
+
+const BTC_FIELDS = ["amount", "fee", "amountFrom", "amountTo", "amountBTC"] as const;
+
+/**
+ * The form's BTC values that a field would show in exponent form (a 5-sat
+ * amount as "5e-8"), as plain digits (#101). Set after the form is reset, so
+ * its starting values stay numbers and nothing reads as changed.
+ */
+export function plainBtcText(form: TransactionFormData): Array<[(typeof BTC_FIELDS)[number], string]> {
+  return BTC_FIELDS.flatMap((name) => {
+    const value = form[name];
+    return typeof value === "number" && String(value).includes("e") ? [[name, btcText(value)] as const] : [];
+  });
 }
 
 /** What the payload says depends on the transaction's type. */
