@@ -1,5 +1,5 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
-import { storeJson } from '../fileModels/store.json'
+import { makeRecalculationDue } from '../utils'
 
 const CHANGELOG =
   'https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/CHANGELOG.md'
@@ -228,7 +228,7 @@ export const current = VersionInfo.of({
   },
   migrations: {
     up: async ({ effects }) => {
-      await storeJson.merge(effects, { recalculateLedger: true })
+      await makeRecalculationDue(effects)
     },
     down: IMPOSSIBLE,
   },

@@ -942,8 +942,10 @@ Start from the `clean` snapshot.
   Sideload the candidate. Expect the task **Price Source & Privacy**,
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones.", and beside it 1.2.8's **Recalculate Ledger**
-  (important). The service keeps running. Dismiss the price task in
-  StartOS, then restart the service and the server: it doesn't come back.
+  (important). The service keeps running. Dismiss both tasks (`start-cli
+  package action clear-task btctx choose-price-source`, then
+  `recalculate-after-0.8.0`), then restart the service and the server:
+  neither comes back (#365).
 - **UPG-8** (#143, a beta user may skip a release) A pass of its own:
   restore the VM's `clean` snapshot, sideload the published 1.2.5:0
   (`btctx.s9pk` of the v1.2.5 GitHub release), set it up as in UPG-1 (its

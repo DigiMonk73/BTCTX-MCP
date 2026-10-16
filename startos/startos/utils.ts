@@ -1,4 +1,5 @@
 import { T, utils } from '@start9labs/start-sdk'
+import { storeJson } from './fileModels/store.json'
 import { currentChoice, priceEnv } from './priceSource'
 import { sdk } from './sdk'
 
@@ -20,6 +21,18 @@ export function mainMounts() {
     subpath: null,
     mountpoint: '/data',
     readonly: false,
+  })
+}
+
+/**
+ * For a migration whose calculation fixes reach existing transactions only
+ * through a recalculation: Recalculate Ledger becomes due, and the next init
+ * asks for it once (init/recalculateTask.ts).
+ */
+export async function makeRecalculationDue(effects: T.Effects) {
+  await storeJson.merge(effects, {
+    recalculateLedger: true,
+    recalculateAsked: false,
   })
 }
 
