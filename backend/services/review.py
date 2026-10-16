@@ -66,7 +66,8 @@ Checks:
   would change, old -> new: its proceeds, basis and gain, its lot
   disposals' gain (each term's too when it has both), the cost of the lots
   it made, or else only how its rows split, lot by lot (#296). Found by
-  running the recalculation and rolling it back. After an upgrade this is
+  running the recalculation on a scratch copy of the database, the live
+  one only read (#335). After an upgrade this is
   where the fixes that change existing figures show up (Lost at $0 gain, a
   withdrawal's network fee as its own disposal), before anything moves.
   Editing or deleting any transaction recalculates everything too (adding
@@ -286,7 +287,7 @@ def simulate_recalculation(db: Session):
             scratch.flush()
             after = _snapshot(scratch, tz)
         except Exception as exc:  # e.g. a missing price: say so
-            return None, str(getattr(exc, "detail", exc))
+            return None, exc.detail if isinstance(exc, HTTPException) else str(exc)
     return _differences(before, after), None
 
 
@@ -486,10 +487,13 @@ def _change_text(diff: dict) -> str:
 
 
 def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
-    """The transactions whose figures Recalculate Ledger would change, in date order."""
+    """The transactions whose figures Recalculate Ledger would change, in
+    date order. Each is looked up once on the live database: one deleted
+    while the dry run ran on its copy (#335) is no longer listed."""
+    rows = [t for tx_id in moved if (t := db.get(Transaction, tx_id)) is not None]
     items = []
-    for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
-        t = db.get(Transaction, tx_id)
+    for t in sorted(rows, key=lambda t: (t.timestamp, t.id)):
+        diff = moved[t.id]
         item = _item(t, tz, "Stored figures differ from what the current rules give.", _change_text(diff))
         item["changes"] = {f: list(pair) if f in SPLITS else [_money(pair[0]), _money(pair[1])]
                            for f, pair in diff.items()}

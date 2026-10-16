@@ -696,3 +696,36 @@ def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine,
     finally:
         impatient.dispose()
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_transaction_deleted_while_the_check_runs_is_left_out(auth_client, test_engine, monkeypatch):
+    """#361's review: with the dry run on a copy (#335), a delete can land
+    while it runs. The check's list then named a transaction no longer
+    there, and building its item failed (a 500). It's left out instead."""
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services import transaction
+    from backend.services.transaction import delete_transaction_record
+
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # two Lost withdrawals saved with a loss: the dry run finds both
+        (995, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (996, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+        (997, "Withdrawal", "2024-02-02", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+    ])
+    real_replay = transaction.recalculate_all_transactions
+
+    def replay_then_delete_elsewhere(db, *args, **kwargs):
+        real_replay(db, *args, **kwargs)
+        with sessionmaker(bind=test_engine)() as other:
+            monkeypatch.setattr(transaction, "recalculate_all_transactions", real_replay)
+            assert delete_transaction_record(996, other)
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_then_delete_elsewhere)
+    try:
+        r = auth_client.get("/api/review")
+        assert r.status_code == 200, r.text
+        listed = ids(r.json(), "recalc_changes")
+        assert 997 in listed and 996 not in listed, listed
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
