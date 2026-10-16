@@ -37,6 +37,7 @@ from backend.services.transaction import (
     transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
+from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
     ACCOUNT_ID_TO_NAME,
@@ -59,6 +60,11 @@ VALID_TYPES = {"deposit", "withdrawal", "transfer", "buy", "sell"}
 REQUIRED_COLUMNS = {
     "date", "type", "amount", "from_account", "to_account"
 }
+
+# The columns the CSV export writes through safe_text.csv_text
+# (routers/backup.py), whose text the import takes back without its ' (#230)
+QUOTED_COLUMNS = frozenset({"type", "from_account", "to_account", "fee_currency", "source", "purpose",
+                            "broker_reporting", "price_moment"})
 
 # Every column, in order. The template, the import and the CSV export
 # (routers/backup.py) all use this list, so an export always imports back to
@@ -130,7 +136,8 @@ def _parse_rows(content: bytes, tz) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
-        normalized = {k.lower().strip(): v.strip() if v else "" for k, v in row.items() if k}
+        names = ((k.lower().strip(), v) for k, v in row.items() if k)
+        normalized = {name: _cell(name, v) for name, v in names}
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
         result.errors.extend(row_errors)
         result.warnings.extend(row_warnings)
@@ -165,6 +172,20 @@ def _header_error(fieldnames) -> CSVParseError | None:
     if missing_columns:
         return _file_error(f"Missing required columns: {', '.join(sorted(missing_columns))}")
     return None
+
+
+def _cell(column: str, value: str | None) -> str:
+    """
+    A cell's text, stripped. In a column the CSV export writes through
+    safe_text.csv_text, less the ' it puts in front of text a spreadsheet
+    could run as a formula: one leading ' is dropped when the rest is text
+    csv_text prefixes, so an export imports as it was (#230). A ' before
+    anything else is kept.
+    """
+    text = (value or "").strip()
+    if column in QUOTED_COLUMNS and text.startswith("'") and csv_text(text[1:]) == text:
+        return text[1:]
+    return text
 
 
 def _file_error(message: str) -> CSVParseError:

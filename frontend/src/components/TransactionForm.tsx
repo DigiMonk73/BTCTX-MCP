@@ -5,7 +5,7 @@ import api from "../api";
 import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { parseTransaction } from "../utils/format";
-import { mapTransactionToFormData, toDatetimeLocal } from "../utils/transactionForm";
+import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
 import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
@@ -42,6 +42,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     handleSubmit,
     reset,
     getValues,
+    setValue,
     formState: { errors, isDirty },
   } = form;
 
@@ -57,7 +58,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       api.get<ITransactionRaw>(`/transactions/${transactionId}`)
         .then((res) => {
           const tx = parseTransaction(res.data);
-          reset(mapTransactionToFormData(tx));
+          const data = mapTransactionToFormData(tx);
+          reset(data);
+          for (const [name, text] of plainBtcText(data)) setValue(name, text);
           setCurrentType(tx.type);
         })
         .catch(() => {
@@ -67,7 +70,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       reset({ timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS });
       setCurrentType("");
     }
-  }, [transactionId, reset, toastError]);
+  }, [transactionId, reset, setValue, toastError]);
 
   // A layout effect: the panel knows of a change before the next key or
   // click (a plain effect ran later, and an Escape at once closed the panel

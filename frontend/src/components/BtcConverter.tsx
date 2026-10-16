@@ -5,6 +5,7 @@ import api from "../api";
 import { noPriceReason, type NoPrice } from "../utils/dashboard";
 import { browserTimezone } from "../utils/taxTimezone";
 import { historyPriceUrl } from "../utils/converter";
+import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import "../styles/converter.css";
 
@@ -86,9 +87,7 @@ const BtcConverter: React.FC = () => {
   // The field typed in last: the other two are worked out from it
   const [lastChangedField, setLastChangedField] = useState<Field>(null);
 
-  // BTC to the satoshi (8 decimals), USD to the cent.
-  // As a plain decimal: 1 sat is "0.00000001", never "1e-8".
-  const roundBtc = (num: number) => num.toFixed(8).replace(/\.?0+$/, "");
+  // BTC to the satoshi as plain digits (btcText: 1 sat is "0.00000001", never "1e-8"), USD to the cent.
   const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
   // Auto mode: the live price, every 2 minutes
@@ -148,7 +147,7 @@ const BtcConverter: React.FC = () => {
       const btcNum = btcPrice ? usdNum / btcPrice : 0;
       const satsNum = btcNum * 100_000_000;
 
-      setBtcValue(btcNum ? roundBtc(btcNum) : "");
+      setBtcValue(btcNum ? btcText(btcNum) : "");
       setSatsValue(satsNum ? Math.floor(satsNum).toString() : "");
 
       if (updateLastField) {
@@ -182,7 +181,7 @@ const BtcConverter: React.FC = () => {
       const btcNum = satsNum / 100_000_000;
       const usdNum = btcNum * btcPrice;
 
-      setBtcValue(btcNum ? roundBtc(btcNum) : "");
+      setBtcValue(btcNum ? btcText(btcNum) : "");
       setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
 
       if (updateLastField) {

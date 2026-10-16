@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
+import { btcText, parseDecimal } from "../../utils/format";
 import { transferCurrency, transferDestinations } from "../../utils/transactionForm";
 
 /**
@@ -17,8 +18,8 @@ export function useFieldAutofill(type: TransactionType | "", form: UseFormReturn
   const fromAccount = watch("fromAccount");
   const fromCurrency = watch("fromCurrency");
   const toAccount = watch("toAccount");
-  const amountFrom = watch("amountFrom") || 0;
-  const amountTo = watch("amountTo") || 0;
+  const amountFrom = parseDecimal(watch("amountFrom")) || 0;
+  const amountTo = parseDecimal(watch("amountTo")) || 0;
 
   useEffect(() => {
     if (type === "Deposit" || type === "Withdrawal") {
@@ -43,7 +44,7 @@ export function useFieldAutofill(type: TransactionType | "", form: UseFormReturn
   useEffect(() => {
     if (type === "Transfer" && fromCurrency === "BTC") {
       const fee = amountFrom - amountTo;
-      setValue("fee", fee < 0 ? 0 : Number(fee.toFixed(8)));
+      setValue("fee", fee < 0 ? 0 : btcText(fee)); // "0.00000014", never "1.4e-7" (#101)
     }
   }, [type, fromCurrency, amountFrom, amountTo, setValue]);
 }

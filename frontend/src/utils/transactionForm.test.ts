@@ -3,8 +3,10 @@ import {
   buildTransactionPayload,
   localDatetimeToIso,
   mapTransactionToFormData,
+  plainBtcText,
   transferDestinations,
 } from "./transactionForm";
+import { btcText } from "./format";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
 const base = {
@@ -361,5 +363,39 @@ describe("the stored values' price moment", () => {
   it("reaches the form, which says which price a stored fee value came from (#144)", () => {
     expect(mapTransactionToFormData(tx({ type: "Transfer", price_moment: "day" })).priceMoment).toBe("day");
     expect(mapTransactionToFormData(tx({ type: "Transfer" })).priceMoment).toBeNull();
+  });
+});
+
+describe("a few sats shown as plain digits, never 5e-8 (#101)", () => {
+  it("btcText writes a BTC amount to the satoshi, without trailing zeros", () => {
+    expect([5e-8, 1.4e-7, 0.5, 1, 0, 0.00010005, 21000000].map(btcText))
+      .toEqual(["0.00000005", "0.00000014", "0.5", "1", "0", "0.00010005", "21000000"]);
+  });
+
+  it("a 5-sat spend's amount and 3-sat fee start as plain digits when edited", () => {
+    const form = mapTransactionToFormData(tx({ type: "Withdrawal", from_account_id: 2, to_account_id: 99,
+      amount: 5e-8, fee_amount: 3e-8, fee_currency: "BTC", purpose: "Spent" }));
+    expect(plainBtcText(form)).toEqual([["amount", "0.00000005"], ["fee", "0.00000003"]]);
+  });
+
+  it("a transfer's amount received is to the satoshi, and its 14-sat fee plain digits", () => {
+    const form = mapTransactionToFormData(tx({ type: "Transfer", from_account_id: 4, to_account_id: 2,
+      amount: 0.1, fee_amount: 1.4e-7, fee_currency: "BTC" }));
+    expect(form.amountTo).toBe(0.09999986);
+    expect(plainBtcText(form)).toEqual([["fee", "0.00000014"]]);
+  });
+
+  it("amounts a field shows as they are are left alone", () => {
+    const form = mapTransactionToFormData(tx({ type: "Buy", from_account_id: 1, to_account_id: 4,
+      amount: 0.000001, cost_basis_usd: 0.1, fee_amount: 0, fee_currency: "USD" }));
+    expect(plainBtcText(form)).toEqual([]);
+  });
+
+  it("the plain digits save as the same amounts", () => {
+    const form = mapTransactionToFormData(tx({ type: "Withdrawal", from_account_id: 2, to_account_id: 99,
+      amount: 5e-8, fee_amount: 3e-8, fee_currency: "BTC", purpose: "Spent", gross_proceeds_usd: 0.01 }));
+    for (const [name, text] of plainBtcText(form)) form[name] = text;
+    const body = buildTransactionPayload(form);
+    expect([body.amount, body.fee_amount]).toEqual([5e-8, 3e-8]);
   });
 });
