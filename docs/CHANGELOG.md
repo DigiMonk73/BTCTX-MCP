@@ -306,8 +306,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **A few sats are written out, never as 5E-8** (#101). The transactions
   API, and so the AI connector's `list_transactions`, gave an amount or a
   fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
-  as `"0E-8"`; so did `preview_transactions`' balances afterwards and
-  `add_transactions`' list of what it created. An AI reading it could
+  as `"0E-8"`; so did `preview_transactions`' balances afterwards,
+  `add_transactions`' list of what it created and `get_portfolio`'s BTC
+  balances (`1e-08`). An AI reading it could
   misread it. These now always come with their eight places
   (`"0.00000005"`, `"0.00000000"`), as the CSV export, Form 8949 and Ledger
   Review write them. The edit form
@@ -316,7 +317,7 @@ All notable changes to BitcoinTX are documented in this file.
   or computed changes.
 - **The AI connector's `btctx_mcp.__version__` is its real version**
   (#133). It said 0.1.0 whatever the release; it now reads the installed
-  package's version (`unknown` when run from a source tree). Nothing used
+  package's version (`unknown` when the connector isn't installed). Nothing used
   it: the connector's version notice already read the package's version.
 
 ### Development

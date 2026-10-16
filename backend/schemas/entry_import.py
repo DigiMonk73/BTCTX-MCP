@@ -84,7 +84,7 @@ class AccountBalance(BaseModel):
     balance: Decimal
 
     @field_serializer("balance", when_used="json")
-    def balance_written_out(self, v: Decimal) -> str | None:
+    def balance_written_out(self, v: Decimal) -> str:
         return eight_places(v)
 
 
@@ -110,7 +110,7 @@ class CreatedTransaction(BaseModel):
     holding_period: str | None = None
 
     @field_serializer("amount", when_used="json")
-    def amount_written_out(self, v: Decimal) -> str | None:
+    def amount_written_out(self, v: Decimal) -> str:
         return eight_places(v)
 
 
