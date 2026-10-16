@@ -29,7 +29,9 @@ from backend.services.reports.form_8949 import (
 )
 
 from backend.services import hourly_prices, price_history
-from backend.services.transaction import cost_left, price_used, recalculate_all_transactions
+from backend.services.transaction import (
+    DEPOSIT_SOURCES, WITHDRAWAL_PURPOSES, cost_left, listed_spelling, price_used, recalculate_all_transactions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -446,7 +448,7 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
             "amount": float(tx.amount or 0),
             "value_usd": float(deposit_usd),
             "type": row_type,
-            "description": tx.source,
+            "description": listed_spelling(tx.source, DEPOSIT_SOURCES),
         }
         results.append(row)
     return results
@@ -481,7 +483,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
                 # None when no value was given or priced: shown as "not given",
                 # not as $0 (which reads like a worthless gift).
                 "fmv_usd": float(tx.fmv_usd) if tx.fmv_usd is not None else None,
-                "type": tx.purpose,
+                "type": listed_spelling(tx.purpose, WITHDRAWAL_PURPOSES),
             }
             results.append(row)
     return results
@@ -549,7 +551,8 @@ def _price_used(tx: Transaction) -> str:
 
 def _transaction_label(tx: Transaction) -> str:
     """"Deposit (Reward)", "Withdrawal (Spent)", "Transfer"."""
-    detail = tx.source if tx.type == "Deposit" else tx.purpose if tx.type == "Withdrawal" else None
+    detail = listed_spelling(tx.source, DEPOSIT_SOURCES) if tx.type == "Deposit" \
+        else listed_spelling(tx.purpose, WITHDRAWAL_PURPOSES) if tx.type == "Withdrawal" else None
     return f"{tx.type} ({detail})" if detail else tx.type
 
 

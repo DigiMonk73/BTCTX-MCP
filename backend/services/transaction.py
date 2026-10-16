@@ -170,13 +170,29 @@ def counts_as_spent(tx: Transaction) -> bool:
         and normalized(tx.purpose) not in GIFT_LIKE_PURPOSES
 
 
-def _received_known(tx: Transaction) -> bool:
+def received_known(tx: Transaction) -> bool:
     """Whether what a withdrawal counted as Spent received is known: a
     Spent's always is (typed, or priced), one of unknown purpose only when an
     amount above $0 is recorded (#61). Until then it stays as it was, a $0
     sale with its fee at its value, and no 0 is written over what's stored
-    (#329)."""
-    return normalized(tx.purpose) == "spent" or Decimal(tx.gross_proceeds_usd or 0) > 0
+    (#329). Spent here is the spelling versions 0.8.0 to 0.9.1 matched
+    (_spent_as_matched): an old " spent " (#342) is known only as an
+    unknown purpose is."""
+    return _spent_as_matched(tx) or Decimal(tx.gross_proceeds_usd or 0) > 0
+
+
+def _spent_as_matched(tx: Transaction) -> bool:
+    """Spent in any case, without trimming: the purpose 0.8.0 to 0.9.1 took
+    a BTC fee offset off, and priced a missing amount for. To them " spent "
+    was a purpose they didn't know, so recovering its gross follows the
+    unknown purpose's rules (#61, #329), not a Spent's."""
+    return (tx.purpose or "").lower() == "spent"
+
+
+def listed_spelling(value, choices) -> str | None:
+    """A saved purpose or source in its listed spelling (" gift " is Gift),
+    as the screens show it (#342); other text as saved."""
+    return _canonical(value, choices) or value
 
 
 def _is_gift_like(data) -> bool:
@@ -868,13 +884,13 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     if tx.gross_proceeds_usd is not None:
         return Decimal(tx.gross_proceeds_usd)
 
-    purpose = normalized(tx.purpose)
     amount = Decimal(tx.amount or 0)
-    if purpose in GIFT_LIKE_PURPOSES:
+    if normalized(tx.purpose) in GIFT_LIKE_PURPOSES:
         # Gift/Donation/Lost have no proceeds. Their stored proceeds_usd is the
         # network fee's (its own disposal), never a gross to recover.
         return Decimal("0")
-    if purpose != "spent" and Decimal(tx.proceeds_usd or 0) <= 0:
+    spent = _spent_as_matched(tx)  # the spelling the offset and the pricing went by
+    if not spent and Decimal(tx.proceeds_usd or 0) <= 0:
         return Decimal("0")
     if tx.proceeds_usd is None:
         priced = _price_for(tx, "it has no Proceeds (USD) value", db)
@@ -884,7 +900,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
-        if purpose == "spent" and has_btc_fee and gross > 0 and amount > 0:
+        if spent and has_btc_fee and gross > 0 and amount > 0:
             gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
 
     tx.gross_proceeds_usd = gross
@@ -1131,7 +1147,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
-    if counts_as_spent(tx) and _received_known(tx):
+    if counts_as_spent(tx) and received_known(tx):
         total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
@@ -1314,7 +1330,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0 or (counts_as_spent(tx) and _received_known(tx)):
+    elif total_proceeds > 0 or (counts_as_spent(tx) and received_known(tx)):
         # A spend whose fee took all it brought in has 0 (#157), not the
         # gross. One counted as Spent with nothing recorded (an old ledger's
         # unknown purpose, #61) keeps what's stored: never 0 written over an

@@ -93,6 +93,7 @@ from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
+from backend.services.transaction import received_known
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 
 
@@ -439,13 +440,20 @@ def _row_issues(t: Transaction, tz):
 def _purpose_issues(t: Transaction, tz):
     """A BTC withdrawal with a purpose BitcoinTX doesn't know (#61)."""
     if t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS \
-            and normalized(t.purpose) not in KNOWN_PURPOSES:
+            and (normalized(t.purpose) not in KNOWN_PURPOSES or _spaced_spent_unknown(t)):
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
         yield "withdrawal_purpose_unknown", _item(
             t, tz, f"Purpose {named}: {_counted_as(t)}",
             "If it was a spend, choose Spent (with what you got for it, if none is recorded); as Gift, "
             "Donation or Lost it has no gain.",
         )
+
+
+def _spaced_spent_unknown(t: Transaction) -> bool:
+    """An old " spent " (#342) with nothing recorded as received: counted as
+    an unknown purpose is (transaction.received_known), so listed as one,
+    sending the owner to the copy that may hold its amount (#329)."""
+    return normalized(t.purpose) == "spent" and not received_known(t)
 
 
 def _counted_as(t: Transaction) -> str:
