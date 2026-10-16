@@ -309,8 +309,9 @@ All notable changes to BitcoinTX are documented in this file.
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
   "WebKit encountered an internal error" (the sidebar matrix's reload, the
-  price card's status checks), and the required check failed until it ran
-  again. Those tests now save the choice with `choosePriceSource()`, which
+  price card's status checks; the Dashboard's and the converter's "prices
+  off" tests had the same pattern), and the required check failed until it
+  ran again. Those tests now save the choice with `choosePriceSource()`, which
   tells the open page as the price card does after its own save: the page
   asks again in place, with no page load. Real Safari, Chrome and the Mac
   app were never at fault (#149).

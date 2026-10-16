@@ -140,6 +140,8 @@ const PRICE_CHOICE_SAVED = "btctx:price-choice-saved";
  * ask again in place. No page load: the app needs none for a new choice
  * (#149), and Playwright's WebKit now and then fails the navigation that
  * follows such a save with "WebKit encountered an internal error" (#231).
+ * Needs a signed-in page with the sidebar showing (not a phone's width):
+ * it waits for the sidebar's price first.
  */
 export async function choosePriceSource(page: Page, choice: PriceChoice) {
   // The sidebar's answer for the old choice first: one arriving after the new one would replace it
