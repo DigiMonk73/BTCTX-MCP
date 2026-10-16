@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from backend import migrate
 from backend.database import get_db
 from backend.main import app
 from backend.migrate import AI_CHANGE_LABEL, backup_copies, backup_sqlite
@@ -373,8 +374,7 @@ def db_file(tmp_path):
 
 def marked_copy(path, session, mark: str, days_old: float = 0):
     """An AI copy of the database holding `mark` (copies made within one
-    second can reuse a pruned copy's name, so they're told apart by what
-    they hold), made `days_old` days ago."""
+    second are told apart by what they hold), made `days_old` days ago."""
     conn = sqlite3.connect(path)
     conn.execute("DELETE FROM t")
     conn.execute("INSERT INTO t VALUES (?)", (mark,))
@@ -423,6 +423,26 @@ def test_other_kinds_keep_only_their_newest(db_file):
     path, session = db_file
     made = [backup_sqlite(path, "hourly-prices", kind="review", keep=2) for _ in range(4)]
     assert set(backup_copies(path, "review")) == set(made[2:])
+
+
+def test_copies_with_the_same_file_time_keep_the_newest(db_file, monkeypatch):
+    """#308: copies made within one tick of a coarse filesystem clock share a
+    file time, and then their names decided, which sort the wrong way
+    ("…Z-2.db" before "…Z.db"): pruning kept the first copy of the second and
+    dropped the newest, and the next copy took a pruned copy's name."""
+    path, session = db_file
+    monkeypatch.setattr(migrate, "_second", lambda: "20261015T120000Z")
+    replace = os.replace
+
+    def same_time(src, dest):
+        replace(src, dest)
+        os.utime(dest, ns=(10**9, 10**9))
+
+    monkeypatch.setattr(migrate.os, "replace", same_time)
+    made = [backup_sqlite(path, "hourly-prices", kind="review", keep=2) for _ in range(4)]
+    assert [p.name for p in made] == [f"btctx-review-hourly-prices-20261015T120000Z{n}.db"
+                                      for n in ("", "-2", "-3", "-4")]
+    assert backup_copies(path, "review") == [made[3], made[2]]
 
 
 def test_a_copy_a_stopped_server_left_unfinished_is_removed_later(db_file):

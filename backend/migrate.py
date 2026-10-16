@@ -20,8 +20,10 @@ failed upgrade rolls back completely; the pre-upgrade copy in
 from __future__ import annotations
 
 import datetime
+import glob
 import logging
 import os
+import re
 import sqlite3
 import tempfile
 import time
@@ -182,15 +184,30 @@ def _copy_sqlite(db_path: Path, dest: Path) -> None:
         src.close()
 
 
+# A copy's name ends in the UTC second it was made and, for a later copy of
+# that second, its number: <stem>-<kind>-<label>-<second>[-<n>].db
+_MADE = re.compile(r"-(\d{8}T\d{6}Z)(?:-(\d+))?\.db$")
+
+
+def _second() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _made(copy: Path) -> tuple[str, int]:
+    """(second, number) from a copy's name: the order the copies of one
+    second were made in (the first has no number: 1)."""
+    found = _MADE.search(copy.name)
+    return (found[1], int(found[2] or 1)) if found else ("", 0)
+
+
 def _free_name(dest_dir: Path, name: str) -> Path:
-    """<name>-<time>.db in dest_dir, or with -2, -3... when that is taken."""
-    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    dest = dest_dir / f"{name}-{stamp}.db"
-    n = 1
-    while dest.exists():
-        n += 1
-        dest = dest_dir / f"{name}-{stamp}-{n}.db"
-    return dest
+    """<name>-<second>.db in dest_dir, or with -2, -3... after the highest
+    number of that second there: never a pruned copy's name, which would
+    look older than the copies kept (#308)."""
+    second = _second()
+    taken = (_made(p) for p in dest_dir.glob(f"{glob.escape(name)}-{second}*.db"))
+    n = max((number for made, number in taken if made == second), default=0) + 1
+    return dest_dir / (f"{name}-{second}.db" if n == 1 else f"{name}-{second}-{n}.db")
 
 
 def backup_copies(db_path: Path, kind: str = "before", label: str | None = None) -> list[Path]:
@@ -199,9 +216,12 @@ def backup_copies(db_path: Path, kind: str = "before", label: str | None = None)
     dest_dir = db_path.parent / BACKUP_DIRNAME
     pattern = f"{db_path.stem}-{kind}-{label}-*.db" if label else f"{db_path.stem}-{kind}-*.db"
     longer = tuple(f"{db_path.stem}-{k}-" for k in COPY_KINDS if k.startswith(f"{kind}-"))
+    # By file time, then by name's second and number: copies made within one
+    # tick of a coarse filesystem clock share a file time, and their names
+    # alone sort the wrong way ("…Z-2.db" before "…Z.db", #308)
     return sorted(
         (p for p in dest_dir.glob(pattern) if not p.name.startswith(longer)),
-        key=lambda p: (p.stat().st_mtime_ns, p.name),
+        key=lambda p: (p.stat().st_mtime_ns, *_made(p), p.name),
         reverse=True,
     )
 
