@@ -355,6 +355,22 @@ All notable changes to BitcoinTX are documented in this file.
     a 422 naming the year, as Form 8949 already refused one; and a CSV or
     River file with a field over 131,072 characters gets "The file can't
     be read as CSV" (#211).
+- **A few sats are written out, never as 5E-8** (#101). The transactions
+  API, and so the AI connector's `list_transactions`, gave an amount or a
+  fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
+  as `"0E-8"`; so did `preview_transactions`' balances afterwards,
+  `add_transactions`' list of what it created and `get_portfolio`'s BTC
+  balances (`1e-08`). An AI reading it could misread it. These now always
+  come with their eight places (`"0.00000005"`, `"0.00000000"`), as the
+  CSV export, Form 8949 and Ledger Review write them. The edit form showed
+  such an amount or fee as `5e-8` too, and so did a transfer's fee worked
+  out from its amounts; they now show `0.00000005`. Nothing stored or
+  computed changes.
+- **The AI connector's `btctx_mcp.__version__` is its real version**
+  (#133). It said 0.1.0 whatever the release; it now reads the installed
+  package's version (`unknown` when the connector isn't installed).
+  Nothing used it: the connector's version notice already read the
+  package's version.
 
 ### Development
 - **The WebKit click-through check no longer fails now and then on a

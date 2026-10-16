@@ -242,6 +242,20 @@ async def test_income_deposit_autofills_basis(mcp_client):
     assert Decimal(res["normalized"]["cost_basis_usd"]) == Decimal("100.00")
 
 
+async def test_portfolio_writes_a_few_sats_out(mcp_client):
+    """#101, the review of #318: get_portfolio gave a 2-sat balance as 2e-08 (the
+    balances route's numbers), beside the preview's "0.00000005"."""
+    dep = {"date": "2024-02-01", "type": "Deposit", "amount": "0.00000005", "from_account": "External",
+           "to_account": "Wallet", "source": "MyBTC", "cost_basis_usd": "0.01"}
+    spend = {"date": "2024-02-02", "type": "Withdrawal", "amount": "0.00000002", "from_account": "Wallet",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "0.01", "fee_amount": "0.00000001",
+             "fee_currency": "BTC", "fee_usd": "0.01"}
+    await call(mcp_client, "add_transactions", {"transactions": [dep, spend]})
+    balances = {b["account"]: b["balance"] for b in (await call(mcp_client, "get_portfolio"))["balances"]}
+    assert (balances["Wallet"], balances["Exchange BTC"]) == ("0.00000002", "0.00000000")
+    assert balances["Bank"] == 0  # dollars as the API gives them
+
+
 async def test_schema_rejects_unknown_account(mcp_client):
     bad = dict(BUY, to_account="Coldcard")
     await call(mcp_client, "preview_transactions", {"transactions": [bad]}, expect_error=True)
@@ -502,7 +516,7 @@ async def test_portfolio_and_price(mcp_client):
     await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
     portfolio = await call(mcp_client, "get_portfolio")
     balances = {b["account"]: b["balance"] for b in portfolio["balances"]}
-    assert balances["Wallet"] > 0
+    assert balances["Wallet"] == "0.00990000"  # 0.01 left the exchange, 0.0001 of it the fee (#101: written out)
     assert portfolio["btc_price_usd"] == 60000.0
     assert "btc_price_source" in portfolio  # where the live price came from, when known (#145)
     assert "btc_price_unavailable" not in portfolio

@@ -1,5 +1,6 @@
 import React from "react";
 import ValueOrigin from "./ValueOrigin";
+import { parseDecimal } from "../../utils/format";
 import { useFormContext } from "react-hook-form";
 import BrokerReportingField from "./BrokerReportingField";
 
@@ -36,7 +37,7 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
   const spent = watch("purpose") === "Spent";
   const proceeds = watch("proceeds_usd");
-  const fee = watch("fee");
+  const fee = parseDecimal(watch("fee"));
   return (
     <>
       <div className="field">
@@ -55,7 +56,7 @@ const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
             there's no hourly price).
           </small>
         )}
-        {spent && (proceeds ?? 0) > 0 && (fee ?? 0) > 0 && (
+        {spent && (proceeds ?? 0) > 0 && fee > 0 && (
           <small className="field-hint">
             What you received, before the network fee: its value is taken off, as for a sale.
           </small>
