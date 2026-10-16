@@ -46,12 +46,28 @@ class EntryRequest(BaseModel):
     rows: list[EntryRow]
 
 
+class FromPrice(BaseModel):
+    """
+    The values BitcoinTX filled in from a price, and that price (#208, #145
+    plan 2.5): its UTC hour's start, or the day's ("moment"), where it came
+    from and USD per BTC, as the transaction API's price_used gives them.
+    The price is left out when the stored one no longer gives the value.
+    """
+    values: list[str]
+    at: str | None = None
+    moment: str | None = None
+    source: str | None = None
+    usd_per_btc: Decimal | None = None
+
+
 class SimulatedResult(BaseModel):
     """What the ledger computed for this row during the dry run."""
     cost_basis_usd: Decimal | None = None
     proceeds_usd: Decimal | None = None
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+    fee_usd: Decimal | None = None  # a BTC fee's USD value
+    from_price: FromPrice | None = None
 
 
 class EntryResult(BaseModel):
@@ -102,6 +118,7 @@ class CreatedTransaction(BaseModel):
     amount: Decimal
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+    from_price: FromPrice | None = None
 
 
 class EntryExecuteResponse(BaseModel):

@@ -34,6 +34,7 @@ from backend.schemas.entry_import import (
     AffectedTransaction,
     EntryResult,
     EntryRow,
+    FromPrice,
     SimulatedResult,
 )
 from backend.services import hourly_prices
@@ -54,6 +55,7 @@ from backend.services.transaction import (
     date_of_death,
     date_of_death_price,
     ensure_fee_account_exists,
+    price_used,
 )
 
 logger = logging.getLogger(__name__)
@@ -399,18 +401,42 @@ def simulate(
             db.flush()
         else:
             _mark_not_simulated(ordered[failed_at + 1:])
+        years: dict = {}  # the year files, read once for every row
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,
                 proceeds_usd=tx.proceeds_usd,
                 realized_gain_usd=tx.realized_gain_usd,
                 holding_period=tx.holding_period,
+                fee_usd=tx.fee_usd if (tx.fee_currency or "").upper() == "BTC" else None,
+                from_price=from_price(tx, db, years),
             )
         if failed_at is not None:
             return [], []
         return _affected(before, db), _balances(db)
     finally:
         db.rollback()
+
+
+def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromPrice | None:
+    """
+    Which of a saved (or simulated) transaction's values BitcoinTX filled in
+    from a price, and that price (services/transaction.price_used, which
+    reads the stored one and asks nobody), for the AI connector (#208): its
+    preview and add answers say which hour and source each came from. The
+    names are the row's own ("proceeds_usd": a Spent's, before its fee).
+    None when every value was given.
+    """
+    filled = [name for name, from_the_price in (
+        ("cost_basis_usd", tx.cost_basis_from_price),
+        ("proceeds_usd", tx.proceeds_from_price),
+        ("fmv_usd", tx.fmv_from_price),
+        # As transaction._priced_amounts: a BTC fee's value, unless typed
+        ("fee_usd", tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0),
+    ) if from_the_price]
+    if not filled:
+        return None
+    return FromPrice(values=filled, **(price_used(tx, db, years) or {}))
 
 
 def _create_until_refused(

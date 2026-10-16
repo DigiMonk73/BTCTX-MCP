@@ -43,6 +43,7 @@ from backend.services.entry_import import (
     STATUS_REJECTED,
     PreparedRow,
     autofill_fmv,
+    from_price,
     mark_duplicates,
     normalized_view,
     simulate,
@@ -152,6 +153,25 @@ async def preview_entries(
     )
 
 
+def _created_answers(created: list[tuple[PreparedRow, Transaction]], db: Session) -> list[CreatedTransaction]:
+    """What was saved, in the rows' order, each with the values BitcoinTX
+    filled in from a price and that price's hour and source (#208)."""
+    years: dict = {}  # the year files, read once for every row
+    return [
+        CreatedTransaction(
+            row=p.row,
+            id=tx.id,
+            type=tx.type,
+            date=tx.timestamp,
+            amount=tx.amount,
+            realized_gain_usd=tx.realized_gain_usd,
+            holding_period=tx.holding_period,
+            from_price=from_price(tx, db, years),
+        )
+        for p, tx in sorted(created, key=lambda c: c[0].row)
+    ]
+
+
 @router.post("/execute", response_model=EntryExecuteResponse)
 async def execute_entries(
     payload: EntryRequest,
@@ -185,18 +205,7 @@ async def execute_entries(
     skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
 
     created = await run_in_threadpool(write_rows, prepared, db)
-    out = [
-        CreatedTransaction(
-            row=p.row,
-            id=tx.id,
-            type=tx.type,
-            date=tx.timestamp,
-            amount=tx.amount,
-            realized_gain_usd=tx.realized_gain_usd,
-            holding_period=tx.holding_period,
-        )
-        for p, tx in sorted(created, key=lambda c: c[0].row)
-    ]
+    out = await run_in_threadpool(_created_answers, created, db)
 
     message = f"Imported {len(out)} transaction(s)."
     if skipped:

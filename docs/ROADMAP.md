@@ -30,7 +30,7 @@ the maintenance releases after promotion, 1.2.9 first.
 
 ## Soon
 
-- [ ] **The price redesign's six small pieces** (#208; the next release,
+- [x] **The price redesign's six small pieces** (#208; the next release,
       the owner's choice, 2026-10-13): "Recommended" beside "Chosen" in the
       app when StartOS set your own Mempool; a blank value's hint and the
       sidebar's Auto price say where the price comes from (the Gift form's

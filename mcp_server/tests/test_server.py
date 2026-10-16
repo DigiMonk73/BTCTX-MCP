@@ -242,6 +242,43 @@ async def test_income_deposit_autofills_basis(mcp_client):
     assert Decimal(res["normalized"]["cost_basis_usd"]) == Decimal("100.00")
 
 
+async def test_a_value_from_the_price_says_its_hour_and_source(mcp_client):
+    """#208 (#145 plan 2.5): preview, add and list say which values BitcoinTX filled
+    in from a price, and that price: its hour or day (here the day: no hourly
+    price), where it came from and USD per BTC. A typed value says none."""
+    dep = {
+        "date": "2024-02-01", "type": "Deposit", "amount": "0.002",
+        "from_account": "External", "to_account": "Wallet", "source": "Income",
+    }
+    priced = {"values": ["cost_basis_usd"], "at": "2024-02-01T00:00:00Z", "moment": "day", "source": "stub",
+              "usd_per_btc": "50000.00"}
+    preview = (await call(mcp_client, "preview_transactions", {"transactions": [dep]}))["results"][0]
+    assert preview["simulated"]["from_price"] == priced
+    added = await call(mcp_client, "add_transactions", {"transactions": [dep]})
+    assert added["created"][0]["from_price"] == priced
+    typed = dict(dep, date="2024-02-02", cost_basis_usd="99.00")
+    added = await call(mcp_client, "add_transactions", {"transactions": [typed]})
+    assert added["created"][0]["from_price"] is None
+    newest, first = (await call(mcp_client, "list_transactions"))["transactions"]
+    assert "from_price" not in newest
+    assert first["from_price"] == priced
+
+
+async def test_a_btc_fees_value_from_the_price_says_so(mcp_client):
+    """A transfer's BTC fee valued at the price: the preview gives its value
+    (simulated.fee_usd) and the price, and so do add and list (#208)."""
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
+    sim = preview["results"][1]["simulated"]
+    assert Decimal(sim["fee_usd"]) == Decimal("5.00")  # 0.0001 BTC at the stub's $50,000
+    assert sim["from_price"] == {"values": ["fee_usd"], "at": "2024-01-16T00:00:00Z", "moment": "day",
+                                 "source": "stub", "usd_per_btc": "50000.00"}
+    assert preview["results"][0]["simulated"]["from_price"] is None  # the Buy's values were given
+    added = await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
+    assert [c["from_price"] and c["from_price"]["values"] for c in added["created"]] == [None, ["fee_usd"]]
+    transfer = (await call(mcp_client, "list_transactions", {"type": "Transfer"}))["transactions"][0]
+    assert transfer["from_price"]["values"] == ["fee_usd"]
+
+
 async def test_schema_rejects_unknown_account(mcp_client):
     bad = dict(BUY, to_account="Coldcard")
     await call(mcp_client, "preview_transactions", {"transactions": [bad]}, expect_error=True)

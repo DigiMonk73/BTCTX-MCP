@@ -256,6 +256,21 @@ def _parse_filter_date(value: str | None) -> tuple[datetime, bool] | None:
     return parsed
 
 
+# A listed transaction's values BitcoinTX filled in from a price, by the flag that says so
+FILLED_FROM_PRICE = (("cost_basis_from_price", "cost_basis_usd"), ("proceeds_from_price", "gross_proceeds_usd"),
+                     ("fmv_from_price", "fmv_usd"))
+
+
+def _from_price(tx: dict[str, Any]) -> dict[str, Any] | None:
+    """Which values BitcoinTX filled in from a price and that price, as the
+    preview and add answers give them (#208): its hour or day (UTC), source
+    and USD per BTC (the API's price_used, when the stored price gives the value)."""
+    values = [name for flag, name in FILLED_FROM_PRICE if tx.get(flag)]
+    if tx.get("fee_usd") is not None and not tx.get("fee_usd_manual") and Decimal(str(tx.get("fee_amount") or 0)) > 0:
+        values.append("fee_usd")  # a BTC fee's value, unless typed
+    return {"values": values, **(tx.get("price_used") or {})} if values else None
+
+
 def _compact(tx: dict[str, Any]) -> dict[str, Any]:
     out = {
         "id": tx["id"],
@@ -273,6 +288,8 @@ def _compact(tx: dict[str, Any]) -> dict[str, Any]:
             out[key] = val
     if "proceeds_usd" not in out:  # e.g. a spend changed into a gift keeps its old gross
         out.pop("gross_proceeds_usd", None)
+    if priced := _from_price(tx):
+        out["from_price"] = priced
     return out
 
 
@@ -336,7 +353,8 @@ async def list_transactions(
 ) -> ToolResult:
     """Find recorded transactions, newest first. Filter by date range (YYYY-MM-DD, inclusive,
     days in the user's tax timezone), type, and an account on either side. Use it to find an
-    id before updating or deleting."""
+    id before updating or deleting. A transaction with values BitcoinTX filled in from a price
+    has from_price: which values, and that price's hour (or day) in UTC, source and USD per BTC."""
     first, last = _parse_filter_date(start_date), _parse_filter_date(end_date)
     zone = await _tax_zone() if first or last else timezone.utc
     start = _in_utc(first, zone, time.min) if first else None  # a date alone: the whole day
@@ -411,7 +429,9 @@ async def review_ledger() -> ToolResult:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def preview_transactions(transactions: list[TransactionInput]) -> ToolResult:
-    """Dry run: validate transactions, auto-fill missing USD values from historical prices,
+    """Dry run: validate transactions, auto-fill missing USD values from historical prices
+    (each row's simulated.from_price says which values and the price: its hour or day in UTC,
+    source and USD per BTC; simulated.fee_usd is a BTC fee's value),
     flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
@@ -427,7 +447,8 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 @with_version_notice
 async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
-    the user's confirmation, with the previewed rows. Duplicates are skipped (keep them in the
+    the user's confirmation, with the previewed rows. Each created row's from_price says which
+    values came from a price and its hour, source and USD per BTC. Duplicates are skipped (keep them in the
     list: dropping one can leave an identical row beside it skipped instead), unless the user
     says one is another transaction: then send that row with not_a_duplicate true. Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
