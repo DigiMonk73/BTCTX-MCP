@@ -151,6 +151,69 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **StartOS: a dismissed Recalculate Ledger task no longer comes back at
+  every server restart** (#365). After an update that asks for Recalculate
+  Ledger (1.2.8:0 does), StartOS raised the task again each time the server
+  started, until its action ran: dismissing it, or recalculating in
+  BitcoinTX's own Settings, never settled it. Every package version since
+  the task came in (0.9.0); nothing in the ledger was ever wrong. Now it asks
+  once per such update, as 1.2.8 meant to, and again after restoring a backup
+  on which the recalculation is still due: the task stays until the action
+  runs or you dismiss it. If you dismissed it on 1.2.8 without running the
+  action, it comes back once, at the next update. Its text now says to run
+  the Recalculate Ledger action in StartOS once, after Ledger Review. It
+  reaches StartOS with the next package release.
+- **A transaction naming an account that doesn't exist is named when it
+  stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
+  naming any account number, even one with no account; and deleting an
+  account left the transactions naming it with none. A transfer, deposit or
+  withdrawal between one of your accounts and such a missing one stops
+  every replay of the ledger, so every save that recalculates (an edit, a
+  delete, an entry dated before the latest), Recalculate Ledger and Ledger
+  Review's check failed with "Ledger not balanced for BTC" or "would lack
+  BTC", naming neither the transaction nor the account; Settings ›
+  Recalculate Ledger only said it failed. Now:
+  - the message names both, with the date ("Transaction 970 (a Transfer of
+    2024-02-01) names account 999, which doesn't exist…"), and Settings ›
+    Recalculate Ledger shows it;
+  - **Ledger Review** has a check, "Transactions naming an account that
+    doesn't exist", listing every such transaction (and it shows a move of
+    dollars in dollars, not "500.00000000 BTC");
+  - an account that transactions name can't be deleted ("Not deleted: 1
+    transaction names Old wallet…").
+
+  **What to do:** edit each into one of your accounts, or delete it. With
+  more than one that stops saves, each stops the others' fix, and for now
+  they need fixing outside the app (#368). No figure changes: the ledger
+  replays as before, and only the message differs.
+- **Text that isn't text is refused, not a server error** (#313). A JSON
+  string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
+  isn't a character and can't be saved. Sent in a transaction's purpose, an
+  AI entry or the tax timezone, it gave a server error (500), with nothing
+  saved. Now every JSON request holding one is refused, once its login is
+  checked and before its route runs, with a 422 naming the field, whether
+  the JSON is in UTF-8, UTF-16 or UTF-32. The login and the account routes keep their own answer
+  (#210). A backup's password, which a form's charset can turn into such
+  text, is refused the same way when you download or restore a backup. A
+  request whose body isn't UTF-8 text, sent without a JSON type, also gave
+  a 500 instead of its 422. No form in the app and no AI connector tool
+  sends such text.
+- **A save made while Ledger Review checks the ledger no longer fails**
+  (#335). Ledger Review (also `cli review` and the AI connector's
+  `review_ledger`) works out what Recalculate Ledger would change by
+  running it and undoing it. It ran on the live database, holding its
+  write lock for the whole replay, so a transaction saved meanwhile, yours
+  or the AI's, waited and after 5 seconds failed with "database is locked".
+  On a ledger of a few thousand transactions the replay takes longer than
+  that. It now runs on a copy of the database in memory, as the tax
+  report's year-end holdings already do: saves go through, and the check
+  finds the same changes. Nothing was ever half-saved: the save was
+  refused whole. Also in Ledger Review: when its check of what Recalculate
+  Ledger would change fails on something unexpected, it says so in plain
+  words (BitcoinTX's log has the details) instead of showing an error's
+  technical text, and `cli review` shows that line too. A transaction
+  deleted while the check runs, or while you apply the hour's prices, is
+  left out instead of causing a server error.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

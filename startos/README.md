@@ -77,6 +77,7 @@ One model, `store.json` on the `startos` volume. The package writes no app confi
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `adminPassword`     | The password Set Login Credentials last generated. Not updated when the user changes the password inside BitcoinTX. While it is unset, the critical Set Login Credentials task stays raised. |
 | `recalculateLedger` | `true` after an update from a version with old gain calculations (transfer fees, sale proceeds and the holding period; a spend's network fee counted twice), until Recalculate Ledger runs. |
+| `recalculateAsked`  | Set once init has raised the Recalculate Ledger task for that update, so it asks once (see [Tasks](#tasks)); the update that sets `recalculateLedger` resets it. |
 | `priceSource`       | Absent: never chosen (the action preselects nothing). `unset`: Decide in BitcoinTX, the app's own card decides. `off` (Nobody), `public` or `mempool`: set by Price Source & Privacy and passed as `BTCTX_PRICE_SOURCE`. |
 | `mempoolFallback`   | With `mempool`: ask public sites when Mempool can't answer (`BTCTX_MEMPOOL_FALLBACK`). |
 | `useTor`            | Public sites through Tor's SOCKS proxy (`BTCTX_PROXY_URL`), when public sites may be asked; with `unset` (Decide in BitcoinTX), StartOS's Tor lent to the app's own choice (`BTCTX_TOR_PROXY_URL`, shown in the app as Tor on this server, locked on). Either way Tor becomes a dependency. |
@@ -145,9 +146,9 @@ Three actions raise tasks.
 | Set Login Credentials  | `critical`  | While no password is stored (at install, and after an update from an install whose login was set in the app); after an update locked a default login | The action runs |
 | Price Source & Privacy | `critical`  | At install, after Set Login Credentials (init order) | The action runs: any choice, Nobody and Decide in BitcoinTX included |
 | Price Source & Privacy | `important` | Once, after an update of an install that was never asked and has no choice made here (never critical: a running service never stops) | The action runs, or dismissed |
-| Recalculate Ledger     | `important` | After updating from a version with the old gain calculations (also after restoring a backup made before Recalculate Ledger ran: its flag is in `store.json`, and a dismissed task leaves it set) | The action runs |
+| Recalculate Ledger     | `important` | Once, after updating from a version with the old gain calculations; again after restoring a backup on which `recalculateLedger` is still set | The action runs, or dismissed |
 
-The critical tasks block starting the service until the login exists and a price choice is made (Start9's `tasks.md`: critical is for essential setup such as selecting a backend). Both keep the replay key they always had, so nothing is retired. After an update the price task does not block: until a source is chosen, the app asks on its Dashboard and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, the holding period, a spend's network fee counted twice) stay wrong until a recalculation.
+The critical tasks block starting the service until the login exists and a price choice is made (Start9's `tasks.md`: critical is for essential setup such as selecting a backend). Both keep the replay key they always had, so nothing is retired. After an update the price task does not block: until a source is chosen, the app asks on its Dashboard and contacts nothing. The recalculation task does not block: the app works, but gains computed the old way (transfer fees, sale proceeds, the holding period, a spend's network fee counted twice) stay wrong until a recalculation. Neither `important` task is raised at a container rebuild (every server restart) or twice for one update: raising a replay key again after the user dismissed it would bring it back each time. A recalculation in the app's own Settings does the same work but doesn't clear the StartOS task or `recalculateLedger`; dismiss the task then.
 
 Updating across the change that made a withdrawal's network fee its own disposal (and gave Lost withdrawals no gain or loss) raises no task, but the next recalculation (an edit or a deletion recalculates too) changes those figures. Updating across the one that takes a spend's network fee off its proceeds raises the Recalculate Ledger task. **Settings → Ledger Review** in the app lists the changed figures beforehand.
 
@@ -225,7 +226,7 @@ actions:
 tasks:
   - { action: set-credentials, severity: critical }
   - { action: price-source, severity: critical } # install; important once after an update never asked, without a choice
-  - { action: recalculate-ledger, severity: important }
+  - { action: recalculate-ledger, severity: important } # once after an update that makes it due; again after a restore while it's due
 health_checks:
   - webui # GET /api/health == 200
 app_cli: python -m backend.cli {migrate|set-password [--if-default]|recalculate} # cwd /app

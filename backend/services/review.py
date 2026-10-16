@@ -1,12 +1,18 @@
 """
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
-what looks odd and what would change if the owner acts on it.
+what looks odd and what would change if the owner acts on it, and gives
+its amount with its unit (`unit`: BTC, or USD for a move of dollars).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
 
 Checks:
+- account_missing (#337): a transaction naming an account that doesn't
+  exist, which only a BitcoinTX before 0.9.2 could save (F28). Its missing
+  side is in no balance; one between the owner's account and a missing one
+  stops every replay (transaction.AccountMissing names it), so every save
+  that recalculates, until it's edited into an account or deleted.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -66,7 +72,8 @@ Checks:
   would change, old -> new: its proceeds, basis and gain, its lot
   disposals' gain (each term's too when it has both), the cost of the lots
   it made, or else only how its rows split, lot by lot (#296). Found by
-  running the recalculation and rolling it back. After an upgrade this is
+  running the recalculation on a scratch copy of the database, the live
+  one only read (#335). After an upgrade this is
   where the fixes that change existing figures show up (Lost at $0 gain, a
   withdrawal's network fee as its own disposal), before anything moves.
   Editing or deleting any transaction recalculates everything too (adding
@@ -81,6 +88,7 @@ without the value. Any other failure of the lookup is an error.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -88,16 +96,37 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
+from backend.services.transaction import known_accounts, missing_accounts, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
+
+logger = logging.getLogger(__name__)
+
+USD_ACCOUNTS = (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD)
+
+# What the check says when the dry run fails on something that isn't a
+# refusal of its own (a bug, a database error): plain words, never SQL; the
+# log has the details. Like every recalc_error, it follows "Recalculate
+# Ledger would stop with:" (the Settings panel, cli review)
+RECALC_STOPS = "Recalculate Ledger would stop with:"
+DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
 
 
 # key -> (title, what the owner can do)
 CHECKS: dict[str, tuple] = {
+    "account_missing": (
+        "Transactions naming an account that doesn't exist",
+        "A BitcoinTX before 0.9.2 saved these, or an account they named was deleted. The missing account's side "
+        "is in none of your balances, and a transfer, deposit or withdrawal between one of your accounts and a "
+        "missing one stops every save that recalculates (an edit, a delete, an add dated before the latest) and "
+        "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, "
+        "each stops the others' fix: for now they need fixing outside the app (BitcoinTX issue #368).",
+    ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
         "Back up first, then run Recalculate Ledger (Settings) when you agree. Editing or deleting any "
@@ -231,11 +260,22 @@ def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": btc_text(t.amount),
+        "amount": _money(t.amount) if _in_dollars(t) else btc_text(t.amount),
+        "unit": "USD" if _in_dollars(t) else "BTC",
         "realized_gain_usd": _money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
+
+
+def _in_dollars(t: Transaction) -> bool:
+    """Whether its amount is dollars: a deposit, withdrawal or transfer that
+    no bitcoin account is part of, with Bank or Exchange USD on a side. A
+    Buy's and a Sell's amount is bitcoin; so, unknown, is one naming only
+    External and missing accounts."""
+    sides = (t.from_account_id, t.to_account_id)
+    return t.type not in ("Buy", "Sell") and not any(a in BTC_ACCOUNTS for a in sides) \
+        and any(a in USD_ACCOUNTS for a in sides)
 
 
 def _market_price(db: Session, t: Transaction, missing: list[int]):
@@ -270,21 +310,25 @@ TERM_GAINS = ("short_term_gain", "long_term_gain")
 def simulate_recalculation(db: Session):
     """
     What Recalculate Ledger would change: {id: {field: (old, new)}}, or an
-    error message. Runs it and rolls everything back (the session must have
-    nothing else pending).
+    error message. Runs it on a scratch copy of the database, as committed
+    (#335): the live one is only read, so a save made while the check runs
+    (a replay of a large ledger takes seconds) doesn't wait for its write
+    lock and fail.
     """
     from backend.services.transaction import recalculate_all_transactions
 
     tz = get_tax_timezone(db)
-    before = _snapshot(db, tz)
-    try:
-        recalculate_all_transactions(db)
-        db.flush()
-        after = _snapshot(db, tz)
-    except Exception as exc:  # e.g. a missing price: say so, change nothing
-        db.rollback()
-        return None, str(getattr(exc, "detail", exc))
-    db.rollback()
+    with scratch_copy(db) as scratch:
+        before = _snapshot(scratch, tz)
+        try:
+            recalculate_all_transactions(scratch)
+            scratch.flush()
+            after = _snapshot(scratch, tz)
+        except HTTPException as exc:  # e.g. a missing price: say so
+            return None, exc.detail
+        except Exception:
+            logger.exception("Ledger Review: the dry run of Recalculate Ledger failed")
+            return None, DRY_RUN_FAILED
     return _differences(before, after), None
 
 
@@ -379,6 +423,7 @@ def build_review(db: Session) -> dict[str, Any]:
     for t in rows:
         for key, item in _row_issues(t, tz):
             found[key].append(item)
+    found["account_missing"] = _account_missing_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
@@ -448,6 +493,35 @@ def _purpose_issues(t: Transaction, tz):
         )
 
 
+def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
+    """Each transaction naming an account that doesn't exist, or none (#337)."""
+    known = known_accounts(db)
+    rows = (
+        db.query(Transaction)
+        .filter(Transaction.from_account_id.is_(None) | Transaction.to_account_id.is_(None)
+                | ~Transaction.from_account_id.in_(known) | ~Transaction.to_account_id.in_(known))
+        .order_by(Transaction.timestamp, Transaction.id)
+        .all()
+    )
+    return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
+                  "Edit it into one of your accounts, or delete it.") for t in rows]
+
+
+def _stops_saves(t: Transaction, known: set[int]) -> str:
+    """Whether the row stops every save that recalculates: its balance check
+    (transaction._verify_double_entry_balance_for_internal) runs, as for any
+    type but a Buy or a Sell with no External side, and fails, as one of its
+    sides is an account that exists and the other isn't (#367's review)."""
+    sides = (t.from_account_id, t.to_account_id)
+    stops = t.type not in ("Buy", "Sell") and ACCOUNT_EXTERNAL not in sides and any(a in known for a in sides)
+    return " It stops every save that recalculates." if stops else " It doesn't stop saves."
+
+
+def _sentence(text: str) -> str:
+    """The text as a sentence: its first letter capital (and only it), a full stop."""
+    return text[:1].upper() + text[1:] + "."
+
+
 def _counted_as(t: Transaction) -> str:
     """What a withdrawal of unknown purpose counts as: Spent (#61), at its
     gross, or at the proceeds_usd a row saved before 0.8.0 holds, which a
@@ -484,10 +558,13 @@ def _change_text(diff: dict) -> str:
 
 
 def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
-    """The transactions whose figures Recalculate Ledger would change, in date order."""
+    """The transactions whose figures Recalculate Ledger would change, in
+    date order. Each is looked up once on the live database: one deleted
+    while the dry run ran on its copy (#335) is no longer listed."""
+    rows = [t for tx_id in moved if (t := db.get(Transaction, tx_id)) is not None]
     items = []
-    for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
-        t = db.get(Transaction, tx_id)
+    for t in sorted(rows, key=lambda t: (t.timestamp, t.id)):
+        diff = moved[t.id]
         item = _item(t, tz, "Stored figures differ from what the current rules give.", _change_text(diff))
         item["changes"] = {f: list(pair) if f in SPLITS else [_money(pair[0]), _money(pair[1])]
                            for f, pair in diff.items()}
@@ -501,6 +578,8 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
     items, years = [], {}
     for change in hourly_changes(db):
         t = db.get(Transaction, change["id"])
+        if t is None:  # deleted since it was found: nothing left to change
+            continue
         year = years.setdefault(change["tax_year"], {
             "year": change["tax_year"], "count": 0, "listed": 0, "ids": [], "income": Decimal(0),
             "basis": Decimal(0), "proceeds": Decimal(0), "gift_values": Decimal(0), "fees": Decimal(0)})
@@ -621,17 +700,29 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
 def format_text(review: dict[str, Any]) -> str:
     """Plain text for the CLI."""
     lines = [f"Ledger review (read-only; dates in {review['timezone']})"]
+    if review.get("recalc_error"):
+        lines.append(f"{RECALC_STOPS} {review['recalc_error']}")
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:
-            detail = item["source"] if item["type"] == "Deposit" else item["purpose"]
-            lines.append(f"  #{item['id']}  {item['date']}  {item['type']} ({detail})  {item['amount']} BTC  "
-                         f"{item['issue']}")
+            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_amount(item)}  {item['issue']}")
         lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
         if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
             lines.append(f"  -> {check['action']}")
     return "\n".join(lines) + "\n"
+
+
+def _kind(item: dict[str, Any]) -> str:
+    """"Deposit (Income)", "Withdrawal (Spent)", or the type alone: a
+    transfer has no source or purpose, and some rows saved none."""
+    detail = item["source"] if item["type"] == "Deposit" else item["purpose"] if item["type"] == "Withdrawal" else None
+    return f"{item['type']} ({detail})" if detail else item["type"]
+
+
+def _amount(item: dict[str, Any]) -> str:
+    """"0.10000000 BTC", or "$500.00" for a move of dollars."""
+    return f"${item['amount']}" if item.get("unit") == "USD" else f"{item['amount']} BTC"
 
 
 def year_line(year: dict[str, Any]) -> str:

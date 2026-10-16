@@ -7,6 +7,8 @@ export interface ReviewItem {
   purpose: string | null;
   source: string | null;
   amount: string;
+  /** What the amount is in: dollars for a move between Bank, Exchange USD and External */
+  unit?: "BTC" | "USD";
   issue: string;
   change: string;
   /** day_priced_values only: the item's tax year */

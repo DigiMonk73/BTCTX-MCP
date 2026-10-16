@@ -154,6 +154,25 @@ def test_no_work_record_files():
     assert stray == [], f"Start9's template keeps no work records in the package: {stray}"
 
 
+# Raising a task's replay key again doesn't duplicate an open task (tasks.md,
+# "Idempotency and replayId"), but once the user has dismissed it the next
+# raise brings it back (StartOS 0.4.0.2, #365). A container rebuild (every
+# server restart) runs init, so a task raised after an update asks once: its
+# handler skips a rebuild and records that it asked, after raising it.
+@pytest.mark.parametrize(
+    "name, key",
+    [("priceSourceTask.ts", "priceSourceAsked"), ("recalculateTask.ts", "recalculateAsked")],
+)
+def test_a_task_raised_after_an_update_asks_once(name, key):
+    code = read(f"startos/init/{name}")
+    assert "if (kind === null) return" in code
+    raised = code.rindex("createOwnTask")
+    before, after = code[:raised], code[raised:]
+    assert f"asked: s.{key}" in before  # reads whether it asked
+    assert re.search(r"if \([^)]*\bstore\??\.asked\b", before)  # and skips if it did
+    assert f"{key}: true" in after  # records it after raising
+
+
 def test_updating_md_has_start9s_two_sections():
     headings = h2(read("UPDATING.md"))
     wanted = ["Determining the upstream version", "Applying the bump"]
