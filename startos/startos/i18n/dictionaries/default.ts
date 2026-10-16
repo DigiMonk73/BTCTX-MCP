@@ -35,7 +35,7 @@ const dict = {
   'Ledger Recalculated': 27,
 
   // init/recalculateTask.ts
-  'This update corrects how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run Recalculate Ledger here once so the corrections reach your existing transactions.': 40,
+  'This update corrects how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run the Recalculate Ledger action here once so the corrections reach your existing transactions.': 40,
 
   // AI key (interfaces.ts, actions/connectAi.ts)
   'The address for AI assistants (MCP clients), which use an AI key you create in BitcoinTX Settings, never your password. Optional: nothing uses it until you set up an AI app. Run the Connect an AI Assistant action for a ready-made configuration.': 41,

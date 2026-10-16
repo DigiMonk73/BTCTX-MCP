@@ -12,9 +12,9 @@ import { sdk } from '../sdk'
  * again after restoring a backup on which it is still due: StartOS's tasks
  * are not in a backup. StartOS keeps the task until the action runs or the
  * user dismisses it. Never raised at a container rebuild (every server
- * restart) or a second time for one update: raising the same replay key after
- * a dismissal would bring the task back each time (#365; Start9's tasks.md,
- * "Idempotency and replayId").
+ * restart) or a second time for one update: raising the same replay key
+ * again doesn't duplicate an open task (Start9's tasks.md, "Idempotency and
+ * replayId"), but after a dismissal it brings the task back (#365).
  */
 export const recalculateTask = sdk.setupOnInit(async (effects, kind) => {
   if (kind === null) return // a container rebuild: nothing new to ask
@@ -25,7 +25,7 @@ export const recalculateTask = sdk.setupOnInit(async (effects, kind) => {
   if (store.asked && kind !== 'restore') return // asked once for this update
   await sdk.action.createOwnTask(effects, recalculateLedger, 'important', {
     reason: i18n(
-      'This update corrects how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run Recalculate Ledger here once so the corrections reach your existing transactions.',
+      'This update corrects how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run the Recalculate Ledger action here once so the corrections reach your existing transactions.',
     ),
     replayId: RECALCULATE_TASK_ID,
   })

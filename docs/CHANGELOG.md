@@ -156,11 +156,13 @@ All notable changes to BitcoinTX are documented in this file.
   Ledger (1.2.8:0 does), StartOS raised the task again each time the server
   started, until its action ran: dismissing it, or recalculating in
   BitcoinTX's own Settings, never settled it. Every package version since
-  the task came in (0.8.0); nothing in the ledger was ever wrong. Now it asks
+  the task came in (0.9.0); nothing in the ledger was ever wrong. Now it asks
   once per such update, as 1.2.8 meant to, and again after restoring a backup
-  taken before the recalculation: the task stays until the action runs or
-  you dismiss it. Its text now says to run Recalculate Ledger in StartOS once,
-  after Ledger Review. It reaches StartOS with the next package release.
+  on which the recalculation is still due: the task stays until the action
+  runs or you dismiss it. If you dismissed it on 1.2.8 without running the
+  action, it comes back once, at the next update. Its text now says to run
+  the Recalculate Ledger action in StartOS once, after Ledger Review. It
+  reaches StartOS with the next package release.
 - **A save made while Ledger Review checks the ledger no longer fails**
   (#335). Ledger Review (also `cli review` and the AI connector's
   `review_ledger`) works out what Recalculate Ledger would change by

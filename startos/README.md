@@ -226,7 +226,7 @@ actions:
 tasks:
   - { action: set-credentials, severity: critical }
   - { action: price-source, severity: critical } # install; important once after an update or restore never asked, without a choice
-  - { action: recalculate-ledger, severity: important }
+  - { action: recalculate-ledger, severity: important } # once after an update that makes it due; again after a restore while it's due
 health_checks:
   - webui # GET /api/health == 200
 app_cli: python -m backend.cli {migrate|set-password [--if-default]|recalculate} # cwd /app

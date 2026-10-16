@@ -160,17 +160,17 @@ def test_no_work_record_files():
 # restart) runs init, so a task raised after an update asks once: its handler
 # skips a rebuild and records that it asked, after raising it.
 @pytest.mark.parametrize(
-    "name, asked",
-    [
-        ("priceSourceTask.ts", "priceSourceAsked: true"),
-        ("recalculateTask.ts", "recalculateAsked: true"),
-    ],
+    "name, key",
+    [("priceSourceTask.ts", "priceSourceAsked"), ("recalculateTask.ts", "recalculateAsked")],
 )
-def test_a_task_raised_after_an_update_asks_once(name, asked):
+def test_a_task_raised_after_an_update_asks_once(name, key):
     code = read(f"startos/init/{name}")
     assert "if (kind === null) return" in code
     raised = code.rindex("createOwnTask")
-    assert asked in code[raised:]
+    before, after = code[:raised], code[raised:]
+    assert f"asked: s.{key}" in before  # reads whether it asked
+    assert re.search(r"if \([^)]*\bstore\??\.asked\b", before)  # and skips if it did
+    assert f"{key}: true" in after  # records it after raising
 
 
 def test_updating_md_has_start9s_two_sections():
