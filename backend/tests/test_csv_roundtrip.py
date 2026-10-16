@@ -275,3 +275,35 @@ def test_a_sale_listed_before_its_same_time_buy_says_to_reorder(auth_client):
     detail = r.json()["detail"]
     assert "Not enough BTC" in detail and "file's order" in detail and ". No transactions were saved." in detail
     assert auth_client.get("/api/transactions").json() == []
+
+
+@pytest.mark.parametrize("purpose", ["-5% fee", "=SUM(A1)", "+1 card", "@home", "＝look-alike", "－10 off"])
+def test_text_a_spreadsheet_could_run_comes_back_as_it_was(auth_client, purpose):
+    """#230: the export puts a ' in front of such text (safe_text.csv_text),
+    and the import kept it: "-5% fee" came back as "'-5% fee"."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    for tx in (
+        dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
+             amount="1000", source="N/A"),
+        dict(type="Withdrawal", timestamp="2024-01-03T12:00:00Z", from_account_id=1, to_account_id=99,
+             amount="100", purpose=purpose),
+    ):
+        r = auth_client.post("/api/transactions", json=tx)
+        assert r.status_code == 200, r.text
+    stored = [t["purpose"] for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    exported = auth_client.get("/api/backup/csv").text
+    assert f",'{stored[0]}," in exported
+    assert auth_client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
+    r = auth_client.post("/api/import/execute", files=csv_file(exported))
+    assert r.status_code == 200, r.text
+    assert [t["purpose"] for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal"] == stored
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+@pytest.mark.parametrize("cell, read", [("'-5% fee", "-5% fee"), ("'hello", "'hello"), ("'", "'"),
+                                        ("  '=1 ", "=1"), ("''=1", "''=1")])
+def test_only_the_exports_quote_is_dropped(cell, read):
+    """A ' the export didn't add (before text no spreadsheet runs) stays."""
+    from backend.services.csv_import import _cell
+
+    assert _cell(cell) == read

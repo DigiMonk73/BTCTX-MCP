@@ -36,6 +36,7 @@ from backend.services.transaction import (
     transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
+from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import local_noon_utc
 from backend.constants import (
     ACCOUNT_ID_TO_NAME,
@@ -114,7 +115,7 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
-        normalized = {k.lower().strip(): v.strip() if v else "" for k, v in row.items() if k}
+        normalized = {k.lower().strip(): _cell(v) for k, v in row.items() if k}
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
         result.errors.extend(row_errors)
         result.warnings.extend(row_warnings)
@@ -130,6 +131,17 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
     if not result.transactions and not result.errors:
         result.errors.append(_file_error("No valid transactions found in file."))
     return result
+
+
+def _cell(value: str | None) -> str:
+    """
+    A cell's text, stripped, less the ' the CSV export puts in front of text
+    a spreadsheet could run as a formula (safe_text.csv_text): one leading '
+    is dropped when the rest is text csv_text prefixes, so an export imports
+    as it was (#230). A ' before anything else is kept.
+    """
+    text = (value or "").strip()
+    return text[1:] if text.startswith("'") and csv_text(text[1:]) == text else text
 
 
 def _decode(content: bytes) -> str:

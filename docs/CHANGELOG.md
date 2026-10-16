@@ -254,6 +254,19 @@ All notable changes to BitcoinTX are documented in this file.
   added to its amount ($101 for $100), and a fee currency written with a
   space (" BTC") was left out of a bitcoin transfer's amount; both now save
   as the CSV import does.
+- **A CSV export imports as it was** (#230). The export puts a `'` in
+  front of text a spreadsheet could run as a formula (a purpose such as
+  `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
+  `－10`), and importing that file kept the `'`: `-5% fee` came back as
+  `'-5% fee`. The import now drops that one `'` again; a `'` before any
+  other text stays. Text only, no figure. Every version since 1.1.0 (the
+  look-alikes since 1.2.8).
+- **The CSV guide's rules table lists every account a deposit or
+  withdrawal takes** (#304). Its table said a deposit goes only to Wallet
+  or Exchange BTC, and a withdrawal comes only from them, while its own
+  troubleshooting table and the import take Bank and Exchange USD too.
+  It now lists all four, and says the cost basis (a deposit) and the
+  purpose (a withdrawal) are needed only with bitcoin.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
