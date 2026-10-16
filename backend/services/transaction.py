@@ -22,7 +22,7 @@ from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, Lo
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
 from backend.services import hourly_prices, price_history
-from backend.services.tax_time import as_utc, get_tax_timezone, local_date, local_noon_utc
+from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
     ACCOUNT_WALLET,
     ACCOUNT_BANK,
@@ -2017,6 +2017,11 @@ def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Accou
         and str(source or "").strip().lower() in ORIGINAL_DATE_SOURCES
 
 
+def original_date_name(source: str | None) -> str:
+    """What acquired_at is, in a message: an Inherited deposit's date of death."""
+    return "The date of death" if _is_inherited({"source": source}) else "The date originally acquired"
+
+
 def original_date_problem(tx_type: str | None, source: str | None, into_btc: bool, acquired: date,
                           deposit: datetime | None, tz) -> str | None:
     """
@@ -2028,7 +2033,7 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
     if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
         return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
                 "death, into Wallet or Exchange BTC.")
-    what = "The date of death" if _is_inherited({"source": source}) else "The date originally acquired"
+    what = original_date_name(source)
     if acquired < GENESIS.date():
         return f"{what} is before Bitcoin existed (3 January 2009)."
     if deposit is not None and acquired > local_date(deposit, tz):
@@ -2047,7 +2052,10 @@ def _check_original_date(data: dict, tx_type: str, to_acct: Account | None, db: 
     if acquired is None:
         return
     tz = get_tax_timezone(db)
-    acquired = original_date(acquired, tz)
+    try:
+        acquired = original_date(acquired, tz)
+    except DateOutOfRange:  # a moment past Python's years in the tax timezone (#211)
+        _bad(date_out_of_range(original_date_name(data.get("source"))))
     deposit = data["timestamp"]
     # An edit that keeps the date and the deposit's day isn't refused for
     # them: a change of tax timezone since can put the deposit on the day

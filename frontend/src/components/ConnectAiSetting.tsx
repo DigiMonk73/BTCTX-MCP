@@ -159,6 +159,10 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
             </>
           )}
         </p>
+        {mac && !access.has_key && (
+          // Its file couldn't be written when BitcoinTX started (the log says why, #238)
+          <p className="note note-warning">No AI key yet: press Reset key.</p>
+        )}
         <label className="ai-access-toggle">
           <input
             type="checkbox"

@@ -5,11 +5,14 @@ routes open to it), the security middleware, the API routers, login and
 logout, the health check, and the built frontend served from frontend/dist.
 """
 
+import json
 import os
 import logging
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 logger = logging.getLogger(__name__)
@@ -51,6 +54,7 @@ from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
+from backend.services.tax_time import DateOutOfRange
 
 
 def _load_network_settings() -> None:
@@ -216,6 +220,38 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
         content={"detail": exc.detail or "Error"},
         headers=getattr(exc, "headers", None),
     )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    """
+    FastAPI's 422, less any input JSON can't carry: a number such as 1e999
+    is read as infinity (#218), and text can hold a lone surrogate (#210).
+    Echoed back, either failed the answer with a 500.
+    """
+    errors = jsonable_encoder(exc.errors())
+    for error in errors:
+        if not _writable(error):
+            error.pop("input", None)
+            error.pop("ctx", None)
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
+@app.exception_handler(DateOutOfRange)
+async def date_out_of_range_handler(request: Request, exc: DateOutOfRange):
+    """A date that falls outside Python's years in a timezone (tax_time.py,
+    #211): a 422, not a server error."""
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+def _writable(value) -> bool:
+    """Whether JSONResponse can write `value` (its rules: no NaN or
+    infinity, UTF-8)."""
+    try:
+        json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except ValueError:  # UnicodeEncodeError is one too
+        return False
+    return True
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)):

@@ -7,10 +7,12 @@ every amount goes through: BTC to 8 decimal places (a satoshi), USD to 2
 from __future__ import annotations
 
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_serializer, field_validator, ConfigDict
 from typing import Literal
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
+
+from backend.services.tax_time import as_utc
 
 # backend.constants.BROKER_REPORTING_VALUES
 BrokerReporting = Literal["none", "proceeds", "basis"]
@@ -52,6 +54,16 @@ def _integer_digits(value: Decimal) -> int:
     """Digits before the point, read from the exponent: written out, a value
     such as 1E+999998 takes seconds."""
     return max(value.adjusted() + 1, 1) if value else 1
+
+
+def eight_places(value: Decimal | None) -> str | None:
+    """
+    An amount as the API writes it: all eight places, as the columns hold it
+    and as the CSV export and calculation.btc_text() write it. str() of a
+    Decimal under 0.000001 is in exponent form, "5E-8" for 5 sats and "0E-8"
+    for none, which the AI connector passes on as it is (#101).
+    """
+    return None if value is None else f"{value:.8f}"
 
 
 def validate_btc_decimal(value: Decimal) -> Decimal:
@@ -109,6 +121,14 @@ def _date_alone(value):
     the day before in a US tax timezone."""
     if isinstance(value, str) and len(value.strip()) == 10:
         return date.fromisoformat(value.strip())
+    return value
+
+
+def _in_range(value):
+    """A date and time given with an offset, refused when it falls outside
+    Python's years in UTC (tax_time.DateOutOfRange, #211)."""
+    if isinstance(value, datetime) and value.tzinfo is not None:
+        as_utc(value)
     return value
 
 
@@ -191,18 +211,17 @@ class TransactionBase(BaseModel):
     def date_alone_stays_a_date(cls, v):
         return _date_alone(v)
 
+    @field_validator("acquired_at")
+    def acquired_in_range(cls, v):
+        return _in_range(v)
+
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
-        Ensures timestamps are UTC for consistent audit trails.
+        Ensures timestamps are UTC for consistent audit trails. A moment outside Python's
+        years once in UTC is refused (tax_time.DateOutOfRange, #211).
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
     @field_validator("amount")
     def validate_amount(cls, v: Decimal | None) -> Decimal | None:
@@ -269,18 +288,17 @@ class TransactionUpdate(BaseModel):
     def date_alone_stays_a_date(cls, v):
         return _date_alone(v)
 
+    @field_validator("acquired_at")
+    def acquired_in_range(cls, v):
+        return _in_range(v)
+
     @field_validator("timestamp")
     def force_utc_timestamp(cls, v: datetime | None) -> datetime | None:
         """
-        Ensures updated timestamps remain UTC-consistent.
+        Ensures updated timestamps remain UTC-consistent. A moment outside Python's
+        years once in UTC is refused (tax_time.DateOutOfRange, #211).
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
     @field_validator("amount")
     def validate_amount(cls, v: Decimal | None) -> Decimal | None:
@@ -353,6 +371,10 @@ class TransactionRead(TransactionBase):
     @field_validator("gross_proceeds_usd")
     def validate_gross_proceeds_usd(cls, v: Decimal | None) -> Decimal | None:
         return v
+
+    @field_serializer("amount", "fee_amount", when_used="json")
+    def amounts_written_out(self, v: Decimal | None) -> str | None:
+        return eight_places(v)
 
 
 class LedgerEntryBase(BaseModel):
@@ -427,13 +449,7 @@ class BitcoinLotCreate(BitcoinLotBase):
         """
         Ensures acquired_date is UTC for consistent tax holding period calculation.
         """
-        if v is None:
-            return None
-        if v.tzinfo is None:
-            v = v.replace(tzinfo=timezone.utc)
-        else:
-            v = v.astimezone(timezone.utc)
-        return v
+        return None if v is None else as_utc(v)
 
 
 class BitcoinLotRead(BitcoinLotBase):

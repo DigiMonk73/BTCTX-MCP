@@ -256,6 +256,12 @@ def _parse_filter_date(value: str | None) -> tuple[datetime, bool] | None:
     return parsed
 
 
+def _balance(account: dict[str, Any]) -> Any:
+    """A BTC account's balance with all eight places ("0.00000005"): the API gives a
+    number, which JSON writes as 5e-08 under 0.0001 (#101). A dollar balance as given."""
+    return f"{account['balance']:.8f}" if account.get("currency") == "BTC" else account["balance"]
+
+
 def _compact(tx: dict[str, Any]) -> dict[str, Any]:
     out = {
         "id": tx["id"],
@@ -315,7 +321,7 @@ async def get_portfolio() -> ToolResult:
     return {
         "tax_timezone": tz.get("timezone"),
         "balances": [
-            {"account": b["name"], "currency": b["currency"], "balance": b["balance"]}
+            {"account": b["name"], "currency": b["currency"], "balance": _balance(b)}
             for b in balances
         ],
         "average_cost_basis": avg,
