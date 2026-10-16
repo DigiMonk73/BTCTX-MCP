@@ -18,7 +18,11 @@ export function useBlankPriceSource(): BlankPriceWords {
   useEffect(() => {
     Promise.all([api.get<PriceStatus>("/bitcoin/price/status"), api.get<NetworkSettingsData>("/settings/network")])
       .then(([status, settings]) => {
-        const ctx = { backup: Boolean(settings.data.mempool_fallback), tor: Boolean(settings.data.proxy_url) };
+        const ctx = {
+          backup: Boolean(settings.data.mempool_fallback),
+          tor: Boolean(settings.data.proxy_url),
+          mempoolMissing: settings.data.price_source === "mempool" && !settings.data.mempool_url,
+        };
         setWords({ hour: blankPriceSource(status.data, ctx), day: blankDayPriceSource(status.data, ctx) });
       })
       .catch(() => undefined); // the hint keeps its first sentence

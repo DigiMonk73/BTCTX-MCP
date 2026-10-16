@@ -226,22 +226,37 @@ describe("where a blank value's price comes from (#208, plan 2.5)", () => {
 
   it("the history not held: your Mempool alone has only what it recorded (the review of #320)", () => {
     // price_at: an hour it never recorded falls to the day's price, then 422 (type it)
-    expect(blankPriceSource(st({ source: "mempool" }, history), alone))
-      .toBe("Your Mempool has prices only from when it began recording: for an older hour, type the value.");
+    expect(blankPriceSource(st({ source: "mempool" }, history), alone)).toBe("Your Mempool has prices only from when it "
+      + "began recording: for an older hour, unless BitcoinTX already has its price, type the value.");
     // With the backup, Bitstamp's hours fill the rest
     expect(blankPriceSource(st({ source: "mempool" }, history), backup)).toBe("It comes from your Mempool, else public price sites.");
     expect(blankPriceSource(st({ source: "public" }, { ...history, state: "downloading" }), alone))
       .toBe("It comes from public price sites.");
   });
 
-  it("through Tor, when Bitstamp refused the download: an older value may need typing (#241)", () => {
-    const refused = { ...history, state: "failed" as const, refused: true };
+  it("through Tor while the history isn't held: an older hour may need typing, refused or not yet (#241)", () => {
+    // Bitstamp refuses Tor's exits whatever the download's state: "refused" lasts only 10 minutes after a try
+    const warning = "Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older hour may have no price: "
+      + "then type the value.";
     const tor = { backup: false, tor: true };
-    expect(blankPriceSource(st({ source: "public" }, refused), tor)).toBe(
-      "It comes from public price sites. Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older value "
-      + "may have no price: then type it.");
-    expect(blankPriceSource(st({ source: "mempool" }, refused), { backup: true, tor: true })).toMatch(/Bitstamp currently refuses/);
-    expect(blankPriceSource(st({ source: "public" }, { ...refused, refused: false }), tor)).toBe("It comes from public price sites.");
+    for (const h of [{ ...history, state: "failed" as const, refused: true }, { ...history, state: "waiting" as const }]) {
+      expect(blankPriceSource(st({ source: "public" }, h), tor)).toBe(`It comes from public price sites. ${warning}`);
+      expect(blankPriceSource(st({ source: "mempool" }, h), { backup: true, tor: true }))
+        .toBe(`It comes from your Mempool, else public price sites. ${warning}`);
+    }
+    // Held: the older hours are stored. Your Mempool alone through Tor (an .onion) never asks Bitstamp
+    expect(blankPriceSource(st({ source: "public" }), tor)).not.toMatch(/refuses/);
+    expect(blankPriceSource(st({ source: "mempool" }, history), tor)).not.toMatch(/refuses/);
+  });
+
+  it("StartOS chose your Mempool but it isn't installed (no address): the backup, or type it", () => {
+    const missing = { backup: false, tor: false, mempoolMissing: true };
+    expect(blankPriceSource(st({ source: "mempool", managed: true }, history), missing))
+      .toBe("Unless BitcoinTX already has that hour's price, type it: Mempool isn't installed on this server yet.");
+    expect(blankPriceSource(st({ source: "mempool", managed: true }), missing))
+      .toBe(`${stored}; after that, type it: Mempool isn't installed on this server yet.`);
+    expect(blankPriceSource(st({ source: "mempool", managed: true }, history), { ...missing, backup: true }))
+      .toBe("It comes from public price sites, until Mempool is installed on this server.");
   });
 
   it("with Nobody, after the stored ones: type it", () => {
@@ -261,8 +276,13 @@ describe("where a blank value's price comes from (#208, plan 2.5)", () => {
 
   it("a day's price (an inheritance's date of death): only what to do where none is found", () => {
     expect(blankDayPriceSource(st({ source: "off" }), alone)).toBe("Unless BitcoinTX already has that day's price, type it: you chose Nobody.");
-    expect(blankDayPriceSource(st({ source: "mempool" }), alone))
-      .toBe("Your Mempool has prices only from when it began recording: for an older date, type the value.");
+    expect(blankDayPriceSource(st({ source: "mempool" }), alone)).toBe("Your Mempool has prices only from when it "
+      + "began recording: for an older date, unless BitcoinTX already has its price, type the value.");
+    expect(blankDayPriceSource(st({ source: "mempool" }), { ...alone, mempoolMissing: true }))
+      .toBe("Unless BitcoinTX already has that day's price, type it: Mempool isn't installed on this server yet.");
+    // Through Tor, past days don't download either (#241)
+    expect(blankDayPriceSource(st({ source: "public" }), { backup: false, tor: true }))
+      .toBe("Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older date may have no price: then type the value.");
     expect([blankDayPriceSource(st({ source: "mempool" }), backup), blankDayPriceSource(st({ source: "public" }), alone)])
       .toEqual(["", ""]);
   });
