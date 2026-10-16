@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.services import ai_key, hourly_prices, mempool_trust, outbound
 from backend.services.desktop import desktop_info
-from backend.services.tax_time import get_tax_timezone_name, set_tax_timezone
+from backend.services.tax_time import fill_tax_timezone, get_tax_timezone_name, set_tax_timezone
 from backend.services.transaction import recalculate_all_transactions
 
 router = APIRouter()
@@ -51,6 +51,23 @@ def put_tax_timezone_setting(payload: TaxTimezone, request: Request, db: Session
         db.rollback()
         raise
     return {"timezone": payload.timezone, "source": "setting"}
+
+
+@router.post("/tax-timezone/fill")
+def fill_tax_timezone_setting(payload: TaxTimezone, request: Request, db: Session = Depends(get_db)):
+    """
+    The login page's fill (#334): this browser's timezone, saved only while
+    none was ever chosen and the ledger has no transactions (nothing to
+    recalculate then). Otherwise nothing changes. {"timezone", "source",
+    "filled"}. Login only, like the change above.
+    """
+    _require_login(request)
+    try:
+        filled = fill_tax_timezone(db, payload.timezone)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    name, source = get_tax_timezone_name(db)
+    return {"timezone": name, "source": source, "filled": filled}
 
 
 @router.get("/desktop")

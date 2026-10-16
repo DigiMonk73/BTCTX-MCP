@@ -251,8 +251,8 @@ Start from the `clean` snapshot.
 - **AUTH-2** Log in with the wrong password, then with `admin` /
   `password`. Expect both times: "Invalid username or password."
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
-  Settings > Tax Timezone reads "Current: America/New_York": the first login
-  adopts the browser's timezone.
+  Settings > Tax Timezone reads "Current: America/New_York": a login adopts
+  the browser's timezone while the ledger is empty (#334).
 - **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
   other pages), nothing chosen, its status line "Not chosen yet: nothing is
   contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,

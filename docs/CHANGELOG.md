@@ -151,6 +151,25 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A login no longer changes the tax timezone of a ledger with
+  transactions** (tax figures, #334). While no tax timezone had ever been
+  chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
+  the browser's timezone as the tax timezone and recalculated the ledger,
+  without a word. A browser that reports UTC, such as Tor Browser, left it
+  alone. So a Docker or StartOS ledger entered so far only from such a
+  browser (or a restored backup that carried no timezone) switched at its
+  first login from an ordinary browser. Tax years and holding periods are
+  decided on dates in the tax timezone, so a sale near midnight or near its
+  one-year anniversary could move to another tax year or term, in years
+  already filed. Every version from 0.8.0 to 1.2.8. Now a login fills the
+  timezone only while the ledger has no transactions, as on a fresh
+  install or the Mac app's first login. With transactions, only you change
+  it in Settings, which says what that does. Settings › Tax Timezone
+  suggests this computer's timezone in one line while none was chosen.
+  **What to do:** check Settings › Tax Timezone. If it shows a timezone you
+  never chose, and you filed a return from BitcoinTX's figures before it
+  changed, compare that return's Form 8949 with today's report: a sale near
+  midnight or near its one-year anniversary may have moved.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

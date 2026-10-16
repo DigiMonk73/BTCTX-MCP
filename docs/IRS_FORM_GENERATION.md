@@ -140,10 +140,13 @@ Timestamps are stored in UTC. The tax timezone decides:
 - **the holding period** (next section).
 
 Where the timezone comes from: **Settings → Tax Timezone** (the
-`tax_timezone` row in `app_settings`, filled from the browser on first login),
-then the `BTCTX_TIMEZONE` env var, then UTC. API:
-`GET/PUT /api/settings/tax-timezone`. Changing it recalculates the whole
-ledger, because stored holding periods can change.
+`tax_timezone` row in `app_settings`), then the `BTCTX_TIMEZONE` env var,
+then UTC. API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
+the whole ledger, because stored holding periods can change. A login fills
+it from the browser (`POST /api/settings/tax-timezone/fill`) only while
+none was chosen and the ledger has no transactions (#334): with
+transactions, only the owner's change in Settings moves it, and Settings
+suggests the computer's timezone in one line.
 
 ## Holding period
 

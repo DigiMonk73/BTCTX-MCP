@@ -10,10 +10,12 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from backend.models.app_setting import AppSetting
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
-from backend.services.tax_time import tax_year_bounds
+from backend.services.tax_time import SETTING_KEY, fill_tax_timezone, tax_year_bounds
 from backend.services.transaction import holding_period
 
 CLIENT = None
@@ -85,6 +87,78 @@ class TestSetting:
         from fastapi.testclient import TestClient
         from backend.main import app
         assert TestClient(app).get("/api/settings/tax-timezone").status_code == 401
+
+
+def never_chosen():
+    """No tax timezone ever chosen: the install's state before any login set one."""
+    db = sessionmaker(bind=ENGINE)()
+    try:
+        db.query(AppSetting).filter_by(key=SETTING_KEY).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+def fill(name):
+    r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": name})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+class TestLoginFill:
+    """The login page's fill (#334): only while none was ever chosen and the
+    ledger is empty. With transactions, another timezone would recalculate
+    tax years already reported, so only Settings' own change does that."""
+
+    @pytest.fixture(autouse=True)
+    def _no_env(self, monkeypatch):
+        monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+
+    def test_an_empty_ledger_takes_the_browsers_timezone(self):
+        never_chosen()
+        assert fill(NY) == {"timezone": NY, "source": "setting", "filled": True}
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": NY, "source": "setting"}
+
+    def test_a_ledger_with_transactions_keeps_utc(self):
+        """Before #334 the login saved the browser's timezone here and recalculated:
+        a sale near midnight or its anniversary could change tax year or term."""
+        buy("2024-06-01T12:00:00Z")
+        sell("2025-01-01T03:00:00Z")          # Dec 31 2024, 10 pm in New York
+        never_chosen()
+        assert fill(NY) == {"timezone": "UTC", "source": "default", "filled": False}
+        assert len(rows(2025)) == 1 and not rows(2024)   # still UTC's tax year
+
+    def test_never_over_a_chosen_timezone(self):
+        set_tz("Asia/Tokyo")
+        assert fill(NY) == {"timezone": "Asia/Tokyo", "source": "setting", "filled": False}
+
+    def test_never_over_btctx_timezone(self, monkeypatch):
+        monkeypatch.setenv("BTCTX_TIMEZONE", "Asia/Tokyo")
+        never_chosen()
+        assert fill(NY) == {"timezone": "Asia/Tokyo", "source": "env", "filled": False}
+
+    def test_unknown_timezone_refused(self):
+        never_chosen()
+        r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": "Mars/Olympus"})
+        assert r.status_code == 400
+        assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
+
+    def test_a_busy_database_fills_nothing(self):
+        """The check and the save hold the write lock; while another save
+        holds it, the login fills nothing rather than waiting long."""
+        never_chosen()
+        holder = ENGINE.raw_connection()
+        quick = create_engine(ENGINE.url, connect_args={"timeout": 0.1})
+        db = sessionmaker(bind=quick)()
+        try:
+            holder.cursor().execute("BEGIN IMMEDIATE")
+            assert fill_tax_timezone(db, NY) is False
+        finally:
+            db.close()
+            quick.dispose()
+            holder.rollback()
+            holder.close()
+        assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
 
 
 class TestTaxYear:

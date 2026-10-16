@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "../contexts/useToast";
-import { browserTimezone, getTaxTimezone, setTaxTimezone } from "../utils/taxTimezone";
+import {
+  browserTimezone, getTaxTimezone, setTaxTimezone, timezoneSuggestion, type TaxTimezone,
+} from "../utils/taxTimezone";
 
 /**
  * Settings row: the timezone used for tax dates — which tax year a
@@ -8,7 +10,8 @@ import { browserTimezone, getTaxTimezone, setTaxTimezone } from "../utils/taxTim
  */
 const TaxTimezoneSetting: React.FC = () => {
   const toast = useToast();
-  const [current, setCurrent] = useState<string>("");
+  const [taxTimezone, setTaxTimezoneState] = useState<TaxTimezone | null>(null);
+  const current = taxTimezone?.timezone ?? "";
   const [selected, setSelected] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
@@ -21,7 +24,7 @@ const TaxTimezoneSetting: React.FC = () => {
   useEffect(() => {
     getTaxTimezone()
       .then((tz) => {
-        setCurrent(tz.timezone);
+        setTaxTimezoneState(tz);
         setSelected(tz.timezone);
       })
       .catch(() => undefined);
@@ -31,7 +34,7 @@ const TaxTimezoneSetting: React.FC = () => {
     setSaving(true);
     try {
       const tz = await setTaxTimezone(selected);
-      setCurrent(tz.timezone);
+      setTaxTimezoneState(tz);
       toast.success(`Tax timezone set to ${tz.timezone}. Gains were recalculated.`);
     } catch {
       toast.error("Could not save the timezone.");
@@ -39,6 +42,8 @@ const TaxTimezoneSetting: React.FC = () => {
       setSaving(false);
     }
   };
+
+  const suggestion = timezoneSuggestion(taxTimezone, browserTimezone());
 
   return (
     <div className="settings-option">
@@ -48,6 +53,7 @@ const TaxTimezoneSetting: React.FC = () => {
           Decides which tax year a late-night Dec 31 transaction belongs to, the dates on
           Form 8949, and when a holding becomes long-term. Current: <strong>{current || "…"}</strong>
         </p>
+        {suggestion && <p className="note" role="note">{suggestion}</p>}
       </div>
       <div className="credential-update-form">
         <select

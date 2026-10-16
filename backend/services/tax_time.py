@@ -8,8 +8,8 @@ in UTC; this module converts at the edges:
   - the holding-period anniversary (IRS counts calendar days where you are)
 
 Source of the timezone, first match wins: the "tax_timezone" setting (set in
-Settings, or auto-filled from the browser on first login) -> BTCTX_TIMEZONE
-env var -> UTC.
+Settings, or filled from the browser at a login while the ledger is empty)
+-> BTCTX_TIMEZONE env var -> UTC.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ import os
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 SETTING_KEY = "tax_timezone"
@@ -60,6 +62,34 @@ def set_tax_timezone(db: Session, name: str) -> str:
         db.add(AppSetting(key=SETTING_KEY, value=name))
     db.flush()
     return name
+
+
+def fill_tax_timezone(db: Session, name: str) -> bool:
+    """
+    A login's fill (#334): `name`, the browser's timezone, saved as the tax
+    timezone only while none was ever chosen (no setting, no BTCTX_TIMEZONE)
+    and the ledger has no transactions; True if saved, committed. With
+    transactions, another timezone would move tax years and holding periods
+    already reported: only the owner's own change in Settings does that.
+    The check and the save hold SQLite's write lock, so a transaction saved
+    meanwhile waits until after; a busy database fills nothing (the next
+    login tries again). An unknown name is a ValueError.
+    """
+    from backend.models.transaction import Transaction
+
+    validate_timezone(name)
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+    except OperationalError as e:
+        if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
+            raise
+        return False
+    if get_tax_timezone_name(db)[1] != "default" or db.query(Transaction.id).first() is not None:
+        db.rollback()  # the lock goes
+        return False
+    set_tax_timezone(db, name)
+    db.commit()
+    return True
 
 
 def date_out_of_range(what: str = "The date") -> str:
@@ -118,7 +148,7 @@ def local_noon_utc(d: date, tz: ZoneInfo) -> datetime:
 
 
 __all__ = [
-    "validate_timezone", "get_tax_timezone_name", "get_tax_timezone", "set_tax_timezone",
+    "validate_timezone", "get_tax_timezone_name", "get_tax_timezone", "set_tax_timezone", "fill_tax_timezone",
     "DATE_OUT_OF_RANGE", "date_out_of_range", "DateOutOfRange", "moved",
     "as_utc", "local_date", "format_tax_date", "tax_year_bounds", "local_noon_utc",
 ]

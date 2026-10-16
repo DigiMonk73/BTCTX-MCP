@@ -281,6 +281,9 @@ from the Transaction row alone.
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
   `backend/services/tax_time.py`. Never slice a year with naive UTC dates.
+  A login fills it from the browser only while none was chosen and the
+  ledger is empty (`tax_time.fill_tax_timezone`, #334); with transactions,
+  only the owner's change in Settings moves it.
   Times on screen are the device's clock (#260), except Ledger Review's
   (the tax timezone, as `cli review` and the AI see them) and a price's
   hour (UTC, labelled).
