@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
 import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
 import { historyPriceUrl } from "../utils/converter";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
+import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
 import "../styles/converter.css";
 
 type Mode = "manual" | "auto" | "date";
@@ -25,37 +25,6 @@ const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
   missing: "No price",
 };
 type Field = "USD" | "BTC" | "SATS" | null;
-
-/** Where the live price came from and when, the Dashboard's words in short (#208). */
-interface PriceFrom {
-  short: string;
-  full: string;
-}
-
-/** Auto mode's line: the live price and where it came from, or why there's none and the
- * way forward (#145). At most two lines, so the calculator below stays put. */
-const AutoPriceRow: React.FC<{ text: string; why: string | null; from: PriceFrom | null; onTypeAPrice: () => void }> = (
-  { text, why, from, onTypeAPrice },
-) => (
-  <div className="auto-price-row price-mode-row">
-    <p className="btc-price">BTC Price: {text}</p>
-    {(why === "waiting" || why === "unchosen") && (
-      <Link className="converter-action" to="/dashboard">{why === "waiting" ? "Confirm" : "Choose"}</Link>
-    )}
-    {/* No public site reached through the proxy; never for a site that refused (#241) */}
-    {why === "tor" && <span className="converter-note">Is Tor running?</span>}
-    {(why === "off" || why === "invalid" || why === "tor" || why === "none") && (
-      <button type="button" className="converter-action" onClick={onTypeAPrice}>
-        Type a price
-      </button>
-    )}
-    {from && (
-      <p className="converter-note price-from" title={from.full}>
-        {from.short}
-      </p>
-    )}
-  </div>
-);
 
 const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
@@ -125,16 +94,24 @@ const BtcConverter: React.FC = () => {
   const roundBtc = (num: number) => num.toFixed(8).replace(/\.?0+$/, "");
   const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
-  // Whether public sites go through Tor, for the source line: read again when a choice is saved
+  // Whether public sites go through Tor, for the source line: read again when a
+  // choice is saved, unknown meanwhile (only the newest read counts)
   useEffect(() => {
-    const read = () =>
+    let round = 0;
+    const read = () => {
+      const mine = ++round;
       api
         .get<{ proxy_url?: string | null }>("/settings/network")
-        .then((res) => setThroughTor(Boolean(res.data.proxy_url)))
-        .catch(() => setThroughTor(false));
+        .then((res) => mine === round && setThroughTor(Boolean(res.data.proxy_url)))
+        .catch(() => mine === round && setThroughTor(false));
+    };
+    const again = () => {
+      setThroughTor(null);
+      read();
+    };
     read();
-    window.addEventListener(PRICE_CHOICE_SAVED, read);
-    return () => window.removeEventListener(PRICE_CHOICE_SAVED, read);
+    window.addEventListener(PRICE_CHOICE_SAVED, again);
+    return () => window.removeEventListener(PRICE_CHOICE_SAVED, again);
   }, []);
 
   // Auto mode: the live price, every 2 minutes
@@ -142,17 +119,26 @@ const BtcConverter: React.FC = () => {
     if (mode !== "auto") return;
 
     const fetchLivePrice = () => fetchPrice("/bitcoin/price");
+    // A price choice just saved: ask again now, no page reload (#145, #149). An answer
+    // for the old choice still on its way is dropped (#327), and until the new one the
+    // sidebar says "…", as the Dashboard does: the old price never takes the new source
+    const askAgain = () => {
+      priceTicket.current += 1;
+      setBtcPrice(0);
+      setNoPrice("loading");
+      setAnswered(null);
+      fetchLivePrice();
+    };
 
     fetchLivePrice();
     // No asking while this tab isn't being looked at.
     const intervalId = setInterval(() => {
       if (!document.hidden) fetchLivePrice();
     }, 120_000);
-    // A price choice just saved: ask again now, no page reload (#145, #149)
-    window.addEventListener(PRICE_CHOICE_SAVED, fetchLivePrice);
+    window.addEventListener(PRICE_CHOICE_SAVED, askAgain);
     return () => {
       clearInterval(intervalId);
-      window.removeEventListener(PRICE_CHOICE_SAVED, fetchLivePrice);
+      window.removeEventListener(PRICE_CHOICE_SAVED, askAgain);
     };
   }, [mode]);
 

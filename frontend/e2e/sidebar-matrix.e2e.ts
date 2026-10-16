@@ -298,6 +298,62 @@ test("own mempool server down, with the public backup: the prices from the publi
   expect(proxies(sent)).toEqual([null]);
 });
 
+/**
+ * The live price's answers, each fetched at once (with the choice of that
+ * moment) but handed to the page only when released: an answer for the old
+ * choice can then arrive after the new one.
+ */
+async function holdLivePrices(page: Page) {
+  const held: (() => Promise<void>)[] = [];
+  const state = { holding: true };
+  await page.route("**/api/bitcoin/price", async (route) => {
+    if (!state.holding) return route.continue();
+    const answer = await route.fetch();
+    held.push(() => route.fulfill({ response: answer }));
+  });
+  return { held, state };
+}
+
+/** Save a choice and send the card's event at once, while an answer may be on its way. */
+async function saveInPlace(page: Page, choice: Record<string, unknown>) {
+  const r = await page.request.put("/api/settings/network", {
+    data: { mempool_url: null, mempool_fallback: false, proxy_url: null, ...choice },
+  });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await page.evaluate(() => window.dispatchEvent(new Event("btctx:price-choice-saved")));
+}
+
+test("saved in place: an answer for the old choice arriving last is dropped (#327)", async ({ page, app }) => {
+  const live = await holdLivePrices(page);
+  await logIn(page, app);
+  await expect.poll(() => live.held.length).toBe(2); // the sidebar's and the Dashboard's, not chosen yet
+  await saveInPlace(page, { price_source: "public" });
+  await expect.poll(() => live.held.length).toBe(4);
+  const sidebar = page.getByRole("complementary");
+  for (const send of live.held.slice(2)) await send(); // the new choice's answers first
+  await expect(sidebar.getByText(`BTC Price: ${dollars(CURRENT_PRICE)}`, { exact: true })).toBeVisible();
+  for (const send of live.held.slice(0, 2)) await send(); // then the old ones, late
+  await page.waitForTimeout(500); // nothing more to wait on: they've been handed over
+  await expect(sidebar.getByText(`BTC Price: ${dollars(CURRENT_PRICE)}`, { exact: true })).toBeVisible();
+  await expect(sidebar.getByText(/^Kraken · \d{1,2}:\d\d [ap]m$/)).toBeVisible();
+});
+
+test("saved in place: the old price never shows the new choice's source (review of #319)", async ({ page, app }) => {
+  await logIn(page, app);
+  await choose(page, { price_source: "public" });
+  const sidebar = page.getByRole("complementary");
+  await expect(sidebar.getByText(/^Kraken · \d{1,2}:\d\d [ap]m$/)).toBeVisible();
+  const live = await holdLivePrices(page);
+  await saveInPlace(page, { price_source: "public", proxy_url: TOR });
+  await expect.poll(() => live.held.length).toBe(2);
+  // Until the answer through Tor comes: "…", and no source line on the direct price
+  await expect(sidebar.getByText("BTC Price: …", { exact: true })).toBeVisible();
+  await expect(sidebar.getByText(/ · \d{1,2}:\d\d [ap]m$/)).toHaveCount(0);
+  live.state.holding = false;
+  for (const send of live.held) await send();
+  await expect(sidebar.getByText(/^Kraken, through Tor · \d{1,2}:\d\d [ap]m$/)).toBeVisible();
+});
+
 test("Date with an hour: that hour on this device's clock, its UTC day's price here; nothing names the day", async ({
   page, app,
 }) => {

@@ -469,8 +469,9 @@ Start from the `clean` snapshot.
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
   dashboard's price, and under it where it came from and when, in short
-  ("Kraken · 2:04 pm"; pointing at it shows the Dashboard's words). **Manual** with `50000`: USD `100` gives BTC `0.002` and
-  Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
+  ("Kraken · 2:04 pm"; pointing at it shows the Dashboard's words).
+  **Manual** with `50000`: USD `100` gives BTC `0.002` and Sats `200000`.
+  Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Use Tor**. Expect: a price on the Dashboard, and under the sidebar's
   Auto price "Kraken, through Tor · …" (or Bitstamp).

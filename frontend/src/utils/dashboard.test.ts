@@ -55,11 +55,12 @@ describe("the price's source and why there's none (#145)", () => {
   });
 
   it("asks about Tor only when no public site could be reached through it, never for a refusal (#208, #241)", () => {
-    // backend/services/bitcoin.py, _first_public: every site unreachable through the proxy
-    expect(noPriceReason(502, "No public site answered for the live price: none could be reached through the proxy "
+    // backend/services/bitcoin.py, _first_public, word for word: every site unreachable through
+    // the proxy (test_network_settings.py pins the words this matches)
+    expect(noPriceReason(502, "No public site answered for the BTC price: none could be reached through the proxy "
       + "for public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)")).toBe("tor");
     // Reached, but no price: a refusal (Bitstamp's 403 to Tor's exits) or a bad answer
-    expect(noPriceReason(502, "No public site answered for the live price.")).toBe("none");
+    expect(noPriceReason(502, "No public site answered for the BTC price.")).toBe("none");
     expect(noPriceReason(502, undefined)).toBe("none");
     expect(noPriceReason(undefined, undefined)).toBe("none");
   });
