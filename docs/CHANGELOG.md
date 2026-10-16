@@ -306,9 +306,11 @@ All notable changes to BitcoinTX are documented in this file.
 - **A few sats are written out, never as 5E-8** (#101). The transactions
   API, and so the AI connector's `list_transactions`, gave an amount or a
   fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
-  as `"0E-8"`. An AI reading it could misread it. Amounts and fees now
-  always come with their eight places (`"0.00000005"`, `"0.00000000"`), as
-  the CSV export, Form 8949 and Ledger Review write them. The edit form
+  as `"0E-8"`; so did `preview_transactions`' balances afterwards and
+  `add_transactions`' list of what it created. An AI reading it could
+  misread it. These now always come with their eight places
+  (`"0.00000005"`, `"0.00000000"`), as the CSV export, Form 8949 and Ledger
+  Review write them. The edit form
   showed such an amount or fee as `5e-8` too, and so did a transfer's fee
   worked out from its amounts; they now show `0.00000005`. Nothing stored
   or computed changes.

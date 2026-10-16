@@ -54,6 +54,16 @@ def _integer_digits(value: Decimal) -> int:
     return max(value.adjusted() + 1, 1) if value else 1
 
 
+def eight_places(value: Decimal | None) -> str | None:
+    """
+    An amount as the API writes it: all eight places, as the columns hold it
+    and as the CSV export and calculation.btc_text() write it. str() of a
+    Decimal under 0.000001 is in exponent form, "5E-8" for 5 sats and "0E-8"
+    for none, which the AI connector passes on as it is (#101).
+    """
+    return None if value is None else f"{value:.8f}"
+
+
 def validate_btc_decimal(value: Decimal) -> Decimal:
     """
     At most 8 decimal places (a satoshi) and 10 integer digits (the database
@@ -355,14 +365,8 @@ class TransactionRead(TransactionBase):
         return v
 
     @field_serializer("amount", "fee_amount", when_used="json")
-    def eight_places(self, v: Decimal | None) -> str | None:
-        """
-        Written out with all eight places, as the columns hold them and as
-        the CSV export and calculation.btc_text() write them: str() of a
-        Decimal under 0.000001 is in exponent form, "5E-8" for 5 sats and
-        "0E-8" for none, which the AI connector passes on as it is (#101).
-        """
-        return None if v is None else f"{v:.8f}"
+    def amounts_written_out(self, v: Decimal | None) -> str | None:
+        return eight_places(v)
 
 
 class LedgerEntryBase(BaseModel):

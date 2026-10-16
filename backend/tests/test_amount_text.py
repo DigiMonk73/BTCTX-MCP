@@ -57,3 +57,17 @@ def test_every_amount_and_fee_has_eight_places(auth_client):
         ("Withdrawal", "0.00000005", "0.00000003"),
     ]
     assert all(WRITTEN_OUT.match(t["amount"]) and WRITTEN_OUT.match(t["fee_amount"]) for t in rows)
+
+
+def test_the_ai_imports_answers_write_a_few_sats_out(auth_client):
+    """The AI connector's preview_transactions and add_transactions pass on
+    the entry import's answers: the balances after and what was created."""
+    row = dict(date="2024-02-01T12:00:00Z", type="Deposit", amount="0.00000005", from_account="External",
+               to_account="Wallet", source="MyBTC", cost_basis_usd="0.01")
+    preview = auth_client.post("/api/import/entries/preview", json={"rows": [row]})
+    assert preview.status_code == 200, preview.text
+    wallet = next(b for b in preview.json()["balances_after"] if b["account"] == "Wallet")
+    assert wallet["balance"] == "0.00000005"
+    done = auth_client.post("/api/import/entries/execute", json={"rows": [row]})
+    assert done.status_code == 200, done.text
+    assert [c["amount"] for c in done.json()["created"]] == ["0.00000005"]

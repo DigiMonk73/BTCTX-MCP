@@ -12,7 +12,9 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+from backend.schemas.transaction import eight_places
 
 
 class EntryRow(BaseModel):
@@ -81,6 +83,10 @@ class AccountBalance(BaseModel):
     currency: str
     balance: Decimal
 
+    @field_serializer("balance", when_used="json")
+    def balance_written_out(self, v: Decimal) -> str | None:
+        return eight_places(v)
+
 
 class EntryPreviewResponse(BaseModel):
     ok: bool  # True when every row is ready or an exact duplicate
@@ -102,6 +108,10 @@ class CreatedTransaction(BaseModel):
     amount: Decimal
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+
+    @field_serializer("amount", when_used="json")
+    def amount_written_out(self, v: Decimal) -> str | None:
+        return eight_places(v)
 
 
 class EntryExecuteResponse(BaseModel):
