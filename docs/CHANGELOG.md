@@ -151,6 +151,17 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A save made while Ledger Review checks the ledger no longer fails**
+  (#335). Ledger Review (also `cli review` and the AI connector's
+  `review_ledger`) works out what Recalculate Ledger would change by
+  running it and undoing it. It ran on the live database, holding its
+  write lock for the whole replay, so a transaction saved meanwhile, yours
+  or the AI's, waited and after 5 seconds failed with "database is locked".
+  On a ledger of a few thousand transactions the replay takes longer than
+  that. It now runs on a copy of the database in memory, as the tax
+  report's year-end holdings already do: saves go through, and the check
+  finds the same changes. Nothing was ever half-saved: the save was
+  refused whole.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

@@ -89,6 +89,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
@@ -270,21 +271,22 @@ TERM_GAINS = ("short_term_gain", "long_term_gain")
 def simulate_recalculation(db: Session):
     """
     What Recalculate Ledger would change: {id: {field: (old, new)}}, or an
-    error message. Runs it and rolls everything back (the session must have
-    nothing else pending).
+    error message. Runs it on a scratch copy of the database, as committed
+    (#335): the live one is only read, so a save made while the check runs
+    (a replay of a large ledger takes seconds) doesn't wait for its write
+    lock and fail.
     """
     from backend.services.transaction import recalculate_all_transactions
 
     tz = get_tax_timezone(db)
-    before = _snapshot(db, tz)
-    try:
-        recalculate_all_transactions(db)
-        db.flush()
-        after = _snapshot(db, tz)
-    except Exception as exc:  # e.g. a missing price: say so, change nothing
-        db.rollback()
-        return None, str(getattr(exc, "detail", exc))
-    db.rollback()
+    with scratch_copy(db) as scratch:
+        before = _snapshot(scratch, tz)
+        try:
+            recalculate_all_transactions(scratch)
+            scratch.flush()
+            after = _snapshot(scratch, tz)
+        except Exception as exc:  # e.g. a missing price: say so
+            return None, str(getattr(exc, "detail", exc))
     return _differences(before, after), None
 
 

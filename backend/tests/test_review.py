@@ -650,3 +650,49 @@ def test_a_withdrawal_whose_amount_1_2_8_erased_stays_none_recorded(auth_client,
             'Purpose "Expenses": counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss.']
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine, monkeypatch):
+    """#335: the check's dry run replayed the whole ledger on the live
+    database and rolled it back, holding SQLite's write lock meanwhile: a
+    save made then (the owner's or the AI's) waited, and failed after 5 s on
+    a large ledger. It runs on a scratch copy now. Here a save is made in the
+    middle of the dry run, from another connection that waits at most 0.5 s."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services import transaction
+    from backend.services.transaction import create_transaction_record
+
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # a Lost withdrawal saved with a loss: the dry run finds a change
+        (990, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (991, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+    ])
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.5})
+    real_replay, saved = transaction.recalculate_all_transactions, []
+
+    def replay_then_save_elsewhere(db, *args, **kwargs):
+        real_replay(db, *args, **kwargs)
+        db.flush()  # the replay's writes, as far as the dry run takes them
+        with sessionmaker(bind=impatient)() as other:
+            try:
+                saved.append(create_transaction_record(dict(
+                    type="Deposit", timestamp=datetime(2024, 3, 1, 12, tzinfo=timezone.utc), from_account_id=EXTERNAL,
+                    to_account_id=BANK, amount=Decimal("100"), source="N/A"), other).id)
+            except Exception as exc:  # "database is locked" on the old code
+                saved.append(exc)
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_then_save_elsewhere)
+    try:
+        review = auth_client.get("/api/review").json()
+        assert len(saved) == 1 and isinstance(saved[0], int), saved
+        assert 991 in ids(review, "recalc_changes")  # the dry run still says what a recalculation would do
+        assert _stored(test_engine, 991, "realized_gain_usd") == Decimal("-100.00")  # and changed nothing
+        with test_engine.connect() as con:
+            assert con.execute(text("SELECT id FROM transactions WHERE id = :id"), {"id": saved[0]}).scalar()
+    finally:
+        impatient.dispose()
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
