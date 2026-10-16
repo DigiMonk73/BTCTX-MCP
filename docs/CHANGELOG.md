@@ -337,6 +337,16 @@ All notable changes to BitcoinTX are documented in this file.
     be read as CSV" (#211).
 
 ### Development
+- **The WebKit click-through check no longer fails now and then on a
+  page load** (#231). In Playwright's WebKit, the reload or `goto` that
+  followed a price choice saved over the API sometimes failed with
+  "WebKit encountered an internal error" (the sidebar matrix's reload, the
+  price card's status checks; the Dashboard's and the converter's "prices
+  off" tests had the same pattern), and the required check failed until it
+  ran again. Those tests now save the choice with `choosePriceSource()`, which
+  tells the open page as the price card does after its own save: the page
+  asks again in place, with no page load. Real Safari, Chrome and the Mac
+  app were never at fault (#149).
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate

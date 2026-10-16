@@ -123,6 +123,36 @@ export async function loginViaUi(page: Page, user = USER, password = PASSWORD) {
   await expect(page).toHaveURL(/\/dashboard$/);
 }
 
+/** A price choice as Settings › Privacy & network saves it. */
+export type PriceChoice = {
+  price_source: "off" | "public" | "mempool";
+  mempool_url?: string;
+  mempool_fallback?: boolean;
+  proxy_url?: string;
+};
+
+/** Sent on window by the price card once it has saved a choice (usePriceCard.ts). */
+const PRICE_CHOICE_SAVED = "btctx:price-choice-saved";
+
+/**
+ * Save a price choice over the API, as Settings › Privacy & network does,
+ * then tell the open page as the card does: the Dashboard and the sidebar
+ * ask again in place. No page load: the app needs none for a new choice
+ * (#149), and Playwright's WebKit now and then fails the navigation that
+ * follows such a save with "WebKit encountered an internal error" (#231).
+ * Needs a signed-in page with the sidebar showing (not a phone's width):
+ * it waits for the sidebar's price first.
+ */
+export async function choosePriceSource(page: Page, choice: PriceChoice) {
+  // The sidebar's answer for the old choice first: one arriving after the new one would replace it
+  await expect(page.getByRole("complementary").getByText(/^BTC Price: [^…]/)).toBeVisible();
+  const r = await page.request.put("/api/settings/network", {
+    data: { mempool_url: null, mempool_fallback: false, proxy_url: null, ...choice },
+  });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await page.evaluate((event) => window.dispatchEvent(new Event(event)), PRICE_CHOICE_SAVED);
+}
+
 export type TxPayload = Record<string, string | number | null>;
 
 /** Create a transaction over the API; returns the saved record. */
