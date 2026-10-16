@@ -39,3 +39,18 @@
   text-decoration: underline;
   cursor: pointer;
 }
+/* Under the price: where it came from and when (#208), or "Is Tor running?" */
+.converter-note {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--color-text-secondary);
+}
+/* One line however narrow the sidebar, so the calculator below stays put; the
+   full words are its title */
+.price-from {
+  flex-basis: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

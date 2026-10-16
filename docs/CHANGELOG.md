@@ -88,6 +88,24 @@ All notable changes to BitcoinTX are documented in this file.
   again": an open app that couldn't write its key has no file on its first
   start, and leaves the earlier run's file after that.
   `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
+- **The sidebar's price says where it came from and when** (part of
+  #208). Under the Sats Converter's Auto price, a short line names its
+  source and time as the Dashboard does: "Kraken · 2:04 pm", "Kraken,
+  through Tor · 2:04 pm" or "Your Mempool · 2:04 pm" (pointing at it shows
+  the Dashboard's words). It's one line however narrow the window, so the
+  calculator below doesn't move when you switch modes. Right after a new
+  price choice is saved, the sidebar shows "…" until the new price comes,
+  and an answer for the old choice still on its way is dropped (#327: it
+  could replace the new one). Clicking the mode already in use (Auto,
+  Manual or Date) no longer clears it: Auto chosen again showed "…" until
+  its next poll, two minutes later (#328).
+- **The sidebar asks "Is Tor running?" when Tor doesn't answer** (part of
+  #208 and #241). When public price sites are asked through Tor and none
+  could be reached through it, the sidebar now says "Is Tor running?"
+  beside **Type a price**, as the Dashboard and the price card do. When a
+  site answered with a refusal, as Bitstamp does Tor's exits (#241), it
+  doesn't ask, since Tor is running; the price card has said what to do
+  then since 1.2.8 (#240).
 - **The AI connector says which price a value it filled came from**
   (#208). When BitcoinTX fills a value from the BTC price (an income or
   rebate value, an inheritance's value at its date of death, a spend's

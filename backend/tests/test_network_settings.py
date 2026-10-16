@@ -23,7 +23,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
-from backend.services import bitcoin, outbound
+from backend.services import bitcoin, outbound, price_status
 from backend.tests.conftest import MAC_APP_HOST, init_test_db
 
 # The real functions, captured before the session fixture stubs them.
@@ -331,6 +331,30 @@ def test_a_proxy_that_is_down_is_named(auth_client, monkeypatch, proxy):
             asyncio.run(call())
         assert e.value.status_code == 502
         assert ("Tor, is it running?" in e.value.detail) == (proxy is not None), e.value.detail
+        # The words the sidebar asks "Is Tor running?" on (frontend/src/utils/dashboard.ts, noPriceReason)
+        assert ("could be reached through the proxy" in e.value.detail) == (proxy is not None), e.value.detail
+
+
+@pytest.mark.parametrize("refusal", [httpx.Response(403, text="Request unsuccessful. Incapsula incident ID"),
+                                     httpx.Response(302, headers={"Location": "https://www.bitstamp.net/loading"})])
+def test_a_site_refusing_tor_is_not_a_proxy_that_is_down(auth_client, monkeypatch, refusal):
+    """#241: through Tor, Kraken unreachable and Bitstamp refusing (a block
+    page, or its challenge) is the plain 502, so neither the status line nor
+    the sidebar (noPriceReason) asks whether Tor is running: one site was reached."""
+    def kraken_down_bitstamp_refuses(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.kraken.com":
+            raise httpx.ConnectError("All connection attempts failed")
+        return refusal
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(kraken_down_bitstamp_refuses))
+    auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": "socks5h://127.0.0.1:9050"})
+    bitcoin._price_cache.update(settings=None)
+    price_status.reset()
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(real_current_price())
+    assert e.value.status_code == 502
+    assert "could be reached through the proxy" not in e.value.detail and "Tor" not in e.value.detail
+    assert price_status.status()["last_problem"]["what"] == price_status.PUBLIC_NO_ANSWER
 
 
 def test_the_proxy_carries_public_requests_and_skips_a_local_mempool(auth_client, real_network_code, monkeypatch):

@@ -132,7 +132,7 @@ export type PriceChoice = {
 };
 
 /** Sent on window by the price card once it has saved a choice (usePriceCard.ts). */
-const PRICE_CHOICE_SAVED = "btctx:price-choice-saved";
+export const PRICE_CHOICE_SAVED = "btctx:price-choice-saved";
 
 /**
  * Save a price choice over the API, as Settings › Privacy & network does,

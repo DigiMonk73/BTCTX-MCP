@@ -468,10 +468,13 @@ Start from the `clean` snapshot.
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
-  dashboard's price. **Manual** with `50000`: USD `100` gives BTC `0.002` and
-  Sats `200000`. Calculator: `7 * 6 =` shows `42`, and **C** clears it.
+  dashboard's price, and under it where it came from and when, in short
+  ("Kraken · 2:04 pm"; pointing at it shows the Dashboard's words).
+  **Manual** with `50000`: USD `100` gives BTC `0.002` and Sats `200000`.
+  Calculator: `7 * 6 =` shows `42`, and **C** clears it.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
-  **Use Tor**. Expect: a price on the Dashboard.
+  **Use Tor**. Expect: a price on the Dashboard, and under the sidebar's
+  Auto price "Kraken, through Tor · …" (or Bitstamp).
   Bitstamp is the price history's only site since #161 (and the live
   price's fallback), and PRC-2 already downloaded the history without Tor,
   so check Bitstamp through Tor directly, with Tor on your machine (the
@@ -482,7 +485,8 @@ Start from the `clean` snapshot.
   return JSON, not a 403.
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "No answer": requests must fail
-  rather than go out directly. Start Tor: the price is back.
+  rather than go out directly. The sidebar reads "BTC Price: no answer" with
+  "Is Tor running?" and **Type a price** (#208). Start Tor: the price is back.
 - **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
   hourly price history's one-time download over real Tor (#144). It was
   only tested with stubs and a direct download while it was built.
