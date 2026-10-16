@@ -169,7 +169,9 @@ class BtctxClient:
             raise BtctxError(self._not_found(looked))
         if not _pid_alive(pid):
             looked.append(f"{path}: written by BitcoinTX (pid {pid}), which is no longer running")
-            raise BtctxError(self._not_found(looked))
+            # Or the app is open but couldn't write this run's key: Reset key writes it (#238)
+            raise BtctxError(self._not_found(looked, open_app="or, if it's open, press Reset key in its "
+                                                          "Settings (Connect an AI Assistant)"))
         url = normalize_base_url(url)
         if self._configured_url and self._configured_url != url and await self._answers(self._configured_url):
             url = self._configured_url
@@ -181,11 +183,10 @@ class BtctxClient:
         self._logged_in = True
 
     @staticmethod
-    def _not_found(looked: list[str]) -> str:
-        return (
-            "Cannot reach BitcoinTX. Open the BitcoinTX app and try again. Looked at:\n- "
-            + "\n- ".join(looked)
-        )
+    def _not_found(looked: list[str], open_app: str | None = None) -> str:
+        """Why BitcoinTX can't be reached, with what to do (`open_app`: besides opening it)."""
+        todo = f"Open the BitcoinTX app and try again, {open_app}." if open_app else "Open the BitcoinTX app and try again."
+        return f"Cannot reach BitcoinTX. {todo} Looked at:\n- " + "\n- ".join(looked)
 
     # The key from BTCTX_AI_KEY
     async def _connect(self) -> None:

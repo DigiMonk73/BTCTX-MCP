@@ -4,7 +4,7 @@
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
 import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -152,13 +152,18 @@ export function acceptDialogs(page: Page, promptText = "") {
  * The server's environment as the Mac app's launcher sets it (port, key
  * file in the test's temp dir). Use with test.use({ appMode: "mac" }).
  */
-function macAppEnv(dir: string, port: number): Record<string, string> {
+/** With `keyFileBlocked`, the Mac app's key file goes in this folder, where a plain file stands. */
+export const BLOCKED_KEY_FOLDER = "key-folder";
+
+function macAppEnv(dir: string, port: number, keyFileBlocked: boolean): Record<string, string> {
+  // A file where the key's folder goes: the app can't make the folder, so it can't write the key
+  if (keyFileBlocked) writeFileSync(path.join(dir, BLOCKED_KEY_FOLDER), "");
   return {
     BTCTX_DESKTOP: "1",
     BTCTX_DESKTOP_PREFERRED_PORT: String(port),
     BTCTX_DESKTOP_ACTUAL_PORT: String(port),
     BTCTX_DESKTOP_URL: `http://127.0.0.1:${port}`,
-    BTCTX_MCP_FILE: path.join(dir, "mcp.json"),
+    BTCTX_MCP_FILE: path.join(dir, keyFileBlocked ? BLOCKED_KEY_FOLDER : "", "mcp.json"),
   };
 }
 
@@ -181,6 +186,8 @@ type Fixtures = {
   fakeInternet: boolean;
   /** true: StartOS lends its Tor to the app's own choice (BTCTX_TOR_PROXY_URL, #145). */
   serverTor: boolean;
+  /** true (with appMode "mac"): the key file can't be written at start, so the app has no AI key (#238). */
+  keyFileBlocked: boolean;
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -191,9 +198,10 @@ export const test = base.extend<Fixtures>({
   priceSource: ["public", { option: true }],
   fakeInternet: [false, { option: true }],
   serverTor: [false, { option: true }],
-  app: async ({ appMode, priceSource, fakeInternet, serverTor }, use, testInfo) => {
+  keyFileBlocked: [false, { option: true }],
+  app: async ({ appMode, priceSource, fakeInternet, serverTor, keyFileBlocked }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
-      ...(appMode === "mac" ? macAppEnv(dir, port) : {}),
+      ...(appMode === "mac" ? macAppEnv(dir, port, keyFileBlocked) : {}),
       ...(fakeInternet ? { BTCTX_SMOKE_OUTSIDE_LOG: path.join(dir, OUTSIDE_LOG) } : {}),
       ...(priceSource === "unset" || priceSource.startsWith("unconfirmed") ? { BTCTX_SMOKE_PRICE_SOURCE: priceSource } : {}),
       ...(priceSource === "invalid" ? { BTCTX_PRICE_SOURCE: "coingecko" } : {}),

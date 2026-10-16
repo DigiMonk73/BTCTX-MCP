@@ -200,7 +200,7 @@ BitcoinTX upgrade.
 | `… the AI key can't do this …` | On purpose (logging in, passwords, restore, imports, delete-all, settings): the user does it in BitcoinTX itself |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | `… no /api/import/entries endpoint`, or a 404 from `review_ledger` or `backup_ledger` | BitcoinTX is older than the server: update BitcoinTX, or pin the server to its version |
-| `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself |
+| `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself. If it's open, it couldn't write its key file when it started: the user presses **Reset key** in **Settings → Connect an AI Assistant** |
 | The app doesn't list the server | It wasn't restarted, or it can't find `uvx` (use the full path) |
 
 More: [README.md](README.md) in this folder.

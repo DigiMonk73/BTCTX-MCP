@@ -321,8 +321,11 @@ async def test_clear_errors_when_the_app_isnt_found(tmp_path):
     assert str(missing) in str(e.value)
 
     missing.write_text(json.dumps({"url": "http://127.0.0.1:8765", "pid": 999_999_999, "token": "x" * 43}))
-    with pytest.raises(BtctxError, match="no longer running"):
+    with pytest.raises(BtctxError, match="no longer running") as e:
         await btctx.get("/api/transactions")
+    # The app may be open with no key of this run (its file couldn't be written): Reset key (#238)
+    assert str(e.value).startswith("Cannot reach BitcoinTX. Open the BitcoinTX app and try again, or, if it's "
+                                   "open, press Reset key in its Settings (Connect an AI Assistant). Looked at:")
     await btctx.aclose()
 
 
