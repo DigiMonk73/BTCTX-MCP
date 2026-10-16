@@ -1,6 +1,6 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { formatUsd } from "../../utils/format";
+import { formatUsd, parseDecimal } from "../../utils/format";
 import { priceUsedWords } from "../../utils/priceUsed";
 
 /**
@@ -10,7 +10,7 @@ import { priceUsedWords } from "../../utils/priceUsed";
  */
 const FeeValueField: React.FC = () => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  const fee = watch("fee");
+  const fee = parseDecimal(watch("fee"));
   if (!fee || Number.isNaN(fee) || fee <= 0) return null;
   const stored = watch("feeUSDStored");
   const manual = watch("feeUSDManual");

@@ -17,6 +17,10 @@ ACCOUNT_EXTERNAL = 99
 # The accounts that hold bitcoin; the others hold dollars
 BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
+# The tax years a request may name: from Bitcoin's first (2009); far ahead
+# is refused rather than reaching the end of Python's years (#211)
+FIRST_TAX_YEAR, LAST_TAX_YEAR = 2009, 2100
+
 # Mapping for CSV export (account ID -> display name)
 ACCOUNT_ID_TO_NAME = {
     ACCOUNT_BANK: "Bank",

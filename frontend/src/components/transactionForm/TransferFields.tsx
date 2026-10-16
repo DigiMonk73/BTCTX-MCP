@@ -1,6 +1,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
+import { parseDecimal } from "../../utils/format";
 import { transferDestinations } from "../../utils/transactionForm";
 import FeeValueField from "./FeeValueField";
 
@@ -161,7 +162,7 @@ const TransferFields: React.FC = () => {
             // Within one account only the fee is recorded, so there must be one
             validate: (v, values) =>
               !(values.fromCurrency === "BTC" && values.toAccount === values.fromAccount) ||
-              (v ?? 0) < (values.amountFrom ?? 0) ||
+              parseDecimal(v) < parseDecimal(values.amountFrom) ||
               "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).",
           })}
         />

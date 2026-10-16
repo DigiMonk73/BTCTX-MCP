@@ -3,7 +3,7 @@
 // redesign's words for each state (with a fake internet, so the app's own
 // price code runs), and the sizes it must fit: the Mac app's 800 × 600 and
 // a phone. The browser asks nobody but BitcoinTX throughout.
-import { test, expect, claimAccount, loginViaUi, outsideRequests, type App } from "./fixtures";
+import { test, expect, claimAccount, loginViaUi, choosePriceSource, outsideRequests, type App } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 test.use({ fakeInternet: true, priceSource: "unset" });
@@ -21,16 +21,9 @@ async function logIn(page: Page, app: App): Promise<string[]> {
   return outside;
 }
 
-async function choose(page: Page, data: Record<string, unknown>) {
-  const r = await page.request.put("/api/settings/network", {
-    data: { mempool_url: null, mempool_fallback: false, proxy_url: null, ...data },
-  });
-  expect(r.ok(), await r.text()).toBeTruthy();
-}
-
 /** The card's status line in Settings, once the Dashboard has asked for a price. */
 async function statusAfterAPrice(page: Page) {
-  await page.goto("/dashboard"); // asks for the live price with the choice just saved
+  // Asked again in place with the choice just saved (choosePriceSource), no page load (#231)
   await expect(page.locator(".btc-price-value")).toHaveText(/^(\$|No answer)/);
   await page.getByRole("link", { name: "Settings" }).click();
   return page.getByRole("region", { name: "Privacy & network" }).getByRole("status");
@@ -63,7 +56,7 @@ test("keyboard only: Tab into the choices, the arrows pick, Tab to the button, E
 
 test("your Mempool down, with the backup: the status says the public sites answered instead", async ({ page, app }) => {
   await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
   const status = await statusAfterAPrice(page);
   await expect(status).toHaveText(/Your Mempool didn't answer at \d+:\d\d [ap]m\. Public price sites answered instead at/);
   await expect(status).not.toContainText("from your Mempool");
@@ -73,7 +66,7 @@ test("your Mempool down, no backup: the status says so and what to do; no public
   page, app,
 }) => {
   await logIn(page, app);
-  await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN });
+  await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN });
   const status = await statusAfterAPrice(page);
   await expect(status).toContainText("Your Mempool didn't answer at");
   await expect(status).toContainText("If it can't answer, ask public price sites");
@@ -82,14 +75,14 @@ test("your Mempool down, no backup: the status says so and what to do; no public
 
 test("public sites through a stopped Tor: the status asks whether Tor is running", async ({ page, app }) => {
   await logIn(page, app);
-  await choose(page, { price_source: "public", proxy_url: TOR_STOPPED });
+  await choosePriceSource(page, { price_source: "public", proxy_url: TOR_STOPPED });
   const status = await statusAfterAPrice(page);
   await expect(status).toHaveText(/Public price sites didn't answer through Tor at .*Is Tor running\?/);
 });
 
 test("public sites answering: the status names them and the time", async ({ page, app }) => {
   await logIn(page, app);
-  await choose(page, { price_source: "public" });
+  await choosePriceSource(page, { price_source: "public" });
   const status = await statusAfterAPrice(page);
   await expect(status).toHaveText(/Newer prices from public price sites\. Last price \d+:\d\d [ap]m\./);
 });
@@ -259,7 +252,7 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   const SHA = "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89";
   let trusted = false;
   await logIn(page, app);
-  await choose(page, { price_source: "public" });
+  await choosePriceSource(page, { price_source: "public" });
   await page.route("**/api/settings/network", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const real = await (await route.fetch()).json();
@@ -289,7 +282,7 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
     });
   });
 
-  await page.goto("/settings");
+  await page.getByRole("link", { name: "Settings" }).click(); // no page load after a save (#231)
   const card = page.getByRole("region", { name: "Privacy & network" });
   await expect(card.getByRole("status")).toContainText("use Trust this server below");
   await card.getByRole("button", { name: "Trust this server" }).click();

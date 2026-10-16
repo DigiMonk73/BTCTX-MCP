@@ -9,7 +9,7 @@
 //     0.0001 BTC at $50,000 = $5 proceeds − $2 basis = 3  → 1,983
 //   Long-term: sell 2 (held > 1 year) 9,000 − 2,000 = 7,000
 //   Income: 0.01 BTC at $50,000 = 500
-import { test, expect, figure, seedKnownLedger, CURRENT_PRICE } from "./fixtures";
+import { test, expect, figure, seedKnownLedger, choosePriceSource, CURRENT_PRICE } from "./fixtures";
 
 test("empty ledger shows zeros", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
@@ -63,10 +63,7 @@ test("current price and block height", async ({ authedPage: page }) => {
 });
 
 test("with prices off, unrealized gains say so instead of loading forever", async ({ authedPage: page }) => {
-  const off = { price_source: "off", mempool_url: null, mempool_fallback: false, proxy_url: null };
-  const r = await page.request.put("/api/settings/network", { data: off });
-  expect(r.ok(), await r.text()).toBeTruthy();
-  await page.reload();
+  await choosePriceSource(page, { price_source: "off" }); // in place, no page load (#231)
   const row = page.getByRole("paragraph").filter({ hasText: /^\s*Unrealized Gains\/Losses/ });
   await expect(row).toContainText("Offline");
   await expect(page.locator(".btc-price-value")).toHaveText("Offline");
