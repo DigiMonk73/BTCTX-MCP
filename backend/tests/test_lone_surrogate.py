@@ -157,3 +157,19 @@ def test_a_backup_password_that_isnt_text_is_refused(auth_client, url, tmp_path,
     r = auth_client.post(url, content=body, headers=headers)
     assert (r.status_code, r.json()) == (
         422, {"detail": "The password holds a character that isn't text (a lone surrogate): choose another."}), r.text
+
+
+def test_an_anonymous_request_gets_its_401_and_no_walk(monkeypatch):
+    """The check runs after the login check (#363's re-check): a request
+    with no login can't make BitcoinTX walk its body, however large."""
+    import backend.main as main
+
+    walked = []
+    monkeypatch.setattr(main, "_not_text_refusal", lambda body: walked.append(body))
+    r = send(TestClient(app), "POST", "/api/transactions", {**WITHDRAWAL, "purpose": NOT_TEXT})
+    assert r.status_code == 401 and walked == []
+
+
+def test_the_walk_finds_text_past_numbers_and_nulls(auth_client):
+    body = {"rows": [1, 2.5, True, None, [3, {"type": NOT_TEXT}]]}
+    refused(send(auth_client, "POST", "/api/import/entries/preview", body), "type")
