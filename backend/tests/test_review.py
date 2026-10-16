@@ -746,6 +746,10 @@ def test_a_dry_run_that_fails_unexpectedly_says_so_in_plain_words(auth_client, m
     assert review["recalc_error"] == DRY_RUN_FAILED
     assert "SQL" not in review["recalc_error"]
     assert "the dry run of Recalculate Ledger failed" in caplog.text
+    # cli review says it as the Settings panel does, once
+    from backend.services.review import format_text
+    assert "\nRecalculate Ledger would stop with: an unexpected error (BitcoinTX's log has the details).\n" \
+        in format_text(review)
 
 
 def test_a_day_priced_value_whose_transaction_is_gone_is_left_out(auth_client, monkeypatch):
@@ -763,3 +767,20 @@ def test_a_day_priced_value_whose_transaction_is_gone_is_left_out(auth_client, m
     assert r.status_code == 200, r.text
     hourly = next(c for c in r.json()["checks"] if c["key"] == "day_priced_values")
     assert hourly["items"] == [] and hourly["count"] == 0
+
+
+def test_applying_hourly_prices_skips_a_transaction_gone_meanwhile(auth_client, monkeypatch):
+    """#361's re-check: applying the hour's prices found the transactions,
+    made a backup copy, then priced each; one deleted while the copy was
+    made was an AttributeError (a 500). It's skipped, and not reported as
+    changed."""
+    from decimal import Decimal
+
+    from backend.services import hourly_review
+
+    gone = {"id": 999_999, "tax_year": 2024, "moment": "hour", "at": 1_704_067_200, "price": Decimal("42000"),
+            "values": {"fee_usd": (Decimal("1"), Decimal("2"))}}
+    monkeypatch.setattr(hourly_review, "hourly_changes", lambda db, *args, **kwargs: [gone])
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [999_999]})
+    assert r.status_code == 200, r.text
+    assert r.json()["changed"] == []

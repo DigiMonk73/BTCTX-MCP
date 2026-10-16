@@ -102,8 +102,10 @@ logger = logging.getLogger(__name__)
 
 # What the check says when the dry run fails on something that isn't a
 # refusal of its own (a bug, a database error): plain words, never SQL; the
-# log has the details
-DRY_RUN_FAILED = "Recalculate Ledger would stop with an unexpected error; BitcoinTX's log has the details."
+# log has the details. Like every recalc_error, it follows "Recalculate
+# Ledger would stop with:" (the Settings panel, cli review)
+RECALC_STOPS = "Recalculate Ledger would stop with:"
+DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
 
 
 # key -> (title, what the owner can do)
@@ -640,6 +642,8 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
 def format_text(review: dict[str, Any]) -> str:
     """Plain text for the CLI."""
     lines = [f"Ledger review (read-only; dates in {review['timezone']})"]
+    if review.get("recalc_error"):
+        lines.append(f"{RECALC_STOPS} {review['recalc_error']}")
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:

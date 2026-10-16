@@ -161,7 +161,12 @@ All notable changes to BitcoinTX are documented in this file.
   that. It now runs on a copy of the database in memory, as the tax
   report's year-end holdings already do: saves go through, and the check
   finds the same changes. Nothing was ever half-saved: the save was
-  refused whole.
+  refused whole. Also in Ledger Review: when its check of what Recalculate
+  Ledger would change fails on something unexpected, it says so in plain
+  words (BitcoinTX's log has the details) instead of showing an error's
+  technical text, and `cli review` shows that line too. A transaction
+  deleted while the check runs, or while you apply the hour's prices, is
+  left out instead of causing a server error.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
