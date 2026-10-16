@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  gainLabel, groupByDay, pageOf, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
+  gainLabel, groupByDay, pageOf, reviewAmount, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
 } from "./transactionList";
 
 const tx = (id: number, timestamp: string) => ({ id, timestamp }) as ITransaction;
@@ -101,5 +101,13 @@ describe("typeWithSourceOrPurpose", () => {
     expect(typeWithSourceOrPurpose({ type: "Deposit", purpose: null, source: "income" })).toBe("Deposit (Income)");
     expect(typeWithSourceOrPurpose({ type: "Sell", purpose: null, source: null })).toBe("Sell");
     expect(typeWithSourceOrPurpose({ type: "Withdrawal", purpose: "N/A", source: null })).toBe("Withdrawal");
+  });
+});
+
+describe("reviewAmount (#367's review)", () => {
+  it("shows a move of dollars as dollars, and anything else in BTC", () => {
+    expect(reviewAmount({ amount: "500.00", unit: "USD" })).toBe("$500.00");
+    expect(reviewAmount({ amount: "0.10000000", unit: "BTC" })).toBe("0.10000000 BTC");
+    expect(reviewAmount({ amount: "0.10000000" })).toBe("0.10000000 BTC");
   });
 });

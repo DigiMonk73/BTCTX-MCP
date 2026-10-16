@@ -408,10 +408,11 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def review_ledger() -> ToolResult:
-    """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
-    Ledger would change; Spent withdrawals saved with $0 proceeds; Lost withdrawals still
-    carrying a loss; BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost (each
-    counts as Spent until the owner chooses; only the owner knows which it was: ask, never
+    """Read-only Ledger review: saved transactions worth a second look (transactions naming
+    an account that doesn't exist, or none, which the owner edits into an account or
+    deletes; figures Recalculate Ledger would change; Spent withdrawals saved with $0
+    proceeds; Lost withdrawals still carrying a loss; BTC withdrawals whose purpose isn't
+    Spent, Gift, Donation or Lost (each counts as Spent until the owner chooses; only the owner knows which it was: ask, never
     guess; as Spent with none recorded, its proceeds are what the owner got for it); BTC
     deposits, not income or a rebate, with a $0 or
     blank cost basis;

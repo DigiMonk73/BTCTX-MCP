@@ -181,6 +181,29 @@ All notable changes to BitcoinTX are documented in this file.
   shows what moves. Then Recalculate Ledger (any edit or delete does it
   too). If you filed a return from BitcoinTX's figures, a gift, donation or
   loss listed there as a sale, or income left out, would be in that year.
+- **A transaction naming an account that doesn't exist is named when it
+  stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
+  naming any account number, even one with no account; and deleting an
+  account left the transactions naming it with none. A transfer, deposit or
+  withdrawal between one of your accounts and such a missing one stops
+  every replay of the ledger, so every save that recalculates (an edit, a
+  delete, an entry dated before the latest), Recalculate Ledger and Ledger
+  Review's check failed with "Ledger not balanced for BTC" or "would lack
+  BTC", naming neither the transaction nor the account; Settings ›
+  Recalculate Ledger only said it failed. Now:
+  - the message names both, with the date ("Transaction 970 (a Transfer of
+    2024-02-01) names account 999, which doesn't exist…"), and Settings ›
+    Recalculate Ledger shows it;
+  - **Ledger Review** has a check, "Transactions naming an account that
+    doesn't exist", listing every such transaction (and it shows a move of
+    dollars in dollars, not "500.00000000 BTC");
+  - an account that transactions name can't be deleted ("Not deleted: 1
+    transaction names Old wallet…").
+
+  **What to do:** edit each into one of your accounts, or delete it. With
+  more than one that stops saves, each stops the others' fix, and for now
+  they need fixing outside the app (#368). No figure changes: the ledger
+  replays as before, and only the message differs.
 - **Text that isn't text is refused, not a server error** (#313). A JSON
   string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
   isn't a character and can't be saved. Sent in a transaction's purpose, an

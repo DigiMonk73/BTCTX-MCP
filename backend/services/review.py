@@ -1,12 +1,18 @@
 """
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
-what looks odd and what would change if the owner acts on it.
+what looks odd and what would change if the owner acts on it, and gives
+its amount with its unit (`unit`: BTC, or USD for a move of dollars).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
 
 Checks:
+- account_missing (#337): a transaction naming an account that doesn't
+  exist, which only a BitcoinTX before 0.9.2 could save (F28). Its missing
+  side is in no balance; one between the owner's account and a missing one
+  stops every replay (transaction.AccountMissing names it), so every save
+  that recalculates, until it's edited into an account or deleted.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -90,16 +96,18 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
-from backend.services.transaction import received_known
+from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
+
+USD_ACCOUNTS = (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD)
 
 # What the check says when the dry run fails on something that isn't a
 # refusal of its own (a bug, a database error): plain words, never SQL; the
@@ -111,6 +119,14 @@ DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
 
 # key -> (title, what the owner can do)
 CHECKS: dict[str, tuple] = {
+    "account_missing": (
+        "Transactions naming an account that doesn't exist",
+        "A BitcoinTX before 0.9.2 saved these, or an account they named was deleted. The missing account's side "
+        "is in none of your balances, and a transfer, deposit or withdrawal between one of your accounts and a "
+        "missing one stops every save that recalculates (an edit, a delete, an add dated before the latest) and "
+        "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, "
+        "each stops the others' fix: for now they need fixing outside the app (BitcoinTX issue #368).",
+    ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
         "Back up first, then run Recalculate Ledger (Settings) when you agree. Editing or deleting any "
@@ -244,11 +260,22 @@ def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": btc_text(t.amount),
+        "amount": _money(t.amount) if _in_dollars(t) else btc_text(t.amount),
+        "unit": "USD" if _in_dollars(t) else "BTC",
         "realized_gain_usd": _money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
+
+
+def _in_dollars(t: Transaction) -> bool:
+    """Whether its amount is dollars: a deposit, withdrawal or transfer that
+    no bitcoin account is part of, with Bank or Exchange USD on a side. A
+    Buy's and a Sell's amount is bitcoin; so, unknown, is one naming only
+    External and missing accounts."""
+    sides = (t.from_account_id, t.to_account_id)
+    return t.type not in ("Buy", "Sell") and not any(a in BTC_ACCOUNTS for a in sides) \
+        and any(a in USD_ACCOUNTS for a in sides)
 
 
 def _market_price(db: Session, t: Transaction, missing: list[int]):
@@ -396,6 +423,7 @@ def build_review(db: Session) -> dict[str, Any]:
     for t in rows:
         for key, item in _row_issues(t, tz):
             found[key].append(item)
+    found["account_missing"] = _account_missing_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
@@ -470,6 +498,35 @@ def _spaced_spent_unknown(t: Transaction) -> bool:
     an unknown purpose is (transaction.received_known), so listed as one,
     sending the owner to the copy that may hold its amount (#329)."""
     return normalized(t.purpose) == "spent" and not received_known(t)
+
+
+def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
+    """Each transaction naming an account that doesn't exist, or none (#337)."""
+    known = known_accounts(db)
+    rows = (
+        db.query(Transaction)
+        .filter(Transaction.from_account_id.is_(None) | Transaction.to_account_id.is_(None)
+                | ~Transaction.from_account_id.in_(known) | ~Transaction.to_account_id.in_(known))
+        .order_by(Transaction.timestamp, Transaction.id)
+        .all()
+    )
+    return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
+                  "Edit it into one of your accounts, or delete it.") for t in rows]
+
+
+def _stops_saves(t: Transaction, known: set[int]) -> str:
+    """Whether the row stops every save that recalculates: its balance check
+    (transaction._verify_double_entry_balance_for_internal) runs, as for any
+    type but a Buy or a Sell with no External side, and fails, as one of its
+    sides is an account that exists and the other isn't (#367's review)."""
+    sides = (t.from_account_id, t.to_account_id)
+    stops = t.type not in ("Buy", "Sell") and ACCOUNT_EXTERNAL not in sides and any(a in known for a in sides)
+    return " It stops every save that recalculates." if stops else " It doesn't stop saves."
+
+
+def _sentence(text: str) -> str:
+    """The text as a sentence: its first letter capital (and only it), a full stop."""
+    return text[:1].upper() + text[1:] + "."
 
 
 def _counted_as(t: Transaction) -> str:
@@ -655,14 +712,24 @@ def format_text(review: dict[str, Any]) -> str:
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:
-            detail = item["source"] if item["type"] == "Deposit" else item["purpose"]
-            lines.append(f"  #{item['id']}  {item['date']}  {item['type']} ({detail})  {item['amount']} BTC  "
-                         f"{item['issue']}")
+            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_amount(item)}  {item['issue']}")
         lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
         if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
             lines.append(f"  -> {check['action']}")
     return "\n".join(lines) + "\n"
+
+
+def _kind(item: dict[str, Any]) -> str:
+    """"Deposit (Income)", "Withdrawal (Spent)", or the type alone: a
+    transfer has no source or purpose, and some rows saved none."""
+    detail = item["source"] if item["type"] == "Deposit" else item["purpose"] if item["type"] == "Withdrawal" else None
+    return f"{item['type']} ({detail})" if detail else item["type"]
+
+
+def _amount(item: dict[str, Any]) -> str:
+    """"0.10000000 BTC", or "$500.00" for a move of dollars."""
+    return f"${item['amount']}" if item.get("unit") == "USD" else f"{item['amount']} BTC"
 
 
 def year_line(year: dict[str, Any]) -> str:
