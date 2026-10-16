@@ -215,9 +215,10 @@ All notable changes to BitcoinTX are documented in this file.
   The copy of your database BitcoinTX made before updating to 1.2.8
   (`backups/btctx-before-schema-0010-….db` in its data folder) still holds
   it, as `proceeds_usd` in the `transactions` table, which any SQLite viewer
-  shows. Look it up there, then choose the withdrawal's purpose and, as
-  Spent, enter it as its proceeds. Don't restore that copy over your
-  ledger: everything entered since would be lost.
+  shows. On StartOS that folder, `/data/backups/`, is reached only over SSH
+  or in a StartOS backup. Look it up there, then choose the withdrawal's
+  purpose and, as Spent, enter it as its proceeds. Don't restore that copy
+  over your ledger: everything entered since would be lost.
 - **Texts no longer say adding a transaction recalculates the ledger**
   (#172). Ledger Review's note on the figures Recalculate Ledger would
   change, and 1.2.8's release note on spend fees (#157), said adding any
