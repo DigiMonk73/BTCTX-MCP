@@ -151,6 +151,16 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **StartOS: a dismissed Recalculate Ledger task no longer comes back at
+  every server restart** (#365). After an update that asks for Recalculate
+  Ledger (1.2.8:0 does), StartOS raised the task again each time the server
+  started, until its action ran: dismissing it, or recalculating in
+  BitcoinTX's own Settings, never settled it. Every package version since
+  the task came in (0.8.0); nothing in the ledger was ever wrong. Now it asks
+  once per such update, as 1.2.8 meant to, and again after restoring a backup
+  taken before the recalculation: the task stays until the action runs or
+  you dismiss it. Its text now says to run Recalculate Ledger in StartOS once,
+  after Ledger Review. It reaches StartOS with the next package release.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
