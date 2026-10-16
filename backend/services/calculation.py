@@ -16,7 +16,7 @@ from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
-from backend.services.transaction import cost_left
+from backend.services.transaction import cost_left, counts_as_spent
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,8 @@ def _realized_gains(disposals: list[LotDisposal]) -> dict[str, Decimal]:
 
 
 def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
-    """What Sells and Spent withdrawals brought in, after their fees."""
+    """What Sells and Spent withdrawals brought in, after their fees (a BTC
+    withdrawal of unknown purpose counts as Spent, #61)."""
     totals = {"sell": Decimal("0.0"), "spent": Decimal("0.0")}
     for tx in transactions:
         if tx.proceeds_usd is None:
@@ -170,7 +171,7 @@ def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
         tx_type = tx.type.lower()
         if tx_type == "sell":
             totals["sell"] += Decimal(str(tx.proceeds_usd))
-        elif tx_type == "withdrawal" and (tx.purpose or "").lower() == "spent":
+        elif tx_type == "withdrawal" and ((tx.purpose or "").lower() == "spent" or counts_as_spent(tx)):
             totals["spent"] += Decimal(str(tx.proceeds_usd))
     return totals
 

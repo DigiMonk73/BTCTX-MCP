@@ -243,43 +243,56 @@ All notable changes to BitcoinTX are documented in this file.
   are, or would be, of both terms, and the lots it made and their cost; and
   it lists one whose rows, or lots, alone would be split differently.
   Since 0.9.2 (when the check came in).
-- **Ledger Review lists bitcoin withdrawals whose purpose BitcoinTX
-  doesn't know** (tax figures, #61). Since 0.9.2 a bitcoin withdrawal's
-  purpose must be Spent, Gift, Donation or Lost, but a ledger started
-  before then can hold one with another purpose (such as "Expenses") or
-  none. Such a withdrawal counts as a sale: at the proceeds saved with it,
-  or, saved before 0.8.0 recorded them that way, at $0, so its whole cost
-  basis shows as a loss on Form 8949. Ledger Review didn't point them out;
-  it now lists them, saying what each counts as and naming any amount
-  still saved with it. Nothing changes until you choose. **Affected:**
-  ledgers started before 0.9.2 with such a withdrawal, in the tax year it
-  falls in. **What to do:** open Ledger Review and edit each withdrawal
-  under "BTC withdrawals whose purpose isn't Spent, Gift, Donation or
-  Lost" to choose its purpose: as Spent, enter what you got for it (the
-  amount saved with it, if one is listed) as its proceeds; a gift, a
-  donation and lost coins have no gain. One listed as "none recorded":
-  see the next entry.
+- **An old bitcoin withdrawal of unknown purpose counts as Spent, and Ledger
+  Review lists it** (tax figures, #61). Since 0.9.2 a bitcoin withdrawal's
+  purpose must be Spent, Gift, Donation or Lost, but a ledger started before
+  then can hold one with another purpose (such as "Expenses") or none. Such
+  a withdrawal counted as a sale: from 0.9.2, one saved before 0.8.0 (which
+  kept its proceeds in an older field) that no recalculation under
+  0.8.0–0.9.1 had given a recorded gross counted at $0, so its whole cost
+  basis showed as a loss on Form 8949; and from 1.2.8, when a Spent's
+  network fee became a cost of the spend (#157), its fee wasn't taken off
+  its proceeds as a Spent's is. Ledger Review didn't point them out. Now it
+  counts as Spent (the owner's rule: a withdrawal is spent, given, donated
+  or lost, and an expense paid in bitcoin is a spend, whose deduction, if
+  any, goes on other forms): at the proceeds saved with it, with its fee a
+  cost of the spend, as for any Spent. One with no amount saved stays as it
+  was, a sale at $0, until you enter what it received. Ledger Review lists
+  each one, saying what it counts as, so you can confirm Spent or choose
+  Gift, Donation or Lost. **Affected:** ledgers started before 0.9.2 with
+  such a withdrawal, in the tax year it falls in: its proceeds rise from $0
+  to the amount saved (a row saved before 0.8.0 with no recorded gross), or
+  fall by its fee's value (one with a bitcoin network fee), and its gain
+  with them. **What to do:** open Ledger Review before saving anything:
+  "Figures that Recalculate Ledger would change" lists each withdrawal whose
+  figures move, and "BTC withdrawals whose purpose isn't Spent, Gift,
+  Donation or Lost" lists the withdrawals. Edit each to choose its purpose:
+  as Spent, enter what you got for it if none is recorded; a gift, a
+  donation and lost coins have no gain. Then Recalculate Ledger (any save
+  does it too). One listed as "none recorded": see the next entry.
 - **A recalculation keeps what an old withdrawal of unknown purpose
   received** (tax figures, #329). A bitcoin withdrawal saved before 0.8.0
   kept what was received in an older field. When its purpose isn't Spent,
-  Gift, Donation or Lost (the entry above), BitcoinTX counts it as a sale
-  at $0, and up to 1.2.7 a recalculation left that amount alone. 1.2.8
-  wrote $0 over it on every recalculation (Recalculate Ledger, which its
-  update asked for on StartOS, an edit or a delete, an entry dated before
-  the latest, applying hourly prices), erasing the only record of it. The
-  reported figures didn't change, the sale was already at $0, but the
-  amount needed to correct it was gone. It is kept again. **Affected:**
-  ledgers started before 0.8.0 holding such a withdrawal, from their first
-  recalculation under 1.2.8. **What to do:** in Ledger Review, a
-  withdrawal under "BTC withdrawals whose purpose isn't Spent, Gift,
-  Donation or Lost" listed as "none recorded" may have lost its amount.
-  The copy of your database BitcoinTX made before updating to 1.2.8
+  Gift, Donation or Lost (the entry above), BitcoinTX counted it as a sale
+  at $0, and up to 1.2.7 a recalculation left that amount alone. 1.2.8 wrote
+  $0 over it on every recalculation (Recalculate Ledger, which its update
+  asked for on StartOS, an edit or a delete, an entry dated before the
+  latest, applying hourly prices), erasing the only record of it. The
+  reported figures didn't change, the sale was already at $0, but the amount
+  needed to correct it was gone. It is kept again, and counts as that
+  withdrawal's proceeds (the entry above). **Affected:** ledgers started
+  before 0.8.0 holding such a withdrawal that no recalculation under
+  0.8.0–0.9.1 had given a recorded gross, from their first recalculation
+  under 1.2.8. **What to do:** in Ledger Review, a withdrawal under "BTC
+  withdrawals whose purpose isn't Spent, Gift, Donation or Lost" listed as
+  "none recorded" may have lost its amount. The copy of your database
+  BitcoinTX made before updating to 1.2.8
   (`backups/btctx-before-schema-0010-….db` in its data folder) still holds
   it, as `proceeds_usd` in the `transactions` table, which any SQLite viewer
   shows. On StartOS that folder, `/data/backups/`, is reached only over SSH
-  or in a StartOS backup. Look it up there, then choose the withdrawal's
-  purpose and, as Spent, enter it as its proceeds. Don't restore that copy
-  over your ledger: everything entered since would be lost.
+  or in a StartOS backup. Look it up there, then edit the withdrawal: choose
+  its purpose and, as Spent, enter it as its proceeds. Don't restore that
+  copy over your ledger: everything entered since would be lost.
 - **Texts no longer say adding a transaction recalculates the ledger**
   (#172). Ledger Review's note on the figures Recalculate Ledger would
   change, and 1.2.8's release note on spend fees (#157), said adding any
