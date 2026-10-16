@@ -112,8 +112,9 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
     try {
       const res = await api.post<{ detail: string }>("/transactions/recalculate");
       setMessage(res.data.detail);
-    } catch {
-      setMessage("Recalculation failed. Your data was not changed.");
+    } catch (error) {
+      // The server says why (#337: the transaction naming a missing account, for one)
+      setMessage(`Recalculation failed: ${extractErrorMessage(error)} Your data was not changed.`);
     } finally {
       setLoading(false);
     }

@@ -265,9 +265,14 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
 
 # A saved row naming an account that doesn't exist (unknown ids were saved
 # before 0.9.2, F28) whose replay fails: the refusal names it (#337)
+# A saved row naming an account that doesn't exist (an id saved before 0.9.2,
+# F28; none, where an account it named was deleted) whose replay fails its
+# balance check: the refusal names it (#337). With two or more such rows each
+# stops the others' fix (#368), which the text says.
 ACCOUNT_MISSING = (
-    "Transaction {id} (a {kind}) names account {account}, which doesn't exist: a BitcoinTX before 0.9.2 "
-    "saved it. Edit it into one of your accounts, or delete it. Ledger Review lists every such transaction."
+    "Transaction {id} (a {kind} of {date}) {what}. Edit it into one of your accounts, or delete it. "
+    "Ledger Review lists every such transaction; if it lists more than one that stops saves, each stops the "
+    "others' fix, and for now they need fixing outside the app (BitcoinTX issue #368)."
 )
 
 
@@ -275,15 +280,32 @@ class AccountMissing(HTTPException):
     """The replay stopped on a transaction naming a missing account: a 400
     that names it, which a save, an add or a delete passes on as it is."""
 
-    def __init__(self, tx: Transaction, account_id: int):
-        super().__init__(status_code=400,
-                         detail=ACCOUNT_MISSING.format(id=tx.id, kind=tx.type, account=account_id))
+    def __init__(self, tx: Transaction, missing: list[int | None], day: date):
+        super().__init__(status_code=400, detail=ACCOUNT_MISSING.format(
+            id=tx.id, kind=tx.type, date=day.isoformat(), what=what_is_missing(missing)))
 
 
-def missing_account(tx: Transaction, known: set[int]) -> int | None:
-    """The account a transaction names that isn't in `known` (the accounts'
-    ids and External), else None."""
-    return next((a for a in (tx.from_account_id, tx.to_account_id) if a not in known), None)
+def missing_accounts(tx: Transaction, known: set[int]) -> list[int | None]:
+    """The accounts a transaction names that aren't in `known` (the accounts'
+    ids and External), None for a side that names none."""
+    return [a for a in (tx.from_account_id, tx.to_account_id) if a not in known]
+
+
+def what_is_missing(missing: list[int | None]) -> str:
+    """"names account 999, which doesn't exist (a BitcoinTX before 0.9.2
+    saved it)", "names no account on one side (the one it named was
+    deleted)", or both."""
+    named = [a for a in missing if a is not None]
+    parts = []
+    if named:
+        ids = " and ".join(str(a) for a in named)
+        parts.append(f"names account {ids}, which doesn't exist" if len(named) == 1
+                     else f"names accounts {ids}, which don't exist")
+        parts[-1] += " (a BitcoinTX before 0.9.2 saved it)"
+    if None in missing:
+        side = "one side" if missing.count(None) == 1 else "either side"
+        parts.append(f"names no account on {side} (the one it named was deleted)")
+    return ", and ".join(parts)
 
 
 def known_accounts(db: Session) -> set[int]:
@@ -1690,23 +1712,25 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
     for rec_tx in all_txs:
-        try:
-            _replay(rec_tx, db)
-        except HTTPException as e:
-            missing = missing_account(rec_tx, known)
-            if e.status_code != 400 or missing is None:
-                raise
-            raise AccountMissing(rec_tx, missing) from e
+        _replay(rec_tx, db, known)
 
     db.flush()
 
 
-def _replay(tx: Transaction, db: Session) -> None:
-    """One saved transaction's ledger lines and lots, in the replay."""
+def _replay(tx: Transaction, db: Session, known: set[int]) -> None:
+    """One saved transaction's ledger lines and lots, in the replay. Its
+    balance check failing on a missing account is refused by name; any other
+    refusal (short of BTC, say) stays its own."""
     _fill_stored_fee_currency(tx, db)
     stored = _stored_inputs(tx)
     build_ledger_entries_for_transaction(tx, stored, db)
-    _maybe_verify_balance_for_internal(tx, db)
+    try:
+        _maybe_verify_balance_for_internal(tx, db)
+    except HTTPException as e:
+        missing = missing_accounts(tx, known)
+        if e.status_code != 400 or not missing:
+            raise
+        raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
     _post_lots(tx, stored, db)
 
 

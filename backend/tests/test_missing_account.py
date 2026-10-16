@@ -12,8 +12,11 @@ import pytest
 from sqlalchemy import text
 
 WALLET, EXTERNAL, MISSING = 2, 99, 999
-NAMED = ("Transaction 970 (a Transfer) names account 999, which doesn't exist: a BitcoinTX before 0.9.2 saved it. "
-         "Edit it into one of your accounts, or delete it. Ledger Review lists every such transaction.")
+FIX = ("Edit it into one of your accounts, or delete it. Ledger Review lists every such transaction; if it lists "
+       "more than one that stops saves, each stops the others' fix, and for now they need fixing outside the app "
+       "(BitcoinTX issue #368).")
+NAMED = ("Transaction 970 (a Transfer of 2024-02-01) names account 999, which doesn't exist (a BitcoinTX before "
+         "0.9.2 saved it). " + FIX)
 
 
 @pytest.fixture
@@ -50,7 +53,8 @@ def test_ledger_review_lists_each_row_and_says_why_it_cant_check(auth_client, le
     review = auth_client.get("/api/review").json()
     check = next(c for c in review["checks"] if c["key"] == "account_missing")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
-        (970, "Names account 999, which doesn't exist."), (971, "Names account 999, which doesn't exist.")]
+        (970, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it)."),
+        (971, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it).")]
     assert review["recalc_error"] == NAMED
 
 
@@ -61,3 +65,73 @@ def test_the_row_can_be_fixed_or_deleted(auth_client, test_engine, ledger):
     assert auth_client.delete("/api/transactions/971").status_code in (200, 204)
     check = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "account_missing")
     assert check["items"] == []
+
+
+def _old_row(test_engine, tx_id, typ, frm, to, amount="0.1", gross=None):
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, gross_proceeds_usd) VALUES (:id, :type, '2024-03-01T12:00:00Z', :frm, :to, :amount, '0',"
+            " 'USD', :gross)"), dict(id=tx_id, type=typ, frm=frm, to=to, amount=amount, gross=gross))
+
+
+@pytest.fixture
+def empty(auth_client):
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    yield
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_shortage_is_still_named_as_one(auth_client, test_engine, empty):
+    """#367's review: only the balance check's failure is put down to the
+    missing account. An old Sell to a missing account with no BTC to sell
+    is refused as a shortage, as it always was."""
+    _old_row(test_engine, 980, "Sell", 4, MISSING, gross="100")
+    r = auth_client.post("/api/transactions/recalculate")
+    assert r.status_code == 400 and r.json()["detail"].startswith("Not enough BTC to sell"), r.text
+
+
+def test_a_transaction_naming_no_account_is_named_too(auth_client, test_engine, empty):
+    """The realistic way in: deleting an account (until #367) left its
+    transactions naming none, and each stopped every save."""
+    assert auth_client.post("/api/transactions", json=dict(
+        type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+        amount="1", source="MyBTC", cost_basis_usd="1000")).status_code == 200
+    _old_row(test_engine, 981, "Transfer", WALLET, None)
+    r = auth_client.post("/api/transactions/recalculate")
+    assert (r.status_code, r.json()["detail"]) == (400, (
+        "Transaction 981 (a Transfer of 2024-03-01) names no account on one side (the one it named was "
+        "deleted). " + FIX))
+    check = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "account_missing")
+    assert [(i["id"], i["issue"]) for i in check["items"]] == [
+        (981, "Names no account on one side (the one it named was deleted).")]
+
+
+def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_client, test_engine, empty):
+    from backend.services.review import format_text
+
+    _old_row(test_engine, 982, "Transfer", 998, MISSING)
+    _old_row(test_engine, 983, "Transfer", 1, MISSING, amount="500")  # from Bank: dollars
+    review = auth_client.get("/api/review").json()
+    items = {i["id"]: i for c in review["checks"] if c["key"] == "account_missing" for i in c["items"]}
+    assert items[982]["issue"] == "Names accounts 998 and 999, which don't exist (a BitcoinTX before 0.9.2 saved it)."
+    assert (items[983]["amount"], items[983]["unit"]) == ("500.00", "USD")
+    assert (items[982]["amount"], items[982]["unit"]) == ("0.10000000", "BTC")
+    text_out = format_text(review)
+    assert "  Transfer  $500.00  " in text_out and "(None)" not in text_out
+
+
+def test_an_account_transactions_name_cant_be_deleted(auth_client, test_engine, empty):
+    """#367's review: deleting it answered 204 and left its transactions
+    naming no account. Refused now, in plain words; one nothing names goes."""
+    made = auth_client.post("/api/accounts/", json={"user_id": 1, "name": "Old wallet", "currency": "BTC"})
+    assert made.status_code in (200, 201), made.text
+    account_id = made.json()["id"]
+    _old_row(test_engine, 984, "Transfer", WALLET, account_id)
+    r = auth_client.delete(f"/api/accounts/{account_id}")
+    assert (r.status_code, r.json()["detail"]) == (
+        409, "Not deleted: 1 transaction names Old wallet. Move it to another account, or delete it, first.")
+    with test_engine.connect() as con:
+        assert con.execute(text("SELECT to_account_id FROM transactions WHERE id = 984")).scalar() == account_id
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    assert auth_client.delete(f"/api/accounts/{account_id}").status_code == 204

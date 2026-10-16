@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from backend.database import FIXED_ACCOUNTS
 from backend.models.account import Account
+from backend.models.transaction import Transaction
 from backend.schemas.account import AccountCreate, AccountUpdate
 
 
@@ -89,7 +90,10 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session):
 
 
 def delete_account(account_id: int, db: Session):
-    """Delete the account (False when it doesn't exist); a special account is refused (400)."""
+    """Delete the account (False when it doesn't exist); a special account is
+    refused (400), and so is one transactions name (409): deleting it left
+    them naming no account, and each such row stops every save that
+    recalculates (#337)."""
     account = get_account_by_id(account_id, db)
     if not account:
         return False
@@ -99,6 +103,13 @@ def delete_account(account_id: int, db: Session):
             status_code=400,
             detail=f"Cannot delete special account #{account_id} ({account.name})."
         )
+    naming = db.query(Transaction.id).filter(
+        (Transaction.from_account_id == account_id) | (Transaction.to_account_id == account_id)).count()
+    if naming:
+        raise HTTPException(status_code=409, detail=(
+            f"Not deleted: {naming} transaction{'s' if naming > 1 else ''} name{'' if naming > 1 else 's'} "
+            f"{account.name}. Move {'them' if naming > 1 else 'it'} to another account, or delete "
+            f"{'them' if naming > 1 else 'it'}, first."))
 
     db.delete(account)
     db.commit()
