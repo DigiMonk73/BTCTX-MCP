@@ -480,8 +480,8 @@ def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client,
     """#61: before the purpose was checked, a BTC withdrawal could be saved
     with another ("Expenses") or none. It counts as a sale, at $0 proceeds
     when no gross was recorded: a row from before 0.8.0 may still hold its
-    proceeds, which the next recalculation sets to $0, so the item names
-    them. The API can't make such a row, so it's written directly."""
+    proceeds (kept by a recalculation, #329), and the item names them. The
+    API can't make such a row, so it's written directly."""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     _insert(test_engine, [
         (940, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
@@ -506,20 +506,21 @@ def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client,
             (944, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
                   "as a loss."),
             (945, 'Purpose "Payment": counted as a sale with $450.00 proceeds.'),
-            (948, 'Purpose "Expenses": $700.00 proceeds saved with it, but counted as a sale at $0. Write the '
-                  "amounts down before saving any edit, and enter it as its proceeds if you choose Spent."),
+            (948, 'Purpose "Expenses": $700.00 proceeds saved with it, but counted as a sale at $0 until you '
+                  "choose."),
             (949, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
                   "as a loss."),
         ]
-        assert check["action"].startswith("Before you edit any of them, write down each amount listed as saved "
-                                          "with it: the first save recalculates the ledger, which sets those to $0.")
+        assert "An amount listed as saved with it stays saved until you do." in check["action"]
+        assert "backups/btctx-before-schema-0010-….db" in check["action"]
         with test_engine.connect() as con:
             assert con.execute(text("SELECT * FROM transactions ORDER BY id")).all() == before
         # What the items say is what a recalculation makes of them
         assert auth_client.post("/api/transactions/recalculate").status_code == 200
         assert [(_stored(test_engine, i, "proceeds_usd"), _stored(test_engine, i, "realized_gain_usd"))
-                for i in (943, 944, 945, 948, 949)] == [(Decimal("0.00"), Decimal("-100.00"))] * 2 \
-            + [(Decimal("450.00"), Decimal("350.00"))] + [(Decimal("0.00"), Decimal("-100.00"))] * 2
+                for i in (943, 944, 945, 948, 949)] == [(None, Decimal("-100.00"))] * 2 \
+            + [(Decimal("450.00"), Decimal("350.00")), (Decimal("700.00"), Decimal("-100.00")),
+               (None, Decimal("-100.00"))]  # proceeds as stored (#329), the gain a $0 sale's
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
@@ -545,5 +546,27 @@ def test_only_an_edit_a_delete_or_an_earlier_dated_add_recalculates(auth_client,
         edited = auth_client.put(f"/api/transactions/{added.json()['id']}", json={"amount": "0.6"})
         assert edited.status_code == 200, edited.text
         assert _stored(test_engine, 951, "realized_gain_usd") == Decimal("0.00")
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_recalculation_keeps_what_an_unknown_purpose_withdrawal_received(auth_client, test_engine):
+    """#329: from 1.2.8 (#157), every recalculation wrote 0 over a BTC
+    withdrawal's stored proceeds_usd. For one whose purpose BitcoinTX doesn't
+    know, saved before 0.8.0 recorded a gross, that erased the only record
+    of what was received (#61). It's kept again, as up to 1.2.7; a Spent's
+    $0 (#157) and a gift's none stay."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [
+        (960, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (961, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Expenses", None, None, "700", None),
+        (962, "Withdrawal", "2024-02-02", WALLET, EXTERNAL, "0.1", None, "Spent", None, "0", "300", None),
+        (963, "Withdrawal", "2024-02-03", WALLET, EXTERNAL, "0.1", None, "Gift", None, None, "50", None),
+    ])
+    try:
+        for _ in range(2):
+            assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        assert [_stored(test_engine, i, "proceeds_usd") for i in (961, 962, 963)] == \
+            [Decimal("700.00"), Decimal("0.00"), None]
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

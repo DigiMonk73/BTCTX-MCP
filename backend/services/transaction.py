@@ -1265,12 +1265,16 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
 
-    if tx.type == "Withdrawal" and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+    purpose = (tx.purpose or "").lower()
+    if tx.type == "Withdrawal" and purpose in GIFT_LIKE_PURPOSES:
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0 or tx.type == "Withdrawal":
-        # A spend whose fee took all it brought in has 0 (#157), not the gross
+    elif total_proceeds > 0 or (tx.type == "Withdrawal" and purpose == "spent"):
+        # A spend whose fee took all it brought in has 0 (#157), not the
+        # gross. A withdrawal whose purpose BitcoinTX doesn't know keeps a
+        # stored amount, as up to 1.2.7: saved before 0.8.0 with no gross,
+        # it's the only record of what was received (#329, #61)
         tx.proceeds_usd = total_proceeds
 
     # Each part's own term, worked out when it was disposed of (lot_holding_period)

@@ -18,9 +18,9 @@ Checks:
   which only a ledger from before that check can hold. It counts as a sale,
   and with no gross recorded (gross_proceeds_usd blank, from before 0.8.0)
   at $0, so its whole basis shows as a loss. Such a row may still hold its
-  proceeds in proceeds_usd, which the next recalculation (any edit) sets to
-  $0: the item names them, so the owner writes them down first. Only the
-  owner knows which purpose it was; nothing changes until they choose.
+  proceeds in proceeds_usd, which a recalculation keeps (1.2.8's erased
+  them, #329): the item names them. Only the owner knows which purpose it
+  was; nothing changes until they choose.
 - deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
   (source MyBTC, Gift, Inherited, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
@@ -119,9 +119,11 @@ CHECKS: dict[str, tuple] = {
     ),
     "withdrawal_purpose_unknown": (
         "BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost",
-        "Before you edit any of them, write down each amount listed as saved with it: the first save "
-        "recalculates the ledger, which sets those to $0. Then edit each one and choose its purpose: Spent (you "
-        "paid for something with it; enter what you got for it as its proceeds), Gift, Donation or Lost.",
+        "Edit each one and choose its purpose: Spent (you paid for something with it), Gift, Donation or Lost. "
+        "An amount listed as saved with it stays saved until you do. One listed as none recorded may have lost "
+        "its amount to a recalculation by 1.2.8: the copy of the database made before that update "
+        "(backups/btctx-before-schema-0010-….db in BitcoinTX's data folder) still holds it, as proceeds_usd. "
+        "Look it up there; don't restore that copy, which would lose everything entered since.",
     ),
     "deposit_without_basis": (
         "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
@@ -440,20 +442,20 @@ def _purpose_issues(t: Transaction, tz):
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
         yield "withdrawal_purpose_unknown", _item(
             t, tz, f"Purpose {named}: {_counted_as(t)}",
-            "As Spent, enter what you got for it as its proceeds; as Gift, Donation or Lost it has no gain.",
+            "As Spent, enter what you got for it (an amount saved with it, if any) as its proceeds; as Gift, "
+            "Donation or Lost it has no gain.",
         )
 
 
 def _counted_as(t: Transaction) -> str:
     """What a withdrawal of unknown purpose counts as: a sale at its gross,
-    else at $0. A row saved before 0.8.0 has no gross, but may hold its
-    proceeds in proceeds_usd, which the next recalculation sets to $0
-    (transaction._withdrawal_gross_proceeds): the owner has to keep them."""
+    else at $0 (transaction._withdrawal_gross_proceeds). A row saved before
+    0.8.0 has no gross, but may hold what was received in proceeds_usd,
+    which a recalculation keeps (#329) until the owner chooses."""
     if t.gross_proceeds_usd is not None:
         return f"counted as a sale with ${_money(t.gross_proceeds_usd)} proceeds."
     if not _is_zero_or_blank(t.proceeds_usd):
-        return (f"${_money(t.proceeds_usd)} proceeds saved with it, but counted as a sale at $0. Write the "
-                "amounts down before saving any edit, and enter it as its proceeds if you choose Spent.")
+        return f"${_money(t.proceeds_usd)} proceeds saved with it, but counted as a sale at $0 until you choose."
     return "counted as a sale at $0 proceeds (none recorded), so its whole basis shows as a loss."
 
 
