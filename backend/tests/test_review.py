@@ -729,3 +729,37 @@ def test_a_transaction_deleted_while_the_check_runs_is_left_out(auth_client, tes
         assert 997 in listed and 996 not in listed, listed
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_dry_run_that_fails_unexpectedly_says_so_in_plain_words(auth_client, monkeypatch, caplog):
+    """#361's re-check: an error that isn't a refusal of the app's own (a bug,
+    a database error) was shown as its text, SQL included. The check says
+    it in plain words, and the log has the details."""
+    from backend.services import transaction
+    from backend.services.review import DRY_RUN_FAILED
+
+    def replay_fails(db, *args, **kwargs):
+        raise TypeError("(builtins.TypeError) [SQL: UPDATE transactions SET proceeds_usd=?]")
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_fails)
+    review = auth_client.get("/api/review").json()
+    assert review["recalc_error"] == DRY_RUN_FAILED
+    assert "SQL" not in review["recalc_error"]
+    assert "the dry run of Recalculate Ledger failed" in caplog.text
+
+
+def test_a_day_priced_value_whose_transaction_is_gone_is_left_out(auth_client, monkeypatch):
+    """#361's re-check: the hourly check found a transaction, then building
+    its item read it again; one deleted in between was an AttributeError
+    (a 500). Left out instead."""
+    from decimal import Decimal
+
+    from backend.services import review
+
+    gone = {"id": 999_999, "tax_year": 2024, "moment": "hour", "at": 1_704_067_200, "price": Decimal("42000"),
+            "values": {"cost_basis_usd": (Decimal("100"), Decimal("200"))}}
+    monkeypatch.setattr(review, "hourly_changes", lambda db, *args, **kwargs: [gone])
+    r = auth_client.get("/api/review")
+    assert r.status_code == 200, r.text
+    hourly = next(c for c in r.json()["checks"] if c["key"] == "day_priced_values")
+    assert hourly["items"] == [] and hourly["count"] == 0

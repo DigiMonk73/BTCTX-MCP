@@ -82,6 +82,7 @@ without the value. Any other failure of the lookup is an error.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -96,6 +97,13 @@ from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
+
+logger = logging.getLogger(__name__)
+
+# What the check says when the dry run fails on something that isn't a
+# refusal of its own (a bug, a database error): plain words, never SQL; the
+# log has the details
+DRY_RUN_FAILED = "Recalculate Ledger would stop with an unexpected error; BitcoinTX's log has the details."
 
 
 # key -> (title, what the owner can do)
@@ -286,8 +294,11 @@ def simulate_recalculation(db: Session):
             recalculate_all_transactions(scratch)
             scratch.flush()
             after = _snapshot(scratch, tz)
-        except Exception as exc:  # e.g. a missing price: say so
-            return None, exc.detail if isinstance(exc, HTTPException) else str(exc)
+        except HTTPException as exc:  # e.g. a missing price: say so
+            return None, exc.detail
+        except Exception:
+            logger.exception("Ledger Review: the dry run of Recalculate Ledger failed")
+            return None, DRY_RUN_FAILED
     return _differences(before, after), None
 
 
@@ -507,6 +518,8 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
     items, years = [], {}
     for change in hourly_changes(db):
         t = db.get(Transaction, change["id"])
+        if t is None:  # deleted since it was found: nothing left to change
+            continue
         year = years.setdefault(change["tax_year"], {
             "year": change["tax_year"], "count": 0, "listed": 0, "ids": [], "income": Decimal(0),
             "basis": Decimal(0), "proceeds": Decimal(0), "gift_values": Decimal(0), "fees": Decimal(0)})

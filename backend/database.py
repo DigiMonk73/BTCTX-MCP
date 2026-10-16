@@ -135,16 +135,16 @@ def scratch_copy(db: Session) -> Iterator[Session]:
             raw.driver_connection.backup(memory)
         finally:
             raw.close()
-    except BaseException:
-        memory.close()
-        raise
-    engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
-    scratch = Session(bind=engine)
-    try:
-        yield scratch
+        engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
+        try:
+            scratch = Session(bind=engine)
+            try:
+                yield scratch
+            finally:
+                scratch.close()
+        finally:
+            engine.dispose()
     finally:
-        scratch.close()
-        engine.dispose()
         memory.close()
 
 FIXED_ACCOUNTS = [
