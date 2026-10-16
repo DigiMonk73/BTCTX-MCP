@@ -1,5 +1,5 @@
 // Sidebar widgets: the calculator and the sats converter.
-import { test, expect } from "./fixtures";
+import { test, expect, choosePriceSource } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 async function press(page: Page, keys: string) {
@@ -69,10 +69,7 @@ test("the calculator stays put in every converter mode and ends level with the c
 
 test("converter with prices off says so, never $0.00", async ({ authedPage: page }) => {
   // VM test 2026-09-29 (F2): it read "BTC Price: $0.00" and kept old USD figures.
-  const off = { price_source: "off", mempool_url: null, mempool_fallback: false, proxy_url: null };
-  const r = await page.request.put("/api/settings/network", { data: off });
-  expect(r.ok(), await r.text()).toBeTruthy();
-  await page.reload();
+  await choosePriceSource(page, { price_source: "off" }); // in place, no page load (#231)
   await expect(page.getByText("BTC Price: offline")).toBeVisible();
   // the way forward: Manual, with a typed price
   await page.getByRole("complementary").getByRole("button", { name: "Type a price" }).click();

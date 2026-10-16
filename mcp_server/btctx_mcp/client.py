@@ -158,7 +158,8 @@ class BtctxClient:
             data = json.loads(path.read_text())
         except FileNotFoundError:
             looked.append(f"{path}: not found (the BitcoinTX Mac app writes it when it starts)")
-            raise BtctxError(self._not_found(looked))
+            # Or the app is open, but its first start couldn't write the file (#238)
+            raise BtctxError(self._not_found(looked, reset_key=True))
         except (OSError, ValueError) as exc:
             looked.append(f"{path}: unreadable ({exc})")
             raise BtctxError(self._not_found(looked))
@@ -169,7 +170,8 @@ class BtctxClient:
             raise BtctxError(self._not_found(looked))
         if not _pid_alive(pid):
             looked.append(f"{path}: written by BitcoinTX (pid {pid}), which is no longer running")
-            raise BtctxError(self._not_found(looked))
+            # Or the app is open but couldn't write this run's key, leaving the earlier one (#238)
+            raise BtctxError(self._not_found(looked, reset_key=True))
         url = normalize_base_url(url)
         if self._configured_url and self._configured_url != url and await self._answers(self._configured_url):
             url = self._configured_url
@@ -181,11 +183,11 @@ class BtctxClient:
         self._logged_in = True
 
     @staticmethod
-    def _not_found(looked: list[str]) -> str:
-        return (
-            "Cannot reach BitcoinTX. Open the BitcoinTX app and try again. Looked at:\n- "
-            + "\n- ".join(looked)
-        )
+    def _not_found(looked: list[str], reset_key: bool = False) -> str:
+        """Why BitcoinTX can't be reached, and what to do. `reset_key`: an open app may
+        have no key of this run (its file couldn't be written): Reset key writes one (#238)."""
+        also = ", or, if it's open, press Reset key in its Settings (Connect an AI Assistant)" if reset_key else ""
+        return f"Cannot reach BitcoinTX. Open the BitcoinTX app and try again{also}. Looked at:\n- " + "\n- ".join(looked)
 
     # The key from BTCTX_AI_KEY
     async def _connect(self) -> None:

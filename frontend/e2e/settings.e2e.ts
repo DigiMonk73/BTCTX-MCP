@@ -3,9 +3,10 @@
 // Assistant prompt, and About BitcoinTX.
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
+  BLOCKED_KEY_FOLDER,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -248,6 +249,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
 
     await openSettings(page);
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+    await expect(ai.getByText("No AI key yet: press Reset key.")).toHaveCount(0); // it has one (#238)
     const prompt = ai.getByLabel("Setup prompt");
     await expect(prompt).toHaveValue(/finds it by itself/);
     for (const secret of ["BTCTX_PASSWORD", "BTCTX_USERNAME", "BTCTX_URL", USER]) {
@@ -284,6 +286,29 @@ test.describe("Mac app: AI key file instead of a password", () => {
     expect((await anon.get("/api/transactions", { headers: key })).status()).toBe(401);
     const newKey = { Authorization: `Bearer ${second.token}` };
     expect((await anon.get("/api/transactions", { headers: newKey })).status()).toBe(200);
+    await anon.dispose();
+  });
+});
+
+test.describe("Mac app: no AI key when its file couldn't be written at start (#238)", () => {
+  test.use({ appMode: "mac", keyFileBlocked: true });
+
+  test("Settings says so, and Reset key writes one once it can", async ({ authedPage: page, app }) => {
+    await openSettings(page);
+    const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+    const noKey = ai.getByText("No AI key yet: press Reset key.");
+    await expect(noKey).toBeVisible();
+    rmSync(path.join(app.dir, BLOCKED_KEY_FOLDER)); // what kept it from being written, put right
+    acceptDialogs(page);
+    await ai.getByRole("button", { name: "Reset key" }).click();
+    await expect(page.getByText("AI key reset.")).toBeVisible();
+    await expect(noKey).toHaveCount(0);
+    const written = JSON.parse(readFileSync(path.join(app.dir, BLOCKED_KEY_FOLDER, "mcp.json"), "utf8"));
+    const anon = await playwrightRequest.newContext({ baseURL: app.url });
+    await ai.getByLabel("Let AI assistants use BitcoinTX").check();
+    await expect(page.getByText("AI assistants can use BitcoinTX.")).toBeVisible();
+    expect((await anon.get("/api/transactions", { headers: { Authorization: `Bearer ${written.token}` } })).status())
+      .toBe(200);
     await anon.dispose();
   });
 });
