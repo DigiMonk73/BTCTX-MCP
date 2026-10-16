@@ -208,7 +208,7 @@ def call(method, path, body=None):
 call("POST", "/api/login", {"username": os.environ["BTCTX_USER"], "password": os.environ["BTCTX_PASSWORD"]})
 if call("GET", "/api/transactions"):
     sys.exit("The ledger is not empty: load the golden ledger only into an empty test install.")
-call("PUT", "/api/settings/tax-timezone", {"timezone": "America/New_York"})
+call("PUT", "/api/settings/tax-timezone", {"timezone": "America/New_York", "chosen": True})
 for tx in LEDGER:
     call("POST", "/api/transactions", tx)
 print(len(call("GET", "/api/transactions")), "transactions loaded; tax timezone America/New_York")

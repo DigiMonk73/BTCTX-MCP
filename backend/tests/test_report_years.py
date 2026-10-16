@@ -26,7 +26,7 @@ def test_empty_ledger_offers_this_year(auth_client):
 
 def test_years_run_from_the_first_transaction_in_the_tax_timezone(auth_client):
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True})
     try:
         # 2023-01-01 03:00 UTC is still Dec 31, 2022 in Chicago.
         r = auth_client.post("/api/transactions", json=dict(
@@ -40,7 +40,7 @@ def test_years_run_from_the_first_transaction_in_the_tax_timezone(auth_client):
         assert len(years) == len(set(years))
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 def test_form_years_are_the_templates_shipped(auth_client):

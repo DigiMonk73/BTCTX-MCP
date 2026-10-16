@@ -92,9 +92,9 @@ def test_an_entry_import_date_alone_past_them_in_the_tax_timezone(field, date, z
 @pytest.fixture
 def new_york(auth_client):
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
     yield
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})
 
 
 DEPOSIT = dict(type="Deposit", timestamp="2024-01-01T12:00:00Z", from_account_id=99, to_account_id=2,
@@ -127,12 +127,12 @@ def test_and_an_edit_too(auth_client, new_york):
 def test_a_date_originally_acquired_past_them_in_the_api_tax_timezone(auth_client):
     """The service's own move to the tax timezone, named (transaction._check_original_date)."""
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati", "chosen": True})
     try:
         r = auth_client.post("/api/transactions", json={**DEPOSIT, "acquired_at": "9999-12-31T23:00:00Z"})
         assert (r.status_code, r.json()) == (422, {"detail": ACQUIRED_OUT_OF_RANGE})
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})
 
 
 @pytest.mark.parametrize("report", ["complete_tax_report", "simple_transaction_history"])
@@ -178,10 +178,10 @@ def test_any_other_move_past_them_is_a_422_too():
 @pytest.mark.parametrize("zone, date", [("America/Anchorage", "0001-01-01"), ("Etc/GMT+12", "9999-12-31")])
 def test_the_api_takes_a_date_alone_at_the_edges_too(auth_client, zone, date):
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": zone})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": zone, "chosen": True})
     try:
         for body in ({**DEPOSIT, "timestamp": date}, {**DEPOSIT, "acquired_at": date}):
             r = auth_client.post("/api/transactions", json=body)
             assert r.status_code == 422, r.text
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})

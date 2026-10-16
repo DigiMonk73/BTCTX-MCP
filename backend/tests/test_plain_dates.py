@@ -36,7 +36,7 @@ def _ledger(auth_client):
 
 
 def set_timezone(client, name: str) -> None:
-    assert client.put("/api/settings/tax-timezone", json={"timezone": name}).status_code == 200
+    assert client.put("/api/settings/tax-timezone", json={"timezone": name, "chosen": True}).status_code == 200
 
 
 def deposit(client, **fields) -> dict:

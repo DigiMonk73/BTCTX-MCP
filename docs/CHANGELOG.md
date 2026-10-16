@@ -158,18 +158,21 @@ All notable changes to BitcoinTX are documented in this file.
   without a word. A browser that reports UTC, such as Tor Browser, left it
   alone. So a Docker or StartOS ledger entered so far only from such a
   browser (or a restored backup that carried no timezone) switched at its
-  first login from an ordinary browser. Tax years and holding periods are
-  decided on dates in the tax timezone, so a sale near midnight or near its
-  one-year anniversary could move to another tax year or term, in years
-  already filed. Every version from 0.8.0 to 1.2.8. Now a login fills the
-  timezone only while the ledger has no transactions, as on a fresh
-  install or the Mac app's first login. With transactions, only you change
-  it in Settings, which says what that does. Settings › Tax Timezone
-  suggests this computer's timezone in one line while none was chosen.
-  **What to do:** check Settings › Tax Timezone. If it shows a timezone you
-  never chose, and you filed a return from BitcoinTX's figures before it
-  changed, compare that return's Form 8949 with today's report: a sale near
-  midnight or near its one-year anniversary may have moved.
+  first login from an ordinary browser. The tax timezone decides the dates
+  that count for tax, so in years already filed a sale near midnight or
+  near its one-year anniversary could move to another tax year or term, an
+  income or rebate deposit near New Year's Eve to another year, and Form
+  8949's printed dates and the year-end holdings could shift. Every version
+  from 0.8.0 to 1.2.8. Now a login fills the timezone only while the ledger
+  has no transactions, as on a fresh install or the Mac app's first login,
+  and a page left open from before the update can't set it either. With
+  transactions, only you change it, in Settings, which says what that does
+  and, while none was chosen, suggests this computer's timezone in one
+  line (saving the one shown, UTC included, ends the suggestion).
+  **What to do:** check Settings › Tax Timezone. If the timezone shown is
+  where you file, today's report is the right one; if a return you filed
+  differs from it, ask your tax preparer whether to amend it. If it isn't
+  where you file, choose the right one there (saving recalculates).
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

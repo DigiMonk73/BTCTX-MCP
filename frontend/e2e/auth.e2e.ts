@@ -203,8 +203,22 @@ test("a login leaves the tax timezone alone once the ledger has transactions (#3
   const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
   expect(tz).toEqual({ timezone: "UTC", source: "default" });
   await page.getByRole("link", { name: "Settings" }).click();
-  await expect(page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" }))
-    .toContainText(`This computer is set to ${info.project.use.timezoneId}: if that's where you file`);
+  const suggestion = page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" });
+  await expect(suggestion).toContainText(`This computer is set to ${info.project.use.timezoneId}: if that's where you file`);
+
+  // Keeping UTC is a choice too: saving it ends the suggestion and moves no date
+  await page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Tax timezone set to UTC. Gains were recalculated.")).toBeVisible();
+  await expect(suggestion).toHaveCount(0);
+  expect(await (await page.request.get("/api/settings/tax-timezone")).json()).toEqual({ timezone: "UTC", source: "setting" });
+});
+
+test.describe("a browser that reports UTC (Tor Browser)", () => {
+  test.use({ timezoneId: "UTC" });
+
+  test("its login sends nothing: the tax timezone stays unchosen", async ({ authedPage: page }) => {
+    expect(await (await page.request.get("/api/settings/tax-timezone")).json()).toEqual({ timezone: "UTC", source: "default" });
+  });
 });
 
 test("an install still on the default login logs in with the setup code and keeps its ledger", async ({ page, app }) => {

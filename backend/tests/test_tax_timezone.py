@@ -14,6 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.models.app_setting import AppSetting
+from backend.routers.settings import RELOAD_TO_CHOOSE
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.services.tax_time import SETTING_KEY, fill_tax_timezone, tax_year_bounds
 from backend.services.transaction import holding_period
@@ -29,19 +30,19 @@ def _setup(auth_client, test_engine):
     global CLIENT, ENGINE
     CLIENT, ENGINE = auth_client, test_engine
     yield
-    CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+    CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 @pytest.fixture(autouse=True)
 def _clean():
     CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
-    CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+    CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
     yield
     CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def set_tz(name):
-    r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": name})
+    r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": name, "chosen": True})
     assert r.status_code == 200, r.text
 
 
@@ -80,7 +81,7 @@ class TestSetting:
         assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": NY, "source": "setting"}
 
     def test_invalid_timezone_rejected(self):
-        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": "Mars/Olympus"})
+        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": "Mars/Olympus", "chosen": True})
         assert r.status_code == 400
 
     def test_requires_login(self):
@@ -143,9 +144,16 @@ class TestLoginFill:
         assert r.status_code == 400
         assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
 
-    def test_a_busy_database_fills_nothing(self):
-        """The check and the save hold the write lock; while another save
-        holds it, the login fills nothing rather than waiting long."""
+    def test_a_fill_after_delete_all_takes_the_browsers_timezone(self):
+        buy("2024-06-01T12:00:00Z")
+        CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+        never_chosen()
+        assert fill(NY)["filled"] is True
+
+    def test_a_database_busy_past_the_wait_fills_nothing(self):
+        """The check and the save hold the write lock. While another save
+        holds it past the wait (5 s in the app; 0.1 s here), the login fills
+        nothing, and the next login tries again."""
         never_chosen()
         holder = ENGINE.raw_connection()
         quick = create_engine(ENGINE.url, connect_args={"timeout": 0.1})
@@ -159,6 +167,38 @@ class TestLoginFill:
             holder.rollback()
             holder.close()
         assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
+
+
+class TestOldPage:
+    """A page from before #334, still open after the update, set the
+    timezone at its login with the plain PUT. While none was chosen and the
+    ledger has transactions, the PUT now needs `chosen` (Settings' Save)."""
+
+    @pytest.fixture(autouse=True)
+    def _no_env(self, monkeypatch):
+        monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+
+    def test_an_old_pages_login_cant_set_it(self):
+        buy("2024-06-01T12:00:00Z")
+        sell("2025-01-01T03:00:00Z")          # Dec 31 2024, 10 pm in New York
+        never_chosen()
+        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": NY})
+        assert (r.status_code, r.json()["detail"]) == (409, RELOAD_TO_CHOOSE)
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": "UTC", "source": "default"}
+        assert len(rows(2025)) == 1 and not rows(2024)   # the sale stays in UTC's tax year
+
+    def test_settings_save_sets_it(self):
+        buy("2024-06-01T12:00:00Z")
+        never_chosen()
+        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": NY, "chosen": True})
+        assert r.status_code == 200, r.text
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": NY, "source": "setting"}
+
+    def test_an_empty_ledger_or_a_chosen_timezone_needs_nothing(self):
+        never_chosen()
+        assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": NY}).status_code == 200
+        buy("2024-06-01T12:00:00Z")
+        assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"}).status_code == 200
 
 
 class TestTaxYear:

@@ -67,7 +67,7 @@ const LoginPage: React.FC = () => {
   }, [navigate]);
 
   const enterApp = async () => {
-    // First login: adopt this computer's timezone for tax dates (changeable in Settings)
+    // While the ledger is empty, adopt this computer's timezone for tax dates (changeable in Settings)
     await ensureTaxTimezone();
     navigate("/dashboard");
   };

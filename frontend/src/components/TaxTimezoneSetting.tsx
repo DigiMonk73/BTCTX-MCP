@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "../contexts/useToast";
 import {
-  browserTimezone, getTaxTimezone, setTaxTimezone, timezoneSuggestion, type TaxTimezone,
+  browserTimezone, canSaveTimezone, getTaxTimezone, setTaxTimezone, timezoneSuggestion, type TaxTimezone,
 } from "../utils/taxTimezone";
 
 /**
@@ -72,7 +72,7 @@ const TaxTimezoneSetting: React.FC = () => {
           <button
             className="btn btn-secondary"
             onClick={save}
-            disabled={saving || !selected || selected === current}
+            disabled={saving || !canSaveTimezone(taxTimezone, selected)}
           >
             {saving ? "Saving..." : "Save"}
           </button>

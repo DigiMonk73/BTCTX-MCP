@@ -113,7 +113,7 @@ def test_jan_1_holdings_in_the_tax_timezone(auth_client, test_engine, ledger, mo
     from datetime import datetime, timezone
     from zoneinfo import ZoneInfo
     stub_daily_prices(monkeypatch, lambda day: 50000)
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": tz}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": tz, "chosen": True}).status_code == 200
     try:
         out = {}
         for year in (2024, 2025):
@@ -125,4 +125,4 @@ def test_jan_1_holdings_in_the_tax_timezone(auth_client, test_engine, ledger, mo
         for y, (boy, prev, exp) in out.items():
             assert boy == prev == exp, (tz, y, boy, prev, exp)
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})

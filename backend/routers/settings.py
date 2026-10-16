@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.services import ai_key, hourly_prices, mempool_trust, outbound
 from backend.services.desktop import desktop_info
-from backend.services.tax_time import fill_tax_timezone, get_tax_timezone_name, set_tax_timezone
+from backend.services.tax_time import (
+    fill_tax_timezone, get_tax_timezone_name, never_chosen_with_transactions, set_tax_timezone,
+)
 from backend.services.transaction import recalculate_all_transactions
 
 router = APIRouter()
@@ -23,6 +25,17 @@ router = APIRouter()
 
 class TaxTimezone(BaseModel):
     timezone: str
+
+
+class ChosenTaxTimezone(TaxTimezone):
+    # Settings' Save sends it (#334). A page from before then, still open
+    # after an update, never does: its login set the timezone with this PUT.
+    chosen: bool = False
+
+
+RELOAD_TO_CHOOSE = (
+    "Not saved: this page is from before BitcoinTX's update. Reload it, then choose the tax timezone in Settings."
+)
 
 
 @router.get("/tax-timezone")
@@ -33,13 +46,17 @@ def get_tax_timezone_setting(db: Session = Depends(get_db)):
 
 
 @router.put("/tax-timezone")
-def put_tax_timezone_setting(payload: TaxTimezone, request: Request, db: Session = Depends(get_db)):
+def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, db: Session = Depends(get_db)):
     """
     Save the tax timezone and recalculate: holding periods are decided on
     calendar dates in this timezone, so stored results may change. Login
-    only: it moves tax years, so never the AI key.
+    only: it moves tax years, so never the AI key. While none was ever
+    chosen and the ledger has transactions, only with `chosen` (Settings):
+    otherwise a 409, so an old page's login can't set it (#334).
     """
     _require_login(request)
+    if not payload.chosen and never_chosen_with_transactions(db):
+        raise HTTPException(status_code=409, detail=RELOAD_TO_CHOOSE)
     try:
         set_tax_timezone(db, payload.timezone)
         recalculate_all_transactions(db)

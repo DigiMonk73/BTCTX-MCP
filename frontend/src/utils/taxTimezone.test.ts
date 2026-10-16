@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { timezoneSuggestion } from "./taxTimezone";
+import { canSaveTimezone, timezoneSuggestion } from "./taxTimezone";
 
 const NEVER_CHOSEN = { timezone: "UTC", source: "default" } as const;
 
@@ -20,5 +20,22 @@ describe("timezoneSuggestion (#334)", () => {
   it("says nothing for a computer on UTC, or before the setting is read", () => {
     expect(timezoneSuggestion(NEVER_CHOSEN, "UTC")).toBeNull();
     expect(timezoneSuggestion(null, "America/Chicago")).toBeNull();
+  });
+});
+
+describe("canSaveTimezone (#334)", () => {
+  it("saves the timezone shown while none was ever chosen, so the suggestion can be ended", () => {
+    expect(canSaveTimezone(NEVER_CHOSEN, "UTC")).toBe(true);
+  });
+
+  it("saves only another timezone once one is chosen or set by the server", () => {
+    expect(canSaveTimezone({ timezone: "UTC", source: "setting" }, "UTC")).toBe(false);
+    expect(canSaveTimezone({ timezone: "UTC", source: "setting" }, "Asia/Tokyo")).toBe(true);
+    expect(canSaveTimezone({ timezone: "Asia/Tokyo", source: "env" }, "Asia/Tokyo")).toBe(false);
+  });
+
+  it("saves nothing before the setting is read, or with nothing selected", () => {
+    expect(canSaveTimezone(null, "UTC")).toBe(false);
+    expect(canSaveTimezone(NEVER_CHOSEN, "")).toBe(false);
   });
 });

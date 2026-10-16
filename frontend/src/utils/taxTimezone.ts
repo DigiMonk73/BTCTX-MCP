@@ -15,9 +15,17 @@ export async function getTaxTimezone(): Promise<TaxTimezone> {
   return res.data;
 }
 
+/** Settings' Save: the owner's own choice (`chosen`, which a page from before #334 never sends). */
 export async function setTaxTimezone(timezone: string): Promise<TaxTimezone> {
-  const res = await api.put<TaxTimezone>("/settings/tax-timezone", { timezone });
+  const res = await api.put<TaxTimezone>("/settings/tax-timezone", { timezone, chosen: true });
   return res.data;
+}
+
+/** Whether Save can save `selected`: another timezone, or, while none was
+ * ever chosen, any one, the one shown included, which ends Settings'
+ * suggestion (#334). */
+export function canSaveTimezone(current: TaxTimezone | null, selected: string): boolean {
+  return Boolean(selected) && current !== null && (selected !== current.timezone || current.source === "default");
 }
 
 /**

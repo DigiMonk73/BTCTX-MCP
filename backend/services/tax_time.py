@@ -64,19 +64,24 @@ def set_tax_timezone(db: Session, name: str) -> str:
     return name
 
 
+def never_chosen_with_transactions(db: Session) -> bool:
+    """Whether no tax timezone was ever chosen (no setting, no
+    BTCTX_TIMEZONE) while the ledger has transactions: then only the owner's
+    own choice in Settings may set one, since it moves tax years and holding
+    periods already reported (#334)."""
+    return _never_chosen(db) and not _ledger_is_empty(db)
+
+
 def fill_tax_timezone(db: Session, name: str) -> bool:
     """
     A login's fill (#334): `name`, the browser's timezone, saved as the tax
-    timezone only while none was ever chosen (no setting, no BTCTX_TIMEZONE)
-    and the ledger has no transactions; True if saved, committed. With
-    transactions, another timezone would move tax years and holding periods
-    already reported: only the owner's own change in Settings does that.
-    The check and the save hold SQLite's write lock, so a transaction saved
-    meanwhile waits until after; a busy database fills nothing (the next
-    login tries again). An unknown name is a ValueError.
+    timezone only while none was ever chosen and the ledger has no
+    transactions; True if saved, committed. The check and the save hold
+    SQLite's write lock, so a transaction saved meanwhile waits until after.
+    While another save holds it, this waits for it as any save does (5 s at
+    most), then fills nothing; the next login tries again. An unknown name is
+    a ValueError.
     """
-    from backend.models.transaction import Transaction
-
     validate_timezone(name)
     try:
         db.execute(text("BEGIN IMMEDIATE"))
@@ -84,12 +89,22 @@ def fill_tax_timezone(db: Session, name: str) -> bool:
         if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
             raise
         return False
-    if get_tax_timezone_name(db)[1] != "default" or db.query(Transaction.id).first() is not None:
+    if not (_never_chosen(db) and _ledger_is_empty(db)):
         db.rollback()  # the lock goes
         return False
     set_tax_timezone(db, name)
     db.commit()
     return True
+
+
+def _never_chosen(db: Session) -> bool:
+    return get_tax_timezone_name(db)[1] == "default"
+
+
+def _ledger_is_empty(db: Session) -> bool:
+    from backend.models.transaction import Transaction
+
+    return db.query(Transaction.id).first() is None
 
 
 def date_out_of_range(what: str = "The date") -> str:
@@ -149,6 +164,7 @@ def local_noon_utc(d: date, tz: ZoneInfo) -> datetime:
 
 __all__ = [
     "validate_timezone", "get_tax_timezone_name", "get_tax_timezone", "set_tax_timezone", "fill_tax_timezone",
+    "never_chosen_with_transactions",
     "DATE_OUT_OF_RANGE", "date_out_of_range", "DateOutOfRange", "moved",
     "as_utc", "local_date", "format_tax_date", "tax_year_bounds", "local_noon_utc",
 ]

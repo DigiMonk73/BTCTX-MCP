@@ -345,8 +345,9 @@ from the Transaction row alone.
   schema only) and login. User routes may only touch the logged-in user.
 - `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
   default key anywhere.
-- The debug router, `DELETE /api/transactions/delete_all` and
-  `PUT /api/settings/tax-timezone` are login-only (never the AI key); tests
+- The debug router, `DELETE /api/transactions/delete_all`,
+  `PUT /api/settings/tax-timezone` and `POST /api/settings/tax-timezone/fill`
+  are login-only (never the AI key); tests
   use the first two, the MCP server must not expose bulk delete. API docs
   (`/docs`, `/openapi.json`) only with DEBUG.
 - Deleting every transaction (Delete All, and Create account's

@@ -145,8 +145,10 @@ then UTC. API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
 the whole ledger, because stored holding periods can change. A login fills
 it from the browser (`POST /api/settings/tax-timezone/fill`) only while
 none was chosen and the ledger has no transactions (#334): with
-transactions, only the owner's change in Settings moves it, and Settings
-suggests the computer's timezone in one line.
+transactions, only the owner's change in Settings moves it (its PUT sends
+`"chosen": true`; one without it is refused with 409 then, as a page from
+before the update would send), and Settings suggests the computer's
+timezone in one line.
 
 ## Holding period
 
