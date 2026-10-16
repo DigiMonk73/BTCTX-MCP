@@ -248,7 +248,8 @@ All notable changes to BitcoinTX are documented in this file.
   purpose must be Spent, Gift, Donation or Lost, but a ledger started before
   then can hold one with another purpose (such as "Expenses") or none. Such
   a withdrawal counted as a sale: from 0.9.2, one saved before 0.8.0 (which
-  kept its proceeds in an older field) counted at $0, so its whole cost
+  kept its proceeds in an older field) that no recalculation under
+  0.8.0–0.9.1 had given a recorded gross counted at $0, so its whole cost
   basis showed as a loss on Form 8949; and from 1.2.8, when a Spent's
   network fee became a cost of the spend (#157), its fee wasn't taken off
   its proceeds as a Spent's is. Ledger Review didn't point them out. Now it
@@ -260,15 +261,15 @@ All notable changes to BitcoinTX are documented in this file.
   each one, saying what it counts as, so you can confirm Spent or choose
   Gift, Donation or Lost. **Affected:** ledgers started before 0.9.2 with
   such a withdrawal, in the tax year it falls in: its proceeds rise from $0
-  to the amount saved (a row saved before 0.8.0), or fall by its fee's value
-  (one with a bitcoin network fee), and its gain with them. **What to do:**
-  open Ledger Review before saving anything: "Figures that Recalculate
-  Ledger would change" lists each withdrawal whose figures move, and "BTC
-  withdrawals whose purpose isn't Spent, Gift, Donation or Lost" lists the
-  withdrawals. Edit each to choose its purpose: as Spent, enter what you got
-  for it if none is recorded; a gift, a donation and lost coins have no
-  gain. Then Recalculate Ledger (any save does it too). One listed as "none
-  recorded": see the next entry.
+  to the amount saved (a row saved before 0.8.0 with no recorded gross), or
+  fall by its fee's value (one with a bitcoin network fee), and its gain
+  with them. **What to do:** open Ledger Review before saving anything:
+  "Figures that Recalculate Ledger would change" lists each withdrawal whose
+  figures move, and "BTC withdrawals whose purpose isn't Spent, Gift,
+  Donation or Lost" lists the withdrawals. Edit each to choose its purpose:
+  as Spent, enter what you got for it if none is recorded; a gift, a
+  donation and lost coins have no gain. Then Recalculate Ledger (any save
+  does it too). One listed as "none recorded": see the next entry.
 - **A recalculation keeps what an old withdrawal of unknown purpose
   received** (tax figures, #329). A bitcoin withdrawal saved before 0.8.0
   kept what was received in an older field. When its purpose isn't Spent,
@@ -280,7 +281,8 @@ All notable changes to BitcoinTX are documented in this file.
   reported figures didn't change, the sale was already at $0, but the amount
   needed to correct it was gone. It is kept again, and counts as that
   withdrawal's proceeds (the entry above). **Affected:** ledgers started
-  before 0.8.0 holding such a withdrawal, from their first recalculation
+  before 0.8.0 holding such a withdrawal that no recalculation under
+  0.8.0–0.9.1 had given a recorded gross, from their first recalculation
   under 1.2.8. **What to do:** in Ledger Review, a withdrawal under "BTC
   withdrawals whose purpose isn't Spent, Gift, Donation or Lost" listed as
   "none recorded" may have lost its amount. The copy of your database

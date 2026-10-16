@@ -456,9 +456,9 @@ def _counted_as(t: Transaction) -> str:
     (transaction._withdrawal_gross_proceeds)."""
     fee = " before its network fee" if (t.fee_currency or "").upper() == "BTC" \
         and Decimal(t.fee_amount or 0) > 0 else ""
-    if not _is_zero_or_blank(t.gross_proceeds_usd):
+    if Decimal(t.gross_proceeds_usd or 0) > 0:
         return f"counted as Spent, with ${_money(t.gross_proceeds_usd)} proceeds{fee}."
-    if not _is_zero_or_blank(t.proceeds_usd):
+    if t.gross_proceeds_usd is None and Decimal(t.proceeds_usd or 0) > 0:
         return f"counted as Spent, with the ${_money(t.proceeds_usd)} proceeds saved with it{fee}."
     return "counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss."
 
