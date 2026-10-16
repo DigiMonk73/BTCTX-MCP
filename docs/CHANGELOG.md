@@ -96,7 +96,9 @@ All notable changes to BitcoinTX are documented in this file.
   calculator below doesn't move when you switch modes. Right after a new
   price choice is saved, the sidebar shows "…" until the new price comes,
   and an answer for the old choice still on its way is dropped (#327: it
-  could replace the new one).
+  could replace the new one). Clicking the mode already in use (Auto,
+  Manual or Date) no longer clears it: Auto chosen again showed "…" until
+  its next poll, two minutes later (#328).
 - **The sidebar asks "Is Tor running?" when Tor doesn't answer** (part of
   #208 and #241). When public price sites are asked through Tor and none
   could be reached through it, the sidebar now says "Is Tor running?"

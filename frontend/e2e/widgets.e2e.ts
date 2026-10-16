@@ -118,6 +118,20 @@ test("converter, manual mode: a slow price answer never overwrites the price you
   await expect(page.getByLabel("USD", { exact: true })).toHaveValue("200000");
 });
 
+test("converter: choosing the mode in use again changes nothing (#328)", async ({ authedPage: page }) => {
+  // Auto chosen again cleared the price and asked nothing: "…" until the 2-minute poll
+  const sidebar = page.getByRole("complementary");
+  await expect(sidebar.getByText("BTC Price: $60,000.00", { exact: true })).toBeVisible();
+  await sidebar.getByRole("button", { name: "Auto" }).click();
+  await expect(sidebar.getByText("BTC Price: $60,000.00", { exact: true })).toBeVisible();
+  await expect(sidebar.getByText("BTC Price: …", { exact: true })).toHaveCount(0);
+  // Manual chosen again keeps the price typed there
+  await sidebar.getByRole("button", { name: "Manual" }).click();
+  await sidebar.getByLabel("BTC Price (USD)").fill("100000");
+  await sidebar.getByRole("button", { name: "Manual" }).click();
+  await expect(sidebar.getByLabel("BTC Price (USD)")).toHaveValue("100000");
+});
+
 test("converter, date mode: the day's price", async ({ authedPage: page }) => {
   await page.getByRole("button", { name: "Date" }).click();
   await page.getByLabel("Select Date").fill("2024-03-01");

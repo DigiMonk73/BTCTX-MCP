@@ -159,6 +159,9 @@ const BtcConverter: React.FC = () => {
   const fetchManualPriceOnce = () => fetchPrice("/bitcoin/price");
 
   const handleModeChange = (newMode: Mode) => {
+    // The mode in use, chosen again: nothing to change. Clearing the price here
+    // left Auto at "…" until its next poll, since Auto asks only on a change (#328)
+    if (newMode === mode) return;
     priceTicket.current += 1;
     setMode(newMode);
     setSelectedDate("");
