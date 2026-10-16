@@ -8,7 +8,7 @@
 #
 # Usage:
 #   ./desktop/build-mac.sh
-#   BTCTX_BUILD_PYTHON=/path/to/python3.11 ./desktop/build-mac.sh   (that Python)
+#   BTCTX_BUILD_PYTHON=/path/to/python3.13 ./desktop/build-mac.sh   (that Python)
 #
 
 set -e
@@ -34,18 +34,19 @@ if ! command -v npm &> /dev/null; then
 fi
 
 # Python 3.10+: the one BTCTX_BUILD_PYTHON names, which CI's macOS jobs set
-# to the Python they set up (3.11, as the tests, Docker and StartOS run; the
-# runner's newer one was bundled instead, #284); else the newest found here.
+# to the Python they set up (3.13, chosen and tested; the runner's newest was
+# taken before, whatever it was, #284); else the newest found here. Set but
+# empty, it's an error, never a quiet fall back to the search.
 PYTHON_CMD=""
-if [ -n "${BTCTX_BUILD_PYTHON:-}" ]; then
+if [ -n "${BTCTX_BUILD_PYTHON+set}" ]; then
     CANDIDATES=("$BTCTX_BUILD_PYTHON")
 else
     CANDIDATES=(python3.13 python3.12 python3.11 python3.10 python3)
 fi
 for py in "${CANDIDATES[@]}"; do
     if command -v "$py" &> /dev/null; then
-        PY_VER=$("$py" -c "import sys; print(sys.version_info.minor)")
-        PY_MAJOR=$("$py" -c "import sys; print(sys.version_info.major)")
+        PY_VER=$("$py" -c "import sys; print(sys.version_info.minor)" 2>/dev/null) || continue
+        PY_MAJOR=$("$py" -c "import sys; print(sys.version_info.major)" 2>/dev/null) || continue
         if [ "$PY_MAJOR" -eq 3 ] && [ "$PY_VER" -ge 10 ]; then
             PYTHON_CMD="$py"
             break
@@ -53,7 +54,7 @@ for py in "${CANDIDATES[@]}"; do
     fi
 done
 
-if [ -z "$PYTHON_CMD" ] && [ -n "${BTCTX_BUILD_PYTHON:-}" ]; then
+if [ -z "$PYTHON_CMD" ] && [ -n "${BTCTX_BUILD_PYTHON+set}" ]; then
     echo "ERROR: BTCTX_BUILD_PYTHON ($BTCTX_BUILD_PYTHON) isn't a Python 3.10+"
     exit 1
 fi
@@ -83,7 +84,11 @@ if [ ! -d "$VENV_DIR" ]; then
     "$PYTHON_CMD" -m venv "$VENV_DIR"
     echo "  Created virtual environment"
 else
-    echo "  Using existing virtual environment"
+    VENV_VERSION=$("$VENV_DIR/bin/python" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "?")
+    echo "  Using existing virtual environment (Python $VENV_VERSION)"
+    if [ "$VENV_VERSION" != "$PYTHON_VERSION" ]; then
+        echo "  It keeps its Python, not $PYTHON_VERSION: delete desktop/.venv to build with $PYTHON_VERSION"
+    fi
 fi
 
 source "$VENV_DIR/bin/activate"

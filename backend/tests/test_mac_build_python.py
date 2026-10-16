@@ -1,9 +1,9 @@
 """
-The Mac app is built with the Python its macOS jobs set up, 3.11 as the
-tests, Docker and StartOS run (#284). desktop/build-mac.sh took the newest
-Python it found, and the macOS runner's 3.13 was bundled instead: 1.2.8's
-Mac app ran 3.13.15, which only the build-and-launch check exercised. The
-workflows are read as text, as in test_release_workflow.py.
+The Mac app is built with the Python its macOS jobs set up, 3.13, chosen on
+purpose and tested (#284, the owner's choice of 2026-10-16). Before,
+desktop/build-mac.sh took the newest Python the runner happened to have, and
+no test job ran it. The workflows are read as text, as in
+test_release_workflow.py.
 """
 
 import re
@@ -22,8 +22,14 @@ def job(workflow: str, name: str) -> str:
     return found.group(1)
 
 
+def matrix_pythons() -> list[str]:
+    """The Python test matrix of ci.yml."""
+    found = re.search(r"^\s+python: \[(.*?)\]", job("ci.yml", "python"), re.M)
+    return re.findall(r'"([\d.]+)"', found.group(1))
+
+
 @pytest.mark.parametrize("workflow, name", [("ci.yml", "macos-app"), ("release.yml", "macos")])
-def test_the_build_takes_the_python_the_job_set_up(workflow, name):
+def test_the_build_takes_the_newest_python_the_tests_run(workflow, name):
     steps = job(workflow, name)
     setup = re.search(r"uses: actions/setup-python@[0-9a-f]{40} .*\n\s+id: (\w+)\n\s+with:\n"
                       r"\s+python-version: \"([\d.]+)\"", steps)
@@ -31,13 +37,15 @@ def test_the_build_takes_the_python_the_job_set_up(workflow, name):
     build = re.search(r"run: \./desktop/build-mac\.sh\n\s+env:\n(?:\s+#.*\n)*"
                       r"\s+BTCTX_BUILD_PYTHON: \$\{\{ steps\.(\w+)\.outputs\.python-path \}\}\n", steps)
     assert build and build.group(1) == setup.group(1)
-    docker = re.search(r"^FROM python:([\d.]+)-slim", (ROOT / "Dockerfile").read_text(), re.M)
-    assert setup.group(2) == docker.group(1) == "3.11"
+    newest = max(matrix_pythons(), key=lambda v: tuple(map(int, v.split("."))))
+    assert setup.group(2) == newest
 
 
 def test_build_mac_tries_btctx_build_python_alone():
-    """Named, it is the only candidate: no newer Python found here replaces it."""
-    assert re.search(r'if \[ -n "\$\{BTCTX_BUILD_PYTHON:-\}" \]; then\n\s+CANDIDATES=\("\$BTCTX_BUILD_PYTHON"\)\n'
+    """Named, it is the only candidate (set but empty too: an error, never the
+    search, which would find the runner's newest again)."""
+    assert re.search(r'if \[ -n "\$\{BTCTX_BUILD_PYTHON\+set\}" \]; then\n\s+CANDIDATES=\("\$BTCTX_BUILD_PYTHON"\)\n'
                      r"else\n\s+CANDIDATES=\(python3\.13 .*\)\nfi\nfor py in \"\$\{CANDIDATES\[@\]\}\"; do",
                      BUILD_MAC)
+    assert 'if [ -z "$PYTHON_CMD" ] && [ -n "${BTCTX_BUILD_PYTHON+set}" ]; then' in BUILD_MAC
     assert "isn't a Python 3.10+" in BUILD_MAC
