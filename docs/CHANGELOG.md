@@ -282,6 +282,26 @@ All notable changes to BitcoinTX are documented in this file.
   added to its amount ($101 for $100), and a fee currency written with a
   space (" BTC") was left out of a bitcoin transfer's amount; both now save
   as the CSV import does.
+- **A CSV export imports as it was** (#230). The export puts a `'` in
+  front of text a spreadsheet could run as a formula (a purpose such as
+  `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
+  `－10`), and importing that file kept the `'`: `-5% fee` came back as
+  `'-5% fee`. The import now drops that one `'` again, in the columns the
+  export writes that way; a `'` before any other text stays. A purpose you
+  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
+  as the export's, and spaces at either end of a cell are trimmed, as
+  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
+  since 1.2.8).
+- **The CSV guide says what the import takes** (#304). Its rules table said
+  a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
+  only from them, while its own troubleshooting table and the import take
+  Bank and Exchange USD too; its type and column tables said the same.
+  They now say dollars or bitcoin: a deposit's cost basis and a
+  withdrawal's purpose (Spent, Gift, Donation or Lost) are needed only with
+  bitcoin, and a dollar withdrawal's purpose is any text, or none. Its
+  Deposit and Withdrawal example rows had a comma too few, so they didn't
+  import as printed; they do now. And its tables' longer rows no longer
+  run off the page.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
@@ -352,6 +372,22 @@ All notable changes to BitcoinTX are documented in this file.
     a 422 naming the year, as Form 8949 already refused one; and a CSV or
     River file with a field over 131,072 characters gets "The file can't
     be read as CSV" (#211).
+- **A few sats are written out, never as 5E-8** (#101). The transactions
+  API, and so the AI connector's `list_transactions`, gave an amount or a
+  fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
+  as `"0E-8"`; so did `preview_transactions`' balances afterwards,
+  `add_transactions`' list of what it created and `get_portfolio`'s BTC
+  balances (`1e-08`). An AI reading it could misread it. These now always
+  come with their eight places (`"0.00000005"`, `"0.00000000"`), as the
+  CSV export, Form 8949 and Ledger Review write them. The edit form showed
+  such an amount or fee as `5e-8` too, and so did a transfer's fee worked
+  out from its amounts; they now show `0.00000005`. Nothing stored or
+  computed changes.
+- **The AI connector's `btctx_mcp.__version__` is its real version**
+  (#133). It said 0.1.0 whatever the release; it now reads the installed
+  package's version (`unknown` when the connector isn't installed).
+  Nothing used it: the connector's version notice already read the
+  package's version.
 
 ### Development
 - **The WebKit click-through check no longer fails now and then on a

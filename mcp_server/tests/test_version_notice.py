@@ -5,8 +5,13 @@ tool reply (and error) starts with a line saying so and what to do. A warning
 only: the tool still runs.
 """
 
+import importlib
+import importlib.metadata
+
 import pytest
 from mcp import Client
+
+import btctx_mcp
 
 from backend.version import app_version
 from btctx_mcp import server
@@ -30,6 +35,22 @@ def test_notice_wording():
     assert "change btctx-mcp==0.9.0 in its uvx command to btctx-mcp==1.0.3" in older
     newer = server.mismatch_notice("1.1.0", "1.0.3")
     assert "Update BitcoinTX, or set the connector back to v1.0.3" in newer
+
+
+def test_package_version_is_the_installed_one(monkeypatch):
+    """btctx_mcp.__version__ is the installed package's version, never a number
+    of its own (#133), and "unknown" when run from a source tree."""
+    assert btctx_mcp.__version__ == importlib.metadata.version("btctx-mcp")
+
+    def not_installed(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", not_installed)
+    try:
+        assert importlib.reload(btctx_mcp).__version__ == "unknown"
+    finally:
+        monkeypatch.undo()
+        importlib.reload(btctx_mcp)
 
 
 async def test_same_version_no_notice(mcp_client):  # noqa: F811
