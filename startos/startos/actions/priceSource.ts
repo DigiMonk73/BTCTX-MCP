@@ -88,7 +88,7 @@ export const priceSource = sdk.Action.withInput(
       (input.source === 'mempool' && input.fallback)
     const messages = {
       mempool: i18n(
-        "BitcoinTX restarts and asks your Mempool service. If Mempool is not installed yet, install and start it: until then BitcoinTX has no newer prices, unless it may ask public price sites when Mempool can't answer.",
+        "BitcoinTX restarts and asks the Mempool service on this server. If Mempool is not installed here yet, install and start it: until then BitcoinTX has no newer prices, unless it may ask public price sites when Mempool can't answer.",
       ),
       public: i18n('BitcoinTX restarts and asks the public price sites.'),
       off: i18n(

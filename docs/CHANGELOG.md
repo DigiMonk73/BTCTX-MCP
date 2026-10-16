@@ -536,10 +536,12 @@ All notable changes to BitcoinTX are documented in this file.
   it's restored, and its README and instructions said to go back by
   restoring a backup. StartOS keeps the installed package in each backup,
   so a restore brings back the version the backup was made with (the next
-  update migrates it), and it restores a service only while it isn't
-  installed. Both now say so: to go back, uninstall BitcoinTX, which
-  deletes its data (its `backups/` copies too), then restore a backup made
-  before the update.
+  update migrates it, and only then runs that update's steps), and it
+  restores a service only while it isn't installed. The README now says
+  what a restore brings back, and the instructions say how to go back:
+  uninstall BitcoinTX, which deletes its data (its `backups/` copies too),
+  then restore a backup made before the update; anything entered after
+  that backup is lost.
 - **Price Source & Privacy says where each Mempool goes** (#246). In
   testing, **My Mempool on this server** was read as "my Mempool, wherever
   it is", and no box for an address appeared, since that choice means the
@@ -547,9 +549,10 @@ All notable changes to BitcoinTX are documented in this file.
   ("installed here, recommended", or "install Mempool here first"), and
   **Decide in BitcoinTX instead** says "also for a Mempool on another
   machine", whose address you type in the app. The action's description
-  and the instructions say the same, and which of another server's
-  addresses to use: the one on your home network (often 192.168.x.x), not
-  a 10.59.x.x address, which belongs to a VPN. In all five languages.
+  and its message after a Mempool choice say the same, in all five
+  languages. The instructions (in English) also say which of another
+  server's addresses to use: the one on your home network (often
+  192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
 
 ### Development
 - **The WebKit click-through check no longer fails now and then on a
