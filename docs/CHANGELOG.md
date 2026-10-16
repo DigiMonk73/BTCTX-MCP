@@ -181,6 +181,18 @@ All notable changes to BitcoinTX are documented in this file.
   shows what moves. Then Recalculate Ledger (any edit or delete does it
   too). If you filed a return from BitcoinTX's figures, a gift, donation or
   loss listed there as a sale, or income left out, would be in that year.
+- **StartOS: a dismissed Recalculate Ledger task no longer comes back at
+  every server restart** (#365). After an update that asks for Recalculate
+  Ledger (1.2.8:0 does), StartOS raised the task again each time the server
+  started, until its action ran: dismissing it, or recalculating in
+  BitcoinTX's own Settings, never settled it. Every package version since
+  the task came in (0.9.0); nothing in the ledger was ever wrong. Now it asks
+  once per such update, as 1.2.8 meant to, and again after restoring a backup
+  on which the recalculation is still due: the task stays until the action
+  runs or you dismiss it. If you dismissed it on 1.2.8 without running the
+  action, it comes back once, at the next update. Its text now says to run
+  the Recalculate Ledger action in StartOS once, after Ledger Review. It
+  reaches StartOS with the next package release.
 - **A transaction naming an account that doesn't exist is named when it
   stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
   naming any account number, even one with no account; and deleting an

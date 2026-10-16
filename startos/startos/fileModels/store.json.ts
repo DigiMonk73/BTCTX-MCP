@@ -9,6 +9,10 @@ const shape = z.looseObject({
   // after a recalculation (from before 0.8.0, and to 1.2.8:0); cleared by
   // Recalculate Ledger.
   recalculateLedger: z.boolean().optional().catch(undefined),
+  // Set once init has raised the Recalculate Ledger task for that update, so
+  // it asks once; reset by the update that sets recalculateLedger
+  // (makeRecalculationDue in utils.ts).
+  recalculateAsked: z.boolean().optional().catch(undefined),
   // Set when updating from before 1.2.0: replace a login still on the app's
   // default (admin / password) once, then cleared (init/defaultLogin.ts).
   checkDefaultLogin: z.boolean().optional().catch(undefined),
