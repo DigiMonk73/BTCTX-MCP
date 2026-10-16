@@ -141,7 +141,10 @@ Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 22).
 
 The script:
 
-1. Finds a Python 3.10+ interpreter (`python3.13` … `python3.10`, `python3`)
+1. Finds a Python 3.10+ interpreter: the one `BTCTX_BUILD_PYTHON` names
+   (CI passes the Python 3.13 it sets up), else the newest of `python3.13`
+   … `python3.10`, `python3`. A `desktop/.venv` made earlier keeps its
+   Python (the log says so): delete it to build with another
 2. Creates/reuses `desktop/.venv` and installs the locks
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
    pywebview), each package checked against its hash
@@ -261,7 +264,10 @@ running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md
 ## CI
 
 On every pull request, every push to `develop` or `main`, or manually from the Actions tab, `.github/workflows/ci.yml`
-runs `./desktop/build-mac.sh` on `macos-latest`, launches the bundled binary,
+runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
+sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the
+newest in the test matrix, which tests it; Docker and StartOS run 3.11. It
+never takes whichever Python the runner has. It launches the bundled binary,
 checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the
 zipped `.app` as a build artifact.
