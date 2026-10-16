@@ -281,6 +281,17 @@ All notable changes to BitcoinTX are documented in this file.
   until the delete is done and is kept. If another save holds the lock too
   long (more than 5 seconds), nothing is copied or deleted, and the message
   says to try again. Not seen in use: the gaps were a few milliseconds.
+- **The newest database copies are the ones kept** (#308). BitcoinTX keeps
+  the newest few copies of each kind in its data folder's `backups/` (before
+  an update or a restore, before Delete All, before Ledger Review's hourly
+  prices, and the AI's), sorted by the time their files were written. Copies
+  made within one tick of the filesystem's clock share that time, and then
+  their names decided, which sort the wrong way (`…Z-2.db` before `…Z.db`):
+  the oldest of them could be kept and the newest deleted, and the next copy
+  could take a deleted copy's name. They now sort by the second and number
+  in their names too, and a new copy never takes a deleted one's name.
+  Copies made seconds apart, as in use, were always right; no figure is
+  involved.
 - **Edit reads a purpose saved in another case** (#273). A withdrawal an
   older version saved as "spent" (or "gift", "donation", "lost") opened in
   Edit with **Purpose** blank, and **Update transaction** did nothing until
