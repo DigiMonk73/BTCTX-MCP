@@ -83,11 +83,22 @@ def _fake_app(tmp_path) -> Path:
     return app
 
 
-def _run_script(tmp_path, *args, data=None):
+def _run_script(tmp_path, *args, data=None, build_answers=False):
+    """The script, in a test home. Its check that no test build still answers
+    on its port (curl, before --fresh) meets a fake curl: the machine's real
+    port 8766 is never asked, so a test build left open there fails no test
+    (tests stay hermetic). build_answers: the fake curl says one does."""
     import os
     import subprocess
 
-    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path / "tmp"), "RAN": str(tmp_path / "ran")}
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir(exist_ok=True)
+    curl = fake_bin / "curl"
+    answer = "exit 0" if build_answers else "exit 7"  # 7: couldn't connect
+    curl.write_text(f'#!/bin/sh\necho "$@" >> "$CURL_ASKED"\n{answer}\n')
+    curl.chmod(0o755)
+    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path / "tmp"), "RAN": str(tmp_path / "ran"),
+           "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}", "CURL_ASKED": str(tmp_path / "curl-asked")}
     env.pop("BTCTX_TEST_DATA_DIR", None)
     if data is not None:
         env["BTCTX_TEST_DATA_DIR"] = str(data)
@@ -211,6 +222,21 @@ def test_fresh_empties_only_what_the_app_keeps(tmp_path):
     r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data)
     assert r.returncode == 0, r.stderr
     assert sorted(p.name for p in data.iterdir()) == [".btctx-test-folder", "home", "notes.txt"]
+
+
+def test_fresh_is_refused_while_a_test_build_answers(tmp_path):
+    """--fresh empties the folder a running test build is using: refused,
+    nothing removed."""
+    app = _fake_app(tmp_path)
+    data = tmp_path / "test-data"
+    data.mkdir()
+    (data / ".btctx-test-folder").write_text("")
+    (data / "btctx.db").write_text("old test ledger")
+    r = _run_script(tmp_path, "--app", str(app), "--fresh", data=data, build_answers=True)
+    assert r.returncode != 0 and "a BitcoinTX still answers on port 8766: quit it before --fresh" in r.stderr
+    assert (data / "btctx.db").read_text() == "old test ledger"
+    assert "http://127.0.0.1:8766/api/health" in (tmp_path / "curl-asked").read_text()  # the test build's port
+    assert not (tmp_path / "ran").exists()  # the app never started
 
 
 def test_an_unknown_option_is_refused(tmp_path):

@@ -71,7 +71,8 @@ Checks:
   would change, old -> new: its proceeds, basis and gain, its lot
   disposals' gain (each term's too when it has both), the cost of the lots
   it made, or else only how its rows split, lot by lot (#296). Found by
-  running the recalculation and rolling it back. After an upgrade this is
+  running the recalculation on a scratch copy of the database, the live
+  one only read (#335). After an upgrade this is
   where the fixes that change existing figures show up (Lost at $0 gain, a
   withdrawal's network fee as its own disposal), before anything moves.
   Editing or deleting any transaction recalculates everything too (adding
@@ -86,6 +87,7 @@ without the value. Any other failure of the lookup is an error.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -94,12 +96,22 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_account
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
+
+logger = logging.getLogger(__name__)
+
+# What the check says when the dry run fails on something that isn't a
+# refusal of its own (a bug, a database error): plain words, never SQL; the
+# log has the details. Like every recalc_error, it follows "Recalculate
+# Ledger would stop with:" (the Settings panel, cli review)
+RECALC_STOPS = "Recalculate Ledger would stop with:"
+DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
 
 
 # key -> (title, what the owner can do)
@@ -282,21 +294,25 @@ TERM_GAINS = ("short_term_gain", "long_term_gain")
 def simulate_recalculation(db: Session):
     """
     What Recalculate Ledger would change: {id: {field: (old, new)}}, or an
-    error message. Runs it and rolls everything back (the session must have
-    nothing else pending).
+    error message. Runs it on a scratch copy of the database, as committed
+    (#335): the live one is only read, so a save made while the check runs
+    (a replay of a large ledger takes seconds) doesn't wait for its write
+    lock and fail.
     """
     from backend.services.transaction import recalculate_all_transactions
 
     tz = get_tax_timezone(db)
-    before = _snapshot(db, tz)
-    try:
-        recalculate_all_transactions(db)
-        db.flush()
-        after = _snapshot(db, tz)
-    except Exception as exc:  # e.g. a missing price: say so, change nothing
-        db.rollback()
-        return None, str(getattr(exc, "detail", exc))
-    db.rollback()
+    with scratch_copy(db) as scratch:
+        before = _snapshot(scratch, tz)
+        try:
+            recalculate_all_transactions(scratch)
+            scratch.flush()
+            after = _snapshot(scratch, tz)
+        except HTTPException as exc:  # e.g. a missing price: say so
+            return None, exc.detail
+        except Exception:
+            logger.exception("Ledger Review: the dry run of Recalculate Ledger failed")
+            return None, DRY_RUN_FAILED
     return _differences(before, after), None
 
 
@@ -510,10 +526,13 @@ def _change_text(diff: dict) -> str:
 
 
 def _recalc_items(db: Session, moved: dict, tz) -> list[dict[str, Any]]:
-    """The transactions whose figures Recalculate Ledger would change, in date order."""
+    """The transactions whose figures Recalculate Ledger would change, in
+    date order. Each is looked up once on the live database: one deleted
+    while the dry run ran on its copy (#335) is no longer listed."""
+    rows = [t for tx_id in moved if (t := db.get(Transaction, tx_id)) is not None]
     items = []
-    for tx_id, diff in sorted(moved.items(), key=lambda kv: (db.get(Transaction, kv[0]).timestamp, kv[0])):
-        t = db.get(Transaction, tx_id)
+    for t in sorted(rows, key=lambda t: (t.timestamp, t.id)):
+        diff = moved[t.id]
         item = _item(t, tz, "Stored figures differ from what the current rules give.", _change_text(diff))
         item["changes"] = {f: list(pair) if f in SPLITS else [_money(pair[0]), _money(pair[1])]
                            for f, pair in diff.items()}
@@ -527,6 +546,8 @@ def _day_priced_items(db: Session, tz) -> tuple[list[dict[str, Any]], list[dict[
     items, years = [], {}
     for change in hourly_changes(db):
         t = db.get(Transaction, change["id"])
+        if t is None:  # deleted since it was found: nothing left to change
+            continue
         year = years.setdefault(change["tax_year"], {
             "year": change["tax_year"], "count": 0, "listed": 0, "ids": [], "income": Decimal(0),
             "basis": Decimal(0), "proceeds": Decimal(0), "gift_values": Decimal(0), "fees": Decimal(0)})
@@ -647,6 +668,8 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
 def format_text(review: dict[str, Any]) -> str:
     """Plain text for the CLI."""
     lines = [f"Ledger review (read-only; dates in {review['timezone']})"]
+    if review.get("recalc_error"):
+        lines.append(f"{RECALC_STOPS} {review['recalc_error']}")
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:

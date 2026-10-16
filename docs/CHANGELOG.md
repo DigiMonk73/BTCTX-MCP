@@ -164,6 +164,22 @@ All notable changes to BitcoinTX are documented in this file.
   an account that doesn't exist", listing every such transaction. **What
   to do:** edit each into one of your accounts, or delete it. No figure
   changes: the ledger replays as before, and only the message differs.
+- **A save made while Ledger Review checks the ledger no longer fails**
+  (#335). Ledger Review (also `cli review` and the AI connector's
+  `review_ledger`) works out what Recalculate Ledger would change by
+  running it and undoing it. It ran on the live database, holding its
+  write lock for the whole replay, so a transaction saved meanwhile, yours
+  or the AI's, waited and after 5 seconds failed with "database is locked".
+  On a ledger of a few thousand transactions the replay takes longer than
+  that. It now runs on a copy of the database in memory, as the tax
+  report's year-end holdings already do: saves go through, and the check
+  finds the same changes. Nothing was ever half-saved: the save was
+  refused whole. Also in Ledger Review: when its check of what Recalculate
+  Ledger would change fails on something unexpected, it says so in plain
+  words (BitcoinTX's log has the details) instead of showing an error's
+  technical text, and `cli review` shows that line too. A transaction
+  deleted while the check runs, or while you apply the hour's prices, is
+  left out instead of causing a server error.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
