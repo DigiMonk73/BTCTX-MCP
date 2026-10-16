@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import api from "../api";
-import { noPriceReason, type NoPrice } from "../utils/dashboard";
+import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
+import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
 import { historyPriceUrl } from "../utils/converter";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
@@ -19,24 +20,39 @@ const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
   unchosen: "not chosen yet",
   off: "offline",
   invalid: "offline",
+  tor: "no answer",
   none: "no answer",
   missing: "No price",
 };
 type Field = "USD" | "BTC" | "SATS" | null;
 
-/** Auto mode's line: the live price, or why there's none and the way forward (#145). */
-const AutoPriceRow: React.FC<{ text: string; why: string | null; onTypeAPrice: () => void }> = (
-  { text, why, onTypeAPrice },
+/** Where the live price came from and when, the Dashboard's words in short (#208). */
+interface PriceFrom {
+  short: string;
+  full: string;
+}
+
+/** Auto mode's line: the live price and where it came from, or why there's none and the
+ * way forward (#145). At most two lines, so the calculator below stays put. */
+const AutoPriceRow: React.FC<{ text: string; why: string | null; from: PriceFrom | null; onTypeAPrice: () => void }> = (
+  { text, why, from, onTypeAPrice },
 ) => (
   <div className="auto-price-row price-mode-row">
     <p className="btc-price">BTC Price: {text}</p>
     {(why === "waiting" || why === "unchosen") && (
       <Link className="converter-action" to="/dashboard">{why === "waiting" ? "Confirm" : "Choose"}</Link>
     )}
-    {(why === "off" || why === "invalid" || why === "none") && (
+    {/* No public site reached through the proxy; never for a site that refused (#241) */}
+    {why === "tor" && <span className="converter-note">Is Tor running?</span>}
+    {(why === "off" || why === "invalid" || why === "tor" || why === "none") && (
       <button type="button" className="converter-action" onClick={onTypeAPrice}>
         Type a price
       </button>
+    )}
+    {from && (
+      <p className="converter-note price-from" title={from.full}>
+        {from.short}
+      </p>
     )}
   </div>
 );
@@ -47,6 +63,11 @@ const BtcConverter: React.FC = () => {
   // Why there's no price, when there's none: never shown as "$0.00". "missing":
   // Date mode's day has none
   const [noPrice, setNoPrice] = useState<"loading" | NoPrice | "missing">("loading");
+  // Where the price came from and when ("kraken", "mempool"; the live price only)
+  const [answered, setAnswered] = useState<{ source?: string; at?: string } | null>(null);
+  // Whether public sites are asked through Tor (null until the settings answer):
+  // the source line waits for it, so it never shows without "through Tor" first
+  const [throughTor, setThroughTor] = useState<boolean | null>(null);
   // Bumped by every mode switch and every typed price: an answer to an older
   // request (slow to arrive) is dropped instead of overwriting the price.
   const priceTicket = useRef(0);
@@ -54,9 +75,11 @@ const BtcConverter: React.FC = () => {
     const ticket = priceTicket.current;
     let price = 0;
     let why: NoPrice | "missing" = "none";
+    let from: { source?: string; at?: string } | null = null;
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
+      from = { source: res.data?.source, at: res.data?.at };
     } catch (err) {
       // no price: 0, and why (backend/services/outbound.py's 503s are choices)
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
@@ -65,7 +88,18 @@ const BtcConverter: React.FC = () => {
     if (ticket === priceTicket.current) {
       setBtcPrice(price);
       setNoPrice(why);
+      setAnswered(from);
     }
+  };
+
+  /** Auto's source line: "Kraken · 2:04 pm" (the Dashboard's words on hover), once the settings say whether through Tor. */
+  const priceFrom = (): PriceFrom | null => {
+    if (btcPrice <= 0 || !answered?.source || throughTor === null) return null;
+    const at = answered.at ? ` · ${clock(answered.at)}` : "";
+    return {
+      short: `${priceSourceShort(answered.source, throughTor)}${at}`,
+      full: `${priceSourceWords(answered.source, throughTor)}${at}`,
+    };
   };
 
   const priceText = () =>
@@ -90,6 +124,18 @@ const BtcConverter: React.FC = () => {
   // As a plain decimal: 1 sat is "0.00000001", never "1e-8".
   const roundBtc = (num: number) => num.toFixed(8).replace(/\.?0+$/, "");
   const roundUsd = (num: number) => Math.round(num * 100) / 100;
+
+  // Whether public sites go through Tor, for the source line: read again when a choice is saved
+  useEffect(() => {
+    const read = () =>
+      api
+        .get<{ proxy_url?: string | null }>("/settings/network")
+        .then((res) => setThroughTor(Boolean(res.data.proxy_url)))
+        .catch(() => setThroughTor(false));
+    read();
+    window.addEventListener(PRICE_CHOICE_SAVED, read);
+    return () => window.removeEventListener(PRICE_CHOICE_SAVED, read);
+  }, []);
 
   // Auto mode: the live price, every 2 minutes
   useEffect(() => {
@@ -277,6 +323,7 @@ const BtcConverter: React.FC = () => {
         <AutoPriceRow
           text={priceText()}
           why={btcPrice > 0 ? null : noPrice}
+          from={priceFrom()}
           onTypeAPrice={() => handleModeChange("manual")}
         />
       )}

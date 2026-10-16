@@ -78,6 +78,20 @@ All notable changes to BitcoinTX are documented in this file.
   column, so a re-import keeps where the value came from. This adds a
   database column (migration 0011, `fmv_from_price`).
 
+- **The sidebar's price says where it came from and when** (#208). Under
+  the Sats Converter's Auto price, a short line names its source and time
+  as the Dashboard does: "Kraken · 2:04 pm", "Kraken, through Tor · 2:04
+  pm" or "Your Mempool · 2:04 pm" (pointing at it shows the Dashboard's
+  words). It's one line however narrow the window, so the calculator below
+  doesn't move when you switch modes.
+- **The sidebar asks "Is Tor running?" when Tor doesn't answer** (#208,
+  part of #241). When public price sites are asked through Tor and none
+  could be reached through it, the sidebar now says "Is Tor running?"
+  beside **Type a price**, as the Dashboard and the price card do. When a
+  site answered with a refusal, as Bitstamp does Tor's exits (#241), it
+  doesn't ask, since Tor is running; the price card has said what to do
+  then since 1.2.8 (#240).
+
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the

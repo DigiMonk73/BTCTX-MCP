@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountTotals, gainClass, noPriceReason, priceSourceWords } from "./dashboard";
+import { accountTotals, gainClass, noPriceReason, priceSourceShort, priceSourceWords } from "./dashboard";
 
 const balance = (account_id: number, name: string, currency: string, value: number | string): AccountBalance => ({
   account_id, name, currency, balance: value,
@@ -45,5 +45,22 @@ describe("the price's source and why there's none (#145)", () => {
   it("tells invalid server settings apart from Nobody", () => {
     expect(noPriceReason(503, "This server's price settings aren't valid: BTCTX_TOR_PROXY_URL")).toBe("invalid");
     expect(noPriceReason(503, "Price lookups are off")).toBe("off");
+  });
+
+  it("the sidebar's short form: the site, through Tor when it is, or your Mempool (#208)", () => {
+    expect(priceSourceShort("kraken", true)).toBe("Kraken, through Tor");
+    expect(priceSourceShort("bitstamp")).toBe("Bitstamp");
+    expect(priceSourceShort("mempool", true)).toBe("Your Mempool");
+    expect(priceSourceShort(undefined)).toBeNull();
+  });
+
+  it("asks about Tor only when no public site could be reached through it, never for a refusal (#208, #241)", () => {
+    // backend/services/bitcoin.py, _first_public: every site unreachable through the proxy
+    expect(noPriceReason(502, "No public site answered for the live price: none could be reached through the proxy "
+      + "for public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)")).toBe("tor");
+    // Reached, but no price: a refusal (Bitstamp's 403 to Tor's exits) or a bad answer
+    expect(noPriceReason(502, "No public site answered for the live price.")).toBe("none");
+    expect(noPriceReason(502, undefined)).toBe("none");
+    expect(noPriceReason(undefined, undefined)).toBe("none");
   });
 });

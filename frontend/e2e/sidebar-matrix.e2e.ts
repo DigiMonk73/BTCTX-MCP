@@ -132,10 +132,18 @@ async function convertBtc(sidebar: Locator, btc: number, price: Price) {
   await expect(field(sidebar, "USD")).toHaveValue(typeof price === "number" ? String(btc * price) : "");
 }
 
-async function useAuto(sidebar: Locator, live: Price) {
+/** What Auto says besides the price (#208): where it came from, or whether Tor is running. */
+type Says = { from?: string; torDown?: boolean };
+
+async function useAuto(sidebar: Locator, live: Price, says: Says) {
   await expect(sidebar.getByRole("button", { name: "Auto" })).toHaveAttribute("aria-pressed", "true");
   await expect(sidebar.getByText(`BTC Price: ${shown(live)}`, { exact: true })).toBeVisible();
   await expect(sidebar).not.toContainText("$0.00");
+  // "Kraken · 2:04 pm": the site, or your Mempool, and the time it answered
+  const from = sidebar.getByText(/ · \d{1,2}:\d\d [ap]m$/);
+  if (says.from) await expect(from).toHaveText(new RegExp(`^${says.from} · \\d{1,2}:\\d\\d [ap]m$`));
+  else await expect(from).toHaveCount(0);
+  await expect(sidebar.getByText("Is Tor running?", { exact: true })).toHaveCount(says.torDown ? 1 : 0);
   await convertBtc(sidebar, 0.5, live);
 }
 
@@ -166,7 +174,7 @@ async function useManual(sidebar: Locator, live: Price) {
  * calculation running across the mode switches. The calculator stays put
  * whichever mode's row shows (owner's request, 2026-09-29).
  */
-async function useEveryMode(page: Page, live: Price, day: Price) {
+async function useEveryMode(page: Page, live: Price, day: Price, says: Says = {}) {
   const sidebar = page.getByRole("complementary");
   const display = sidebar.getByRole("status", { name: "Calculator display" });
   // From the sidebar's top: the page scrolls to whatever is clicked.
@@ -176,7 +184,7 @@ async function useEveryMode(page: Page, live: Price, day: Price) {
     return [Math.round(box.y - top), Math.round(box.y + box.height - top)];
   };
   await press(sidebar, "12+");
-  await useAuto(sidebar, live);
+  await useAuto(sidebar, live, says);
   const inAuto = await edges();
   await useDate(sidebar, day);
   expect(await edges()).toEqual(inAuto);
@@ -193,7 +201,9 @@ async function useEveryMode(page: Page, live: Price, day: Price) {
  * prices, nothing asked), then after `answer` picks a source in it. Returns
  * what the server sent out.
  */
-async function answerTheFirstRunQuestion(page: Page, app: App, answer: (prompt: Locator) => Promise<void>) {
+async function answerTheFirstRunQuestion(
+  page: Page, app: App, answer: (prompt: Locator) => Promise<void>, from: string,
+) {
   const browser = await logIn(page, app);
   await useEveryMode(page, "not chosen yet", "No price");
   expect(sentOut(app, browser)).toEqual([]);
@@ -207,14 +217,16 @@ async function answerTheFirstRunQuestion(page: Page, app: App, answer: (prompt: 
   const sidebar = page.getByRole("complementary");
   await sidebar.getByRole("button", { name: "Auto" }).click();
   await press(sidebar, "C");
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from });
   return sentOut(app, browser);
 }
 
 test("not chosen yet: nothing is asked and Manual works; picking public sites brings the prices", async ({
   page, app,
 }) => {
-  const sent = await answerTheFirstRunQuestion(page, app, (prompt) => prompt.getByLabel(/^Public price sites/).check());
+  const sent = await answerTheFirstRunQuestion(
+    page, app, (prompt) => prompt.getByLabel(/^Public price sites/).check(), "Kraken",
+  );
   expect(proxies(sent)).toEqual([null]);
 });
 
@@ -228,28 +240,30 @@ test("off: nothing is asked; Auto and Date say so, Manual works", async ({ page,
 test("public sites: the prices, asked directly", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public" });
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken" });
   expect(proxies(sentOut(app, browser))).toEqual([null]);
 });
 
 test("public sites through Tor: the prices, every request through the proxy", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public", proxy_url: TOR });
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken, through Tor" });
   expect(proxies(sentOut(app, browser))).toEqual([TOR]);
 });
 
-test("public sites with Tor stopped: no price, and nothing goes around the proxy", async ({ page, app }) => {
+test("public sites with Tor stopped: no price, asks whether Tor is running; nothing goes around the proxy", async ({
+  page, app,
+}) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "public", proxy_url: TOR_STOPPED });
-  await useEveryMode(page, "no answer", "No price");
+  await useEveryMode(page, "no answer", "No price", { torDown: true });
   expect(proxies(sentOut(app, browser))).toEqual([TOR_STOPPED]);
 });
 
 test("own mempool server: the prices, from it alone", async ({ page, app }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL });
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Your Mempool" });
   expect(origins(sentOut(app, browser))).toEqual([MEMPOOL]);
 });
 
@@ -265,7 +279,7 @@ test("own mempool server with the public backup: the backup isn't asked while it
 }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL, mempool_fallback: true });
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Your Mempool" });
   // Besides your Mempool, only the hourly history's one-time download, which the
   // backup starts when saved (#145): Bitstamp's fixed hourly blocks, no date in them
   const sent = sentOut(app, browser);
@@ -277,7 +291,7 @@ test("own mempool server down, with the public backup: the prices from the publi
 }) => {
   const browser = await logIn(page, app);
   await choose(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
-  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+  await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Kraken" }); // the backup answered
   const sent = sentOut(app, browser).filter((r) => !historyDownload(r));
   expect(origins(sent)[0]).toBe(MEMPOOL_DOWN); // asked first
   expect(origins(sent).length).toBeGreaterThan(1); // then the public sites
@@ -312,7 +326,7 @@ test.describe("set by the server (StartOS)", () => {
 
   test("the prices from its Mempool alone", async ({ page, app }) => {
     const browser = await logIn(page, app);
-    await useEveryMode(page, CURRENT_PRICE, DAY_PRICE);
+    await useEveryMode(page, CURRENT_PRICE, DAY_PRICE, { from: "Your Mempool" });
     expect(origins(sentOut(app, browser))).toEqual([STARTOS_MEMPOOL]);
   });
 });
@@ -326,7 +340,7 @@ test.describe("the Mac app", () => {
     const sent = await answerTheFirstRunQuestion(page, app, async (prompt) => {
       await prompt.getByLabel(/^My own Mempool/).check();
       await prompt.getByLabel("Your Mempool's address").fill(MEMPOOL);
-    });
+    }, "Your Mempool");
     expect(origins(sent)).toEqual([MEMPOOL]);
   });
 
