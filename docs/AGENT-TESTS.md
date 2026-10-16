@@ -656,7 +656,12 @@ Set `KEY` to the key from AI-3, and use
   `2023-02-01T12:05:00-05:00`: status `possible_duplicate`, a warning
   "Same BTC amount as tx #… (Buy 1.00000000 BTC), recorded 5 minutes
   earlier: it may be the same transaction. Saved unless you remove it."
-  (#253). Then `add_transactions` with the first
+  (#253). Preview an income with its value left out
+  (`{"date":"2025-07-01T14:30:00Z","type":"Deposit","amount":"0.001","from_account":"External","to_account":"Wallet","source":"Income"}`).
+  Expect `simulated.from_price`: `values` `["cost_basis_usd"]`, `at`
+  `2025-07-01T14:00:00Z` with `moment` `hour` (or the day's 00:00 with
+  `day`), the price's `source` and `usd_per_btc`, which times 0.001 is the
+  filled value (#208). Then `add_transactions` with the first
   row. Expect: it appears in the UI list. Run `update_transaction` with
   `transaction_id=<its id>` and `cost_basis_usd=1100`. Expect: the UI shows
   $1,100.00. `delete_transaction` removes it. Expect: 14 rows and every

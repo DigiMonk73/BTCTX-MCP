@@ -192,7 +192,17 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    something else different, or a transfer of a near amount; the warning
    says what - saved unless dropped, so ask), auto-filled USD values, rejected rows (e.g. not
    enough BTC - usually a missing earlier transaction), and affected_existing
-   (backdating changes gains on earlier-recorded sales).
+   (backdating changes gains on earlier-recorded sales). For a value BitcoinTX
+   filled in from a price (a row's simulated.from_price, and the same in
+   add_transactions' created rows and list_transactions), say which price:
+   "cost basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
+   2024-03-01 (Bitstamp)". Its values name the fields as list_transactions
+   shows them: a Spent's gross_proceeds_usd is before its fee (proceeds_usd
+   after it), and a fee_usd values fee_amount, not amount. Moment "day"
+   means that day's 00:00 UTC price; an Inherited deposit's is its date of
+   death's. With values but no "at", the stored price no longer gives that
+   value (priced elsewhere, e.g. imported): say only that it came from a
+   price.
 3. Only after the user confirms, call add_transactions with the same rows
    (minus anything they rejected; keep duplicates in: they're skipped
    anyway, and dropping one can leave an identical row beside it taken for

@@ -8,6 +8,7 @@ Run from the repo root:
 
 import json
 import re
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,7 +20,8 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.database import get_db
 from backend.main import app
-from backend.services import ai_key
+from backend.models.btc_price import BtcPriceHourly
+from backend.services import ai_key, hourly_prices
 from backend.services.bitcoin import get_current_price as _UNSTUBBED_CURRENT_PRICE  # the real one, before the stub
 from backend.services.tax_time import set_tax_timezone
 from backend.tests.conftest import init_test_db, stub_daily_prices
@@ -240,6 +242,91 @@ async def test_income_deposit_autofills_basis(mcp_client):
     res = (await call(mcp_client, "preview_transactions", {"transactions": [dep]}))["results"][0]
     assert res["autofilled_fields"] == ["cost_basis_usd"]
     assert Decimal(res["normalized"]["cost_basis_usd"]) == Decimal("100.00")
+
+
+async def test_a_value_from_the_price_says_its_hour_and_source(mcp_client):
+    """#208 (#145 plan 2.5): preview, add and list say which values BitcoinTX filled
+    in from a price, and that price: its hour or day (here the day: no hourly
+    price), where it came from and USD per BTC. A typed value says none."""
+    dep = {
+        "date": "2024-02-01", "type": "Deposit", "amount": "0.002",
+        "from_account": "External", "to_account": "Wallet", "source": "Income",
+    }
+    priced = {"values": ["cost_basis_usd"], "at": "2024-02-01T00:00:00Z", "moment": "day", "source": "stub",
+              "usd_per_btc": "50000.00"}
+    preview = (await call(mcp_client, "preview_transactions", {"transactions": [dep]}))["results"][0]
+    assert preview["simulated"]["from_price"] == priced
+    added = await call(mcp_client, "add_transactions", {"transactions": [dep]})
+    assert added["created"][0]["from_price"] == priced
+    typed = dict(dep, date="2024-02-02", cost_basis_usd="99.00")
+    added = await call(mcp_client, "add_transactions", {"transactions": [typed]})
+    assert added["created"][0]["from_price"] is None
+    newest, first = (await call(mcp_client, "list_transactions"))["transactions"]
+    assert "from_price" not in newest
+    assert first["from_price"] == priced
+
+
+async def test_a_btc_fees_value_from_the_price_says_so(mcp_client):
+    """A transfer's BTC fee valued at the price: the preview gives its value
+    (simulated.fee_usd) and the price, and so do add and list (#208)."""
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [BUY, TO_COLD]})
+    sim = preview["results"][1]["simulated"]
+    assert Decimal(sim["fee_usd"]) == Decimal("5.00")  # 0.0001 BTC at the stub's $50,000
+    assert sim["from_price"] == {"values": ["fee_usd"], "at": "2024-01-16T00:00:00Z", "moment": "day",
+                                 "source": "stub", "usd_per_btc": "50000.00"}
+    assert preview["results"][0]["simulated"]["from_price"] is None  # the Buy's values were given
+    added = await call(mcp_client, "add_transactions", {"transactions": [BUY, TO_COLD]})
+    assert [c["from_price"] and c["from_price"]["values"] for c in added["created"]] == [None, ["fee_usd"]]
+    transfer = (await call(mcp_client, "list_transactions", {"type": "Transfer"}))["transactions"][0]
+    assert transfer["from_price"]["values"] == ["fee_usd"]
+
+
+async def test_a_value_moved_out_of_a_price_says_no_price(mcp_client):
+    """Review of #324: an income moved to Bank keeps its "from the price" mark
+    but not its value; from_price names a value only while it exists
+    (transaction.values_from_price), in the update's answer and the list."""
+    dep = {"date": "2024-02-01", "type": "Deposit", "amount": "0.002", "from_account": "External",
+           "to_account": "Wallet", "source": "Income"}
+    created = (await call(mcp_client, "add_transactions", {"transactions": [dep]}))["created"][0]
+    assert created["from_price"]["values"] == ["cost_basis_usd"]
+    moved = await call(mcp_client, "update_transaction",
+                       {"transaction_id": created["id"], "to_account": "Bank", "amount": "100"})
+    assert "from_price" not in moved, moved
+    listed = (await call(mcp_client, "list_transactions"))["transactions"][0]
+    assert "from_price" not in listed and "cost_basis_usd" not in listed
+
+
+async def test_from_price_for_each_kind_of_value(mcp_client, backend_db):
+    """The hour's price where there is one (the guide's main case), a Spent's
+    gross proceeds, a gift's value and an inheritance's date of death (#208)."""
+    hour = hourly_prices.hour_of(datetime(2024, 3, 1, 14, tzinfo=timezone.utc))
+    with sessionmaker(bind=backend_db)() as db:
+        db.add(BtcPriceHourly(hour=hour, usd=Decimal("50083.00"), source="bitstamp"))
+        db.commit()
+    rows = [
+        {"date": "2024-03-01T14:30:00Z", "type": "Deposit", "amount": "0.1", "from_account": "External",
+         "to_account": "Wallet", "source": "Income"},
+        {"date": "2024-03-02T10:00:00Z", "type": "Withdrawal", "amount": "0.01", "from_account": "Wallet",
+         "to_account": "External", "purpose": "Spent"},
+        {"date": "2024-03-03T10:00:00Z", "type": "Withdrawal", "amount": "0.01", "from_account": "Wallet",
+         "to_account": "External", "purpose": "Gift"},
+        {"date": "2024-03-04T10:00:00Z", "type": "Deposit", "amount": "0.05", "from_account": "External",
+         "to_account": "Wallet", "source": "Inherited", "acquired_at": "2023-06-15"},
+    ]
+    sims = [r["simulated"] for r in (await call(mcp_client, "preview_transactions", {"transactions": rows}))["results"]]
+    income, spent, gift, inherited = (s["from_price"] for s in sims)
+    assert income == {"values": ["cost_basis_usd"], "at": "2024-03-01T14:00:00Z", "moment": "hour",
+                      "source": "bitstamp", "usd_per_btc": "50083.00"}
+    assert Decimal(sims[0]["cost_basis_usd"]) == Decimal("5008.30")  # 0.1 BTC at the hour's $50,083.00
+    assert (spent["values"], spent["moment"]) == (["gross_proceeds_usd"], "day")
+    assert Decimal(sims[1]["gross_proceeds_usd"]) == Decimal("500.00")  # the value its from_price names
+    assert (gift["values"], Decimal(sims[2]["fmv_usd"])) == (["fmv_usd"], Decimal("500.00"))
+    assert (inherited["values"], inherited["at"], inherited["moment"]) == (
+        ["cost_basis_usd"], "2023-06-15T00:00:00Z", "day")  # the date of death's day, not the deposit's
+    added = (await call(mcp_client, "add_transactions", {"transactions": rows}))["created"]
+    assert [c["from_price"] for c in added] == [income, spent, gift, inherited]
+    listed = {t["id"]: t.get("from_price") for t in (await call(mcp_client, "list_transactions"))["transactions"]}
+    assert [listed[c["id"]] for c in added] == [income, spent, gift, inherited]
 
 
 async def test_portfolio_writes_a_few_sats_out(mcp_client):

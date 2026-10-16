@@ -48,12 +48,32 @@ class EntryRequest(BaseModel):
     rows: list[EntryRow]
 
 
+class FromPrice(BaseModel):
+    """
+    The values BitcoinTX filled in from a price, named as the transactions
+    API names them (gross_proceeds_usd: a Spent's proceeds before its fee),
+    and that price (#208, #145 plan 2.5): its UTC hour's start, or the day's
+    ("moment"; an inheritance's: its date of death), where it came from and
+    USD per BTC, as price_used gives them. The price is left out when the
+    stored one no longer gives the value (priced elsewhere: an import).
+    """
+    values: list[str]
+    at: str | None = None
+    moment: str | None = None
+    source: str | None = None
+    usd_per_btc: Decimal | None = None
+
+
 class SimulatedResult(BaseModel):
     """What the ledger computed for this row during the dry run."""
     cost_basis_usd: Decimal | None = None
     proceeds_usd: Decimal | None = None
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+    gross_proceeds_usd: Decimal | None = None  # a sale's or Spent's proceeds before the fee
+    fmv_usd: Decimal | None = None  # a gift's, donation's or lost coins' value
+    fee_usd: Decimal | None = None  # a BTC fee's USD value
+    from_price: FromPrice | None = None  # which of these came from a price, and that price (#208)
 
 
 class EntryResult(BaseModel):
@@ -108,6 +128,7 @@ class CreatedTransaction(BaseModel):
     amount: Decimal
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
+    from_price: FromPrice | None = None
 
     @field_serializer("amount", when_used="json")
     def amount_written_out(self, v: Decimal) -> str:

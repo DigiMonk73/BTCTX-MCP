@@ -36,10 +36,11 @@ _ai_change_copy = threading.Lock()
 
 def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
     """The transaction as TransactionRead, its UTC times written with 'Z'
-    rather than '+00:00', and the stored price its filled-in values came
-    from (price_used; read only, never asked for)."""
+    rather than '+00:00', which values BitcoinTX filled in from a price, and
+    the stored price they came from (price_used; read only, never asked for)."""
     pyd_model = TransactionRead.model_validate(tx)
     data = pyd_model.model_dump()
+    data["values_from_price"] = tx_service.values_from_price(tx)
     if db is not None:
         data["price_used"] = tx_service.price_used(tx, db, years)
 

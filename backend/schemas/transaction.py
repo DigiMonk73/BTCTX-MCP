@@ -347,6 +347,7 @@ class TransactionRead(TransactionBase):
     fmv_from_price: bool = False  # a Gift's, Donation's or Lost withdrawal's value came from a price (#255)
     price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
     price_used: PriceUsed | None = None  # that price, when this install has it (never asked for)
+    values_from_price: list[str] = []  # which values came from a price (transaction.values_from_price, #208)
     created_at: datetime
     updated_at: datetime
 
