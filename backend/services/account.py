@@ -1,10 +1,10 @@
 """
 Accounts: reading them, and changes to accounts other than the six fixed
 ones (database.FIXED_ACCOUNTS: Bank, Wallet, Exchange USD, Exchange BTC,
-BTC Fees, USD Fees), which stay as they are and are recreated if missing.
-The ledger finds the fee accounts by name, and the next start puts a
-fixed account's name back: a renamed BTC Fees left a second one behind,
-and that start failed on the duplicate name (#289).
+BTC Fees, USD Fees). Those keep their name, currency and place, and are
+recreated if missing, and no other account takes their names: the ledger
+finds the fee accounts by name, and every start puts a fixed account's
+name back, which a second account of that name would stop (#289).
 """
 
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from backend.schemas.account import AccountCreate, AccountUpdate
 
 
 SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
+FIXED_NAMES = frozenset(a["name"] for a in FIXED_ACCOUNTS)
 
 
 def get_all_accounts(db: Session):
@@ -33,8 +34,7 @@ def create_account(account_data: AccountCreate, db: Session):
     """A new account; the special accounts' names are refused (400)."""
     ensure_special_accounts_exist(db)
 
-    forbidden_names = {v["name"] for v in SPECIAL_ACCOUNTS.values()}
-    if account_data.name in forbidden_names:
+    if account_data.name in FIXED_NAMES:
         raise HTTPException(
             status_code=400,
             detail="Cannot manually create one of the locked special accounts."
@@ -54,11 +54,17 @@ def create_account(account_data: AccountCreate, db: Session):
 def update_account(account_id: int, account_data: AccountUpdate, db: Session):
     """
     A new name or currency for the account (None when it doesn't exist); a
-    special account's are refused (400) unless unchanged.
+    special account's are refused (400) unless unchanged, and so is a fixed
+    account's name for any other.
     """
     account = get_account_by_id(account_id, db)
     if not account:
         return None
+    if account_id not in SPECIAL_ACCOUNTS and account_data.name in FIXED_NAMES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot rename account #{account_id} to {account_data.name}: that is a fixed account's name."
+        )
 
     if account_id in SPECIAL_ACCOUNTS:
         if account_data.name is not None and account_data.name != account.name:
