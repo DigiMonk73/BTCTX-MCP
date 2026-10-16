@@ -29,6 +29,7 @@ from backend.services.transaction import (
     fee_currency_used,
     has_control_character,
     original_date,
+    original_date_name,
     original_date_problem,
     sell_fee_problem,
     text_problem,
@@ -36,7 +37,7 @@ from backend.services.transaction import (
     transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
-from backend.services.tax_time import DateOutOfRange, as_utc, local_noon_utc
+from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
     ACCOUNT_ID_TO_NAME,
     ACCOUNT_NAME_TO_ID,
@@ -280,8 +281,9 @@ def _optional_acquired_at(row: dict[str, str], row_number: int, tz) -> date | No
         acquired = _parse_date(text, tz)
         if acquired is not None:
             return original_date(acquired, tz)
-    except DateOutOfRange as exc:
-        raise _Rejected(_error(row_number, "acquired_at", str(exc))) from None
+    except DateOutOfRange:
+        what = original_date_name(row.get("source"))
+        raise _Rejected(_error(row_number, "acquired_at", date_out_of_range(what))) from None
     raise _Rejected(_error(
         row_number, "acquired_at", f"Invalid acquired_at '{text}'. Use a date such as 2021-03-14.",
     ))
