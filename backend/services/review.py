@@ -7,6 +7,11 @@ Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
 
 Checks:
+- account_missing (#337): a transaction naming an account that doesn't
+  exist, which only a BitcoinTX before 0.9.2 could save (F28). Its missing
+  side is in no balance; one between the owner's account and a missing one
+  stops every replay (transaction.AccountMissing names it), so every save
+  that recalculates, until it's edited into an account or deleted.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -93,11 +98,18 @@ from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
+from backend.services.transaction import known_accounts, missing_account
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 
 
 # key -> (title, what the owner can do)
 CHECKS: dict[str, tuple] = {
+    "account_missing": (
+        "Transactions naming an account that doesn't exist",
+        "A BitcoinTX before 0.9.2 saved these. The missing account's side is in none of your balances, and one "
+        "between your account and a missing one stops every save that recalculates (an edit, a delete, an add "
+        "dated before the latest) and Recalculate Ledger. Edit each into one of your accounts, or delete it.",
+    ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
         "Back up first, then run Recalculate Ledger (Settings) when you agree. Editing or deleting any "
@@ -379,6 +391,7 @@ def build_review(db: Session) -> dict[str, Any]:
     for t in rows:
         for key, item in _row_issues(t, tz):
             found[key].append(item)
+    found["account_missing"] = _account_missing_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
@@ -446,6 +459,19 @@ def _purpose_issues(t: Transaction, tz):
             "If it was a spend, choose Spent (with what you got for it, if none is recorded); as Gift, "
             "Donation or Lost it has no gain.",
         )
+
+
+def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
+    """Each transaction naming an account that doesn't exist (#337)."""
+    known = known_accounts(db)
+    rows = (
+        db.query(Transaction)
+        .filter(~Transaction.from_account_id.in_(known) | ~Transaction.to_account_id.in_(known))
+        .order_by(Transaction.timestamp, Transaction.id)
+        .all()
+    )
+    return [_item(t, tz, f"Names account {missing_account(t, known)}, which doesn't exist.",
+                  "Edit it into one of your accounts, or delete it.") for t in rows]
 
 
 def _counted_as(t: Transaction) -> str:

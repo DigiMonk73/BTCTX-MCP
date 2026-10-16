@@ -151,6 +151,19 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **An old transaction naming an account that doesn't exist is named when
+  it stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
+  naming any account number, even one with no account. One between your
+  account and such a missing one (a transfer or a deposit, say) stops every
+  replay of the ledger, so every save that recalculates (an edit, a
+  delete, an entry dated before the latest), Recalculate Ledger and Ledger
+  Review's check failed, with "Ledger not balanced for BTC" or "would lack
+  BTC", naming neither the transaction nor the account. The message now
+  names both ("Transaction 970 (a Transfer) names account 999, which
+  doesn't exist…"), and **Ledger Review** has a check, "Transactions naming
+  an account that doesn't exist", listing every such transaction. **What
+  to do:** edit each into one of your accounts, or delete it. No figure
+  changes: the ledger replays as before, and only the message differs.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

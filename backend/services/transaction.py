@@ -263,6 +263,34 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
     return new_tx
 
 
+# A saved row naming an account that doesn't exist (unknown ids were saved
+# before 0.9.2, F28) whose replay fails: the refusal names it (#337)
+ACCOUNT_MISSING = (
+    "Transaction {id} (a {kind}) names account {account}, which doesn't exist: a BitcoinTX before 0.9.2 "
+    "saved it. Edit it into one of your accounts, or delete it. Ledger Review lists every such transaction."
+)
+
+
+class AccountMissing(HTTPException):
+    """The replay stopped on a transaction naming a missing account: a 400
+    that names it, which a save, an add or a delete passes on as it is."""
+
+    def __init__(self, tx: Transaction, account_id: int):
+        super().__init__(status_code=400,
+                         detail=ACCOUNT_MISSING.format(id=tx.id, kind=tx.type, account=account_id))
+
+
+def missing_account(tx: Transaction, known: set[int]) -> int | None:
+    """The account a transaction names that isn't in `known` (the accounts'
+    ids and External), else None."""
+    return next((a for a in (tx.from_account_id, tx.to_account_id) if a not in known), None)
+
+
+def known_accounts(db: Session) -> set[int]:
+    """The ids a transaction may name: every account's, and External."""
+    return {account_id for (account_id,) in db.query(Account.id)} | {ACCOUNT_EXTERNAL}
+
+
 def _recalculate_with(new_tx: Transaction, db: Session) -> None:
     """The whole ledger again, in date order, with a new past entry. Short of
     BTC, the message names the entry that runs short, which may be a later
@@ -270,7 +298,7 @@ def _recalculate_with(new_tx: Transaction, db: Session) -> None:
     try:
         recalculate_all_transactions(db)
     except HTTPException as e:
-        if e.status_code != 400:
+        if e.status_code != 400 or isinstance(e, AccountMissing):
             raise
         raise HTTPException(
             status_code=400,
@@ -798,6 +826,8 @@ def delete_transaction_record(transaction_id: int, db: Session):
         recalculate_all_transactions(db)
     except HTTPException as e:
         db.rollback()
+        if isinstance(e, AccountMissing):
+            raise
         why = "later transactions depend on this one. " if e.status_code == 400 else ""
         raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
     except Exception:
@@ -1645,7 +1675,9 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
 
     With `until`, only transactions strictly before it are replayed — a
     snapshot of lots/balances as of that instant (used for year-end
-    balances). Callers must run a full recalculation afterwards.
+    balances). Callers must run a full recalculation afterwards. A row
+    naming a missing account that stops it is refused by name
+    (AccountMissing, #337).
     """
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
@@ -1656,14 +1688,26 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     if until is not None:
         query = query.filter(Transaction.timestamp < until)
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
+    known = known_accounts(db)
     for rec_tx in all_txs:
-        _fill_stored_fee_currency(rec_tx, db)
-        stored = _stored_inputs(rec_tx)
-        build_ledger_entries_for_transaction(rec_tx, stored, db)
-        _maybe_verify_balance_for_internal(rec_tx, db)
-        _post_lots(rec_tx, stored, db)
+        try:
+            _replay(rec_tx, db)
+        except HTTPException as e:
+            missing = missing_account(rec_tx, known)
+            if e.status_code != 400 or missing is None:
+                raise
+            raise AccountMissing(rec_tx, missing) from e
 
     db.flush()
+
+
+def _replay(tx: Transaction, db: Session) -> None:
+    """One saved transaction's ledger lines and lots, in the replay."""
+    _fill_stored_fee_currency(tx, db)
+    stored = _stored_inputs(tx)
+    build_ledger_entries_for_transaction(tx, stored, db)
+    _maybe_verify_balance_for_internal(tx, db)
+    _post_lots(tx, stored, db)
 
 
 def _stored_inputs(tx: Transaction) -> dict:
