@@ -181,6 +181,28 @@ All notable changes to BitcoinTX are documented in this file.
   shows what moves. Then Recalculate Ledger (any edit or delete does it
   too). If you filed a return from BitcoinTX's figures, a gift, donation or
   loss listed there as a sale, or income left out, would be in that year.
+- **A login no longer changes the tax timezone of a ledger with
+  transactions** (tax figures, #334). While no tax timezone had ever been
+  chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
+  the browser's timezone as the tax timezone and recalculated the ledger,
+  without a word. A browser that reports UTC, such as Tor Browser, left it
+  alone. So a Docker or StartOS ledger entered so far only from such a
+  browser (or a restored backup that carried no timezone) switched at its
+  first login from an ordinary browser. The tax timezone decides the dates
+  that count for tax, so in years already filed a sale near midnight or
+  near its one-year anniversary could move to another tax year or term, an
+  income or rebate deposit near New Year's Eve to another year, and Form
+  8949's printed dates and the year-end holdings could shift. Every version
+  from 0.8.0 to 1.2.8. Now a login fills the timezone only while the ledger
+  has no transactions, as on a fresh install or the Mac app's first login,
+  and a page left open from before the update can't set it either. With
+  transactions, only you change it, in Settings, which says what that does
+  and, while none was chosen, suggests this computer's timezone in one
+  line (saving the one shown, UTC included, ends the suggestion).
+  **What to do:** check Settings › Tax Timezone. If the timezone shown is
+  where you file, today's report is the right one; if a return you filed
+  differs from it, ask your tax preparer whether to amend it. If it isn't
+  where you file, choose the right one there (saving recalculates).
 - **StartOS: a dismissed Recalculate Ledger task no longer comes back at
   every server restart** (#365). After an update that asks for Recalculate
   Ledger (1.2.8:0 does), StartOS raised the task again each time the server
@@ -622,6 +644,30 @@ All notable changes to BitcoinTX are documented in this file.
   package's version (`unknown` when the connector isn't installed).
   Nothing used it: the connector's version notice already read the
   package's version.
+
+### StartOS package
+- **Restoring a StartOS backup, as StartOS does it** (#323). The package's
+  README said a backup made on an older version is migrated forward when
+  it's restored, and its README and instructions said to go back by
+  restoring a backup. StartOS keeps the installed package in each backup,
+  so a restore brings back the version the backup was made with (the next
+  update migrates it, and only then runs that update's steps), and it
+  restores a service only while it isn't installed. The README now says
+  what a restore brings back, and the instructions say how to go back:
+  uninstall BitcoinTX, which deletes its data (its `backups/` copies too),
+  then restore a backup made before the update; anything entered after
+  that backup is lost.
+- **Price Source & Privacy says where each Mempool goes** (#246). In
+  testing, **My Mempool on this server** was read as "my Mempool, wherever
+  it is", and no box for an address appeared, since that choice means the
+  Mempool service installed on this StartOS server. Its label now says so
+  ("installed here, recommended", or "install Mempool here first"), and
+  **Decide in BitcoinTX instead** says "also for a Mempool on another
+  machine", whose address you type in the app. The action's description
+  and its message after a Mempool choice say the same, in all five
+  languages. The instructions (in English) also say which of another
+  server's addresses to use: the one on your home network (often
+  192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
 
 ### Development
 - **The WebKit click-through check no longer fails now and then on a

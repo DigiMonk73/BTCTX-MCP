@@ -185,7 +185,7 @@ def test_reward_to_rebate_needs_no_price(auth_client, test_engine, monkeypatch):
 def test_the_rebates_table_dates_are_in_the_tax_timezone(auth_client, test_engine):
     """03:00 UTC on January 1 is still December 31 in Chicago: the rebate is
     in that tax year, and its date prints so."""
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}).status_code == 200
     try:
         deposit(auth_client, timestamp="2026-01-01T03:00:00Z")
         data = report(test_engine, 2025)
@@ -195,7 +195,7 @@ def test_the_rebates_table_dates_are_in_the_tax_timezone(auth_client, test_engin
         assert "12/31/2025 0.00100000 $40.00" in text
         assert report(test_engine, 2026)["rebates"] == []
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 def test_a_rebate_moved_to_bank_is_not_listed(auth_client, test_engine):

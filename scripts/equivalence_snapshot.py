@@ -194,7 +194,7 @@ class Instance:
         login_throttle.reset()
         self.client = TestClient(app, raise_server_exceptions=False)  # a crash is an answer too
         assert self.client.post("/api/login", json=default_login()).status_code == 200
-        assert self.client.put("/api/settings/tax-timezone", json={"timezone": zone}).status_code == 200
+        assert self.client.put("/api/settings/tax-timezone", json={"timezone": zone, "chosen": True}).status_code == 200
 
     def _session(self):
         db = self.Session()

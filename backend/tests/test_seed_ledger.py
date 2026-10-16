@@ -200,13 +200,13 @@ def test_every_box_in_any_tax_timezone(seeded, tz):
     """Review of #57: the anniversary sales stay on the lot's day, so short-
     term, wherever the owner's tax timezone is."""
     c, Session, _ = seeded
-    assert c.put("/api/settings/tax-timezone", json={"timezone": tz}).status_code == 200
+    assert c.put("/api/settings/tax-timezone", json={"timezone": tz, "chosen": True}).status_code == 200
     try:
         with Session() as db:
             forms = {year: build_form_8949_and_schedule_d(year, db) for year in (2024, 2025, 2026)}
         boxes = {year: {r["box"] for r in f["short_term"] + f["long_term"]} for year, f in forms.items()}
     finally:
-        c.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        c.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
     assert boxes == {2024: set("ABCDEF"), 2025: set("GHIJKL"), 2026: set("GHIJKL")}
 
 

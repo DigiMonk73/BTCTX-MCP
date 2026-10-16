@@ -34,7 +34,7 @@ def ledger(auth_client, monkeypatch):
     inheritance (valued at its date of death's day by rule, #173). Then the
     hours' price is $40,000."""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
     stub_daily_prices(monkeypatch, lambda day: DAY_PRICE)
     stub_prices_at(monkeypatch, lambda when: DAY_PRICE, moment="day")
     post(auth_client, type="Buy", timestamp="2024-06-01T10:00:00Z", from_account_id=BANK, to_account_id=EXCHANGE_BTC,
@@ -55,7 +55,7 @@ def ledger(auth_client, monkeypatch):
     }
     monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, wait=True: (D(HOUR_PRICE), "bitstamp"))
     yield {k: v["id"] for k, v in rows.items()}
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 

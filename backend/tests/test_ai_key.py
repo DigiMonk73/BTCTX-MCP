@@ -116,6 +116,7 @@ REFUSED = [
     ("account: delete", "DELETE", "/api/accounts/2", {}, 403),
     ("Ledger review: values at the hour", "POST", "/api/review/hourly-prices", {"json": {"ids": [1]}}, 403),
     ("tax timezone", "PUT", "/api/settings/tax-timezone", {"json": {"timezone": "Asia/Tokyo"}}, 403),
+    ("tax timezone: a login's fill", "POST", "/api/settings/tax-timezone/fill", {"json": {"timezone": "Asia/Tokyo"}}, 403),
     ("privacy & network", "PUT", "/api/settings/network", {"json": {"price_source": "off"}}, 403),
     ("reports", "GET", "/api/reports/years", {}, 403),
     ("debug", "GET", "/api/debug/lots", {}, 401),

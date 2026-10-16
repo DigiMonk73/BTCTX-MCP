@@ -71,13 +71,13 @@ def odd_price(monkeypatch):
 def ledger(auth_client, odd_price):
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True})
     for tx in LEDGER:
         r = auth_client.post("/api/transactions", json=tx)
         assert r.status_code == 200, (tx, r.text)
     yield
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})
 
 
 def round_trip(client):

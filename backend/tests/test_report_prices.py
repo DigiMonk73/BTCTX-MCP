@@ -50,14 +50,14 @@ def pdf_text(data: dict) -> str:
 def clean(auth_client):
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     yield
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_holdings_are_valued_when_the_tax_year_ends_and_the_next_one_starts_there(
         auth_client, test_engine, clean, monkeypatch):
     """New York: 2024 ends at 2025-01-01 05:00 UTC; that hour's price, not December 31's."""
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
     buy(auth_client)
     stub_prices_at(monkeypatch, lambda when: 70000 if hourly_prices.hour_of(when) ==
                    int(NEW_YORK_2024_END.timestamp()) else 10000)

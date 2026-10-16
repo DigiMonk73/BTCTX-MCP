@@ -160,7 +160,7 @@ def test_2025_pdf_has_separate_pages_per_box():
 def test_covered_cutoff_uses_tax_timezone_date():
     # 03:00 UTC on Jan 1 2026 is still Dec 31 2025 in Chicago: the form prints
     # an acquisition date of 12/31/2025, so the lot is noncovered (H), not G.
-    assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"}).status_code == 200
+    assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}).status_code == 200
     try:
         tx(type="Buy", timestamp="2026-01-01T03:00:00Z", from_account_id=BANK,
            to_account_id=EXCHANGE_BTC, amount="1.0", cost_basis_usd="20000")
@@ -168,7 +168,7 @@ def test_covered_cutoff_uses_tax_timezone_date():
         rows = report(2026)["short_term"]
         assert [(r["box"], r["date_acquired"]) for r in rows] == [("H", "12/31/2025")]
     finally:
-        CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 # ---------------------------------------------------------------------------

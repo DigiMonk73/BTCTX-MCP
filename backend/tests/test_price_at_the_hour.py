@@ -492,11 +492,11 @@ def test_an_inheritance_is_valued_at_its_date_of_deaths_day_and_a_save_changing_
     assert (tx["cost_basis_usd"], tx["price_moment"]) == ("3000.00", "day")
     assert CALLS == []  # never the hour's price
     try:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True})
         saved = edit(auth_client, tx, acquired_at="2026-02-10", cost_basis_usd=tx["cost_basis_usd"])
         assert saved["cost_basis_usd"] == "3000.00"
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 def test_a_day_spend_with_a_typed_fee_goes_to_the_hour_when_its_proceeds_are_priced_again(auth_client, monkeypatch):
@@ -541,9 +541,9 @@ def test_typing_the_proceeds_while_the_fee_changes_puts_the_fee_at_the_hour(auth
 @pytest.fixture
 def kiritimati(auth_client):
     """A tax timezone of UTC+14, where noon is the day before in UTC (#177)."""
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati", "chosen": True}).status_code == 200
     yield
-    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+    auth_client.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
 
 def a_price_a_day(monkeypatch):

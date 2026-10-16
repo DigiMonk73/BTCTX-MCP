@@ -5,7 +5,9 @@ import { sdk } from '../sdk'
 import { generatePassword, replaceDefaultLogin } from '../utils'
 
 /**
- * Once after an update (or restore) from before 1.2.0: installs from before
+ * Once after an update from before 1.2.0 (a backup from before then is
+ * restored as its own version, and does this at its next update, #323):
+ * installs from before
  * generated passwords may still have the app's default login, which BitcoinTX
  * 1.1.0 and later accept only with the setup code from the service log.
  * Lock it with a password nobody sees, and make Set Login Credentials the

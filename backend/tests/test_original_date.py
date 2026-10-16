@@ -225,7 +225,7 @@ def test_a_date_alone_is_kept_and_its_lot_is_at_noon_in_the_tax_timezone(auth_cl
     """Column (b) shows the date given, in a New York tax timezone too: read as
     midnight UTC it would be the day before there."""
     before = auth_client.get("/api/settings/tax-timezone").json()["timezone"]
-    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+    assert auth_client.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
     try:
         tx = deposit(auth_client, acquired_at="2023-03-14")
         assert tx["acquired_at"] == "2023-03-14"
@@ -234,7 +234,7 @@ def test_a_date_alone_is_kept_and_its_lot_is_at_noon_in_the_tax_timezone(auth_cl
         sell(auth_client)
         assert rows_2025(test_engine)[0]["date_acquired"] == "03/14/2023"
     finally:
-        auth_client.put("/api/settings/tax-timezone", json={"timezone": before})
+        auth_client.put("/api/settings/tax-timezone", json={"timezone": before, "chosen": True})
 
 
 @pytest.mark.parametrize("cells, message", [

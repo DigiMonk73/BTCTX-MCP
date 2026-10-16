@@ -351,7 +351,7 @@ test("Date with an hour: that hour on this device's clock, its UTC day's price h
   const browser = await logIn(page, app);
   // Tax timezone UTC, unlike this device's (#260): an hour read in the tax timezone
   // would show the picked UTC day's price, not the device hour's.
-  const tz = await page.request.put("/api/settings/tax-timezone", { data: { timezone: "UTC" } });
+  const tz = await page.request.put("/api/settings/tax-timezone", { data: { timezone: "UTC", chosen: true } });
   expect(tz.ok(), await tz.text()).toBeTruthy();
   await choosePriceSource(page, { price_source: "public" });
   const sidebar = page.getByRole("complementary");

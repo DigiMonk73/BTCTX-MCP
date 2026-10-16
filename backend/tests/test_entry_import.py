@@ -269,7 +269,7 @@ class TestDedup:
 
     def test_a_date_alone_matches_that_day_in_the_tax_timezone(self):
         """A row without a time matches any time that day; the next day's is only similar."""
-        assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/New_York"}).status_code == 200
+        assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/New_York", "chosen": True}).status_code == 200
         try:
             execute([dict(INTEREST, date="2025-03-21T02:00:00Z")])  # 10 pm on the 20th in New York
             assert preview([dict(INTEREST, date="2025-03-20")])["results"][0]["status"] == "duplicate"
@@ -277,7 +277,7 @@ class TestDedup:
             assert res["status"] == "possible_duplicate"
             assert any("recorded on 2025-03-20" in w for w in res["warnings"])
         finally:
-            CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC"})
+            CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
 
     def test_near_match_transfer_is_possible_duplicate(self):
         execute([dict(BUY, amount="1.0"), TO_COLD])

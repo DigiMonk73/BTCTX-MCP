@@ -134,7 +134,7 @@ def test_v0_7_0_database_is_backed_up_adopted_and_usable(v070):
         assert client.post("/api/login", json=default_login()).status_code == 200
         assert len(client.get("/api/transactions").json()) == 7
         assert client.post("/api/transactions/recalculate").status_code == 200
-        assert client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago"}).status_code == 200
+        assert client.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}).status_code == 200
         pdf = client.get("/api/reports/irs_reports", params={"year": 2024})
         assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")
     finally:
