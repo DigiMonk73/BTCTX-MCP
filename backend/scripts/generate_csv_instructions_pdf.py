@@ -7,6 +7,7 @@ app serves (GET /api/import/instructions). Run it after changing the guide:
 """
 
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -26,7 +27,7 @@ COLUMNS = [
     ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
     ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
     ["source", "No", "For Deposits: N/A, MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate"],
-    ["purpose", "Conditional", "For Withdrawals: Spent, Gift, Donation, Lost"],
+    ["purpose", "Conditional", "A BTC withdrawal (from Wallet or Exchange BTC): Spent, Gift, Donation or Lost. From Bank or Exchange USD: any short text on one line, or blank"],
     ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value when it left (shown in the tax report); blank = the BTC price when its hour began x the amount (that day's where there's no hourly price), or blank without a price"],
@@ -41,8 +42,8 @@ COLUMNS = [
 
 TYPES = [
     ["Type", "Description"],
-    ["Deposit", "BTC entering your portfolio (purchase, gift received, income, etc.)"],
-    ["Withdrawal", "BTC leaving your portfolio (spent, gift sent, donation, loss)"],
+    ["Deposit", "Money or BTC coming in from outside (BTC you held elsewhere, a gift received, income; dollars into Bank or Exchange USD)"],
+    ["Withdrawal", "Money or BTC leaving (BTC spent, given, donated or lost; dollars out of Bank or Exchange USD)"],
     ["Transfer", "Moving money or BTC between your own accounts (not a sale; a BTC network fee is a small disposal). Wallet to Wallet: a consolidation, where only the fee is recorded"],
     ["Buy", "Purchasing BTC on an exchange with USD"],
     ["Sell", "Selling BTC on an exchange for USD"],
@@ -101,8 +102,8 @@ EXAMPLES = [
     ("Buy from Exchange USD:", "2024-01-15T10:30:00Z,Buy,0.012,Exchange USD,Exchange BTC,500.00,,5.00,USD,,,"),
     ("Buy from Bank (auto-buy):", "2024-01-20T08:00:00Z,Buy,0.05,Bank,Exchange BTC,2500.00,,10.00,USD,,,"),
     ("Sell (selling BTC on exchange):", "2024-02-15T11:30:00Z,Sell,0.3,Exchange BTC,Exchange USD,,15000.00,10.00,USD,,,"),
-    ("Deposit (BTC entering your wallet):", "2024-01-20T14:00:00Z,Deposit,0.5,External,Wallet,21000.00,,,Income,,"),
-    ("Withdrawal (spending BTC):", "2024-03-01T09:00:00Z,Withdrawal,0.1,Wallet,External,,5500.00,,,Spent,"),
+    ("Deposit (BTC entering your wallet):", "2024-01-20T14:00:00Z,Deposit,0.5,External,Wallet,21000.00,,,,Income,,"),
+    ("Withdrawal (spending BTC):", "2024-03-01T09:00:00Z,Withdrawal,0.1,Wallet,External,,5500.00,,,,Spent,"),
     ("Transfer (moving between wallets):", "2024-02-01T16:45:00Z,Transfer,1.0,Exchange BTC,Wallet,,,0.0001,BTC,,,"),
     ("Transfer within the wallet (a consolidation: only the fee):",
      "2024-02-05T09:00:00Z,Transfer,0.4,Wallet,Wallet,,,0.00005,BTC,,,"),
@@ -115,7 +116,7 @@ COMMON_ERRORS = [
     ["\"Invalid account name\"", "Use exactly: Bank, Wallet, Exchange USD, Exchange BTC, or External"],
     ["\"cost_basis_usd required for Buy\"", "Add the USD paid for the BTC, before the fee"],
     ["\"proceeds_usd required for Sell\"", "Add the gross USD, before the fee"],
-    ["\"purpose required for Withdrawal\"", "Add purpose: Spent, Gift, Donation, or Lost"],
+    ["\"A BTC withdrawal needs a purpose\"", "From Wallet or Exchange BTC, add purpose: Spent, Gift, Donation, or Lost"],
     ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
     ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],
     ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
@@ -196,11 +197,12 @@ class _Guide:
         )
         self.cell = ParagraphStyle("Cell", parent=sample["Normal"], fontSize=8.5, leading=10.5)
 
-    def table(self, rows: list, widths: list, wrap: bool = False) -> Table:
-        """A guide table; `wrap` makes the body cells Paragraphs, so long text
-        wraps inside its column."""
-        if wrap:
-            rows = [rows[0]] + [[Paragraph(str(c).replace("\n", "<br/>"), self.cell) for c in row] for row in rows[1:]]
+    def table(self, rows: list, widths: list) -> Table:
+        """A guide table. Its body cells are Paragraphs, so long text wraps
+        inside its column: as plain strings, the type, source and purpose
+        tables' longer rows ran off the page."""
+        rows = [rows[0]] + [[Paragraph(escape(str(c)).replace("\n", "<br/>"), self.cell) for c in row]
+                            for row in rows[1:]]
         table = Table(rows, colWidths=[width * inch for width in widths])
         table.setStyle(TABLE_STYLE)
         return table
@@ -251,7 +253,7 @@ class _Guide:
         return [
             Paragraph("Field Reference", self.heading1),
             Paragraph("CSV Columns", self.heading2),
-            self.table(COLUMNS, [1.3, 0.9, 4.5], wrap=True),
+            self.table(COLUMNS, [1.3, 0.9, 4.5]),
             Paragraph(
                 "Settings > Export CSV writes these same columns, so an export imports back to the same ledger.",
                 self.normal
@@ -262,7 +264,7 @@ class _Guide:
             self.table(ACCOUNTS, [1.5, 5.2]),
             Paragraph("Source Values (for Deposits)", self.heading2),
             self.table(SOURCES, [1.3, 5.4]),
-            Paragraph("Purpose Values (for Withdrawals)", self.heading2),
+            Paragraph("Purpose Values (for BTC Withdrawals)", self.heading2),
             self.table(PURPOSES, [1.3, 5.4]),
         ]
 
@@ -274,7 +276,7 @@ class _Guide:
                 "The system enforces these rules during validation.",
                 self.normal
             ),
-            self.table(ACCOUNT_RULES, [1.0, 1.3, 1.3, 3.1], wrap=True),
+            self.table(ACCOUNT_RULES, [1.0, 1.3, 1.3, 3.1]),
         ]
 
     def date_formats(self) -> list:
