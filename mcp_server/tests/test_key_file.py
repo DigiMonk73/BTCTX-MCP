@@ -319,6 +319,8 @@ async def test_clear_errors_when_the_app_isnt_found(tmp_path):
     with pytest.raises(BtctxError, match="not found") as e:
         await btctx.get("/api/transactions")
     assert str(missing) in str(e.value)
+    # The app may be open with no file at all, if its first start couldn't write it (#238)
+    assert "or, if it's open, press Reset key in its Settings (Connect an AI Assistant)" in str(e.value)
 
     missing.write_text(json.dumps({"url": "http://127.0.0.1:8765", "pid": 999_999_999, "token": "x" * 43}))
     with pytest.raises(BtctxError, match="no longer running") as e:

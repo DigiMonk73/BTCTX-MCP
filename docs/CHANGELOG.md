@@ -82,11 +82,12 @@ All notable changes to BitcoinTX are documented in this file.
   If the app can't write its AI key file when it starts, it runs with no
   key until **Reset key** (or the next start). Settings › Connect an AI
   Assistant now says "No AI key yet: press Reset key." instead of only
-  describing the key file. And the AI connector, finding a key file whose
-  app is gone, adds "or, if it's open, press Reset key in its Settings
-  (Connect an AI Assistant)" to "Open the BitcoinTX app and try again",
-  since an open app that couldn't write its key leaves the earlier run's
-  file behind. `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
+  describing the key file. And the AI connector, finding no key file, or
+  one whose app is gone, adds "or, if it's open, press Reset key in its
+  Settings (Connect an AI Assistant)" to "Open the BitcoinTX app and try
+  again": an open app that couldn't write its key has no file on its first
+  start, and leaves the earlier run's file after that.
+  `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
 
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as

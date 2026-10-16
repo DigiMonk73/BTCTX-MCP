@@ -148,13 +148,13 @@ export function acceptDialogs(page: Page, promptText = "") {
   return seen;
 }
 
+/** With `keyFileBlocked`, the Mac app's key file goes in this folder, where a plain file stands. */
+export const BLOCKED_KEY_FOLDER = "key-folder";
+
 /**
  * The server's environment as the Mac app's launcher sets it (port, key
  * file in the test's temp dir). Use with test.use({ appMode: "mac" }).
  */
-/** With `keyFileBlocked`, the Mac app's key file goes in this folder, where a plain file stands. */
-export const BLOCKED_KEY_FOLDER = "key-folder";
-
 function macAppEnv(dir: string, port: number, keyFileBlocked: boolean): Record<string, string> {
   // A file where the key's folder goes: the app can't make the folder, so it can't write the key
   if (keyFileBlocked) writeFileSync(path.join(dir, BLOCKED_KEY_FOLDER), "");
