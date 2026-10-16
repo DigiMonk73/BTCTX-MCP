@@ -427,6 +427,11 @@ from the Transaction row alone.
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
+- A JSON body whose text (or a key) holds a lone surrogate (`"\ud800"`)
+  is refused, 422 naming the field, before any route runs
+  (`main.refuse_text_that_isnt_text`, an app-wide dependency, #313): it
+  can't be saved or quoted back. The login and `/api/users` routes are left
+  to their own check, where it's a wrong login or password (#210).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI

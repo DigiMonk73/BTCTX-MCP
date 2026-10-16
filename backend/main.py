@@ -54,6 +54,7 @@ from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
+from backend.schemas.user import is_text
 from backend.services.tax_time import DateOutOfRange
 
 
@@ -107,6 +108,52 @@ def _sync_ai_key_file() -> None:
         db.close()
 
 
+# Routes that read such text themselves: a login or current password that
+# isn't text is a wrong one, counted by the login throttle; a new username or
+# password, a 422 (#210)
+TEXT_CHECKED_BY_ITS_ROUTE = ("/api/login", "/api/users")
+NOT_TEXT_IN_REQUEST = "The {} holds a character that isn't text (a lone surrogate): remove it."
+
+
+async def refuse_text_that_isnt_text(request: Request) -> None:
+    """
+    A JSON body with a lone surrogate ("\\ud800") in its text: JSON allows
+    one, but it isn't a character and UTF-8 can't encode it, so SQLite
+    couldn't save it and an answer quoting it couldn't be written: a server
+    error (#313). Refused for every route at once, before the route runs,
+    with a 422 naming the field. Every app route depends on it.
+    """
+    if request.scope["path"].startswith(TEXT_CHECKED_BY_ITS_ROUTE) \
+            or "json" not in request.headers.get("content-type", ""):
+        return
+    try:
+        body = json.loads(await request.body())
+    except ValueError:
+        return  # not JSON: the route's own 422 says so
+    field = _field_not_text(body)
+    if field is not None:
+        raise HTTPException(status_code=422, detail=NOT_TEXT_IN_REQUEST.format(field))
+
+
+def _field_not_text(body) -> str | None:
+    """The name of a field whose text, or one of whose keys, isn't text
+    ("request" outside any field), else None. Walked without recursion: the
+    body may nest as deep as JSON allows."""
+    pending = [(body, "request")]
+    while pending:
+        value, field = pending.pop()
+        if isinstance(value, str) and not is_text(value):
+            return field
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if not is_text(key):
+                    return field
+                pending.append((item, key))
+        elif isinstance(value, list):
+            pending.extend((item, field) for item in value)
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """At startup: migrate the schema and seed the defaults, then the setup
@@ -129,6 +176,7 @@ app = FastAPI(
     debug=os.getenv("DEBUG", "false").lower() == "true",
     redirect_slashes=True,
     lifespan=lifespan,
+    dependencies=[Depends(refuse_text_that_isnt_text)],
     # The interactive API docs describe every endpoint to anyone who asks;
     # only with DEBUG.
     docs_url="/docs" if os.getenv("DEBUG", "false").lower() == "true" else None,
