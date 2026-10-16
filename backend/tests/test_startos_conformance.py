@@ -154,11 +154,11 @@ def test_no_work_record_files():
     assert stray == [], f"Start9's template keeps no work records in the package: {stray}"
 
 
-# tasks.md, "Idempotency and replayId": raising a task's replay key again
-# doesn't duplicate it, but once the user has dismissed it the next raise
-# brings it back (StartOS 0.4.0.2, #365). A container rebuild (every server
-# restart) runs init, so a task raised after an update asks once: its handler
-# skips a rebuild and records that it asked, after raising it.
+# Raising a task's replay key again doesn't duplicate an open task (tasks.md,
+# "Idempotency and replayId"), but once the user has dismissed it the next
+# raise brings it back (StartOS 0.4.0.2, #365). A container rebuild (every
+# server restart) runs init, so a task raised after an update asks once: its
+# handler skips a rebuild and records that it asked, after raising it.
 @pytest.mark.parametrize(
     "name, key",
     [("priceSourceTask.ts", "priceSourceAsked"), ("recalculateTask.ts", "recalculateAsked")],
