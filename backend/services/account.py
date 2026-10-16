@@ -1,26 +1,25 @@
 """
-Accounts: reading them, and changes to accounts other than the four the
-ledger's rules name (Bank, Wallet, Exchange USD, Exchange BTC), which stay
-as they are and are recreated if missing.
+Accounts: reading them, and changes to accounts other than the six fixed
+ones (database.FIXED_ACCOUNTS: Bank, Wallet, Exchange USD, Exchange BTC,
+BTC Fees, USD Fees), which stay as they are and are recreated if missing.
+The ledger finds the fee accounts by name, and the next start puts a
+fixed account's name back: a renamed BTC Fees left a second one behind,
+and that start failed on the duplicate name (#289).
 """
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+from backend.database import FIXED_ACCOUNTS
 from backend.models.account import Account
 from backend.schemas.account import AccountCreate, AccountUpdate
 
 
-SPECIAL_ACCOUNTS = {
-    1: {"name": "Bank",         "currency": "USD"},
-    2: {"name": "Wallet",       "currency": "BTC"},
-    3: {"name": "Exchange USD", "currency": "USD"},
-    4: {"name": "Exchange BTC", "currency": "BTC"},
-}
+SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
 
 
 def get_all_accounts(db: Session):
-    """Every account, after putting the four special ones right."""
+    """Every account, after putting the fixed ones right."""
     ensure_special_accounts_exist(db)
     return db.query(Account).all()
 

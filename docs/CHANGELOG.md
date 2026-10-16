@@ -226,6 +226,16 @@ All notable changes to BitcoinTX are documented in this file.
   and saves as before. A deposit's source was already read this way. The
   Transactions list and Ledger Review show the listed spelling too ("Spent",
   not "spent"). Display only: nothing stored changes, and no figure moves.
+- **BTC Fees and USD Fees can't be renamed or deleted** (#289). The
+  account API (`/api/accounts`, login only: no screen and no AI connector
+  tool changes accounts) protected Bank, Wallet, Exchange USD and Exchange
+  BTC, but not the two fee accounts. A renamed BTC Fees made the next
+  bitcoin fee create a second "BTC Fees", and BitcoinTX then failed to
+  start (it puts the fixed names back, and two accounts can't share one);
+  a deleted fee account took its ledger lines with it. All six fixed
+  accounts now refuse a new name, a new currency and a delete, and no other
+  account can take their names. No figure moves: the lots don't read the
+  fee accounts.
 - **The CSV preview refuses the fee accounts, dollar amounts past the cent
   and transfers across currencies** (#266). Settings → Import Transactions
   (CSV) → **Preview** called these rows valid, and **Import** then refused
