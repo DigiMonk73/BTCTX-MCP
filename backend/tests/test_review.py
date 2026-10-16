@@ -478,10 +478,10 @@ def _stored(test_engine, tx_id, column):
 
 def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client, test_engine):
     """#61: before the purpose was checked, a BTC withdrawal could be saved
-    with another ("Expenses") or none. It counts as a sale, at $0 proceeds
-    when no gross was recorded: a row from before 0.8.0 may still hold its
-    proceeds (kept by a recalculation, #329), and the item names them. The
-    API can't make such a row, so it's written directly."""
+    with another ("Expenses") or none. It counts as Spent (the owner's
+    rule): at its gross, or the proceeds a row from before 0.8.0 still
+    holds (#329), else at $0, and the item says which. The API can't make
+    such a row, so it's written directly."""
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     _insert(test_engine, [
         (940, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
@@ -501,17 +501,16 @@ def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client,
         check = next(c for c in auth_client.get("/api/review").json()["checks"]
                      if c["key"] == "withdrawal_purpose_unknown")
         assert [(i["id"], i["issue"]) for i in check["items"]] == [
-            (943, 'Purpose "Expenses": counted as a sale at $0 proceeds (none recorded), so its whole basis '
+            (943, 'Purpose "Expenses": counted as Spent at $0 proceeds (none recorded), so its whole basis '
                   "shows as a loss."),
-            (944, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
+            (944, "Purpose blank: counted as Spent at $0 proceeds (none recorded), so its whole basis shows "
                   "as a loss."),
-            (945, 'Purpose "Payment": counted as a sale with $450.00 proceeds.'),
-            (948, 'Purpose "Expenses": $700.00 proceeds saved with it, but counted as a sale at $0 until you '
-                  "choose."),
-            (949, "Purpose blank: counted as a sale at $0 proceeds (none recorded), so its whole basis shows "
+            (945, 'Purpose "Payment": counted as Spent, with $450.00 proceeds.'),
+            (948, 'Purpose "Expenses": counted as Spent, with the $700.00 proceeds saved with it.'),
+            (949, "Purpose blank: counted as Spent at $0 proceeds (none recorded), so its whole basis shows "
                   "as a loss."),
         ]
-        assert "An amount listed as saved with it stays saved until you do." in check["action"]
+        assert "Each counts as Spent until you choose." in check["action"]
         assert "backups/btctx-before-schema-0010-….db" in check["action"]
         with test_engine.connect() as con:
             assert con.execute(text("SELECT * FROM transactions ORDER BY id")).all() == before
@@ -519,8 +518,9 @@ def test_review_lists_btc_withdrawals_with_a_purpose_it_doesnt_know(auth_client,
         assert auth_client.post("/api/transactions/recalculate").status_code == 200
         assert [(_stored(test_engine, i, "proceeds_usd"), _stored(test_engine, i, "realized_gain_usd"))
                 for i in (943, 944, 945, 948, 949)] == [(None, Decimal("-100.00"))] * 2 \
-            + [(Decimal("450.00"), Decimal("350.00")), (Decimal("700.00"), Decimal("-100.00")),
-               (None, Decimal("-100.00"))]  # proceeds as stored (#329), the gain a $0 sale's
+            + [(Decimal("450.00"), Decimal("350.00")), (Decimal("700.00"), Decimal("600.00")),
+               (None, Decimal("-100.00"))]  # the amount saved counts (#61), never priced when there's none
+        assert _stored(test_engine, 948, "gross_proceeds_usd") == Decimal("700.00")
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
@@ -568,5 +568,61 @@ def test_a_recalculation_keeps_what_an_unknown_purpose_withdrawal_received(auth_
             assert auth_client.post("/api/transactions/recalculate").status_code == 200
         assert [_stored(test_engine, i, "proceeds_usd") for i in (961, 962, 963)] == \
             [Decimal("700.00"), Decimal("0.00"), None]
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def _withdrawal_with_fee(test_engine, tx_id, account, purpose, gross, proceeds):
+    """A 0.1 BTC withdrawal on 2024-02-01 with a 0.001 BTC fee worth $7.00,
+    written directly as an old ledger holds it."""
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, fee_usd, purpose, gross_proceeds_usd, proceeds_usd)"
+            " VALUES (:id, 'Withdrawal', '2024-02-01T12:00:00Z', :frm, :to, '0.1', '0.001', 'BTC', '7.00',"
+            " :purpose, :gross, :proceeds)"),
+            dict(id=tx_id, frm=account, to=EXTERNAL, purpose=purpose, gross=gross, proceeds=proceeds))
+
+
+def _figures(test_engine, tx_id) -> tuple:
+    """The transaction's proceeds and gain, and its rows' (fee, proceeds, gain)."""
+    with test_engine.connect() as con:
+        rows = con.execute(text(
+            "SELECT is_fee, proceeds_usd_for_that_portion, realized_gain_usd FROM lot_disposals"
+            " WHERE transaction_id = :t ORDER BY is_fee, id"), {"t": tx_id}).all()
+    return (_stored(test_engine, tx_id, "proceeds_usd"), _stored(test_engine, tx_id, "realized_gain_usd"),
+            [(bool(fee), Decimal(str(p)).quantize(CENT), Decimal(str(g)).quantize(CENT)) for fee, p, g in rows])
+
+
+def test_a_withdrawal_of_unknown_purpose_counts_exactly_as_spent(auth_client, test_engine):
+    """#61, the owner's rule: an old "Expenses" withdrawal counted as a sale
+    at its gross, its network fee left on top. It counts as Spent: the fee
+    is a cost of the spend (#157), so its proceeds and rows are a Spent's
+    to the cent, and the dashboard's spent total has it. One saved before
+    0.8.0 (no gross) counts at the proceeds saved with it, which had no fee
+    offset to undo (only a Spent's did)."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [
+        (970, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (971, "Deposit", "2024-01-02", EXTERNAL, EXCH_BTC, "1", "MyBTC", None, "1000", None, None, None),
+    ])
+    _withdrawal_with_fee(test_engine, 972, WALLET, "Spent", "700", None)
+    _withdrawal_with_fee(test_engine, 973, EXCH_BTC, "Expenses", "700", None)
+    try:
+        assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        spent = _figures(test_engine, 972)
+        assert spent[:2] == (Decimal("693.00"), Decimal("593.00"))
+        assert _figures(test_engine, 973) == spent
+        totals = auth_client.get("/api/calculations/gains-and-losses").json()
+        assert totals["withdrawals_spent"] == 1386.0
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [(974, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None,
+                           None)])
+    _withdrawal_with_fee(test_engine, 975, WALLET, "Expenses", None, "700")
+    try:
+        assert auth_client.post("/api/transactions/recalculate").status_code == 200
+        assert _stored(test_engine, 975, "gross_proceeds_usd") == Decimal("700.00")
+        assert _figures(test_engine, 975)[:2] == (Decimal("693.00"), Decimal("593.00"))
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

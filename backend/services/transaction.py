@@ -157,6 +157,18 @@ def _is_spent(data: dict) -> bool:
     return kind == "Withdrawal" and (data.get("purpose") or "").lower() == "spent"
 
 
+def counts_as_spent(tx: Transaction) -> bool:
+    """
+    Whether a BTC withdrawal counts as Spent: its purpose is Spent, or one
+    BitcoinTX doesn't know (only a ledger from before 0.9.2 holds one, such
+    as "Expenses", or none). A withdrawal of bitcoin is spent, given,
+    donated or lost, and an expense paid with it is a spend (the owner's
+    rule, #61); Ledger Review lists those until the owner chooses.
+    """
+    return tx.type == "Withdrawal" and tx.from_account_id in BTC_ACCOUNTS \
+        and (tx.purpose or "").lower() not in GIFT_LIKE_PURPOSES
+
+
 def _is_gift_like(data) -> bool:
     """A Gift, Donation or Lost withdrawal from a BTC account (a transaction or its input)."""
     get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
@@ -835,15 +847,22 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         the BTC fee offset versions before 0.9.2 applied; undo it once. The
         gross is what was received for the amount spent (the fee is its own
         disposal now).
+      - A purpose BitcoinTX doesn't know counts as Spent (counts_as_spent,
+        #61): its stored proceeds_usd, which had no offset taken off (only a
+        Spent's did), becomes its gross. With none stored, $0: what it
+        received isn't known, and a recalculation never fetches a price (a
+        missing one would stop every save); Ledger Review asks for it.
     """
     if tx.gross_proceeds_usd is not None:
         return Decimal(tx.gross_proceeds_usd)
 
     purpose = (tx.purpose or "").lower()
     amount = Decimal(tx.amount or 0)
-    if purpose != "spent":
+    if purpose in GIFT_LIKE_PURPOSES:
         # Gift/Donation/Lost have no proceeds. Their stored proceeds_usd is the
         # network fee's (its own disposal), never a gross to recover.
+        return Decimal("0")
+    if tx.proceeds_usd is None and purpose != "spent":
         return Decimal("0")
     if tx.proceeds_usd is None:
         priced = _price_for(tx, "it has no Proceeds (USD) value", db)
@@ -1075,7 +1094,8 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     """
     For a Sell/Withdrawal from a BTC account, do FIFO disposal of partial lots.
     - The proceeds are for the amount sold or spent, net of its fee: a Sell's
-      net proceeds, a Spent withdrawal's gross less its BTC fee's value.
+      net proceeds, a Spent withdrawal's (or one counted as Spent, #61)
+      gross less its BTC fee's value.
     - Gift/Donation/Lost => the amount carries no proceeds and no gain.
     - A withdrawal's BTC network fee is its own disposal (like a transfer's),
       at the fee's stored USD value, taxable whatever the purpose. It uses the
@@ -1099,7 +1119,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
-    if tx.type == "Withdrawal" and (tx.purpose or "").lower() == "spent":
+    if counts_as_spent(tx):
         total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
@@ -1282,11 +1302,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0 or (tx.type == "Withdrawal" and purpose == "spent"):
+    elif total_proceeds > 0 or (counts_as_spent(tx) and tx.gross_proceeds_usd is not None):
         # A spend whose fee took all it brought in has 0 (#157), not the
-        # gross. A withdrawal whose purpose BitcoinTX doesn't know keeps a
-        # stored amount, as up to 1.2.7: saved before 0.8.0 with no gross,
-        # it's the only record of what was received (#329, #61)
+        # gross. One counted as Spent with nothing recorded (an old ledger's
+        # unknown purpose, #61) keeps what's stored: never 0 written over an
+        # amount that is the only record of what was received (#329)
         tx.proceeds_usd = total_proceeds
 
     # Each part's own term, worked out when it was disposed of (lot_holding_period)

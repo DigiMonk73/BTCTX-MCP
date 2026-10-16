@@ -173,11 +173,13 @@ from the Transaction row alone.
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
-  One exception: a BTC withdrawal whose purpose isn't Spent, Gift, Donation
-  or Lost (only an old ledger holds one, #61) keeps its stored
-  `proceeds_usd` through a recalculation whenever its own come to $0, as up
-  to 1.2.7: saved before 0.8.0 with no gross, it's the only record of what
-  was received (#329). Spent keeps $0 (#157); Gift, Donation and Lost none.
+  A BTC withdrawal whose purpose isn't Spent, Gift, Donation or Lost (only
+  an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
+  the owner's rule, #61): at its gross, or, saved before 0.8.0 with no
+  gross, at its stored `proceeds_usd` (no fee offset to undo: only a
+  Spent's had one), which becomes its gross; with none stored, $0, never
+  priced by a recalculation, and that stored amount is never written over
+  (#329). Ledger Review lists them until the owner chooses.
 - **Gift, Donation and Lost values** (#255): a blank `fmv_usd` on such a BTC
   withdrawal is filled at save from the hour's price and marked
   (`fmv_from_price`). An edit fills one it leaves blank, or a sale's $0 it
