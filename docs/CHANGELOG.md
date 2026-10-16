@@ -194,6 +194,13 @@ All notable changes to BitcoinTX are documented in this file.
   amount in dollars ($50,000.00), a bitcoin row's in BTC, and the
   accounts as the CSV file writes them (Exchange USD, Exchange BTC). Only
   the preview was wrong: the import always read the amounts right.
+- **The Mac app runs the Python the tests run** (#284). Its build took the
+  newest Python on the build machine, and GitHub's macOS runner has 3.13,
+  so the 1.2.8 Mac app bundled Python 3.13.15, while the test suite,
+  Docker and StartOS run 3.11 (and nothing chose 3.13: a newer runner
+  would have changed it again). The macOS build and release jobs now hand
+  the build the Python 3.11 they set up (`BTCTX_BUILD_PYTHON`); a build on
+  your own Mac still takes the newest it finds, unless you name one.
 - **No gain line for a gift, a donation or lost coins** (#257). The
   Transactions list showed one under these withdrawals ("Gain $0.00 ·
   +0.00% · Long-term"), as if they were sales with a holding period. They

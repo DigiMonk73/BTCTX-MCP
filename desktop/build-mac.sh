@@ -8,6 +8,7 @@
 #
 # Usage:
 #   ./desktop/build-mac.sh
+#   BTCTX_BUILD_PYTHON=/path/to/python3.11 ./desktop/build-mac.sh   (that Python)
 #
 
 set -e
@@ -32,9 +33,16 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# Find Python 3.10+
+# Python 3.10+: the one BTCTX_BUILD_PYTHON names, which CI's macOS jobs set
+# to the Python they set up (3.11, as the tests, Docker and StartOS run; the
+# runner's newer one was bundled instead, #284); else the newest found here.
 PYTHON_CMD=""
-for py in python3.13 python3.12 python3.11 python3.10 python3; do
+if [ -n "${BTCTX_BUILD_PYTHON:-}" ]; then
+    CANDIDATES=("$BTCTX_BUILD_PYTHON")
+else
+    CANDIDATES=(python3.13 python3.12 python3.11 python3.10 python3)
+fi
+for py in "${CANDIDATES[@]}"; do
     if command -v "$py" &> /dev/null; then
         PY_VER=$("$py" -c "import sys; print(sys.version_info.minor)")
         PY_MAJOR=$("$py" -c "import sys; print(sys.version_info.major)")
@@ -45,6 +53,10 @@ for py in python3.13 python3.12 python3.11 python3.10 python3; do
     fi
 done
 
+if [ -z "$PYTHON_CMD" ] && [ -n "${BTCTX_BUILD_PYTHON:-}" ]; then
+    echo "ERROR: BTCTX_BUILD_PYTHON ($BTCTX_BUILD_PYTHON) isn't a Python 3.10+"
+    exit 1
+fi
 if [ -z "$PYTHON_CMD" ]; then
     echo "ERROR: Python 3.10+ is required but not found"
     echo ""
