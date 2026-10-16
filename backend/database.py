@@ -10,12 +10,15 @@ accounts. Everything persistent lives in DATABASE_FILE's directory
 import os
 import logging
 import datetime
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dotenv import load_dotenv
 import sqlite3
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.types import TypeDecorator, String
 import bcrypt
 
@@ -115,6 +118,34 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def scratch_copy(db: Session) -> Iterator[Session]:
+    """
+    A throwaway in-memory copy of the database, as committed. A replay run
+    on it (a report's start- and end-of-year holdings, Ledger Review's dry
+    run, #335) never rewrites the real ledger or holds its write lock, so a
+    save made meanwhile goes through; making the copy only reads.
+    """
+    memory = sqlite3.connect(":memory:", check_same_thread=False)
+    try:
+        raw = db.get_bind().raw_connection()
+        try:
+            raw.driver_connection.backup(memory)
+        finally:
+            raw.close()
+        engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
+        try:
+            scratch = Session(bind=engine)
+            try:
+                yield scratch
+            finally:
+                scratch.close()
+        finally:
+            engine.dispose()
+    finally:
+        memory.close()
 
 FIXED_ACCOUNTS = [
     {"id": 1, "name": "Bank", "currency": "USD"},
