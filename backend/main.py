@@ -5,12 +5,14 @@ routes open to it), the security middleware, the API routers, login and
 logout, the health check, and the built frontend served from frontend/dist.
 """
 
+import email.message
 import json
 import os
 import logging
+import re
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi import FastAPI, Request, Response, Depends, HTTPException, params
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +56,7 @@ from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
+from backend.schemas.user import is_text
 from backend.services.tax_time import DateOutOfRange
 
 
@@ -105,6 +108,99 @@ def _sync_ai_key_file() -> None:
         logger.exception("Could not write the AI key file: no AI key until Reset key in Settings, or the next start")
     finally:
         db.close()
+
+
+NOT_TEXT_IN_FIELD = 'The field "{}" holds a character that isn\'t text (a lone surrogate): remove it.'
+NOT_TEXT_IN_REQUEST = "The request holds a character that isn't text (a lone surrogate): remove it."
+FIELD_NAME_SHOWN = 40  # characters of a field's name the refusal quotes
+# A lone surrogate can only be in a body that holds an escaped one
+# (\ud800 to \udfff, also half of a real pair such as an emoji's) or UTF-8's
+# bytes for one; any other body skips the walk
+MAY_HOLD_A_SURROGATE = re.compile(rb"\\u[dD][89a-fA-F]|\xed[\xa0-\xbf]")
+
+
+async def refuse_text_that_isnt_text(request: Request) -> None:
+    """
+    A JSON body with a lone surrogate ("\\ud800") in its text: JSON allows
+    one, but it isn't a character and UTF-8 can't encode it, so SQLite
+    couldn't save it and an answer quoting it couldn't be written: a server
+    error (#313). Refused for every logged-in route that takes a JSON body,
+    with a 422 naming the field, before the route runs: each router lists it
+    after its login check (LOGGED_IN), so an anonymous request gets its 401
+    and never costs a walk. The login and /api/users read such text
+    themselves (#210): at the login, or as a current password, it's a wrong
+    one, counted by the login throttle; as a new username or password, a
+    422. FastAPI has already read and parsed the body, so this reuses both.
+    """
+    if not _takes_json(request):
+        return
+    body = await request.body()
+    if not _may_hold_a_surrogate(body):
+        return
+    refusal = _not_text_refusal(await request.json())
+    if refusal is not None:
+        raise HTTPException(status_code=422, detail=refusal)
+
+
+def _may_hold_a_surrogate(body: bytes) -> bool:
+    """Whether the walk is needed. A body in UTF-16 or UTF-32, which JSON
+    allows and the parser reads letting surrogates through, always is. A
+    UTF-8 one only when it may: two plain substring tests first, which clear
+    almost every body (a few ms for 5 MB), then the pattern."""
+    if json.detect_encoding(body) not in ("utf-8", "utf-8-sig"):
+        return True
+    return (b"\\u" in body or b"\xed" in body) and MAY_HOLD_A_SURROGATE.search(body) is not None
+
+
+def _takes_json(request: Request) -> bool:
+    """Whether FastAPI reads this request's body as JSON: the route takes a
+    body that isn't a form, sent as application/json or application/*+json
+    (its own rule, the media type in any case, parameters left out)."""
+    body_field = getattr(request.scope.get("route"), "body_field", None)
+    if body_field is None or isinstance(body_field.field_info, params.Form):
+        return False
+    message = email.message.Message()
+    message["content-type"] = request.headers.get("content-type", "")
+    subtype = message.get_content_subtype()
+    return message.get_content_maintype() == "application" and (subtype == "json" or subtype.endswith("+json"))
+
+
+def _not_text(field: str | None) -> str:
+    if field is None:
+        return NOT_TEXT_IN_REQUEST
+    shown = field if len(field) <= FIELD_NAME_SHOWN else field[:FIELD_NAME_SHOWN] + "…"
+    return NOT_TEXT_IN_FIELD.format(shown)
+
+
+# What the walk looks into: numbers, true, false and null hold no text
+_HOLDS_TEXT = (str, dict, list)
+
+
+def _not_text_refusal(body) -> str | None:
+    """The refusal for the first field whose text, or one of whose keys,
+    isn't text (naming the field, or the request outside any), else None.
+    Walked without recursion, as the body may nest as deep as JSON allows,
+    and only into what can hold text."""
+    pending: list[tuple] = [(body, None)] if isinstance(body, _HOLDS_TEXT) else []
+    while pending:
+        value, field = pending.pop()
+        if isinstance(value, str):
+            if not _text(value):
+                return _not_text(field)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                if not _text(key):
+                    return _not_text(field)
+                if isinstance(item, _HOLDS_TEXT):
+                    pending.append((item, key))
+        else:
+            pending.extend((item, field) for item in value if isinstance(item, _HOLDS_TEXT))
+    return None
+
+
+def _text(value: str) -> bool:
+    """ASCII is text, found without a copy; anything else, as UTF-8 encodes it."""
+    return value.isascii() or is_text(value)
 
 
 @asynccontextmanager
@@ -227,9 +323,10 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     """
     FastAPI's 422, less any input JSON can't carry: a number such as 1e999
     is read as infinity (#218), and text can hold a lone surrogate (#210).
-    Echoed back, either failed the answer with a 500.
+    Echoed back, either failed the answer with a 500; so did a body that
+    isn't UTF-8, sent without a JSON type (_without_bytes_input).
     """
-    errors = jsonable_encoder(exc.errors())
+    errors = jsonable_encoder([_without_bytes_input(error) for error in exc.errors()])
     for error in errors:
         if not _writable(error):
             error.pop("input", None)
@@ -242,6 +339,17 @@ async def date_out_of_range_handler(request: Request, exc: DateOutOfRange):
     """A date that falls outside Python's years in a timezone (tax_time.py,
     #211): a 422, not a server error."""
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+def _without_bytes_input(error: dict) -> dict:
+    """A body FastAPI didn't read as JSON (text/plain, text/json, no type)
+    is its `input` as bytes, which jsonable_encoder decodes as strict UTF-8:
+    one that isn't failed the answer with a 500 (#313's re-check). Left out,
+    as an input JSON can't carry is: echoed back, megabytes of it would be
+    larger still."""
+    if isinstance(error.get("input"), (bytes, bytearray)):
+        return {key: value for key, value in error.items() if key != "input"}
+    return error
 
 
 def _writable(value) -> bool:
@@ -285,23 +393,27 @@ def require_login_dependency(request: Request, db: Session = Depends(get_db)) ->
 
 from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings, review
 
-app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
+# Every logged-in router: the login (or the AI key), then the text check
+# (#313), which an anonymous request never reaches
+LOGGED_IN = [Depends(get_current_user), Depends(refuse_text_that_isnt_text)]
+
+app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=LOGGED_IN)
 app.include_router(user.router, prefix="/api/users", tags=["users"])  # No auth — register must work
-app.include_router(account.router, prefix="/api/accounts", tags=["accounts"], dependencies=[Depends(get_current_user)])
-app.include_router(calculation.router, prefix="/api/calculations", tags=["calculations"], dependencies=[Depends(get_current_user)])
-app.include_router(bitcoin.router, prefix="/api/bitcoin", tags=["Bitcoin"], dependencies=[Depends(get_current_user)])
-app.include_router(reports.reports_router, prefix="/api/reports", tags=["reports"], dependencies=[Depends(get_current_user)])
-app.include_router(backup.router, prefix="/api/backup", tags=["backup"], dependencies=[Depends(get_current_user)])
-app.include_router(csv_import.router, prefix="/api/import", tags=["import"], dependencies=[Depends(get_current_user)])
-app.include_router(river_import.router, prefix="/api/import/river", tags=["import"], dependencies=[Depends(get_current_user)])
-app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=[Depends(get_current_user)])
-app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=[Depends(get_current_user)])
-app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=[Depends(get_current_user)])
+app.include_router(account.router, prefix="/api/accounts", tags=["accounts"], dependencies=LOGGED_IN)
+app.include_router(calculation.router, prefix="/api/calculations", tags=["calculations"], dependencies=LOGGED_IN)
+app.include_router(bitcoin.router, prefix="/api/bitcoin", tags=["Bitcoin"], dependencies=LOGGED_IN)
+app.include_router(reports.reports_router, prefix="/api/reports", tags=["reports"], dependencies=LOGGED_IN)
+app.include_router(backup.router, prefix="/api/backup", tags=["backup"], dependencies=LOGGED_IN)
+app.include_router(csv_import.router, prefix="/api/import", tags=["import"], dependencies=LOGGED_IN)
+app.include_router(river_import.router, prefix="/api/import/river", tags=["import"], dependencies=LOGGED_IN)
+app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=LOGGED_IN)
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=LOGGED_IN)
+app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=LOGGED_IN)
 
 # Debug routes: a logged-in session only, never the AI key.
 try:
     from backend.routers import debug
-    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency)])
+    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency), Depends(refuse_text_that_isnt_text)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
