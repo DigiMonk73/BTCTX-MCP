@@ -40,11 +40,14 @@ export function waitingDetail(detail: unknown): boolean {
 }
 
 /** Why there's no live price, from the server's answer (backend/services/outbound.py,
- * refuse_public): waiting to confirm, not chosen yet, Nobody (503, by choice), or no
- * answer from the chosen source (502, or anything else). */
-export type NoPrice = "waiting" | "unchosen" | "off" | "invalid" | "none";
+ * refuse_public): waiting to confirm, not chosen yet, Nobody (503, by choice), no
+ * public site reached through the proxy, Tor (502, services/bitcoin.py), or no answer
+ * from the chosen source (502, or anything else: a site that answered with a refusal,
+ * as Bitstamp does through Tor, #241, was reached). */
+export type NoPrice = "waiting" | "unchosen" | "off" | "invalid" | "tor" | "none";
 
 export function noPriceReason(status: number | undefined, detail: unknown): NoPrice {
+  if (status === 502 && typeof detail === "string" && detail.includes("could be reached through the proxy")) return "tor";
   if (status !== 503) return "none";
   if (waitingDetail(detail)) return "waiting";
   if (typeof detail === "string" && detail.startsWith("This server's price settings aren't valid")) return "invalid";
@@ -58,12 +61,22 @@ export function noPriceWords(price: LivePrice): string {
   return price.off || price.invalid ? "Offline" : "No answer";
 }
 
+function siteName(source: string): string {
+  return `${source.charAt(0).toUpperCase()}${source.slice(1)}`;
+}
+
 /** "From your Mempool", "From public price sites (Kraken)": where a live price came from. */
 export function priceSourceWords(source: string | undefined, throughTor = false): string | null {
   if (!source) return null;
   if (source === "mempool") return "From your Mempool";
-  const site = `${source.charAt(0).toUpperCase()}${source.slice(1)}`;
-  return `From public price sites (${site}${throughTor ? ", through Tor" : ""})`;
+  return `From public price sites (${siteName(source)}${throughTor ? ", through Tor" : ""})`;
+}
+
+/** The sidebar's short form, one line however narrow (#208): "Your Mempool", "Kraken, through Tor". */
+export function priceSourceShort(source: string | undefined, throughTor = false): string | null {
+  if (!source) return null;
+  if (source === "mempool") return "Your Mempool";
+  return `${siteName(source)}${throughTor ? ", through Tor" : ""}`;
 }
 
 /** The totals of the account balances. Fee accounts and unreadable balances
