@@ -171,6 +171,27 @@ All notable changes to BitcoinTX are documented in this file.
   are, or would be, of both terms, and the lots it made and their cost; and
   it lists one whose rows, or lots, alone would be split differently.
   Since 0.9.2 (when the check came in).
+- **Ledger Review lists bitcoin withdrawals whose purpose BitcoinTX
+  doesn't know** (tax figures, #61). Since 0.9.2 a bitcoin withdrawal's
+  purpose must be Spent, Gift, Donation or Lost, but a ledger started
+  before then can hold one with another purpose (such as "Expenses") or
+  none. Such a withdrawal counts as a sale: at the proceeds saved with it,
+  or, saved before 0.8.0 recorded them, at $0, so its whole cost basis
+  shows as a loss on Form 8949. Ledger Review didn't point them out; it now
+  lists them, saying what each counts as. Nothing changes until you choose.
+  **Affected:** ledgers started before 0.9.2 with such a withdrawal, in the
+  tax year it falls in. **What to do:** open Ledger Review, and edit each
+  withdrawal under "BTC withdrawals whose purpose isn't Spent, Gift,
+  Donation or Lost" to choose its purpose (a gift, a donation and lost
+  coins have no gain). Saving it recalculates the ledger.
+- **Texts no longer say adding a transaction recalculates the ledger**
+  (#172). Ledger Review's note on the figures Recalculate Ledger would
+  change, and 1.2.8's release note on spend fees (#157), said adding any
+  transaction recalculates everything too. Only one dated before the latest
+  does: one dated after the others adds only its own figures, so an older
+  row kept its old figures. Editing or deleting any transaction, or
+  Recalculate Ledger, applies the newest rules to every row, as both now
+  say.
 - **A fee in dollars is in cents** (#298). A fee's decimals were checked
   as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
   $0.005 was accepted and then lost from the lot's cost when stored in
@@ -593,8 +614,8 @@ All notable changes to BitcoinTX are documented in this file.
   tax year; each overstated the gain by its fee's value (usually a few
   dollars), so reports showed slightly more tax, never less. **What to
   do:** after updating, Ledger Review lists each spend whose figures
-  change, old and new; then run Recalculate Ledger (Settings), or add or
-  edit any transaction, which recalculates too. Returns already filed
+  change, old and new; then run Recalculate Ledger (Settings), or edit or
+  delete any transaction, which recalculates too. Returns already filed
   overstated the gain by these fees; whether to amend over a few dollars is
   for you or your tax professional to decide.
 - **The AI connector lists a Sell's or spend's gross proceeds** (#157):

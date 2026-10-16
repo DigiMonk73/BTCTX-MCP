@@ -393,7 +393,9 @@ async def get_btc_price(date: str | None = None) -> ToolResult:
 async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (figures Recalculate
     Ledger would change; Spent withdrawals saved with $0 proceeds; Lost withdrawals still
-    carrying a loss; BTC deposits, not income or a rebate, with a $0 or blank cost basis;
+    carrying a loss; BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost (only
+    the owner knows which it was: ask, never guess); BTC deposits, not income or a rebate,
+    with a $0 or blank cost basis;
     values BitcoinTX priced at the day's price that the price of their hour would change,
     by tax year, which only the owner can apply, in Settings (they change figures, and a
     year already filed is a question for a tax professional); Inherited deposits without a

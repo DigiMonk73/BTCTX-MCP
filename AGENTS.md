@@ -134,9 +134,11 @@ baseline and stamped, a copy goes to `<db dir>/backups/` before any change,
 and a schema newer than the code is refused. `database.create_tables` is an
 alias of `init_db` kept for the StartOS wrapper.
 
-Every create/update/delete runs `recalculate_all_transactions` ("scorched
-earth"): all ledger lines, lots and disposals are rebuilt in timestamp order.
-So derived values must be recomputable from the Transaction row alone.
+Every update and delete, and a create dated before the latest transaction,
+runs `recalculate_all_transactions` ("scorched earth"): all ledger lines,
+lots and disposals are rebuilt in timestamp order (a create dated last only
+adds its own lines and lots, #172). So derived values must be recomputable
+from the Transaction row alone.
 
 ## Tax invariants (each has regression tests; don't break them)
 

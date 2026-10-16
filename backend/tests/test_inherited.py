@@ -279,7 +279,7 @@ def test_a_deposit_saved_before_1_1_0_as_inherited_follows_the_rules():
     review = CLIENT.get("/api/review").json()
     assert [i["id"] for i in next(c for c in review["checks"] if c["key"] == "inherited_without_date")["items"]] \
         == [970]
-    # Recalculate Ledger, or the next add, edit or delete, applies the rules
+    # Recalculate Ledger, or the next edit or delete, applies the rules
     assert CLIENT.post("/api/transactions/recalculate").status_code == 200
     sale = sell("2025-04-10", "0.01")
     assert sale["holding_period"] == "LONG"
