@@ -158,3 +158,14 @@ def test_1_2_8s_zero_stays_none_recorded(auth_client, test_engine, funded):
     check = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "withdrawal_purpose_unknown")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
         (934, 'Purpose " spent ": counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss.')]
+
+
+def test_a_spaced_spent_with_a_0_gross_is_listed_once(auth_client, test_engine, funded):
+    """#360's re-check: one with a $0 gross saved isn't known as received
+    (transaction.received_known), so it's listed as an unknown purpose, and
+    no longer also as a Spent saved with $0 proceeds."""
+    old_withdrawal(test_engine, 935, " spent ", None)
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET gross_proceeds_usd = '0' WHERE id = 935"))
+    checks = {c["key"]: [i["id"] for i in c["items"]] for c in auth_client.get("/api/review").json()["checks"]}
+    assert 935 in checks["withdrawal_purpose_unknown"] and 935 not in checks["zero_proceeds_spend"]

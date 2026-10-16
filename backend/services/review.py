@@ -411,7 +411,7 @@ def _row_issues(t: Transaction, tz):
     yield from _purpose_issues(t, tz)
     purpose = normalized(t.purpose)
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
-            and Decimal(t.gross_proceeds_usd) == 0:
+            and Decimal(t.gross_proceeds_usd) == 0 and received_known(t):  # else listed as an unknown purpose
         yield "zero_proceeds_spend", _item(
             t, tz, "Saved with $0 proceeds: its whole basis shows as a loss.",
             "Proceeds you enter replace $0; the gain changes by the same amount.",

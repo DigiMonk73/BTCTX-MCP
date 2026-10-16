@@ -168,9 +168,12 @@ All notable changes to BitcoinTX are documented in this file.
 
   Every version through 1.2.8. Now each counts as its listed spelling,
   everywhere, and the tax report prints that spelling. An old `" spent "`
-  with what it received recorded counts as Spent, as before; with nothing
-  recorded it stays as it was, and Ledger Review lists it, as it does a
-  withdrawal of a purpose BitcoinTX doesn't know. **Affected:** only
+  works differently: versions through 1.2.8 didn't count it as Spent, so
+  it counts as the entry on purposes BitcoinTX doesn't know (#61, below)
+  describes, and the change shows in Ledger Review's "Figures that
+  Recalculate Ledger would change". With nothing recorded as received,
+  Ledger Review also lists it among withdrawals whose purpose it doesn't
+  know. **Affected:** only
   ledgers started before 0.9.2 (or 1.1.0, for those two sources) that hold
   such a row; Gift, `"GIFT"` and blank always counted the same on the
   screens and in the figures.
