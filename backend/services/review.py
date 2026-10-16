@@ -1,7 +1,8 @@
 """
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
-what looks odd and what would change if the owner acts on it.
+what looks odd and what would change if the owner acts on it, and gives
+its amount with its unit (`unit`: BTC, or USD for a move of dollars).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
@@ -95,7 +96,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT
 from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
@@ -502,8 +503,18 @@ def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
-    return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))),
+    return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
                   "Edit it into one of your accounts, or delete it.") for t in rows]
+
+
+def _stops_saves(t: Transaction, known: set[int]) -> str:
+    """Whether the row stops every save that recalculates: its balance check
+    (transaction._verify_double_entry_balance_for_internal) runs, as for any
+    type but a Buy or a Sell with no External side, and fails, as one of its
+    sides is an account that exists and the other isn't (#367's review)."""
+    sides = (t.from_account_id, t.to_account_id)
+    stops = t.type not in ("Buy", "Sell") and ACCOUNT_EXTERNAL not in sides and any(a in known for a in sides)
+    return " It stops every save that recalculates." if stops else " It doesn't stop saves."
 
 
 def _sentence(text: str) -> str:

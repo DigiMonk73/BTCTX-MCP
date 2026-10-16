@@ -53,8 +53,10 @@ def test_ledger_review_lists_each_row_and_says_why_it_cant_check(auth_client, le
     review = auth_client.get("/api/review").json()
     check = next(c for c in review["checks"] if c["key"] == "account_missing")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
-        (970, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it)."),
-        (971, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it).")]
+        (970, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it). "
+              "It stops every save that recalculates."),
+        (971, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it). "
+              "It doesn't stop saves.")]  # its other side is External
     assert review["recalc_error"] == NAMED
 
 
@@ -104,7 +106,7 @@ def test_a_transaction_naming_no_account_is_named_too(auth_client, test_engine, 
         "deleted). " + FIX))
     check = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "account_missing")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
-        (981, "Names no account on one side (the one it named was deleted).")]
+        (981, "Names no account on one side (the one it named was deleted). It stops every save that recalculates.")]
 
 
 def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_client, test_engine, empty):
@@ -114,7 +116,8 @@ def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_clien
     _old_row(test_engine, 983, "Transfer", 1, MISSING, amount="500")  # from Bank: dollars
     review = auth_client.get("/api/review").json()
     items = {i["id"]: i for c in review["checks"] if c["key"] == "account_missing" for i in c["items"]}
-    assert items[982]["issue"] == "Names accounts 998 and 999, which don't exist (a BitcoinTX before 0.9.2 saved it)."
+    assert items[982]["issue"] == ("Names accounts 998 and 999, which don't exist (a BitcoinTX before 0.9.2 saved it). "
+                                   "It doesn't stop saves.")  # neither side is one of yours: it balances
     assert (items[983]["amount"], items[983]["unit"]) == ("500.00", "USD")
     assert (items[982]["amount"], items[982]["unit"]) == ("0.10000000", "BTC")
     text_out = format_text(review)
@@ -135,3 +138,11 @@ def test_an_account_transactions_name_cant_be_deleted(auth_client, test_engine, 
         assert con.execute(text("SELECT to_account_id FROM transactions WHERE id = 984")).scalar() == account_id
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     assert auth_client.delete(f"/api/accounts/{account_id}").status_code == 204
+
+
+def test_the_wording_for_each_missing_side():
+    from backend.services.transaction import what_is_missing
+
+    assert what_is_missing([None, None]) == "names no account on either side (the ones it named were deleted)"
+    assert what_is_missing([999, None]) == ("names account 999, which doesn't exist (a BitcoinTX before 0.9.2 "
+                                            "saved it), and names no account on one side (the one it named was deleted)")

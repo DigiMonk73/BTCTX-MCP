@@ -114,7 +114,8 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
       setMessage(res.data.detail);
     } catch (error) {
       // The server says why (#337: the transaction naming a missing account, for one)
-      setMessage(`Recalculation failed: ${extractErrorMessage(error)} Your data was not changed.`);
+      const reason = extractErrorMessage(error);
+      setMessage(`Recalculation failed: ${reason}${/[.!?]$/.test(reason) ? "" : "."} Your data was not changed.`);
     } finally {
       setLoading(false);
     }

@@ -411,8 +411,8 @@ async def review_ledger() -> ToolResult:
     """Read-only Ledger review: saved transactions worth a second look (transactions naming
     an account that doesn't exist, or none, which the owner edits into an account or
     deletes; figures Recalculate Ledger would change; Spent withdrawals saved with $0
-    proceeds; Lost withdrawals still carrying a loss; BTC withdrawals whose purpose isn't Spent, Gift, Donation or Lost (each
-    counts as Spent until the owner chooses; only the owner knows which it was: ask, never
+    proceeds; Lost withdrawals still carrying a loss; BTC withdrawals whose purpose isn't
+    Spent, Gift, Donation or Lost (each counts as Spent until the owner chooses; only the owner knows which it was: ask, never
     guess; as Spent with none recorded, its proceeds are what the owner got for it); BTC
     deposits, not income or a rebate, with a $0 or
     blank cost basis;

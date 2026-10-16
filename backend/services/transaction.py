@@ -263,8 +263,6 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
     return new_tx
 
 
-# A saved row naming an account that doesn't exist (unknown ids were saved
-# before 0.9.2, F28) whose replay fails: the refusal names it (#337)
 # A saved row naming an account that doesn't exist (an id saved before 0.9.2,
 # F28; none, where an account it named was deleted) whose replay fails its
 # balance check: the refusal names it (#337). With two or more such rows each
@@ -303,8 +301,8 @@ def what_is_missing(missing: list[int | None]) -> str:
                      else f"names accounts {ids}, which don't exist")
         parts[-1] += " (a BitcoinTX before 0.9.2 saved it)"
     if None in missing:
-        side = "one side" if missing.count(None) == 1 else "either side"
-        parts.append(f"names no account on {side} (the one it named was deleted)")
+        parts.append("names no account on one side (the one it named was deleted)" if missing.count(None) == 1
+                     else "names no account on either side (the ones it named were deleted)")
     return ", and ".join(parts)
 
 
