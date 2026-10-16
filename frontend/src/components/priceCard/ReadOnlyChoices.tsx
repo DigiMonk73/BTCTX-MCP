@@ -4,6 +4,7 @@ import {
   PRICE_CHOICES,
   isOnion,
   managedBanner,
+  recommended,
   shownAddress,
   type NetworkSettingsData,
   type PriceChoice,
@@ -31,14 +32,12 @@ const ChosenDetails: React.FC<{ choice: PriceChoice; settings: NetworkSettingsDa
 /** One choice of the read-only list. */
 const ReadOnlyChoice: React.FC<{ choice: PriceChoice; settings: NetworkSettingsData }> = ({ choice: c, settings }) => {
   const chosen = c.value === settings.price_source;
-  // Your Mempool set by StartOS (#145 plan 2.4, #208): the most private choice, as its action says
-  const recommended = chosen && c.value === "mempool" && settings.host === "startos";
   return (
     <li className={chosen ? "price-choice chosen" : "price-choice"}>
       <span className="price-choice-label">
         {c.label}
         {chosen && <span className="badge badge-accent">✓ Chosen</span>}
-        {recommended && <span className="badge">Recommended</span>}
+        {recommended(c.value, settings) && <span className="badge">Recommended</span>}
       </span>
       <span className="price-help">{c.help}</span>
       {chosen && <ChosenDetails choice={c} settings={settings} />}

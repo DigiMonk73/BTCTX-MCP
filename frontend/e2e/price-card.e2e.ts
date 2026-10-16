@@ -101,7 +101,6 @@ test.describe("the Mac app's window, 800 × 600", () => {
     await logIn(page, app);
     const card = page.getByRole("region", { name: "Bitcoin prices" });
     await expect(card.getByRole("button", { name: "Use this" })).toBeInViewport();
-    await expect(card.getByText("Recommended")).toHaveCount(0); // never found on a Mac: nothing is asked (plan 2.4)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 });

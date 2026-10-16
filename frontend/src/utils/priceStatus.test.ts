@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TOR_REFUSED, blankPriceSource, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
+import { TOR_REFUSED, blankDayPriceSource, blankPriceSource, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -210,35 +210,60 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
 describe("where a blank value's price comes from (#208, plan 2.5)", () => {
   const done = { ...history, state: "complete" as const, years_done: 14 };
   const st = (over: Partial<PriceStatus>, h: PriceStatus["history"] = done): PriceStatus => ({ ...base, ...over, history: h });
+  const alone = { backup: false, tor: false };
+  const backup = { backup: true, tor: false };
+  const stored = "Hourly prices from 2013 to Oct 12, 2026 are stored in BitcoinTX";
 
-  it("the stored hourly prices, then the choice", () => {
-    expect(blankPriceSource(st({ source: "mempool" })))
-      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from your Mempool.");
-    expect(blankPriceSource(st({ source: "public" })))
-      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from public price sites.");
-    expect(blankPriceSource(st({ source: "public" }, { ...history, shipped: true })))
-      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; newer ones come from public price sites.");
+  it("the stored hourly prices, then the choice: public sites, or your Mempool where it has them", () => {
+    expect(blankPriceSource(st({ source: "public" }), alone)).toBe(`${stored}; newer ones come from public price sites.`);
+    expect(blankPriceSource(st({ source: "public" }, { ...history, shipped: true }), alone))
+      .toBe(`${stored}; newer ones come from public price sites.`);
+    expect(blankPriceSource(st({ source: "mempool" }), alone))
+      .toBe(`${stored}; newer ones come from your Mempool where it has them; otherwise type it.`);
+    expect(blankPriceSource(st({ source: "mempool" }), backup))
+      .toBe(`${stored}; newer ones come from your Mempool, else public price sites.`);
+  });
+
+  it("the history not held: your Mempool alone has only what it recorded (the review of #320)", () => {
+    // price_at: an hour it never recorded falls to the day's price, then 422 (type it)
+    expect(blankPriceSource(st({ source: "mempool" }, history), alone))
+      .toBe("Your Mempool has prices only from when it began recording: for an older hour, type the value.");
+    // With the backup, Bitstamp's hours fill the rest
+    expect(blankPriceSource(st({ source: "mempool" }, history), backup)).toBe("It comes from your Mempool, else public price sites.");
+    expect(blankPriceSource(st({ source: "public" }, { ...history, state: "downloading" }), alone))
+      .toBe("It comes from public price sites.");
+  });
+
+  it("through Tor, when Bitstamp refused the download: an older value may need typing (#241)", () => {
+    const refused = { ...history, state: "failed" as const, refused: true };
+    const tor = { backup: false, tor: true };
+    expect(blankPriceSource(st({ source: "public" }, refused), tor)).toBe(
+      "It comes from public price sites. Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older value "
+      + "may have no price: then type it.");
+    expect(blankPriceSource(st({ source: "mempool" }, refused), { backup: true, tor: true })).toMatch(/Bitstamp currently refuses/);
+    expect(blankPriceSource(st({ source: "public" }, { ...refused, refused: false }), tor)).toBe("It comes from public price sites.");
   });
 
   it("with Nobody, after the stored ones: type it", () => {
-    expect(blankPriceSource(st({ source: "off" })))
-      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; after that, type it: you chose Nobody.");
-    expect(blankPriceSource(st({ source: "off" }, history)))
+    expect(blankPriceSource(st({ source: "off" }), alone)).toBe(`${stored}; after that, type it: you chose Nobody.`);
+    expect(blankPriceSource(st({ source: "off" }, history), alone))
       .toBe("Unless BitcoinTX already has that hour's price, type it: you chose Nobody.");
   });
 
-  it("the history not downloaded yet: the choice alone", () => {
-    expect(blankPriceSource(st({ source: "public" }, { ...history, state: "downloading" })))
-      .toBe("It comes from public price sites.");
-    expect(blankPriceSource(st({ source: "mempool" }, history))).toBe("It comes from your Mempool.");
+  it("nothing asked yet, or ever: what to do instead", () => {
+    expect(blankPriceSource(st({ source: "unset" }, history), alone))
+      .toBe("Unless BitcoinTX already has that hour's price, choose where BitcoinTX gets prices (on the Dashboard), or type it.");
+    expect(blankPriceSource(st({ source: "public", waiting: true }), alone))
+      .toBe(`${stored}; after that, confirm where BitcoinTX gets prices (on the Dashboard), or type it.`);
+    expect(blankPriceSource(st({ source: "off", invalid: true, managed: true }, history), alone))
+      .toBe("Unless BitcoinTX already has that hour's price, type it: this server's price settings aren't valid.");
   });
 
-  it("nothing asked yet, or ever: what to do instead", () => {
-    expect(blankPriceSource(st({ source: "unset" }, history)))
-      .toBe("Unless BitcoinTX already has that hour's price, choose where BitcoinTX gets prices (on the Dashboard), or type it.");
-    expect(blankPriceSource(st({ source: "public", waiting: true })))
-      .toBe("Hourly prices to Oct 12, 2026 are stored in BitcoinTX; after that, confirm where BitcoinTX gets prices (on the Dashboard), or type it.");
-    expect(blankPriceSource(st({ source: "off", invalid: true, managed: true }, history)))
-      .toBe("Unless BitcoinTX already has that hour's price, type it: this server's price settings aren't valid.");
+  it("a day's price (an inheritance's date of death): only what to do where none is found", () => {
+    expect(blankDayPriceSource(st({ source: "off" }), alone)).toBe("Unless BitcoinTX already has that day's price, type it: you chose Nobody.");
+    expect(blankDayPriceSource(st({ source: "mempool" }), alone))
+      .toBe("Your Mempool has prices only from when it began recording: for an older date, type the value.");
+    expect([blankDayPriceSource(st({ source: "mempool" }), backup), blankDayPriceSource(st({ source: "public" }), alone)])
+      .toEqual(["", ""]);
   });
 });

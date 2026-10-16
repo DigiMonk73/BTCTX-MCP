@@ -219,12 +219,6 @@ function notChosenLine(span: string): HistoryLine {
   };
 }
 
-/** Where newer prices come from, for a blank value's hint. */
-const NEWER_FROM: Partial<Record<PriceStatus["source"], string>> = {
-  mempool: "your Mempool",
-  public: "public price sites",
-};
-
 /** What a blank value needs when nothing is asked: the way forward, in the hint's words. */
 function noAsking(st: PriceStatus): string {
   if (st.invalid) return "type it: this server's price settings aren't valid";
@@ -233,23 +227,53 @@ function noAsking(st: PriceStatus): string {
   return "type it: you chose Nobody";
 }
 
+/** Whether BitcoinTX asks anyone for a price now: not with Nobody, before a choice or its confirmation, or invalid settings. */
+function asking(st: PriceStatus): boolean {
+  return !st.invalid && !st.waiting && (st.source === "public" || st.source === "mempool");
+}
+
+/** Your Mempool alone: it has prices only from when it began recording (as olderValuesNote says). */
+function mempoolOnly(st: PriceStatus, ctx: StatusContext): boolean {
+  return st.source === "mempool" && !ctx.backup;
+}
+
+/** Where newer prices come from: public sites, or your Mempool, with its backup or alone. */
+function newerFrom(st: PriceStatus, ctx: StatusContext): string {
+  if (st.source === "public") return "public price sites";
+  return ctx.backup ? "your Mempool, else public price sites" : "your Mempool where it has them; otherwise type it";
+}
+
+// Through Tor, Bitstamp refuses BitcoinTX's requests (#241): no past prices download
+const TOR_REFUSED_SHORT = " Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older value may have no price: then type it.";
+
 /**
  * Where a blank value's price comes from, after the form's "Leave blank to
- * use the BTC price when that hour began" (#208, plan 2.5): the hourly prices
- * BitcoinTX holds, then the price choice; when nothing is asked, what to do.
- * From the status, which asks nobody.
+ * use the BTC price when that hour began" (#208, plan 2.5), as price_at finds
+ * it (services/hourly_prices.py): the hourly prices BitcoinTX holds, then the
+ * choice (your Mempool only where it recorded, else typed; with its backup,
+ * public sites); when nothing is asked, what to do. From the status and the
+ * saved choice's backup and Tor, which ask nobody.
  */
-export function blankPriceSource(st: PriceStatus): string {
+export function blankPriceSource(st: PriceStatus, ctx: StatusContext): string {
   const h = st.history;
-  const held = h.until && (h.shipped || h.state === "complete") ? untilDay(h.until) : null;
-  const from = st.invalid || st.waiting ? undefined : NEWER_FROM[st.source];
-  if (held) {
-    const stored = `Hourly prices to ${held} are stored in BitcoinTX`;
-    return from ? `${stored}; newer ones come from ${from}.` : `${stored}; after that, ${noAsking(st)}.`;
+  if (h.until && (h.shipped || h.state === "complete")) {
+    const stored = `Hourly prices from ${h.first_year ?? 2013} to ${untilDay(h.until)} are stored in BitcoinTX`;
+    return asking(st) ? `${stored}; newer ones come from ${newerFrom(st, ctx)}.` : `${stored}; after that, ${noAsking(st)}.`;
   }
-  if (from) return `It comes from ${from}.`;
-  const next = noAsking(st);
-  return `Unless BitcoinTX already has that hour's price, ${next}.`;
+  if (!asking(st)) return `Unless BitcoinTX already has that hour's price, ${noAsking(st)}.`;
+  if (mempoolOnly(st, ctx)) return "Your Mempool has prices only from when it began recording: for an older hour, type the value.";
+  const refused = ctx.tor && h.state === "failed" && h.refused ? TOR_REFUSED_SHORT : "";
+  return `It comes from ${newerFrom(st, ctx)}.${refused}`;
+}
+
+/**
+ * The same for a day's price (an inheritance's, on the date of death): what
+ * to do where nothing is asked, or your Mempool alone hasn't that day; ""
+ * where the day's price is found (#208).
+ */
+export function blankDayPriceSource(st: PriceStatus, ctx: StatusContext): string {
+  if (!asking(st)) return `Unless BitcoinTX already has that day's price, ${noAsking(st)}.`;
+  return mempoolOnly(st, ctx) ? "Your Mempool has prices only from when it began recording: for an older date, type the value." : "";
 }
 
 /** Under a chosen Mempool without its backup, or Nobody: what that means for older values. */

@@ -35,7 +35,7 @@ const FmvField: React.FC<{ priced: string }> = ({ priced }) => {
  * means that hour's price too, #255). */
 const BtcWithdrawalValues: React.FC<{ notSold: boolean }> = ({ notSold }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  const priced = useBlankPriceSource(); // where a blank value's price comes from (#208)
+  const priced = useBlankPriceSource().hour; // where a blank value's price comes from (#208)
   const spent = watch("purpose") === "Spent";
   const proceeds = watch("proceeds_usd");
   const fee = watch("fee");

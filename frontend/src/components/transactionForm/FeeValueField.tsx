@@ -11,7 +11,7 @@ import { useBlankPriceSource } from "./useBlankPriceSource";
  */
 const FeeValueField: React.FC = () => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  const priced = useBlankPriceSource(); // before the early return: hooks run every render
+  const priced = useBlankPriceSource().hour; // before the early return: hooks run every render
   const fee = watch("fee");
   if (!fee || Number.isNaN(fee) || fee <= 0) return null;
   const stored = watch("feeUSDStored");

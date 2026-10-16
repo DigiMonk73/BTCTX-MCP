@@ -3,7 +3,7 @@ import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import { takesOriginalDate } from "../../utils/transactionForm";
-import { useBlankPriceSource } from "./useBlankPriceSource";
+import { useBlankPriceSource, type BlankPriceWords } from "./useBlankPriceSource";
 
 // Valued when acquired: the server fills a blank basis from that hour's price
 // (an inheritance's: the date of death's day price, #173)
@@ -25,17 +25,17 @@ const SOURCE_HINTS: Record<string, string> = {
 
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115); a blank
  * value's price says where it comes from (`priced`, #208). */
-function basisHint(source: string | undefined, valued: boolean, priced: string): string {
+function basisHint(source: string | undefined, valued: boolean, priced: BlankPriceWords): string {
   if (source === "Inherited") {
-    return "Its USD value on the date of death, or on the estate's alternate valuation date if it chose one. " +
+    return ("Its USD value on the date of death, or on the estate's alternate valuation date if it chose one. " +
       "If the estate's Form 8971, Schedule A, gives a value marked as having increased the estate tax, your " +
-      "basis can't be more. Leave blank to use the date of death's BTC price.";
+      `basis can't be more. Leave blank to use the date of death's BTC price. ${priced.day}`).trim();
   }
   if (source === "Rebate") {
-    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED} ${priced}`.trim();
+    return `Its USD value when you received it (its cost basis, not income). ${BLANK_IS_PRICED} ${priced.hour}`.trim();
   }
   if (valued) {
-    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED} ${priced}`.trim();
+    return `Its USD value when you received it (also your income). ${BLANK_IS_PRICED} ${priced.hour}`.trim();
   }
   if (source === "Gift") {
     return "The giver's cost basis: what they paid for these coins (type 0 if unknown).";
