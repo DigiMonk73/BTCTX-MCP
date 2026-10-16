@@ -119,9 +119,37 @@ def test_an_upload_whose_boundary_says_json_is_still_an_upload(auth_client):
     assert (r.status_code, r.json()) == (plain.status_code, plain.json())
 
 
+def test_a_utf_16_body_is_checked_too(auth_client, empty_ledger):
+    """JSON may come in UTF-16 or UTF-32, which the parser reads letting a
+    lone surrogate through, with no escape or UTF-8 byte the quick tests
+    look for (#363's re-check)."""
+    body = json.dumps({**WITHDRAWAL, "purpose": NOT_TEXT}, ensure_ascii=False).encode("utf-16-le", "surrogatepass")
+    r = auth_client.post("/api/transactions", content=body, headers={"Content-Type": "application/json"})
+    refused(r, "purpose")
+
+
+@pytest.mark.parametrize("content_type", ["text/plain", "text/json", None])
+def test_a_body_that_isnt_utf_8_without_a_json_type_is_a_422(auth_client, content_type):
+    """FastAPI doesn't read such a body as JSON, so its 422 quotes it as
+    bytes, which the answer decoded as strict UTF-8: a 500 (#218's handler,
+    #363's re-check)."""
+    headers = {"Content-Type": content_type} if content_type else {}
+    r = auth_client.post("/api/transactions", content=b"\xff\xfe not text", headers=headers)
+    assert r.status_code == 422, r.text
+
+
 @pytest.mark.parametrize("url", ["/api/backup/download", "/api/backup/restore"])
-def test_a_backup_password_that_isnt_text_is_refused(auth_client, url):
-    """Form data: the request's charset (unicode_escape) can turn "\\ud800" into one."""
+def test_a_backup_password_that_isnt_text_is_refused(auth_client, url, tmp_path, monkeypatch):
+    """Form data: the request's charset (unicode_escape) can turn "\\ud800"
+    into one. The backup reads a temp database file, so without the check
+    the failure is the key's (backup._derive_key), not a missing file."""
+    import sqlite3
+
+    from backend.services import backup
+
+    database = tmp_path / "btctx.db"
+    sqlite3.connect(database).close()
+    monkeypatch.setattr(backup, "DB_PATH", database)
     fields = [("password", "", b"\\ud800")]
     if url.endswith("restore"):
         fields.append(("file", '; filename="b.btx"\r\nContent-Type: application/octet-stream', b"x"))

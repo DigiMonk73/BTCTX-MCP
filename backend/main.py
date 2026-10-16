@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 logger = logging.getLogger(__name__)
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -138,14 +139,18 @@ async def refuse_text_that_isnt_text(request: Request) -> None:
     body = await request.body()
     if not _may_hold_a_surrogate(body):
         return
-    refusal = _not_text_refusal(await request.json())
+    refusal = await run_in_threadpool(_not_text_refusal, await request.json())  # off the event loop
     if refusal is not None:
         raise HTTPException(status_code=422, detail=refusal)
 
 
 def _may_hold_a_surrogate(body: bytes) -> bool:
-    """Whether the walk is needed: two plain substring tests first, which
-    clear almost every body (a few ms for 5 MB), then the pattern."""
+    """Whether the walk is needed. A body in UTF-16 or UTF-32, which JSON
+    allows and the parser reads letting surrogates through, always is. A
+    UTF-8 one only when it may: two plain substring tests first, which clear
+    almost every body (a few ms for 5 MB), then the pattern."""
+    if json.detect_encoding(body) not in ("utf-8", "utf-8-sig"):
+        return True
     return (b"\\u" in body or b"\xed" in body) and MAY_HOLD_A_SURROGATE.search(body) is not None
 
 
@@ -309,9 +314,10 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     """
     FastAPI's 422, less any input JSON can't carry: a number such as 1e999
     is read as infinity (#218), and text can hold a lone surrogate (#210).
-    Echoed back, either failed the answer with a 500.
+    Echoed back, either failed the answer with a 500; so did a body that
+    isn't UTF-8, sent without a JSON type (_bytes_read_as_text).
     """
-    errors = jsonable_encoder(exc.errors())
+    errors = jsonable_encoder([_bytes_read_as_text(error) for error in exc.errors()])
     for error in errors:
         if not _writable(error):
             error.pop("input", None)
@@ -324,6 +330,15 @@ async def date_out_of_range_handler(request: Request, exc: DateOutOfRange):
     """A date that falls outside Python's years in a timezone (tax_time.py,
     #211): a 422, not a server error."""
     return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+def _bytes_read_as_text(error: dict) -> dict:
+    """A body FastAPI didn't read as JSON (text/plain, text/json, no type)
+    is its `input` as bytes, which jsonable_encoder decodes as strict UTF-8:
+    one that isn't failed the answer with a 500 (#313's re-check). Read as
+    text, its undecodable bytes replaced."""
+    raw = error.get("input")
+    return {**error, "input": raw.decode("utf-8", "replace")} if isinstance(raw, (bytes, bytearray)) else error
 
 
 def _writable(value) -> bool:
