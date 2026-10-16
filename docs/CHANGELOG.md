@@ -155,10 +155,12 @@ All notable changes to BitcoinTX are documented in this file.
   string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
   isn't a character and can't be saved. Sent in a transaction's purpose, an
   AI entry, the tax timezone or a Mempool address, it gave a server error
-  (500), with nothing saved. Now every request holding one is refused
-  before anything runs, with a 422 naming the field. The login and the
-  account routes keep answering it as a wrong login or password (#210). No
-  form in the app and no AI connector tool sends such text.
+  (500), with nothing saved. Now every JSON request holding one is refused
+  before its route runs, with a 422 naming the field. The login and the
+  account routes keep their own answer (#210). A backup's password, which a
+  form's charset can turn into such text, is refused the same way when you
+  download or restore a backup. No form in the app and no AI connector tool
+  sends such text.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

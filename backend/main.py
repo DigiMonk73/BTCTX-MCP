@@ -5,12 +5,14 @@ routes open to it), the security middleware, the API routers, login and
 logout, the health check, and the built frontend served from frontend/dist.
 """
 
+import email.message
 import json
 import os
 import logging
+import re
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, Depends, HTTPException
+from fastapi import FastAPI, Request, Response, Depends, HTTPException, params
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -108,11 +110,17 @@ def _sync_ai_key_file() -> None:
         db.close()
 
 
-# Routes that read such text themselves: a login or current password that
-# isn't text is a wrong one, counted by the login throttle; a new username or
-# password, a 422 (#210)
+# Routes that read such text themselves (#210): at the login, or as a current
+# password, it's a wrong one, counted by the login throttle; as a new
+# username or password, a 422
 TEXT_CHECKED_BY_ITS_ROUTE = ("/api/login", "/api/users")
-NOT_TEXT_IN_REQUEST = "The {} holds a character that isn't text (a lone surrogate): remove it."
+NOT_TEXT_IN_FIELD = 'The field "{}" holds a character that isn\'t text (a lone surrogate): remove it.'
+NOT_TEXT_IN_REQUEST = "The request holds a character that isn't text (a lone surrogate): remove it."
+FIELD_NAME_SHOWN = 40  # characters of a field's name the refusal quotes
+# A lone surrogate can only be in a body that holds an escaped one
+# (\ud800 to \udfff, also half of a real pair such as an emoji's) or UTF-8's
+# bytes for one; any other body skips the walk
+MAY_HOLD_A_SURROGATE = re.compile(rb"\\u[dD][89a-fA-F]|\xed[\xa0-\xbf]")
 
 
 async def refuse_text_that_isnt_text(request: Request) -> None:
@@ -120,34 +128,60 @@ async def refuse_text_that_isnt_text(request: Request) -> None:
     A JSON body with a lone surrogate ("\\ud800") in its text: JSON allows
     one, but it isn't a character and UTF-8 can't encode it, so SQLite
     couldn't save it and an answer quoting it couldn't be written: a server
-    error (#313). Refused for every route at once, before the route runs,
-    with a 422 naming the field. Every app route depends on it.
+    error (#313). Refused for every route that takes a JSON body, with a
+    422 naming the field, before the route runs. FastAPI has already read
+    and parsed the body by then, so this reuses both; it runs before the
+    login check, so an anonymous request gets the 422 too.
     """
-    if request.scope["path"].startswith(TEXT_CHECKED_BY_ITS_ROUTE) \
-            or "json" not in request.headers.get("content-type", ""):
+    if request.scope["path"].startswith(TEXT_CHECKED_BY_ITS_ROUTE) or not _takes_json(request):
         return
-    try:
-        body = json.loads(await request.body())
-    except ValueError:
-        return  # not JSON: the route's own 422 says so
-    field = _field_not_text(body)
-    if field is not None:
-        raise HTTPException(status_code=422, detail=NOT_TEXT_IN_REQUEST.format(field))
+    body = await request.body()
+    if not _may_hold_a_surrogate(body):
+        return
+    refusal = _not_text_refusal(await request.json())
+    if refusal is not None:
+        raise HTTPException(status_code=422, detail=refusal)
 
 
-def _field_not_text(body) -> str | None:
-    """The name of a field whose text, or one of whose keys, isn't text
-    ("request" outside any field), else None. Walked without recursion: the
-    body may nest as deep as JSON allows."""
-    pending = [(body, "request")]
+def _may_hold_a_surrogate(body: bytes) -> bool:
+    """Whether the walk is needed: two plain substring tests first, which
+    clear almost every body (a few ms for 5 MB), then the pattern."""
+    return (b"\\u" in body or b"\xed" in body) and MAY_HOLD_A_SURROGATE.search(body) is not None
+
+
+def _takes_json(request: Request) -> bool:
+    """Whether FastAPI reads this request's body as JSON: the route takes a
+    body that isn't a form, sent as application/json or application/*+json
+    (its own rule, the media type in any case, parameters left out)."""
+    body_field = getattr(request.scope.get("route"), "body_field", None)
+    if body_field is None or isinstance(body_field.field_info, params.Form):
+        return False
+    message = email.message.Message()
+    message["content-type"] = request.headers.get("content-type", "")
+    subtype = message.get_content_subtype()
+    return message.get_content_maintype() == "application" and (subtype == "json" or subtype.endswith("+json"))
+
+
+def _not_text(field: str | None) -> str:
+    if field is None:
+        return NOT_TEXT_IN_REQUEST
+    shown = field if len(field) <= FIELD_NAME_SHOWN else field[:FIELD_NAME_SHOWN] + "…"
+    return NOT_TEXT_IN_FIELD.format(shown)
+
+
+def _not_text_refusal(body) -> str | None:
+    """The refusal for the first field whose text, or one of whose keys,
+    isn't text (naming the field, or the request outside any), else None.
+    Walked without recursion: the body may nest as deep as JSON allows."""
+    pending: list[tuple] = [(body, None)]
     while pending:
         value, field = pending.pop()
         if isinstance(value, str) and not is_text(value):
-            return field
+            return _not_text(field)
         if isinstance(value, dict):
             for key, item in value.items():
                 if not is_text(key):
-                    return field
+                    return _not_text(field)
                 pending.append((item, key))
         elif isinstance(value, list):
             pending.extend((item, field) for item in value)
