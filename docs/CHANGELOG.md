@@ -78,6 +78,16 @@ All notable changes to BitcoinTX are documented in this file.
   column, so a re-import keeps where the value came from. This adds a
   database column (migration 0011, `fmv_from_price`).
 
+- **The Mac app says when it has no AI key, and how to get one** (#238).
+  If the app can't write its AI key file when it starts, it runs with no
+  key until **Reset key** (or the next start). Settings › Connect an AI
+  Assistant now says "No AI key yet: press Reset key." instead of only
+  describing the key file. And the AI connector, finding no key file, or
+  one whose app is gone, adds "or, if it's open, press Reset key in its
+  Settings (Connect an AI Assistant)" to "Open the BitcoinTX app and try
+  again": an open app that couldn't write its key has no file on its first
+  start, and leaves the earlier run's file after that.
+  `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
 - **The AI connector says which price a value it filled came from**
   (#208). When BitcoinTX fills a value from the BTC price (an income or
   rebate value, an inheritance's value at its date of death, a spend's
@@ -321,8 +331,39 @@ All notable changes to BitcoinTX are documented in this file.
   any save). If you changed the tax timezone by many hours after entering a
   My BTC, Gift or Inherited deposit's date, check those dates against your
   records and correct any that moved. Most ledgers need nothing.
+- **Input that can never be valid gets a refusal, not a server error**
+  (#210, #218, #211). These requests were answered "Internal Server
+  Error" (500) instead of saying what was wrong. Nothing was saved, and
+  only the logged-in owner (or the AI key, for the AI connector's entries)
+  could send most of them. Every version up to 1.2.8. Now:
+  - a password or username that isn't text (a lone surrogate, `"\ud800"`,
+    which JSON can carry but no keyboard types) is a wrong one at login or
+    as the current password (401 or 403, counted like any other), and a
+    new password or username like it is refused with a 422 that says so
+    (#210);
+  - a JSON number too large for a computer's numbers (`1e999`, read as
+    infinity), or `NaN`, gets a 422 that names the field and leaves the
+    value out (#218);
+  - a date at the very edge of the calendar, such as 9999-12-31 23:59:59 in
+    a US tax timezone or `0001-01-01T00:00:00+05:00`, is refused as "out of
+    range", naming the field (the date or the date originally acquired), in
+    the CSV import, the AI connector's entries and the API; a Complete Tax
+    Report or transaction history for a year before 2009 or after 2100 is
+    a 422 naming the year, as Form 8949 already refused one; and a CSV or
+    River file with a field over 131,072 characters gets "The file can't
+    be read as CSV" (#211).
 
 ### Development
+- **The WebKit click-through check no longer fails now and then on a
+  page load** (#231). In Playwright's WebKit, the reload or `goto` that
+  followed a price choice saved over the API sometimes failed with
+  "WebKit encountered an internal error" (the sidebar matrix's reload, the
+  price card's status checks; the Dashboard's and the converter's "prices
+  off" tests had the same pattern), and the required check failed until it
+  ran again. Those tests now save the choice with `choosePriceSource()`, which
+  tells the open page as the price card does after its own save: the page
+  asks again in place, with no page load. Real Safari, Chrome and the Mac
+  app were never at fault (#149).
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate

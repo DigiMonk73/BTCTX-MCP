@@ -147,7 +147,12 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   with or without the price card. Real Safari and Chrome reload normally,
   and the Mac app has no reload shortcut (#149). So a WebKit test reloads a
   signed-in page at most once (`settings.e2e.ts`, the first-run test, does
-  its reload before choosing only in Chromium).
+  its reload before choosing only in Chromium). Now and then it also fails
+  the reload or `goto` that follows a price choice saved over the API,
+  with "WebKit encountered an internal error" (#231). So a test saves one
+  with `choosePriceSource()` (`e2e/fixtures.ts`), which then tells the open
+  page as the price card does after its own save: the page asks again in
+  place, with no page load.
 - `test.use({ fakeInternet: true })` swaps the stubbed prices for a fake
   internet (`fake_internet` in `scripts/smoke_test.py`): the app's own
   choice of price source, fallback and proxy runs; each past day has its

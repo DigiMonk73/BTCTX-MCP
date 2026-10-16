@@ -38,7 +38,7 @@ from backend.schemas.entry_import import (
     SimulatedResult,
 )
 from backend.services import hourly_prices
-from backend.services.tax_time import local_date, local_noon_utc
+from backend.services.tax_time import DateOutOfRange, as_utc, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
@@ -103,11 +103,16 @@ def _normalize_date(raw: str, tz) -> str:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         # e.g. 01/15/2024 or "2024-01-15 10:00:00 UTC", read as the CSV import reads them
-        dt = _parse_date(raw, tz)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ") if dt else raw  # None: _validate_row reports it
-    if dt.tzinfo is None:
-        dt = local_noon_utc(dt.date(), tz) if _date_only(raw) else dt.replace(tzinfo=tz)
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        dt = None
+    try:
+        if dt is None:
+            dt = _parse_date(raw, tz)
+        elif dt.tzinfo is None:
+            dt = local_noon_utc(dt.date(), tz) if _date_only(raw) else dt.replace(tzinfo=tz)
+        # None or out of range (#211): _validate_row reports it, as the CSV import does
+        return as_utc(dt).strftime("%Y-%m-%dT%H:%M:%SZ") if dt else raw
+    except DateOutOfRange:
+        return raw
 
 
 def _date_only(raw: str) -> bool:
