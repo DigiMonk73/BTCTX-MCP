@@ -39,7 +39,7 @@ from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal, number_limits
+from backend.services.csv_import import _parse_decimal, number_limits, unreadable_csv
 from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
@@ -147,6 +147,13 @@ class RiverProposal:
 
 def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
     """Parse raw River bitcoin-activity CSV bytes into RiverRow objects."""
+    try:
+        return _parse_river_rows(content)
+    except csv.Error as exc:
+        return [], [unreadable_csv(exc)]
+
+
+def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
     errors: list[CSVParseError] = []
     rows: list[RiverRow] = []
 
