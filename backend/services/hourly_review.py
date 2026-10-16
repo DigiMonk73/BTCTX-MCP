@@ -75,8 +75,12 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
         return {"changed": [], "backup": None}
     path = sqlite_file(db.get_bind())
     backup = backup_sqlite(path, "hourly-prices", kind="review", keep=REVIEW_COPIES_KEPT) if path is not None else None
+    applied = []
     for change in changes:
         t = db.get(Transaction, change["id"])
+        if t is None:  # deleted while the copy was made: nothing left to price
+            continue
+        applied.append(change)
         for field, (_old, new) in change["values"].items():
             setattr(t, field, new)
             if field == "gross_proceeds_usd":
@@ -84,7 +88,7 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
         t.price_moment = change["moment"]
     recalculate_all_transactions(db)
     db.commit()
-    return {"changed": changes, "backup": backup.name if backup else None}
+    return {"changed": applied, "backup": backup.name if backup else None}
 
 
 def _change_for(db: Session, t: Transaction, wait: bool) -> dict[str, Any] | None:

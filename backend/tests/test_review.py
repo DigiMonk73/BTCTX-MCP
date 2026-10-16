@@ -650,3 +650,137 @@ def test_a_withdrawal_whose_amount_1_2_8_erased_stays_none_recorded(auth_client,
             'Purpose "Expenses": counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss.']
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine, monkeypatch):
+    """#335: the check's dry run replayed the whole ledger on the live
+    database and rolled it back, holding SQLite's write lock meanwhile: a
+    save made then (the owner's or the AI's) waited, and failed after 5 s on
+    a large ledger. It runs on a scratch copy now. Here a save is made in the
+    middle of the dry run, from another connection that waits at most 0.5 s."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services import transaction
+    from backend.services.transaction import create_transaction_record
+
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # a Lost withdrawal saved with a loss: the dry run finds a change
+        (990, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (991, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+    ])
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.5})
+    real_replay, saved = transaction.recalculate_all_transactions, []
+
+    def replay_then_save_elsewhere(db, *args, **kwargs):
+        real_replay(db, *args, **kwargs)
+        db.flush()  # the replay's writes, as far as the dry run takes them
+        with sessionmaker(bind=impatient)() as other:
+            try:
+                saved.append(create_transaction_record(dict(
+                    type="Deposit", timestamp=datetime(2024, 3, 1, 12, tzinfo=timezone.utc), from_account_id=EXTERNAL,
+                    to_account_id=BANK, amount=Decimal("100"), source="N/A"), other).id)
+            except Exception as exc:  # "database is locked" on the old code
+                saved.append(exc)
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_then_save_elsewhere)
+    try:
+        review = auth_client.get("/api/review").json()
+        assert len(saved) == 1 and isinstance(saved[0], int), saved
+        assert 991 in ids(review, "recalc_changes")  # the dry run still says what a recalculation would do
+        assert _stored(test_engine, 991, "realized_gain_usd") == Decimal("-100.00")  # and changed nothing
+        with test_engine.connect() as con:
+            assert con.execute(text("SELECT id FROM transactions WHERE id = :id"), {"id": saved[0]}).scalar()
+    finally:
+        impatient.dispose()
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_transaction_deleted_while_the_check_runs_is_left_out(auth_client, test_engine, monkeypatch):
+    """#361's review: with the dry run on a copy (#335), a delete can land
+    while it runs. The check's list then named a transaction no longer
+    there, and building its item failed (a 500). It's left out instead."""
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services import transaction
+    from backend.services.transaction import delete_transaction_record
+
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # two Lost withdrawals saved with a loss: the dry run finds both
+        (995, "Deposit", "2024-01-02", EXTERNAL, WALLET, "1", "MyBTC", None, "1000", None, None, None),
+        (996, "Withdrawal", "2024-02-01", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+        (997, "Withdrawal", "2024-02-02", WALLET, EXTERNAL, "0.1", None, "Lost", None, None, None, "-100"),
+    ])
+    real_replay = transaction.recalculate_all_transactions
+
+    def replay_then_delete_elsewhere(db, *args, **kwargs):
+        real_replay(db, *args, **kwargs)
+        with sessionmaker(bind=test_engine)() as other:
+            monkeypatch.setattr(transaction, "recalculate_all_transactions", real_replay)
+            assert delete_transaction_record(996, other)
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_then_delete_elsewhere)
+    try:
+        r = auth_client.get("/api/review")
+        assert r.status_code == 200, r.text
+        listed = ids(r.json(), "recalc_changes")
+        assert 997 in listed and 996 not in listed, listed
+    finally:
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def test_a_dry_run_that_fails_unexpectedly_says_so_in_plain_words(auth_client, monkeypatch, caplog):
+    """#361's re-check: an error that isn't a refusal of the app's own (a bug,
+    a database error) was shown as its text, SQL included. The check says
+    it in plain words, and the log has the details."""
+    from backend.services import transaction
+    from backend.services.review import DRY_RUN_FAILED
+
+    def replay_fails(db, *args, **kwargs):
+        raise TypeError("(builtins.TypeError) [SQL: UPDATE transactions SET proceeds_usd=?]")
+
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_fails)
+    review = auth_client.get("/api/review").json()
+    assert review["recalc_error"] == DRY_RUN_FAILED
+    assert "SQL" not in review["recalc_error"]
+    assert "the dry run of Recalculate Ledger failed" in caplog.text
+    # cli review says it as the Settings panel does, once
+    from backend.services.review import format_text
+    assert "\nRecalculate Ledger would stop with: an unexpected error (BitcoinTX's log has the details).\n" \
+        in format_text(review)
+
+
+def test_a_day_priced_value_whose_transaction_is_gone_is_left_out(auth_client, monkeypatch):
+    """#361's re-check: the hourly check found a transaction, then building
+    its item read it again; one deleted in between was an AttributeError
+    (a 500). Left out instead."""
+    from decimal import Decimal
+
+    from backend.services import review
+
+    gone = {"id": 999_999, "tax_year": 2024, "moment": "hour", "at": 1_704_067_200, "price": Decimal("42000"),
+            "values": {"cost_basis_usd": (Decimal("100"), Decimal("200"))}}
+    monkeypatch.setattr(review, "hourly_changes", lambda db, *args, **kwargs: [gone])
+    r = auth_client.get("/api/review")
+    assert r.status_code == 200, r.text
+    hourly = next(c for c in r.json()["checks"] if c["key"] == "day_priced_values")
+    assert hourly["items"] == [] and hourly["count"] == 0
+
+
+def test_applying_hourly_prices_skips_a_transaction_gone_meanwhile(auth_client, monkeypatch):
+    """#361's re-check: applying the hour's prices found the transactions,
+    made a backup copy, then priced each; one deleted while the copy was
+    made was an AttributeError (a 500). It's skipped, and not reported as
+    changed."""
+    from decimal import Decimal
+
+    from backend.services import hourly_review
+
+    gone = {"id": 999_999, "tax_year": 2024, "moment": "hour", "at": 1_704_067_200, "price": Decimal("42000"),
+            "values": {"fee_usd": (Decimal("1"), Decimal("2"))}}
+    monkeypatch.setattr(hourly_review, "hourly_changes", lambda db, *args, **kwargs: [gone])
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [999_999]})
+    assert r.status_code == 200, r.text
+    assert r.json()["changed"] == []

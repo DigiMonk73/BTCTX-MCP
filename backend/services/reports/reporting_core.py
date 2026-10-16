@@ -4,17 +4,13 @@ end, capital gains (the Form 8949 disposals, spending included), income and gift
 complete_tax_report.py turns it into the PDF.
 """
 
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 from collections.abc import Iterator
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
-import sqlite3
 
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import (
@@ -22,6 +18,7 @@ from backend.models.transaction import (
     BitcoinLot,
     LotDisposal,
 )
+from backend.database import scratch_copy
 from backend.models.account import Account
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 from backend.services.reports.form_8949 import (
@@ -67,29 +64,6 @@ def _year_end_note(priced: hourly_prices.Priced | None, year: int) -> str:
             "tax year ended)")
 
 
-@contextmanager
-def _scratch_copy(db: Session) -> Iterator[Session]:
-    """
-    A throwaway in-memory copy of the database. Start/end-of-year snapshots
-    replay the ledger only up to a date; doing that on a copy means building
-    a report never rewrites (or even locks) the real ledger.
-    """
-    memory = sqlite3.connect(":memory:", check_same_thread=False)
-    raw = db.get_bind().raw_connection()
-    try:
-        raw.driver_connection.backup(memory)
-    finally:
-        raw.close()
-    engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
-    scratch = Session(bind=engine)
-    try:
-        yield scratch
-    finally:
-        scratch.close()
-        engine.dispose()
-        memory.close()
-
-
 def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     """
     Generates a comprehensive dictionary of data for the specified tax year (YYYY).
@@ -97,7 +71,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
     Pipeline:
       1) Start- and end-of-year holdings: replay the ledger up to each year
-         boundary on a throwaway copy of the database (_scratch_copy).
+         boundary on a throwaway copy of the database (scratch_copy).
       2) Everything else reads the live ledger, which every write already
          keeps fully recalculated. Building a report changes nothing.
     """
@@ -105,12 +79,12 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
     # 1) Gather beginning-of-year balances (snapshot)
     start_dt, end_dt = tax_year_bounds(year, get_tax_timezone(db))
-    with _scratch_copy(db) as scratch:
+    with scratch_copy(db) as scratch:
         start_of_year_data = _build_start_of_year_balances(scratch, year)
 
     # 1b) End-of-year snapshot: replay only transactions before the
     #     year boundary, so later activity doesn't leak into 12/31 holdings
-    with _scratch_copy(db) as scratch:
+    with scratch_copy(db) as scratch:
         recalculate_all_transactions(scratch, until=end_dt)
         eoy_list = _build_end_of_year_balances(scratch, year)
 
