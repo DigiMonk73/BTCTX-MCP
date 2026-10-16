@@ -275,3 +275,54 @@ def test_a_sale_listed_before_its_same_time_buy_says_to_reorder(auth_client):
     detail = r.json()["detail"]
     assert "Not enough BTC" in detail and "file's order" in detail and ". No transactions were saved." in detail
     assert auth_client.get("/api/transactions").json() == []
+
+
+@pytest.mark.parametrize("purpose, back", [
+    ("-5% fee", "-5% fee"), ("=SUM(A1)", "=SUM(A1)"), ("+1 card", "+1 card"), ("@home", "@home"),
+    ("＝look-alike", "＝look-alike"), ("－10 off", "－10 off"),
+    (" =x", "=x"),  # the import trims a cell's spaces, as it always has
+])
+def test_text_a_spreadsheet_could_run_comes_back_as_it_was(auth_client, purpose, back):
+    """#230: the export puts a ' in front of such text (safe_text.csv_text),
+    and the import kept it: "-5% fee" came back as "'-5% fee"."""
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    for tx in (
+        dict(type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=99, to_account_id=1,
+             amount="1000", source="N/A"),
+        dict(type="Withdrawal", timestamp="2024-01-03T12:00:00Z", from_account_id=1, to_account_id=99,
+             amount="100", purpose=purpose),
+    ):
+        r = auth_client.post("/api/transactions", json=tx)
+        assert r.status_code == 200, r.text
+    stored = [t["purpose"] for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    exported = auth_client.get("/api/backup/csv").text
+    assert f",'{stored[0]}," in exported
+    assert auth_client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
+    r = auth_client.post("/api/import/execute", files=csv_file(exported))
+    assert r.status_code == 200, r.text
+    assert [t["purpose"] for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal"] == [back]
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+@pytest.mark.parametrize("column, cell, read", [
+    ("purpose", "'-5% fee", "-5% fee"), ("purpose", "'hello", "'hello"), ("purpose", "'", "'"),
+    ("purpose", "  '=1 ", "=1"), ("purpose", "''=1", "''=1"),
+    ("amount", "'+0.01", "'+0.01"),  # a number the export writes as it is: a ' there was never its
+])
+def test_only_the_exports_quote_is_dropped(column, cell, read):
+    """A ' the export didn't add (before text no spreadsheet runs, or in a
+    column it doesn't quote) stays."""
+    from backend.services.csv_import import _cell
+
+    assert _cell(column, cell) == read
+
+
+def test_the_quoted_columns_are_the_ones_the_export_quotes():
+    """The import takes the ' off only where the export may have put one."""
+    import re
+    from pathlib import Path
+
+    from backend.services.csv_import import QUOTED_COLUMNS
+
+    export = (Path(__file__).resolve().parents[1] / "routers" / "backup.py").read_text()
+    assert set(re.findall(r'"(\w+)": csv_text\(', export)) == QUOTED_COLUMNS

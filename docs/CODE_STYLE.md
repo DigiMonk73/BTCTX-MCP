@@ -78,7 +78,7 @@ moves these breaks or silently weakens a test):
   (`hourly_prices.price_at(...)`, never a name imported from it), and
   those handlers stay plain `def` (a test checks imports don't block the
   server).
-- **Private names tests import**: `csv_import._validate_row`,
+- **Private names tests import**: `csv_import._validate_row`, `csv_import._cell`,
   `form_8949._determine_box`, `routers.backup._copy_at_most`,
   `transaction.holding_period`, `login_throttle._clients` (its bound).
 - **Text `pre_commit_tests.py` looks for**: in `transaction.py`

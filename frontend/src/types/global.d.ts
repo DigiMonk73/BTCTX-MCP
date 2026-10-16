@@ -244,6 +244,11 @@ declare global {
   type BrokerReporting = "none" | "proceeds" | "basis";
   type Currency = "USD" | "BTC";
 
+  /** A BTC field's value: a number, or its plain digits ("0.00000005") where
+   * JavaScript would write the number in exponent form (#101, btcText). The
+   * field reads it back as a number (valueAsNumber). */
+  type BtcFieldValue = number | string;
+
   interface TransactionFormData {
     type: TransactionType;
     timestamp: string;
@@ -251,10 +256,10 @@ declare global {
     // Single-account
     account?: AccountType;
     currency?: Currency;
-    amount?: number;
+    amount?: BtcFieldValue;
     source?: DepositSource;      // for BTC deposit
     purpose?: WithdrawalPurpose; // for BTC withdrawal
-    fee?: number;
+    fee?: BtcFieldValue;
     costBasisUSD?: number;
     proceeds_usd?: number;
     fmv_usd?: number;
@@ -264,12 +269,12 @@ declare global {
     fromCurrency?: Currency;
     toAccount?: AccountType;
     toCurrency?: Currency;
-    amountFrom?: number;
-    amountTo?: number;
+    amountFrom?: BtcFieldValue;
+    amountTo?: BtcFieldValue;
 
     // Buy / Sell
     amountUSD?: number;
-    amountBTC?: number;
+    amountBTC?: BtcFieldValue;
 
     // For Buy transactions: source account (Bank or Exchange)
     buyFromAccount?: "Bank" | "Exchange";

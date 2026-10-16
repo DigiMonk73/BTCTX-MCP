@@ -78,6 +78,17 @@ All notable changes to BitcoinTX are documented in this file.
   column, so a re-import keeps where the value came from. This adds a
   database column (migration 0011, `fmv_from_price`).
 
+- **The Mac app says when it has no AI key, and how to get one** (#238).
+  If the app can't write its AI key file when it starts, it runs with no
+  key until **Reset key** (or the next start). Settings › Connect an AI
+  Assistant now says "No AI key yet: press Reset key." instead of only
+  describing the key file. And the AI connector, finding no key file, or
+  one whose app is gone, adds "or, if it's open, press Reset key in its
+  Settings (Connect an AI Assistant)" to "Open the BitcoinTX app and try
+  again": an open app that couldn't write its key has no file on its first
+  start, and leaves the earlier run's file after that.
+  `mcp_server/AI_SETUP.md`'s troubleshooting says the same.
+
 ### Fixed
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
@@ -261,6 +272,26 @@ All notable changes to BitcoinTX are documented in this file.
   added to its amount ($101 for $100), and a fee currency written with a
   space (" BTC") was left out of a bitcoin transfer's amount; both now save
   as the CSV import does.
+- **A CSV export imports as it was** (#230). The export puts a `'` in
+  front of text a spreadsheet could run as a formula (a purpose such as
+  `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
+  `－10`), and importing that file kept the `'`: `-5% fee` came back as
+  `'-5% fee`. The import now drops that one `'` again, in the columns the
+  export writes that way; a `'` before any other text stays. A purpose you
+  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
+  as the export's, and spaces at either end of a cell are trimmed, as
+  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
+  since 1.2.8).
+- **The CSV guide says what the import takes** (#304). Its rules table said
+  a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
+  only from them, while its own troubleshooting table and the import take
+  Bank and Exchange USD too; its type and column tables said the same.
+  They now say dollars or bitcoin: a deposit's cost basis and a
+  withdrawal's purpose (Spent, Gift, Donation or Lost) are needed only with
+  bitcoin, and a dollar withdrawal's purpose is any text, or none. Its
+  Deposit and Withdrawal example rows had a comma too few, so they didn't
+  import as printed; they do now. And its tables' longer rows no longer
+  run off the page.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
@@ -310,8 +341,55 @@ All notable changes to BitcoinTX are documented in this file.
   any save). If you changed the tax timezone by many hours after entering a
   My BTC, Gift or Inherited deposit's date, check those dates against your
   records and correct any that moved. Most ledgers need nothing.
+- **Input that can never be valid gets a refusal, not a server error**
+  (#210, #218, #211). These requests were answered "Internal Server
+  Error" (500) instead of saying what was wrong. Nothing was saved, and
+  only the logged-in owner (or the AI key, for the AI connector's entries)
+  could send most of them. Every version up to 1.2.8. Now:
+  - a password or username that isn't text (a lone surrogate, `"\ud800"`,
+    which JSON can carry but no keyboard types) is a wrong one at login or
+    as the current password (401 or 403, counted like any other), and a
+    new password or username like it is refused with a 422 that says so
+    (#210);
+  - a JSON number too large for a computer's numbers (`1e999`, read as
+    infinity), or `NaN`, gets a 422 that names the field and leaves the
+    value out (#218);
+  - a date at the very edge of the calendar, such as 9999-12-31 23:59:59 in
+    a US tax timezone or `0001-01-01T00:00:00+05:00`, is refused as "out of
+    range", naming the field (the date or the date originally acquired), in
+    the CSV import, the AI connector's entries and the API; a Complete Tax
+    Report or transaction history for a year before 2009 or after 2100 is
+    a 422 naming the year, as Form 8949 already refused one; and a CSV or
+    River file with a field over 131,072 characters gets "The file can't
+    be read as CSV" (#211).
+- **A few sats are written out, never as 5E-8** (#101). The transactions
+  API, and so the AI connector's `list_transactions`, gave an amount or a
+  fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
+  as `"0E-8"`; so did `preview_transactions`' balances afterwards,
+  `add_transactions`' list of what it created and `get_portfolio`'s BTC
+  balances (`1e-08`). An AI reading it could misread it. These now always
+  come with their eight places (`"0.00000005"`, `"0.00000000"`), as the
+  CSV export, Form 8949 and Ledger Review write them. The edit form showed
+  such an amount or fee as `5e-8` too, and so did a transfer's fee worked
+  out from its amounts; they now show `0.00000005`. Nothing stored or
+  computed changes.
+- **The AI connector's `btctx_mcp.__version__` is its real version**
+  (#133). It said 0.1.0 whatever the release; it now reads the installed
+  package's version (`unknown` when the connector isn't installed).
+  Nothing used it: the connector's version notice already read the
+  package's version.
 
 ### Development
+- **The WebKit click-through check no longer fails now and then on a
+  page load** (#231). In Playwright's WebKit, the reload or `goto` that
+  followed a price choice saved over the API sometimes failed with
+  "WebKit encountered an internal error" (the sidebar matrix's reload, the
+  price card's status checks; the Dashboard's and the converter's "prices
+  off" tests had the same pattern), and the required check failed until it
+  ran again. Those tests now save the choice with `choosePriceSource()`, which
+  tells the open page as the price card does after its own save: the page
+  asks again in place, with no page load. Real Safari, Chrome and the Mac
+  app were never at fault (#149).
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate
