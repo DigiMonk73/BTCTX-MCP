@@ -303,6 +303,19 @@ All notable changes to BitcoinTX are documented in this file.
   any save). If you changed the tax timezone by many hours after entering a
   My BTC, Gift or Inherited deposit's date, check those dates against your
   records and correct any that moved. Most ledgers need nothing.
+- **A few sats are written out, never as 5E-8** (#101). The transactions
+  API, and so the AI connector's `list_transactions`, gave an amount or a
+  fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
+  as `"0E-8"`. An AI reading it could misread it. Amounts and fees now
+  always come with their eight places (`"0.00000005"`, `"0.00000000"`), as
+  the CSV export, Form 8949 and Ledger Review write them. The edit form
+  showed such an amount or fee as `5e-8` too, and so did a transfer's fee
+  worked out from its amounts; they now show `0.00000005`. Nothing stored
+  or computed changes.
+- **The AI connector's `btctx_mcp.__version__` is its real version**
+  (#133). It said 0.1.0 whatever the release; it now reads the installed
+  package's version (`unknown` when run from a source tree). Nothing used
+  it: the connector's version notice already read the package's version.
 
 ### Development
 - **The certificate test no longer fails 1 run in 256** (#299).

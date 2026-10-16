@@ -7,7 +7,7 @@ every amount goes through: BTC to 8 decimal places (a satoshi), USD to 2
 from __future__ import annotations
 
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_serializer, field_validator, ConfigDict
 from typing import Literal
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -353,6 +353,16 @@ class TransactionRead(TransactionBase):
     @field_validator("gross_proceeds_usd")
     def validate_gross_proceeds_usd(cls, v: Decimal | None) -> Decimal | None:
         return v
+
+    @field_serializer("amount", "fee_amount", when_used="json")
+    def eight_places(self, v: Decimal | None) -> str | None:
+        """
+        Written out with all eight places, as the columns hold them and as
+        the CSV export and calculation.btc_text() write them: str() of a
+        Decimal under 0.000001 is in exponent form, "5E-8" for 5 sats and
+        "0E-8" for none, which the AI connector passes on as it is (#101).
+        """
+        return None if v is None else f"{v:.8f}"
 
 
 class LedgerEntryBase(BaseModel):
