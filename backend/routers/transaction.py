@@ -126,8 +126,8 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
     transaction doesn't exist. With the AI key, its first change in an hour
-    (an edit, a deletion or a recalculation) comes after an AI copy of the
-    database.
+    (an edit, a deletion, a recalculation, or an import that recalculates)
+    comes after an AI copy of the database.
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -164,9 +164,9 @@ def delete_transaction(transaction_id: int, request: Request, db: Session = Depe
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
-    With the AI key, its first change in an hour (an edit, a deletion or a
-    recalculation) comes after an AI copy of the database (in the backups
-    folder).
+    With the AI key, its first change in an hour (an edit, a deletion, a
+    recalculation, or an import that recalculates) comes after an AI copy of
+    the database (in the backups folder).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")

@@ -90,7 +90,8 @@ def _check_size(payload: EntryRequest, ai: bool) -> None:
 def _recalculates(prepared: list[PreparedRow], db: Session) -> bool:
     """Whether saving the rows recalculates the whole ledger: one dated
     before the ledger's latest entry does (services/transaction
-    _is_backdated), and can move stored figures."""
+    _is_backdated), and can move stored figures. The rows are saved oldest
+    first, so one can't come before another of the same import."""
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
     return latest is not None and any(
         p.tx_data["timestamp"] < latest.timestamp
