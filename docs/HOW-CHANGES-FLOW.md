@@ -74,9 +74,11 @@ with its checklist, and a ready-to-paste kickoff prompt on each. The
 owner starts each session from a card or its prompt. Each session
 begins from the latest `develop` (never `main`, which lacks what isn't
 released yet) and works through its own checklist, pull request by pull
-request, stopping where the owner decides. The plan also says which files each session will
-touch and the order their work merges in, so sessions don't trip over
-each other. The main session keeps a ready-to-paste handoff for
+request, stopping where the owner decides. A bug found along the way
+is filed as usual (section 5) and gets a session of its own; the
+release waits for its fix unless the owner leaves it for later. The plan
+also says which files each session will touch and the order their work
+merges in, so sessions don't trip over each other. The main session keeps a ready-to-paste handoff for
 itself on the job's issue, up to date after every change, so a fresh
 main session can take over when this one grows too long. Details:
 `AGENTS.md`, "Big work".

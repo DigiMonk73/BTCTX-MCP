@@ -810,8 +810,13 @@ one session. Claude suggests this setup when a request is that big.
   sessions for bugs we find"). When a session, a review or a test finds
   one during big work, it's filed as usual ("Bugs and security"); then
   the lead adds a session for it to the umbrella (its issue, kickoff
-  prompt and footprint), starts it, and has the release wait for it,
-  unless the owner leaves it for a later release.
+  prompt and footprint; bugs found together may share one), starts it
+  as the merge plan allows, and has the release wait for it, unless the
+  owner leaves it for a later release. Two cases stay as "Bugs and
+  security" says: a bug in an open pull request, found by its review or
+  its tests, is fixed in that pull request; and a security problem goes
+  to a draft advisory, never onto the umbrella or any issue, and its fix
+  is released the same day rather than held for the release.
 - **Each session** first posts or refreshes its checklist on its issue,
   ticks the boxes there as it goes, and writes its decisions there. It
   carries on from its own issue, not from #41's "Next". After a
