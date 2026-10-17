@@ -34,6 +34,13 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The README says what comes after 1.2.9** (#369, #251; "Versions", also
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
+  version, with maintenance updates and small improvements after it, until
+  2.0 replaces it;
+  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  a beta on GitHub pre-releases before it comes to Start9's Community Beta.
+  No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
@@ -477,6 +484,14 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River and AI imports' duplicate check is fast again** (#379). This
+  version's duplicate rule (#253) checks each row in up to seven passes,
+  and each pass looked through the whole ledger for every row: a River
+  file of 2,000 rows against 2,000 transactions took about 13 seconds, and
+  the AI connector's 500 rows against 10,000 about 8. Each row's
+  transactions within two days are now found once, by time: about a tenth
+  of a second for either. The answers are the same. **Affected:** no
+  release: the rule is new in this version. Nothing to do.
 - **The CSV import's Preview says when a row needs a price BitcoinTX can't
   get** (#125). Preview called a row valid that Import then refused for want
   of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
@@ -485,9 +500,10 @@ All notable changes to BitcoinTX are documented in this file.
   price source chosen, or Nobody, or a day before any price). Preview now
   lists such a row as an error naming the value to fill. A price BitcoinTX
   may still ask for is left to the import, as before. Nothing was ever saved
-  wrong: the import refused the whole file and said why. **Affected:** 1.2.8
-  (where no price source chosen or Nobody stops the asking), and earlier
-  versions for a day before any price. Nothing to do.
+  wrong: the import refused the whole file and said why. **Affected:** every
+  version since 1.1.0 (where nothing is asked for prices until a source is
+  chosen, nor with Nobody), and every version for a day before any price or
+  after today. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
@@ -610,11 +626,12 @@ All notable changes to BitcoinTX are documented in this file.
   `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
   `－10`), and importing that file kept the `'`: `-5% fee` came back as
   `'-5% fee`. The import now drops that one `'` again, in the columns the
-  export writes that way; a `'` before any other text stays. A purpose you
-  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
-  as the export's, and spaces at either end of a cell are trimmed, as
-  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
-  since 1.2.8).
+  export writes that way; a `'` before any other text stays. A purpose
+  saved with its own `'` before such text (`'-5% fee`) is exported with
+  another, so it comes back with its own (#380). In a CSV file you write
+  yourself, `'-5% fee` reads as the export's and loses its `'`, and spaces
+  at either end of a cell are trimmed, as before. Text only, no figure.
+  Every version since 1.1.0 (the look-alikes since 1.2.8).
 - **The CSV guide says what the import takes** (#304). Its rules table said
   a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
   only from them, while its own troubleshooting table and the import take
@@ -711,6 +728,31 @@ All notable changes to BitcoinTX are documented in this file.
   package's version (`unknown` when the connector isn't installed).
   Nothing used it: the connector's version notice already read the
   package's version.
+
+### Security
+- **Hardening from the 1.2.8 and 1.2.9 security reviews** (#204). None of
+  these could be used against an install; each closes a gap before it
+  could matter:
+  - **A login with a username that doesn't exist takes as long as one
+    with a wrong password.** Only an existing username's password was
+    checked (about 0.2 s, against 1 ms), so the time an answer took said
+    whether that name exists. Now an unknown one is checked against a
+    stand-in all the same.
+  - **The AI key goes by the route a request reached**, not by its web
+    address read a second time, where a `%3F` in the address cut that
+    reading short. No route outside the key's list could be reached that
+    way (checked); now none can by any address.
+  - **A `SECRET_KEY` set in the environment needs at least 32
+    characters**, like the key file's. A shorter one is ignored, with a
+    warning in the log, and the key file next to the database is used
+    instead (everyone logs in again once). Docker, StartOS and the Mac app
+    set none, so nothing changes for them.
+  - **Trust this server says where to check the fingerprint.** The
+    certificate authority's name it shows is what the server says about
+    itself; the card now asks you to check that the SHA-256 fingerprint
+    is that server's own before you trust it (on a StartOS server, the
+    Root CA in its About this server: System > General Settings, or the
+    menu at the top right).
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
