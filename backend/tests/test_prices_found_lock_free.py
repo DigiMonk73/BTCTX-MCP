@@ -15,13 +15,13 @@ that clears them), and any price an import's warm-up (#423) didn't find.
 """
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import sessionmaker
 
 from backend.services import csv_import, entry_import, outbound, price_history
@@ -234,12 +234,8 @@ def test_with_your_own_mempool_too(auth_client, sites, unvalued_fee):
 
 
 def test_bitstamps_hours_after_the_year_files_too(auth_client, sites, unvalued_fee, monkeypatch):
-    """The year files ending on 28 February 2019 (a release's last hour),
-    the transfer's hour comes from Bitstamp's blocks after them."""
-    files_end = _midnight("2019-03-01") - 3600
-    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
-        pf.YearLine(2019, pf.year_start(2019), files_end, 1416, "sha2019")])
-    monkeypatch.setattr(hp, "_current_hour", lambda: _midnight("2019-03-10"))
+    """The transfer's hour comes from Bitstamp's blocks after the year files."""
+    _year_files_end_before_march_2019(monkeypatch)
     r = auth_client.post("/api/transactions/recalculate")
     assert r.status_code == 200, r.text
     assert sites.requests == [("www.bitstamp.net", True)]  # one block: the hours from 1 March
@@ -250,9 +246,7 @@ def test_an_hour_a_source_hasnt_is_asked_for_once(auth_client, sites, unvalued_f
     """Noted when it's looked for with the lock free, so the save run again
     takes the day's price without asking, however soon a source may be
     asked again (here at every lookup)."""
-    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
-        pf.YearLine(2019, pf.year_start(2019), _midnight("2019-03-01") - 3600, 1416, "sha2019")])
-    monkeypatch.setattr(hp, "_current_hour", lambda: _midnight("2019-03-10"))
+    _year_files_end_before_march_2019(monkeypatch)
     monkeypatch.setattr(hp, "RETRY_SECONDS", 0)
     sites.missing.add(_midnight("2019-03-02") + 12 * 3600)  # the transfer's hour
     r = auth_client.post("/api/transactions/recalculate")
@@ -353,20 +347,82 @@ def test_so_does_an_edit(auth_client, test_engine, sites, unvalued_fee):
     _fee_valued(auth_client, unvalued_fee)
 
 
-def test_a_busy_database_while_keeping_the_price_answers_as_before(auth_client, sites, unvalued_fee, monkeypatch):
+def _year_files_end_before_march_2019(monkeypatch) -> None:
+    """The year files end on 28 February 2019 (a release's last hour): an
+    hour in March is asked of Bitstamp's blocks after them."""
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
+        pf.YearLine(2019, pf.year_start(2019), _midnight("2019-03-01") - 3600, 1416, "sha2019")])
+    monkeypatch.setattr(hp, "_current_hour", lambda: _midnight("2019-03-10"))
+
+
+@pytest.mark.parametrize("moment", ["day", "hour"])
+def test_a_busy_database_while_keeping_the_price_answers_as_before(auth_client, test_engine, sites, unvalued_fee,
+                                                                    monkeypatch, moment):
     """Keeping the price found with the lock free can meet another save
     holding it: the save meets that where it needs the price, and the AI
-    preview's dry run says its row was busy (SIMULATION_BUSY), as #423 does."""
+    preview's dry run says its row was busy (SIMULATION_BUSY), as #423 does.
+    The hour's: its day is stored, so only the hour's failure says busy."""
     from sqlalchemy.exc import OperationalError
 
     def busy(db, write):
         raise OperationalError("INSERT INTO btc_price_daily", {}, sqlite3.OperationalError("database is locked"))
 
+    if moment == "hour":
+        _year_files_end_before_march_2019(monkeypatch)
+        _store_day(test_engine, "2019-03-02")
     monkeypatch.setattr(price_history, "keep", busy)
     r = auth_client.post("/api/import/entries/preview", json={"rows": [EARLIER]})
     assert r.status_code == 200, r.text
     assert entry_import.SIMULATION_BUSY in r.json()["results"][0]["errors"]
     sites.all_with_the_lock_free()
+
+
+def test_a_save_run_again_waits_for_no_download(auth_client, test_engine, sites, unvalued_fee, monkeypatch):
+    """A backdated transfer's first run waits for 2019's year file (still
+    downloading) before it writes; the old transfer's day isn't stored, so
+    it runs again, without waiting for that download again."""
+    waits = []
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
+        pf.YearLine(2019, pf.year_start(2019), pf.year_end(2019), 8760, "sha2019")])
+    monkeypatch.setattr(hp, "_year_prices", lambda *args, **kwargs: None)
+    monkeypatch.setattr(hp, "start_download", lambda: True)
+    monkeypatch.setattr(hp, "_wait_for_year", lambda line: waits.append(_lock_free(test_engine)))
+    _store_day(test_engine, "2019-03-01")
+    post(auth_client, type="Transfer", timestamp="2019-03-01T15:00:00Z", from_account_id=EXCHANGE_BTC,
+         to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
+    assert waits == [True]
+    sites.all_with_the_lock_free()
+    _fee_valued(auth_client, unvalued_fee)
+
+
+def test_a_save_runs_again_in_a_clean_session(test_engine, monkeypatch):
+    """#442's re-check: the rollback can put back rows the first run deleted
+    in bulk (a recalculation's lots), and one whose object was freed by then
+    broke the rerun's flush; so nothing the first run loaded is kept."""
+    from backend.models.account import Account
+
+    loaded = []
+
+    def save():
+        loaded.append(db.get(Account, BANK))
+        if len(loaded) == 1:
+            raise price_history.PriceNeeded(date(2019, 3, 2), "day")
+        return loaded[-1]
+
+    monkeypatch.setattr(hp, "_look_with_the_lock_free", lambda db, need: None)
+    with sessionmaker(bind=test_engine)() as db:
+        assert hp.with_prices_found(db, save) is not loaded[0]
+        assert inspect(loaded[0]).detached
+
+
+def test_after_its_caller_changed_anything_it_only_runs_the_save(test_engine):
+    """A rollback would undo the change, flushed or only added (#442's review)."""
+    from backend.models.app_setting import AppSetting
+
+    with sessionmaker(bind=test_engine)() as db:
+        db.add(AppSetting(key="test-426", value="x"))
+        assert hp.with_prices_found(db, lambda: db.info.get(price_history.ASK_FIRST)) is None
+        db.rollback()
 
 
 # Whatever price an import's warm-up (transaction.find_prices_first) misses:

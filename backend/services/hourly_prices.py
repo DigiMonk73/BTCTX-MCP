@@ -166,10 +166,13 @@ def _year_of(hour: int, years: dict, remember: bool = True) -> dict[int, Decimal
 # Session.info keys, noted while an import finds its prices first
 # (transaction.find_prices_first, WARMING) and heeded for the rest of it:
 # the years whose download a lookup waited for, and the hours a source had
-# no price for (hourly_price), which a save in with_prices_found notes too
+# no price for (hourly_price), which a save in with_prices_found notes too;
+# and a save run again for a price (with_prices_found), which waited for its
+# years' downloads, if at all, on its first run
 WARMING = "btctx_finding_prices_first"
 WAITED_FOR = "btctx_years_waited_for"
 UNPRICED_HOURS = "btctx_hours_without_price"
+RUN_AGAIN = "btctx_save_run_again"
 
 
 def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:
@@ -184,7 +187,8 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     sites failed to give isn't asked again soon anyway: price_history's
     RETRY_SECONDS). Every other caller looks as before. A save holding the
     write lock in with_prices_found sends no request: one about to go out
-    raises price_history.PriceNeeded (#426)."""
+    raises price_history.PriceNeeded (#426); run again, it waits for no
+    download."""
     hour = hour_of(when)
     if not pf.year_start(pf.FIRST_YEAR) <= hour <= _current_hour():
         return None
@@ -213,11 +217,11 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
 
 def _may_wait(db: Session, line: pf.YearLine) -> bool:
     """Whether a lookup may wait for its year's download: not holding the
-    write lock (#421), and once a year in an import (WARMING) or a save run
-    again for a price (with_prices_found)."""
-    if price_history.writing(db) or line.year in db.info.get(WAITED_FOR, ()):
+    write lock (#421), once a year in an import (WARMING), and not in a save
+    run again for a price (RUN_AGAIN): its first run waited already."""
+    if price_history.writing(db) or db.info.get(RUN_AGAIN) or line.year in db.info.get(WAITED_FOR, ()):
         return False
-    if db.info.get(WARMING) or db.info.get(price_history.ASK_FIRST):
+    if db.info.get(WARMING):
         db.info.setdefault(WAITED_FOR, set()).add(line.year)
     return True
 
@@ -232,7 +236,8 @@ def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
     other saves wait only 5 s for that lock. A request about to go out then
     raises price_history.PriceNeeded instead (price_history.requests_held);
     the save rolls back, the price is looked for with the lock free (kept,
-    or noted as having none), and the save runs again, each dict in
+    or noted as having none), and the save runs again in a clean session
+    (an object its caller loaded before is detached then), each dict in
     `inputs` (its input, which it completes in place) as given. Each time a
     price is kept or noted, so it ends. Inside another such save it's only
     run, and so it is after its caller has changed anything (written or
@@ -252,13 +257,19 @@ def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
                 return save()
             except price_history.PriceNeeded as need:
                 db.rollback()
+                # Nothing of the run is kept in the session: the rollback puts
+                # back the rows it deleted (a recalculation's lots), and one
+                # whose object was freed meanwhile broke the rerun's flush
+                # (AttributeError in SQLAlchemy, #442's re-check)
+                db.expunge_all()
                 if (need.moment, need.when) in looked_for:  # kept or noted: never needed twice
                     raise RuntimeError("A price looked for with the lock free was needed again") from need
                 looked_for.add((need.moment, need.when))
                 _look_with_the_lock_free(db, need)
+                db.info[RUN_AGAIN] = True
     finally:
         for key in (price_history.ASK_FIRST, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED,
-                    UNPRICED_HOURS, WAITED_FOR):
+                    UNPRICED_HOURS, RUN_AGAIN):
             db.info.pop(key, None)
 
 
