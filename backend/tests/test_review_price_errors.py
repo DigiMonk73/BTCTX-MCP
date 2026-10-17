@@ -5,6 +5,8 @@ failure of the lookup is an error, not a shorter list that looks like
 "nothing to fix": answered as one (backend/unexpected_errors.py, #430).
 """
 
+import pytest
+
 from backend.services import price_history
 from backend.unexpected_errors import UNEXPECTED
 from backend.tests.test_review import ids, priced  # noqa: F401  (fixture)
@@ -20,6 +22,7 @@ def test_a_day_without_a_price_is_passed_over(auth_client, priced, monkeypatch):
     assert ids(r.json(), "day_priced_values") == []
 
 
+@pytest.mark.unexpected_error
 def test_any_other_lookup_failure_is_an_error(auth_client, priced, monkeypatch):  # noqa: F811
     def broken(db, when):
         raise RuntimeError("database is locked")
@@ -29,6 +32,7 @@ def test_any_other_lookup_failure_is_an_error(auth_client, priced, monkeypatch):
     assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})
 
 
+@pytest.mark.unexpected_error
 def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engine, monkeypatch):
     """The income checks too: a broken lookup isn't "no price" (no transfers
     here, so the fee check doesn't raise first)."""

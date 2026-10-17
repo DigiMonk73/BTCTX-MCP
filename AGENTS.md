@@ -435,16 +435,21 @@ from the Transaction row alone.
   hold SQL with a transaction's date, or a server path): one fixed sentence
   in the answer, the error's type in the log at ERROR, its trace only at
   DEBUG (`backend/unexpected_errors.py`: `log_unexpected`). An error no
-  route handled answers `UNEXPECTED` (500) through
+  route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
-  logs no trace (#430); the imports' `routers/csv_import.import_failure`
+  logs no trace (#430; the tests fail on one unless marked
+  `unexpected_error`); a failure while BitcoinTX starts (a migration's) is
+  still logged in full, since it can't start and that text is the only
+  diagnosis. The imports' `routers/csv_import.import_failure`
   (busy, 503, when the database was locked: `csv_import.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
   the AI preview's dry run (`entry_import.SIMULATION_BUSY` or
   `SIMULATION_FAILED`) and Ledger Review's (`review.DRY_RUN_FAILED`) say
   their own. A refusal raised on purpose (an `HTTPException`, the backup's
   or the ledger's own words) keeps them. Never `logger.exception` or
-  `exc_info=True` above DEBUG.
+  `exc_info=True` above DEBUG. Text that holds no ledger data may stay in
+  a warning: a network error (httpx; no URL names a day), a server path,
+  SQL without its parameters, words the code chose.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the

@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
@@ -26,7 +27,7 @@ from backend.routers.reports import IRS_FORMS_FAILED
 from backend.services.entry_import import SIMULATION_BUSY, SIMULATION_FAILED
 from backend.tests.conftest import stub_daily_prices
 from backend.tests.test_imports_do_not_block import CSV, ENTRY, RIVER_ROW
-from backend.unexpected_errors import UNEXPECTED
+from backend.unexpected_errors import UNEXPECTED, UnexpectedErrorMiddleware
 
 LEAKY = ("(sqlite3.OperationalError) disk I/O error [SQL: INSERT INTO transactions (timestamp) "
          "VALUES (?)] [parameters: ('2019-07-04 09:00:00',)] /data/btctx.db")
@@ -141,6 +142,7 @@ def _fails() -> dict:
     raise RuntimeError(LEAKY)
 
 
+@pytest.mark.unexpected_error
 def test_an_error_no_route_handled_answers_a_fixed_sentence(clean, caplog):
     """Starlette's own handler answered "Internal Server Error" but raised
     the error again for the server, which logged its whole trace at ERROR
@@ -159,6 +161,44 @@ def test_an_error_no_route_handled_answers_a_fixed_sentence(clean, caplog):
     assert "GET /api/test-430 failed: RuntimeError" in caplog.text and not _leaked(caplog.text)  # no query either
 
 
+def _streams_then_fails():
+    def body():
+        yield b"part of the answer"
+        raise RuntimeError(LEAKY)
+    return StreamingResponse(body())
+
+
+@pytest.mark.unexpected_error
+def test_an_error_after_the_answer_began_is_only_logged(clean, caplog):
+    """#433's review: a streamed answer (the backup download) that fails
+    mid-way can't be answered again; it's logged by type, not raised for
+    the server to log its trace."""
+    from backend.main import app
+
+    route = APIRoute("/api/test-430-stream", _streams_then_fails, methods=["GET"])
+    app.router.routes.insert(0, route)
+    try:
+        with caplog.at_level("INFO"):
+            r = TestClient(app).get("/api/test-430-stream")
+    finally:
+        app.router.routes.remove(route)
+    assert r.status_code == 200  # the answer began: it ends short
+    assert "GET /api/test-430-stream failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
+
+
+@pytest.mark.unexpected_error
+def test_the_logged_path_is_quoted(caplog):
+    """#433's review: a decoded path would write a crafted URL's own text,
+    a new line included, into the log."""
+    async def raising(scope, receive, send):
+        raise RuntimeError(LEAKY)
+
+    with caplog.at_level("INFO"):
+        r = TestClient(UnexpectedErrorMiddleware(raising)).get("/api/a%0Afake line")
+    assert r.status_code == 500
+    assert "GET /api/a%0Afake%20line failed: RuntimeError" in caplog.text
+
+
 def test_ledger_reviews_dry_run_logs_no_error_text(clean, monkeypatch, caplog):
     from backend.services import review
 
@@ -172,15 +212,19 @@ def test_ledger_reviews_dry_run_logs_no_error_text(clean, monkeypatch, caplog):
     assert "Recalculate Ledger failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
 
 
+@pytest.mark.unexpected_error
 def test_the_tax_timezone_change_shows_only_its_own_words(clean, monkeypatch, caplog):
     """Its recalculation's ValueError was answered as it was (400 with its text)."""
+    before = clean.get("/api/settings/tax-timezone").json()["timezone"]
+    after = "Asia/Tokyo" if before != "Asia/Tokyo" else "Europe/Paris"
     r = clean.put("/api/settings/tax-timezone", json={"timezone": "Not/AZone", "chosen": True})
     assert r.status_code == 400 and "Unknown timezone" in r.json()["detail"]
     monkeypatch.setattr("backend.routers.settings.recalculate_all_transactions", _raises(ValueError(LEAKY)))
     with caplog.at_level("INFO"):
-        r = clean.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
+        r = clean.put("/api/settings/tax-timezone", json={"timezone": after, "chosen": True})
     assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})
     assert "PUT /api/settings/tax-timezone failed: ValueError" in caplog.text and not _leaked(caplog.text)
+    assert clean.get("/api/settings/tax-timezone").json()["timezone"] == before  # rolled back
 
 
 def _ai_key_file(monkeypatch):

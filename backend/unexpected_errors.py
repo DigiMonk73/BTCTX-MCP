@@ -15,6 +15,7 @@ rules"; #204, #422, #430).
 from __future__ import annotations
 
 import logging
+from urllib.parse import quote
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -49,6 +50,7 @@ class UnexpectedErrorMiddleware:
         try:
             await self.app(scope, receive, send_tracked)
         except Exception as error:
-            log_unexpected(f"{scope['method']} {scope['path']}", error)  # the path: no query, no date
+            # The path quoted (as uvicorn's access log does: a %0A is no new line), without its query
+            log_unexpected(f"{scope['method']} {quote(scope['path'])}", error)
             if not started:  # else the answer is under way: nothing more can be sent
                 await JSONResponse({"detail": UNEXPECTED}, status_code=500)(scope, receive, send)
