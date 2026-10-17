@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TOR_REFUSED, blankDayPriceSource, blankPriceSource, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
+import { torRefused, blankDayPriceSource, blankPriceSource, clock, historyLine, olderValuesNote, statusLine, type PriceStatus, type StatusContext, mempoolProblem } from "./priceStatus";
 
 const history: PriceStatus["history"] = {
   until: "2026-10-12T09:00Z", first_year: 2013, shipped: false, years_total: 14, years_done: 0,
@@ -169,7 +169,9 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     );
     expect(historyLine(h({ state: "failed", refused: true, without_tor: true }), { ...ctx, tor: true, withoutTor: "yes" })?.text)
       .toMatch(/didn't download: Bitstamp refused it\./);
-    expect(TOR_REFUSED).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once/);
+    expect(torRefused(null)).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once/);
+    expect(torRefused("yes")).toMatch(/so its history downloads go without Tor, as you agreed \(below\); everything else stays on Tor\.$/);
+    expect(torRefused("no")).toMatch(/; you chose to keep it on Tor \(below\)\.$/);
     expect(historyLine(h({ state: "failed", refused: true }), ctx)?.text).toMatch(/didn't download: Bitstamp refused it\./);
     expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
       "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. " +

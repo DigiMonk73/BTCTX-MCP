@@ -89,7 +89,7 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
           errors={errors}
           current={view.current}
           history={status?.history}
-          tor={{ fromServer: saved.tor_from_server === true, onStartOS: saved.host === "startos" }}
+          tor={{ fromServer: saved.tor_from_server === true, onStartOS: saved.host === "startos", withoutTor: answerOf(saved) }}
         />
       )}
       <p className={`price-status ${line.tone}`} role="status">

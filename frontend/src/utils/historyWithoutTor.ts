@@ -31,6 +31,13 @@ export function questionOpen(saved: NetworkSettingsData | null, status: PriceSta
   return status.bitstamp_refused === true && !status.invalid && !status.waiting;
 }
 
+/** The Dashboard card's first line: what Bitstamp's refusal keeps from downloading, as the history stands. */
+export function refusedWords(status: PriceStatus): string {
+  return status.history.shipped || status.history.state === "complete"
+    ? "Through Tor, Bitstamp refuses BitcoinTX's requests, so newer hours and past days don't download."
+    : "The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests.";
+}
+
 /** "Yes, since Oct 16, 2026 (answered on the Dashboard)": the recorded answer, while Tor is on. */
 export function answeredWords(saved: NetworkSettingsData): string | null {
   const record = saved.history_without_tor;

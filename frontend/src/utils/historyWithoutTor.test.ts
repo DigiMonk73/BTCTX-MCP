@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answeredWords, changeLabel, questionOpen } from "./historyWithoutTor";
+import { answeredWords, changeLabel, questionOpen, refusedWords } from "./historyWithoutTor";
 import type { NetworkSettingsData } from "./priceSource";
 import type { PriceStatus } from "./priceStatus";
 
@@ -34,6 +34,13 @@ describe("the question about the price history without Tor (#241)", () => {
     expect(questionOpen(saved(), status({ invalid: true }))).toBe(false);
     expect(questionOpen(null, status())).toBe(false);
     expect(questionOpen(saved(), null)).toBe(false);
+  });
+
+  it("says what the refusal keeps from downloading, as the history stands (the review's 3)", () => {
+    expect(refusedWords(status())).toBe("The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests.");
+    const held = status();
+    held.history = { ...held.history, state: "complete", years_done: 14, refused: false };
+    expect(refusedWords(held)).toBe("Through Tor, Bitstamp refuses BitcoinTX's requests, so newer hours and past days don't download.");
   });
 
   it("is open while the server sets the choice too: the answer is the owner's", () => {

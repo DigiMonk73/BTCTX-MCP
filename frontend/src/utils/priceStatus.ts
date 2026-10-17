@@ -32,10 +32,13 @@ export interface HistoryStatus {
 /** The answer to "Download the price history once without Tor?" (#241): null until it's given. */
 export type WithoutTorAnswer = "yes" | "no" | null;
 
-/** What Bitstamp gives Tor's exits (#241), and the card's offer, said under the Tor box. */
-export const TOR_REFUSED =
-  "Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once whether to " +
-  "download it without Tor: only that download, the same for every install; the live price stays on Tor.";
+/** What Bitstamp gives Tor's exits (#241), and the card's offer or the answer to it, said under the Tor box. */
+export function torRefused(answer: WithoutTorAnswer | undefined): string {
+  const refuses = "Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history";
+  if (answer === "yes") return `${refuses}, so its history downloads go without Tor, as you agreed (below); everything else stays on Tor.`;
+  if (answer === "no") return `${refuses}; you chose to keep it on Tor (below).`;
+  return `${refuses}, so BitcoinTX asks once whether to download it without Tor: only that download, the same for every install; the live price stays on Tor.`;
+}
 
 export interface PriceStatus {
   source: PriceSource | "unset";

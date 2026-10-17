@@ -67,20 +67,20 @@ def untrusted_certificate(exc: BaseException | None) -> bool:
     return False
 
 
-def bitstamp_refused(exc: BaseException) -> bool:
-    """
-    Whether a failed history download was Bitstamp refusing it: a 403, or a
-    redirect to its challenge page, what it gives Tor's exits (#241). One
-    that went through the proxy is remembered: the price card then asks
-    whether to download the history without Tor.
-    """
+def refused_by_bitstamp(exc: BaseException) -> bool:
+    """Whether a failed request was Bitstamp refusing it: a 403, or a
+    redirect to its challenge page, what it gives Tor's exits (#241)."""
     response = getattr(exc, "response", None)  # an HTTP status error's answer
-    refused = (response is not None and response.request.url.host == "www.bitstamp.net"
-               and (response.status_code == 403 or response.is_redirect))
+    return (response is not None and response.request.url.host == "www.bitstamp.net"
+            and (response.status_code == 403 or response.is_redirect))
+
+
+def record_refusal(exc: BaseException) -> None:
+    """Remember a history download Bitstamp refused through the proxy: the
+    price card then asks whether to download the history without Tor (#241)."""
     settings = outbound.current()
-    if refused and settings.proxy_url and not outbound.history_without_tor():
+    if refused_by_bitstamp(exc) and settings.proxy_url and not outbound.history_without_tor():
         _state["refused"] = {"at": _now(), "settings": settings}
-    return refused
 
 
 def _current(entry: dict | None) -> dict | None:

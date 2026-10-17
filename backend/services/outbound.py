@@ -38,7 +38,8 @@ then, Bitstamp's fixed-block history downloads go directly
 (history_client): the hourly year files, the hours after them and the
 daily history, each a block that's the same for every install. Nothing
 else ever goes around the proxy; FixedBlocksOnly refuses any other request
-on that route before it's sent.
+on that route (a start that isn't one of those blocks' included) before
+it's sent.
 
 Every request ends in bounded time and size (BoundedClient): httpx's
 timeouts limit each wait, not the whole request, so the whole of it gets a
@@ -70,7 +71,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.services.desktop import is_desktop
-from backend.services.price_files import BITSTAMP_OHLC_URL
+from backend.services import price_files as pf
 
 logger = logging.getLogger(__name__)
 
@@ -396,8 +397,8 @@ def answer_history_without_tor(db: Session, answer: str, via: str) -> NetworkSet
     _set(db, DIRECT_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     _set(db, DIRECT_VIA_KEY, via if via in DIRECT_VIA else "settings")
     db.commit()
-    logger.info("Price history without Tor: %s (answered in %s)", answer,
-                "the Dashboard" if via == "dashboard" else "Settings")
+    logger.info("Price history without Tor: %s (answered %s)", answer,
+                "on the Dashboard" if via == "dashboard" else "in Settings")
     return load(db)
 
 
@@ -605,13 +606,12 @@ class NotAFixedBlock(RuntimeError):
 
 class FixedBlocksOnly:
     """
-    The route around the proxy (#241): only GETs of Bitstamp's OHLC history,
-    hourly or daily, 1,000 candles from a `start` on the hour (the hourly
-    blocks) or at midnight (the daily ones), and only while the owner's Yes
-    still holds (checked before each request: a download may outlast it).
-    Which starts are asked is the callers' (hourly_prices, price_history:
-    the same fixed blocks on every install); anything else, a request
-    without `start` included, is refused.
+    The route around the proxy (#241): only GETs of Bitstamp's OHLC history
+    that are one of its fixed blocks (fixed_block: the same requests on every
+    install, so none can name a ledger's hour or day), and only while the
+    owner's Yes still holds (checked before each request: a download may
+    outlast it). Anything else, a request without `start` included, is
+    refused before it's sent.
     """
 
     def __init__(self, client: BoundedClient):
@@ -633,13 +633,39 @@ class FixedBlocksOnly:
 
 
 def fixed_block(url: str, params: dict | None) -> bool:
-    """Whether a request is one of Bitstamp's history blocks: its OHLC URL,
-    1,000 hourly or daily candles from a start on that step."""
-    if url != BITSTAMP_OHLC_URL or not params or set(params) != {"step", "limit", "start"}:
+    """
+    Whether a request is one of Bitstamp's fixed history blocks, 1,000
+    candles from a start every install asks for (no ledger decides it):
+    hourly, from 1 January of a year or from the hour after the year files,
+    each 1,000 hours on (hourly_prices); daily, from the first price day,
+    each 1,000 days on (price_history).
+    """
+    if url != pf.BITSTAMP_OHLC_URL or not params or set(params) != {"step", "limit", "start"}:
         return False
     step, limit, start = (params[k] for k in ("step", "limit", "start"))
-    whole = all(isinstance(v, int) and not isinstance(v, bool) for v in (step, limit, start))
-    return whole and step in (3600, 86400) and limit == 1000 and start >= 0 and start % step == 0
+    if not all(isinstance(v, int) and not isinstance(v, bool) for v in (step, limit, start)) or limit != 1000:
+        return False
+    if step == pf.HOUR:
+        hours = pf.BLOCK_HOURS * pf.HOUR
+        return _on_grid(start, pf.year_start(pf.year_of(start)), hours) or _on_grid(start, _after_year_files(), hours)
+    return step == 86400 and _on_grid(start, _first_price_midnight(), 1000 * 86400)
+
+
+def _on_grid(start: int, first: int | None, size: int) -> bool:
+    return first is not None and start >= first and (start - first) % size == 0
+
+
+def _after_year_files() -> int | None:
+    """The hour after the release's year files (MANIFEST.csv): the newer hours' first block."""
+    lines = pf.read_manifest(pf.MANIFEST)
+    return lines[-1].last_hour + pf.HOUR if lines else None
+
+
+def _first_price_midnight() -> int:
+    from backend.services.price_history import FIRST_PRICE_DAY  # it imports this module
+
+    d = FIRST_PRICE_DAY
+    return int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp())
 
 
 def own_node_client(timeout: float | None = None) -> BoundedClient:

@@ -172,12 +172,18 @@ def start_download() -> bool:
             return True
         if time.monotonic() - _state["failed_at"] < RETRY_SECONDS:
             return False
-        missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
-        if not missing:
-            return False
-        _state["running"] = True
-        threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
-        return True
+        return _begin()
+
+
+def _begin() -> bool:
+    """Start downloading the years that aren't here (with _changed held);
+    False when none is missing."""
+    missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
+    if not missing:
+        return False
+    _state["running"] = True
+    threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
+    return True
 
 
 def download_if_public() -> None:
@@ -284,7 +290,8 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
-    _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9, verified={})
+    _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9,
+                  verified={}, again=False)
     _live.update(rows=None, hours={})
 
 
@@ -352,7 +359,7 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
         found = price_history._run(find_hours(hour, files_end, stored))
     except Exception as exc:
         logger.warning("Hourly BTC price lookup failed: %s", exc)
-        price_status.bitstamp_refused(exc)  # through Tor: the card asks (#241)
+        price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         found = {}
     keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
     return found.get(hour), keep
@@ -392,13 +399,25 @@ def _download(lines: list[pf.YearLine]) -> None:
         logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
-        _state["refused"] = price_status.bitstamp_refused(exc)
+        price_status.record_refusal(exc)
+        _state["refused"] = price_status.refused_by_bitstamp(exc)
         _state["failed_at"] = time.monotonic()
         _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     finally:
-        with _changed:
-            _state["running"] = False
-            _changed.notify_all()
+        _end_run()
+
+
+def _end_run() -> None:
+    """A download ended. One the owner's Yes came during (#241, try_again_now)
+    starts again at once, by the route in force now: its failure through
+    Tor doesn't make it wait RETRY_SECONDS."""
+    with _changed:
+        _state["running"] = False
+        if _state["again"]:
+            _state.update(again=False, failed_at=-1e9, failed_wall=None, refused=False)
+            if outbound.current().public_allowed:
+                _begin()
+        _changed.notify_all()
 
 
 async def _download_years(lines: list[pf.YearLine]) -> None:
@@ -435,8 +454,10 @@ def _log_without_tor(what: str) -> None:
 
 def try_again_now() -> None:
     """After the owner's Yes to the history without Tor (#241): what Bitstamp
-    refused through Tor is asked again now, not RETRY_SECONDS later."""
-    _state.update(failed_at=-1e9, failed_wall=None, refused=False, public_at=-1e9)
+    refused through Tor is asked again now, not RETRY_SECONDS later; a
+    download under way starts again once it ends (_end_run)."""
+    with _changed:
+        _state.update(failed_at=-1e9, failed_wall=None, refused=False, public_at=-1e9, again=_state["running"])
     price_history.try_again_now()
     download_if_public()
 

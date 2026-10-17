@@ -182,7 +182,7 @@ async def _bitstamp_blocks(client) -> dict[date, str]:
             got.update(await _bitstamp(client, start))
     except Exception as exc:
         logger.info("BTC price history from bitstamp failed: %s", exc)
-        price_status.bitstamp_refused(exc)  # through Tor: the card asks (#241)
+        price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         return {}
     return got
 

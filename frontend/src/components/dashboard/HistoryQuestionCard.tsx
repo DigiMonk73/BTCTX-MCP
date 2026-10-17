@@ -1,5 +1,5 @@
 import React from "react";
-import { questionOpen } from "../../utils/historyWithoutTor";
+import { questionOpen, refusedWords } from "../../utils/historyWithoutTor";
 import HistoryWithoutTor from "../priceCard/HistoryWithoutTor";
 import { usePriceCard } from "../priceCard/usePriceCard";
 import "../../styles/priceCard.css";
@@ -11,7 +11,7 @@ import "../../styles/priceCard.css";
  */
 const HistoryQuestionCard: React.FC = () => {
   const { saved, status, applied } = usePriceCard();
-  if (!saved || !questionOpen(saved, status)) return null;
+  if (!saved || !status || !questionOpen(saved, status)) return null;
   return (
     <section className="price-card card first-run" aria-labelledby="history-question-title">
       <h2 id="history-question-title" className="price-card-title">
@@ -19,7 +19,7 @@ const HistoryQuestionCard: React.FC = () => {
       </h2>
       <p className="price-history-text">
         <span aria-hidden="true">▲ </span>
-        The hourly history didn&apos;t download: through Tor, Bitstamp refuses BitcoinTX&apos;s requests.
+        {refusedWords(status)}
       </p>
       <HistoryWithoutTor saved={saved} status={status} via="dashboard" onChange={applied} />
     </section>

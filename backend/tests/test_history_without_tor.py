@@ -11,6 +11,7 @@ Every outside site is faked; each request carries the proxy it took
 """
 
 import asyncio
+import threading
 from datetime import date, datetime, timezone
 
 import httpx
@@ -58,6 +59,9 @@ class TorWorld:
         self.hours = hours
         self.seen: list[tuple[str, str | None]] = []
         self.tor_down = False
+        # Set: Bitstamp's answer through Tor waits for it (held is set while it waits)
+        self.release: threading.Event | None = None
+        self.held = threading.Event()
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         proxy = request.extensions.get(outbound.PROXY_TAG, UNTAGGED)
@@ -66,6 +70,9 @@ class TorWorld:
         if proxy and self.tor_down:
             raise httpx.ConnectError("Tor isn't running")
         if url.host == "www.bitstamp.net":
+            if proxy and self.release is not None:
+                self.held.set()
+                assert self.release.wait(10)
             if proxy:
                 return httpx.Response(403, text="Request unsuccessful. Incapsula incident ID: 0-0")
             return self.bitstamp(url)
@@ -248,6 +255,21 @@ def test_yes_sends_only_bitstamps_fixed_blocks_directly(world, auth_client, db):
     assert UNTAGGED not in {p for _, p in world.seen}
 
 
+def test_a_yes_while_a_download_through_tor_runs_downloads_at_once(world, auth_client):
+    """The review's 2: the Yes came while a block was on its way through Tor;
+    its refusal then must not make the download wait 10 minutes."""
+    world.release = threading.Event()
+    r = auth_client.put("/api/settings/network", json={
+        "price_source": "public", "mempool_url": None, "mempool_fallback": False, "proxy_url": TOR})
+    assert r.status_code == 200
+    assert world.held.wait(10)  # the first block is on its way through Tor
+    assert auth_client.put(ROUTE, json={"answer": "yes", "via": "dashboard"}).status_code == 200
+    world.release.set()  # Bitstamp's refusal arrives after the Yes
+    finish_download()
+    assert hp.download_status()["state"] == "complete"
+    assert [int(httpx.URL(u).params["start"]) for u in world.direct()] == year_starts()
+
+
 def test_a_tor_that_isnt_running_is_no_refusal(world, auth_client):
     """Tor down is not Bitstamp refusing: the card never offers to go around it."""
     world.tor_down = True
@@ -279,6 +301,10 @@ def test_no_takes_a_yes_back_and_a_yes_matters_only_with_tor(world, auth_client)
     (pf.BITSTAMP_OHLC_URL, {"step": DAY, "limit": 1000}),  # the latest days: no start
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": FILES_END + 1800}),  # not on the hour
     (pf.BITSTAMP_OHLC_URL, {"step": DAY, "limit": 1000, "start": FILES_END}),  # 23:00, not midnight
+    # On the hour, or at midnight, but not a block every install asks for: a ledger's hour or day (the review's 1)
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": ASKED_HOUR}),
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": pf.year_start(2025) + 5 * HOUR}),
+    (pf.BITSTAMP_OHLC_URL, {"step": DAY, "limit": 1000, "start": int(datetime(2012, 5, 17, tzinfo=timezone.utc).timestamp())}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 10, "start": FILES_END + HOUR}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": str(FILES_END + HOUR)}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": FILES_END + HOUR, "end": NOW}),
@@ -302,17 +328,27 @@ def test_the_route_around_tor_takes_only_fixed_blocks(world, url, params):
 def test_a_yes_taken_back_stops_the_next_direct_request(world):
     """The daily history reuses one client for its blocks: each request checks the Yes again."""
     outbound._current = outbound.NetworkSettings(price_source="public", proxy_url=TOR, history_direct=True)
-    block = {"step": DAY, "limit": 1000, "start": 0}
+    first, second = daily_starts()[:2]
 
     async def two_blocks():
         async with outbound.history_client() as client:
-            await client.get(pf.BITSTAMP_OHLC_URL, params=block)
+            await client.get(pf.BITSTAMP_OHLC_URL, params={"step": DAY, "limit": 1000, "start": first})
             outbound._current = outbound.NetworkSettings(price_source="public", proxy_url=TOR)  # No, meanwhile
-            await client.get(pf.BITSTAMP_OHLC_URL, params={**block, "start": 1000 * DAY})
+            await client.get(pf.BITSTAMP_OHLC_URL, params={"step": DAY, "limit": 1000, "start": second})
 
     with pytest.raises(outbound.NotAFixedBlock):
         asyncio.run(two_blocks())
-    assert [(httpx.URL(u).params["start"], p) for u, p in world.seen] == [("0", None)]
+    assert [(httpx.URL(u).params["start"], p) for u, p in world.seen] == [(str(first), None)]
+
+
+def test_every_block_the_app_asks_for_is_a_fixed_block():
+    """The guard's grid is the callers' own: each year's blocks, the newer hours' and the daily history's."""
+    lines = pf.read_manifest(pf.MANIFEST)
+    hourly = [s for line in lines for s in pf.block_starts(line.year, line.last_hour)]
+    hourly += [lines[-1].last_hour + HOUR + k * 1000 * HOUR for k in range(3)]
+    for step, starts in ((HOUR, hourly), (DAY, daily_starts())):
+        assert all(outbound.fixed_block(pf.BITSTAMP_OHLC_URL, {"step": step, "limit": 1000, "start": s})
+                   for s in starts), step
 
 
 def test_the_answer_is_login_only_and_checked(world, auth_client, ai_key_headers):

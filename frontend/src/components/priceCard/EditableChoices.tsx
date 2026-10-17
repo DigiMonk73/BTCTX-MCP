@@ -1,6 +1,6 @@
 import React from "react";
 import { PRICE_CHOICES, type PriceForm, type PriceSource } from "../../utils/priceSource";
-import { olderValuesNote, type HistoryStatus } from "../../utils/priceStatus";
+import { olderValuesNote, type HistoryStatus, type WithoutTorAnswer } from "../../utils/priceStatus";
 import ChoiceFields from "./ChoiceFields";
 import type { FieldErrors } from "./usePriceCard";
 
@@ -10,7 +10,7 @@ interface Props {
   errors: FieldErrors;
   /** While confirming (2.9): the stored choice, marked "Your current choice". */
   current: PriceSource | null;
-  tor: { fromServer: boolean; onStartOS: boolean };
+  tor: { fromServer: boolean; onStartOS: boolean; withoutTor?: WithoutTorAnswer };
   history?: HistoryStatus;
 }
 

@@ -276,7 +276,7 @@ from the Transaction row alone.
   Yes, and only then, Bitstamp's fixed history blocks (the year files, the
   hours after them, the daily history) go directly
   (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
-  that route. The live price, block height and latest days stay on Tor.
+  that route, a `start` off those blocks' grid included. The live price, block height and latest days stay on Tor.
   Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
