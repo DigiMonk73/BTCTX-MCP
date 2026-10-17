@@ -147,7 +147,7 @@ updates:
       - dependency-name: tor-startos
 
   # The Dockerfile's base images, pinned by digest: a new build of the same
-  # tag (OS security fixes) comes as a PR. Python 3.11 and Node 24 change
+  # tag (OS security fixes) comes as a PR. Python 3.13 and Node 24 change
   # only on purpose (MAINTENANCE.md).
   - package-ecosystem: docker
     directory: /

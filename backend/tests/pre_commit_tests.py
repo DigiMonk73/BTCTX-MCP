@@ -213,7 +213,7 @@ def check_no_hardcoded_localhost_urls() -> bool:
 def check_python39_compatibility() -> bool:
     """
     Every backend file must parse as Python 3.10, the oldest supported
-    version (fastapi >= 0.130 requires it; Docker ships 3.11). Uses the real
+    version (fastapi >= 0.130 requires it; Docker ships 3.13). Uses the real
     parser, so syntax newer than 3.10 is caught without regex false alarms.
     (Name kept for callers; Python 3.9 support was dropped in 2026-09.)
     """
