@@ -24,9 +24,9 @@ Every price found is stored and a stored day never changes, so tax figures
 don't move. There is never a fallback to today's live price: a past value at
 today's price is wrong. No price means a clear 422 (type the value in).
 
-Prices are added in the caller's session (flush, not commit), so a
-recalculation or a dry run keeps them only if it commits; read-only callers
-commit themselves.
+Prices found are kept at once (keep()): in a short transaction of their
+own, or in the caller's when it has already written, so a lookup never
+holds SQLite's write lock until its request ends (#364).
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ import asyncio
 import concurrent.futures
 import logging
 import time
+from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -319,12 +320,47 @@ def stored_source(db: Session, when: date | datetime) -> str | None:
     return row.source if row else None
 
 
-def _store(db: Session, prices: dict[date, tuple]) -> None:
-    if not prices:
-        return
+def _store(db: Session, prices: dict[date, tuple], complete: bool = False) -> None:
+    """A lookup's days and, when it finished the full download, the mark that
+    it's done, in one transaction: the mark never stands without its days."""
+    from backend.models.app_setting import AppSetting
+
     rows = [{"day": d, "usd": usd, "source": src} for d, (usd, src) in prices.items()]
-    db.execute(sqlite_insert(BtcPriceDaily).values(rows).on_conflict_do_nothing())
-    db.flush()
+
+    def write(session: Session) -> None:
+        if rows:
+            session.execute(sqlite_insert(BtcPriceDaily).values(rows).on_conflict_do_nothing())
+        if complete:
+            session.execute(sqlite_insert(AppSetting).values(key=HISTORY_FLAG, value=_today().isoformat())
+                            .on_conflict_do_nothing())
+
+    if rows or complete:
+        keep(db, write)
+
+
+def keep(db: Session, write: Callable[[Session], object]) -> None:
+    """
+    Keep what write(session) adds: prices found, which never change once
+    stored. A caller that has already written (an import's later rows, a
+    recalculation) holds SQLite's write lock: it keeps them in its own
+    transaction, since another one would wait for that lock, and they go if
+    it rolls back. Anything else, a new or edited transaction's own pricing
+    included, keeps them at once in a short transaction of its own, so it
+    never holds the lock until its request ends and a save made meanwhile
+    doesn't wait for it and fail (#364).
+    """
+    if _writing(db):
+        write(db)
+        db.flush()
+        return
+    with Session(bind=db.get_bind()) as own:
+        write(own)
+        own.commit()
+
+
+def _writing(db: Session) -> bool:
+    """Whether db has written and not committed: its connection holds SQLite's write lock."""
+    return db.connection().connection.driver_connection.in_transaction
 
 
 def no_price(day: date) -> HTTPException:
@@ -343,14 +379,6 @@ def _history_complete(db: Session) -> bool:
     return db.get(AppSetting, HISTORY_FLAG) is not None
 
 
-def _mark_history_complete(db: Session) -> None:
-    from backend.models.app_setting import AppSetting
-
-    if db.get(AppSetting, HISTORY_FLAG) is None:
-        db.add(AppSetting(key=HISTORY_FLAG, value=_today().isoformat()))
-        db.flush()
-
-
 def daily_price(db: Session, when: date | datetime) -> Decimal:
     """The BTC/USD price for the UTC day of `when`. 422 when there is none."""
     day = utc_day(when)
@@ -364,9 +392,7 @@ def daily_price(db: Session, when: date | datetime) -> Decimal:
     except Exception as exc:
         logger.warning("BTC price lookup failed: %s", exc)
         prices, complete = {}, False
-    _store(db, prices)
-    if complete:
-        _mark_history_complete(db)
+    _store(db, prices, complete)
     if day not in prices:
         raise no_price(day)
     return prices[day][0]

@@ -137,7 +137,6 @@ def preview_river_import(
         )
 
     _autofill_fmv_basis(proposals, warnings, db)
-    db.commit()  # keep the prices it looked up (nothing else is written)
     annotate_duplicates(proposals, db)
 
     new_count = sum(1 for p in proposals if p.status == STATUS_NEW)

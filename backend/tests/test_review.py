@@ -658,13 +658,9 @@ def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine,
     save made then (the owner's or the AI's) waited, and failed after 5 s on
     a large ledger. It runs on a scratch copy now. Here a save is made in the
     middle of the dry run, from another connection that waits at most 0.5 s."""
-    from datetime import datetime, timezone
-
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
 
     from backend.services import transaction
-    from backend.services.transaction import create_transaction_record
 
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
     _insert(test_engine, [  # a Lost withdrawal saved with a loss: the dry run finds a change
@@ -677,13 +673,7 @@ def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine,
     def replay_then_save_elsewhere(db, *args, **kwargs):
         real_replay(db, *args, **kwargs)
         db.flush()  # the replay's writes, as far as the dry run takes them
-        with sessionmaker(bind=impatient)() as other:
-            try:
-                saved.append(create_transaction_record(dict(
-                    type="Deposit", timestamp=datetime(2024, 3, 1, 12, tzinfo=timezone.utc), from_account_id=EXTERNAL,
-                    to_account_id=BANK, amount=Decimal("100"), source="N/A"), other).id)
-            except Exception as exc:  # "database is locked" on the old code
-                saved.append(exc)
+        saved.append(_save_elsewhere(impatient))
 
     monkeypatch.setattr(transaction, "recalculate_all_transactions", replay_then_save_elsewhere)
     try:
@@ -696,6 +686,68 @@ def test_a_save_made_while_the_check_runs_goes_through(auth_client, test_engine,
     finally:
         impatient.dispose()
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+@pytest.mark.parametrize("moment", ["day", "hour"])
+def test_a_save_made_after_the_check_stored_a_price_goes_through(auth_client, test_engine, monkeypatch, moment):
+    """#364: a later check that had to look up a price (its hour's, else its
+    day's) stored it in the review's own transaction, so SQLite's write lock
+    was held from then until the review ended: a save made meanwhile (the
+    owner's or the AI's) waited, and failed after 5 s. A price is kept at
+    once now, in a short transaction of its own. Here a save is made right
+    after the check stored one, from another connection that waits at most
+    0.5 s."""
+    from sqlalchemy import create_engine
+
+    from backend.services import hourly_prices
+    from backend.services import review as review_service
+
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    _insert(test_engine, [  # income typed far from the market price: the check looks the price up
+        (985, "Deposit", "2024-01-02", EXTERNAL, WALLET, "0.1", "Income", None, "1000", None, None, None),
+    ])
+    if moment == "hour":
+        async def the_hour(hour, files_end, stored):  # the chosen source's price for the hour asked
+            return {hour: (Decimal("50000.00"), "mempool")}
+
+        monkeypatch.setattr(hourly_prices, "find_hours", the_hour)
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.5})
+    real_check, saved = review_service._income_value_items, []
+
+    def check_then_save_elsewhere(*args, **kwargs):
+        items = real_check(*args, **kwargs)
+        saved.append(_save_elsewhere(impatient))
+        return items
+
+    monkeypatch.setattr(review_service, "_income_value_items", check_then_save_elsewhere)
+    try:
+        review = auth_client.get("/api/review").json()
+        assert len(saved) == 1 and isinstance(saved[0], int), saved
+        assert 985 in ids(review, "income_value_off")  # the review still shows the price it found
+        table = "btc_price_hourly" if moment == "hour" else "btc_price_daily"
+        with test_engine.connect() as con:
+            assert con.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 1  # and kept it
+    finally:
+        impatient.dispose()
+        auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def _save_elsewhere(engine):
+    """A save (a USD deposit) from another connection: its id, or the error
+    ("database is locked" while the review holds the write lock)."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services.transaction import create_transaction_record
+
+    with sessionmaker(bind=engine)() as other:
+        try:
+            return create_transaction_record(dict(
+                type="Deposit", timestamp=datetime(2024, 3, 1, 12, tzinfo=timezone.utc), from_account_id=EXTERNAL,
+                to_account_id=BANK, amount=Decimal("100"), source="N/A"), other).id
+        except Exception as exc:
+            return exc
 
 
 def test_a_transaction_deleted_while_the_check_runs_is_left_out(auth_client, test_engine, monkeypatch):

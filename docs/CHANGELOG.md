@@ -284,6 +284,18 @@ All notable changes to BitcoinTX are documented in this file.
   technical text, and `cli review` shows that line too. A transaction
   deleted while the check runs, or while you apply the hour's prices, is
   left out instead of causing a server error.
+- **A save made while Ledger Review looks up a price no longer fails**
+  (#364). When one of Ledger Review's checks needed a BTC price not stored
+  yet (with a price source chosen), it stored the price in the review's own
+  database transaction and held the write lock until the review ended: a
+  transaction saved meanwhile, yours or the AI's, waited and after 5
+  seconds failed with "database is locked". The AI connector's preview and
+  add, and the River import's preview, looked their prices up the same
+  way. A price found is now stored at once, in a short transaction of its
+  own (within a save that has already written something, such as an
+  import's later rows, it goes with that save), so saves go through. What
+  Ledger Review shows doesn't change, and a stored price still never
+  changes. Nothing was ever half-saved: the save was refused whole.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
@@ -703,8 +715,20 @@ All notable changes to BitcoinTX are documented in this file.
   the license, how Start9's release workflow reads the id and version, the
   instructions' wording, and one exact SDK. Everything else already
   conformed; nothing the package does changes.
+- **A package fix while a version is only on Community Beta** (#376, the
+  owner's rule): Start9 keeps the version number until the community
+  registry serves it, so `UPDATING.md` now ships such a fix inside a small
+  app release (a new version with a real app fix, the package back at `:0`)
+  instead of a package revision.
 
 ### Development
+- **A bug found during big work gets its own session** (AGENTS.md, "Big
+  work"; `docs/HOW-CHANGES-FLOW.md`; the owner's rule, 2026-10-16). Once
+  it's filed, the lead adds a session for it to the umbrella issue and
+  starts it, and the release waits for it, unless the owner leaves it for
+  later; a bug in an open pull request and a security problem are handled
+  as before. The 1.2.9 release's session A2 (#383) is the first, for bugs
+  session B's security review (#371) found.
 - **Every session of big work starts from `develop`** (AGENTS.md, "Big
   work"; `docs/HOW-CHANGES-FLOW.md`). A session given a working folder of
   its own gets `develop` as that folder's base (after `make sync-check`),

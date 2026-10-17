@@ -816,6 +816,19 @@ one session. Claude suggests this setup when a request is that big.
   up to `develop` and refuses rather than lose anything (`git rev-list
   --count HEAD..origin/develop` then prints 0). A folder that already
   has commits of its own takes `git merge origin/develop`, never a rebase.
+- **A bug found on the way gets its own session** (the owner,
+  2026-10-16: "We want to get every thing fixed by you spinning up new
+  sessions for bugs we find"). When anyone finds one during big work (a
+  session, a review, a test, the owner), it's filed as usual ("Bugs and
+  security"); then the lead adds a session for it to the umbrella (its
+  issue, kickoff prompt and footprint; bugs found together may share
+  one), starts it as the merge plan allows, and has the release wait for
+  it, unless the owner leaves it for a later release. Two cases stay as
+  "Bugs and security" says: a bug in an open pull request, found by its
+  review or its tests, is fixed in that pull request; and a security
+  problem goes to a draft advisory, never onto the umbrella or any
+  issue, and its fix is released the same day rather than held for the
+  release.
 - **Each session** first posts or refreshes its checklist on its issue,
   ticks the boxes there as it goes, and writes its decisions there. It
   carries on from its own issue, not from #41's "Next". After a
