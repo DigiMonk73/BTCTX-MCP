@@ -354,7 +354,8 @@ from the Transaction row alone.
   `reset-account` on a ledger with transactions) needs `confirm=DELETE`,
   typed in its dialog, else 409 says what would go; the dialog sends what
   it showed (`transactions`, `first_year`, `last_year`), and a ledger that
-  no longer has it is a 409 with the new figure (#377). reset-account
+  no longer has it is a 409 with the new figure (#377; a swap within the
+  same count and years isn't seen, the copy keeps it). reset-account
   checks the setup code or password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.

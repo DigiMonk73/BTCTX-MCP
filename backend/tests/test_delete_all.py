@@ -369,7 +369,11 @@ def test_create_account_deletes_only_the_count_its_dialog_showed(fresh_app):
     assert r.status_code == 409 and r.json()["transactions"] == 3 and "now deletes all 3" in r.json()["detail"]
     assert anon().get("/api/users/setup-status").json()["is_default"] is True
     assert delete_copies(fresh_app.kw["bind"]) == []
-    r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE", transactions=3))
+    r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE", transactions=3,
+                                                         first_year=2024, last_year=2025))
+    assert r.status_code == 409 and r.json()["last_year"] == 2026  # the years it showed are checked too
+    r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE", transactions=3,
+                                                         first_year=2024, last_year=2026))
     assert r.status_code == 200, r.text
     assert rows_in(delete_copies(fresh_app.kw["bind"])[0]) == 3
 
