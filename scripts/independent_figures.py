@@ -9,7 +9,8 @@ backend/, so a mistake in the app's code can't hide in both.
 
 It replays the reference test ledger (testdata/reference_ledger.json) and
 gives each year's Form 8949 rows, Schedule D lines, box totals, gains
-summary, income, rebates, gifts and year-end lots:
+summary, income, rebates, gifts (with the cost basis and term of what each
+took from its lots) and year-end lots:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
@@ -118,7 +119,7 @@ class Ledger:
     rows: list[Row] = field(default_factory=list)
     income: list[tuple[datetime, str, Fraction]] = field(default_factory=list)
     rebates: list[tuple[datetime, Fraction, Fraction]] = field(default_factory=list)
-    gifts: list[tuple[datetime, str, Fraction, str | None]] = field(default_factory=list)
+    gifts: list[tuple[datetime, str, Fraction, str | None, list[dict]]] = field(default_factory=list)
     holdings: dict[int, list[tuple[str, Lot]]] = field(default_factory=dict)
     year: int | None = None
     next_order: int = 0
@@ -177,8 +178,8 @@ def year_figures(ledger: Ledger, year: int) -> dict:
         "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(_cents(value, ledger.rounding))}
                     for when, amount, value in ledger.rebates if when.year == year],
         "gifts_donations_lost": [
-            {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv)}
-            for when, kind, amount, fmv in ledger.gifts if when.year == year],
+            {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv), "lots_by_term": terms}
+            for when, kind, amount, fmv, terms in ledger.gifts if when.year == year],
         "end_of_year_holdings": holdings,
         "end_of_year_total": {"quantity": _btc(sum(Fraction(lot["quantity"]) for lot in holdings)),
                               "cost": str(sum(Decimal(lot["cost"]) for lot in holdings))},
@@ -199,7 +200,9 @@ def differences(mine: dict, app: dict) -> list[str]:
         {"date": r["date"], "amount": _btc(Fraction(str(r["amount"]))), "value_usd": _usd(r["value_usd"])}
         for r in report["rebates"]])
     found += _unmatched("gift, donation or loss", mine["gifts_donations_lost"], [
-        {"date": g["date"], "type": g["type"], "amount": _btc(Fraction(str(g["amount"]))), "fmv_usd": _usd(g["fmv_usd"])}
+        {"date": g["date"], "type": g["type"], "amount": _btc(Fraction(str(g["amount"]))), "fmv_usd": _usd(g["fmv_usd"]),
+         "lots_by_term": [{"term": t["term"], "btc": _btc(Fraction(str(t["btc"]))), "cost_basis": _usd(t["cost_basis"])}
+                          for t in g["lots_by_term"]]}
         for g in report["gifts_donations_lost"]])
     return found + _holding_differences(mine, report["end_of_year_balances"])
 
@@ -285,8 +288,8 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     if purpose in NOT_SALES:
         _pay_network_fee(ledger, tx, account, when)
         amount = _money(tx["amount"])
-        ledger.take(account, amount)
-        ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd")))
+        terms = _by_term(ledger.take(account, amount), when, ledger.rounding)
+        ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd"), terms))
         return
     # The fee paid to make a spend is a cost of it: it comes off what was
     # received, and the two realize what was received (Treas. Reg.
@@ -311,6 +314,19 @@ def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
     # lot's date and its share of basis: moving your own coins isn't a sale.
     for lot, quantity, basis in ledger.take(source, _money(tx["amount"]) - fee):
         ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False, inherited=lot.inherited)
+
+
+def _by_term(pieces: list[tuple[Lot, Fraction, Fraction]], when: datetime, rounding: str) -> list[dict]:
+    """A gift's, donation's or loss's BTC and cost basis held more than a
+    year, then a year or less (#160): a donation's deduction depends on both."""
+    terms: dict[str, list[Fraction]] = {}
+    for lot, quantity, basis in pieces:
+        long_term = lot.inherited or _is_long_term(lot.acquired.date(), when.date())
+        part = terms.setdefault("LONG" if long_term else "SHORT", [Fraction(0), Fraction(0)])
+        part[0] += quantity
+        part[1] += basis
+    return [{"term": term, "btc": _btc(terms[term][0]), "cost_basis": str(_cents(terms[term][1], rounding))}
+            for term in ("LONG", "SHORT") if term in terms]
 
 
 def _money(value: str | None) -> Fraction:

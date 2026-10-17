@@ -5,7 +5,9 @@ in UTC; this module converts at the edges:
   - which tax year a transaction belongs to (a 9 pm Dec 31 sale in New York
     is 2024 even though it's Jan 1 in UTC)
   - the dates printed on Form 8949
-  - the holding-period anniversary (IRS counts calendar days where you are)
+  - the holding-period anniversary, in calendar days (no IRS rule says which
+    time zone sets an individual's dates: one zone for all of them is
+    BitcoinTX's choice, #160)
 
 Source of the timezone, first match wins: the "tax_timezone" setting (set in
 Settings, or filled from the browser at a login while the ledger is empty)

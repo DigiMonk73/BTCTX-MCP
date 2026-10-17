@@ -133,7 +133,7 @@ def test_a_year_with_only_typed_values_says_so(auth_client, test_engine, clean):
 
 def test_a_donation_brings_the_appraisal_note(auth_client, test_engine, clean):
     buy(auth_client)
-    appraisal = "A deduction for donated bitcoin over $5,000 needs a qualified appraisal"
+    appraisal = "over $5,000, also a qualified appraisal (an exchange's price isn't one)"
     post(auth_client, type="Withdrawal", timestamp="2024-06-01T12:00:00Z", from_account_id=EXCHANGE_BTC,
          to_account_id=EXTERNAL, amount="0.01", fee_amount="0", fee_currency="BTC", purpose="Gift",
          fmv_usd="500")
