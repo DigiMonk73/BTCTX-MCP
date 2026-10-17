@@ -916,6 +916,8 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
                     _price_at(when, db)
             except HTTPException:
                 pass  # the save looks again, and says which value lacks one
+            except Exception:  # a busy database: the save meets it and answers as it does
+                return
     finally:
         db.info[hourly_prices.WARMING] = False
 

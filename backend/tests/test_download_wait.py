@@ -6,7 +6,7 @@ yet was asked for from the price sites or the owner's Mempool (#426); a save
 of the owner's, which waits 5 s for the lock, failed meanwhile. Once a save
 has written, a lookup doesn't wait (#421); and an import, the AI's preview
 or add, finds its rows' prices before its first write
-(transaction.find_prices_first). A request waits for a year once.
+(transaction.find_prices_first). An import waits for a year's download once.
 """
 
 import sqlite3
@@ -83,13 +83,13 @@ def test_a_lookup_outside_an_import_waits_as_before_but_not_once_written(test_en
     River preview, Ledger Review's CLI apply), except once its save holds
     the write lock (#421)."""
     with sessionmaker(bind=test_engine)() as db:
-        for hour in (11, 12):
+        for hour in (11, 11, 12):  # the same hour asked again too
             assert hp.hourly_price(db, datetime(2019, 3, 1, hour, tzinfo=timezone.utc)) is None
-        assert downloading == [True, True]
+        assert downloading == [True, True, True]
     with sessionmaker(bind=test_engine)() as db:
         db.execute(text("INSERT INTO app_settings (key, value) VALUES ('test-421', 'x')"))
         assert hp.hourly_price(db, datetime(2019, 3, 1, 13, tzinfo=timezone.utc)) is None
-        assert downloading == [True, True]  # written: no wait
+        assert downloading == [True, True, True]  # written: no wait
         db.rollback()
 
 
@@ -199,3 +199,24 @@ def test_a_river_files_rows_are_priced_before_the_first_write(auth_client, test_
     r = auth_client.post("/api/import/river/execute", json={"rows": [{**buy, "from_account": "Exchange USD"}, later]})
     assert r.status_code == 200, r.text
     _asked_only_before_writing(asked)
+
+
+def test_a_busy_database_while_finding_prices_leaves_the_answer_to_the_save(auth_client, test_engine, asked,
+                                                                              monkeypatch):
+    """#423's re-check: storing a price found first can meet a database busy
+    with another save; that escaped the AI preview as a server error, where
+    the dry run's row says it was busy (SIMULATION_BUSY), as on develop."""
+    import sqlite3 as driver
+
+    from sqlalchemy.exc import OperationalError
+
+    from backend.services.entry_import import SIMULATION_BUSY
+
+    def busy(db, write):
+        raise OperationalError("INSERT INTO btc_price_daily", {}, driver.OperationalError("database is locked"))
+
+    _not_stored(test_engine, "2017-05-16")
+    monkeypatch.setattr(price_history, "keep", busy)
+    r = auth_client.post("/api/import/entries/preview", json={"rows": _rows("2017-05-16", TO_WALLET)})
+    assert r.status_code == 200, r.text
+    assert SIMULATION_BUSY in [e for row in r.json()["results"] for e in row["errors"]]

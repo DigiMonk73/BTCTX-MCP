@@ -21,7 +21,8 @@ Lookup order (hourly_price):
        every hour they give is kept.
   4. With public sites allowed, the year files' download, waiting a little
      for the year asked, unless the caller has already written: it holds
-     SQLite's write lock (#421); an import waits once a year (#426).
+     SQLite's write lock (#421); an import waits for a year's download once
+     (#426).
   Nothing: price_at() takes the day's 00:00 UTC price instead
   (price_history.daily_price) and says so ("day").
 
