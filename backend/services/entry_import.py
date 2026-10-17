@@ -59,6 +59,7 @@ from backend.services.transaction import (
     date_of_death,
     date_of_death_price,
     ensure_fee_account_exists,
+    find_prices_first,
     price_used,
     values_from_price,
 )
@@ -465,6 +466,7 @@ def simulate(
 
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
+    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
 
     before = _gain_snapshot(db)
     try:
@@ -571,6 +573,7 @@ def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedR
         return []
 
     ensure_fee_account_exists(db)
+    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     created: list[tuple[PreparedRow, Transaction]] = []
     try:
         for p in ordered:
