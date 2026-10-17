@@ -107,6 +107,7 @@ test.describe("BTC deposits", () => {
     await expect(page.getByText("Mining, staking, or a sign-up or referral bonus: income.")).toBeVisible();
     await page.getByLabel("Source").selectOption("Rebate");
     await expect(page.getByText("a rewards card's sats-back: not income")).toBeVisible();
+    await expect(page.getByText("money orders or other cash equivalents is income: use Reward")).toBeVisible();
     await expect(page.getByText("its cost basis, not income")).toBeVisible();
   });
 });

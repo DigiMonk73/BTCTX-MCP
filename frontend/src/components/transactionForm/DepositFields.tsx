@@ -13,10 +13,13 @@ const VALUED_SOURCES = ["Income", "Interest", "Reward", "Rebate", "Inherited"];
 const BLANK_IS_PRICED =
   "Leave blank to use the BTC price when that hour began (that day's, where there's no hourly price).";
 // What tells Reward (income) and Rebate (not income, #98) apart, and the
-// rules of an inheritance (#154)
+// rules of an inheritance (#154). Sats-back on cash equivalents is income
+// (Anikeev v. Commissioner, T.C. Memo. 2021-23: rewards on money orders), #160
 const SOURCE_HINTS: Record<string, string> = {
   Reward: "Mining, staking, or a sign-up or referral bonus: income.",
-  Rebate: "Bitcoin back for spending, such as a rewards card's sats-back: not income; its value is its cost basis.",
+  Rebate:
+    "Bitcoin back for spending, such as a rewards card's sats-back: not income; its value is its cost basis. " +
+    "Sats-back for buying money orders or other cash equivalents is income: use Reward.",
   Inherited:
     "Bitcoin you inherited from someone who died. Its cost basis is its value on the date of death, any sale " +
     "of it is long-term however soon you sell, and Form 8949 says INHERITED instead of a date acquired " +

@@ -462,9 +462,30 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
                 # not as $0 (which reads like a worthless gift).
                 "fmv_usd": float(tx.fmv_usd) if tx.fmv_usd is not None else None,
                 "type": listed_spelling(tx.purpose, WITHDRAWAL_PURPOSES),
+                "lots_by_term": _lots_by_term(tx),
             }
             results.append(row)
     return results
+
+
+def _lots_by_term(tx: Transaction) -> list[dict[str, Any]]:
+    """
+    What a gift, donation or loss took from its lots, by term (#160): the
+    BTC and cost basis held more than a year (LONG) and a year or less
+    (SHORT), long-term first, a term only when some of it was. A
+    donation's deduction depends on both. Its network fee's lots are left
+    out: that fee is a disposal of its own (section 2).
+    """
+    terms: dict[str, dict[str, Decimal]] = {}
+    for d in tx.lot_disposals:
+        if d.is_fee:
+            continue
+        term = "LONG" if (d.holding_period or "").upper() == "LONG" else "SHORT"  # as the gains summary
+        part = terms.setdefault(term, {"btc": Decimal(0), "cost_basis": Decimal(0)})
+        part["btc"] += d.disposed_btc or 0
+        part["cost_basis"] += d.disposal_basis_usd or 0
+    return [{"term": term, "btc": float(terms[term]["btc"]), "cost_basis": float(terms[term]["cost_basis"])}
+            for term in ("LONG", "SHORT") if term in terms]
 
 
 def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None) -> list[dict[str, Any]]:
