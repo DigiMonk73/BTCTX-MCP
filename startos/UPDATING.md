@@ -109,10 +109,18 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
 
 A package-only fix (no app change) keeps `VERSION` and raises the package
 revision instead (`0.9.0:0` → `0.9.0:1`, next section), once the community
-registry serves the current version; before then, Start9's rule keeps the
-package version too (next section). Release a revision the same way with the
+registry serves the current version. Release a revision the same way with the
 tag `vX.Y.Z-N`: a `## [v0.9.0-1]` CHANGELOG section and a branch
 `release/v0.9.0-1`. The image is reused; the macOS app is rebuilt unchanged.
+
+**Before the community registry serves the current version** (it is only on
+Community Beta, as during its 14 days there), Start9's rule keeps the package
+version, so a revision isn't allowed (next section), and our release workflow
+can't ship the same version again. Ship the package fix inside a small app
+release instead: a new `VERSION` with a real app fix (never a bump with nothing
+in it), its package version back at `:0`, released like any version (owner's
+rule, 2026-10-17). Its notes cover everything since the version the community
+registry serves.
 
 ## The package version
 
