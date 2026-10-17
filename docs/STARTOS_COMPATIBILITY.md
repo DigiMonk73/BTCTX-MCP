@@ -24,18 +24,54 @@ changes come back here: `startos/UPDATING.md`.
 `Dockerfile` is a two-stage build:
 
 1. `node:24-slim`: `npm ci && npm run build` in `frontend/`
-2. `python:3.13-slim`: `pip install --require-hashes --only-binary :all: -r
-   backend/requirements.txt` (the lock, wheels only), copies
-   `backend/` to `/app/backend` and the built frontend to `/app/frontend/dist`,
-   creates `/data`, sets `ENV DATABASE_FILE=/data/btctx.db`, and runs
-   `uvicorn backend.main:app --host 0.0.0.0 --port 80`.
+2. `python:3.13-slim`: creates the app's user `btctx` (uid and gid 10001)
+   and `/data` (its own, mode 700), `pip install --require-hashes
+   --only-binary :all: -r backend/requirements.txt` (the lock, wheels only),
+   copies `backend/` to `/app/backend` (compiled, root's: the app can't change
+   its code) and the built frontend to `/app/frontend/dist`, sets
+   `ENV DATABASE_FILE=/data/btctx.db`, and runs
+   `uvicorn backend.main:app --host 0.0.0.0 --port 80` through
+   `docker-entrypoint.sh`.
 
 No system packages are installed: IRS forms are filled in pure Python (pypdf).
+
+### The app's user (#202)
+
+BitcoinTX never runs as root. The image has no `USER` line: Docker starts
+`docker-entrypoint.sh` as root. The data folder is `/data`, or the folder of
+`DATABASE_FILE` when that is a folder mounted on its own (a volume or a host
+folder, never a mounted file; its path written plainly: no `.`, `..` or link on the way; never `/dev`,
+`/proc` or `/sys`). If `btctx` finds anything in it that isn't its
+own, root gives it to `btctx` (`chown -R`: a volume an image before 1.2.9
+made is root's, and so may be a host folder mounted there); a start after
+that needs none of root's rights over the files. Then the command runs as
+`btctx` with `setpriv`, keeping one capability, `CAP_NET_BIND_SERVICE`, and
+`no_new_privs`. Port 80 is below 1024: in a container's own network Docker
+lets any user open it, but not with `--network host`, nor in StartOS's
+containers (`net.ipv4.ip_unprivileged_port_start` is 1024 there). Root needs
+SETUID, SETGID and NET_BIND_SERVICE at every start, and CHOWN and
+DAC_OVERRIDE when something needs handing over (all Docker's defaults):
+without them, or if the folder can't be given to `btctx` (a read-only mount,
+network storage that refuses it), the start stops with a message saying so.
+Started with `--user`, the entrypoint runs the command as that user
+unchanged, and the data folder must be theirs.
+
+`docker exec` runs as root unless told otherwise: run maintenance commands as
+`docker exec -u btctx <container> python -m backend.cli …`. A file a root
+command creates in `/data` stays root's until the next start gives it back.
+
+StartOS doesn't use the entrypoint: the package runs each step itself
+(`startos/startos/main.ts`, Start9's `main.md`, "Oneshots"): a `chown`
+oneshot as root at every start, then the migrate step as `btctx`, then the
+web server through the same `setpriv` drop (`asAppUser` in `utils.ts`). Every
+`backend.cli` command an action or init runs (`runAppCli`) gives the volume to
+`btctx` first, as root, then runs as `btctx`: an action may run before the
+first start after an update or a restore.
 
 ```
 /app/backend/          application code (ephemeral, replaced on update)
 /app/frontend/dist/    built React app
-/data/                 volume mount point (persistent)
+/data/                 volume mount point (persistent), btctx's (uid 10001)
   ├── btctx.db             SQLite database
   ├── .btctx_secret_key    per-install session signing key (mode 600)
   ├── setup-code.txt       one-time first-run code while the account still has
@@ -81,7 +117,9 @@ reads `DATABASE_FILE`; a relative path is resolved against the repo root.
 | StartOS | `/data/btctx.db` | Image default; the wrapper also sets the same value |
 | macOS app | `~/Library/Application Support/BitcoinTX/btctx.db` | `desktop/entrypoint.py` |
 
-An `-e DATABASE_FILE=...` at run time still overrides the image default.
+An `-e DATABASE_FILE=...` at run time still overrides the image default; its
+folder must then be a volume or a mounted folder itself (not a subfolder of
+one), which the image gives to its user ("The app's user", above).
 Standalone run, with the data on a named volume:
 
 ```bash
@@ -165,6 +203,9 @@ checks the names agree). Docker users may set them the same way.
 Change these only together with the package (`startos/`):
 
 - **Entry point and port:** `backend.main:app`, plain HTTP on port 80.
+- **User:** the image has the user `btctx` (uid and gid 10001) and `setpriv`
+  (util-linux, in the base image); the package runs every step as `btctx`,
+  after giving it `/data` as root ("The app's user", above).
 - **Health:** `GET /api/health` (no login) answers 200 with
   `{"status": "ok", "version", "schema"}` when the database is reachable at
   the current schema, 503 otherwise. The package's health check requires 200.
@@ -219,8 +260,10 @@ its own password-encrypted backup (Settings, or `POST /api/backup/download` /
 ## Testing checklist
 
 CI (`.github/workflows/ci.yml`) already builds the image, checks that
-`btctx.db` and `.btctx_secret_key` are created in `/data`, and runs
-`scripts/smoke_test.py` against the running container. For changes to paths or
+`btctx.db` and `.btctx_secret_key` are created in `/data`, that the app runs
+as `btctx` and every file in `/data` is its own, runs
+`scripts/smoke_test.py` against the running container, and updates a volume
+the published 1.2.8 image made (`scripts/docker_update_check.sh`). For changes to paths or
 storage, also check by hand:
 
 ```bash
@@ -228,7 +271,7 @@ docker build -t btctx:test .
 docker run -d --name btctx-test -p 127.0.0.1:8080:80 -v btctx-test-data:/data btctx:test
 
 # Database, key and backup service all point at /data
-docker exec btctx-test ls -la /data/
+docker exec btctx-test ls -la /data/          # every file btctx's
 docker exec btctx-test python -c "from backend.services.backup import DB_PATH; print(DB_PATH)"
 
 # End-to-end against the EMPTY test container (it creates transactions)
@@ -236,6 +279,9 @@ python scripts/smoke_test.py --url http://127.0.0.1:8080
 
 # Persistence: data (and your login) survive a restart
 docker restart btctx-test
+
+# An update from 1.2.8, whose /data is root's (CI runs it too)
+scripts/docker_update_check.sh btctx:test
 
 # Clean up
 docker rm -f btctx-test && docker volume rm btctx-test-data
@@ -259,7 +305,8 @@ curl -b jar -X POST -F password=backup-pass-123 -F file=@backup.btx http://local
 | Architectures | `linux/amd64`, `linux/arm64` |
 | Entry point | `backend.main:app` |
 | Port | 80 |
-| Data volume | `/data` |
+| Data volume | `/data`, owned by the app's user |
+| User | `btctx`, uid and gid 10001; never root (`docker exec -u btctx` for the CLI) |
 | Database | `/data/btctx.db` (image default of `DATABASE_FILE`) |
 | Session key | `/data/.btctx_secret_key` (auto-generated) or `SECRET_KEY` env |
 | Health | `GET /api/health` (200 = database at current schema) |

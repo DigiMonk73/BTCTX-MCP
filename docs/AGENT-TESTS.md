@@ -236,7 +236,10 @@ Start from the `clean` snapshot.
   Source Saved"; the task clears.
 - **INS-5** Start the service. Expect: the health check **Web Interface**
   reads "BitcoinTX is ready" within a minute. The service log has no
-  `ERROR` or `Traceback`.
+  `ERROR` or `Traceback`. From 1.2.9 (#202), BitcoinTX isn't root: `start-cli
+  package attach btctx -n btctx -- sh -c 'find /data \! -user btctx -o \! -group btctx; awk
+  "\$2 ~ /:0050\$/ && \$4 == \"0A\" {print \$8}" /proc/net/tcp'` prints only
+  `10001` (no file that isn't btctx's; port 80's listener is uid 10001).
 - **INS-6** Interfaces. Expect: **Web UI** and **MCP API**, where MCP
   API's address is the Web UI's address plus `/api`.
 - **INS-7** `curl --cacert ca.crt $API/health`. Expect: HTTP 200 and JSON
@@ -865,7 +868,8 @@ Set `KEY` to the key from AI-3, and use
   from the backup. Expect: no Set Login Credentials task; the service
   starts; the LCK-2 password logs in; every golden figure; Tax Timezone
   America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
-  still works.
+  still works. INS-5's check that BitcoinTX isn't root passes too (from
+  1.2.9, #202).
 
 ### EXP: exploratory (30 minutes)
 
@@ -926,7 +930,9 @@ Start from the `clean` snapshot.
   schema. The same login works; from 1.2.8, the browser shows the login
   page once first (every session from before the update ends, #221). Every UPG-1 figure is identical. The AI key
   still works. Any tasks raised are only the ones this release's CHANGELOG
-  entry announces. If StartOS refuses the update because the CI package's
+  entry announces. INS-5's check that BitcoinTX isn't root passes too
+  (from 1.2.9: the update hands the old release's root-owned files to
+  btctx, #202). If StartOS refuses the update because the CI package's
   signing key differs from the release's, mark UPG BLOCKED and run it after
   the release with the published `btctx.s9pk`.
 - **UPG-3** Ledger Review. Expect "Figures that Recalculate Ledger would
