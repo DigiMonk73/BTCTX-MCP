@@ -289,9 +289,9 @@ class TestDedup:
         """#388's review: two Interest payouts recorded on a day (10:00 and
         15:00); the user adds a third at 10:00, named as another than the
         10:00 one, beside the 15:00 one given as a date alone. Sent again,
-        the date-alone row took the copy the first send saved at 10:00
-        (nearer noon than 15:00), and the named row was saved again. It
-        now gets that copy back, and the date-alone row the 15:00 one."""
+        the date-alone row would take the copy the first send saved at
+        10:00 (nearer noon than 15:00), leaving the named row none: the
+        named row takes that copy, and the date-alone row the 15:00 one."""
         at_ten = dict(INTEREST, date="2025-03-20T10:00:00Z")
         ten, three = (execute([row])["created"][0]["id"] for row in (at_ten, dict(INTEREST, date="2025-03-20T15:00:00Z")))
         day = dict(INTEREST, date="2025-03-20")
@@ -304,11 +304,13 @@ class TestDedup:
         assert results[1]["matched_transaction_id"] == three and any("sent twice" in w for w in results[0]["warnings"])
 
     @pytest.mark.parametrize("seed", range(3))
-    def test_any_request_naming_what_its_preview_matched_saves_only_once(self, seed):
-        """#378's promise on random ledgers: payouts of two amounts at a few
-        times of one day (some rows given as a date alone), some of the
-        preview's duplicates named as other transactions. Sent three
-        times, only the first send saves anything."""
+    def test_a_row_named_as_its_previews_match_is_saved_only_once(self, seed):
+        """#378 on random ledgers: payouts of two amounts at a few times of
+        one day (some rows given as a date alone), some of the preview's
+        duplicates named as other transactions. Sent three times, only the
+        first send saves anything. (Its times never put a later payout
+        nearer noon than an earlier one: a plain row can then be saved again
+        beside a date-alone one, #411.)"""
         import random
 
         rng = random.Random(seed)

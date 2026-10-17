@@ -647,25 +647,52 @@ def match_by_moving(
     """
     if not stuck:
         return
+    existing = db.query(Transaction).order_by(Transaction.id).all()
+    holder = {p.matched_tx_id: p for p in holders}
+    if all(tx.id in holder or tx.id in kept_tx_ids for tx in existing):
+        return  # every transaction taken: none can be freed
     proposals = [*stuck, *holders]
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
-    nearby = _nearby(proposals, db.query(Transaction).order_by(Transaction.id).all())
-    holder = {p.matched_tx_id: p for p in holders}
+    nearby = _nearby(proposals, existing)
+    duplicates: dict[int, list[Transaction]] = {}
 
-    def place(proposal: RiverProposal, seen: set) -> bool:
-        """`proposal` matched to a free duplicate, or one its holder can give up."""
-        for tx in sorted(nearby[id(proposal)], key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp)):
-            if tx.id in kept_tx_ids or tx.id in seen or not is_duplicate(proposal, tx, rule, tz):
-                continue
-            seen.add(tx.id)
-            if tx.id not in holder or place(holder[tx.id], seen):
-                holder[tx.id] = proposal
-                proposal.matched_tx_id, proposal.status = tx.id, STATUS_MATCHED
-                return True
-        return False
+    def duplicates_of(proposal: RiverProposal) -> list[Transaction]:
+        """Its duplicates it may take, nearest first, found once."""
+        if id(proposal) not in duplicates:
+            duplicates[id(proposal)] = sorted(
+                (tx for tx in nearby[id(proposal)] if tx.id not in kept_tx_ids and is_duplicate(proposal, tx, rule, tz)),
+                key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp),
+            )
+        return duplicates[id(proposal)]
 
+    seen: set = set()  # no path through these until a row is placed (then the matches change)
     for proposal in sorted(stuck, key=lambda p: p.timestamp):
-        place(proposal, set())
+        if _place(proposal, duplicates_of, holder, seen):
+            seen = set()
+
+
+def _place(start: RiverProposal, duplicates_of, holder: dict, seen: set) -> bool:
+    """`start` matched to a free duplicate, or to one its holder gives up for
+    another of its own, and so on down: a search kept on a list, not in
+    Python's recursion (a long chain of identical rows ran past its limit).
+    Every row on the path found takes the transaction it reached."""
+    path = [(start, iter(duplicates_of(start)), None)]  # (row, its duplicates left, the one it would take)
+    while path:
+        proposal, options, _ = path[-1]
+        tx = next((tx for tx in options if tx.id not in seen), None)
+        if tx is None:
+            path.pop()
+            continue
+        seen.add(tx.id)
+        path[-1] = (proposal, options, tx)
+        if tx.id in holder:
+            path.append((holder[tx.id], iter(duplicates_of(holder[tx.id])), None))
+            continue
+        for row, _, taken in path:
+            holder[taken.id] = row
+            row.matched_tx_id, row.status = taken.id, STATUS_MATCHED
+        return True
+    return False
 
 
 def _nearest(proposal: RiverProposal, txs: list[Transaction]) -> Transaction | None:

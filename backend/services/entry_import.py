@@ -361,7 +361,7 @@ def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal],
         if stub.status == STATUS_MATCHED and stub.matched_tx_id == p.not_a_duplicate_of
     }
     annotate_duplicates(list(again.values()), db, exact_only=True, rule=ENTRY_RULE, reserved_tx_ids=taken)
-    names = {stubs[i].matched_tx_id for i in again}
+    names = {p.not_a_duplicate_of for p in valid if p.not_a_duplicate_of is not None}  # never a row's, moved
     for i, stub in again.items():
         stubs[i] = stub
     # Another row may hold the copy one of these needs, and have another of its own
