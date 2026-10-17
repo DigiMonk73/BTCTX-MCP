@@ -952,6 +952,19 @@ All notable changes to BitcoinTX are documented in this file.
     a 422 naming the year, as Form 8949 already refused one; and a CSV or
     River file with a field over 131,072 characters gets "The file can't
     be read as CSV" (#211).
+- **The sidebar's calculator adds up a chain of numbers right** (#450). It
+  dropped the running total at a second operator (`2 + 3 + 4 =` showed 7),
+  dropped the first number when an operator was pressed twice (`5 + + 1 =`
+  showed 1), added a digit typed after `=` to the result (`2 + 3 =` then `7`
+  showed 57), took a second decimal point (`1.2.3`), showed a computer's
+  rounding noise (`0.1 + 0.2` gave 0.30000000000000004) and showed `1 / 0`
+  as Infinity, in every version so far. It now works as a pocket calculator:
+  left to right, the running total kept, a second operator replacing the
+  first, a digit after `=` starting a new number, a second point ignored,
+  each result rounded to the digits its numbers carry (written out, never as
+  5e-8), and Error for a division by zero. Nothing the calculator shows is
+  saved; a total worked out with it and typed into a transaction is worth
+  checking.
 - **A few sats are written out, never as 5E-8** (#101). The transactions
   API, and so the AI connector's `list_transactions`, gave an amount or a
   fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
