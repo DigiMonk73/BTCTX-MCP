@@ -461,9 +461,13 @@ def test_mempool_on_startos_through_the_bridge_address(auth_client, server_env, 
 ONION = "http://mempoolabcdefghijklmnopqrstuvwxyz234567abcdefghijklmnop.onion"
 
 
-# An .onion address as typed: with a dot at its end it names the same host
-# (the review of #443: it was taken for a home-network address, asked directly)
-ONIONS = pytest.mark.parametrize("onion", [ONION, ONION + "."], ids=["onion", "onion with a dot at its end"])
+# An .onion address as typed: with a dot at its end, or full stops the
+# address's IDNA makes dots, it names the same host (the review of #443: it
+# was taken for another address and asked directly, its name to the resolver)
+ONIONS = pytest.mark.parametrize("onion", [
+    ONION, ONION + ".", ONION[:-len(".onion")] + "\u3002onion", ONION[:-len(".onion")] + "\uff0eonion",
+    ONION + "\u3002"], ids=["onion", "a dot at its end", "an ideographic full stop", "a fullwidth full stop",
+                             "a full stop at its end"])
 
 
 @ONIONS

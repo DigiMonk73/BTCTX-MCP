@@ -195,6 +195,27 @@ def test_an_own_mempools_client_stops_when_its_proxy_or_trusted_root_changes(sen
     assert requests == [(httpx.URL(made.mempool_url).host, made.proxy_url)]
 
 
+def test_the_mempools_history_a_save_stopped_is_asked_again_at_once(sent, monkeypatch):
+    """The trusted root forgotten as the Mempool's history is about to be
+    asked (#188): it isn't asked with the old root, and the next lookup asks
+    the same Mempool at once, not RETRY_SECONDS later."""
+    requests, _ = sent
+    outbound._current = outbound.NetworkSettings(price_source="mempool", mempool_url=NODE, mempool_root="a root")
+    real_client = outbound.own_node_client
+
+    def made_then_saved(timeout=None):
+        client = real_client(timeout)
+        outbound._current = MEMPOOL_NO_BACKUP
+        return client
+
+    monkeypatch.setattr(outbound, "own_node_client", made_then_saved)
+    assert asyncio.run(price_history.own_node_rows()) == ([], False)
+    assert requests == []
+    monkeypatch.setattr(outbound, "own_node_client", real_client)
+    asyncio.run(price_history.own_node_rows())
+    assert requests == [("umbrel.local", None)]
+
+
 @pytest.mark.parametrize("full", [True, False], ids=["whole history", "latest days"])
 def test_a_history_download_a_save_stopped_is_asked_again_as_the_new_choice_says(sent, full):
     """Tor is set while the daily history comes in through no proxy (its

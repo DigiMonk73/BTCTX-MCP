@@ -6,6 +6,7 @@ import {
   chosenWhen,
   waitingToConfirm,
   formFromSettings,
+  isOnion,
   managedBanner,
   payloadFromForm,
   priceFormChanged,
@@ -80,6 +81,15 @@ describe("the form", () => {
   it("an .onion goes through Tor even unticked", () => {
     expect(payloadFromForm({ ...form, mempoolUrl: ONION, tor: false }).proxy_url).toBe(TOR_PLACEHOLDER);
     expect(cannotSave({ ...form, mempoolUrl: ONION, torUrl: " " })).toMatch(/through Tor/);
+  });
+
+  it("an .onion however its dots are typed is an .onion, as the server judges it", () => {
+    // A dot at its end; full stops the address's IDNA makes dots (review of #443)
+    for (const typed of [`${ONION}.`, ONION.replace(/\.onion$/, "\u3002onion"), ONION.replace(/\.onion$/, "\uff0eonion")]) {
+      expect(isOnion(typed)).toBe(true);
+      expect(torOffered({ ...form, mempoolUrl: typed })).toBe(true);
+    }
+    expect(isOnion("http://umbrel.local:3006")).toBe(false);
   });
 
   it("says why it can't save yet", () => {

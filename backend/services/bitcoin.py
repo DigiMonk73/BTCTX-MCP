@@ -49,7 +49,7 @@ def _one_at_a_time() -> asyncio.Lock:
 
 async def _from_own_node(path: str, parse: Callable, record: bool = False):
     """Ask the owner's mempool server when it's the chosen source; None if it
-    fails (a save meanwhile that stops it: _settings_changed's answer, #437).
+    fails. A save meanwhile that stops it raises _settings_changed's answer (#437).
     `record`: the live price's attempt, which the status line reports
     (services/price_status.py); the block height's isn't, so a Mempool that
     gives the height but no price is never reported as the price's source."""

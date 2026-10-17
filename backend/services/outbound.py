@@ -877,5 +877,6 @@ async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -
 
 
 def _is_onion(url: str | None) -> bool:
-    # A dot at the end ("x.onion.") names the same host: an .onion all the same
-    return (urlparse(url or "").hostname or "").rstrip(".").endswith(".onion")
+    # The host httpx connects to, not urlparse's: its IDNA makes "。" and "．"
+    # dots; and a dot at the end ("x.onion.") names the same host
+    return (connection_host(url or "") or "").rstrip(".").endswith(".onion")

@@ -450,19 +450,21 @@ All notable changes to BitcoinTX are documented in this file.
   sent only as the settings in use at that moment allow: never to a public
   site once they aren't allowed, never through another proxy than the one
   in use, and never to a Mempool address no longer chosen; a request they
-  don't allow is refused before it's sent, and the next lookup asks as the
-  new choice says. Only your own change of these settings while a lookup
+  don't allow is refused before it's sent, and the daily history, the
+  latest days and your Mempool's history are asked again at the next
+  lookup, as the new choice says. Only your own change of these settings while a lookup
   was under way could cause it (they're login only, never the AI key), and
   no figure is affected. Nothing to do.
-- **An .onion Mempool address with a dot at its end is reached through
-  Tor** (found by the review of #443). Typed as `http://….onion.` (the
-  same address, with the dot DNS allows at the end), it wasn't taken for
-  an .onion: it could be saved without a proxy and was then asked
-  directly, so its name went to this server's resolver. Now it's an
-  .onion like any other: it needs the proxy, and goes through it. Nothing
-  to do, unless you typed your Mempool's address that way without a
-  proxy: BitcoinTX now asks you for the proxy when you next save it, and
-  asks that Mempool nothing until then.
+- **An .onion Mempool address however its dots are typed is reached
+  through Tor** (found by the review of #443). Typed with a dot at its end
+  (`http://….onion.`, the same address) or with a full stop that web
+  addresses take for a dot (`。`, `．`), it wasn't taken for an .onion: it
+  was asked directly, even with Tor set, so its name went to this
+  server's resolver; and it could be saved without Tor. Now it's an
+  .onion like any other, in Settings and on the server: it needs Tor, and
+  goes through it. Nothing to do, unless you typed your Mempool's address
+  that way without Tor: Settings now offers Tor for it when you next save,
+  and BitcoinTX asks that Mempool nothing until then.
 - **A save made while Ledger Review looks up a price no longer fails**
   (#364). When one of Ledger Review's checks needed a BTC price not stored
   yet (with a price source chosen), it stored the price in the review's own
