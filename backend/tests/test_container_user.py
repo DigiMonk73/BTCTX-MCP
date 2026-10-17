@@ -29,13 +29,19 @@ def test_the_image_starts_through_the_entrypoint_that_drops_root():
     # No USER line: the entrypoint must start as root to take over a volume
     # an older image left root's, and StartOS runs every step as named.
     assert not re.search(r"^USER\b", DOCKERFILE, re.M)
-    assert "chown -R btctx:btctx /data" in ENTRYPOINT
     drop = "exec setpriv --reuid=btctx --regid=btctx --init-groups"
     assert drop in ENTRYPOINT and "--no-new-privs" in ENTRYPOINT
-    # Root runs only the chown: the command itself only after the drop, or
-    # unchanged when Docker started it as another user (--user)
-    assert ENTRYPOINT.index('if [ "$(id -u)" != 0 ]; then\n    exec "$@"') < ENTRYPOINT.index("chown -R")
-    assert ENTRYPOINT.rstrip().endswith('--no-new-privs -- "$@"')
+    # The data folder is /data, or DATABASE_FILE's when it's a mount of its
+    # own: never a folder of the image (#446's review)
+    assert 'dir=$(dirname "${DATABASE_FILE:-/data/btctx.db}")' in ENTRYPOINT
+    assert 'if mountpoint -q "$dir"; then data=$dir; fi' in ENTRYPOINT
+    # Root runs only the chown, and only when btctx finds a file that isn't
+    # its own; the command runs after the drop, or unchanged when Docker
+    # started it as another user (--user)
+    check = ENTRYPOINT.index("others=$( (as_btctx find \"$data\"")
+    chown = ENTRYPOINT.index('chown -R btctx:btctx "$data"')
+    assert ENTRYPOINT.index('if [ "$(id -u)" != 0 ]; then\n    exec "$@"') < check < chown
+    assert ENTRYPOINT.rstrip().endswith('\nas_btctx "$@"')
 
 
 def test_startos_drops_to_the_same_user_keeping_only_port_80():

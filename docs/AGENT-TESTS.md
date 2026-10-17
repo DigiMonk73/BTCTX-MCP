@@ -237,7 +237,7 @@ Start from the `clean` snapshot.
 - **INS-5** Start the service. Expect: the health check **Web Interface**
   reads "BitcoinTX is ready" within a minute. The service log has no
   `ERROR` or `Traceback`. From 1.2.9 (#202), BitcoinTX isn't root: `start-cli
-  package attach btctx -n btctx -- sh -c 'find /data \! -user btctx; awk
+  package attach btctx -n btctx -- sh -c 'find /data \! -user btctx -o \! -group btctx; awk
   "\$2 ~ /:0050\$/ && \$4 == \"0A\" {print \$8}" /proc/net/tcp'` prints only
   `10001` (no file that isn't btctx's; port 80's listener is uid 10001).
 - **INS-6** Interfaces. Expect: **Web UI** and **MCP API**, where MCP
@@ -868,7 +868,8 @@ Set `KEY` to the key from AI-3, and use
   from the backup. Expect: no Set Login Credentials task; the service
   starts; the LCK-2 password logs in; every golden figure; Tax Timezone
   America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
-  still works.
+  still works. INS-5's check that BitcoinTX isn't root passes too (from
+  1.2.9, #202).
 
 ### EXP: exploratory (30 minutes)
 

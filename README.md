@@ -149,13 +149,15 @@ Images are amd64 and arm64; pin a version with `:vX.Y.Z`. To build it
 yourself: `docker build -t btctx .`
 
 BitcoinTX runs as its own user in the container, `btctx` (uid 10001), never
-as root. At each start the image gives `/data` to that user, then drops to
-it, so a volume an older version made keeps working. A folder of yours
-mounted at `/data` (`-v /some/folder:/data`) becomes uid 10001's too.
-Maintenance commands run as that user:
-`docker exec -u btctx <container> python -m backend.cli …`. Started with
-`--user`, the image runs as the user you give and leaves `/data` as it is,
-so it must be that user's.
+as root. At a start the image gives `/data` to that user if anything in it
+isn't theirs, then drops to it, so a volume an older version made keeps
+working. A folder of yours mounted at `/data` (`-v /some/folder:/data`)
+becomes uid 10001's too (with `DATABASE_FILE` set elsewhere: its folder, when
+that is a volume or mounted folder). Maintenance commands run as that user:
+`docker exec -u btctx <container> python -m backend.cli …`. If you drop
+capabilities (`--cap-drop ALL`), keep CHOWN, DAC_OVERRIDE, SETUID, SETGID and
+NET_BIND_SERVICE. Started with `--user`, the image runs as the user you give
+and leaves `/data` as it is, so it must be that user's.
 
 ### StartOS
 
