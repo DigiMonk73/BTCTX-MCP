@@ -1113,6 +1113,16 @@ All notable changes to BitcoinTX are documented in this file.
   the license, how Start9's release workflow reads the id and version, the
   instructions' wording, and one exact SDK. Everything else already
   conformed; nothing the package does changes.
+- **The package keeps only whether a login was set, never its password**
+  (#212). Set Login Credentials saved the password it generated in the
+  package's `store.json` as plain text (and so in every StartOS backup),
+  though the package only ever asked whether a login was set. It now keeps
+  `loginSet`, as Start9's "Expose a Web UI" recipe says for an app with its
+  own login (`recipe-web-ui.md`, "Authentication": persist only the hash,
+  which BitcoinTX keeps in its own database), and still shows the password
+  once. The update to 1.2.9 replaces a stored password with `loginSet` and
+  deletes it. Nothing to do: your login and the Set Login Credentials action
+  work as before.
 - **A package fix while a version is only on Community Beta** (#376, the
   owner's rule): Start9 keeps the version number until the community
   registry serves it, so `UPDATING.md` now ships such a fix inside a small
