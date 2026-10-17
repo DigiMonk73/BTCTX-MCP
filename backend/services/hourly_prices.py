@@ -124,16 +124,28 @@ def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict
     row = db.get(BtcPriceHourly, hour)
     if row is not None:
         return Priced(Decimal(row.usd), "hour", _utc(hour), row.source)
-    # One request's cache (a list of many transactions): the manifest read and
-    # each year file parsed once, not once per row
-    years = {} if years is None else years
+    prices = _year_of(hour, {} if years is None else years)
+    return Priced(prices[hour], "hour", _utc(hour), "bitstamp") if prices and hour in prices else None
+
+
+def read_year_files(whens, years: dict) -> None:
+    """Read into `years`, stored_price_at's cache for one request, the year
+    files holding these moments, so its lookups read none: the AI preview
+    does it before its dry run takes SQLite's write lock (#204)."""
+    for when in whens:
+        _year_of(hour_of(when), years)
+
+
+def _year_of(hour: int, years: dict) -> dict[int, Decimal] | None:
+    """The prices of the year file holding `hour`, from one request's cache
+    (a list of many transactions): the manifest read and each year file
+    parsed once, not once per row."""
     if "manifest" not in years:
         years["manifest"] = pf.read_manifest(pf.MANIFEST)
     line = next((y for y in years["manifest"] if y.first_hour <= hour <= y.last_hour), None)
     if line is not None and line.year not in years:
         years[line.year] = _year_prices(line)
-    prices = years.get(line.year) if line else None
-    return Priced(prices[hour], "hour", _utc(hour), "bitstamp") if prices and hour in prices else None
+    return years.get(line.year) if line else None
 
 
 def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:

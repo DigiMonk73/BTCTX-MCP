@@ -429,6 +429,13 @@ def simulate(
     if not ordered:
         return [], []
 
+    # The year files the price lookups below (from_price) may read, read
+    # first: the dry run holds SQLite's write lock, and reading and
+    # fingerprinting them would hold it the longer (#204). Looked up after
+    # the rollback instead, a price the dry run itself stored would be gone.
+    years: dict = {}
+    hourly_prices.read_year_files((p.tx_data["timestamp"] for p in ordered), years)
+
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
 
@@ -439,7 +446,6 @@ def simulate(
             db.flush()
         else:
             _mark_not_simulated(ordered[failed_at + 1:])
-        years: dict = {}  # the year files, read once for every row
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,

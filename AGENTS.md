@@ -427,6 +427,10 @@ from the Transaction row alone.
   (`security_headers.py`): exports and the ledger's JSON stay out of the
   browser's disk cache. A new encrypted backup's password needs 12+
   characters (`routers/backup.py`); a restore takes an older, shorter one.
+- A CSV or River import that fails for an unexpected reason answers one
+  fixed sentence (`csv_import.IMPORT_FAILED`), never the error's own text
+  (it can hold SQL, a server path or a date), and logs only the error's
+  type (`csv_import.log_unexpected`; the trace at DEBUG).
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the
@@ -468,6 +472,9 @@ from the Transaction row alone.
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
+  The preview reads the price year files its rows may need before its dry
+  run (`hourly_prices.read_year_files`), so finding which price filled each
+  value (#208) reads no file under the lock.
 - A JSON body whose text (or a key) holds a lone surrogate (`"\ud800"`)
   is refused, 422 naming the field, before the route runs
   (`main.refuse_text_that_isnt_text`, #313): it can't be saved or quoted
@@ -485,10 +492,11 @@ from the Transaction row alone.
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
   chunked body passes it. A route taking a file is listed in `main.py` with
   its own file limit (plus room for the form) and keeps checking the file
-  itself: the restore 1 GiB, the CSV and River files 5 MB. That larger
-  allowance is for a logged-in owner's file: only a request whose session
-  cookie is validly signed, unexpired and holds a `user_id` gets it. A new
-  upload route goes in that list.
+  itself, reading at most the limit and one byte: the restore 1 GiB, the
+  CSV and River files 5 MB. That larger allowance is for a logged-in
+  owner's file: only a request whose session cookie is validly signed,
+  unexpired and holds a `user_id` gets it. A new upload route goes in that
+  list.
 
 ## Testing (see `docs/TESTING.md`)
 

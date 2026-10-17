@@ -5,6 +5,7 @@ check, the preview and the import (a logged-in session only).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -27,10 +28,25 @@ from backend.services.csv_import import (
 )
 
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 MAX_ROWS = 10000
+# An import stopped by something other than a row the ledger refused: the
+# same plain words for the CSV and River imports, as the restore's, never the
+# error's own text, which can carry SQL, a server path or a transaction's
+# date (#204). The log says what it was (log_unexpected).
+IMPORT_FAILED = ("Import failed: something unexpected stopped it, and no transactions were saved. "
+                 "BitcoinTX's log says what.")
+
+
+def log_unexpected(what: str, error: Exception) -> None:
+    """The error's type in the log; its trace only at DEBUG, where whole rows
+    already are (dates stay out of the normal log)."""
+    logger.error("%s failed: %s", what, type(error).__name__)
+    logger.debug("%s failed", what, exc_info=error)
 
 
 def _require_auth(request: Request):
@@ -58,7 +74,7 @@ def _read_validated_csv(file: UploadFile) -> bytes:
             detail="File must be a CSV file (.csv extension)"
         )
 
-    content = file.file.read()
+    content = file.file.read(MAX_FILE_SIZE + 1)  # enough to tell it's too large (#204)
 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -216,7 +232,5 @@ def execute_csv_import(
             detail=f"Import failed: {detail} No transactions were saved."
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Import failed: {str(e)}. No transactions were saved."
-        )
+        log_unexpected("CSV import", e)
+        raise HTTPException(status_code=500, detail=IMPORT_FAILED)

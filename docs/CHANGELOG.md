@@ -834,6 +834,17 @@ All notable changes to BitcoinTX are documented in this file.
     stay out of the browser's cache** (`Cache-Control: no-store` on every
     answer from BitcoinTX's API): a downloaded ledger no longer lingers in
     the browser's own files after you've saved it.
+  - **A CSV or River file is read only as far as the 5 MB limit** (and one
+    byte, to tell it's over) before it's refused, not whole.
+  - **An import that fails for an unexpected reason says so in plain
+    words**: "Import failed: something unexpected stopped it, and no
+    transactions were saved. BitcoinTX's log says what." It used to repeat
+    the error's own text, which could hold a database query, a server path
+    or a transaction's date. The log names the kind of error; the details
+    are in its debug level.
+  - **The AI preview reads the price history files before its dry run**,
+    so the time it holds the database's lock, while your own saves wait,
+    no longer includes reading them to say which price filled each value.
 - **The AI connector's Recalculate Ledger comes after a copy of the
   database** (#336, the owner's choice). Before the AI key's first edit or
   deletion in an hour, BitcoinTX keeps a copy of the database
