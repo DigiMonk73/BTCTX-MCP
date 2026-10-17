@@ -53,8 +53,6 @@ def hourly_changes(db: Session, ids=None, year: int | None = None, wait: bool = 
         tax_year = local_date(t.timestamp, tz).year
         if year is not None and tax_year != year:
             continue
-        if wait:
-            db.commit()  # prices stored so far: no write lock held while a lookup waits for a download
         change = _change_for(db, t, wait)
         if change is not None:
             changes.append({"id": t.id, "tax_year": tax_year, **change})
@@ -70,7 +68,6 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     from backend.services.transaction import recalculate_all_transactions
 
     changes = hourly_changes(db, ids=ids, year=year, wait=wait)
-    db.commit()  # prices downloaded meanwhile; the copy is of the ledger as it is
     if not changes:
         return {"changed": [], "backup": None}
     path = sqlite_file(db.get_bind())
