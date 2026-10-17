@@ -466,16 +466,16 @@ from the Transaction row alone.
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
   debug.
-- Before the AI key's first change in an hour (an edit, a deletion or
-  Recalculate Ledger, which can move stored figures, #336; not an import,
-  even one that recalculates, #414) an AI copy is made
-  (`backups/…-ai-before-changing-…db`; no copy, no change), never for the
-  owner's; it is written under a temporary name and renamed once complete,
-  one at a time, so a failed or unfinished copy never counts as the hour's.
-  Of the AI copies BitcoinTX keeps the newest 3 and, for a week (today and
-  the 6 UTC days before), the oldest and the first copy of each day made
-  before the AI changed anything that day (`migrate._ai_copies_held`): at
-  most 11.
+- Before the AI key's first change in an hour (an edit, a deletion,
+  Recalculate Ledger, or an import holding a row dated before the ledger's
+  latest, which recalculates it: each can move stored figures, #336, #414)
+  an AI copy is made (`backups/…-ai-before-changing-…db`; no copy, no
+  change), never for the owner's; it is written under a temporary name and
+  renamed once complete, one at a time, so a failed or unfinished copy never
+  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and,
+  for a week (today and the 6 UTC days before), the oldest and the first
+  copy of each day made before the AI changed anything that day
+  (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. With the
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
