@@ -79,7 +79,9 @@ is filed as usual (section 5) and gets a session to fix it (bugs found
 together may share one); the release waits for the fix unless the
 owner leaves it for later. As section 5 says, a problem found while
 reviewing a pull request is fixed in that pull request, and a security
-problem stays private and is released at once. The plan also says
+problem stays private and is released at once. The main session does
+every merge itself, one at a time from a queue on the job's issue, each
+only after its checks pass on the latest `develop`. The plan also says
 which files each session will touch and the order their work merges
 in, so sessions don't trip over each other. The main session keeps a
 ready-to-paste handoff for itself on the job's issue, up to date after

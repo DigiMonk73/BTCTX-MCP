@@ -891,6 +891,14 @@ All notable changes to BitcoinTX are documented in this file.
   instead of a package revision.
 
 ### Development
+- **During big work the lead runs every merge** (AGENTS.md, "Big work",
+  "Pull requests" and "Branches"; `docs/HOW-CHANGES-FLOW.md`; the owner's
+  rule, 2026-10-17). Sessions report a pull request "ready" instead of
+  turning on auto-merge; the lead merges from one queue on the umbrella
+  issue, each branch brought up to date with `develop` and re-tested
+  first; `develop` requires that since 2026-10-17. #413 had merged on
+  checks run before #416 changed the sentence its test expected, which
+  broke `develop` until #417.
 - **A bug found during big work gets its own session** (AGENTS.md, "Big
   work"; `docs/HOW-CHANGES-FLOW.md`; the owner's rule, 2026-10-16). Once
   it's filed, the lead adds a session for it to the umbrella issue and
