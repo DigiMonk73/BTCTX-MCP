@@ -175,7 +175,20 @@ class TestSessionSecret:
     def test_explicit_env_key_wins(self, monkeypatch, tmp_path):
         monkeypatch.setenv("SECRET_KEY", "an-operator-supplied-secret-value-1234567890")
         assert load_secret_key(str(tmp_path)) == "an-operator-supplied-secret-value-1234567890"
+        monkeypatch.setenv("SECRET_KEY", "k" * 32)  # 32 characters, like the key file's
+        assert load_secret_key(str(tmp_path)) == "k" * 32
         assert not (tmp_path / KEY_FILENAME).exists()
+
+    @pytest.mark.parametrize("short", ["short-key", "k" * 31])
+    def test_a_short_env_key_gives_way_to_the_key_file(self, monkeypatch, tmp_path, caplog, short):
+        """#204: a SECRET_KEY from the environment was used however short (the
+        key file's must be 32 characters); a shorter one now gives way to the file."""
+        monkeypatch.setenv("SECRET_KEY", short)
+        with caplog.at_level("WARNING", logger="backend.secret_key"):
+            key = load_secret_key(str(tmp_path))
+        assert key != short and len(key) >= 32
+        assert (tmp_path / KEY_FILENAME).read_text() == key
+        assert "shorter than 32 characters" in caplog.text and short not in caplog.text
 
 
 def test_ai_key_cannot_download_or_restore_backups(auth_client, ai_key_headers):

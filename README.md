@@ -60,10 +60,12 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   price is used. BitcoinTX records one price per hour, so it won't always
   match a chart of one exchange at another moment. A VPN or Tor hides your
   IP address from the sites. Through Tor, Bitstamp currently refuses
-  BitcoinTX's requests, so the hourly history and past prices don't
-  download; only the live price works. Choose public price sites without
-  Tor to download them (once checked, the hourly history stays), use your
-  own Mempool for newer values, or type them
+  BitcoinTX's requests for the price history, so the Dashboard asks once
+  whether to download it without Tor: only Bitstamp's history downloads,
+  the same for every install and naming none of your dates, would show
+  Bitstamp your address; the live price stays on Tor. You can change the
+  answer in Settings. With No, use your own Mempool for newer values, or
+  type them
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
@@ -86,8 +88,24 @@ Several wallets or exchanges all go into those two accounts. The rule is
 Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
 coins held on that date. With several wallets, BitcoinTX may figure a sale
 from one wallet with the cost and purchase date of coins that were in
-another. Several wallets and exchanges, each with its own lots, is an idea
-for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
+another. Several wallets and exchanges, each with its own lots, are planned
+for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
+see [Versions](#versions)).
+
+## Versions
+
+1.2.9 is planned as BitcoinTX's stable version. After it, until 2.0
+replaces it, we expect 1.x to get maintenance updates: bug and security
+fixes, each year's IRS forms and the price history's update, and a few small
+improvements ([roadmap](docs/ROADMAP.md)).
+
+The big new work goes into 2.0, planned to add several wallets, exchanges and
+banks, each wallet and exchange with its own cost-basis lots
+([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). Because 2.0
+changes how the ledger is stored, we plan to test it as a beta, on GitHub
+pre-releases, for as long as it needs before it replaces 1.x; on StartOS we
+plan to bring it to Start9's Community Beta only once it's ready. We can't
+promise dates.
 
 ## Install
 

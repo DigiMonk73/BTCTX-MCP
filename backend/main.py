@@ -381,10 +381,32 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         ai_key.check_key(token, request.client.host if request.client else None, db)
     except ai_key.KeyRefused as exc:
         raise HTTPException(status_code=401, detail=str(exc))
-    if not ai_key.key_may_use(request.method, request.url.path):
-        logger.info("AI key refused: %s %s isn't open to it", request.method, request.url.path)
+    route = route_template(request)
+    if not ai_key.key_may_use(request.method, route):
+        logger.info("AI key refused: %s %s isn't open to it", request.method, route or request.scope["path"])
         raise HTTPException(status_code=403, detail=ai_key.NOT_ALLOWED)
     return "ai_key"
+
+
+# Each included route's whole template, its router's prefix and its own
+# path_format, by the route: FastAPI gives the route a request matched
+# (scope["route"]) relative to its router, and the AI key's allow-list names
+# whole ones (#204). Filled by include() below.
+ROUTE_TEMPLATES: dict[int, str] = {}
+
+
+def route_template(request: Request) -> str | None:
+    """The template of the route this request matched (e.g.
+    /api/transactions/{tx_id}), never its URL; None outside the routers."""
+    route = request.scope.get("route")
+    return ROUTE_TEMPLATES.get(id(route)) if route is not None else None
+
+
+def include(router, prefix: str, **options) -> None:
+    """Mount a router under `prefix` and note its routes' templates."""
+    app.include_router(router, prefix=prefix, **options)
+    for route in router.routes:
+        ROUTE_TEMPLATES[id(route)] = prefix + route.path_format
 
 
 def require_login_dependency(request: Request, db: Session = Depends(get_db)) -> int:
@@ -398,23 +420,23 @@ from backend.routers import transaction, user, account, calculation, bitcoin, re
 # (#313), which an anonymous request never reaches
 LOGGED_IN = [Depends(get_current_user), Depends(refuse_text_that_isnt_text)]
 
-app.include_router(transaction.router, prefix="/api/transactions", tags=["transactions"], dependencies=LOGGED_IN)
-app.include_router(user.router, prefix="/api/users", tags=["users"])  # No auth — register must work
-app.include_router(account.router, prefix="/api/accounts", tags=["accounts"], dependencies=LOGGED_IN)
-app.include_router(calculation.router, prefix="/api/calculations", tags=["calculations"], dependencies=LOGGED_IN)
-app.include_router(bitcoin.router, prefix="/api/bitcoin", tags=["Bitcoin"], dependencies=LOGGED_IN)
-app.include_router(reports.reports_router, prefix="/api/reports", tags=["reports"], dependencies=LOGGED_IN)
-app.include_router(backup.router, prefix="/api/backup", tags=["backup"], dependencies=LOGGED_IN)
-app.include_router(csv_import.router, prefix="/api/import", tags=["import"], dependencies=LOGGED_IN)
-app.include_router(river_import.router, prefix="/api/import/river", tags=["import"], dependencies=LOGGED_IN)
-app.include_router(entry_import.router, prefix="/api/import/entries", tags=["import"], dependencies=LOGGED_IN)
-app.include_router(settings.router, prefix="/api/settings", tags=["settings"], dependencies=LOGGED_IN)
-app.include_router(review.router, prefix="/api/review", tags=["review"], dependencies=LOGGED_IN)
+include(transaction.router, "/api/transactions", tags=["transactions"], dependencies=LOGGED_IN)
+include(user.router, "/api/users", tags=["users"])  # No auth — register must work
+include(account.router, "/api/accounts", tags=["accounts"], dependencies=LOGGED_IN)
+include(calculation.router, "/api/calculations", tags=["calculations"], dependencies=LOGGED_IN)
+include(bitcoin.router, "/api/bitcoin", tags=["Bitcoin"], dependencies=LOGGED_IN)
+include(reports.reports_router, "/api/reports", tags=["reports"], dependencies=LOGGED_IN)
+include(backup.router, "/api/backup", tags=["backup"], dependencies=LOGGED_IN)
+include(csv_import.router, "/api/import", tags=["import"], dependencies=LOGGED_IN)
+include(river_import.router, "/api/import/river", tags=["import"], dependencies=LOGGED_IN)
+include(entry_import.router, "/api/import/entries", tags=["import"], dependencies=LOGGED_IN)
+include(settings.router, "/api/settings", tags=["settings"], dependencies=LOGGED_IN)
+include(review.router, "/api/review", tags=["review"], dependencies=LOGGED_IN)
 
 # Debug routes: a logged-in session only, never the AI key.
 try:
     from backend.routers import debug
-    app.include_router(debug.router, prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency), Depends(refuse_text_that_isnt_text)])
+    include(debug.router, "/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency), Depends(refuse_text_that_isnt_text)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
@@ -424,8 +446,8 @@ except ImportError:
 
 @app.get("/api/protected")
 def read_protected_route(current_user: str = Depends(get_current_user)):
-    """200 when logged in (or with the AI key), 401 otherwise: the frontend
-    asks it whether to show the login page."""
+    """200 when logged in, 401 otherwise (the AI key gets 403: it's outside
+    the routers): the frontend asks it whether to show the login page."""
     return {"message": f"Hello, user {current_user}. You have access to this route!"}
 
 
@@ -439,6 +461,7 @@ class LoginRequest(BaseModel):
     password: str
     setup_code: str | None = None
 
+from backend.models.user import password_matches
 from backend.services.user import get_user_by_username
 from backend.services import first_run, login_throttle
 
@@ -459,8 +482,8 @@ def login(
     """
     login_throttle.check(request, db)
     user = get_user_by_username(login_req.username, db)
-    # For security, don't reveal which part is invalid
-    if not user or not user.verify_password(login_req.password):
+    # For security, don't reveal which part is invalid, nor by the time taken
+    if not password_matches(user, login_req.password):
         login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 

@@ -122,6 +122,65 @@ test("delete all: a dialog says what goes, deletes only once DELETE is typed, af
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("delete all: a transaction saved while the dialog is open is shown, not deleted (#377)", async ({
+  authedPage: page,
+}) => {
+  await seedKnownLedger(page.request);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
+  await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
+  // The AI connector saves one meanwhile
+  await createTx(page.request, {
+    type: "Deposit", timestamp: "2025-02-01T12:00:00Z", from_account_id: 99, to_account_id: 1,
+    amount: "100", fee_amount: "0", fee_currency: "USD",
+  });
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 6 transactions" }).click();
+  // Refused: nothing deleted, and the dialog says what goes now, to be confirmed again
+  await expect(dialog).toContainText("This deletes 7 transactions, 2023\u20132025");
+  await expect(dialog.getByRole("alert")).toContainText("Nothing was deleted");
+  await expect(dialog.getByLabel("Type DELETE to confirm")).toHaveValue("");
+  await expect(dialog.getByLabel("Type DELETE to confirm")).toBeFocused();
+  await expect(dialog.getByRole("button", { name: "Delete 7 transactions" })).toBeDisabled();
+  expect(await listTx(page.request)).toHaveLength(7);
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 7 transactions" }).click();
+  await expect(page.getByText("Deleted 7 transactions, 2023\u20132025")).toBeVisible();
+  expect(await listTx(page.request)).toHaveLength(0);
+});
+
+test("delete all: the same count over other tax years is a change too (#390's review)", async ({
+  authedPage: page,
+}) => {
+  await seedKnownLedger(page.request);
+  await openSettings(page);
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
+  await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
+  // Meanwhile one is added in 2025 and the oldest deleted: still six
+  await createTx(page.request, {
+    type: "Deposit", timestamp: "2025-02-01T12:00:00Z", from_account_id: 99, to_account_id: 1,
+    amount: "100", fee_amount: "0", fee_currency: "USD",
+  });
+  const oldest = (await listTx(page.request)).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))[0];
+  expect((await page.request.delete(`/api/transactions/${oldest.id}`)).status()).toBe(204);
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 6 transactions" }).click();
+  const note = dialog.getByRole("alert");
+  await expect(note).toContainText("Nothing was deleted");
+  const errorColor = await note.evaluate(() => {
+    const probe = document.body.appendChild(document.createElement("span"));
+    probe.style.color = "var(--color-error)";
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  await expect(note).toHaveCSS("color", errorColor); // red, as every error note
+  await expect(dialog.getByLabel("Type DELETE to confirm")).toHaveValue("");
+  expect(await listTx(page.request)).toHaveLength(6);
+});
+
 test("delete all: the dialog downloads the encrypted backup first (#256)", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await openSettings(page);
@@ -491,6 +550,7 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
     host: "server",
     confirmed: true, chosen_at: expect.stringMatching(/Z$/), chosen_via: "settings",
     mempool_certificate: null, mempool_trustable: false, // an http address: nothing to trust (#188)
+    history_without_tor: { answer: null, at: null, via: null }, // never asked: Bitstamp hasn't refused (#241)
   });
 
   await net.getByLabel(/^Nobody/).check();

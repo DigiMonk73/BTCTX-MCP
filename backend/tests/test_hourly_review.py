@@ -7,13 +7,18 @@ until the owner applies by item or by year (login only), after a backup
 copy, and then the values are at the hour, marked so, and recalculated.
 """
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from sqlalchemy.orm import sessionmaker
+
 from backend.services import hourly_prices
 from backend.tests.conftest import stub_daily_prices, stub_prices_at
+
+REAL_PRICE_AT = hourly_prices.price_at
 
 BANK, WALLET, EXCHANGE_BTC, EXTERNAL = 1, 2, 4, 99
 D = Decimal
@@ -128,6 +133,90 @@ def test_applying_a_year_applies_its_small_changes_and_no_other_year(auth_client
     assert [y["year"] for y in found["years"]] == [2024]
 
 
+@pytest.mark.parametrize("edit, value", [
+    ({"amount": D("0.2")}, "8000.00"),  # 0.2 BTC at the hour's $40,000
+    ({"timestamp": datetime(2025, 3, 1, 16, 20, tzinfo=timezone.utc)}, "4500.00"),  # 0.1 BTC at 16:00's $45,000
+])
+def test_an_edit_made_while_the_hours_prices_are_applied_keeps_its_own_value(
+        auth_client, ledger, test_engine, monkeypatch, edit, value):
+    """#387: the apply worked each value out from the transaction as the
+    check found it, then made the backup copy, then wrote that value: an edit
+    made in between was overwritten with the value for its old amount or
+    hour. The apply takes the write lock right after the copy and works
+    each value out again from the transaction as it is then."""
+    from backend.models.btc_price import BtcPriceHourly
+
+    with sessionmaker(bind=test_engine)() as db:  # 16:00's, kept by the edit that finds it
+        db.add(BtcPriceHourly(hour=int(datetime(2025, 3, 1, 16, tzinfo=timezone.utc).timestamp()),
+                              usd=D("45000.00"), source="bitstamp"))
+        db.commit()
+    edit_during_the_copy(monkeypatch, test_engine, ledger["income"], edit)
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger["income"]]})
+    assert r.status_code == 200, r.text
+    (Path(test_engine.url.database).parent / "backups" / r.json()["backup"]).unlink()
+    income = tx(auth_client, ledger["income"])
+    assert (income["cost_basis_usd"], income["price_moment"]) == (value, "hour")
+    assert r.json()["changed"][0]["values"]["cost_basis_usd"][1] == value
+
+
+@pytest.mark.parametrize("row, field, edit, value, applied", [
+    # An amount edit of a spend with a BTC fee keeps the day's price: still listed, priced for 0.1 BTC
+    ("spend", "gross_proceeds_usd", {"amount": D("0.1")}, "4000.00", True),
+    # An income edit is priced at its hour by the edit itself: left as it is
+    ("income", "cost_basis_usd", {"amount": D("0.2")}, "8000.00", False),
+])
+def test_an_edit_priced_by_the_app_itself_during_the_apply_keeps_its_own_value(
+        auth_client, ledger, test_engine, monkeypatch, row, field, edit, value, applied):
+    """#392's review: the same, with an edit priced as BitcoinTX prices it."""
+    monkeypatch.setattr(hourly_prices, "price_at", REAL_PRICE_AT)
+    edit_during_the_copy(monkeypatch, test_engine, ledger[row], edit)
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger[row]]})
+    assert r.status_code == 200, r.text
+    (Path(test_engine.url.database).parent / "backups" / r.json()["backup"]).unlink()
+    edited = tx(auth_client, ledger[row])
+    assert (edited[field], edited["price_moment"]) == (value, "hour")
+    assert [c["id"] for c in r.json()["changed"]] == ([ledger[row]] if applied else [])
+
+
+def edit_during_the_copy(monkeypatch, engine, tx_id: int, edit: dict) -> None:
+    """The apply's backup copy edits the transaction first, from another session."""
+    from backend.services import hourly_review
+    from backend.services.transaction import update_transaction_record
+
+    real_copy = hourly_review.backup_sqlite
+
+    def edit_then_copy(*args, **kwargs):
+        with sessionmaker(bind=engine)() as other:
+            update_transaction_record(tx_id, edit, other)
+        return real_copy(*args, **kwargs)
+
+    monkeypatch.setattr(hourly_review, "backup_sqlite", edit_then_copy)
+
+
+def test_a_busy_database_applies_nothing(auth_client, ledger, test_engine):
+    """While another save holds the write lock longer than SQLite waits, the
+    apply changes nothing and says so (503), never half of it."""
+    from fastapi import HTTPException
+    from sqlalchemy import create_engine
+
+    from backend.services.hourly_review import apply_hourly_prices
+
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.2})
+    before = tx(auth_client, ledger["income"])
+    try:
+        with test_engine.connect() as saving:
+            saving.exec_driver_sql("BEGIN IMMEDIATE")
+            with sessionmaker(bind=impatient)() as db, pytest.raises(HTTPException) as exc:
+                apply_hourly_prices(db, ids=[ledger["income"]])
+            saving.rollback()
+    finally:
+        impatient.dispose()
+        for copy in (Path(test_engine.url.database).parent / "backups").glob("*-review-hourly-prices-*.db"):
+            copy.unlink()
+    assert exc.value.status_code == 503 and "busy" in exc.value.detail
+    assert tx(auth_client, ledger["income"]) == before
+
+
 def test_ids_or_a_year_not_both(auth_client, ledger):
     assert auth_client.post("/api/review/hourly-prices", json={}).status_code == 422
     assert auth_client.post("/api/review/hourly-prices", json={"ids": [1], "year": 2025}).status_code == 422
@@ -141,8 +230,6 @@ def test_the_typed_income_check_compares_with_the_hour_and_skips_priced_values(a
 
 
 def test_the_cli_applies_a_year(auth_client, ledger, test_engine, monkeypatch, capsys):
-    from sqlalchemy.orm import sessionmaker
-
     from backend import cli as backend_cli
     from backend import database
 

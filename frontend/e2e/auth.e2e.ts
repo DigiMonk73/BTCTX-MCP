@@ -111,6 +111,45 @@ test("Create account on an install with transactions: the code first, then the d
   expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(0);
 });
 
+test("Create account: a transaction saved while its dialog is open is shown, not deleted (#377)", async ({
+  page, app,
+}) => {
+  const saveOne = async (timestamp: string) => {
+    const login = await page.request.post("/api/login", {
+      data: { username: "admin", password: "password", setup_code: setupCode(app) },
+    });
+    expect(login.ok()).toBeTruthy();
+    const tx = await page.request.post("/api/transactions", {
+      data: {
+        type: "Deposit", timestamp, from_account_id: 99, to_account_id: 1,
+        amount: "1000", fee_amount: "0", fee_currency: "USD",
+      },
+    });
+    expect(tx.ok()).toBeTruthy();
+    await page.request.post("/api/logout");
+  };
+  await saveOne("2024-01-02T18:00:00Z");
+  await page.goto("/register");
+  await page.getByLabel("New Username").fill(USER);
+  await page.getByLabel("New Password").fill(PASSWORD);
+  await page.getByLabel("Setup Code").fill(setupCode(app)!);
+  await page.getByRole("button", { name: "Register" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create a new account and delete every transaction?" });
+  await expect(dialog).toContainText("This deletes 1 transaction, 2024");
+  await saveOne("2025-01-02T18:00:00Z"); // meanwhile
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 1 transaction" }).click();
+  // Refused: the account is as it was, and the dialog says what goes now
+  await expect(dialog).toContainText("This deletes 2 transactions, 2024\u20132025");
+  await expect(dialog.getByRole("alert")).toContainText("Nothing was deleted");
+  expect((await (await page.request.get("/api/users/setup-status")).json()).is_default).toBe(true);
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await dialog.getByRole("button", { name: "Delete 2 transactions" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await loginViaUi(page);
+  expect(await (await page.request.get("/api/transactions")).json()).toHaveLength(0);
+});
+
 test("register again once claimed needs the current password", async ({ page, app }) => {
   await claimAccount(page.request, app);
   await page.goto("/register");

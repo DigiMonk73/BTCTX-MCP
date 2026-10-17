@@ -94,7 +94,7 @@ container is removed.
 ### Session secret key
 
 `backend/secret_key.py` uses the `SECRET_KEY` env var if set (ignoring known
-public placeholder values); otherwise it generates a random key once and stores
+public placeholder values and any shorter than 32 characters); otherwise it generates a random key once and stores
 it as `.btctx_secret_key` in the database's folder. In the container that is
 `/data/.btctx_secret_key`, so it
 persists across updates and is included in volume backups. Nothing needs to be

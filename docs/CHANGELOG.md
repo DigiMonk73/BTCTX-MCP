@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Through Tor, the price history can be downloaded once without Tor,
+  if you agree** (#241, the owner's decision of 2026-10-16). Through Tor,
+  Bitstamp refuses BitcoinTX's requests (a 403 or a "Loading" page), so
+  since 1.2.8 an install using Tor got no hourly history and no past
+  prices, and the card only told you to turn Tor off. Now, once Bitstamp
+  has refused through Tor, the Dashboard (and the price card in Settings
+  → Privacy & network) asks once: "Download the price history once
+  without Tor? It's the same download for every install, and names none of
+  your dates; Bitstamp would see this server's address." **Yes** lets only
+  Bitstamp's fixed history blocks go directly: the hourly history from
+  2013, the newer hours after it when a value needs one, and the daily
+  history. The live price, the block height and everything else stay on
+  Tor. **No** keeps everything on Tor, as before. The answer is recorded
+  (when, and where), kept by an in-app restore, and changeable in Settings,
+  also on StartOS when its Price Source & Privacy action sets Tor (its Use
+  Tor text says so). Nothing goes around Tor before a Yes, and a Tor that
+  isn't running never brings the question. The privacy audit
+  (`docs/PRIVACY_AUDIT.md`) lists what Bitstamp then sees.
 - **A way to support BitcoinTX:** the README's "Support BitcoinTX" gives its
   Lightning address (digimonk73@strike.me), and GitHub's Sponsor button
   (`.github/FUNDING.yml`) opens the tipping page. Nothing in the app changes.
@@ -16,6 +34,13 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The README says what comes after 1.2.9** (#369, #251; "Versions", also
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
+  version, with maintenance updates and small improvements after it, until
+  2.0 replaces it;
+  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  a beta on GitHub pre-releases before it comes to Start9's Community Beta.
+  No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
@@ -278,6 +303,21 @@ All notable changes to BitcoinTX are documented in this file.
   import's later rows, it goes with that save), so saves go through. What
   Ledger Review shows doesn't change, and a stored price still never
   changes. Nothing was ever half-saved: the save was refused whole.
+- **An edit made while the hour's prices are applied keeps its own value**
+  (tax figures, #387). Ledger Review's "apply the hour's prices" worked
+  out each new value from the transaction as its check had found it, made
+  the backup copy, then wrote that value. A transaction edited in those
+  few seconds (its amount or its time changed) got the value worked out for
+  its old amount or hour: for example $4,000 for 0.2 BTC that the hour's
+  $40,000 values at $8,000. The apply now takes the database's write lock
+  right after the copy, so an edit made from then on waits until it's done,
+  and works each value out again from the transaction as it is then. While
+  another save holds the lock too long, nothing is applied, and it says
+  so. **Affected:** 1.2.8, only a transaction edited while the apply ran
+  (by you in another window, or by the AI); not seen in real use. **What
+  to do:** nothing, unless you edited a transaction while applying the
+  hour's prices: then open it and, if its value doesn't match its amount,
+  clear the value to price it again at its hour.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
@@ -444,6 +484,14 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River and AI imports' duplicate check is fast again** (#379). This
+  version's duplicate rule (#253) checks each row in up to seven passes,
+  and each pass looked through the whole ledger for every row: a River
+  file of 2,000 rows against 2,000 transactions took about 13 seconds, and
+  the AI connector's 500 rows against 10,000 about 8. Each row's
+  transactions within two days are now found once, by time: about a tenth
+  of a second for either. The answers are the same. **Affected:** no
+  release: the rule is new in this version. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
@@ -493,6 +541,17 @@ All notable changes to BitcoinTX are documented in this file.
   until the delete is done and is kept. If another save holds the lock too
   long (more than 5 seconds), nothing is copied or deleted, and the message
   says to try again. Not seen in use: the gaps were a few milliseconds.
+- **Delete All deletes only what its dialog showed** (#377). A transaction
+  saved while the dialog was open (by the AI connector, say) was deleted
+  too, and Settings then said "Deleted" with the count the dialog had
+  shown. The confirmation now carries what the dialog showed, the number
+  of transactions and their tax years: if the ledger changed meanwhile,
+  nothing is deleted, and the dialog shows what would go now and asks you
+  to type `DELETE` again. The same at Create account on an install with
+  transactions. (A change that keeps both, one transaction swapped for
+  another within those years, still goes ahead; the copy made first keeps
+  it.) **Affected:** no release: the dialog is new in this version (#256).
+  Nothing to do.
 - **The newest database copies are the ones kept** (#308). BitcoinTX keeps
   the newest few copies of each kind in its data folder's `backups/` (before
   an update or a restore, before Delete All, before Ledger Review's hourly
@@ -555,11 +614,12 @@ All notable changes to BitcoinTX are documented in this file.
   `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
   `－10`), and importing that file kept the `'`: `-5% fee` came back as
   `'-5% fee`. The import now drops that one `'` again, in the columns the
-  export writes that way; a `'` before any other text stays. A purpose you
-  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
-  as the export's, and spaces at either end of a cell are trimmed, as
-  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
-  since 1.2.8).
+  export writes that way; a `'` before any other text stays. A purpose
+  saved with its own `'` before such text (`'-5% fee`) is exported with
+  another, so it comes back with its own (#380). In a CSV file you write
+  yourself, `'-5% fee` reads as the export's and loses its `'`, and spaces
+  at either end of a cell are trimmed, as before. Text only, no figure.
+  Every version since 1.1.0 (the look-alikes since 1.2.8).
 - **The CSV guide says what the import takes** (#304). Its rules table said
   a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
   only from them, while its own troubleshooting table and the import take
@@ -658,8 +718,29 @@ All notable changes to BitcoinTX are documented in this file.
   package's version.
 
 ### Security
-- **Hardening of the backups and exports from the 1.2.8 security
-  review** (#204). Neither could be used against an install:
+- **Hardening from the 1.2.8 and 1.2.9 security reviews** (#204). None of
+  these could be used against an install; each closes a gap before it
+  could matter:
+  - **A login with a username that doesn't exist takes as long as one
+    with a wrong password.** Only an existing username's password was
+    checked (about 0.2 s, against 1 ms), so the time an answer took said
+    whether that name exists. Now an unknown one is checked against a
+    stand-in all the same.
+  - **The AI key goes by the route a request reached**, not by its web
+    address read a second time, where a `%3F` in the address cut that
+    reading short. No route outside the key's list could be reached that
+    way (checked); now none can by any address.
+  - **A `SECRET_KEY` set in the environment needs at least 32
+    characters**, like the key file's. A shorter one is ignored, with a
+    warning in the log, and the key file next to the database is used
+    instead (everyone logs in again once). Docker, StartOS and the Mac app
+    set none, so nothing changes for them.
+  - **Trust this server says where to check the fingerprint.** The
+    certificate authority's name it shows is what the server says about
+    itself; the card now asks you to check that the SHA-256 fingerprint
+    is that server's own before you trust it (on a StartOS server, the
+    Root CA in its About this server: System > General Settings, or the
+    menu at the top right).
   - **A new encrypted backup needs a password of at least 12 characters**,
     the login passwords' rule. Before, any password made one, a single
     letter included. The file holds the whole ledger and the login's

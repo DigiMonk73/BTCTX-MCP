@@ -477,40 +477,49 @@ Start from the `clean` snapshot.
 - **PRC-3** (needs Tor on the VM) Action: **Public price sites** plus
   **Use Tor**. Expect: a price on the Dashboard, and under the sidebar's
   Auto price "Kraken, through Tor · …" (or Bitstamp).
-  Bitstamp is the price history's only site since #161 (and the live
-  price's fallback), and PRC-2 already downloaded the history without Tor,
-  so check Bitstamp through Tor directly, with Tor on your machine (the
-  VM's Tor isn't reachable from it; Bitstamp sees a Tor exit either way):
-  `curl -s --socks5-hostname 127.0.0.1:9050
-  'https://www.bitstamp.net/api/v2/ticker/btcusd/'` and the same with
-  `'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=2'` each
-  return JSON, not a 403.
+  Through Tor, Bitstamp refuses BitcoinTX's requests (#241). Check it still
+  does, with Tor on your machine (the VM's Tor isn't reachable from it;
+  Bitstamp sees a Tor exit either way): `curl -s -o /dev/null -w '%{http_code}'
+  --socks5-hostname 127.0.0.1:9050
+  'https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=86400&limit=2'` gives
+  403 (or a 302 to a "Loading" page). If it gives 200 with JSON, Bitstamp
+  no longer refuses Tor: note it (PRC-3b's question then never comes).
   Stop Tor, wait a minute (the live price is cached for 60 seconds) and
   reload. Expect the Dashboard price to read "No answer": requests must fail
   rather than go out directly. The sidebar reads "BTC Price: no answer" with
   "Is Tor running?" and **Type a price** (#208). Start Tor: the price is back.
 - **PRC-3b** (needs Tor on the VM; right after PRC-3, Tor running) The
-  hourly price history's one-time download over real Tor (#144). It was
-  only tested with stubs and a direct download while it was built.
-  - With the service running (no download runs after PRC-2), remove the
-    hourly files: `start-cli package attach btctx -n btctx -- rm -rf
-    /data/btc-prices` (they're downloaded again). Restart the service, with
-    **Public price sites** and **Use Tor** still
-    set.
-  - Expect in the service log, newest year first, one line per year:
+  hourly price history through Tor, and the one-time download without Tor
+  the owner agrees to (#241).
+  - With the service running, remove the hourly files: `start-cli package
+    attach btctx -n btctx -- rm -rf /data/btc-prices` (they're downloaded
+    again). Restart the service, with **Public price sites** and **Use
+    Tor** still set.
+  - **Refused, and asked:** expect in the service log "Hourly BTC prices:
+    the download from Bitstamp failed: Client error '403 Forbidden' …" (or
+    a redirect), and no "checked" line. On the Dashboard, a card "Bitcoin
+    price history" asks "Download the price history once without Tor?",
+    and Settings > Privacy & Network asks the same. Nothing may go out
+    directly before an answer: a "checked" line now is a blocker FAIL.
+  - **No:** answer **No, keep everything on Tor** on the Dashboard. Expect
+    the card to go, and Settings to show "Bitstamp's price history without
+    Tor: no, since … (answered on the Dashboard)". Restart the service:
+    still no question and no "checked" line.
+  - **Yes:** in Settings, **Download it without Tor**. Expect at once
+    "Price history without Tor: yes (answered in Settings)", then
+    "Hourly BTC prices: Bitstamp's fixed blocks for the year files go
+    without Tor (agreed on …)" and, newest year first, one line per year:
     "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Each year
-    takes up to a minute.
-  - After two or three such lines, stop Tor. Within about 30 seconds expect
-    "Hourly BTC prices: the download from Bitstamp failed: …". After that
-    line, **no "checked" line may appear until Tor is started and the
-    service restarted**: a request must fail rather than go out directly
-    (as PRC-3's "No answer"); one then is a blocker FAIL. (A "checked" line
-    just before the failed line can be a year that finished as Tor
-    stopped.)
-  - Start Tor, then restart the service. Expect the download to resume:
-    "checked" lines only for the years not yet checked (a year already
-    saved is never downloaded again; one cut off part-way is downloaded
-    whole), down to 2013.
+    takes a few seconds.
+  - **Everything else stays on Tor:** meanwhile the sidebar still reads
+    "Kraken, through Tor". Stop Tor, wait a minute and reload: the
+    Dashboard price reads "No answer" (the live price never goes direct),
+    while the year lines keep coming. Start Tor again.
+  - **The newer hours:** add a Buy dated yesterday with its cost basis left
+    blank, or `GET $API/bitcoin/price/history?at=<yesterday's 12:00 UTC>`.
+    Expect "Hourly BTC prices: Bitstamp's fixed blocks for the hours after
+    the year files go without Tor (agreed on …)" and an answer with
+    `"moment": "hour"`.
   - When it ends, `/data/btc-prices` holds a `YYYY.csv` for each line of
     `backend/assets/btc_prices/MANIFEST.csv` of the tested commit, except
     a year logged as "aren't used", and no `.partial` file. Each file's
@@ -521,6 +530,8 @@ Start from the `clean` snapshot.
     the download's fault.
   - Logged in, `GET $API/bitcoin/price/history?at=2020-03-12T14:00:00Z`
     answers `"moment": "hour"`.
+  - Put it back for the later tests: in Settings, **Keep it on Tor
+    instead**.
 - **PRC-4** (needs Mempool) Action: **My Mempool on this server**.
   Expect: a price and block height, the log line "Price history from
   your mempool server: N days", and in Settings > Privacy & Network **My
@@ -561,7 +572,9 @@ Start from the `clean` snapshot.
   the service), fallback off. Save.
   - Expect the status line to say the Mempool's certificate isn't trusted,
     and **Trust this server** to show the server's name, its root
-    certificate's name ("… Local Root CA") and a SHA-256 fingerprint.
+    certificate's name ("… Local Root CA") and a SHA-256 fingerprint,
+    with where to check it (#204): the fingerprint must be the one the
+    VM's own StartOS shows as Root CA in About this server.
   - Press it. Expect the certificate check to pass: the status line first
     says "Newer prices will come from your Mempool.", then, within a minute
     or two (after the next live-price request), "Your Mempool didn't answer
