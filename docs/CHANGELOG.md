@@ -908,6 +908,16 @@ All notable changes to BitcoinTX are documented in this file.
   could hold a database query, a server path or a transaction's date; the
   log names the kind of error. A backup the restore can't read past its
   password check is called damaged, as other unreadable files are.
+- **Every error nobody expected says so in plain words, and the log keeps
+  its text out** (#430). An error no part of BitcoinTX handled answered a
+  bare "Internal Server Error" while the server logged its whole trace,
+  which can hold a database query with a transaction's date; it now
+  answers "Something unexpected went wrong. BitcoinTX's log says what.",
+  and the log names only the kind of error (the details are in its debug
+  level). The same for Ledger Review's check of what Recalculate Ledger
+  would change, the steps BitcoinTX takes as it starts, the refresh after
+  a restore and a report's year-end price; and changing the tax timezone
+  no longer shows a recalculation error's own text.
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's

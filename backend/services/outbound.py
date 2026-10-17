@@ -71,6 +71,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.services.desktop import is_desktop
+from backend.unexpected_errors import log_unexpected
 from backend.services import price_files as pf
 
 logger = logging.getLogger(__name__)
@@ -350,10 +351,10 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
         _current = replace(managed, mempool_root=_trusted_root(db, managed.mempool_url), history_direct=direct)
         try:
             _mark_unchosen(db)
-        except Exception:
+        except Exception as e:
             # The server's settings apply all the same; only the note is missing.
             db.rollback()
-            logger.exception("Could not record that no price source was chosen in the app")
+            log_unexpected("Recording that no price source was chosen in the app", e, logger)
         return _current
     source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
     _record.update(chosen_at=_get(db, CHOSEN_AT_KEY), chosen_via=_get(db, CHOSEN_VIA_KEY))

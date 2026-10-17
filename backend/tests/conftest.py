@@ -5,6 +5,7 @@ Uses FastAPI TestClient with an isolated temporary database so tests
 never touch the production database.
 """
 
+import logging
 import os
 import pytest
 import shutil
@@ -94,6 +95,21 @@ def stub_prices_at(monkeypatch, price_for, moment="hour"):
         return hourly_prices.Priced(Decimal(str(price_for(when))).quantize(Decimal("0.01")), moment, at)
 
     monkeypatch.setattr(hourly_prices, "price_at", price_at)
+
+
+@pytest.fixture(autouse=True)
+def _no_unhandled_error(request, caplog):
+    """An error no route handled is answered as a 500 and logged by type
+    (backend/unexpected_errors.py), no longer raised in the test client: a
+    test fails on one all the same, unless it makes one on purpose (the
+    unexpected_error mark), so a crash isn't hidden behind an answer the
+    test throws away (#433's review)."""
+    yield
+    if request.node.get_closest_marker("unexpected_error"):
+        return
+    caught = [r.getMessage() for phase in ("setup", "call", "teardown") for r in caplog.get_records(phase)
+              if r.name == "backend.unexpected_errors" and r.levelno >= logging.ERROR]
+    assert not caught, f"An error no route handled: {caught} (its trace: LOG_LEVEL=DEBUG)"
 
 
 @pytest.fixture(autouse=True, scope="session")

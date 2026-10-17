@@ -56,6 +56,7 @@ from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
 from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
 from backend.services import ai_key
+from backend.unexpected_errors import UnexpectedErrorMiddleware, log_unexpected
 from backend.schemas.user import is_text
 from backend.services.tax_time import DateOutOfRange
 
@@ -67,8 +68,8 @@ def _load_network_settings() -> None:
     db = SessionLocal()
     try:
         outbound.load(db)
-    except Exception:
-        logger.exception("Could not read the network settings; using the defaults")
+    except Exception as e:
+        log_unexpected("Reading the network settings", e, logger, then="; using the defaults")
     finally:
         db.close()
 
@@ -80,8 +81,8 @@ def _download_hourly_prices() -> None:
 
     try:
         hourly_prices.download_if_public()
-    except Exception:
-        logger.exception("Could not start the hourly price download")
+    except Exception as e:
+        log_unexpected("Starting the hourly price download", e, logger)
 
 
 def _prepare_first_run() -> None:
@@ -91,8 +92,8 @@ def _prepare_first_run() -> None:
     db = SessionLocal()
     try:
         first_run.prepare(db)
-    except Exception:
-        logger.exception("Could not prepare the first-run setup code")
+    except Exception as e:
+        log_unexpected("Preparing the first-run setup code", e, logger)
     finally:
         db.close()
 
@@ -104,8 +105,9 @@ def _sync_ai_key_file() -> None:
     db = SessionLocal()
     try:
         ai_key.sync(db)
-    except Exception:
-        logger.exception("Could not write the AI key file: no AI key until Reset key in Settings, or the next start")
+    except Exception as e:
+        log_unexpected("Writing the AI key file", e, logger,
+                       then=": no AI key until Reset key in Settings, or the next start")
     finally:
         db.close()
 
@@ -271,9 +273,12 @@ app.add_middleware(
     session_cookie=SESSION_COOKIE,
     max_age=SESSION_MAX_AGE,
 )
-# Outside those, so it also sees the session cookie and the 413: CSP,
-# no-referrer, nosniff, no framing, no-store on the API, Secure cookie over
-# HTTPS.
+# Outside those: an error no route handled answers one fixed sentence and
+# leaves only its type in the log (unexpected_errors.py, #430).
+app.add_middleware(UnexpectedErrorMiddleware)
+# Outside those, so it also sees the session cookie, the 413 and that 500:
+# CSP, no-referrer, nosniff, no framing, no-store on the API, Secure cookie
+# over HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
 if ALLOWED_ORIGINS:

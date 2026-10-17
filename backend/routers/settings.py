@@ -59,12 +59,13 @@ def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, db: S
         raise HTTPException(status_code=409, detail=RELOAD_TO_CHOOSE)
     try:
         set_tax_timezone(db, payload.timezone)
-        recalculate_all_transactions(db)
-        db.commit()
-    except ValueError as exc:
+    except ValueError as exc:  # its own words: an unknown timezone
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))
-    except Exception:
+    try:
+        recalculate_all_transactions(db)
+        db.commit()
+    except Exception:  # never its text: an unexpected one answers a fixed sentence (#430)
         db.rollback()
         raise
     return {"timezone": payload.timezone, "source": "setting"}
