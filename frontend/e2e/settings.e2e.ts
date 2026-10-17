@@ -58,6 +58,9 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   const dialogs = acceptDialogs(page);
   await openSettings(page);
   await page.getByLabel("New username").fill("renamed-user");
+  await page.getByLabel("New password").fill("\u{1F511}".repeat(6)); // 6 characters, 12 in .length (#405)
+  await page.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("The new password is too short.")).toBeVisible();
   await page.getByLabel("New password").fill("another-password-456");
   // The current password is needed, and checked by the server.
   await page.getByRole("button", { name: "Update" }).click();
@@ -236,7 +239,7 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   expect(after.map((t) => t.realized_gain_usd)).toEqual(before.map((t) => t.realized_gain_usd));
 });
 
-test("the backup password is hidden and must be typed twice alike", async ({ authedPage: page }) => {
+test("the backup password is hidden, 12+ characters and typed twice alike", async ({ authedPage: page }) => {
   // Privacy audit 2026-09-29 (3b), owner decision: it was a plain pop-up,
   // shown as typed and asked once, so a typo made a backup no one could open.
   let downloads = 0;
@@ -248,6 +251,12 @@ test("the backup password is hidden and must be typed twice alike", async ({ aut
   await page.getByLabel("Repeat password").fill("backup-secreT");
   await page.getByRole("button", { name: "Download" }).click();
   await expect(page.getByText("The two passwords don't match.")).toBeVisible();
+  // #204: a new backup's password follows the login passwords' rule
+  await expect(page.getByText("A backup made earlier with a shorter password still restores.")).toBeVisible();
+  await page.getByLabel("Encrypt with password").fill("backup-pass");
+  await page.getByLabel("Repeat password").fill("backup-pass");
+  await page.getByRole("button", { name: "Download" }).click();
+  await expect(page.getByText("The password is too short. At least 12 characters.")).toBeVisible();
   expect(downloads).toBe(0);
 });
 

@@ -5,7 +5,7 @@ import { extractErrorMessage } from '../utils/apiError';
 import { useToast } from '../contexts/useToast';
 import { CONFIRMATION, extentToConfirm, type LedgerExtent } from '../utils/deleteAll';
 import DeleteAllDialog from '../components/DeleteAllDialog';
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, setupCodeHint, type SetupStatus } from '../utils/credentials';
+import { PASSWORD_RULE, passwordTooShort, setupCodeHint, type SetupStatus } from '../utils/credentials';
 import '../styles/login.css';
 
 const RegisterPage: React.FC = () => {
@@ -57,7 +57,7 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
+    if (passwordTooShort(password)) {
       setErrorMsg(`The new password is too short. ${PASSWORD_RULE}`);
       setIsSubmitting(false);
       return;

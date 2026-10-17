@@ -2,7 +2,7 @@ import React from "react";
 import api from "../api";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
-import { downloadEncryptedBackup } from "../utils/encryptedBackup";
+import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup } from "../utils/encryptedBackup";
 
 /** Settings' Backup & Restore section: the CSV export, the encrypted backup
  * and its restore. */
@@ -29,8 +29,9 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") || "");
-    if (password !== String(form.get("repeat") || "")) {
-      setMessage("The two passwords don't match.");
+    const problem = backupPasswordProblem(password, String(form.get("repeat") || ""));
+    if (problem) {
+      setMessage(problem);
       return;
     }
 
@@ -105,18 +106,18 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
         <form onSubmit={handleDownloadBackup} className="option-info">
           <span className="settings-option-title">Download Encrypted Backup</span>
           <p className="settings-option-subtitle">
-            Save a secure backup of all app data (encrypted SQLite file). Keep the password:
-            without it the backup can't be opened.
+            Save a secure backup of all app data (encrypted SQLite file), with a password of its own.
           </p>
           <div className="restore-input-row">
             <input type="password" name="password" placeholder="Password" required autoComplete="new-password"
-              className="input" aria-label="Encrypt with password" />
+              className="input" aria-label="Encrypt with password" aria-describedby="backup-password-rule" />
             <input type="password" name="repeat" placeholder="Repeat password" required autoComplete="new-password"
-              className="input" aria-label="Repeat password" />
+              className="input" aria-label="Repeat password" aria-describedby="backup-password-rule" />
             <button type="submit" disabled={loading} className="btn btn-primary">
               {loading ? "Processing..." : "Download"}
             </button>
           </div>
+          <p className="field-hint" id="backup-password-rule">{BACKUP_PASSWORD_HINT}</p>
         </form>
       </div>
 

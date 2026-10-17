@@ -34,6 +34,13 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The README says what comes after 1.2.9** (#369, #251; "Versions", also
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
+  version, with maintenance updates and small improvements after it, until
+  2.0 replaces it;
+  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  a beta on GitHub pre-releases before it comes to Start9's Community Beta.
+  No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
@@ -169,6 +176,43 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A River auto-withdrawal is imported as a move to your wallet, and a
+  River mining payout as income** (tax figures, #397, #399). River's
+  activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
+  sending your balance to the address you set, normally your own wallet. The
+  River import read the tag as bitcoin that had left your hands, and
+  suggested each such row as a Withdrawal with purpose Spent. Kept as
+  suggested, a move to your own wallet counted as a sale on Form 8949 (a
+  gain or loss that didn't happen), and the coins were missing from your
+  Wallet's balance, so a later sale from it took the wrong lots. A row
+  tagged `Mining` (a River mining payout) was skipped with a warning, so its
+  income was left out unless you added it by hand. Every version from 0.7.0
+  (the River import) to 1.2.8. Now an auto-withdrawal is suggested like any
+  other send from River, a Transfer from Exchange BTC to Wallet with River's
+  network fee (you can still make it a Withdrawal in the preview), and a
+  mining payout as a deposit into Exchange BTC with source Reward: income,
+  valued at the hour it arrived. Importing a file again finds an
+  auto-withdrawal you saved as a spend, so it isn't added twice. River's
+  network fee on a send is on top of its Sent Amount, as the import already
+  read it: River's record of a send gives its total as Sent plus Fee (#39).
+  **Affected:** only ledgers with River files holding auto-withdrawals kept
+  as suggested, or mining payouts.
+  **What to do:** in Transactions, look for withdrawals from Exchange BTC to
+  External with purpose Spent on the days of River's auto-withdrawals. If
+  the bitcoin went to your own wallet, delete each one, then import that
+  River file again: it suggests them as Transfers to Wallet, and a mining
+  payout the import skipped as a Reward deposit. Rows already in your ledger
+  are left out. A row marked Review, which only looks like one of yours, is
+  ticked when its amount is the same: untick any you entered yourself, such
+  as a mining payout you added by hand. If you filed a return from
+  BitcoinTX's figures, such a sale, or income left out, would be in that
+  year.
+- **The password forms count characters as the server does** (#405).
+  Create account, Settings' password change and the Mac app's "Choose your
+  username and password" counted an emoji as two characters, so a password
+  of 6 emoji passed the form, then the server refused it with the
+  12-character rule. They now count the way the server does. The server's
+  rule itself is unchanged.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it
@@ -199,6 +243,14 @@ All notable changes to BitcoinTX are documented in this file.
   shows what moves. Then Recalculate Ledger (any edit or delete does it
   too). If you filed a return from BitcoinTX's figures, a gift, donation or
   loss listed there as a sale, or income left out, would be in that year.
+- **A tax timezone name that isn't a zone is refused, not a server error**
+  (#384). Saving a tax timezone named like a folder of zones (`America`),
+  with a name hundreds of characters long, or with a part named like a
+  module of the zone package (`America/__init__/x`) answered "Internal
+  Server Error" instead of "Unknown timezone". Nothing was saved either way. Settings
+  offers only real zones and the login page sends the browser's, so only
+  a hand-made request could send one. **Affected:** every version since
+  0.8.0 (Settings' save), and this version's login fill. Nothing to do.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
@@ -745,6 +797,17 @@ All notable changes to BitcoinTX are documented in this file.
     is that server's own before you trust it (on a StartOS server, the
     Root CA in its About this server: System > General Settings, or the
     menu at the top right).
+  - **A new encrypted backup needs a password of at least 12 characters**,
+    the login passwords' rule. Before, any password made one, a single
+    letter included. The file holds the whole ledger and the login's
+    hashed password; its encryption slows guessing, but a short password
+    still falls to someone who has the file. A backup made earlier with a
+    shorter password still restores. Settings' Backup & Restore and the
+    Delete All dialog's backup say so under the password boxes.
+  - **Backups, the CSV export, the reports and the ledger's other data
+    stay out of the browser's cache** (`Cache-Control: no-store` on every
+    answer from BitcoinTX's API): a downloaded ledger no longer lingers in
+    the browser's own files after you've saved it.
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's

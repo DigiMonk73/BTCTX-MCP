@@ -708,8 +708,9 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
   password boxes (hidden as typed), then **Download**. Different entries
   in the two boxes say "The two passwords don't match." and download
-  nothing. Expect: the file `bitcoin_backup.btx` and "Backup
-  downloaded."
+  nothing; so does `backup-pass` in both (11 characters: "The password is
+  too short. At least 12 characters.", #204). Expect: the file
+  `bitcoin_backup.btx` and "Backup downloaded."
 - **IMP-1** Data Management > **Template** and **Instructions**. Expect:
   `btctx_import_template.csv`, whose header is the same as BAK-1's, and
   `BitcoinTX_CSV_Import_Guide.pdf`, which opens.
@@ -789,7 +790,9 @@ Set `KEY` to the key from AI-3, and use
 
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
-  Expect: 401 for each.
+  Expect: 401 for each. `curl --cacert ca.crt -s -D - -o /dev/null
+  $API/reports/years` shows `401` and `cache-control: no-store` (#204: the
+  header reaches the browser through StartOS's proxy).
 - **SEC-2** `$URL/openapi.json`. Expect: 404. `$URL/docs` and `$URL/redoc`
   show the app itself (its login page or Dashboard, like any unknown
   path), never the API documentation.

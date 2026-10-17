@@ -261,6 +261,25 @@ def test_an_ordinary_backup_restores_and_keeps_this_installs_settings(live, tmp_
     assert _temp_files(live) == [] and _side_files(live) == []
 
 
+def test_a_new_backup_needs_a_12_character_password(live):
+    """#204: any password but an empty one made a backup, "a" included; the
+    file holds the whole ledger and the login's hash. A new one now follows
+    the login passwords' rule."""
+    r = live.client.post("/api/backup/download", data={"password": "eleven-char"})
+    assert r.status_code == 422 and r.json()["detail"] == backup_router.BACKUP_PASSWORD_TOO_SHORT
+    r = live.client.post("/api/backup/download", data={"password": "twelve-chars"})
+    assert r.status_code == 200
+    assert backup.decrypt_backup(r.content, "twelve-chars").startswith(backup.SQLITE_HEADER)
+
+
+def test_a_backup_made_earlier_with_a_short_password_still_restores(live, tmp_path):
+    path, _ = _other(tmp_path)
+    blob = backup.encrypt_backup(path.read_bytes(), "pw", backup.MIN_ITERATIONS)
+    r = live.client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", blob)})
+    assert r.status_code == 200, r.text
+    assert _amounts(live.engine) == [2.0]
+
+
 # What a backup's database may hold: only BitcoinTX's kind of objects
 @pytest.mark.parametrize("sql", [
     ["CREATE TRIGGER users_after_update AFTER UPDATE ON users BEGIN "

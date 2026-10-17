@@ -150,7 +150,7 @@ def test_a_backup_password_that_isnt_text_is_refused(auth_client, url, tmp_path,
     database = tmp_path / "btctx.db"
     sqlite3.connect(database).close()
     monkeypatch.setattr(backup, "DB_PATH", database)
-    fields = [("password", "", b"\\ud800")]
+    fields = [("password", "", b"\\ud800" + b"x" * 12)]  # long enough for a new backup (#204)
     if url.endswith("restore"):
         fields.append(("file", '; filename="b.btx"\r\nContent-Type: application/octet-stream', b"x"))
     body, headers = multipart(fields, "b0undary", charset="unicode_escape")
