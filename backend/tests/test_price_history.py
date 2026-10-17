@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import outbound
-from backend.tests.conftest import stub_daily_prices, stub_prices_at
+from backend.tests.conftest import empty_price_history, stub_daily_prices, stub_prices_at
 
 # The real function, captured before the session fixture stubs it.
 from backend.services.price_history import find_prices as real_find_prices
@@ -106,14 +106,14 @@ def use(**settings):
     outbound._current = outbound.NetworkSettings(**settings)
 
 
-def test_the_whole_history_comes_in_the_same_requests_whatever_the_day(sources, db):
+def test_the_whole_history_comes_in_the_same_requests_whatever_the_day(sources, db, test_engine):
     sources.bitstamp = all_days()
     seen = []
     for day in (date(2015, 5, 5), date(2021, 3, 14)):
         assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
         assert not sources.names_a_day(day)
         seen.append(list(sources.requests))
-        db.rollback()  # a fresh install again
+        empty_price_history(test_engine)  # a fresh install again
         price_history.reset_state()
         sources.requests.clear()
     assert seen[0] == seen[1]
@@ -213,6 +213,55 @@ def test_a_candle_for_another_day_is_never_used(sources, db):
     with pytest.raises(HTTPException) as exc:
         price_history.daily_price(db, date(2021, 1, 5))
     assert exc.value.status_code == 422 and "2021-01-05" in exc.value.detail
+
+
+def holds_write_lock(db) -> bool:
+    return db.connection().connection.driver_connection.in_transaction
+
+
+def test_a_read_keeps_the_prices_it_finds_at_once(db, test_engine):
+    """#364: a lookup outside a save (Ledger Review, the form's Refresh)
+    kept its prices in the caller's transaction, holding SQLite's write lock
+    until the caller ended, so a save made meanwhile waited and failed. They
+    are kept at once now, in a short transaction of their own."""
+    day = date(2020, 5, 5)
+    assert price_history.daily_price(db, day) == D("50000.00")
+    assert not holds_write_lock(db)
+    with sessionmaker(bind=test_engine)() as other:
+        assert price_history.stored_price(other, day) == D("50000.00")
+
+
+def test_a_save_keeps_the_prices_it_finds_in_its_own_transaction(db, test_engine):
+    """A save holds the write lock already: its prices go into its own
+    transaction (another one would wait for that lock), and go if it rolls
+    back."""
+    day = date(2020, 5, 5)
+    db.execute(text("BEGIN IMMEDIATE"))  # a save
+    assert price_history.daily_price(db, day) == D("50000.00")
+    assert price_history.stored_price(db, day) == D("50000.00")
+    db.rollback()
+    assert price_history.stored_price(db, day) is None
+
+
+def test_a_price_found_while_a_save_holds_the_lock_is_still_used(test_engine, caplog):
+    """While a save holds the write lock longer than SQLite waits, a read's
+    price isn't stored, but the read still gets it: it's asked again next
+    time."""
+    from sqlalchemy import create_engine
+
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.2})
+    day = date(2020, 5, 5)
+    try:
+        with test_engine.connect() as saving:
+            saving.exec_driver_sql("BEGIN IMMEDIATE")
+            with sessionmaker(bind=impatient)() as db:
+                assert price_history.daily_price(db, day) == D("50000.00")
+            saving.rollback()
+    finally:
+        impatient.dispose()
+    with sessionmaker(bind=test_engine)() as db:
+        assert price_history.stored_price(db, day) is None
+    assert "BTC prices not stored: the database was busy" in caplog.text
 
 
 @pytest.mark.parametrize("source", ["unset", "off"])
