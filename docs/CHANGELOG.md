@@ -185,12 +185,13 @@ All notable changes to BitcoinTX are documented in this file.
   public price sites allowed) it waited up to 30 seconds for that year
   there, and a price not stored yet was asked for from the price sites or
   your own Mempool there, so a save of yours made meanwhile failed after 5
-  seconds. Now a save that has started writing never waits for the
-  download (it takes the day's price, marked so, which Ledger Review's
-  check of values priced at the day can price at its hour later), and an
-  import or the AI's preview or add finds its rows' prices before it
-  writes anything. A request waits for a year's download once. The prices
-  are the same as before. Still to do (#426, a known issue): a
+  seconds. Now an import or the AI's preview or add finds its rows'
+  prices before it writes anything, waiting for a year's download once,
+  and a save that has started writing never waits for the download. A row
+  that can't be priced at its hour while the year is still downloading
+  takes the day's price, marked so, which Ledger Review's check of values
+  priced at the day can price at its hour later; once the download is
+  done, prices are as before. Still to do (#426, a known issue): a
   recalculation pricing an old transaction's missing value, or an edit
   that newly needs a Spent's proceeds, can ask for that price while
   holding the lock; rare, and a save that fails then can be tried again.

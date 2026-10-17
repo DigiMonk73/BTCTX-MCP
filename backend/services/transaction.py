@@ -149,8 +149,7 @@ def values_the_save_prices(tx_data: dict, db: Session) -> list[tuple[str, dateti
             values.append(("cost_basis_usd", moment, at))
     if _has_btc_fee(tx_data) and tx_data.get("fee_usd") is None:
         values.append(("fee_usd", moment, at))
-    if _is_spent(tx_data) and tx_data.get("from_account_id") in BTC_ACCOUNTS and tx_data.get("proceeds_usd") is None \
-            and tx_data.get("gross_proceeds_usd") is None:  # a file's proceeds_usd; the API's gross
+    if _is_spent(tx_data) and tx_data.get("from_account_id") in BTC_ACCOUNTS and tx_data.get("proceeds_usd") is None:
         values.append(("proceeds_usd", moment, _spent_proceeds_moment(tx_data, at)))
     return values
 
@@ -903,17 +902,22 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
     stored: from its second row on it holds SQLite's write lock, and a price
     asked for then, from the price sites or the owner's Mempool, held the
     owner's saves up behind it (#426). In time order, as the save goes (the
-    year files kept in memory are few). A price not found here is looked
-    for again as its row is saved, as before.
+    year files kept in memory are few). The rest of the import waits for no
+    year it waited for here, and asks no source again for an hour it had no
+    price for (hourly_prices.WARMING): such a row takes the day's price.
     """
     if price_history.writing(db):
         return
-    for when, at_the_day in sorted(_moments_priced(db, rows)):
-        try:
-            with _priced_at_the_day(db, at_the_day):
-                _price_at(when, db)
-        except HTTPException:
-            pass  # the save looks again, and says which value lacks one
+    db.info[hourly_prices.WARMING] = True
+    try:
+        for when, at_the_day in sorted(_moments_priced(db, rows)):
+            try:
+                with _priced_at_the_day(db, at_the_day):
+                    _price_at(when, db)
+            except HTTPException:
+                pass  # the save looks again, and says which value lacks one
+    finally:
+        db.info[hourly_prices.WARMING] = False
 
 
 def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:

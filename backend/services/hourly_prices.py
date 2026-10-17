@@ -21,7 +21,7 @@ Lookup order (hourly_price):
        every hour they give is kept.
   4. With public sites allowed, the year files' download, waiting a little
      for the year asked, unless the caller has already written: it holds
-     SQLite's write lock (#421).
+     SQLite's write lock (#421); an import waits once a year (#426).
   Nothing: price_at() takes the day's 00:00 UTC price instead
   (price_history.daily_price) and says so ("day").
 
@@ -153,8 +153,11 @@ def _year_of(hour: int, years: dict, remember: bool = True) -> dict[int, Decimal
     return years.get(line.year) if line else None
 
 
-# Session.info keys: the years whose download a lookup waited for, and the
-# hours a source had no price for (hourly_price)
+# Session.info keys, noted while an import finds its prices first
+# (transaction.find_prices_first, WARMING) and heeded for the rest of it:
+# the years whose download a lookup waited for, and the hours a source had
+# no price for (hourly_price)
+WARMING = "btctx_finding_prices_first"
 WAITED_FOR = "btctx_years_waited_for"
 UNPRICED_HOURS = "btctx_hours_without_price"
 
@@ -165,11 +168,11 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     downloaded yet has none, though the download starts. A caller that has
     already written doesn't wait either (an import's later rows): it holds
     SQLite's write lock, which the owner's saves wait only 5 s for (#421).
-    A session (a request) waits for a year once, and asks a source once for
-    an hour it found none for: an import finds its prices first, then saves
-    its rows with them (transaction.find_prices_first, #426); a day the
-    sites failed to give isn't asked again soon (price_history's
-    RETRY_SECONDS)."""
+    While an import finds its prices first (transaction.find_prices_first,
+    #426), it waits for a year once and notes the hours a source had none
+    for; the rest of that import asks for those hours no more (a day the
+    sites failed to give isn't asked again soon anyway: price_history's
+    RETRY_SECONDS). Every other caller looks as before."""
     hour = hour_of(when)
     if not pf.year_start(pf.FIRST_YEAR) <= hour <= _current_hour():
         return None
@@ -181,8 +184,7 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     prices = _year_prices(line) if line else None
     if prices is not None:
         return prices[hour], "bitstamp"
-    unpriced = db.info.setdefault(UNPRICED_HOURS, set())
-    if hour in unpriced:  # a source had none a moment ago, in this request
+    if hour in db.info.get(UNPRICED_HOURS, ()):  # a source had none a moment ago, in this import
         return None
     files_end = lines[-1].last_hour if lines else None
     found, keep = _from_sources(db, hour, files_end)
@@ -190,18 +192,18 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
         prices = _wait_for_year(line)
         found = (prices[hour], "bitstamp") if prices is not None else None
     _store(db, keep)
-    if found is None:
-        unpriced.add(hour)
+    if found is None and db.info.get(WARMING):
+        db.info.setdefault(UNPRICED_HOURS, set()).add(hour)
     return found
 
 
 def _may_wait(db: Session, line: pf.YearLine) -> bool:
     """Whether a lookup may wait for its year's download: not holding the
-    write lock (#421), and once a session."""
-    waited = db.info.setdefault(WAITED_FOR, set())
-    if price_history.writing(db) or line.year in waited:
+    write lock (#421), and once a year in an import (WARMING)."""
+    if price_history.writing(db) or line.year in db.info.get(WAITED_FOR, ()):
         return False
-    waited.add(line.year)
+    if db.info.get(WARMING):
+        db.info.setdefault(WAITED_FOR, set()).add(line.year)
     return True
 
 

@@ -78,15 +78,29 @@ def test_the_ai_previews_dry_run_never_waits_under_it_either(auth_client, downlo
     assert (Decimal(simulated["fee_usd"]), simulated["from_price"]["moment"]) == (Decimal("4.00"), "day")
 
 
-def test_a_lookup_waits_only_before_anything_is_written_and_once(test_engine, downloading):
-    when = datetime(2019, 3, 1, 12, tzinfo=timezone.utc)
+def test_a_lookup_outside_an_import_waits_as_before_but_not_once_written(test_engine, downloading):
+    """Each lookup waits for the year, as on develop (the AI's autofill, the
+    River preview, Ledger Review's CLI apply), except once its save holds
+    the write lock (#421)."""
     with sessionmaker(bind=test_engine)() as db:
-        assert hp.hourly_price(db, when) is None and downloading == [True]  # nothing written: it waits
-        assert hp.hourly_price(db, when) is None and downloading == [True]  # once a request
+        for hour in (11, 12):
+            assert hp.hourly_price(db, datetime(2019, 3, 1, hour, tzinfo=timezone.utc)) is None
+        assert downloading == [True, True]
     with sessionmaker(bind=test_engine)() as db:
         db.execute(text("INSERT INTO app_settings (key, value) VALUES ('test-421', 'x')"))
-        assert hp.hourly_price(db, when) is None and downloading == [True]  # written: no wait
+        assert hp.hourly_price(db, datetime(2019, 3, 1, 13, tzinfo=timezone.utc)) is None
+        assert downloading == [True, True]  # written: no wait
         db.rollback()
+
+
+def test_an_import_waits_for_a_year_once(auth_client, downloading):
+    """#423's reviews: an import's rows in a year still downloading waited
+    for it again and again (under the lock on develop)."""
+    fee = {**TO_WALLET, "amount": "0.01"}
+    rows = [BUY, {**fee, "date": "2019-03-01T11:00:00Z"}, {**fee, "date": "2019-03-01T12:00:00Z"}]
+    r = auth_client.post("/api/import/execute", files={"file": ("x.csv", _csv(rows), "text/csv")})
+    assert r.status_code == 200, r.text
+    assert downloading == [True]  # finding the first fee's price, the lock free
 
 
 def test_a_single_save_waits_once(auth_client, downloading):
