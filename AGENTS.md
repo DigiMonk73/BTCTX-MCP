@@ -449,8 +449,9 @@ from the Transaction row alone.
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
   debug.
-- Before the AI key's first change in an hour (an edit, a deletion or a
-  recalculation, which can move stored figures, #336) an AI copy is made
+- Before the AI key's first change in an hour (an edit, a deletion or
+  Recalculate Ledger, which can move stored figures, #336; not an import,
+  even one that recalculates, #414) an AI copy is made
   (`backups/…-ai-before-changing-…db`; no copy, no change), never for the
   owner's; it is written under a temporary name and renamed once complete,
   one at a time, so a failed or unfinished copy never counts as the hour's.

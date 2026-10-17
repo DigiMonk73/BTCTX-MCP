@@ -2,9 +2,10 @@
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
 first change in an hour (an edit, a deletion or a recalculation) BitcoinTX
 makes one itself, and the pruning keeps the newest 3 and, for the last 7 UTC
-days, the oldest and the first made before a change each day. So for a week the AI copies
-hold the ledger from before each day's changes, however many copies are
-asked for next. The copies the AI asks for are tested in test_ai_key.py too.
+days, the oldest and the first made before a change each day. So for a week
+the AI copies hold the ledger from before each day's changes, however many
+copies are asked for next. The copies the AI asks for are tested in
+test_ai_key.py too.
 """
 
 import os
