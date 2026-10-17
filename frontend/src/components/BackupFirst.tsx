@@ -41,13 +41,13 @@ const BackupFirst: React.FC<{ busy: boolean; onSaving: (saving: boolean) => void
   return (
     <form onSubmit={download} className="dialog-backup">
       <input type="password" name="password" placeholder="Password" required autoComplete="new-password"
-        className="input" aria-label="Encrypt with password" />
+        className="input" aria-label="Encrypt with password" aria-describedby="dialog-backup-password-rule" />
       <input type="password" name="repeat" placeholder="Repeat password" required autoComplete="new-password"
-        className="input" aria-label="Repeat password" />
+        className="input" aria-label="Repeat password" aria-describedby="dialog-backup-password-rule" />
       <button type="submit" disabled={busy || saving} className="btn btn-secondary">
         {saving ? "Processing..." : "Download backup"}
       </button>
-      <p className="field-hint">{BACKUP_PASSWORD_HINT}</p>
+      <p className="field-hint" id="dialog-backup-password-rule">{BACKUP_PASSWORD_HINT}</p>
       {note && <p className="field-hint" role="status">{note}</p>}
     </form>
   );

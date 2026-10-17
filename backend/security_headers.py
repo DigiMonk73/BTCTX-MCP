@@ -7,9 +7,10 @@ Response headers that keep the browser from leaking or loading anything:
   (backend/tests/test_privacy.py).
 - Referrer-Policy: no-referrer, X-Content-Type-Options: nosniff,
   X-Frame-Options: DENY.
-- Cache-Control: no-store on /api/backup/ and /api/reports/: the backups,
-  the CSV export and the reports hold the whole ledger, and stay out of the
-  browser's disk cache (#204).
+- Cache-Control: no-store on every API answer (/api/), replacing any a
+  route set: the backups, the CSV export, the reports and the ledger's own
+  JSON stay out of the browser's disk cache (#204). The page's files keep
+  their own (main.PAGE_NOT_CACHED).
 - Every cookie the app sets (the session's, and the login throttle's device
   cookie: services/login_throttle.py) gets Secure when the request came over
   HTTPS (StartOS serves the app through its HTTPS proxy, which sets
@@ -55,7 +56,7 @@ CSP = "; ".join([
     "form-action 'self'",
     "frame-ancestors 'none'",
 ])
-NO_STORE_PATHS = ("/api/backup/", "/api/reports/")
+NO_STORE_PREFIX = "/api/"
 
 
 def _is_https(scope: Scope) -> bool:
@@ -77,7 +78,7 @@ class SecurityHeadersMiddleware:
             return
         https = _is_https(scope)
         csp = not is_desktop()
-        no_store = scope["path"].startswith(NO_STORE_PATHS)
+        no_store = scope["path"].startswith(NO_STORE_PREFIX)
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":

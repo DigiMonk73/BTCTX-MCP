@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.security_headers import CSP
+from backend.security_headers import CSP, SecurityHeadersMiddleware
 from backend.tests.test_network_settings import OWN_REQUESTS_ALLOWED
 
 REPO = Path(__file__).resolve().parents[2]
@@ -28,15 +28,23 @@ def test_every_response_says_no_referrer_nosniff_no_framing(auth_client):
     assert "default-src 'self'" in CSP and "frame-ancestors 'none'" in CSP
 
 
-def test_exports_are_never_kept_in_the_browser_cache(auth_client):
-    """#204: the ledger's backups, CSV export and reports could stay in the
-    browser's disk cache; every /api/backup/ and /api/reports/ answer says
-    no-store now, whatever the route set."""
+def test_the_ledger_is_never_kept_in_the_browser_cache(auth_client):
+    """#204: the ledger's backups, CSV export, reports and JSON could stay in
+    the browser's disk cache; every API answer says no-store now."""
     for r in (auth_client.get("/api/backup/csv"), auth_client.get("/api/reports/years"),
-              TestClient(app).get("/api/backup/csv")):  # a refusal too
-        assert r.headers["cache-control"] == "no-store", (r.url, r.status_code)
-        assert r.headers.get_list("cache-control") == ["no-store"]
-    assert auth_client.get("/api/transactions").headers.get("cache-control") != "no-store"
+              auth_client.get("/api/transactions"), TestClient(app).get("/api/backup/csv")):  # a refusal too
+        assert r.headers.get_list("cache-control") == ["no-store"], (r.url, r.status_code)
+    assert auth_client.get("/").headers["cache-control"] == "no-cache"  # the page: checked on every load
+
+
+def test_no_store_replaces_a_cache_control_a_route_set():
+    async def route(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200,
+                    "headers": [(b"cache-control", b"max-age=60"), (b"content-length", b"0")]})
+        await send({"type": "http.response.body", "body": b""})
+
+    r = TestClient(SecurityHeadersMiddleware(route)).get("/api/reports/x")
+    assert r.headers.get_list("cache-control") == ["no-store"]
 
 
 def test_no_csp_in_the_mac_app(auth_client, monkeypatch):

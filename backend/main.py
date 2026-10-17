@@ -272,7 +272,8 @@ app.add_middleware(
     max_age=SESSION_MAX_AGE,
 )
 # Outside those, so it also sees the session cookie and the 413: CSP,
-# no-referrer, nosniff, no framing, Secure cookie over HTTPS.
+# no-referrer, nosniff, no framing, no-store on the API, Secure cookie over
+# HTTPS.
 app.add_middleware(SecurityHeadersMiddleware)
 
 if ALLOWED_ORIGINS:

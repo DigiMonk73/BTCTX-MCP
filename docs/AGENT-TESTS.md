@@ -776,7 +776,9 @@ Set `KEY` to the key from AI-3, and use
 
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
-  Expect: 401 for each.
+  Expect: 401 for each. `curl --cacert ca.crt -sI $API/reports/years`
+  shows `cache-control: no-store` (#204: it reaches the browser through
+  StartOS's proxy).
 - **SEC-2** `$URL/openapi.json`. Expect: 404. `$URL/docs` and `$URL/redoc`
   show the app itself (its login page or Dashboard, like any unknown
   path), never the API documentation.

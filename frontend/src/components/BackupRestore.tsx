@@ -110,14 +110,14 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
           </p>
           <div className="restore-input-row">
             <input type="password" name="password" placeholder="Password" required autoComplete="new-password"
-              className="input" aria-label="Encrypt with password" />
+              className="input" aria-label="Encrypt with password" aria-describedby="backup-password-rule" />
             <input type="password" name="repeat" placeholder="Repeat password" required autoComplete="new-password"
-              className="input" aria-label="Repeat password" />
+              className="input" aria-label="Repeat password" aria-describedby="backup-password-rule" />
             <button type="submit" disabled={loading} className="btn btn-primary">
               {loading ? "Processing..." : "Download"}
             </button>
           </div>
-          <p className="field-hint">{BACKUP_PASSWORD_HINT}</p>
+          <p className="field-hint" id="backup-password-rule">{BACKUP_PASSWORD_HINT}</p>
         </form>
       </div>
 
