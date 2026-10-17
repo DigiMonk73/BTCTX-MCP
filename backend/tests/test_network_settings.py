@@ -485,6 +485,34 @@ def test_an_onion_mempool_address_needs_the_proxy(auth_client, onion):
     assert outbound.current().own_node is None
 
 
+# A host httpx keeps as typed (a backslash, a percent escape) isn't judged
+# the way it's resolved: such an .onion went around Tor even with it set (the
+# review of #443), so no address may have one
+ODD_HOSTS = [ONION + "\\", ONION + "\\x", ONION + "%2e", ONION[:-len(".onion")] + "%2eonion"]
+
+
+@pytest.mark.parametrize("odd", ODD_HOSTS)
+def test_an_address_whose_host_isnt_an_ordinary_name_is_refused(auth_client, server_env, requests_seen, odd):
+    TOR = "socks5h://127.0.0.1:9050"
+    r = auth_client.put("/api/settings/network", json={
+        **PUBLIC, "price_source": "mempool", "mempool_url": odd, "proxy_url": TOR})
+    assert r.status_code == 422 and "letters, digits, dots and dashes" in r.json()["detail"], r.text
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": odd.replace("http://", "socks5h://")})
+    assert r.status_code == 422, r.text
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=odd, BTCTX_PROXY_URL=TOR)
+    assert outbound.current().invalid  # the server's: nothing is asked
+    assert auth_client.get("/api/bitcoin/price").status_code == 503
+    assert requests_seen == []
+
+
+@pytest.mark.parametrize("ordinary", [
+    "http://[::1]:3006", "http://mempool_web_1:8080", "http://b\u00fccher.local", "http://10.0.3.1:32768/mempool"])
+def test_ordinary_addresses_are_kept(auth_client, ordinary):
+    """IPv6, an underscore (a Docker name), an international name, a path."""
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": ordinary})
+    assert r.status_code == 200 and r.json()["mempool_url"] == ordinary, r.text
+
+
 @ONIONS
 def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_env, requests_seen, onion):
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=onion, BTCTX_PROXY_URL="")

@@ -61,9 +61,11 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
+import ipaddress
 import json
 import logging
 import os
+import re
 import ssl
 import threading
 import zlib
@@ -521,7 +523,29 @@ def _clean_url(value: str | None, schemes, what: str) -> str | None:
         )
     if parsed.username or parsed.password:
         raise HTTPException(status_code=422, detail=f"{what} can't contain a username or password.")
+    if not _ordinary_host(value):
+        raise HTTPException(status_code=422, detail=(
+            f"{what}'s host must be a name of letters, digits, dots and dashes, or an IP address."))
     return value.rstrip("/")
+
+
+def _ordinary_host(url: str) -> bool:
+    """
+    Whether the host httpx connects to for `url`, as the resolver gets it
+    (IDNA-encoded), is a name of letters, digits, dots, dashes and
+    underscores, or an IP address. Anything else ("x.onion\\", "x.onion%2e":
+    kept as typed) isn't judged the way it's resolved: an .onion so typed
+    went around Tor (the review of #443).
+    """
+    try:
+        host = httpx.URL(url).raw_host.decode("ascii")
+    except (httpx.InvalidURL, ValueError):  # ValueError: idna's, and a non-ASCII host
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        return re.fullmatch(r"[a-z0-9._-]+", host.lower()) is not None
 
 
 def save(

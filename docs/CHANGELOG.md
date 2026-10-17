@@ -482,9 +482,9 @@ All notable changes to BitcoinTX are documented in this file.
   in use, and never to a Mempool address no longer chosen; a request they
   don't allow is refused before it's sent, and the daily history, the
   latest days and your Mempool's history are asked again at the next
-  lookup, as the new choice says. Only your own change of these settings while a lookup
-  was under way could cause it (they're login only, never the AI key), and
-  no figure is affected. Nothing to do.
+  lookup, as the new choice says. Only your own change of these settings
+  while a lookup was under way could cause it (they're login only, never
+  the AI key), and no figure is affected. Nothing to do.
 - **An .onion Mempool address however its dots are typed is reached
   through Tor** (found by the review of #443). Typed with a dot at its end
   (`http://….onion.`, the same address) or with a full stop that web
@@ -492,9 +492,12 @@ All notable changes to BitcoinTX are documented in this file.
   was asked directly, even with Tor set, so its name went to this
   server's resolver; and it could be saved without Tor. Now it's an
   .onion like any other, in Settings and on the server: it needs Tor, and
-  goes through it. Nothing to do, unless you typed your Mempool's address
-  that way without Tor: Settings now offers Tor for it when you next save,
-  and BitcoinTX asks that Mempool nothing until then.
+  goes through it. An address whose host has a character no host name has
+  (a backslash, a `%`), which went around Tor the same way, is now refused
+  when saved (or, set by the server, makes its price settings invalid).
+  Nothing to do, unless you typed your Mempool's address that way without
+  Tor: Settings now offers Tor for it when you next save, and BitcoinTX
+  asks that Mempool nothing until then.
 - **A save made while Ledger Review looks up a price no longer fails**
   (#364). When one of Ledger Review's checks needed a BTC price not stored
   yet (with a price source chosen), it stored the price in the review's own
