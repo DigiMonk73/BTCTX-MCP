@@ -454,6 +454,14 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River and AI imports' duplicate check is fast again** (#379). This
+  version's duplicate rule (#253) checks each row in up to seven passes,
+  and each pass looked through the whole ledger for every row: a River
+  file of 2,000 rows against 2,000 transactions took about 13 seconds, and
+  the AI connector's 500 rows against 10,000 about 8. Each row's
+  transactions within two days are now found once, by date: about a tenth
+  of a second for either. The answers are the same. **Affected:** no
+  release: the rule is new in this version. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
