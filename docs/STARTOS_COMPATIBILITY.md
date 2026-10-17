@@ -39,8 +39,9 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
 
 BitcoinTX never runs as root. The image has no `USER` line: Docker starts
 `docker-entrypoint.sh` as root. The data folder is `/data`, or the folder of
-`DATABASE_FILE` when that is a mount of its own (a volume or a host folder;
-never a folder of the image). If `btctx` finds anything in it that isn't its
+`DATABASE_FILE` when that is a mount of its own (a volume or a host folder,
+its path written plainly: no `.`, `..` or link on the way; never `/dev`,
+`/proc` or `/sys`). If `btctx` finds anything in it that isn't its
 own, root gives it to `btctx` (`chown -R`: a volume an image before 1.2.9
 made is root's, and so may be a host folder mounted there); a start after
 that needs none of root's rights over the files. Then the command runs as
@@ -48,8 +49,9 @@ that needs none of root's rights over the files. Then the command runs as
 `no_new_privs`. Port 80 is below 1024: in a container's own network Docker
 lets any user open it, but not with `--network host`, nor in StartOS's
 containers (`net.ipv4.ip_unprivileged_port_start` is 1024 there). Root needs
-CHOWN, DAC_OVERRIDE, SETUID, SETGID and NET_BIND_SERVICE (Docker's defaults):
-without one, or if the folder can't be given to `btctx` (a read-only mount,
+SETUID, SETGID and NET_BIND_SERVICE at every start, and CHOWN and
+DAC_OVERRIDE when something needs handing over (all Docker's defaults):
+without them, or if the folder can't be given to `btctx` (a read-only mount,
 network storage that refuses it), the start stops with a message saying so.
 Started with `--user`, the entrypoint runs the command as that user
 unchanged, and the data folder must be theirs.
@@ -116,8 +118,8 @@ reads `DATABASE_FILE`; a relative path is resolved against the repo root.
 | macOS app | `~/Library/Application Support/BitcoinTX/btctx.db` | `desktop/entrypoint.py` |
 
 An `-e DATABASE_FILE=...` at run time still overrides the image default; its
-folder must then be a volume or a mounted folder of its own, which the image
-gives to its user ("The app's user", below).
+folder must then be a volume or a mounted folder itself (not a subfolder of
+one), which the image gives to its user ("The app's user", above).
 Standalone run, with the data on a named volume:
 
 ```bash

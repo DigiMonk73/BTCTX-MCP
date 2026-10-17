@@ -13,7 +13,8 @@
 # still work, the app and the CLI write. Then a restart where an ordinary
 # user may not open port 80 (as in StartOS, or Docker's --network host), with
 # only the capabilities a hardened setup keeps; and a 1.2.8 install whose
-# DATABASE_FILE is on a volume of its own (#446's review).
+# DATABASE_FILE is on a volume of its own; and odd DATABASE_FILE paths that
+# name / or the kernel's folders, never handed over (#446's reviews).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -92,5 +93,13 @@ docker rm -f btctx-128 >/dev/null
 start btctx-new "$NEW" "${ELSEWHERE[@]}"
 app_is_btctx btctx-new
 all_btctx btctx-new /srv/btctx
+docker rm -f btctx-new >/dev/null
+
+echo "odd DATABASE_FILE paths never hand over a folder of the image"
+docker run --rm -v "$VOL2:/srv/btctx" --entrypoint ln "$NEW" -s / /srv/btctx/x   # as btctx would
+for db in /./btctx.db /data/../btctx.db /dev/btctx.db /srv/btctx/x/dev/btctx.db; do
+  owners=$(docker run --rm -v "$VOL2:/srv/btctx" -e DATABASE_FILE="$db" "$NEW" stat -c %u:%g /etc/passwd /app /dev/null)
+  [ "$(echo $owners)" = "0:0 0:0 0:0" ] || { echo "✗ DATABASE_FILE=$db handed over: $owners"; exit 1; }
+done
 
 echo "✓ an update from 1.2.8's root-owned /data works, and every file is btctx's"

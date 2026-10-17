@@ -14,11 +14,14 @@ if [ "$(id -u)" != 0 ]; then
 fi
 
 # The data folder: DATABASE_FILE's when that is a mount of its own (a volume
-# or a host folder), else /data. Never a folder of the image itself.
+# or a host folder), written plainly (no ".", ".." or link on the way: those
+# could name / or a folder the app chose), else /data. Never a folder of the
+# image itself, nor the kernel's.
 data=/data
-dir=$(dirname "${DATABASE_FILE:-/data/btctx.db}")
+dir=$(dirname -- "${DATABASE_FILE:-/data/btctx.db}")
 case "$dir" in
-    /?*) if mountpoint -q "$dir"; then data=$dir; fi ;;
+    /dev | /dev/* | /proc | /proc/* | /sys | /sys/*) ;;
+    /?*) if [ "$(readlink -f -- "$dir")" = "$dir" ] && mountpoint -q -- "$dir"; then data=$dir; fi ;;
 esac
 
 # Runs a command as btctx, keeping only the right to open port 80. It

@@ -33,8 +33,11 @@ def test_the_image_starts_through_the_entrypoint_that_drops_root():
     assert drop in ENTRYPOINT and "--no-new-privs" in ENTRYPOINT
     # The data folder is /data, or DATABASE_FILE's when it's a mount of its
     # own: never a folder of the image (#446's review)
-    assert 'dir=$(dirname "${DATABASE_FILE:-/data/btctx.db}")' in ENTRYPOINT
-    assert 'if mountpoint -q "$dir"; then data=$dir; fi' in ENTRYPOINT
+    assert 'dir=$(dirname -- "${DATABASE_FILE:-/data/btctx.db}")' in ENTRYPOINT
+    # Written plainly, never /dev, /proc or /sys: "/./x.db", "/data/../x.db"
+    # or a link the app made could otherwise name / (#446's re-check)
+    assert "/dev | /dev/* | /proc | /proc/* | /sys | /sys/*) ;;" in ENTRYPOINT
+    assert '[ "$(readlink -f -- "$dir")" = "$dir" ] && mountpoint -q -- "$dir"' in ENTRYPOINT
     # Root runs only the chown, and only when btctx finds a file that isn't
     # its own; the command runs after the drop, or unchanged when Docker
     # started it as another user (--user)

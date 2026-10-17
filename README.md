@@ -152,8 +152,9 @@ BitcoinTX runs as its own user in the container, `btctx` (uid 10001), never
 as root. At a start the image gives `/data` to that user if anything in it
 isn't theirs, then drops to it, so a volume an older version made keeps
 working. A folder of yours mounted at `/data` (`-v /some/folder:/data`)
-becomes uid 10001's too (with `DATABASE_FILE` set elsewhere: its folder, when
-that is a volume or mounted folder). Maintenance commands run as that user:
+becomes uid 10001's too. With `DATABASE_FILE` set elsewhere, its folder must
+be a volume or mounted folder itself (a subfolder of one isn't handed over:
+give it to uid 10001 yourself). Maintenance commands run as that user:
 `docker exec -u btctx <container> python -m backend.cli …`. If you drop
 capabilities (`--cap-drop ALL`), keep CHOWN, DAC_OVERRIDE, SETUID, SETGID and
 NET_BIND_SERVICE. Started with `--user`, the image runs as the user you give

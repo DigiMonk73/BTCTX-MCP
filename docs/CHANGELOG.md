@@ -938,8 +938,9 @@ All notable changes to BitcoinTX are documented in this file.
     `docker exec -u btctx <container> python -m backend.cli …`. Run as
     root, a file it creates stays root's until the next start.
   - A host folder mounted at `/data` is given to uid 10001 at a start when
-    anything in it isn't that user's; with `DATABASE_FILE` set elsewhere,
-    its folder is, when it's a volume or a mounted folder.
+    anything in it isn't that user's. With `DATABASE_FILE` set elsewhere,
+    its folder must be a volume or a mounted folder itself, which is then
+    handed over; a subfolder of one isn't: give it to uid 10001 yourself.
   - With capabilities dropped (`--cap-drop ALL`), keep CHOWN, DAC_OVERRIDE,
     SETUID, SETGID and NET_BIND_SERVICE.
   - Started with `--user`, the image runs as that user and leaves `/data`
