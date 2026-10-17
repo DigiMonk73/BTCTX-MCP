@@ -315,9 +315,8 @@ class TestDedup:
         """#378 on random ledgers: payouts of two amounts at a few times of
         one day (some rows given as a date alone), some of the preview's
         duplicates named as other transactions. Sent three times, only the
-        first send saves anything. (Its times never put a later payout
-        nearer noon than an earlier one: a plain row can then be saved again
-        beside a date-alone one, #411.)"""
+        first send saves anything. (Times on both sides of noon, beside
+        identical copies: test_any_request_sent_again_saves_nothing_more.)"""
         import random
 
         rng = random.Random(seed)
@@ -350,7 +349,7 @@ class TestDedup:
         """#411, a first send: payouts at 09:00 and 13:00 recorded, and the
         AI sends one as a date alone beside the 13:00 one. Both are
         recorded: the date-alone row is the 09:00 one, the 13:00 row the
-        13:00 one. The 13:00 row was a possible duplicate of 09:00, and saved."""
+        13:00 one, so no third payout is saved as a possible duplicate."""
         nine, one = (execute([dict(INTEREST, date=f"2025-03-20T{hour}:00:00Z")])["created"][0]["id"] for hour in ("09", "13"))
         rows = [dict(INTEREST, date="2025-03-20"), dict(INTEREST, date="2025-03-20T13:00:00Z")]
         results = preview(rows)["results"]

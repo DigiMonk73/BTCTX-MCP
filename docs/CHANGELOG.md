@@ -429,9 +429,7 @@ All notable changes to BitcoinTX are documented in this file.
   wasn't, or one beside the same payout given as a date alone. Now the AI
   names the transaction the row isn't (the one the preview matched,
   `not_a_duplicate_of`, as River's import already keeps its matches), so a
-  request sent again finds the copies the first one saved. (A row not
-  marked can still be saved again beside the same payout given as a date
-  alone: #411.) **Affected:** no release: telling the AI a duplicate is
+  request sent again finds the copies the first one saved. **Affected:** no release: telling the AI a duplicate is
   another transaction is new in this version (#253). Nothing to do.
 - **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's

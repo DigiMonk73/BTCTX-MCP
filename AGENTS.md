@@ -239,9 +239,9 @@ from the Transaction row alone.
   own type first. The AI's rows are matched so the most find a copy: a row
   left without one takes a copy another row holds when that row can take
   another (`match_by_moving`), so a date-alone row can't take a timed
-  row's only copy (#411). The user can override a duplicate: the AI's row names
-  the transaction the preview matched (`not_a_duplicate_of`), a River row
-  is ticked. That frees it only from that transaction: it's checked against
+  row's only copy (#411). The user can override a duplicate: the AI's row
+  names the transaction the preview matched (`not_a_duplicate_of`), a
+  River row is ticked. That frees it only from that transaction: it's checked against
   the rest, so a resent request doesn't save it twice (a row that matched
   another copy is that copy, #378). A named row that check leaves new
   takes a copy another row holds when that row can take another of its
