@@ -904,13 +904,13 @@ def is_busy(error: Exception) -> bool:
     return isinstance(error, OperationalError) and "locked" in str(error.orig)
 
 
-def log_unexpected(what: str, error: Exception) -> None:
+def log_unexpected(what: str, error: Exception, log: logging.Logger = logger) -> None:
     """An unexpected failure (an import's, a report's, a restore's) in the
-    log: its type, its trace only at DEBUG, where whole rows already are,
-    since its text can hold a transaction's date and dates stay out of the
-    normal log (#204, #422)."""
-    logger.error("%s failed: %s", what, type(error).__name__)
-    logger.debug("%s failed", what, exc_info=error)
+    log, the caller's: its type, its trace only at DEBUG, where whole rows
+    already are, since its text can hold a transaction's date and dates
+    stay out of the normal log (#204, #422)."""
+    log.error("%s failed: %s", what, type(error).__name__)
+    log.debug("%s failed", what, exc_info=error)
 
 
 def check_database_empty(db: Session) -> tuple[bool, int]:

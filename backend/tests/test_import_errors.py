@@ -107,9 +107,9 @@ def test_the_irs_forms_name_no_error_text(clean, monkeypatch, caplog):
     assert "IRS forms for 2024 failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
 
 
-def test_the_irs_forms_keep_the_ledgers_own_words(clean, monkeypatch):
-    """#422: a value to enter in a transaction came back as a 500 reading
-    "IRS report generation failed: 422: …"; it keeps its status and words."""
+def test_the_irs_forms_keep_a_refusals_own_words(clean, monkeypatch):
+    """#422: an HTTPException raised while the forms are made keeps its
+    status and words (none is raised there today: a guard)."""
     why = "Withdrawal of 0.05 BTC on 2024-06-01: it has no Proceeds (USD) value (enter it in that transaction)."
     monkeypatch.setattr("backend.routers.reports.build_form_8949_and_schedule_d",
                         _raises(HTTPException(status_code=422, detail=why)))

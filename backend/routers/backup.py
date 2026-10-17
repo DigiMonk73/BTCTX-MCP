@@ -251,7 +251,7 @@ def restore_encrypted_backup(
     except ValueError as e:  # restore_backup's own plain words
         raise HTTPException(status_code=400, detail=f"Restore failed: {e}")
     except Exception as e:  # never its text: SQL, a path, a date (#422)
-        log_unexpected("Restore", e)
+        log_unexpected("Restore", e, logger)
         raise HTTPException(status_code=500, detail=RESTORE_FAILED) from e
     finally:
         if temp_path and temp_path.exists():

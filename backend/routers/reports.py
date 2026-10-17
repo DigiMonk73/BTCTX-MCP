@@ -167,9 +167,9 @@ def get_irs_reports(
         )
 
     except HTTPException:
-        raise  # the ledger's own words (a value to enter in a transaction)
+        raise  # a refusal raised on purpose keeps its status and words
     except Exception as e:
-        log_unexpected(f"IRS forms for {year}", e)
+        log_unexpected(f"IRS forms for {year}", e, logger)
         raise HTTPException(status_code=500, detail=IRS_FORMS_FAILED) from e
 
 
