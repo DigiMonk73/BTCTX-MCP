@@ -75,9 +75,21 @@ def rows(year):
 
 
 # A folder of zones in the tz database, a name too long for a file name,
-# and one of hundreds of parts (ZoneInfo ran out of recursion on it)
-NOT_A_ZONE = ["America", "A" * 5000, "a/" * 300 + "b"]
-NOT_A_ZONE_IDS = ["a folder", "too long", "many parts"]
+# one of hundreds of parts (ZoneInfo ran out of recursion on it), and one
+# with a part naming a module of tzdata (a TypeError on Python 3.10, 3.11)
+NOT_A_ZONE = ["America", "A" * 5000, "a/" * 300 + "b", "America/__init__/x"]
+NOT_A_ZONE_IDS = ["a folder", "too long", "many parts", "a module"]
+
+
+def test_every_zone_fits_the_name_limit():
+    """A tzdata update with a longer name would be refused as unknown."""
+    import zoneinfo
+
+    from backend.services.tax_time import MAX_ZONE_NAME, validate_timezone
+
+    zones = zoneinfo.available_timezones()
+    assert max(map(len, zones)) <= MAX_ZONE_NAME
+    assert all(validate_timezone(zone) == zone for zone in zones)
 
 
 class TestSetting:
