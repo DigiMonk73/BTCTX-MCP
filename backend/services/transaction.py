@@ -295,7 +295,8 @@ ACCOUNT_MISSING = (
 # transaction short of BTC: the rows it went past may be why.
 MISSING_MAY_BE_WHY = (
     "a later transaction would run short of BTC. It may depend on this one; or {rows}, which {names} a missing "
-    "account, may be why: edit {it} into one of your accounts, or delete {it}, first. "
+    "account, or another that Ledger Review lists, may be why: fix that one first (edit it into one of your "
+    "accounts, or delete it). "
 )
 
 
@@ -921,8 +922,7 @@ def _why_short(past: list[Transaction] | None, db: Session) -> str:
     rows = [f"{t.id} (a {t.type} of {local_date(t.timestamp, tz).isoformat()})" for t in past]
     one = len(rows) == 1
     return MISSING_MAY_BE_WHY.format(
-        rows=("Transaction " if one else "Transactions ") + " and ".join(rows), names="names" if one else "name",
-        it="it" if one else "them")
+        rows=("Transaction " if one else "Transactions ") + " and ".join(rows), names="names" if one else "name")
 
 
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:

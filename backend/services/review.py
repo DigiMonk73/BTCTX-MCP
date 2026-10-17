@@ -517,8 +517,8 @@ def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:
-    """Whether the row stops every save that recalculates (but an edit or a
-    delete of another such row, #368): its balance check
+    """Whether the row stops every save that recalculates (except an edit or
+    a delete of another such row, #368): its balance check
     (transaction._verify_double_entry_balance_for_internal) runs, as for any
     type but a Buy or a Sell with no External side, and fails, as one of its
     sides is an account that exists and the other isn't (#367's review)."""

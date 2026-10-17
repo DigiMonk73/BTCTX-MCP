@@ -240,8 +240,9 @@ def test_an_old_account_deleted_before_367_can_be_fixed(auth_client, test_engine
     r = auth_client.delete("/api/transactions/961")
     assert (r.status_code, _detail(r)) == (400, (
         "Not deleted: a later transaction would run short of BTC. It may depend on this one; or Transaction 962 "
-        "(a Transfer of 2024-03-01), which names a missing account, may be why: edit it into one of your "
-        "accounts, or delete it, first. Not enough BTC to withdrawal 0.80000000 BTC"))
+        "(a Transfer of 2024-03-01), which names a missing account, or another that Ledger Review lists, may be "
+        "why: fix that one first (edit it into one of your accounts, or delete it). Not enough BTC to withdrawal "
+        "0.80000000 BTC"))
     edit = auth_client.put("/api/transactions/960", json={"to_account_id": WALLET, "source": "MyBTC",
                                                           "cost_basis_usd": "1000"})
     assert edit.status_code == 200, edit.text
@@ -271,7 +272,8 @@ def test_a_shortage_still_stops_such_a_delete(auth_client, test_engine, empty):
     r = auth_client.delete("/api/transactions/987")
     assert r.status_code == 400 and _detail(r).startswith(
         "Not deleted: a later transaction would run short of BTC. It may depend on this one; or Transaction 988 "
-        "(a Withdrawal of 2024-03-01), which names a missing account, may be why"), r.text
+        "(a Withdrawal of 2024-03-01), which names a missing account, or another that Ledger Review lists, may "
+        "be why"), r.text
     assert {t["id"] for t in auth_client.get("/api/transactions").json()} >= {987, 988, 989}
     assert _settled(test_engine) == before
     assert auth_client.delete("/api/transactions/988").status_code == 204

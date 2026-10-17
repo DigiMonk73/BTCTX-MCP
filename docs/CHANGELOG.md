@@ -304,8 +304,8 @@ All notable changes to BitcoinTX are documented in this file.
   (#368). Now an edit or a delete of such a transaction goes on past the
   others, replaying them as BitcoinTX replays one that doesn't stop saves;
   they still stop every other save, by name, until they're fixed. If that
-  leaves a later transaction short of BTC, the refusal names the ones it
-  went past (fix that one first). Until the last is fixed, the figures
+  leaves a later transaction short of BTC, the refusal names the others it
+  went past: fix the one that's why first. Until the last is fixed, the figures
   (Form 8949, the dashboard) can be off: fix them all before relying on a
   report. No figure changes for a ledger without them: it replays as
   before, and only the message differs.
