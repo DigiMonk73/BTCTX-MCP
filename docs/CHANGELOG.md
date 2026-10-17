@@ -1000,6 +1000,13 @@ All notable changes to BitcoinTX are documented in this file.
   instead of a package revision.
 
 ### Development
+- **The stale `.devcontainer` is gone** (#431). Its Python 3.11
+  environment with old, unhashed pins (some with known advisories, some for
+  packages the app dropped long ago) and its Node 18 image matched nothing
+  BitcoinTX runs, and nothing documented or used it: opened in VS Code or
+  Codespaces, it built an environment unlike the image, the locks and CI.
+  A development setup follows `docs/MAINTENANCE.md` and `docs/TESTING.md`,
+  from the hashed locks.
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",
   "Pull requests" and "Branches"; `docs/HOW-CHANGES-FLOW.md`; the owner's
   rule, 2026-10-17). Sessions report a pull request "ready" instead of
