@@ -672,9 +672,10 @@ All notable changes to BitcoinTX are documented in this file.
 ### Development
 - **Every session of big work starts from `develop`** (AGENTS.md, "Big
   work"; `docs/HOW-CHANGES-FLOW.md`). A session given a working folder of
-  its own gets `develop` as that folder's base, and each kickoff prompt says
-  to check it's on `origin/develop` first: otherwise the desktop app copies
-  GitHub's default branch, `main`, which lacks everything not yet released.
+  its own gets `develop` as that folder's base (after `make sync-check`),
+  and each kickoff prompt says to bring the folder up to `origin/develop`
+  first with `git merge --ff-only`: otherwise the folder may be cut from
+  `main`, which lacks everything not yet released.
   The 1.2.9 release's sessions A, B and C (#369) started from `main` on
   2026-10-16 and moved to `develop` themselves.
 - **The WebKit click-through check no longer fails now and then on a
