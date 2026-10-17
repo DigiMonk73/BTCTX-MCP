@@ -105,6 +105,7 @@ from backend.services.hourly_review import hourly_changes
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
+from backend.unexpected_errors import log_unexpected
 
 logger = logging.getLogger(__name__)
 
@@ -328,8 +329,8 @@ def simulate_recalculation(db: Session):
             after = _snapshot(scratch, tz)
         except HTTPException as exc:  # e.g. a missing price: say so
             return None, exc.detail
-        except Exception:
-            logger.exception("Ledger Review: the dry run of Recalculate Ledger failed")
+        except Exception as exc:  # never its text in the log at ERROR (#430)
+            log_unexpected("Ledger Review: the dry run of Recalculate Ledger", exc, logger)
             return None, DRY_RUN_FAILED
     return _differences(before, after), None
 

@@ -30,7 +30,8 @@ from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite
 from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
-from backend.services.csv_import import CSV_COLUMNS, log_unexpected
+from backend.services.csv_import import CSV_COLUMNS
+from backend.unexpected_errors import log_unexpected
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
@@ -206,8 +207,8 @@ def _refresh_after_restore(db: Session) -> None:
         db.close()  # a fresh connection sees the restored file
         try:
             step(db)
-        except Exception:
-            logger.exception("Could not refresh %s after restore", what)
+        except Exception as e:
+            log_unexpected(f"Refreshing {what} after the restore", e, logger)
 
 
 @router.post("/restore")

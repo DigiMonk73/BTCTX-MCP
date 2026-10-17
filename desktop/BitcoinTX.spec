@@ -175,6 +175,7 @@ hidden_imports = [
     "backend.secret_key",
     "backend.session_auth",
     "backend.security_headers",
+    "backend.unexpected_errors",
     "backend.version",
     "backend.cli",
     "backend.models.app_setting",

@@ -22,7 +22,7 @@ from backend.constants import FIRST_TAX_YEAR, LAST_TAX_YEAR
 from backend.database import get_db
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
-from backend.services.csv_import import log_unexpected
+from backend.unexpected_errors import log_unexpected
 from backend.services.reports import draft_forms, transaction_history
 from backend.services.reports.form_8949 import (
     build_form_8949_and_schedule_d,

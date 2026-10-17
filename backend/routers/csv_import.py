@@ -5,6 +5,7 @@ check, the preview and the import (a logged-in session only).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -25,9 +26,11 @@ from backend.services.csv_import import (
     execute_import,
     generate_template_csv,
     is_busy,
-    log_unexpected,
 )
+from backend.unexpected_errors import log_unexpected
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -48,7 +51,7 @@ def import_failure(what: str, error: Exception) -> HTTPException:
     wait, as other saves answer it, else the fixed sentence (500)."""
     if is_busy(error):
         return HTTPException(status_code=503, detail=IMPORT_BUSY)
-    log_unexpected(what, error)
+    log_unexpected(what, error, logger)
     return HTTPException(status_code=500, detail=IMPORT_FAILED)
 
 

@@ -2,12 +2,13 @@
 Ledger review's check of values priced at the day (hourly_review) passes
 over a transaction only when there is no price for its day. Any other
 failure of the lookup is an error, not a shorter list that looks like
-"nothing to fix".
+"nothing to fix": answered as one (backend/unexpected_errors.py, #430).
 """
 
 import pytest
 
 from backend.services import price_history
+from backend.unexpected_errors import UNEXPECTED
 from backend.tests.test_review import ids, priced  # noqa: F401  (fixture)
 
 
@@ -21,15 +22,17 @@ def test_a_day_without_a_price_is_passed_over(auth_client, priced, monkeypatch):
     assert ids(r.json(), "day_priced_values") == []
 
 
+@pytest.mark.unexpected_error
 def test_any_other_lookup_failure_is_an_error(auth_client, priced, monkeypatch):  # noqa: F811
     def broken(db, when):
         raise RuntimeError("database is locked")
 
     monkeypatch.setattr(price_history, "daily_price", broken)
-    with pytest.raises(RuntimeError, match="database is locked"):
-        auth_client.get("/api/review")
+    r = auth_client.get("/api/review")
+    assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})
 
 
+@pytest.mark.unexpected_error
 def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engine, monkeypatch):
     """The income checks too: a broken lookup isn't "no price" (no transfers
     here, so the fee check doesn't raise first)."""
@@ -47,7 +50,7 @@ def test_a_lookup_failure_of_an_income_check_is_an_error(auth_client, test_engin
 
     monkeypatch.setattr(price_history, "daily_price", broken)
     try:
-        with pytest.raises(RuntimeError, match="database is locked"):
-            auth_client.get("/api/review")
+        r = auth_client.get("/api/review")
+        assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})
     finally:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
