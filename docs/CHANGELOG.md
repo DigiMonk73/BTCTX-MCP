@@ -791,15 +791,19 @@ All notable changes to BitcoinTX are documented in this file.
     stay out of the browser's cache** (`Cache-Control: no-store` on every
     answer from BitcoinTX's API): a downloaded ledger no longer lingers in
     the browser's own files after you've saved it.
-- **The AI connector's Recalculate Ledger comes after a copy of the
-  database** (#336, the owner's choice). Before the AI key's first edit or
-  deletion in an hour, BitcoinTX keeps a copy of the database
-  (`backups/…-ai-before-changing-…db`); a recalculation asked for with the
-  key (`recalculate_ledger`) made none, though it can change stored figures
-  (a rule fix an update brings, which Ledger Review lists first). It now
-  counts as a change: the hour's first one comes after that copy, kept as
-  long as the others, and with no copy nothing is recalculated. Your own
-  Recalculate Ledger (Settings, or StartOS's action) is unchanged.
+- **The AI connector's Recalculate Ledger, and its import of an entry
+  dated before your latest, come after a copy of the database** (#336,
+  #414, the owner's choices). Before the AI key's first edit or deletion
+  in an hour, BitcoinTX keeps a copy of the database
+  (`backups/…-ai-before-changing-…db`). A recalculation asked for with the
+  key (`recalculate_ledger`) made none, nor did an import
+  (`add_transactions`) holding an entry dated before your latest, which
+  recalculates the whole ledger too; either can change stored figures (a
+  rule fix an update brings, which Ledger Review lists first). Both now
+  count as a change: the hour's first one comes after that copy, kept as
+  long as the others, and with no copy nothing is recalculated or added.
+  An import of later entries only, and your own Recalculate Ledger or
+  imports (Settings, or StartOS's action), are unchanged.
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's

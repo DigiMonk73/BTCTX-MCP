@@ -190,9 +190,11 @@ def _made_this_hour_today(made: float) -> bool:
 def _copy_before_ai_changes(db: Session, refused: str) -> None:
     """
     An AI copy before the AI key's first change in an hour (an edit, a
-    deletion or a recalculation), which the AI copies the key asks for next
-    never push out (migrate._ai_copies_held). No copy, no change: `refused`
-    ("Not changed", "Not deleted", "Not recalculated") opens the message.
+    deletion, a recalculation, or an import that recalculates: also
+    routers/entry_import), which the AI copies the key asks for next never
+    push out (migrate._ai_copies_held). No copy, no change: `refused` ("Not
+    changed", "Not deleted", "Not recalculated", "Not added") opens the
+    message.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
