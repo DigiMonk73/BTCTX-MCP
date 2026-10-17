@@ -114,13 +114,15 @@ tag `vX.Y.Z-N`: a `## [v0.9.0-1]` CHANGELOG section and a branch
 `release/v0.9.0-1`. The image is reused; the macOS app is rebuilt unchanged.
 
 **Before the community registry serves the current version** (it is only on
-Community Beta, as during its 14 days there), Start9's rule keeps the package
-version, so a revision isn't allowed (next section), and our release workflow
-can't ship the same version again. Ship the package fix inside a small app
-release instead: a new `VERSION` with a real app fix (never a bump with nothing
-in it), its package version back at `:0`, released like any version (owner's
-rule, 2026-10-17). Its notes cover everything since the version the community
-registry serves.
+Community Beta, as while the owner tests it there), Start9's rule keeps the
+package version, so a revision isn't allowed (next section), and our release
+workflow can't ship the same version again. Ship the package fix inside a
+small app release instead: a new `VERSION` with a real app fix (never a bump
+with nothing in it), its package version back at `:0`, released as in
+"Releasing a new version" above, release tests and docs check included
+(owner's rule, 2026-10-17). Its notes cover everything since the version the
+community registry serves. If a package fix can't wait and no app fix is
+ready, ask the owner: the rules change then.
 
 ## The package version
 
@@ -149,9 +151,11 @@ its release notes (what StartOS shows before updating) and its migration.
   version, see which one it serves
   (`start-cli -r https://community-registry.start9.com registry package get btctx short --format json`,
   the `best` key), and check the open pull requests on Start9's fork for one
-  that already claims the version. A package-only follow-up to a version it
-  doesn't serve yet keeps that version, its notes added to the ones already
-  there.
+  that already claims the version. Start9 keeps a package-only follow-up to
+  a version it doesn't serve yet under that version, its notes added to the
+  ones already there; our release workflow can't release a version again, so
+  here such a fix rides in a small app release (above, at the end of "After
+  Start9 forks the mirror").
 - Release notes are user-facing: what changed for them, in plain language,
   in `en_US`, `es_ES`, `de_DE`, `pl_PL` and `fr_FR`, each ending with the
   CHANGELOG link. They cover every change since the version the community
@@ -191,8 +195,9 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    test a release with that version too. Once Start9 has forked the mirror,
    they may bump the SDK there first: take it with `scripts/start9-pull.sh`
    instead.
-4. Run the checks, bump the package revision (or keep the version while
-   the community registry doesn't serve it: "The package version"), release.
+4. Run the checks, bump the package revision, release. While the community
+   registry doesn't serve the current version, the bump rides in the next
+   app release instead (the end of "After Start9 forks the mirror").
 
 ## Building locally
 
