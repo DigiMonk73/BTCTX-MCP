@@ -363,6 +363,19 @@ def writing(db: Session) -> bool:
     return db.connection().connection.driver_connection.in_transaction
 
 
+# Session.info key: the save found the prices it needs before writing
+# (transaction.prices_found_ahead)
+FOUND_AHEAD = "btctx_prices_found_ahead"
+
+
+def stored_only(db: Session) -> bool:
+    """Whether a lookup reads stored prices only: its save found every price
+    it needs before writing, and now holds SQLite's write lock, which a
+    request or a download's wait would hold the owner's saves up behind
+    (#421, #426)."""
+    return bool(db.info.get(FOUND_AHEAD)) and writing(db)
+
+
 def no_price(day: date) -> HTTPException:
     settings = outbound.current()
     if settings.own_node or settings.public_allowed:
@@ -385,7 +398,7 @@ def daily_price(db: Session, when: date | datetime) -> Decimal:
     price = stored_price(db, day)
     if price is not None:
         return price
-    if day > _today() or day < FIRST_PRICE_DAY:
+    if day > _today() or day < FIRST_PRICE_DAY or stored_only(db):
         raise no_price(day)
     try:
         prices, complete = _run(find_prices(day, full=not _history_complete(db)))

@@ -18,7 +18,7 @@ from backend.services.desktop import desktop_info
 from backend.services.tax_time import (
     fill_tax_timezone, get_tax_timezone_name, never_chosen_with_transactions, set_tax_timezone,
 )
-from backend.services.transaction import recalculate_all_transactions
+from backend.services.transaction import prices_found_ahead, recalculate_all_transactions
 
 router = APIRouter()
 
@@ -58,8 +58,9 @@ def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, db: S
     if not payload.chosen and never_chosen_with_transactions(db):
         raise HTTPException(status_code=409, detail=RELOAD_TO_CHOOSE)
     try:
-        set_tax_timezone(db, payload.timezone)
-        recalculate_all_transactions(db)
+        with prices_found_ahead(db):  # before the setting is written (#426)
+            set_tax_timezone(db, payload.timezone)
+            recalculate_all_transactions(db)
         db.commit()
     except ValueError as exc:
         db.rollback()

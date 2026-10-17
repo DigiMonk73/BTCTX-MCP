@@ -58,6 +58,7 @@ from backend.services.transaction import (
     date_of_death_price,
     ensure_fee_account_exists,
     price_used,
+    prices_found_ahead,
     values_from_price,
 )
 
@@ -434,7 +435,8 @@ def simulate(
 
     before = _gain_snapshot(db)
     try:
-        created, failed_at = _create_until_refused(ordered, db)
+        with prices_found_ahead(db, [p.tx_data for p in ordered]):  # before the first row is written (#426)
+            created, failed_at = _create_until_refused(ordered, db)
         if failed_at is None:
             db.flush()
         else:
@@ -539,15 +541,16 @@ def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedR
     ensure_fee_account_exists(db)
     created: list[tuple[PreparedRow, Transaction]] = []
     try:
-        for p in ordered:
-            try:
-                tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
-            except HTTPException as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
-                )
-            created.append((p, tx))
+        with prices_found_ahead(db, [p.tx_data for p in ordered]):  # before the first row is written (#426)
+            for p in ordered:
+                try:
+                    tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+                except HTTPException as exc:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
+                    )
+                created.append((p, tx))
         db.commit()
     except Exception:
         db.rollback()

@@ -76,34 +76,35 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     recalculate. Typed values never change. Commits (rolls back when an
     edit or a delete made meanwhile left nothing to apply).
     """
-    from backend.services.transaction import recalculate_all_transactions
+    from backend.services.transaction import prices_found_ahead, recalculate_all_transactions
 
     listed = hourly_changes(db, ids=ids, year=year, wait=wait)
     if not listed:
         return {"changed": [], "backup": None}
     path = sqlite_file(db.get_bind())
     backup = backup_sqlite(path, "hourly-prices", kind="review", keep=REVIEW_COPIES_KEPT) if path is not None else None
-    _hold_write_lock(db)
-    # Each listed transaction as it is now (#387): one deleted meanwhile is
-    # gone, one edited is worked out again from its own amount, at the price
-    # the check found for its hour. Found as the check found them (a year's
-    # ids in one IN (...) could pass SQLite's limit), the listed ones kept.
-    db.expire_all()
-    seen = {c["id"]: c for c in listed}
-    changes = _changes(db, ids, year, lambda t: _price_seen(db, t, seen[t.id]) if t.id in seen else None)
-    if not changes:  # each one deleted or edited meanwhile: nothing left to apply
-        db.rollback()  # the lock goes
-        return {"changed": [], "backup": backup.name if backup else None}
-    for change in changes:
-        t = db.get(Transaction, change["id"])
-        for field, (_old, new) in change["values"].items():
-            setattr(t, field, new)
-            if field == "gross_proceeds_usd":
-                t.proceeds_usd = new  # recalculation nets the fee off the gross
-        t.price_moment = change["moment"]
-    recalculate_all_transactions(db)
-    db.commit()
-    return {"changed": changes, "backup": backup.name if backup else None}
+    with prices_found_ahead(db):  # the missing values the recalculation prices, before the lock (#426)
+        _hold_write_lock(db)
+        # Each listed transaction as it is now (#387): one deleted meanwhile is
+        # gone, one edited is worked out again from its own amount, at the price
+        # the check found for its hour. Found as the check found them (a year's
+        # ids in one IN (...) could pass SQLite's limit), the listed ones kept.
+        db.expire_all()
+        seen = {c["id"]: c for c in listed}
+        changes = _changes(db, ids, year, lambda t: _price_seen(db, t, seen[t.id]) if t.id in seen else None)
+        if not changes:  # each one deleted or edited meanwhile: nothing left to apply
+            db.rollback()  # the lock goes
+            return {"changed": [], "backup": backup.name if backup else None}
+        for change in changes:
+            t = db.get(Transaction, change["id"])
+            for field, (_old, new) in change["values"].items():
+                setattr(t, field, new)
+                if field == "gross_proceeds_usd":
+                    t.proceeds_usd = new  # recalculation nets the fee off the gross
+            t.price_moment = change["moment"]
+        recalculate_all_transactions(db)
+        db.commit()
+        return {"changed": changes, "backup": backup.name if backup else None}
 
 
 def _hold_write_lock(db: Session) -> None:

@@ -32,6 +32,7 @@ from backend.services.transaction import (
     original_date,
     original_date_name,
     original_date_problem,
+    prices_found_ahead,
     sell_fee_problem,
     values_the_save_prices,
     text_problem,
@@ -914,9 +915,10 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
 
     imported_count = 0
     try:
-        for tx_data in sorted_txns:
-            create_transaction_record(tx_data, db, auto_commit=False)
-            imported_count += 1
+        with prices_found_ahead(db, sorted_txns):  # before the first row is written (#426)
+            for tx_data in sorted_txns:
+                create_transaction_record(tx_data, db, auto_commit=False)
+                imported_count += 1
         db.commit()
         return imported_count
     except Exception:
