@@ -453,7 +453,7 @@ def test_the_preview_reads_the_year_files_before_its_dry_run(test_engine, monkey
     lines = [pf.YearLine(y, pf.year_start(y), pf.year_end(y), 1, "x") for y in (2019, 2020, 2021)]
     free = []
 
-    def year_file(line):
+    def year_file(line, remember=True):
         other = sqlite3.connect(test_engine.url.database, timeout=0)
         try:
             other.execute("BEGIN IMMEDIATE")

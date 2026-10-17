@@ -5,11 +5,11 @@ check, the preview and the import (a logged-in session only).
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,10 +25,9 @@ from backend.services.csv_import import (
     check_database_empty,
     execute_import,
     generate_template_csv,
+    log_unexpected,
 )
 
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -40,13 +39,17 @@ MAX_ROWS = 10000
 # date (#204). The log says what it was (log_unexpected).
 IMPORT_FAILED = ("Import failed: something unexpected stopped it, and no transactions were saved. "
                  "BitcoinTX's log says what.")
+IMPORT_BUSY = "Import failed: BitcoinTX was busy saving something else, and no transactions were saved. Try again."
 
 
-def log_unexpected(what: str, error: Exception) -> None:
-    """The error's type in the log; its trace only at DEBUG, where whole rows
-    already are (dates stay out of the normal log)."""
-    logger.error("%s failed: %s", what, type(error).__name__)
-    logger.debug("%s failed", what, exc_info=error)
+def import_failure(what: str, error: Exception) -> HTTPException:
+    """The answer to an import that `error` stopped (not a row the ledger
+    refused): busy (503) when SQLite's write lock was held past its 5 s
+    wait, as other saves answer it, else the fixed sentence (500)."""
+    if isinstance(error, OperationalError) and "locked" in str(error.orig):  # SQLITE_BUSY
+        return HTTPException(status_code=503, detail=IMPORT_BUSY)
+    log_unexpected(what, error)
+    return HTTPException(status_code=500, detail=IMPORT_FAILED)
 
 
 def _require_auth(request: Request):
@@ -232,5 +235,4 @@ def execute_csv_import(
             detail=f"Import failed: {detail} No transactions were saved."
         )
     except Exception as e:
-        log_unexpected("CSV import", e)
-        raise HTTPException(status_code=500, detail=IMPORT_FAILED)
+        raise import_failure("CSV import", e) from e

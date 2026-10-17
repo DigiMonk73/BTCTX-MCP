@@ -841,7 +841,9 @@ All notable changes to BitcoinTX are documented in this file.
     transactions were saved. BitcoinTX's log says what." It used to repeat
     the error's own text, which could hold a database query, a server path
     or a transaction's date. The log names the kind of error; the details
-    are in its debug level.
+    are in its debug level. When the database was busy saving something
+    else, the import says so, to try again. The AI preview no longer
+    passes such an error's text on to the AI either.
   - **The AI preview reads the price history files before its dry run**,
     so the time it holds the database's lock, while your own saves wait,
     no longer includes reading them to say which price filled each value.

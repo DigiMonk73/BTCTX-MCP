@@ -428,9 +428,12 @@ from the Transaction row alone.
   browser's disk cache. A new encrypted backup's password needs 12+
   characters (`routers/backup.py`); a restore takes an older, shorter one.
 - A CSV or River import that fails for an unexpected reason answers one
-  fixed sentence (`csv_import.IMPORT_FAILED`), never the error's own text
-  (it can hold SQL, a server path or a date), and logs only the error's
-  type (`csv_import.log_unexpected`; the trace at DEBUG).
+  fixed sentence (`routers/csv_import.import_failure`: busy, 503, when the
+  database was locked; else `IMPORT_FAILED`, 500), never the error's own
+  text (it can hold SQL, a server path or a date), and logs only the
+  error's type (`services/csv_import.log_unexpected`; the trace at DEBUG).
+  The AI preview's dry run does the same for a row it stops at
+  (`entry_import.SIMULATION_FAILED`).
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the
@@ -492,11 +495,11 @@ from the Transaction row alone.
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
   chunked body passes it. A route taking a file is listed in `main.py` with
   its own file limit (plus room for the form) and keeps checking the file
-  itself, reading at most the limit and one byte: the restore 1 GiB, the
-  CSV and River files 5 MB. That larger allowance is for a logged-in
-  owner's file: only a request whose session cookie is validly signed,
-  unexpired and holds a `user_id` gets it. A new upload route goes in that
-  list.
+  itself: the CSV and River files 5 MB, read at most to the limit and one
+  byte; the restore 1 GiB, copied in 1 MiB pieces until past it. That
+  larger allowance is for a logged-in owner's file: only a request whose
+  session cookie is validly signed, unexpired and holds a `user_id` gets
+  it. A new upload route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 

@@ -131,12 +131,16 @@ def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict
 def read_year_files(whens, years: dict) -> None:
     """Read into `years`, stored_price_at's cache for one request, the year
     files holding these moments, so its lookups read none: the AI preview
-    does it before its dry run takes SQLite's write lock (#204)."""
+    does it before its dry run takes SQLite's write lock (#204). The years
+    kept in memory stay as they were (the dry run's own pricing reads
+    those), and a year not here yet isn't noted: a download may bring it."""
     for when in whens:
-        _year_of(hour_of(when), years)
+        _year_of(hour_of(when), years, remember=False)
+    for year in [year for year, prices in years.items() if prices is None]:
+        del years[year]
 
 
-def _year_of(hour: int, years: dict) -> dict[int, Decimal] | None:
+def _year_of(hour: int, years: dict, remember: bool = True) -> dict[int, Decimal] | None:
     """The prices of the year file holding `hour`, from one request's cache
     (a list of many transactions): the manifest read and each year file
     parsed once, not once per row."""
@@ -144,7 +148,7 @@ def _year_of(hour: int, years: dict) -> dict[int, Decimal] | None:
         years["manifest"] = pf.read_manifest(pf.MANIFEST)
     line = next((y for y in years["manifest"] if y.first_hour <= hour <= y.last_hour), None)
     if line is not None and line.year not in years:
-        years[line.year] = _year_prices(line)
+        years[line.year] = _year_prices(line, remember)
     return years.get(line.year) if line else None
 
 
@@ -320,21 +324,24 @@ def _current_hour() -> int:
 
 
 # The year files
-def _year_prices(line: pf.YearLine) -> dict[int, Decimal] | None:
-    """A downloaded year's prices, if its file gives its line's fingerprint."""
+def _year_prices(line: pf.YearLine, remember: bool = True) -> dict[int, Decimal] | None:
+    """A downloaded year's prices, if its file gives its line's fingerprint;
+    kept in memory with the latest years used, unless `remember` is False."""
     with _years_lock:
         cached = _years.get(line.year)
         if cached is not None and cached[0] == line.sha256:
-            _years.move_to_end(line.year)
+            if remember:
+                _years.move_to_end(line.year)
             return cached[1]
     text = _file_text(line)
     if text is None:
         return None
     prices = pf.parse_year_text(text)
-    with _years_lock:
-        _years[line.year] = (line.sha256, prices)
-        while len(_years) > CACHED_YEARS:
-            _years.popitem(last=False)
+    if remember:
+        with _years_lock:
+            _years[line.year] = (line.sha256, prices)
+            while len(_years) > CACHED_YEARS:
+                _years.popitem(last=False)
     return prices
 
 

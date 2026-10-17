@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS
 from backend.database import get_db
-from backend.routers.csv_import import IMPORT_FAILED, MAX_ROWS, _read_validated_csv, _require_auth, log_unexpected
+from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth, import_failure
 from backend.schemas.river_import import (
     RiverExecuteRequest,
     RiverExecuteRow,
@@ -202,8 +202,7 @@ def execute_river_import(
             detail=f"Import failed: {exc.detail}. No transactions were saved.",
         )
     except Exception as exc:
-        log_unexpected("River import", exc)
-        raise HTTPException(status_code=500, detail=IMPORT_FAILED)
+        raise import_failure("River import", exc) from exc
 
     message = f"Imported {imported_count} transaction(s)."
     if skipped:

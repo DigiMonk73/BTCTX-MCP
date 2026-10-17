@@ -41,7 +41,7 @@ from backend.services import hourly_prices
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
-from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
+from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, log_unexpected, number_limits, number_text
 from backend.services.river_import import (
     STATUS_MATCHED,
     STATUS_NEW,
@@ -75,6 +75,9 @@ STATUS_NOT_SIMULATED = "not_simulated"
 
 # Rows with these statuses are written by execute
 WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
+# A row the dry run stopped at for a reason other than the ledger's: never
+# the error's own text (SQL, a path, a date), which the AI would pass on (#204)
+SIMULATION_FAILED = "Unexpected error: the dry run stopped at this row. BitcoinTX's log says what."
 
 
 @dataclass
@@ -489,8 +492,8 @@ def _create_until_refused(
             _reject(p, str(exc.detail))
             return created, pos
         except Exception as exc:  # defensive: surface, never write
-            logger.exception("Entry simulation failed on row %s", p.row)
-            _reject(p, f"Unexpected error: {exc}")
+            log_unexpected(f"Entry simulation of row {p.row}", exc)
+            _reject(p, SIMULATION_FAILED)
             return created, pos
         created.append((p, tx))
     return created, None
