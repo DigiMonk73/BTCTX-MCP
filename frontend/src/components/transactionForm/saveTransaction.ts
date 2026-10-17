@@ -1,5 +1,6 @@
 import axios from "axios";
 import api from "../../api";
+import { serverReason } from "../../utils/apiError";
 import { formatUsd, parseDecimal } from "../../utils/format";
 import { buildTransactionPayload } from "../../utils/transactionForm";
 
@@ -29,11 +30,11 @@ function savedMessage(done: "created" | "updated", tx: ITransactionRaw): string 
   return `Transaction ${done} successfully!`;
 }
 
-/** Why the save failed: the server's reason when it gave one. */
+/** Why the save failed: the server's reason when it gave one, a 422's list
+ * in its words (#448). */
 export function saveFailedMessage(error: unknown, action: "create" | "update"): string {
-  if (axios.isAxiosError<ApiErrorResponse>(error)) {
-    const detailMsg = error.response?.data?.detail || error.message || "Error";
-    return `Failed to ${action} transaction: ${detailMsg}`;
+  if (axios.isAxiosError(error)) {
+    return `Failed to ${action} transaction: ${serverReason(error) || error.message || "Error"}`;
   }
   if (error instanceof Error) {
     return `Failed to ${action} transaction: ${error.message}`;
