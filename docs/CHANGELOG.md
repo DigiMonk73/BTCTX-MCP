@@ -670,6 +670,11 @@ All notable changes to BitcoinTX are documented in this file.
   192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
 
 ### Development
+- **A bug found during big work gets its own session** (AGENTS.md, "Big
+  work"; the owner's rule, 2026-10-16). Once it's filed, the lead adds a
+  session for it to the umbrella issue and starts it, and the release waits
+  for it, unless the owner leaves it for later. The 1.2.9 release's session
+  A2 (#383) is the first, for the four bugs its security review found.
 - **Every session of big work starts from `develop`** (AGENTS.md, "Big
   work"; `docs/HOW-CHANGES-FLOW.md`). A session given a working folder of
   its own gets `develop` as that folder's base (after `make sync-check`),
