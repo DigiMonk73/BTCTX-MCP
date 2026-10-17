@@ -76,7 +76,8 @@ Deposit: External -> any account
                person within a year before the death (the basis may be the
                user's own, IRC §1014(e)).
     Income   = paid in BTC for work/goods (paid to an independent
-               contractor: also self-employment income, Schedule SE).
+               contractor: Schedule C, and self-employment income,
+               Schedule SE).
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.
     For these three, basis = market value at receipt, which is also the

@@ -188,7 +188,7 @@ async def test_ledger_guide_carries_the_tax_notes():
 
     flat = " ".join(LEDGER_GUIDE.split())
     for note in (
-        "also self-employment income, Schedule SE",
+        "paid to an independent contractor: Schedule C, and self-employment income, Schedule SE",
         "A theft or scam in an investment made for profit may be deductible on Form 4684, Section B, up to the "
         "coins' basis: suggest the user's tax preparer.",
         "the lower of value and basis for the rest (IRC 170(e)(1)(A)). Over $500 for the year's donations "

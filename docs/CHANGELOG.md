@@ -34,8 +34,9 @@ All notable changes to BitcoinTX are documented in this file.
     the lower of value and basis for the rest), Form 8283 over $500 and a
     qualified appraisal over $5,000 (an exchange's price isn't one); a gift
     tax return (Form 709) when gifts to one person other than your spouse
-    pass the year's annual exclusion ($19,000 in 2025 and 2026); a theft or scam loss in an
-    investment possibly deductible on Form 4684, up to the coins' basis.
+    pass the year's annual exclusion ($19,000 in 2025 and 2026); a theft
+    or scam loss in an investment possibly deductible on Form 4684, up to
+    the coins' basis.
   - The Summary answers **Form 1040's digital asset question**: Yes for a
     year with bitcoin sold, spent, paid as a fee, given away or donated, or
     received as income, a reward, interest or a rebate.

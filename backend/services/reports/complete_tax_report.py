@@ -548,7 +548,7 @@ class _TaxReport:
                          self.text(_term(g)), *self.numbers(
                              fmt_btc(g.get("amount", 0.0)), fmt_usd(fmv) if fmv is not None else "not given",
                              _or_blank(_basis(g)))])
-        bases = [_basis(g) for g in self.gifts if _basis(g) is not None]
+        bases = [basis for basis in map(_basis, self.gifts) if basis is not None]
         rows.append([self.total_label(), "", "", *self.numbers(
             fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)), self.fmv_total(),
             _or_blank(sum(bases) if bases else None), bold=True)])
