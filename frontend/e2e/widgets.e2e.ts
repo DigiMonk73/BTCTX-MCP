@@ -83,9 +83,10 @@ test("converter with prices off says so, never $0.00", async ({ authedPage: page
 
 test("converter keeps BTC to the satoshi (F6)", async ({ authedPage: page }) => {
   // $1 at $60,000 = 0.0000166666… BTC; it used to show 0.00002 (5 decimals).
+  // Both fields show one count, to the nearest satoshi (#451)
   await page.getByLabel("USD", { exact: true }).fill("1");
   await expect(page.getByLabel("BTC", { exact: true })).toHaveValue("0.00001667");
-  await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("1666");
+  await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("1667");
   await page.getByLabel("Sats", { exact: true }).fill("1");
   await expect(page.getByLabel("BTC", { exact: true })).toHaveValue("0.00000001");
   await expect(page.getByLabel("USD", { exact: true })).toHaveValue("0");
