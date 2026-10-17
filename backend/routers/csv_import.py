@@ -146,13 +146,13 @@ def preview_import(
     content = _read_validated_csv(file)
 
     result = parse_csv_file(content, get_tax_timezone(db))
-    flag_unpriced_rows(result, db)
 
     if len(result.transactions) > MAX_ROWS:
         raise HTTPException(
             status_code=400,
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import."
         )
+    flag_unpriced_rows(result, db)
 
     return CSVPreviewResponse(
         success=True,

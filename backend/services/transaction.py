@@ -127,7 +127,7 @@ def _prices_at_the_day(tx_data: dict) -> bool:
     return tx_data.get("price_moment") == "day" or bool(imported and not tx_data.get("price_moment"))
 
 
-def values_from_a_price(tx_data: dict, db: Session) -> list[tuple[str, datetime, str]]:
+def values_the_save_prices(tx_data: dict, db: Session) -> list[tuple[str, datetime, str]]:
     """
     The values a new transaction's save fills from the BTC price, and won't
     save without (#125): (the field, the moment it's priced at, "hour" or
@@ -150,8 +150,23 @@ def values_from_a_price(tx_data: dict, db: Session) -> list[tuple[str, datetime,
     if _has_btc_fee(tx_data) and tx_data.get("fee_usd") is None:
         values.append(("fee_usd", moment, at))
     if _is_spent(tx_data) and tx_data.get("from_account_id") in BTC_ACCOUNTS and tx_data.get("proceeds_usd") is None:
-        values.append(("proceeds_usd", moment, at))
+        values.append(("proceeds_usd", moment, _spent_proceeds_moment(tx_data, at)))
     return values
+
+
+def _spent_proceeds_moment(tx_data: dict, at: str) -> str:
+    """Where a Spent's proceeds left out are priced: at the moment its fee's
+    value has when that comes from a price (priced at save, at `at`, or an
+    import's, at its price_moment or else the day), else at the hour. The
+    save prices them last (_withdrawal_gross_proceeds), at the price_moment
+    _prepare_input stores (_price_moment)."""
+    if not _has_btc_fee(tx_data):
+        return "hour"
+    if tx_data.get("fee_usd") is None:
+        return at
+    if tx_data.get("fee_usd_from_price"):
+        return tx_data["price_moment"] if tx_data.get("price_moment") in PRICE_MOMENTS else "day"
+    return "hour"
 
 
 def _has_priced_value(data) -> bool:

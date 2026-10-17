@@ -220,9 +220,10 @@ def preview_of(auth_client, row: str) -> dict:
 
 @pytest.mark.parametrize("case", NEEDS_A_PRICE)
 def test_the_preview_flags_a_row_the_import_would_refuse_for_want_of_a_price(auth_client, monkeypatch, case):
-    """#125: with prices off and none stored, the preview called such a row
-    valid, and the import then refused it (422). The preview now says so,
-    naming the value to fill; the other rows stay valid."""
+    """#125: with prices off and none stored, the import refuses such a row
+    (422), so the preview lists it as an error, at the value to fill, and
+    without its warning that the value will be priced; the other rows stay
+    valid."""
     row, column, day = NEEDS_A_PRICE[case]
     stub_daily_prices(monkeypatch, lambda day: None)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
@@ -230,8 +231,9 @@ def test_the_preview_flags_a_row_the_import_would_refuse_for_want_of_a_price(aut
     assert (data["can_import"], data["valid_rows"], data["total_rows"]) == (False, 2, 3)
     [error] = data["errors"]
     assert (error["row_number"], error["column"]) == (4, column)
-    assert error["message"].startswith(f"{column} needs the BTC price of {day}, and none is stored: fill it.")
+    assert error["message"].startswith(f"Needs the BTC price of {day}, and none is stored: fill it.")
     assert "You chose Nobody for prices" in error["message"]
+    assert not [w for w in data["warnings"] if w["row_number"] == 4 and w["column"] == column]
 
 
 @pytest.mark.parametrize("case", NEEDS_A_PRICE)
@@ -266,7 +268,63 @@ def test_a_day_before_any_price_is_flagged_whatever_the_source(auth_client):
                "2010-06-01T12:00:00Z,Transfer,1,Exchange BTC,Wallet,,,0.0001,BTC,,,\n")
     data = auth_client.post("/api/import/preview", files=csv_file(content)).json()
     [error] = data["errors"]
-    assert error["message"] == "fee_usd needs the BTC price of 2010-06-01, and there is none for that day: fill it."
+    assert error["message"] == "Needs the BTC price of 2010-06-01, and there is none for that day: fill it."
+
+
+def test_a_day_after_today_is_flagged_whatever_the_source(auth_client):
+    """#409's review: a row dated tomorrow (UTC) passes the date check (a
+    day ahead is allowed), but no price exists yet for that day, so the
+    import refused it even with a source chosen."""
+    from datetime import datetime, timedelta, timezone
+
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).date()
+    row = f"{tomorrow.isoformat()}T00:00:00Z,Transfer,0.01,Exchange BTC,Wallet,,,0.0001,BTC,,,"
+    data = preview_of(auth_client, row)
+    [error] = data["errors"]
+    assert error["message"] == f"Needs the BTC price of {tomorrow.isoformat()}, and there is none yet for that day: fill it."
+
+
+def test_a_spend_with_its_fee_and_proceeds_left_out_names_both(auth_client, monkeypatch):
+    """One message for the row, naming every value to fill."""
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    data = preview_of(auth_client, "2024-01-03T12:00:00Z,Withdrawal,0.001,Exchange BTC,External,,,0.0001,BTC,,Spent,")
+    [error] = data["errors"]
+    assert error["column"] == "fee_usd"
+    assert error["message"].startswith("Needs the BTC price of 2024-01-03 for fee_usd and proceeds_usd, and none is "
+                                       "stored: fill them.")
+
+
+@pytest.mark.parametrize("columns", [
+    {"price_moment": "day"},  # its fee typed: its proceeds alone take a price, the hour's
+    {"cost_basis_usd": "10", "cost_basis_typed": "no"},  # a basis mark a withdrawal doesn't keep
+], ids=["the day named", "a basis mark"])
+def test_a_spend_priced_at_its_hour_is_valid_with_only_the_hour_stored(auth_client, monkeypatch, test_engine, columns):
+    """#409's review: a Spent's proceeds left out are priced at the hour
+    (its fee's moment only when that comes from a price), so with only the
+    hour stored the import saves it: the preview calls it valid too."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy.orm import Session
+
+    from backend.models.btc_price import BtcPriceHourly
+    from backend.services.hourly_prices import hour_of
+
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    with Session(test_engine) as db:
+        db.add(BtcPriceHourly(hour=hour_of(datetime(2024, 1, 3, 12, tzinfo=timezone.utc)), usd=Decimal("42000"),
+                              source="test"))
+        db.commit()
+    row = {c: "" for c in CSV_COLUMNS} | {
+        "date": "2024-01-03T12:00:00Z", "type": "Withdrawal", "amount": "0.001", "from_account": "Exchange BTC",
+        "to_account": "External", "fee_amount": "0.0001", "fee_currency": "BTC", "purpose": "Spent", "fee_usd": "4.20",
+    } | columns
+    content = f"{HEADER}\n{BANK}\n{FUNDS}\n" + ",".join(row[c] for c in CSV_COLUMNS) + "\n"
+    preview = auth_client.post("/api/import/preview", files=csv_file(content)).json()
+    assert preview["can_import"] is True, preview["errors"]
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    r = auth_client.post("/api/import/execute", files=csv_file(content))
+    assert r.status_code == 200, r.text
+    auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
 def test_the_template_imports_as_it_is_with_prices_off(auth_client, monkeypatch):

@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from backend.models.account import Account
 from backend.models.transaction import Transaction
 from backend.schemas.transaction import (
     BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_storable, validate_usd_storable,
@@ -32,7 +33,7 @@ from backend.services.transaction import (
     original_date_name,
     original_date_problem,
     sell_fee_problem,
-    values_from_a_price,
+    values_the_save_prices,
     text_problem,
     timestamp_problem,
     transfer_fee_problem,
@@ -126,38 +127,64 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
 def flag_unpriced_rows(result: ParseResult, db: Session) -> None:
     """
     Each row whose save needs a BTC price this install has neither stored
-    nor may ask for (no source chosen, Nobody, or a day before any price)
-    moved from the valid rows to the errors, saying which value to fill
-    (#125): the preview no longer calls valid a row the import then refuses.
-    A price it may ask for is left to the import, which asks.
+    nor may ask for (no source chosen, Nobody, or a day without a price:
+    before the first, or after today) moved from the valid rows to the
+    errors, naming the values to fill (#125), so the preview calls valid
+    only what the import saves. A price it may ask for is left to the
+    import, which asks. Its warnings that those values will be priced go.
     """
     years: dict = {}  # the hourly files, read once for every row
-    kept = []
+    _held = db.query(Account).all()  # kept in the session, so each row's account isn't read again
+    kept, flagged = [], {}
     for tx_data, preview in zip(result.transactions, result.previews):
         problem = _unpriced(tx_data, db, years)
         if problem is None:
             kept.append((tx_data, preview))
         else:
-            result.errors.append(_error(preview.row_number, *problem))
+            columns, why = problem
+            result.errors.append(_error(preview.row_number, columns[0], why))
+            flagged[preview.row_number] = set(columns)
     result.transactions = [tx_data for tx_data, _ in kept]
     result.previews = [preview for _, preview in kept]
+    result.warnings = [w for w in result.warnings if w.column not in flagged.get(w.row_number, ())]
     result.errors.sort(key=lambda e: e.row_number)
 
 
-def _unpriced(tx_data: dict[str, Any], db: Session, years: dict) -> tuple[str, str] | None:
-    """(the column, why) for the first value the save would price with no
-    price to be had; None when every one has a price, or may get one."""
+def _unpriced(tx_data: dict[str, Any], db: Session, years: dict) -> tuple[list[str], str] | None:
+    """(the columns, why) for the values the save would price with no price
+    to be had, by the first such value's day; None when every one has a
+    price, or may get one."""
+    missing = [(column, price_history.utc_day(when)) for column, when, moment in values_the_save_prices(tx_data, db)
+               if not _price_stored(db, when, moment, years)]
+    for _, day in missing:
+        why = _why_unpriced(day)
+        if why is not None:
+            break
+    else:
+        return None
+    columns = [column for column, other in missing if other == day]
+    named = f" for {' and '.join(columns)}" if len(columns) > 1 else ""
+    it = "them" if len(columns) > 1 else "it"
+    return columns, f"Needs the BTC price of {day.isoformat()}{named}, {why[0]}: fill {it}.{why[1]}"
+
+
+def _price_stored(db: Session, when: datetime, moment: str, years: dict) -> bool:
+    """Whether the price the save would use is here without a request: the
+    hour's (else, as _price_at falls back, the day's), or the day's."""
+    return hourly_prices.stored_price_at(db, when, moment, years) is not None \
+        or (moment == "hour" and hourly_prices.stored_price_at(db, when, "day", years) is not None)
+
+
+def _why_unpriced(day) -> tuple[str, str] | None:
+    """Why no price for `day` can be had at the import, and what to change
+    (daily_price's and no_price's reasons); None when one may be asked for."""
+    if day < price_history.FIRST_PRICE_DAY:
+        return "and there is none for that day", ""
+    if day > datetime.now(timezone.utc).date():
+        return "and there is none yet for that day", ""
     settings = outbound.current()
-    for column, when, moment in values_from_a_price(tx_data, db):
-        if hourly_prices.stored_price_at(db, when, moment, years) is not None \
-                or (moment == "hour" and hourly_prices.stored_price_at(db, when, "day", years) is not None):
-            continue
-        day = price_history.utc_day(when)
-        if day < price_history.FIRST_PRICE_DAY:
-            return column, f"{column} needs the BTC price of {day.isoformat()}, and there is none for that day: fill it."
-        if not (settings.own_node or settings.public_allowed):
-            return column, (f"{column} needs the BTC price of {day.isoformat()}, and none is stored: fill it. "
-                            f"{outbound.refuse_public().detail}")
+    if not (settings.own_node or settings.public_allowed):
+        return "and none is stored", f" {outbound.refuse_public().detail}"
     return None
 
 
