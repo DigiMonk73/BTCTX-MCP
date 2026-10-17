@@ -68,7 +68,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -126,7 +126,7 @@ jobs:
       - run: pip install --require-hashes -r backend/requirements.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -227,9 +227,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
-          # via mempool-startos): pinned until a later 22 does (issue #32)
-          node-version: 22.23.2
+          # npm ci builds diskusage (bitcoin-core-startos, via mempool-startos)
+          # from source: a Node whose headers can't build it fails here (#32)
+          node-version: 24
           cache: npm
           cache-dependency-path: startos/package-lock.json
       - name: start-cli (the SDK's make rules list the package's files with it)
@@ -250,9 +250,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          # Node 22.23.3's headers don't build diskusage (bitcoin-core-startos,
-          # via mempool-startos): pinned until a later 22 does (issue #32)
-          node-version: 22.23.2
+          # npm ci builds diskusage (bitcoin-core-startos, via mempool-startos)
+          # from source: a Node whose headers can't build it fails here (#32)
+          node-version: 24
           cache: npm
           cache-dependency-path: startos/package-lock.json
       # start-cli 2.3.0 packs with `docker ... --platform`, which needs Docker
@@ -302,7 +302,7 @@ jobs:
       - run: pip-audit -r requirements-dev.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
       - run: cd frontend && npm audit --audit-level=high
 
   audit-macos:
@@ -330,7 +330,7 @@ jobs:
           python-version: "3.13"  # the Mac app's, on purpose and tested (#284): the newest in ci.yml's matrix
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
       - name: Build BitcoinTX.app
         run: ./desktop/build-mac.sh
         env:
