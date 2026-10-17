@@ -273,7 +273,7 @@ you to approve each tool call unless you tell it not to.
   [Privacy](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model)).
 - There is no bulk delete, and every write is visible in BitcoinTX. Before a
   large import, have the AI run `backup_ledger` or take a backup yourself
-  (Settings → Backup & Restore, or `scripts/backup-db.sh` on a server).
+  (Settings → Backup & Restore).
 - Before the key's first change in an hour (an edit, a deletion, Recalculate
   Ledger, or an import holding an entry dated before your latest entry,
   which recalculates the ledger), BitcoinTX makes a copy of the database

@@ -1030,6 +1030,13 @@ All notable changes to BitcoinTX are documented in this file.
   Codespaces, it built an environment unlike the image, the locks and CI.
   A development setup follows `docs/MAINTENANCE.md` and `docs/TESTING.md`,
   from the hashed locks.
+- **Two old scripts are gone** (#44). `scripts/release-docker.sh` pushed
+  an image to a Docker Hub repository no longer used, with `:latest`; the
+  images come from `.github/workflows/image.yml`
+  (`ghcr.io/digimonk73/btctx-mcp`). `scripts/backup-db.sh` copied a
+  database by hand, which Settings → Backup & Restore and BitcoinTX's own
+  copies before each upgrade cover; `mcp_server/README.md` no longer
+  points to it.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
