@@ -2,10 +2,10 @@
 
 ## Documentation
 
-- [BitcoinTX README](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/README.md) — what BitcoinTX does: transactions, lots, tax forms, imports
+- [Using BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/USING.md) — what BitcoinTX does: transactions, lots, tax forms, imports, Ledger Review
 - [BitcoinTX MCP server](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md) — connecting an AI assistant
 
-The BitcoinTX README's Mac app, Docker and source steps don't apply here; on
+The MCP server page's Mac app and Docker steps don't apply here; on
 StartOS, follow this page.
 
 ## What you get on StartOS
