@@ -621,6 +621,42 @@ def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, 
     )
 
 
+def match_by_moving(
+    stuck: list[RiverProposal], holders: list[RiverProposal], db: Session, rule: DuplicateRule,
+    kept_tx_ids: Collection[int],
+) -> None:
+    """
+    Each proposal in `stuck` (still new) matched after all when a duplicate
+    of it can be freed: one a proposal in `holders` matched, when that one
+    can take another duplicate of its own instead, and so on down (an
+    augmenting path: the most proposals matched). Never a transaction in
+    `kept_tx_ids`. For the AI's rows the user says are other transactions:
+    sent again, a looser row beside one (a date alone, nearer to the copy
+    the first send saved for it) can have taken that copy (#388's review).
+    """
+    if not stuck:
+        return
+    proposals = [*stuck, *holders]
+    tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
+    nearby = _nearby(proposals, db.query(Transaction).order_by(Transaction.id).all())
+    holder = {p.matched_tx_id: p for p in holders}
+
+    def place(proposal: RiverProposal, seen: set) -> bool:
+        """`proposal` matched to a free duplicate, or one its holder can give up."""
+        for tx in sorted(nearby[id(proposal)], key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp)):
+            if tx.id in kept_tx_ids or tx.id in seen or not is_duplicate(proposal, tx, rule, tz):
+                continue
+            seen.add(tx.id)
+            if tx.id not in holder or place(holder[tx.id], seen):
+                holder[tx.id] = proposal
+                proposal.matched_tx_id, proposal.status = tx.id, STATUS_MATCHED
+                return True
+        return False
+
+    for proposal in sorted(stuck, key=lambda p: p.timestamp):
+        place(proposal, set())
+
+
 def _nearest(proposal: RiverProposal, txs: list[Transaction]) -> Transaction | None:
     """The transaction closest in time; the first of equally close ones."""
     return min(txs, key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp), default=None)

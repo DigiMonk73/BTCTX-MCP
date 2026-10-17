@@ -275,8 +275,8 @@ class TestDedup:
         they aren't, sent three times (a retry after a timeout, say): only
         the first send saves anything. A row naming it that matched
         another copy is that copy (an identical row beside it took the
-        named one). A resend saved one more copy per extra named row, and
-        one for a named row after a plain one."""
+        named one), so no extra named row, and no named row after a plain
+        one, saves another copy."""
         recorded = execute([BUY])["created"][0]["id"]
         rows = [dict(BUY, not_a_duplicate_of=recorded) if n else BUY for n in named]
         assert [execute(rows)["imported_count"] for _ in range(3)] == [saved, 0, 0]
@@ -284,6 +284,46 @@ class TestDedup:
         results = preview(rows)["results"]
         assert all(r["status"] == "duplicate" for r in results)
         assert all(any("sent twice" in w for w in r["warnings"]) for r, n in zip(results, named) if n)
+
+    def test_a_resend_saves_nothing_when_a_date_alone_row_took_the_named_rows_copy(self):
+        """#388's review: two Interest payouts recorded on a day (10:00 and
+        15:00); the user adds a third at 10:00, named as another than the
+        10:00 one, beside the 15:00 one given as a date alone. Sent again,
+        the date-alone row took the copy the first send saved at 10:00
+        (nearer noon than 15:00), and the named row was saved again. It
+        now gets that copy back, and the date-alone row the 15:00 one."""
+        at_ten = dict(INTEREST, date="2025-03-20T10:00:00Z")
+        ten, three = (execute([row])["created"][0]["id"] for row in (at_ten, dict(INTEREST, date="2025-03-20T15:00:00Z")))
+        day = dict(INTEREST, date="2025-03-20")
+        assert [(r["status"], r["matched_transaction_id"]) for r in preview([at_ten, day])["results"]] == [
+            ("duplicate", ten), ("duplicate", three)]
+        rows = [dict(at_ten, not_a_duplicate_of=ten), day]
+        assert [execute(rows)["imported_count"] for _ in range(3)] == [1, 0, 0]
+        assert tx_count() == 3
+        results = preview(rows)["results"]
+        assert results[1]["matched_transaction_id"] == three and any("sent twice" in w for w in results[0]["warnings"])
+
+    @pytest.mark.parametrize("seed", range(3))
+    def test_any_request_naming_what_its_preview_matched_saves_only_once(self, seed):
+        """#378's promise on random ledgers: payouts of two amounts at a few
+        times of one day (some rows given as a date alone), some of the
+        preview's duplicates named as other transactions. Sent three
+        times, only the first send saves anything."""
+        import random
+
+        rng = random.Random(seed)
+        times = ["2025-03-20T10:00:00Z", "2025-03-20T10:00:30Z", "2025-03-20T15:00:00Z", "2025-03-20"]
+        for _ in range(60):
+            CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+            payout = lambda: dict(INTEREST, date=rng.choice(times), amount=rng.choice(["0.002", "0.003"]))  # noqa: E731
+            for _ in range(rng.randrange(4)):
+                execute([dict(payout(), date=rng.choice(times[:3]))])
+            rows = [payout() for _ in range(rng.randrange(1, 5))]
+            for row, res in zip(rows, preview(rows)["results"]):
+                if res["status"] == "duplicate" and rng.random() < 0.6:
+                    row["not_a_duplicate_of"] = res["matched_transaction_id"]
+            saved = [execute(rows)["imported_count"] for _ in range(3)]
+            assert saved[1:] == [0, 0], (rows, saved)
 
     def test_two_rows_each_naming_its_own_match_are_both_saved(self):
         """Two identical Buys recorded, and the user says the two rows are

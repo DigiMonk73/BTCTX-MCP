@@ -652,8 +652,9 @@ Set `KEY` to the key from AI-3, and use
   14 rows. Preview a copy of #2 (`"date":"2023-02-01T12:00:00-05:00"`, Buy,
   `1.0`, Bank → Exchange BTC, basis `23000`). Expect: status `duplicate`,
   `matched_transaction_id` = #2's id. Preview it again with
-  `"not_a_duplicate_of"` set to that id: status `ready`. Preview it without that at
-  `2023-02-01T12:05:00-05:00`: status `possible_duplicate`, a warning
+  `"not_a_duplicate_of"` set to that id: status `ready`. Preview it
+  without that at `2023-02-01T12:05:00-05:00`: status
+  `possible_duplicate`, a warning
   "Same BTC amount as tx #… (Buy 1.00000000 BTC), recorded 5 minutes
   earlier: it may be the same transaction. Saved unless you remove it."
   (#253). Preview an income with its value left out

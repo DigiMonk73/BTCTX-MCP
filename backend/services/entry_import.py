@@ -49,6 +49,7 @@ from backend.services.river_import import (
     RiverProposal,
     annotate_duplicates,
     is_duplicate,
+    match_by_moving,
     same_ledger_amount,
 )
 from backend.services.transaction import (
@@ -349,17 +350,24 @@ def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal],
     """Each row that matched the transaction it says it isn't
     (not_a_duplicate_of), checked again without the transactions the rows
     matched: it's new unless the ledger holds another copy (the one an
-    earlier add_transactions saved). A row that matched another copy is
-    that copy: an identical row beside it took the one it names, so a
-    request sent again saves nothing more (#378)."""
+    earlier add_transactions saved), whichever row beside it holds that
+    copy, if that row has another duplicate of its own (match_by_moving). A
+    row that matched another copy is that copy: an identical row beside it
+    took the one it names, so a request sent again saves nothing more
+    (#378)."""
     taken = {stub.matched_tx_id for stub in stubs if stub.status == STATUS_MATCHED}
     again = {
         i: _stub(p) for i, (p, stub) in enumerate(zip(valid, stubs))
         if stub.status == STATUS_MATCHED and stub.matched_tx_id == p.not_a_duplicate_of
     }
     annotate_duplicates(list(again.values()), db, exact_only=True, rule=ENTRY_RULE, reserved_tx_ids=taken)
+    names = {stubs[i].matched_tx_id for i in again}
     for i, stub in again.items():
         stubs[i] = stub
+    # Another row may hold the copy one of these needs, and have another of its own
+    stuck = [stub for stub in again.values() if stub.status == STATUS_NEW]
+    holders = [stub for stub in stubs if stub.status == STATUS_MATCHED]
+    match_by_moving(stuck, holders, db, ENTRY_RULE, kept_tx_ids=names)
 
 
 def _named_duplicates(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> set[int]:
