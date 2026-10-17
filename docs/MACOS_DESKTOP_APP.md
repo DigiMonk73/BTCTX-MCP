@@ -73,9 +73,10 @@ BitcoinTX.app
     (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
     backup downloads, because WebKit in pywebview doesn't handle browser
     downloads.
-  - `setup_code()`: the first-run setup code ("First start" below), only
-    while the window shows one of the app's own pages (pywebview gives the
-    API to whatever page its window shows).
+  - `setup_code()`: the first-run setup code ("First start" below).
+
+  Both answer only while the window shows one of the app's own pages
+  (pywebview gives the API to whatever page its window shows).
 
 ## First start
 
