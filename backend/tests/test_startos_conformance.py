@@ -3,16 +3,19 @@ The StartOS package keeps Start9's packaging rules (owner's rule, 2026-09-29):
 Start9 forks startos/ (through the DigiMonk73/BTCTX-StartOS mirror) into its
 community registry and reviews it against its packaging guide,
 https://docs.start9.com/packaging (project-structure.md, writing-readmes.md,
-writing-instructions.md). These are the rules a script can check; what the
-README and instructions say is still read against the guide by hand.
+writing-instructions.md, versions.md, maintaining-a-package.md). These are the
+rules a script can check; what the README and instructions say is still read
+against the guide by hand.
 """
 
+import json
 import re
 from pathlib import Path
 
 import pytest
 
-PKG = Path(__file__).resolve().parents[2] / "startos"
+ROOT = Path(__file__).resolve().parents[2]
+PKG = ROOT / "startos"
 
 # project-structure.md: the root layout every package has.
 LAYOUT = [
@@ -145,6 +148,48 @@ def test_instructions_documentation_links_parse():
         # file's extension; with an #anchor it would be crawled as a site.
         assert "#" not in url, url
         assert not re.search(r"/blob/[0-9a-f]{40}/", url), f"commit-pinned: {url}"
+
+
+def test_instructions_describe_the_service_as_it_is():
+    # writing-instructions.md: "After updating from an older release…",
+    # "now uses…", "no longer…" is releaseNotes; versions.md: release notes are
+    # "the only home for what an update asks of the user".
+    update_words = re.compile(
+        r"\bafter (?:updating|(?:an?|the|this|each|every) (?:\w+ )?update)\b|\bnow uses\b|\bno longer\b",
+        re.I,
+    )
+    assert update_words.findall(read("instructions.md")) == []
+
+
+def test_license_is_upstreams_license_alone():
+    # project-structure.md: "It carries upstream's license text alone"; with a
+    # pre-built image, "copy the license text directly from the upstream
+    # repository" (this repository's own LICENSE).
+    assert read("LICENSE") == (ROOT / "LICENSE").read_text()
+
+
+def test_start9s_release_workflow_reads_one_id_and_one_version():
+    # Start9's Tag and Release greps these from the text (its extract-version
+    # action), so versions.md: "Write version as a quoted string literal".
+    manifest = read("startos/manifest/index.ts")
+    current = read("startos/versions/current.ts")
+    assert re.findall(r"id:\s*['\"]([^'\"]*)", manifest) == ["btctx"]
+    versions = re.findall(r"version:\s*['\"]([^'\"]*)", current)
+    assert len(versions) == 1 and re.fullmatch(r"\d+(\.\d+)*:\d+", versions[0]), versions
+
+
+def test_one_exact_sdk_and_siblings_at_next():
+    # maintaining-a-package.md: the SDK pinned to an exact version, one copy of
+    # it in the lockfile (the overrides entry), sibling packages at #next (or
+    # #next/<base> for a package with parallel lines).
+    package = json.loads(read("package.json"))
+    deps = package["dependencies"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", deps.pop("@start9labs/start-sdk"))
+    assert package["overrides"] == {"@start9labs/start-sdk": "$@start9labs/start-sdk"}
+    assert all(re.search(r"#next(/[\w.-]+)?$", spec) for spec in deps.values()), deps
+    lock = json.loads(read("package-lock.json"))["packages"]
+    sdks = [path for path in lock if path.endswith("node_modules/@start9labs/start-sdk")]
+    assert sdks == ["node_modules/@start9labs/start-sdk"]
 
 
 def test_no_work_record_files():
