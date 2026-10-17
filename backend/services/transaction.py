@@ -102,13 +102,7 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
-    # An import's values priced at the day (a file without the moment means
-    # the day): a value priced now takes the day too, so the transaction's
-    # priced values share one price
-    imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
-        or tx_data.get("fee_usd_from_price") or tx_data.get("fmv_from_price")
-    at_the_day = tx_data.get("price_moment") == "day" or (imported and not tx_data.get("price_moment"))
-    with _priced_at_the_day(db, bool(at_the_day)):
+    with _priced_at_the_day(db, _prices_at_the_day(tx_data)):
         _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
         _mark_gift_value(tx_data, priced=_value_blank_gift(tx_data, db))
         _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
@@ -122,6 +116,57 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
 
 
 PRICE_MOMENTS = ("hour", "day")
+
+
+def _prices_at_the_day(tx_data: dict) -> bool:
+    """An import's values priced at the day (a file without the moment means
+    the day): a value priced now takes the day too, so the transaction's
+    priced values share one price."""
+    imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
+        or tx_data.get("fee_usd_from_price") or tx_data.get("fmv_from_price")
+    return tx_data.get("price_moment") == "day" or bool(imported and not tx_data.get("price_moment"))
+
+
+def values_the_save_prices(tx_data: dict, db: Session) -> list[tuple[str, datetime, str]]:
+    """
+    The values a new transaction's save fills from the BTC price, and won't
+    save without (#125): (the field, the moment it's priced at, "hour" or
+    "day"). An "hour" falls back to that day's price, as _price_at does.
+    These are a BTC fee's USD value, an income, rebate or inherited
+    deposit's basis (an inheritance's at its date of death), and a Spent's
+    proceeds, each left out. A gift's value is filled only when there is a
+    price, so it's never one.
+    """
+    moment = tx_data.get("timestamp") or datetime.now(timezone.utc)
+    at = "day" if _prices_at_the_day(tx_data) else "hour"
+    values = []
+    if _valued_at_receipt(tx_data, db) and Decimal(tx_data.get("cost_basis_usd") or 0) <= 0 \
+            and Decimal(tx_data.get("amount") or 0) > 0:
+        if _is_inherited(tx_data):
+            day = date_of_death(tx_data.get("acquired_at") or moment, db)
+            values.append(("cost_basis_usd", datetime(day.year, day.month, day.day, tzinfo=timezone.utc), "day"))
+        else:
+            values.append(("cost_basis_usd", moment, at))
+    if _has_btc_fee(tx_data) and tx_data.get("fee_usd") is None:
+        values.append(("fee_usd", moment, at))
+    if _is_spent(tx_data) and tx_data.get("from_account_id") in BTC_ACCOUNTS and tx_data.get("proceeds_usd") is None:
+        values.append(("proceeds_usd", moment, _spent_proceeds_moment(tx_data, at)))
+    return values
+
+
+def _spent_proceeds_moment(tx_data: dict, at: str) -> str:
+    """Where a Spent's proceeds left out are priced: at the moment its fee's
+    value has when that comes from a price (priced at save, at `at`, or an
+    import's, at its price_moment or else the day), else at the hour. The
+    save prices them last (_withdrawal_gross_proceeds), at the price_moment
+    _prepare_input stores (_price_moment)."""
+    if not _has_btc_fee(tx_data):
+        return "hour"
+    if tx_data.get("fee_usd") is None:
+        return at
+    if tx_data.get("fee_usd_from_price"):
+        return tx_data["price_moment"] if tx_data.get("price_moment") in PRICE_MOMENTS else "day"
+    return "hour"
 
 
 def _has_priced_value(data) -> bool:

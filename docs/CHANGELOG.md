@@ -537,6 +537,19 @@ All notable changes to BitcoinTX are documented in this file.
   transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
+- **The CSV import's Preview says when a row needs a price BitcoinTX can't
+  get** (#125). Preview called a row valid that Import then refused for want
+  of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
+  inherited deposit without its basis, or a Spent without its proceeds,
+  when no price for that day was stored and none could be asked for (no
+  price source chosen, or Nobody, or a day before any price or after
+  today). Preview now
+  lists such a row as an error naming the value to fill. A price BitcoinTX
+  may still ask for is left to the import, as before. Nothing was ever saved
+  wrong: the import refused the whole file and said why. **Affected:** every
+  version since 1.1.0 (where nothing is asked for prices until a source is
+  chosen, nor with Nobody), and every version for a day before any price or
+  after today. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
