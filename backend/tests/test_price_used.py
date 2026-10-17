@@ -89,7 +89,7 @@ def test_an_hour_from_the_year_files_names_bitstamp(auth_client, monkeypatch):
     line = pf.YearLine(2026, pf.year_start(2026), hour + 3600, 1, "x")
     reads = []
     monkeypatch.setattr(pf, "read_manifest", lambda path=None: reads.append(1) or [line])
-    monkeypatch.setattr(hourly_prices, "_year_prices", lambda y: {hour: Decimal("70000.00")})
+    monkeypatch.setattr(hourly_prices, "_year_prices", lambda line, remember=True: {hour: Decimal("70000.00")})
     monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, **k: (Decimal("70000.00"), "bitstamp"))
     tx = deposit(auth_client)
     assert tx["price_used"] == {"at": HOUR, "moment": "hour", "source": "bitstamp", "usd_per_btc": "70000.00"}

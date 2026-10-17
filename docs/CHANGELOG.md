@@ -843,15 +843,32 @@ All notable changes to BitcoinTX are documented in this file.
     stay out of the browser's cache** (`Cache-Control: no-store` on every
     answer from BitcoinTX's API): a downloaded ledger no longer lingers in
     the browser's own files after you've saved it.
-- **The AI connector's Recalculate Ledger comes after a copy of the
-  database** (#336, the owner's choice). Before the AI key's first edit or
-  deletion in an hour, BitcoinTX keeps a copy of the database
-  (`backups/…-ai-before-changing-…db`); a recalculation asked for with the
-  key (`recalculate_ledger`) made none, though it can change stored figures
-  (a rule fix an update brings, which Ledger Review lists first). It now
-  counts as a change: the hour's first one comes after that copy, kept as
-  long as the others, and with no copy nothing is recalculated. Your own
-  Recalculate Ledger (Settings, or StartOS's action) is unchanged.
+  - **A CSV or River file is read only as far as the 5 MB limit** (and one
+    byte, to tell it's over) before it's refused, not whole.
+  - **An import that fails for an unexpected reason says so in plain
+    words**: "Import failed: something unexpected stopped it, and no
+    transactions were saved. BitcoinTX's log says what." It used to repeat
+    the error's own text, which could hold a database query, a server path
+    or a transaction's date. The log names the kind of error; the details
+    are in its debug level. When the database was busy saving something
+    else, the import says so, to try again. The AI preview no longer
+    passes such an error's text on to the AI either.
+  - **The AI preview reads the price history files before its dry run**,
+    so the time it holds the database's lock, while your own saves wait,
+    no longer includes reading them to say which price filled each value.
+- **The AI connector's Recalculate Ledger, and its import of an entry dated
+  before your latest entry, come after a copy of the database** (#336, #414,
+  the owner's choices). Before the AI key's first edit or deletion in an
+  hour, BitcoinTX keeps a copy of the database
+  (`backups/…-ai-before-changing-…db`). A recalculation asked for with the
+  key (`recalculate_ledger`) made none, nor did an import
+  (`add_transactions`) holding an entry dated before your latest entry,
+  which recalculates the whole ledger too; either can change stored figures
+  (a rule fix an update brings, which Ledger Review lists first). Both now
+  count as a change: the hour's first one comes after that copy, kept as
+  long as the others, and with no copy nothing is recalculated or added. An
+  import of later entries only, and your own Recalculate Ledger or imports
+  (Settings, or StartOS's action), are unchanged.
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
@@ -900,6 +917,14 @@ All notable changes to BitcoinTX are documented in this file.
   instead of a package revision.
 
 ### Development
+- **During big work the lead runs every merge** (AGENTS.md, "Big work",
+  "Pull requests" and "Branches"; `docs/HOW-CHANGES-FLOW.md`; the owner's
+  rule, 2026-10-17). Sessions report a pull request "ready" instead of
+  turning on auto-merge; the lead merges from one queue on the umbrella
+  issue, each branch brought up to date with `develop` and re-tested
+  first; `develop` requires that since 2026-10-17. #413 had merged on
+  checks run before #416 changed the sentence its test expected, which
+  broke `develop` until #417.
 - **A bug found during big work gets its own session** (AGENTS.md, "Big
   work"; `docs/HOW-CHANGES-FLOW.md`; the owner's rule, 2026-10-16). Once
   it's filed, the lead adds a session for it to the umbrella issue and
