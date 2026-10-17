@@ -17,13 +17,15 @@ import stat
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from starlette.routing import compile_path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from backend.tests.conftest import default_login, keep_in_use
-from backend.main import app
+from backend.main import ROUTE_TEMPLATES, app, get_current_user
 from backend.migrate import backup_copies, backup_sqlite
 from backend.services import ai_key
 
@@ -145,23 +147,47 @@ def test_refusals_changed_nothing(auth_client, ai_key_headers):
 # ---------------------------------------------------------------------------
 # The allow-list
 # ---------------------------------------------------------------------------
-def test_ids_are_digits_only():
-    assert ai_key.key_may_use("DELETE", "/api/transactions/12")
-    assert ai_key.key_may_use("GET", "/api/transactions/")
+def test_the_list_names_routes_not_urls():
+    assert ai_key.key_may_use("DELETE", "/api/transactions/{transaction_id}")
+    assert not ai_key.key_may_use("DELETE", "/api/transactions/12")
     assert not ai_key.key_may_use("DELETE", "/api/transactions/delete_all")
-    assert not ai_key.key_may_use("POST", "/api/transactions/12")
-    assert not ai_key.key_may_use("GET", "/api/transactions/12/extra")
+    assert not ai_key.key_may_use("POST", "/api/transactions/{transaction_id}")
+    assert not ai_key.key_may_use("GET", None)
 
 
-def _shape(path: str) -> str:
-    return re.sub(r"\{[^}]+\}", "{}", path.rstrip("/"))
+def _served(rest: str) -> dict:
+    return {"served": rest}
+
+
+def test_the_key_goes_by_the_route_a_request_matched_not_its_url(ai_key_headers):
+    """#204: the allow-list read the URL re-parsed from the decoded path, where
+    a %3F cuts it short: /api/review%3Fx read as /api/review, open to the key,
+    whichever route served it. It goes by the route the request matched now."""
+    route = APIRoute("/api/review{rest}", _served, methods=["GET"], dependencies=[Depends(get_current_user)],
+                     dependency_overrides_provider=app)
+    app.router.routes.insert(0, route)
+    try:
+        r = key_only().get("/api/review%3Fx", headers=ai_key_headers)
+    finally:
+        app.router.routes.remove(route)
+    assert r.status_code == 403 and r.json()["detail"] == ai_key.NOT_ALLOWED
 
 
 def test_every_listed_route_exists():
-    """A renamed route must be renamed in AI_KEY_ROUTES too."""
-    app_routes = {(m.upper(), _shape(p)) for p, ops in app.openapi()["paths"].items() for m in ops}
+    """A renamed route, or path parameter, must be renamed in AI_KEY_ROUTES too."""
+    app_routes = {(m.upper(), p) for p, ops in app.openapi()["paths"].items() for m in ops}
+    templates = set(ROUTE_TEMPLATES.values())
     for method, path, _ in ai_key.AI_KEY_ROUTES:
-        assert (method, _shape(path)) in app_routes, (method, path)
+        assert (method, path) in app_routes and path in templates, (method, path)
+
+
+def _route_of(method: str, path: str) -> str | None:
+    """The template of the route the app serves `path` with: the first that
+    fits, as its router picks."""
+    for template, operations in app.openapi()["paths"].items():
+        if method.lower() in operations and compile_path(template)[0].match(path):
+            return template
+    return None
 
 
 def test_every_route_the_mcp_tools_call_is_allowed():
@@ -171,7 +197,7 @@ def test_every_route_the_mcp_tools_call_is_allowed():
     assert len(calls) >= 12
     for method, path in calls:
         path = re.sub(r"\{[^}]+\}", "7", path)
-        assert ai_key.key_may_use(method, path), (method, path)
+        assert ai_key.key_may_use(method, _route_of(method, path)), (method, path)
 
 
 # ---------------------------------------------------------------------------

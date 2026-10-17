@@ -5,8 +5,10 @@ into a live ledger. See docs/archive/RIVER_IMPORT_PLAN.md for the full design.
 River CSV columns:
     Date, Sent Amount, Sent Currency, Received Amount, Received Currency,
     Fee Amount, Fee Currency, Tag
-Dates are "YYYY-MM-DD HH:MM:SS" in UTC. Tag is one of Buy, Sell, Income,
-Interest, Withdrawal, or empty (on-chain sends/receives).
+Dates are "YYYY-MM-DD HH:MM:SS" in UTC. Tag is one of Buy, Sell, Income
+(a referral payout), Interest, Mining (a mining payout), Withdrawal (an
+auto-withdrawal), or empty (on-chain sends/receives). River's help page "How
+do I download my account activity?" defines the columns and tags.
 
 Account model (deliberate simplification, see plan doc):
     Exchange USD / Exchange BTC = River; Bank = outside bank; Wallet = cold
@@ -18,6 +20,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -53,6 +56,10 @@ RIVER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # The amounts, as River's header names them
 RIVER_NUMBER_COLUMNS = ("Sent Amount", "Received Amount", "Fee Amount")
+
+# The deposit source of BTC River pays, by River's tag: a mining payout is a
+# Reward (mining, staking, bonuses), income like the others (#399)
+RIVER_PAYOUT_SOURCES = {"Interest": "Interest", "Income": "Income", "Mining": "Reward"}
 
 # A buy outlay (sent + USD fee) that repeats at least this many times with no
 # fee is treated as a recurring auto-buy pulled from the bank via ACH.
@@ -318,7 +325,7 @@ class _RiverAdapter:
             return self.buy(row)
         if tag == "Sell" and row.sent_currency == "BTC" and row.received_currency == "USD":
             return self.sell(row)
-        if tag in ("Interest", "Income") and row.received_currency == "BTC" and row.received:
+        if tag in RIVER_PAYOUT_SOURCES and row.received_currency == "BTC" and row.received:
             return self.income(row)
         if row.sent_currency == "BTC" and row.received is None:
             return self.send(row)
@@ -390,37 +397,29 @@ class _RiverAdapter:
             type="Deposit", from_account_id=ACCOUNT_EXTERNAL,
             to_account_id=ACCOUNT_EXCHANGE_BTC,
             amount=row.received,
-            source=row.tag,
+            source=RIVER_PAYOUT_SOURCES[row.tag],
         )
 
     def send(self, row: RiverRow) -> RiverProposal | None:
         """
-        BTC left River. Untagged, it's almost always a move to cold storage;
-        Tag=Withdrawal means the user told River it left their hands. The
-        user can flip either in the preview. River's Sent Amount is what the
-        destination receives, the network fee on top; the proposal keeps
-        River's numbers, and ledger_amount() gives a Transfer's BitcoinTX
-        amount (fee included) for dedup and at execute.
+        BTC left River: almost always a move to the user's cold storage,
+        whether a send (untagged) or an auto-withdrawal (Tag=Withdrawal: River
+        sends the balance to the address the user set, #397). The user can
+        make it a Withdrawal in the preview. River's Sent Amount is what the
+        destination receives, the network fee on top (River's Total is Sent
+        plus Fee, #39); the proposal keeps River's numbers, and
+        ledger_amount() gives a Transfer's BitcoinTX amount (fee included)
+        for dedup and at execute.
         """
         if not row.sent or row.sent <= 0:
             self.warn(row, "BTC send row missing amount — skipped.")
             return None
         self.check_fee_currency(row, "BTC")
-        fee = {"fee_amount": row.fee, "fee_currency": "BTC" if row.fee else None}
-        if row.tag == "Withdrawal":
-            return RiverProposal(
-                row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-                type="Withdrawal", from_account_id=ACCOUNT_EXCHANGE_BTC,
-                to_account_id=ACCOUNT_EXTERNAL,
-                amount=row.sent, **fee,
-                purpose="Spent",
-                type_choices=["Withdrawal", "Transfer"],
-            )
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
             type="Transfer", from_account_id=ACCOUNT_EXCHANGE_BTC,
             to_account_id=ACCOUNT_WALLET,
-            amount=row.sent, **fee,
+            amount=row.sent, fee_amount=row.fee, fee_currency="BTC" if row.fee else None,
             type_choices=["Transfer", "Withdrawal"],
         )
 
@@ -550,16 +549,19 @@ def annotate_duplicates(
     Passes 2 and 3 are skipped when exact_only=True: the execute
     endpoints' double-submit guard leaves out only duplicates.
     """
+    if not proposals:
+        return  # nothing to look up the ledger for
     existing: list[Transaction] = db.query(Transaction).all()
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
+    nearby = _nearby(proposals, existing)
 
     def each_new(match, types=None) -> None:
         """One pass: `match` for every row still new (of `types`), in time order."""
         for proposal in by_time:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
-                match(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
+                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids), used_tx_ids)
 
     for same_amount in rule.amounts:
         for same_type in (True, False):
@@ -572,10 +574,39 @@ def annotate_duplicates(
     each_new(_match_roughly, types=("Transfer", "Withdrawal"))
 
 
+def _nearby(proposals: list[RiverProposal], existing: list[Transaction]) -> dict[int, list[Transaction]]:
+    """Each proposal's transactions within the window (by id(proposal)),
+    found by time once per call, so no pass scans the whole ledger for
+    every row (#379). Kept in the ledger's order: _nearest gives a tie to
+    the first of them, as over the whole ledger."""
+    by_time = sorted((_as_utc(tx.timestamp), i) for i, tx in enumerate(existing))
+    times = [moment for moment, _ in by_time]
+    nearby = {}
+    for proposal in proposals:
+        low, high = _window(proposal.timestamp)
+        start, end = bisect_left(times, low), bisect_right(times, high)
+        nearby[id(proposal)] = [existing[i] for i in sorted(i for _, i in by_time[start:end])]
+    return nearby
+
+
+def _window(moment: datetime) -> tuple[datetime, datetime]:
+    """From SIMILAR_WINDOW before `moment` to SIMILAR_WINDOW after, in UTC
+    (an aware time elsewhere would move by its wall clock), stopping at
+    Python's first and last years: a River file's row can be dated anywhere
+    until its import refuses it (#211)."""
+    moment = _as_utc(moment)
+    first, last = datetime.min.replace(tzinfo=timezone.utc), datetime.max.replace(tzinfo=timezone.utc)
+    low = moment - SIMILAR_WINDOW if moment - first > SIMILAR_WINDOW else first
+    high = moment + SIMILAR_WINDOW if last - moment > SIMILAR_WINDOW else last
+    return low, high
+
+
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
     going the same way: from the row's account or to it, so a send never
-    matches a deposit, nor a receive a withdrawal (#253)."""
+    matches a deposit, nor a receive a withdrawal (#253). The window is
+    checked here too, so that over the whole ledger (the speed test's
+    reference) it's exact."""
     types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
     return [
         tx for tx in existing

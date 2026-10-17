@@ -34,6 +34,13 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
+- **The README says what comes after 1.2.9** (#369, #251; "Versions", also
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
+  version, with maintenance updates and small improvements after it, until
+  2.0 replaces it;
+  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  a beta on GitHub pre-releases before it comes to Start9's Community Beta.
+  No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
@@ -169,6 +176,37 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A River auto-withdrawal is imported as a move to your wallet, and a
+  River mining payout as income** (tax figures, #397, #399). River's
+  activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
+  sending your balance to the address you set, normally your own wallet. The
+  River import read the tag as bitcoin that had left your hands, and
+  suggested each such row as a Withdrawal with purpose Spent. Kept as
+  suggested, a move to your own wallet counted as a sale on Form 8949 (a
+  gain or loss that didn't happen), and the coins were missing from your
+  Wallet's balance, so a later sale from it took the wrong lots. A row
+  tagged `Mining` (a River mining payout) was skipped with a warning, so its
+  income was left out unless you added it by hand. Every version from 0.7.0
+  (the River import) to 1.2.8. Now an auto-withdrawal is suggested like any
+  other send from River, a Transfer from Exchange BTC to Wallet with River's
+  network fee (you can still make it a Withdrawal in the preview), and a
+  mining payout as a deposit into Exchange BTC with source Reward: income,
+  valued at the hour it arrived. Importing a file again finds an
+  auto-withdrawal you saved as a spend, so it isn't added twice. River's
+  network fee on a send is on top of its Sent Amount, as the import already
+  read it: River's record of a send gives its total as Sent plus Fee (#39).
+  **Affected:** only ledgers with River files holding auto-withdrawals kept
+  as suggested, or mining payouts.
+  **What to do:** in Transactions, look for withdrawals from Exchange BTC to
+  External with purpose Spent on the days of River's auto-withdrawals. If
+  the bitcoin went to your own wallet, delete each one, then import that
+  River file again: it suggests them as Transfers to Wallet, and a mining
+  payout the import skipped as a Reward deposit. Rows already in your ledger
+  are left out. A row marked Review, which only looks like one of yours, is
+  ticked when its amount is the same: untick any you entered yourself, such
+  as a mining payout you added by hand. If you filed a return from
+  BitcoinTX's figures, such a sale, or income left out, would be in that
+  year.
 - **The password forms count characters as the server does** (#405).
   Create account, Settings' password change and the Mac app's "Choose your
   username and password" counted an emoji as two characters, so a password
@@ -483,6 +521,14 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River and AI imports' duplicate check is fast again** (#379). This
+  version's duplicate rule (#253) checks each row in up to seven passes,
+  and each pass looked through the whole ledger for every row: a River
+  file of 2,000 rows against 2,000 transactions took about 13 seconds, and
+  the AI connector's 500 rows against 10,000 about 8. Each row's
+  transactions within two days are now found once, by time: about a tenth
+  of a second for either. The answers are the same. **Affected:** no
+  release: the rule is new in this version. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
@@ -605,11 +651,12 @@ All notable changes to BitcoinTX are documented in this file.
   `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
   `－10`), and importing that file kept the `'`: `-5% fee` came back as
   `'-5% fee`. The import now drops that one `'` again, in the columns the
-  export writes that way; a `'` before any other text stays. A purpose you
-  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
-  as the export's, and spaces at either end of a cell are trimmed, as
-  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
-  since 1.2.8).
+  export writes that way; a `'` before any other text stays. A purpose
+  saved with its own `'` before such text (`'-5% fee`) is exported with
+  another, so it comes back with its own (#380). In a CSV file you write
+  yourself, `'-5% fee` reads as the export's and loses its `'`, and spaces
+  at either end of a cell are trimmed, as before. Text only, no figure.
+  Every version since 1.1.0 (the look-alikes since 1.2.8).
 - **The CSV guide says what the import takes** (#304). Its rules table said
   a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
   only from them, while its own troubleshooting table and the import take
@@ -706,6 +753,31 @@ All notable changes to BitcoinTX are documented in this file.
   package's version (`unknown` when the connector isn't installed).
   Nothing used it: the connector's version notice already read the
   package's version.
+
+### Security
+- **Hardening from the 1.2.8 and 1.2.9 security reviews** (#204). None of
+  these could be used against an install; each closes a gap before it
+  could matter:
+  - **A login with a username that doesn't exist takes as long as one
+    with a wrong password.** Only an existing username's password was
+    checked (about 0.2 s, against 1 ms), so the time an answer took said
+    whether that name exists. Now an unknown one is checked against a
+    stand-in all the same.
+  - **The AI key goes by the route a request reached**, not by its web
+    address read a second time, where a `%3F` in the address cut that
+    reading short. No route outside the key's list could be reached that
+    way (checked); now none can by any address.
+  - **A `SECRET_KEY` set in the environment needs at least 32
+    characters**, like the key file's. A shorter one is ignored, with a
+    warning in the log, and the key file next to the database is used
+    instead (everyone logs in again once). Docker, StartOS and the Mac app
+    set none, so nothing changes for them.
+  - **Trust this server says where to check the fingerprint.** The
+    certificate authority's name it shows is what the server says about
+    itself; the card now asks you to check that the SHA-256 fingerprint
+    is that server's own before you trust it (on a StartOS server, the
+    Root CA in its About this server: System > General Settings, or the
+    menu at the top right).
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's

@@ -11,9 +11,10 @@ Ledger text on its way into the PDF and CSV reports.
   imported before ReportLab opens anything: it reads these settings once.
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
-  value. Numbers never go through it, so a loss stays -120.00. The files are
-  written with the csv module, which quotes a cell holding a line break, so
-  the text after one stays in its cell.
+  value, and of one that starts with ' before such a text (#380). Numbers
+  never go through it, so a loss stays -120.00. The files are written with
+  the csv module, which quotes a cell holding a line break, so the text
+  after one stays in its cell.
 
 The IRS forms are filled by pypdf (pdf_form_filler.py), not ReportLab.
 """
@@ -38,7 +39,17 @@ def pdf_text(value) -> str:
 
 def csv_text(value) -> str:
     """A text cell a spreadsheet won't run as a formula: also one that only
-    looks plain, with spaces or a full-width sign before it."""
+    looks plain, with spaces or a full-width sign before it. A text that
+    already starts with the ' this puts before such a one gets another, so
+    the CSV import, which takes one off, gives it back as it was (#380)."""
     text = "" if value is None else str(value)
-    looks = unicodedata.normalize("NFKC", text).lstrip()
-    return "'" + text if text.startswith(FORMULA_START) or looks.startswith(FORMULA_START[:4]) else text
+    return "'" + text if _quoted(text) else text
+
+
+def _quoted(text: str) -> bool:
+    """Whether csv_text puts a ' before `text`: whether what follows the 's
+    it starts with, if any, could run as a formula (a ' itself never does:
+    NFKC keeps it, and it isn't a space), however many there are."""
+    rest = text.lstrip("'")
+    looks = unicodedata.normalize("NFKC", rest).lstrip()
+    return rest.startswith(FORMULA_START) or looks.startswith(FORMULA_START[:4])
