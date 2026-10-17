@@ -260,6 +260,9 @@ def _dates(db) -> list[tuple]:
     (KIRITIMATI, None, "2021-03-14"),  # the tax timezone in Settings
     (None, KIRITIMATI, "2021-03-14"),  # else the server's (BTCTX_TIMEZONE)
     (None, None, "2021-03-13"),  # else UTC
+    # #407: read as the app reads them; one this machine can't open stopped the upgrade
+    (KIRITIMATI.upper(), None, "2021-03-14"),  # a case variant (saved on macOS)
+    ("localzone", KIRITIMATI, "2021-03-14"),  # only another machine's zone files hold it
 ])
 def test_migration_0012_stores_the_date_the_form_showed(tmp_path, monkeypatch, setting, server_setting, shown):
     if server_setting:

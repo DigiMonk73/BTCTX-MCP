@@ -313,7 +313,10 @@ from the Transaction row alone.
   `backend/services/tax_time.py`. Never slice a year with naive UTC dates.
   A login fills it from the browser only while none was chosen and the
   ledger is empty (`tax_time.fill_tax_timezone`, #334); with transactions,
-  only the owner's change in Settings moves it.
+  only the owner's change in Settings moves it. Only the bundled `tzdata`
+  package's names are saved, the same on every machine (#407); a name saved
+  before 1.2.9 is still read (`tax_time.readable_zone`), and a restore keeps
+  this install's own in place of a backup's that `tzdata` doesn't name.
   Times on screen are the device's clock (#260), except Ledger Review's
   (the tax timezone, as `cli review` and the AI see them) and a price's
   hour (UTC, labelled).

@@ -562,7 +562,8 @@ def _fails(*args):
 
 @pytest.mark.parametrize("module, name", [
     (outbound, "carry_over"), (ai_key, "carry_over"), (backup_router, "_keep_login"),
-], ids=["price settings", "AI key", "login"])
+    (backup_router, "_known_tax_timezone"),
+], ids=["price settings", "AI key", "login", "tax timezone"])
 def test_a_carry_over_that_fails_stops_the_restore(live, tmp_path, monkeypatch, module, name):
     """#201: such an error was only logged, and the backup's settings stayed."""
     monkeypatch.setattr(module, name, _fails)
@@ -581,15 +582,72 @@ def _another_password(real):
     return lambda db, login: real(db, (login[0], "not-the-hash"))
 
 
+def _another_tax_timezone(real):
+    return lambda db, own, notices: real(db, own, notices) or "Asia/Tokyo"
+
+
 @pytest.mark.parametrize("module, name, differently", [
     (outbound, "carry_over", _prices_without_proxy),
     (ai_key, "carry_over", _ai_access_off),
     (backup_router, "_keep_login", _another_password),
-], ids=["price settings", "AI key", "login"])
+    (backup_router, "_known_tax_timezone", _another_tax_timezone),
+], ids=["price settings", "AI key", "login", "tax timezone"])
 def test_a_value_that_doesnt_read_back_as_written_stops_the_restore(live, tmp_path, monkeypatch,
                                                                      module, name, differently):
     monkeypatch.setattr(module, name, differently(getattr(module, name)))
     _assert_refused(live, [], STOPPED, tmp_path)
+
+
+# The backup's tax timezone (#407)
+def _with_tax_timezone(name: str) -> str:
+    return f"INSERT INTO app_settings (key, value) VALUES ('tax_timezone', '{name}')"
+
+
+def test_a_backups_tax_timezone_comes_back(live, tmp_path, monkeypatch):
+    monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+    _settings(live.engine, {"tax_timezone": "America/New_York"})
+    blob, _ = _backup(tmp_path, _with_tax_timezone("Asia/Tokyo"))
+
+    r = _restore(live.client, blob)
+
+    assert r.json() == {"message": backup_router.RESTORED}, r.text
+    assert _stored(live.engine)["settings"]["tax_timezone"] == "Asia/Tokyo"
+
+
+@pytest.mark.parametrize("backups", ["localtime", "america/chicago"])
+@pytest.mark.parametrize("own", ["America/New_York", None], ids=["its own", "none"])
+def test_a_backups_tax_timezone_tzdata_doesnt_name_keeps_this_installs(live, tmp_path, monkeypatch, backups, own):
+    """#407: saved where that machine's zone files opened it (`localtime` in
+    the Docker image, a case variant on macOS), it failed every report after
+    a restore on a machine whose files don't. The restore keeps this
+    install's (none: then UTC, as here) and says so."""
+    monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+    if own:
+        _settings(live.engine, {"tax_timezone": own})
+    blob, _ = _backup(tmp_path, _with_tax_timezone(backups))
+
+    r = _restore(live.client, blob)
+
+    assert r.status_code == 200, r.text
+    shown = own or "UTC"
+    assert r.json() == {"message": backup_router.RESTORED,
+                        "notice": backup_router.TIMEZONE_KEPT.format(backups=backups, kept=shown)}
+    assert _stored(live.engine)["settings"].get("tax_timezone") == own
+    assert _amounts(live.engine) == [2.0]  # the backup's ledger all the same
+    assert _logs_in(live.client, OWNER)
+    assert live.client.get("/api/settings/tax-timezone").json() == {
+        "timezone": shown, "source": "setting" if own else "default"}
+    assert live.client.get("/api/reports/irs_reports", params={"year": 2025}).status_code == 200
+    assert live.client.get("/api/calculations/gains-and-losses").status_code == 200
+
+
+def test_the_notice_shows_a_long_name_cut_short(live, tmp_path, monkeypatch):
+    monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+    blob, _ = _backup(tmp_path, _with_tax_timezone("A" * 5000))
+
+    notice = _restore(live.client, blob).json()["notice"]
+
+    assert "'" + "A" * 64 + "…'" in notice and len(notice) < 300
 
 
 # Genuine backups: every row of BitcoinTX's tables comes back as it was

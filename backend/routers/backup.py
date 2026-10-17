@@ -22,13 +22,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models.app_setting import AppSetting
+from backend.models.app_setting import AppSetting, save_setting
 from backend.models.transaction import Transaction
 from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import ai_key, first_run, outbound
+from backend.services import ai_key, first_run, outbound, tax_time
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
@@ -125,6 +125,12 @@ NOT_KEPT = (
     "This install's login, AI key and price settings couldn't be kept in the restored backup, "
     "so the restore stopped. Your database is unchanged."
 )
+RESTORED = "✅ Database successfully restored. Log in again with your current username and password."
+# The restore's answer when the backup's tax timezone wasn't kept (#407)
+TIMEZONE_KEPT = (
+    "The backup's tax timezone, '{backups}', isn't a timezone name BitcoinTX knows, so this install's own, "
+    "{kept}, was kept. Check it in Settings and save it there: saving recalculates your ledger in it."
+)
 
 
 def _in_use(db: Session, request: Request) -> dict:
@@ -132,11 +138,12 @@ def _in_use(db: Session, request: Request) -> dict:
     switch, the price settings, and the sessions open in other browsers
     (this one logs in again: the restored database may have other user ids).
     The backup's own list of sessions never comes back, so a session that
-    ended since it was made stays ended."""
+    ended since it was made stays ended. The tax timezone is the backup's,
+    unless tzdata doesn't name it: then this install's (#407)."""
     own = session_auth.session_hash(request)
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
-            "sessions": sessions}
+            "sessions": sessions, "timezone": _stored_tax_timezone(db)}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -144,22 +151,25 @@ def _login_in_use(db: Session) -> tuple | None:
     return (user.username, user.password_hash) if user else None
 
 
-def _write_kept(kept: dict, restored: Session) -> None:
+def _write_kept(kept: dict, notices: list[str], restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
-    the restored database before it replaces the live one, then read them
-    back from the file, with its one login. An error, or a value that
-    doesn't read back as written, stops the restore with the live database
-    untouched (#201).
+    the restored database before it replaces the live one, and its tax
+    timezone in place of a backup's tzdata doesn't name (added to
+    `notices`, #407), then read them back from the file, with its one
+    login. An error, or a value that doesn't read back as written, stops
+    the restore with the live database untouched (#201).
     """
     try:
         outbound.carry_over(restored, kept["prices"])
         ai_key.carry_over(restored, kept["ai"])
         _keep_login(restored, kept["login"])
         session_auth.put_open_sessions(restored, kept["sessions"])
+        zone = _known_tax_timezone(restored, kept["timezone"], notices)
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
-        as_written = restored.query(User).count() == 1 and _as_stored(restored, kept) == kept
+        as_written = (restored.query(User).count() == 1
+                      and _as_stored(restored, kept) == {**kept, "timezone": zone})
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -178,18 +188,43 @@ def _keep_login(db: Session, login: tuple | None) -> None:
     db.flush()
 
 
+def _known_tax_timezone(restored: Session, own: str | None, notices: list[str]) -> str | None:
+    """
+    The tax timezone the restored database keeps: the backup's, unless it
+    isn't one of tzdata's names (#407), saved where that machine's own zone
+    files opened it (a case variant on macOS, `localtime` in the Docker
+    image), which failed every report where they don't. Then this install's
+    own (none here: none there, so BTCTX_TIMEZONE or UTC, as here), and a
+    notice says so.
+    """
+    backups = _stored_tax_timezone(restored)
+    try:
+        return backups if backups is None else tax_time.validate_timezone(backups)
+    except ValueError:
+        pass
+    save_setting(restored, tax_time.SETTING_KEY, own)
+    kept = tax_time.get_tax_timezone_name(restored)[0]
+    notices.append(TIMEZONE_KEPT.format(backups=tax_time.shown_zone(backups), kept=kept))
+    return own
+
+
 def _as_stored(db: Session, kept: dict) -> dict:
     """The same, as the restored database holds them. The settings are read
     as rows, not through snapshot(), which takes a missing price source for
     "unset": a restore that lost it would pass the check."""
     login = _login_in_use(db) if kept["login"] is not None else None
     return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
-            "sessions": session_auth.open_sessions(db)}
+            "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db)}
 
 
 def _rows(db: Session, keys) -> dict:
     """These app_settings rows' values, None for a missing one."""
     return {key: row.value if (row := db.get(AppSetting, key)) else None for key in keys}
+
+
+def _stored_tax_timezone(db: Session) -> str | None:
+    """The tax timezone's row as stored, not as read (tax_time.readable_zone)."""
+    return _rows(db, [tax_time.SETTING_KEY])[tax_time.SETTING_KEY]
 
 
 def _refresh_after_restore(db: Session) -> None:
@@ -225,7 +260,8 @@ def restore_encrypted_backup(
     Credentials gave stays right. The restored database is rebuilt from
     BitcoinTX's own migrations with only the backup's own data, and these are
     written into it before it replaces the live one; if anything fails,
-    nothing is restored.
+    nothing is restored. A backup's tax timezone that tzdata doesn't name is
+    replaced by this install's, and the answer's "notice" says so (#407).
     Clears the session after restore since the user_id may no longer be valid.
     """
     _require_auth(request)
@@ -234,19 +270,21 @@ def restore_encrypted_backup(
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
     kept = _in_use(db, request)
+    notices: list[str] = []
     db.close()  # this request holds no connection to the database being replaced
     try:
         with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
             temp_path = Path(temp_file.name)
             _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
-        restore_backup(password, temp_path, carry_over=partial(_write_kept, kept))
+        restore_backup(password, temp_path, carry_over=partial(_write_kept, kept, notices))
         _refresh_after_restore(db)
 
         # Clear session - the restored database may have different user IDs
         request.session.clear()
 
-        return {"message": "✅ Database successfully restored. Log in again with your current username and password."}
+        # A notice: the restore dialog waits for the owner to read it
+        return {"message": RESTORED, **({"notice": " ".join(notices)} if notices else {})}
     except HTTPException:
         raise
     except ValueError as e:  # restore_backup's own plain words

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKUP_PASSWORD_HINT, backupPasswordProblem } from "./encryptedBackup";
+import { BACKUP_PASSWORD_HINT, backupPasswordProblem, restoreOutcome } from "./encryptedBackup";
 
 describe("backupPasswordProblem", () => {
   it("accepts a 12-character password typed twice", () => {
@@ -23,5 +23,18 @@ describe("backupPasswordProblem", () => {
 
   it("says older backups still restore", () => {
     expect(BACKUP_PASSWORD_HINT).toMatch(/^At least 12 characters\. .*shorter password still restores\.$/);
+  });
+});
+
+describe("restoreOutcome", () => {
+  const RESTORED = "✅ Database successfully restored. Log in again with your current username and password.";
+
+  it("moves on to the login page after an ordinary restore", () => {
+    expect(restoreOutcome({ message: RESTORED })).toEqual({ message: RESTORED, waits: false });
+  });
+
+  it("waits for the owner to read a notice (#407)", () => {
+    const notice = "The backup's tax timezone, 'localtime', isn't a timezone name BitcoinTX knows, ...";
+    expect(restoreOutcome({ message: RESTORED, notice })).toEqual({ message: `${RESTORED} ${notice}`, waits: true });
   });
 });

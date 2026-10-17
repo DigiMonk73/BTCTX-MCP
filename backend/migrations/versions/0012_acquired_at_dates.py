@@ -28,7 +28,8 @@ Create Date: 2026-10-15
 
 import os
 from datetime import date, datetime, time, timezone
-from zoneinfo import ZoneInfo
+from importlib import resources
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from alembic import op
 import sqlalchemy as sa
@@ -58,9 +59,28 @@ def _rewrite(convert) -> None:
 
 
 def _tax_timezone(bind) -> ZoneInfo:
-    """The tax timezone the app reads (tax_time.get_tax_timezone_name)."""
+    """The tax timezone the app reads (tax_time.get_tax_timezone_name): a
+    stored name this machine can't read counts as none (#407)."""
     name = bind.execute(sa.text("SELECT value FROM app_settings WHERE key = 'tax_timezone'")).scalar()
-    return ZoneInfo(name or os.getenv("BTCTX_TIMEZONE") or "UTC")
+    return (name and _readable(name)) or ZoneInfo(os.getenv("BTCTX_TIMEZONE") or "UTC")
+
+
+def _readable(name: str) -> ZoneInfo | None:
+    """
+    A stored name as tax_time.readable_zone reads it, copied here so this
+    migration stays what it was when the app's reading changes: a tzdata
+    name, or a case variant of one, as that name; another name if this
+    machine opens it; else None (one a restore brought from another
+    machine, which only its own zone files opened).
+    """
+    zones = resources.files("tzdata").joinpath("zones").read_text(encoding="utf-8").split()
+    proper = next((zone for zone in zones if zone.casefold() == name.casefold()), name)
+    if len(proper) > 64:  # tax_time.MAX_ZONE_NAME
+        return None
+    try:
+        return ZoneInfo(proper)
+    except (ZoneInfoNotFoundError, ValueError, OSError, TypeError):
+        return None
 
 
 def _as_date(text: str, _deposit: str, tz: ZoneInfo) -> str:
