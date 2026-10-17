@@ -502,7 +502,7 @@ def test_the_download_status_follows_the_download(sites, db):
     status = hp.download_status()
     assert status == {"until": "2026-03-14T23:00Z", "first_year": 2025, "shipped": False, "years_total": 2,
                       "years_done": 0, "state": "not_allowed", "failed_at": None, "refused": False,
-                      "mismatched": []}
+                      "mismatched": [], "without_tor": False}
     use(price_source="public")
     assert hp.download_status()["state"] == "waiting"
     seen = []

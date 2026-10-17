@@ -1,14 +1,14 @@
 import React from "react";
 import { MEMPOOL_PLACEHOLDER, TOR_PLACEHOLDER, isOnion, torOffered, type PriceForm } from "../../utils/priceSource";
-import { TOR_REFUSED } from "../../utils/priceStatus";
+import { torRefused, type WithoutTorAnswer } from "../../utils/priceStatus";
 
 interface Props {
   form: PriceForm;
   set: (patch: Partial<PriceForm>) => void;
   /** A message under a field, e.g. the server's answer to a bad address. */
   errors: { mempoolUrl?: string; torUrl?: string };
-  /** Tor is the server's (StartOS's action), locked on; or BitcoinTX runs on StartOS without it. */
-  tor: { fromServer: boolean; onStartOS: boolean };
+  /** Tor is the server's (StartOS's action), locked on; or BitcoinTX runs on StartOS without it; the answer about the history without Tor (#241). */
+  tor: { fromServer: boolean; onStartOS: boolean; withoutTor?: WithoutTorAnswer };
 }
 
 /** "Through Tor", and Tor's address once ticked. An .onion Mempool always
@@ -24,7 +24,7 @@ const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
           <span>Through Tor</span>
         </label>
         <p id="price-tor-help" className="price-help">
-          Tor on this server, set in StartOS: every request to a public site, and an .onion, goes through it. {TOR_REFUSED}
+          Tor on this server, set in StartOS: requests to public sites, and an .onion, go through it. {torRefused(tor.withoutTor)}
         </p>
       </div>
     );
@@ -47,7 +47,7 @@ const TorField: React.FC<Props> = ({ form, set, errors, tor }) => {
           : tor.onStartOS
             ? "Turn on Use Tor in StartOS's Price Source & Privacy action, or type another proxy's address."
             : ticked
-              ? `Hides your IP address too. Needs Tor running. ${TOR_REFUSED}`
+              ? `Hides your IP address too. Needs Tor running. ${torRefused(tor.withoutTor)}`
               : "Hides your IP address too. Needs Tor running."}
       </p>
       {ticked && (

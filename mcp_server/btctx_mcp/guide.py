@@ -93,11 +93,12 @@ Deposit: External -> any account
     any other name a public site. The hourly history (2013 on) is
     downloaded once from Bitstamp when the choice allows public sites
     (public price sites, or their Mempool with public sites as its backup).
-    Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the
-    hourly history and past prices don't download; only the live price
-    works. If the user chose Tor and BitcoinTX has no price for a value,
-    ask the user for it; they can also choose public price sites without
-    Tor in BitcoinTX to download the history.
+    Through Tor, Bitstamp currently refuses BitcoinTX's requests for the
+    price history, so BitcoinTX asks the user once (on its Dashboard)
+    whether to download it without Tor; only the user answers that, in
+    BitcoinTX. If the user chose Tor and BitcoinTX has no price for a
+    value, ask the user for it, or point them to that question (Settings
+    -> Privacy & network shows their answer).
     With Nobody, before a choice, while BitcoinTX waits for the user to
     confirm it, or when the server's price settings aren't valid, there is
     no price for a value it doesn't have: pass on BitcoinTX's own message

@@ -24,14 +24,15 @@ MEMPOOL_MISSING = "mempool_missing"  # StartOS: chosen, not installed
 PUBLIC_NO_ANSWER = "public_no_answer"
 TOR_NO_ANSWER = "tor_no_answer"
 
-# The last price, the last problem, and the last problem of your Mempool
-# (kept when the backup then fails too, so its reason isn't lost)
-_state: dict = {"ok": None, "problem": None, "mempool_problem": None}
+# The last price, the last problem, the last problem of your Mempool (kept
+# when the backup then fails too, so its reason isn't lost), and the last
+# time Bitstamp refused a history download through the proxy (#241)
+_state: dict = {"ok": None, "problem": None, "mempool_problem": None, "refused": None}
 
 
 def reset() -> None:
     """Forget everything (tests)."""
-    _state.update(ok=None, problem=None, mempool_problem=None)
+    _state.update(ok=None, problem=None, mempool_problem=None, refused=None)
 
 
 def _now() -> str:
@@ -66,6 +67,22 @@ def untrusted_certificate(exc: BaseException | None) -> bool:
     return False
 
 
+def refused_by_bitstamp(exc: BaseException) -> bool:
+    """Whether a failed request was Bitstamp refusing it: a 403, or a
+    redirect to its challenge page, what it gives Tor's exits (#241)."""
+    response = getattr(exc, "response", None)  # an HTTP status error's answer
+    return (response is not None and response.request.url.host == "www.bitstamp.net"
+            and (response.status_code == 403 or response.is_redirect))
+
+
+def record_refusal(exc: BaseException) -> None:
+    """Remember a history download Bitstamp refused through the proxy: the
+    price card then asks whether to download the history without Tor (#241)."""
+    settings = outbound.current()
+    if refused_by_bitstamp(exc) and settings.proxy_url and not outbound.history_without_tor():
+        _state["refused"] = {"at": _now(), "settings": settings}
+
+
 def _current(entry: dict | None) -> dict | None:
     if entry is None or entry["settings"] != outbound.current():
         return None
@@ -86,5 +103,7 @@ def status() -> dict:
         "last_ok": _current(_state["ok"]),
         "last_problem": _current(_state["problem"]),
         "last_mempool_problem": _current(_state["mempool_problem"]),
+        # Bitstamp refused a history download through Tor (#241): the card's question
+        "bitstamp_refused": _current(_state["refused"]) is not None,
         "history": hourly_prices.download_status(),
     }

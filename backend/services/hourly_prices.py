@@ -30,8 +30,10 @@ public sites (public, or your Mempool with its backup: #145), at startup or
 when the choice is saved, and when a
 lookup needs a year whose file isn't here and the own mempool server (if
 any) doesn't have the hour. Each request goes out with the choice as it is
-then: none once public sites aren't allowed, through the proxy set then.
-No request ever names the hour asked.
+then: none once public sites aren't allowed, through the proxy set then,
+or directly after the owner's Yes to downloading the history without Tor,
+which Bitstamp refuses (#241, outbound.history_client). No request ever
+names the hour asked.
 """
 
 from __future__ import annotations
@@ -52,7 +54,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import DATABASE_FILE
 from backend.models.btc_price import BtcPriceHourly
-from backend.services import outbound, price_history
+from backend.services import outbound, price_history, price_status
 from backend.services import price_files as pf
 
 logger = logging.getLogger(__name__)
@@ -170,12 +172,18 @@ def start_download() -> bool:
             return True
         if time.monotonic() - _state["failed_at"] < RETRY_SECONDS:
             return False
-        missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
-        if not missing:
-            return False
-        _state["running"] = True
-        threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
-        return True
+        return _begin()
+
+
+def _begin() -> bool:
+    """Start downloading the years that aren't here (with _changed held);
+    False when none is missing."""
+    missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
+    if not missing:
+        return False
+    _state["running"] = True
+    threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
+    return True
 
 
 def download_if_public() -> None:
@@ -211,6 +219,7 @@ def download_status() -> dict:
         state = "waiting"
     return {
         "until": pf.label(lines[-1].last_hour) if lines else None,
+        "without_tor": outbound.history_without_tor(),  # #241: the owner's Yes, with Tor on
         "first_year": lines[0].year if lines else None,
         "shipped": False,  # the year files come with the app once Bitstamp agrees (#144)
         "years_total": len(lines),
@@ -281,7 +290,8 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
-    _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9, verified={})
+    _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9,
+                  verified={}, again=False)
     _live.update(rows=None, hours={})
 
 
@@ -349,6 +359,7 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
         found = price_history._run(find_hours(hour, files_end, stored))
     except Exception as exc:
         logger.warning("Hourly BTC price lookup failed: %s", exc)
+        price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         found = {}
     keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
     return found.get(hour), keep
@@ -388,24 +399,30 @@ def _download(lines: list[pf.YearLine]) -> None:
         logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
-        _state["refused"] = _refused(exc)
+        price_status.record_refusal(exc)
+        _state["refused"] = price_status.refused_by_bitstamp(exc)
         _state["failed_at"] = time.monotonic()
         _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     finally:
-        with _changed:
-            _state["running"] = False
-            _changed.notify_all()
+        _end_run()
 
 
-def _refused(exc: Exception) -> bool:
-    """Bitstamp answered, but with a block or a challenge page instead of
-    prices (403, or a redirect to one): what it gives Tor's exits (#241)."""
-    response = getattr(exc, "response", None)  # an HTTP status error's answer
-    return response is not None and (response.status_code == 403 or response.is_redirect)
+def _end_run() -> None:
+    """A download ended. One the owner's Yes came during (#241, try_again_now)
+    starts again at once, by the route in force now: its failure through
+    Tor doesn't make it wait RETRY_SECONDS."""
+    with _changed:
+        _state["running"] = False
+        if _state["again"]:
+            _state.update(again=False, failed_at=-1e9, failed_wall=None, refused=False)
+            if outbound.current().public_allowed:
+                _begin()
+        _changed.notify_all()
 
 
 async def _download_years(lines: list[pf.YearLine]) -> None:
     """Newest year first, each in its fixed blocks: the same requests on every install."""
+    _log_without_tor("the year files")
     for line in sorted(lines, key=lambda y: -y.year):
         prices = await pf.download_year(ChoiceClient(), line.year, line.last_hour, _pause)
         _save_year(line, prices)
@@ -419,13 +436,30 @@ class ChoiceChanged(Exception):
 
 class ChoiceClient:
     """Asks each request with the owner's choice as it is then: never once
-    public sites aren't allowed, and through the proxy (Tor) set then."""
+    public sites aren't allowed, and through the proxy (Tor) set then, or
+    directly after the owner's Yes to the history without Tor (#241)."""
 
     async def get(self, url, **kwargs):
         if not outbound.current().public_allowed:
             raise ChoiceChanged
-        async with outbound.async_client(timeout=outbound.HISTORY_TIMEOUT) as client:
+        async with outbound.history_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             return await client.get(url, **kwargs)
+
+
+def _log_without_tor(what: str) -> None:
+    if outbound.history_without_tor():
+        logger.info("Hourly BTC prices: Bitstamp's fixed blocks for %s go without Tor (agreed on %s)",
+                    what, outbound.agreed_on())
+
+
+def try_again_now() -> None:
+    """After the owner's Yes to the history without Tor (#241): what Bitstamp
+    refused through Tor is asked again now, not RETRY_SECONDS later; a
+    download under way starts again once it ends (_end_run)."""
+    with _changed:
+        _state.update(failed_at=-1e9, failed_wall=None, refused=False, public_at=-1e9, again=_state["running"])
+    price_history.try_again_now()
+    download_if_public()
 
 
 async def _pause() -> None:
@@ -463,10 +497,12 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
         return {}
     _state["public_at"] = time.monotonic()
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
+    starts = [start for start in range(files_end + HOUR, current + 1, size)
+              if not all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR))]
+    if starts:
+        _log_without_tor("the hours after the year files")
     client, out = ChoiceClient(), {}
-    for start in range(files_end + HOUR, current + 1, size):
-        if all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR)):
-            continue
+    for start in starts:
         for row in await pf.bitstamp_candles(client, start):
             kept = _kept_open(row, current)
             if kept:

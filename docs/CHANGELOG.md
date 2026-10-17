@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Through Tor, the price history can be downloaded once without Tor,
+  if you agree** (#241, the owner's decision of 2026-10-16). Through Tor,
+  Bitstamp refuses BitcoinTX's requests (a 403 or a "Loading" page), so
+  since 1.2.8 an install using Tor got no hourly history and no past
+  prices, and the card only told you to turn Tor off. Now, once Bitstamp
+  has refused through Tor, the Dashboard (and the price card in Settings
+  → Privacy & network) asks once: "Download the price history once
+  without Tor? It's the same download for every install, and names none of
+  your dates; Bitstamp would see this server's address." **Yes** lets only
+  Bitstamp's fixed history blocks go directly: the hourly history from
+  2013, the newer hours after it when a value needs one, and the daily
+  history. The live price, the block height and everything else stay on
+  Tor. **No** keeps everything on Tor, as before. The answer is recorded
+  (when, and where), kept by an in-app restore, and changeable in Settings,
+  also on StartOS when its Price Source & Privacy action sets Tor (its Use
+  Tor text says so). Nothing goes around Tor before a Yes, and a Tor that
+  isn't running never brings the question. The privacy audit
+  (`docs/PRIVACY_AUDIT.md`) lists what Bitstamp then sees.
 - **A way to support BitcoinTX:** the README's "Support BitcoinTX" gives its
   Lightning address (digimonk73@strike.me), and GitHub's Sponsor button
   (`.github/FUNDING.yml`) opens the tipping page. Nothing in the app changes.
@@ -285,6 +303,21 @@ All notable changes to BitcoinTX are documented in this file.
   import's later rows, it goes with that save), so saves go through. What
   Ledger Review shows doesn't change, and a stored price still never
   changes. Nothing was ever half-saved: the save was refused whole.
+- **An edit made while the hour's prices are applied keeps its own value**
+  (tax figures, #387). Ledger Review's "apply the hour's prices" worked
+  out each new value from the transaction as its check had found it, made
+  the backup copy, then wrote that value. A transaction edited in those
+  few seconds (its amount or its time changed) got the value worked out for
+  its old amount or hour: for example $4,000 for 0.2 BTC that the hour's
+  $40,000 values at $8,000. The apply now takes the database's write lock
+  right after the copy, so an edit made from then on waits until it's done,
+  and works each value out again from the transaction as it is then. While
+  another save holds the lock too long, nothing is applied, and it says
+  so. **Affected:** 1.2.8, only a transaction edited while the apply ran
+  (by you in another window, or by the AI); not seen in real use. **What
+  to do:** nothing, unless you edited a transaction while applying the
+  hour's prices: then open it and, if its value doesn't match its amount,
+  clear the value to price it again at its hour.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
@@ -451,6 +484,14 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River and AI imports' duplicate check is fast again** (#379). This
+  version's duplicate rule (#253) checks each row in up to seven passes,
+  and each pass looked through the whole ledger for every row: a River
+  file of 2,000 rows against 2,000 transactions took about 13 seconds, and
+  the AI connector's 500 rows against 10,000 about 8. Each row's
+  transactions within two days are now found once, by time: about a tenth
+  of a second for either. The answers are the same. **Affected:** no
+  release: the rule is new in this version. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
