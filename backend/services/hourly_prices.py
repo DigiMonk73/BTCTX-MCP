@@ -20,7 +20,8 @@ Lookup order (hourly_price):
        manifest's last, the same requests on every install of a release;
        every hour they give is kept.
   4. With public sites allowed, the year files' download, waiting a little
-     for the year asked.
+     for the year asked, unless the caller has already written: it holds
+     SQLite's write lock (#421).
   Nothing: price_at() takes the day's 00:00 UTC price instead
   (price_history.daily_price) and says so ("day").
 

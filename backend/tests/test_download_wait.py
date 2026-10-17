@@ -65,6 +65,15 @@ def test_a_later_rows_price_doesnt_wait_under_the_write_lock(auth_client, downlo
     assert (Decimal(transfer["fee_usd"]), transfer["price_moment"]) == (Decimal("4.00"), "day")
 
 
+def test_the_ai_previews_dry_run_doesnt_wait_either(auth_client, downloading):
+    """The path #421 was found on: the dry run writes its rows too."""
+    r = auth_client.post("/api/import/entries/preview", json={"rows": [BUY, TO_WALLET]})
+    assert r.status_code == 200, r.text
+    assert downloading == []
+    simulated = r.json()["results"][1]["simulated"]
+    assert (Decimal(simulated["fee_usd"]), simulated["from_price"]["moment"]) == (Decimal("4.00"), "day")
+
+
 def test_a_lookup_waits_only_before_anything_is_written(test_engine, downloading):
     when = datetime(2019, 3, 1, 12, tzinfo=timezone.utc)
     with sessionmaker(bind=test_engine)() as db:

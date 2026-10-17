@@ -179,14 +179,16 @@ All notable changes to BitcoinTX are documented in this file.
 - **A save of several rows no longer waits for a price download while
   your other saves are held up** (#421). While BitcoinTX was still
   downloading a year of hourly prices (a fresh install, or after a failed
-  download, with public price sites allowed), an import or the AI
-  connector's add pricing a later row (a BTC fee, an income value) waited
-  up to 30 seconds for that year, holding the database's lock, so a save
-  of yours made meanwhile failed after 5 seconds. Now a row priced after
-  earlier rows are written takes the day's price at once, as when no
-  download can run, marked as such: Ledger Review lists it, and can price
-  it at its hour once the download is done. A single save still waits for
-  its hour's price.
+  download, with public price sites allowed), an import, the AI
+  connector's preview or add, or a recalculation pricing a later row (a
+  BTC fee, an income value) waited up to 30 seconds for that year,
+  holding the database's lock, so a save of yours made meanwhile failed
+  after 5 seconds. Now a row priced after earlier rows are written
+  doesn't wait for the download: it takes the day's price, as when no
+  download can run (a day not stored yet is still looked up, as before),
+  marked as such, and Ledger Review's check of values priced at the day
+  finds it and can price it at its hour once the download is done. A
+  single save still waits for its hour's price.
 - **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
   read "Not enough BTC to withdrawal 0.70000000 BTC", the type's name in
   place of the verb; it now reads "Not enough BTC to withdraw …", in the
