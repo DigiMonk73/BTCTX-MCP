@@ -30,7 +30,7 @@ from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite
 from backend import session_auth
 from backend.services import ai_key, first_run, outbound
 from backend.services.backup import make_backup, restore_backup
-from backend.services.csv_import import CSV_COLUMNS
+from backend.services.csv_import import CSV_COLUMNS, log_unexpected
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
@@ -105,6 +105,7 @@ def download_encrypted_backup(
 # A backup holds the SQLite database: a few MB even for years of activity.
 MAX_RESTORE_BYTES = 1 << 30  # 1 GiB
 RESTORE_TOO_LARGE = "This file is too large to be a BitcoinTX backup (the limit is 1 GiB)."
+RESTORE_FAILED = "Restore failed: something unexpected stopped it. BitcoinTX's log says what."
 
 
 def _copy_at_most(src, dst, limit: int) -> None:
@@ -247,8 +248,11 @@ def restore_encrypted_backup(
         return {"message": "✅ Database successfully restored. Log in again with your current username and password."}
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Restore failed: {str(e)}")
+    except ValueError as e:  # restore_backup's own plain words
+        raise HTTPException(status_code=400, detail=f"Restore failed: {e}")
+    except Exception as e:  # never its text: SQL, a path, a date (#422)
+        log_unexpected("Restore", e)
+        raise HTTPException(status_code=500, detail=RESTORE_FAILED) from e
     finally:
         if temp_path and temp_path.exists():
             os.remove(temp_path)

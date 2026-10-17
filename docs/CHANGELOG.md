@@ -856,7 +856,13 @@ All notable changes to BitcoinTX are documented in this file.
   counts as a change: the hour's first one comes after that copy, kept as
   long as the others, and with no copy nothing is recalculated. Your own
   Recalculate Ledger (Settings, or StartOS's action) is unchanged.
-
+- **The IRS forms and a restore that fail unexpectedly say so in plain
+  words** (#422), as the imports now do: never the error's own text, which
+  could hold a database query, a server path or a transaction's date; the
+  log names the kind of error. The IRS forms also keep the ledger's own
+  reason when one stops them (a value to enter in a transaction): it used
+  to come back as a server error reading "IRS report generation failed:
+  422: …".
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
   README said a backup made on an older version is migrated forward when

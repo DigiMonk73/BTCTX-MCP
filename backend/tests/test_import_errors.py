@@ -4,7 +4,8 @@ refused) answers one fixed sentence, as the restore answers in plain words:
 the error's own text can carry SQL, a server path or a transaction's date.
 A database locked past its wait answers busy, as other saves do. The log
 names the error's type, its trace only at DEBUG. The AI preview's dry run
-does the same for a row it stops at (#204).
+does the same for a row it stops at (#204); so do the IRS forms and a
+restore stopped by something other than the backup itself (#422).
 """
 
 import sqlite3
@@ -12,7 +13,11 @@ import sqlite3
 import pytest
 from sqlalchemy.exc import OperationalError
 
+from fastapi import HTTPException
+
+from backend.routers.backup import RESTORE_FAILED
 from backend.routers.csv_import import IMPORT_BUSY, IMPORT_FAILED
+from backend.routers.reports import IRS_FORMS_FAILED
 from backend.services.entry_import import SIMULATION_BUSY, SIMULATION_FAILED
 from backend.tests.conftest import stub_daily_prices
 from backend.tests.test_imports_do_not_block import CSV, ENTRY, RIVER_ROW
@@ -90,3 +95,36 @@ def test_the_ai_previews_dry_run_answers_busy(clean, monkeypatch):
     monkeypatch.setattr("backend.services.entry_import.create_transaction_record", _raises(LOCKED))
     [row] = clean.post("/api/import/entries/preview", json={"rows": [ENTRY]}).json()["results"]
     assert (row["status"], row["errors"]) == ("rejected", [SIMULATION_BUSY])
+
+
+def test_the_irs_forms_name_no_error_text(clean, monkeypatch, caplog):
+    """#422: the IRS forms answered "IRS report generation failed: {e}"
+    and logged the text with its trace at ERROR."""
+    monkeypatch.setattr("backend.routers.reports.build_form_8949_and_schedule_d", _raises(RuntimeError(LEAKY)))
+    with caplog.at_level("INFO"):
+        r = clean.get("/api/reports/irs_reports", params={"year": 2024})
+    assert (r.status_code, r.json()) == (500, {"detail": IRS_FORMS_FAILED})
+    assert "IRS forms for 2024 failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
+
+
+def test_the_irs_forms_keep_the_ledgers_own_words(clean, monkeypatch):
+    """#422: a value to enter in a transaction came back as a 500 reading
+    "IRS report generation failed: 422: …"; it keeps its status and words."""
+    why = "Withdrawal of 0.05 BTC on 2024-06-01: it has no Proceeds (USD) value (enter it in that transaction)."
+    monkeypatch.setattr("backend.routers.reports.build_form_8949_and_schedule_d",
+                        _raises(HTTPException(status_code=422, detail=why)))
+    r = clean.get("/api/reports/irs_reports", params={"year": 2024})
+    assert (r.status_code, r.json()) == (422, {"detail": why})
+
+
+def test_a_restore_stopped_unexpectedly_names_no_error_text(clean, monkeypatch, caplog):
+    """#422: anything but the backup's own plain words (restore_backup's
+    ValueErrors) came back as "Restore failed: {e}"."""
+    monkeypatch.setattr("backend.routers.backup.restore_backup", _raises(OSError(LEAKY)))
+    with caplog.at_level("INFO"):
+        r = clean.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
+    assert (r.status_code, r.json()) == (500, {"detail": RESTORE_FAILED})
+    assert "Restore failed: OSError" in caplog.text and not _leaked(caplog.text)
+    monkeypatch.setattr("backend.routers.backup.restore_backup", _raises(ValueError("This file is damaged.")))
+    r = clean.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
+    assert (r.status_code, r.json()) == (400, {"detail": "Restore failed: This file is damaged."})

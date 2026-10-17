@@ -430,13 +430,16 @@ from the Transaction row alone.
   (`security_headers.py`): exports and the ledger's JSON stay out of the
   browser's disk cache. A new encrypted backup's password needs 12+
   characters (`routers/backup.py`); a restore takes an older, shorter one.
-- A CSV or River import that fails for an unexpected reason answers one
-  fixed sentence (`routers/csv_import.import_failure`: busy, 503, when the
-  database was locked; else `IMPORT_FAILED`, 500), never the error's own
-  text (it can hold SQL, a server path or a date), and logs only the
-  error's type (`services/csv_import.log_unexpected`; the trace at DEBUG).
-  The AI preview's dry run does the same for a row it stops at
-  (`entry_import.SIMULATION_BUSY` or `SIMULATION_FAILED`; `csv_import.is_busy`).
+- A CSV or River import, the IRS forms or a restore that fails for an
+  unexpected reason (not the ledger's or the backup's own words) answers
+  one fixed sentence, never the error's own text (it can hold SQL, a
+  server path or a date), and logs only the error's type
+  (`services/csv_import.log_unexpected`; the trace at DEBUG): the imports'
+  `routers/csv_import.import_failure` (busy, 503, when the database was
+  locked; else `IMPORT_FAILED`, 500), `reports.IRS_FORMS_FAILED`,
+  `backup.RESTORE_FAILED`. The AI preview's dry run does the same for a
+  row it stops at (`entry_import.SIMULATION_BUSY` or `SIMULATION_FAILED`;
+  `csv_import.is_busy`).
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the

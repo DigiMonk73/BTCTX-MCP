@@ -905,9 +905,10 @@ def is_busy(error: Exception) -> bool:
 
 
 def log_unexpected(what: str, error: Exception) -> None:
-    """An import's unexpected failure in the log: its type, its trace only at
-    DEBUG, where whole rows already are, since its text can hold a
-    transaction's date and dates stay out of the normal log (#204)."""
+    """An unexpected failure (an import's, a report's, a restore's) in the
+    log: its type, its trace only at DEBUG, where whole rows already are,
+    since its text can hold a transaction's date and dates stay out of the
+    normal log (#204, #422)."""
     logger.error("%s failed: %s", what, type(error).__name__)
     logger.debug("%s failed", what, exc_info=error)
 
