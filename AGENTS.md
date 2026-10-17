@@ -787,13 +787,24 @@ one session. Claude suggests this setup when a request is that big.
   - an issue per session with its checklist (what "done" means, and the
     "owner" points where it stops); a plan and its build may share one;
   - on each, a comment "Kickoff prompt for this session" that stands on
-    its own: how to start, the rules that matter most, the job, and
-    what it waits for;
+    its own: how to start (from `develop`: see below), the rules that
+    matter most, the job, and what it waits for;
   - on the umbrella, an index of the prompts: the order, and what each
     session waits for.
 - **Starting one:** the desktop app's one-click card (`spawn_task`), or
   the kickoff prompt pasted into a new session. Each title starts with
   its number ("6 · Build hourly prices (#144)").
+- **Every session starts from `develop`.** When the lead starts one with
+  a working folder of its own, it runs `make sync-check` first (the start
+  tool cuts the folder from the local branch, and a `git fetch` alone
+  moves only `origin/develop`), then names `develop` as the folder's base
+  (the start tool's `source_branch`): otherwise the folder may be cut
+  from `main`, which lacks everything not yet released. Each kickoff
+  prompt says it too: before any work, `git fetch origin`, then `git
+  merge --ff-only origin/develop`, which brings a folder cut from `main`
+  up to `develop` and refuses rather than lose anything (`git rev-list
+  --count HEAD..origin/develop` then prints 0). A folder that already
+  has commits of its own takes `git merge origin/develop`, never a rebase.
 - **Each session** first posts or refreshes its checklist on its issue,
   ticks the boxes there as it goes, and writes its decisions there. It
   carries on from its own issue, not from #41's "Next". After a

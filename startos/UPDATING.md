@@ -108,8 +108,10 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
   `START9_FORK` for the release workflow.
 
 A package-only fix (no app change) keeps `VERSION` and raises the package
-revision instead (`0.9.0:0` → `0.9.0:1`, next section). Release it the same
-way with the tag `vX.Y.Z-N`: a `## [v0.9.0-1]` CHANGELOG section and a branch
+revision instead (`0.9.0:0` → `0.9.0:1`, next section), once the community
+registry serves the current version; before then, Start9's rule keeps the
+package version too (next section). Release a revision the same way with the
+tag `vX.Y.Z-N`: a `## [v0.9.0-1]` CHANGELOG section and a branch
 `release/v0.9.0-1`. The image is reused; the macOS app is rebuilt unchanged.
 
 ## The package version
@@ -124,16 +126,35 @@ its release notes (what StartOS shows before updating) and its migration.
   and `down: IMPOSSIBLE`. A migration belongs to the version that
   introduced it; overwriting it in place would skip it for installs that
   haven't run it yet. If the old `up` is empty, just edit `current.ts`.
-- **Revision only** (package change, same app): bump the number after the
+- **Revision only** (package change, same app, once the community registry
+  serves the current version; below): bump the number after the
   `:`, moving the old `current.ts` to its own file first in the same way if
   its `up` does real work (1.2.0:0's does), or installs already on it would
   run it again.
 - `down` is always `IMPOSSIBLE`: an older BitcoinTX refuses a database a newer
   one has migrated.
+- **A version is released once the community registry serves it** (Start9's
+  `versions.md`). Start9's fork and the mirror both name
+  `https://community-registry.start9.com` as `REFERENCE_REGISTRY`; their Tag
+  and Release builds a version again, in place, on every push until that
+  registry serves it (Community Beta doesn't count). Before choosing the
+  version, see which one it serves
+  (`start-cli -r https://community-registry.start9.com registry package get btctx short --format json`,
+  the `best` key), and check the open pull requests on Start9's fork for one
+  that already claims the version. A package-only follow-up to a version it
+  doesn't serve yet keeps that version, its notes added to the ones already
+  there.
 - Release notes are user-facing: what changed for them, in plain language,
   in `en_US`, `es_ES`, `de_DE`, `pl_PL` and `fr_FR`, each ending with the
-  CHANGELOG link. One-time instructions for updating users belong there, not
-  in `instructions.md` or action messages.
+  CHANGELOG link. They cover every change since the version the community
+  registry last served: a version that never reached it carries its notes
+  into the next one.
+- Release notes are the only home for what an update asks of the user
+  (Start9's `versions.md`): a step before or after updating, a warning, and
+  with every new `VERSION` the AI connector's new version (`btctx-mcp==` in
+  the AI app's configuration). `instructions.md`, `README.md` and the action
+  messages describe the package as it is, to someone who never ran an older
+  version.
 
 Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
 (`make` type-checks, lints, format-checks and bundles), and `backend/tests/test_versions_agree.py`.
@@ -145,21 +166,31 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
    installing) for breaking changes and the minimum StartOS version.
-2. `npm install --save-exact @start9labs/start-sdk@<version>`, then
-   `npm update mempool-startos tor-startos` (the packages the dependency
-   constants come from; `overrides` keeps one SDK copy)
+2. `npm install --save-exact @start9labs/start-sdk@<version>`, then run
+   `npm install` again until `package-lock.json` stops changing (Start9's
+   `maintaining-a-package.md`: the first install's lockfile isn't final).
+   To move `mempool-startos` and `tor-startos` (the packages the dependency
+   constants come from, pinned at `#next`) to their newest commits, delete
+   every git-resolved entry from `package-lock.json` (`"resolved": "git+…"`:
+   those two and the packages they bring, such as `bitcoin-core-startos`),
+   and anything under them, and run `npm install`: `npm update` does nothing for a git dependency. Then
+   check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
+   and no copy under another package (`overrides` keeps it so).
 3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and
    `.github/workflows/release.yml` to the start-cli release that matches the
-   SDK. (The mirror's workflows call Start9's shared ones, which pick their
-   own.) Once Start9 has forked the mirror, they may bump the SDK there
-   first: take it with `scripts/start9-pull.sh` instead.
-4. Run the checks, bump the package revision, release.
+   SDK. The mirror's workflows call Start9's shared ones, which install the
+   newest start-cli at each build: Start9's package is packed with it, so
+   test a release with that version too. Once Start9 has forked the mirror,
+   they may bump the SDK there first: take it with `scripts/start9-pull.sh`
+   instead.
+4. Run the checks, bump the package revision (or keep the version while
+   the community registry doesn't serve it: "The package version"), release.
 
 ## Building locally
 
 Needs Docker 28.1 or later (start-cli 2.3 packs using Docker's `--platform`),
-with the containerd image store for multi-arch images, `squashfs-tools`, `jq`,
-Node 22 and
+with the containerd image store for multi-arch images, `squashfs-tools`
+(start-cli 2.4 and later make SquashFS images themselves), `jq`, Node 22 and
 [start-cli](https://docs.start9.com/packaging/environment-setup.html). start-cli
 packs only inside a *packaging workspace*: a directory above the package that
 holds `.startos/build.key.pem`. Create it above the repository, not inside it:

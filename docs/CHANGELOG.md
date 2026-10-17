@@ -680,8 +680,33 @@ All notable changes to BitcoinTX are documented in this file.
   languages. The instructions (in English) also say which of another
   server's addresses to use: the one on your home network (often
   192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
+- **The package checked against Start9's current guide** (#372; Start9's
+  published guide at `698a56c`, everything since `5c7e52e`, the last check).
+  The package's `LICENSE` is now an exact copy of BitcoinTX's
+  (`project-structure.md`: upstream's license text alone; it had a Markdown
+  heading). The instructions describe the AI connector's version and the
+  Recalculate Ledger task as they work, without "after each update" steps,
+  which Start9 keeps for release notes (`versions.md`,
+  `writing-instructions.md`). `UPDATING.md` gains Start9's rules for the
+  version and its notes (a version counts as released once the community
+  registry serves it, and the notes cover everything since the one it last
+  served) and for bumping the SDK (`npm install` until the lockfile stops
+  changing; `npm update` doesn't move a git dependency), and says Start9
+  packs with the newest start-cli. The release tests add a reinstall after
+  the uninstall (`publishing.md`), and `test_startos_conformance.py` checks
+  the license, how Start9's release workflow reads the id and version, the
+  instructions' wording, and one exact SDK. Everything else already
+  conformed; nothing the package does changes.
 
 ### Development
+- **Every session of big work starts from `develop`** (AGENTS.md, "Big
+  work"; `docs/HOW-CHANGES-FLOW.md`). A session given a working folder of
+  its own gets `develop` as that folder's base (after `make sync-check`),
+  and each kickoff prompt says to bring the folder up to `origin/develop`
+  first with `git merge --ff-only`: otherwise the folder may be cut from
+  `main`, which lacks everything not yet released.
+  The 1.2.9 release's sessions A, B and C (#369) started from `main` on
+  2026-10-16 and moved to `develop` themselves.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
