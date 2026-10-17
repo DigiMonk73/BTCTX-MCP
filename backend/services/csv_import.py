@@ -32,6 +32,7 @@ from backend.services.transaction import (
     has_control_character,
     original_date,
     original_date_name,
+    find_prices_first,
     original_date_problem,
     sell_fee_problem,
     values_the_save_prices,
@@ -920,6 +921,7 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
     sorted_txns = sorted(transactions, key=lambda x: x["timestamp"])
 
     imported_count = 0
+    find_prices_first(db, sorted_txns)  # before the first row is written (#426)
     try:
         for tx_data in sorted_txns:
             create_transaction_record(tx_data, db, auto_commit=False)
