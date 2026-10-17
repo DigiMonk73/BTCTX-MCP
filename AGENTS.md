@@ -309,7 +309,7 @@ from the Transaction row alone.
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
-| `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256) |
+| `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
@@ -352,8 +352,11 @@ from the Transaction row alone.
   (`/docs`, `/openapi.json`) only with DEBUG.
 - Deleting every transaction (Delete All, and Create account's
   `reset-account` on a ledger with transactions) needs `confirm=DELETE`,
-  typed in its dialog, else 409 says what would go; reset-account checks
-  the setup code or password first. A copy of the database goes to
+  typed in its dialog, else 409 says what would go; the dialog sends what
+  it showed (`transactions`, `first_year`, `last_year`), and a ledger that
+  no longer has it is a 409 with the new figure (#377; a swap within the
+  same count and years isn't seen, the copy keeps it). reset-account
+  checks the setup code or password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.
 - Sessions (`backend/session_auth.py`): each login gets a random session id,

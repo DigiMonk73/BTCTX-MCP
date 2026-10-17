@@ -19,10 +19,12 @@ export function describeExtent({ transactions, first_year, last_year }: LedgerEx
   return first_year == null ? `${transactions} ${noun}` : `${transactions} ${noun}, ${years}`;
 }
 
-/** The server's 409 when a delete needs the confirmation: what would go;
- * null for any other failure. */
+/** The server's 409 when a delete needs the confirmation: what would go
+ * (only that: it's sent back with the confirmation, #377); null for any
+ * other failure. */
 export function extentToConfirm(err: unknown): LedgerExtent | null {
   if (!axios.isAxiosError(err) || err.response?.status !== 409) return null;
   const data = err.response.data as Partial<LedgerExtent> | undefined;
-  return typeof data?.transactions === "number" ? (data as LedgerExtent) : null;
+  if (typeof data?.transactions !== "number") return null;
+  return { transactions: data.transactions, first_year: data.first_year ?? null, last_year: data.last_year ?? null };
 }

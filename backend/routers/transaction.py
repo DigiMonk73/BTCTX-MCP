@@ -136,16 +136,22 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
 
 
 @router.delete("/delete_all", status_code=204)
-def delete_all_transactions_endpoint(request: Request, confirm: str | None = None, db: Session = Depends(get_db)):
+def delete_all_transactions_endpoint(
+    request: Request, confirm: str | None = None, transactions: int | None = None, first_year: int | None = None,
+    last_year: int | None = None, db: Session = Depends(get_db),
+):
     """
     Delete every transaction with its ledger lines, lots and disposals, only
-    with confirm=DELETE (typed in the dialog, #256): otherwise 409 says what
-    would go, and nothing is deleted. A copy of the database comes first
-    (backups/, "before-delete"). Login only (never the AI key).
+    with confirm=DELETE (typed in the dialog, #256) and, when given, while
+    the ledger has the transactions and tax years the dialog showed (#377):
+    otherwise 409 says what would go now, and nothing is deleted. A copy of
+    the database comes first (backups/, "before-delete"). Login only (never
+    the AI key).
     """
     _require_login_to_delete_all(request)
-    # The 409, or 204 No Content: the deleted count is intentionally not returned.
-    return wipe.delete_all(db, confirm)
+    shown = {"transactions": transactions, "first_year": first_year, "last_year": last_year}
+    # The 409, or 204 No Content: what went is what the dialog showed.
+    return wipe.delete_all(db, confirm, shown)
 
 
 @router.delete("/{transaction_id}", status_code=204)
