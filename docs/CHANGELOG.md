@@ -195,8 +195,9 @@ All notable changes to BitcoinTX are documented in this file.
   a setting for the first time (the price choice in Settings → Privacy &
   network, the answer about the price history without Tor, the AI access
   switch, an AI key, the tax timezone) from two tabs or browsers at once
-  failed one of them with an error (a 500, "UNIQUE constraint failed");
-  nothing was lost or wrong, and trying again worked. Now each setting is
+  failed one of them with a server error (a 500; the server's log said
+  "UNIQUE constraint failed"); nothing was lost or wrong, and trying again
+  worked. Now each setting is
   written in one step (`models/app_setting.save_setting`), so both saves
   land and the later one's value is kept, as when a setting already saved
   is changed in two tabs: of two AI keys made at once, the later one works.

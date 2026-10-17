@@ -20,8 +20,8 @@ class AppSetting(Base):
 def save_setting(db: Session, key: str, value: str | None) -> None:
     """
     Store a setting (None deletes it) in one statement, so two saves at once
-    both land, the later one's value kept. A read, then an insert, failed the
-    second of two first saves on the key (UNIQUE constraint, a 500, #398).
+    both land, the later one's value kept: a read, then an insert, would fail
+    the second of two first saves on the key (UNIQUE constraint, #398).
     """
     if value is None:
         db.execute(delete(AppSetting).where(AppSetting.key == key))

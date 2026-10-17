@@ -1,8 +1,8 @@
 """
 Two saves of a setting at the same moment (two tabs or browsers clicking
-together) both land, the later one's value kept (#398). A save read the
-setting's row, then added it if missing: on a fresh install both saves saw
-no row and the second failed on the key (UNIQUE constraint, a 500).
+together) both land, the later one's value kept (#398). A read of the
+setting's row, then an insert if it's missing, would let both saves see no
+row and fail the second on the key (UNIQUE constraint, a 500), so
 models/app_setting.save_setting writes it in one statement.
 """
 
@@ -22,6 +22,7 @@ def fresh_db(monkeypatch):
     """A fresh install's database, no setting saved yet; the price
     settings in memory put back afterwards (a save loads its own)."""
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings())
+    monkeypatch.setattr(outbound, "_record", dict(outbound._record))
     monkeypatch.setattr(outbound, "_direct_record", dict(outbound._direct_record))
     path = temp_db_file()
     engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
@@ -61,6 +62,7 @@ def save_twice_at_once(engine, save, values) -> list[Exception]:
             t.join(timeout=30)
     finally:
         event.remove(engine, "before_cursor_execute", after_both_read)
+    assert not any(t.is_alive() for t in threads), "a save never finished"
     return errors
 
 
