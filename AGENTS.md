@@ -241,11 +241,11 @@ from the Transaction row alone.
   another (`match_by_moving`), so a date-alone row can't take a timed
   row's only copy (#411). The user can override a duplicate: the AI's row
   names the transaction the preview matched (`not_a_duplicate_of`), a
-  River row is ticked. That frees it only from that transaction: it's checked against
-  the rest, so a resent request doesn't save it twice (a row that matched
-  another copy is that copy, #378). A named row that check leaves new
-  takes a copy another row holds when that row can take another of its
-  own (`match_by_moving`), never one a row names.
+  River row is ticked. That frees it only from that transaction: it's
+  checked against the rest, so a resent request doesn't save it twice (a
+  row that matched another copy is that copy, #378). A named row that
+  check leaves new takes a copy another row holds when that row can take
+  another of its own (`match_by_moving`), never one a row names.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a

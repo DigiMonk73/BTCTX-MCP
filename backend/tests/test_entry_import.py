@@ -315,8 +315,9 @@ class TestDedup:
         """#378 on random ledgers: payouts of two amounts at a few times of
         one day (some rows given as a date alone), some of the preview's
         duplicates named as other transactions. Sent three times, only the
-        first send saves anything. (Times on both sides of noon, beside
-        identical copies: test_any_request_sent_again_saves_nothing_more.)"""
+        first send saves anything. (A later payout nearer noon than an
+        earlier one, beside identical copies:
+        test_any_request_sent_again_saves_nothing_more.)"""
         import random
 
         rng = random.Random(seed)
