@@ -101,7 +101,8 @@ export interface PriceForm {
 
 export function isOnion(url: string): boolean {
   try {
-    return new URL(url.trim()).hostname.endsWith(".onion");
+    // As the server judges it: a dot at the end ("x.onion.") names the same host
+    return new URL(url.trim()).hostname.replace(/\.+$/, "").endsWith(".onion");
   } catch {
     return false;
   }

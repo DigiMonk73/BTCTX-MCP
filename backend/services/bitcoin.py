@@ -49,7 +49,8 @@ def _one_at_a_time() -> asyncio.Lock:
 
 async def _from_own_node(path: str, parse: Callable, record: bool = False):
     """Ask the owner's mempool server when it's the chosen source; None if it
-    fails. `record`: the live price's attempt, which the status line reports
+    fails. A save meanwhile that stops it raises _settings_changed's answer (#437).
+    `record`: the live price's attempt, which the status line reports
     (services/price_status.py); the block height's isn't, so a Mempool that
     gives the height but no price is never reported as the price's source."""
     settings = outbound.current()
@@ -63,6 +64,8 @@ async def _from_own_node(path: str, parse: Callable, record: bool = False):
             resp = await client.get(base + path)
             resp.raise_for_status()
             value = parse(resp)
+    except outbound.ChoiceChanged:
+        raise _settings_changed() from None  # a save meanwhile (#437): not asked, nothing to report
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
         if record:
@@ -93,6 +96,9 @@ async def _first_public(urls_and_parsers, what: str, record: bool = False) -> tu
                         if record:
                             price_status.answered(_site(url))
                         return value, _site(url)
+            except outbound.ChoiceChanged:
+                # A save meanwhile (#437): nothing more is asked through this client
+                raise _settings_changed() from None
             except Exception as exc:
                 unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
@@ -104,6 +110,17 @@ async def _first_public(urls_and_parsers, what: str, record: bool = False) -> tu
             f"No public site answered for the {what}: none could be reached through the proxy for "
             "public sites. If that's Tor, is it running? (On StartOS: start the Tor service.)"))
     raise HTTPException(status_code=502, detail=f"No public site answered for the {what}.")
+
+
+def _settings_changed() -> HTTPException:
+    """The answer when a save stopped a lookup (#437): why nothing is asked
+    now (Nobody, no choice yet, one to confirm, the server's invalid one), as
+    at the start; else try again, which asks as the new choice says."""
+    if not outbound.current().public_allowed:
+        refused = outbound.refuse_public()
+        if refused.status_code == 503:
+            return refused
+    return HTTPException(status_code=502, detail="The price settings changed while BitcoinTX was asking: try again.")
 
 
 # A public site's short name, as the live price's "source" gives it

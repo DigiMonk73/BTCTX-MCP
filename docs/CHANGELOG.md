@@ -464,6 +464,41 @@ All notable changes to BitcoinTX are documented in this file.
   technical text, and `cli review` shows that line too. A transaction
   deleted while the check runs, or while you apply the hour's prices, is
   left out instead of causing a server error.
+- **A price lookup under way when you change the price settings follows
+  your new choice** (#437). A lookup of a past price asked your own
+  Mempool first, waiting for it up to a minute and a half when it was slow
+  or down, and then asked the public sites if your choice allowed them
+  when the lookup started, through the proxy set by the end of that wait.
+  So if you saved a choice without public sites and without a proxy
+  meanwhile (Nobody, or your Mempool with no backup and no proxy), it
+  still asked a public site, and directly, not through Tor: something
+  neither choice allowed. The live price, the block height, a download of
+  several blocks and a request to your own Mempool could do the same
+  within a much shorter moment (an .onion Mempool's name could then go to
+  this server's resolver). During the Mempool's wait: every version from
+  1.1.0; within a moment: every version from 0.9.2. Now each request is
+  sent only as the settings in use at that moment allow: never to a public
+  site once they aren't allowed, never through another proxy than the one
+  in use, and never to a Mempool address no longer chosen; a request they
+  don't allow is refused before it's sent, and the daily history, the
+  latest days and your Mempool's history are asked again at the next
+  lookup, as the new choice says. Only your own change of these settings
+  while a lookup was under way could cause it (they're login only, never
+  the AI key), and no figure is affected. Nothing to do.
+- **An .onion Mempool address however its dots are typed is reached
+  through Tor** (found by the review of #443). Typed with a dot at its end
+  (`http://….onion.`, the same address) or with a full stop that web
+  addresses take for a dot (`。`, `．`), it wasn't taken for an .onion: it
+  was asked directly, even with Tor set, so its name went to this
+  server's resolver; and it could be saved without Tor. Now it's an
+  .onion like any other, in Settings and on the server: it needs Tor, and
+  goes through it. An address whose host has a character no host name has
+  (a backslash, a `%`), which went around Tor the same way, is now refused
+  when saved (or, set by the server, makes its price settings invalid),
+  and one saved before is never asked until you correct it. Nothing to
+  do, unless you typed your Mempool's address with such a dot without
+  Tor: Settings now offers Tor for it when you next save, and BitcoinTX
+  asks that Mempool nothing until then.
 - **A save made while Ledger Review looks up a price no longer fails**
   (#364). When one of Ledger Review's checks needed a BTC price not stored
   yet (with a price source chosen), it stored the price in the review's own
