@@ -602,7 +602,7 @@ All notable changes to BitcoinTX are documented in this file.
   newer runner would have changed it without anyone choosing that. Now the
   macOS build and release jobs set up Python 3.13 and hand it to the build
   (`BTCTX_BUILD_PYTHON`), and the automatic tests run on 3.13 too, beside
-  3.10 and 3.11 (Docker and StartOS stay on 3.11). The owner chose 3.13,
+  3.10 and 3.11 (and Docker and StartOS now run 3.13, #425). The owner chose 3.13,
   what 1.2.8 shipped and was tested on, over 3.11, which GitHub offers for
   the Mac only as a release from April 2024. A build on your own Mac still
   takes the newest it finds, unless you name one.

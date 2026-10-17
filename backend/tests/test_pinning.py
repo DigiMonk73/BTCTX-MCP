@@ -65,6 +65,19 @@ def test_docker_base_images_are_pinned_by_digest():
     )
 
 
+def test_the_image_runs_the_python_ci_names():
+    """The image's Python is the newest the test matrix runs, and every
+    workflow job that sets up one Python sets up that one (#425): the smoke,
+    click-through and audit jobs stand in for the image, so a Python moved in
+    one place and not the others fails here."""
+    image = re.search(r"^FROM python:(\d+\.\d+)-slim@", (ROOT / "Dockerfile").read_text(), re.M).group(1)
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    matrix = re.findall(r'"([\d.]+)"', re.search(r"^\s+python: \[(.*?)\]", ci, re.M).group(1))
+    assert image == max(matrix, key=lambda v: tuple(map(int, v.split("."))))
+    named = {(w.name, v) for w in WORKFLOWS for v in re.findall(r'python-version: "([\d.]+)"', w.read_text())}
+    assert named and {v for _, v in named} == {image}, sorted(named)
+
+
 @pytest.mark.parametrize("path", REQUIREMENTS, ids=lambda p: str(p.relative_to(ROOT)))
 def test_requirements_are_exact(path):
     loose = [
