@@ -142,7 +142,16 @@ def section_pages(**data) -> tuple[int, int]:
             "period": "2025-01-01 to 2025-12-31", "income_transactions": [
                 {"date": "2025-03-01T12:00:00Z", "asset": "BTC", "amount": 0.01, "value_usd": 600.0,
                  "type": "Income"}],
-            "capital_gains_transactions": [{"asset": "BTC", "date_sold": "2025-07-01T03:00:00Z", "amount": 0.1}]}
+            "capital_gains_transactions": [{"asset": "BTC", "date_sold": "2025-07-01T03:00:00Z", "amount": 0.1}],
+            # With all three, the Summary's 1040 line is its longest (#160)
+            "gifts_donations_lost": [{"date": "2025-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02,
+                                      "fmv_usd": 1200.0, "type": "Gift"}],
+            # And both of its holdings notes: no price at either end of the year
+            "start_of_year_balances": [{"quantity": 0.5, "avg_cost_basis": 30000.0, "value": None}],
+            "end_of_year_balances": [
+                {"asset": "BTC (Bitcoin)", "account": "Wallet", "acquired": "2024-01-15T12:00:00Z", "quantity": 0.5,
+                 "cost": 15000.0, "value": None, "description": "No BTC price for when 2025 ended: not priced"},
+                {"asset": "Total", "quantity": 0.5, "cost": 15000.0, "value": None, "description": ""}]}
     pdf = generate_comprehensive_tax_report({**base, **data})
     pages = [page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages]
 
@@ -163,6 +172,7 @@ SIX_BOXES = [box(b, line, 10.0) for b, line in (("G", "1b"), ("H", "2"), ("I", "
 @pytest.mark.parametrize("forms", ["final", "draft", "none", "newer"])
 def test_the_summary_and_this_page_still_fit_one_page_each(forms):
     """#114 and #160 add words to the summary and to this page: with all six
-    boxes and the year not over (this page's longest without a rebate or an
-    inherited coin), each still takes one page, as before them."""
+    boxes, the year not over (this page's longest without a rebate or an
+    inherited coin) and the summary's notes, each still takes one page, as
+    before them."""
     assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date="2025-10-01 12:00:00") == (1, 1)

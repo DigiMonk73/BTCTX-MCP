@@ -88,15 +88,15 @@ def test_complete_report_sections():
         "08/01/2024 Gift Long 0.02000000 $1,200.00 $500.00 08/02/2024 Lost 0.03000000 not given "
         "Total 0.05000000 $1,200.00 + 1 not given $500.00",
         # What each kind means for the return (#160)
-        "Income paid for your work as an independent contractor is also self-employment income, at the same "
-        "value (Schedule SE).",
-        "Gifts: if all you gave one person in 2024 adds up to more than $18,000 (gifts to a spouse who is a U.S. "
-        "citizen aside), you generally need to file a gift tax return, Form 709.",
+        "Income paid for your work as an independent contractor goes on Schedule C, at the same value, and is "
+        "self-employment income (Schedule SE).",
+        "Gifts: if all you gave one person other than your spouse in 2024 adds up to more than $18,000, you "
+        "generally need to file a gift tax return, Form 709.",
         "Lost coins: BitcoinTX records no loss for them. A theft or scam loss in an investment made for profit "
         "may be deductible on Form 4684, Section B (not Form 8949), up to the coins' cost basis: ask your tax "
         "preparer.",
-        "Form 1040's digital asset question: answer Yes, for the bitcoin disposed of (section 2) and received "
-        "(section 3).",
+        "Form 1040's digital asset question: answer Yes, for the bitcoin disposed of (section 2), received "
+        "(section 3) and given (section 4).",
         "Wallet 1 0.50000000 $20,000.00 not priced Total 1 0.50000000 $20,000.00 not priced "
         "No BTC price for 2024-12-31: not priced",
         "Average cost: $40,000.00 per BTC",  # after a page break since #160's notes
@@ -145,12 +145,14 @@ def test_the_gift_tax_return_names_the_years_exclusion(year, over):
     gift = {"date": f"{year}-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02, "fmv_usd": 1200.0, "type": "Gift"}
     text = pdf_text(generate_comprehensive_tax_report({**EMPTY_REPORT, "tax_year": year,
                                                        "gifts_donations_lost": [gift]}))
-    assert f"Gifts: if all you gave one person in {year} adds up to more than {over} (gifts" in text
+    assert f"Gifts: if all you gave one person other than your spouse in {year} adds up to more than {over}, " \
+           "you generally need" in text
 
 
 def test_the_digital_asset_question_follows_the_year():
-    """#160: Yes for bitcoin disposed of or received as income, a reward or a
-    rebate; else what doesn't make it Yes."""
+    """#160: Yes for bitcoin disposed of, received as income, a reward or a
+    rebate, or given (a transfer of ownership, IRS "Digital assets"); lost
+    coins alone aren't named, so they get what doesn't make it Yes."""
     def question(**data) -> str:
         """The summary's line, up to the next table's header."""
         text = pdf_text(generate_comprehensive_tax_report({**EMPTY_REPORT, **data}))
@@ -161,9 +163,21 @@ def test_the_digital_asset_question_follows_the_year():
         "Form 1040's digital asset question: answer Yes, for the bitcoin disposed of (section 2)."
     assert question(rebates=[rebate]) == \
         "Form 1040's digital asset question: answer Yes, for the bitcoin received (section 3)."
-    assert question() == ("Form 1040's digital asset question: holding bitcoin, buying it with dollars and moving "
-                          "it between your own wallets don't make the answer Yes; for gifts and other digital "
-                          "assets, see its instructions.")
+    given = {"date": "2023-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02, "fmv_usd": 1200.0, "type": "Donation"}
+    assert question(gifts_donations_lost=[given]) == \
+        "Form 1040's digital asset question: answer Yes, for the bitcoin given (section 4)."
+    no = ("Form 1040's digital asset question: holding bitcoin, buying it with dollars and moving it between your "
+          "own wallets don't make the answer Yes; for anything else, see its instructions.")
+    assert question() == no
+    assert question(gifts_donations_lost=[{**given, "type": "Lost"}]) == no
+
+
+def test_a_gift_without_its_lots_has_no_cost_basis_never_zero():
+    """A report dict made before #160 listed the lots: the cost basis is
+    blank, its total too, as an unvalued gift is never $0."""
+    gift = {"date": "2024-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02, "fmv_usd": 1200.0, "type": "Gift"}
+    text = pdf_text(generate_comprehensive_tax_report({**REPORT, "gifts_donations_lost": [gift]}))
+    assert "08/01/2024 Gift 0.02000000 $1,200.00 Total 0.02000000 $1,200.00 Gifts:" in text
 
 
 def test_a_brokers_form_brings_the_time_zone_note():

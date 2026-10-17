@@ -146,6 +146,17 @@ def _term(gift: dict) -> str:
     return "Both" if len(terms) > 1 else terms[0].capitalize() if terms else ""
 
 
+def _basis(gift: dict) -> float | None:
+    """The cost basis of what a gift, donation or loss took from its lots
+    (#160); None in a report made before it was listed, never $0."""
+    parts = gift.get("lots_by_term", [])
+    return sum(part["cost_basis"] for part in parts) if parts else None
+
+
+def _or_blank(usd: float | None) -> str:
+    return "" if usd is None else fmt_usd(usd)
+
+
 def _broker_first(boxes: list[dict]) -> str:
     """Exception 2's column (a) for the boxes of sales a broker reported:
     its name before "see attached statement" (Instructions for Form 8949,
@@ -365,16 +376,18 @@ class _TaxReport:
         reward or award, or from mining or staking, and for any sale,
         exchange or other disposal; not for holding, buying with real
         currency or moving them between your own wallets alone. IRS "Digital
-        assets" page: a transfer fee paid in digital assets makes it Yes. A
-        rebate (a card's sats-back) is received as a reward.
+        assets" page: a transfer fee paid in digital assets, or a transfer
+        of ownership (a gift or donation given), makes it Yes. A rebate (a
+        card's sats-back) is received as a reward. Lost coins aren't named.
         """
+        given = [g for g in self.gifts if normalized(g.get("type")) in ("gift", "donation")]
         did = [part for part, shown in (("disposed of (section 2)", self.disposals),
-                                        ("received (section 3)", self.income or self.rebates)) if shown]
+                                        ("received (section 3)", self.income or self.rebates),
+                                        ("given (section 4)", given)) if shown]
         if did:
-            return f"Form 1040's digital asset question: answer Yes, for the bitcoin {' and '.join(did)}."
+            return f"Form 1040's digital asset question: answer Yes, for the bitcoin {_and_list(did)}."
         return ("Form 1040's digital asset question: holding bitcoin, buying it with dollars and moving it between "
-                "your own wallets don't make the answer Yes; for gifts and other digital assets, see its "
-                "instructions.")
+                "your own wallets don't make the answer Yes; for anything else, see its instructions.")
 
     def gains_table(self) -> Table:
         terms = self.gains_by_term()
@@ -492,9 +505,11 @@ class _TaxReport:
         if any(t.get("type") == "Income" for t in self.income):
             # IRS digital asset FAQ Q60 (Part II, added Dec. 15, 2025; Part I's
             # Q10): an independent contractor's pay in digital assets is
-            # self-employment income at its value when received (#160)
-            story.append(self.text("Income paid for your work as an independent contractor is also "
-                                   "self-employment income, at the same value (Schedule SE).", self.styles.note))
+            # self-employment income at its value when received; the IRS
+            # "Digital assets" page: reported on Schedule C (#160)
+            story.append(self.text("Income paid for your work as an independent contractor goes on Schedule C, "
+                                   "at the same value, and is self-employment income (Schedule SE).",
+                                   self.styles.note))
         return story + self.rebates_detail()
 
     def rebates_detail(self) -> list:
@@ -532,18 +547,12 @@ class _TaxReport:
             rows.append([self.text(self.date(g.get("date", ""))), self.text(g.get("type", "")),
                          self.text(_term(g)), *self.numbers(
                              fmt_btc(g.get("amount", 0.0)), fmt_usd(fmv) if fmv is not None else "not given",
-                             self.gift_basis(g))])
+                             _or_blank(_basis(g)))])
+        bases = [_basis(g) for g in self.gifts if _basis(g) is not None]
         rows.append([self.total_label(), "", "", *self.numbers(
             fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)), self.fmv_total(),
-            fmt_usd(sum(p["cost_basis"] for g in self.gifts for p in g.get("lots_by_term", []))), bold=True)])
+            _or_blank(sum(bases) if bases else None), bold=True)])
         return story + [data_table(rows, [0.85, 0.85, 0.6, 1.3, 1.75, 1.65], total=True), *self.gift_notes()]
-
-    @staticmethod
-    def gift_basis(g: dict) -> str:
-        """The cost basis of what a gift took from its lots; blank in a
-        report made before it was listed."""
-        parts = g.get("lots_by_term", [])
-        return fmt_usd(sum(p["cost_basis"] for p in parts)) if parts else ""
 
     def gift_notes(self) -> list:
         """What each kind in the list means for the return, only for the
@@ -562,13 +571,13 @@ class _TaxReport:
                          "the year's bitcoin donations together needs Form 8283; over $5,000, also a qualified "
                          "appraisal (an exchange's price isn't one) and the charity's signature on it.")
         if "gift" in kinds:
-            # Instructions for Form 709 (2025): the year's gifts to someone other
-            # than your spouse (a U.S. citizen) over the annual exclusion
+            # Instructions for Form 709 (2025): the year's gifts to someone
+            # "(other than to your spouse)" over the annual exclusion (a spouse
+            # who isn't a U.S. citizen has a higher one)
             limit = ANNUAL_GIFT_EXCLUSION.get(self.year)
             over = fmt_usd(limit).removesuffix(".00") if limit else f"{self.year}'s annual exclusion"
-            notes.append(f"Gifts: if all you gave one person in {self.year} adds up to more than {over} (gifts to "
-                         "a spouse who is a U.S. citizen aside), you generally need to file a gift tax return, "
-                         "Form 709.")
+            notes.append(f"Gifts: if all you gave one person other than your spouse in {self.year} adds up to more "
+                         f"than {over}, you generally need to file a gift tax return, Form 709.")
         if "lost" in kinds:
             # CCA 202511015: a theft in a transaction entered into for profit
             # (IRC §165(c)(2)) is deductible on Form 4684, Section B, up to its

@@ -33,14 +33,14 @@ All notable changes to BitcoinTX are documented in this file.
     donation's deduction rules (the value for coins held more than a year,
     the lower of value and basis for the rest), Form 8283 over $500 and a
     qualified appraisal over $5,000 (an exchange's price isn't one); a gift
-    tax return (Form 709) when gifts to one person pass the year's annual
-    exclusion ($19,000 in 2025 and 2026); a theft or scam loss in an
+    tax return (Form 709) when gifts to one person other than your spouse
+    pass the year's annual exclusion ($19,000 in 2025 and 2026); a theft or scam loss in an
     investment possibly deductible on Form 4684, up to the coins' basis.
   - The Summary answers **Form 1040's digital asset question**: Yes for a
-    year with bitcoin sold, spent, paid as a fee or received as income, a
-    reward or a rebate.
-  - Income (section 3): pay for work as an independent contractor is also
-    self-employment income (Schedule SE).
+    year with bitcoin sold, spent, paid as a fee, given away or donated, or
+    received as income, a reward, interest or a rebate.
+  - Income (section 3): pay for work as an independent contractor goes on
+    Schedule C and is self-employment income (Schedule SE).
   - Notes (section 7), in a year with a broker's form: the IRS hasn't said
     which time zone sets your dates, and a broker may date a sale in
     another (UTC), so near midnight its date can differ.

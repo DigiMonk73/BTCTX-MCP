@@ -172,12 +172,12 @@ async def test_ledger_guide_maps_card_sats_back_to_rebate():
 
     flat = " ".join(LEDGER_GUIDE.split())
     assert "Reward = mining, staking, sign-up or referral bonuses." in flat
-    assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Never Reward." in flat
+    assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Not Reward," in flat
     assert "sats-back, bonuses" not in flat
     assert "Rebate" in DepositSource.__args__
     # Card rewards on cash equivalents are income (#160)
-    assert "Sats-back earned buying money orders or other cash equivalents isn't a rebate: that is income " \
-           "(Reward)" in flat
+    assert "Not Reward, except sats-back earned buying money orders or other cash equivalents: that isn't a " \
+           "rebate but income (Reward)." in flat
 
 
 async def test_ledger_guide_carries_the_tax_notes():
@@ -191,12 +191,13 @@ async def test_ledger_guide_carries_the_tax_notes():
         "also self-employment income, Schedule SE",
         "A theft or scam in an investment made for profit may be deductible on Form 4684, Section B, up to the "
         "coins' basis: suggest the user's tax preparer.",
-        "the lower of value and basis for the rest (IRC 170(e)(1)(A)); over $5,000 for the year's donations "
-        "together it needs a qualified appraisal (an exchange's price isn't one) and Form 8283",
-        "($19,000 in 2025 and 2026; a U.S.-citizen spouse aside) generally need a gift tax return, Form 709",
+        "the lower of value and basis for the rest (IRC 170(e)(1)(A)). Over $500 for the year's donations "
+        "together it needs Form 8283; over $5,000, also a qualified appraisal (an exchange's price isn't one)",
+        "gifts to one person other than a spouse over the year's annual exclusion ($19,000 in 2025 and 2026) "
+        "generally need a gift tax return, Form 709",
         "A broker's 1099-DA may date a sale in UTC",
-        "Form 1040's digital asset question is Yes in a year with a sale, a spend, a network fee paid in BTC, or "
-        "BTC received as income, a reward, interest or a rebate",
+        "Form 1040's digital asset question is Yes in a year with a sale, a spend, a network fee paid in BTC, a "
+        "gift or donation given, or BTC received as income, a reward, interest or a rebate",
     ):
         assert note in flat, note
 

@@ -83,10 +83,9 @@ Deposit: External -> any account
     reported income.
     Rebate   = bitcoin back for spending: a rewards card's sats-back,
                shopping cash-back. Generally a rebate on the purchase, not
-               income; its value at receipt is its basis. Never Reward.
-               Sats-back earned buying money orders or other cash
-               equivalents isn't a rebate: that is income (Reward), as a
-               sign-up bonus is.
+               income; its value at receipt is its basis. Not Reward,
+               except sats-back earned buying money orders or other cash
+               equivalents: that isn't a rebate but income (Reward).
     For all four, a basis left out is filled from the price when that hour
     began (UTC; that day's price where there's no hourly one); if no price
     is available the row is refused - then ask the user for the value.
@@ -124,12 +123,12 @@ Withdrawal: any account -> External
     form with it; its tax report lists each with its basis and term:
       - a donation's deduction is generally that value for coins held more
         than a year, the lower of value and basis for the rest (IRC
-        170(e)(1)(A));
-        over $5,000 for the year's donations together it needs a qualified
-        appraisal (an exchange's price isn't one) and Form 8283;
-      - gifts to one person over the year's annual exclusion ($19,000 in
-        2025 and 2026; a U.S.-citizen spouse aside) generally need a gift
-        tax return, Form 709.
+        170(e)(1)(A)). Over $500 for the year's donations together it needs
+        Form 8283; over $5,000, also a qualified appraisal (an exchange's
+        price isn't one);
+      - gifts to one person other than a spouse over the year's annual
+        exclusion ($19,000 in 2025 and 2026) generally need a gift tax
+        return, Form 709.
     fmv_usd omitted: that hour's price x amount, marked as from the price;
     with no price it stays blank, and Ledger Review lists it.
   amount = what the recipient got. Network fee: fee_amount in BTC,
@@ -250,7 +249,7 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    BitcoinTX's figures aren't tax advice and suggest their tax preparer for
    filing decisions. One the ledger answers: Form 1040's digital asset
    question is Yes in a year with a sale, a spend, a network fee paid in
-   BTC, or BTC received as income, a reward, interest or a rebate; holding,
-   buying with dollars and moves between their own wallets alone don't
-   make it Yes.
+   BTC, a gift or donation given, or BTC received as income, a reward,
+   interest or a rebate; holding, buying with dollars and moves between
+   their own wallets alone don't make it Yes.
 """
