@@ -58,6 +58,9 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   const dialogs = acceptDialogs(page);
   await openSettings(page);
   await page.getByLabel("New username").fill("renamed-user");
+  await page.getByLabel("New password").fill("\u{1F511}".repeat(6)); // 6 characters, 12 in .length (#405)
+  await page.getByRole("button", { name: "Update" }).click();
+  await expect(page.getByText("The new password is too short.")).toBeVisible();
   await page.getByLabel("New password").fill("another-password-456");
   // The current password is needed, and checked by the server.
   await page.getByRole("button", { name: "Update" }).click();

@@ -41,6 +41,9 @@ test("first run: claim the default account, then log in", async ({ page, app }) 
   await page.getByLabel("New Password").fill("elevenchars");
   await page.getByRole("button", { name: "Register" }).click();
   await expect(page.getByText("The new password is too short.")).toBeVisible();
+  await page.getByLabel("New Password").fill("\u{1F511}".repeat(6)); // 6 characters, 12 in .length (#405)
+  await page.getByRole("button", { name: "Register" }).click();
+  await expect(page.getByText("The new password is too short.")).toBeVisible();
   await page.getByLabel("New Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Register" }).click();
   await expect(page.getByRole("alert")).toContainText("Enter the setup code.");
