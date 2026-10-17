@@ -7,6 +7,7 @@ until the owner applies by item or by year (login only), after a backup
 copy, and then the values are at the hour, marked so, and recalculated.
 """
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -126,6 +127,65 @@ def test_applying_a_year_applies_its_small_changes_and_no_other_year(auth_client
     found = check(auth_client)
     assert [i["id"] for i in found["items"]] == [ledger["transfer"]]
     assert [y["year"] for y in found["years"]] == [2024]
+
+
+@pytest.mark.parametrize("edit, value", [
+    ({"amount": D("0.2")}, "8000.00"),  # 0.2 BTC at the hour's $40,000
+    ({"timestamp": datetime(2025, 3, 1, 16, 20, tzinfo=timezone.utc)}, "4500.00"),  # 0.1 BTC at 16:00's $45,000
+])
+def test_an_edit_made_while_the_hours_prices_are_applied_keeps_its_own_value(
+        auth_client, ledger, test_engine, monkeypatch, edit, value):
+    """#387: the apply worked each value out from the transaction as the
+    check found it, then made the backup copy, then wrote that value: an edit
+    made in between was overwritten with the value for its old amount or
+    hour. The apply now holds the write lock from the copy on and works
+    each value out again from the transaction as it is then."""
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services import hourly_review
+    from backend.services.transaction import update_transaction_record
+
+    monkeypatch.setattr(hourly_prices, "hourly_price",  # 14:00 UTC's price, and 16:00's
+                        lambda db, when, wait=True: (D(45000 if when.hour == 16 else HOUR_PRICE), "bitstamp"))
+    real_copy = hourly_review.backup_sqlite
+
+    def edit_then_copy(*args, **kwargs):
+        with sessionmaker(bind=test_engine)() as other:
+            update_transaction_record(ledger["income"], edit, other)
+        return real_copy(*args, **kwargs)
+
+    monkeypatch.setattr(hourly_review, "backup_sqlite", edit_then_copy)
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger["income"]]})
+    assert r.status_code == 200, r.text
+    (Path(test_engine.url.database).parent / "backups" / r.json()["backup"]).unlink()
+    income = tx(auth_client, ledger["income"])
+    assert (income["cost_basis_usd"], income["price_moment"]) == (value, "hour")
+    assert r.json()["changed"][0]["values"]["cost_basis_usd"][1] == value
+
+
+def test_a_busy_database_applies_nothing(auth_client, ledger, test_engine):
+    """While another save holds the write lock longer than SQLite waits, the
+    apply changes nothing and says so (503), never half of it."""
+    from fastapi import HTTPException
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.services.hourly_review import apply_hourly_prices
+
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.2})
+    before = tx(auth_client, ledger["income"])
+    try:
+        with test_engine.connect() as saving:
+            saving.exec_driver_sql("BEGIN IMMEDIATE")
+            with sessionmaker(bind=impatient)() as db, pytest.raises(HTTPException) as exc:
+                apply_hourly_prices(db, ids=[ledger["income"]])
+            saving.rollback()
+    finally:
+        impatient.dispose()
+        for copy in (Path(test_engine.url.database).parent / "backups").glob("*-review-hourly-prices-*.db"):
+            copy.unlink()
+    assert exc.value.status_code == 503 and "busy" in exc.value.detail
+    assert tx(auth_client, ledger["income"]) == before
 
 
 def test_ids_or_a_year_not_both(auth_client, ledger):

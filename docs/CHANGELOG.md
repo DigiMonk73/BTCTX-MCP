@@ -278,6 +278,21 @@ All notable changes to BitcoinTX are documented in this file.
   import's later rows, it goes with that save), so saves go through. What
   Ledger Review shows doesn't change, and a stored price still never
   changes. Nothing was ever half-saved: the save was refused whole.
+- **An edit made while the hour's prices are applied keeps its own value**
+  (tax figures, #387). Ledger Review's "apply the hour's prices" worked
+  out each new value from the transaction as its check had found it, made
+  the backup copy, then wrote that value. A transaction edited in those
+  few seconds (its amount or its time changed) got the value worked out for
+  its old amount or hour: for example $4,000 for 0.2 BTC that the hour's
+  $40,000 values at $8,000. The apply now holds the database's write lock
+  from the copy on, so an edit made then waits until it's done, and works
+  each value out again from the transaction as it is at that moment. While
+  another save holds the lock too long, nothing is applied, and it says
+  so. **Affected:** 1.2.8, only a transaction edited while the apply ran
+  (by you in another window, or by the AI); not seen in real use. **What
+  to do:** nothing, unless you edited a transaction while applying the
+  hour's prices: then open it and, if its value doesn't match its amount,
+  clear the value to price it again at its hour.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
