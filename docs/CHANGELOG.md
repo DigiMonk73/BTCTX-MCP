@@ -313,12 +313,13 @@ All notable changes to BitcoinTX are documented in this file.
   (`tzdata`), the same list on every computer. A restore whose backup holds
   another name keeps this install's tax timezone (none chosen: UTC or
   `BTCTX_TIMEZONE`, as before) and says so, waiting for you to read it
-  before the login page: check the timezone in Settings and save it there,
-  which recalculates the ledger in it. An install that already holds such a
-  name keeps working with the same figures: a case variant is read as its
-  proper name (`America/Chicago`), another name as before where the
-  computer opens it, and one it can't open (from a restore) counts as none
-  chosen, where every report failed. The upgrade to 1.2.9 (migration 0012)
+  before the login page: check the timezone in Settings → Account, then run
+  Recalculate Ledger there, so the restored ledger is worked out in it. An
+  install that already holds such a name keeps working with the same
+  figures: a case variant is read as its proper name (`America/Chicago`),
+  another name as before where the computer opens it, and one it can't open
+  (from a restore) counts as none chosen, where every report failed (the
+  server's log says so once). The upgrade to 1.2.9 (migration 0012)
   reads it the same way, so such a name never stops the upgrade.
   The AI connector says plainly that its computer doesn't know the tax
   timezone, where some names failed with a raw error. The trade-off: a

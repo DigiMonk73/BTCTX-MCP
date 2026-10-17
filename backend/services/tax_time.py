@@ -19,6 +19,7 @@ machine can't after a restore.
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import date, datetime, timezone
 from functools import cache
@@ -28,6 +29,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 SETTING_KEY = "tax_timezone"
 DEFAULT_TIMEZONE = "UTC"
@@ -107,8 +110,10 @@ def get_tax_timezone_name(db: Session) -> tuple[str, str]:
     from backend.models.app_setting import AppSetting
 
     row = db.get(AppSetting, SETTING_KEY)
-    if row and row.value and (name := readable_zone(row.value)):
-        return name, "setting"
+    if row and row.value:
+        if name := readable_zone(row.value):
+            return name, "setting"
+        _say_unreadable(row.value)
     env = os.getenv("BTCTX_TIMEZONE")
     if env:  # one this machine can't read is refused, as before
         return readable_zone(env) or validate_timezone(env), "env"
@@ -117,6 +122,12 @@ def get_tax_timezone_name(db: Session) -> tuple[str, str]:
 
 def get_tax_timezone(db: Session) -> ZoneInfo:
     return ZoneInfo(get_tax_timezone_name(db)[0])
+
+
+@cache  # once per name and process: it's read for every transaction of a recalculation
+def _say_unreadable(name: str) -> None:
+    logger.warning("The stored tax timezone '%s' can't be read on this computer: none counts as chosen "
+                   "(BTCTX_TIMEZONE, else UTC) until one is saved in Settings (#407)", shown_zone(name))
 
 
 def set_tax_timezone(db: Session, name: str) -> str:

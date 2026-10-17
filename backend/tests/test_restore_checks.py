@@ -629,16 +629,40 @@ def test_a_backups_tax_timezone_tzdata_doesnt_name_keeps_this_installs(live, tmp
     r = _restore(live.client, blob)
 
     assert r.status_code == 200, r.text
-    shown = own or "UTC"
-    assert r.json() == {"message": backup_router.RESTORED,
-                        "notice": backup_router.TIMEZONE_KEPT.format(backups=backups, kept=shown)}
+    assert r.json() == {"message": backup_router.RESTORED, "notice": backup_router.TIMEZONE_KEPT.format(
+        backups=backups, kept=own or "UTC (none chosen)")}
+    assert "Recalculate Ledger" in r.json()["notice"]  # Settings' Save can't save the timezone it shows
     assert _stored(live.engine)["settings"].get("tax_timezone") == own
     assert _amounts(live.engine) == [2.0]  # the backup's ledger all the same
     assert _logs_in(live.client, OWNER)
     assert live.client.get("/api/settings/tax-timezone").json() == {
-        "timezone": shown, "source": "setting" if own else "default"}
+        "timezone": own or "UTC", "source": "setting" if own else "default"}
     assert live.client.get("/api/reports/irs_reports", params={"year": 2025}).status_code == 200
     assert live.client.get("/api/calculations/gains-and-losses").status_code == 200
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+
+
+def test_a_restore_under_btctx_timezone_says_the_kept_one_is_the_servers(live, tmp_path, monkeypatch):
+    monkeypatch.setenv("BTCTX_TIMEZONE", "Asia/Tokyo")
+    blob, _ = _backup(tmp_path, _with_tax_timezone("localtime"))
+
+    notice = _restore(live.client, blob).json()["notice"]
+
+    assert "so this install's own, Asia/Tokyo (the server's BTCTX_TIMEZONE), was kept." in notice
+
+
+@pytest.mark.parametrize("backups", ["", "posixrules"], ids=["empty", "this install's own"])
+def test_a_name_that_changes_nothing_here_needs_no_notice(live, tmp_path, monkeypatch, backups):
+    """An empty name reads as none; this install's own name (one it opened
+    before 1.2.9) is what it already reads."""
+    monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+    _settings(live.engine, {"tax_timezone": "posixrules"})
+    blob, _ = _backup(tmp_path, _with_tax_timezone(backups))
+
+    r = _restore(live.client, blob)
+
+    assert r.json() == {"message": backup_router.RESTORED}, r.text
+    assert _stored(live.engine)["settings"]["tax_timezone"] == backups
 
 
 def test_the_notice_shows_a_long_name_cut_short(live, tmp_path, monkeypatch):
@@ -647,7 +671,7 @@ def test_the_notice_shows_a_long_name_cut_short(live, tmp_path, monkeypatch):
 
     notice = _restore(live.client, blob).json()["notice"]
 
-    assert "'" + "A" * 64 + "…'" in notice and len(notice) < 300
+    assert "'" + "A" * 64 + "…'" in notice and len(notice) < len(backup_router.TIMEZONE_KEPT) + 100
 
 
 # Genuine backups: every row of BitcoinTX's tables comes back as it was

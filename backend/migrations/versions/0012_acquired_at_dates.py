@@ -50,9 +50,11 @@ def downgrade() -> None:
 
 def _rewrite(convert) -> None:
     bind = op.get_bind()
-    tz = _tax_timezone(bind)
     rows = bind.execute(sa.text(
         "SELECT id, acquired_at, timestamp FROM transactions WHERE acquired_at IS NOT NULL")).all()
+    if not rows:
+        return  # nothing to convert: no timezone looked up (a fresh database, a restore's new one)
+    tz = _tax_timezone(bind)
     for row in rows:
         bind.execute(sa.text("UPDATE transactions SET acquired_at = :value WHERE id = :id"),
                      {"value": convert(str(row.acquired_at).strip(), str(row.timestamp), tz), "id": row.id})
@@ -60,9 +62,11 @@ def _rewrite(convert) -> None:
 
 def _tax_timezone(bind) -> ZoneInfo:
     """The tax timezone the app reads (tax_time.get_tax_timezone_name): a
-    stored name this machine can't read counts as none (#407)."""
+    stored name this machine can't read counts as none, and BTCTX_TIMEZONE
+    is read the same way, one it can't read still an error (#407)."""
     name = bind.execute(sa.text("SELECT value FROM app_settings WHERE key = 'tax_timezone'")).scalar()
-    return (name and _readable(name)) or ZoneInfo(os.getenv("BTCTX_TIMEZONE") or "UTC")
+    env = os.getenv("BTCTX_TIMEZONE")
+    return (name and _readable(name)) or (env and (_readable(env) or ZoneInfo(env))) or ZoneInfo("UTC")
 
 
 def _readable(name: str) -> ZoneInfo | None:

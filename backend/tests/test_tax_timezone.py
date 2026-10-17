@@ -270,6 +270,14 @@ class TestAStoredNameTzdataDoesntHold:
         assert CLIENT.get("/api/calculations/gains-and-losses").status_code == 200
         assert len(rows(2025)) == 1
 
+    def test_the_log_says_so_once(self, caplog):
+        store("nowhere/407")
+        with caplog.at_level("WARNING", logger="backend.services.tax_time"):
+            for _ in range(3):
+                assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
+        said = [r.getMessage() for r in caplog.records if r.name == "backend.services.tax_time"]
+        assert len(said) == 1 and "'nowhere/407' can't be read on this computer" in said[0]
+
     def test_btctx_timezone_is_read_the_same_way(self, monkeypatch):
         never_chosen()
         monkeypatch.setenv("BTCTX_TIMEZONE", "asia/tokyo")

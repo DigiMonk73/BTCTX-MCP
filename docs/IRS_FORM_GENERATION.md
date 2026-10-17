@@ -143,7 +143,8 @@ Where the timezone comes from: **Settings → Tax Timezone** (the
 `tax_timezone` row in `app_settings`), then the `BTCTX_TIMEZONE` env var,
 then UTC. Only the names of the `tzdata` package BitcoinTX ships with are
 saved (#407), the same list on every machine: a restore elsewhere reads the
-same zone, and a backup holding another name keeps this install's own. API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
+same zone, and a backup holding another name keeps this install's own.
+API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
 the whole ledger, because stored holding periods can change. A login fills
 it from the browser (`POST /api/settings/tax-timezone/fill`) only while
 none was chosen and the ledger has no transactions (#334): with

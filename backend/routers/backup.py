@@ -129,7 +129,8 @@ RESTORED = "✅ Database successfully restored. Log in again with your current u
 # The restore's answer when the backup's tax timezone wasn't kept (#407)
 TIMEZONE_KEPT = (
     "The backup's tax timezone, '{backups}', isn't a timezone name BitcoinTX knows, so this install's own, "
-    "{kept}, was kept. Check it in Settings and save it there: saving recalculates your ledger in it."
+    "{kept}, was kept. After logging in, check it in Settings → Account, then run Recalculate Ledger there, "
+    "so the restored ledger is worked out in it."
 )
 
 
@@ -198,14 +199,22 @@ def _known_tax_timezone(restored: Session, own: str | None, notices: list[str]) 
     notice says so.
     """
     backups = _stored_tax_timezone(restored)
+    if not backups or backups == own:  # none (an empty one reads as none), or this install's already
+        return backups
     try:
-        return backups if backups is None else tax_time.validate_timezone(backups)
+        return tax_time.validate_timezone(backups)
     except ValueError:
         pass
     save_setting(restored, tax_time.SETTING_KEY, own)
-    kept = tax_time.get_tax_timezone_name(restored)[0]
-    notices.append(TIMEZONE_KEPT.format(backups=tax_time.shown_zone(backups), kept=kept))
+    notices.append(TIMEZONE_KEPT.format(backups=tax_time.shown_zone(backups), kept=_zone_shown(restored)))
     return own
+
+
+def _zone_shown(db: Session) -> str:
+    """The tax timezone as a notice names it, saying where it comes from
+    when it wasn't chosen here."""
+    name, source = tax_time.get_tax_timezone_name(db)
+    return {"setting": name, "env": f"{name} (the server's BTCTX_TIMEZONE)"}.get(source, f"{name} (none chosen)")
 
 
 def _as_stored(db: Session, kept: dict) -> dict:
