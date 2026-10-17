@@ -39,8 +39,8 @@ No system packages are installed: IRS forms are filled in pure Python (pypdf).
 
 BitcoinTX never runs as root. The image has no `USER` line: Docker starts
 `docker-entrypoint.sh` as root. The data folder is `/data`, or the folder of
-`DATABASE_FILE` when that is a mount of its own (a volume or a host folder,
-its path written plainly: no `.`, `..` or link on the way; never `/dev`,
+`DATABASE_FILE` when that is a folder mounted on its own (a volume or a host
+folder, never a mounted file; its path written plainly: no `.`, `..` or link on the way; never `/dev`,
 `/proc` or `/sys`). If `btctx` finds anything in it that isn't its
 own, root gives it to `btctx` (`chown -R`: a volume an image before 1.2.9
 made is root's, and so may be a host folder mounted there); a start after

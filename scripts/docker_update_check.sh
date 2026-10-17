@@ -97,9 +97,10 @@ docker rm -f btctx-new >/dev/null
 
 echo "odd DATABASE_FILE paths never hand over a folder of the image"
 docker run --rm -v "$VOL2:/srv/btctx" --entrypoint ln "$NEW" -s / /srv/btctx/x   # as btctx would
-for db in /./btctx.db /data/../btctx.db /dev/btctx.db /srv/btctx/x/dev/btctx.db; do
-  owners=$(docker run --rm -v "$VOL2:/srv/btctx" -e DATABASE_FILE="$db" "$NEW" stat -c %u:%g /etc/passwd /app /dev/null)
-  [ "$(echo $owners)" = "0:0 0:0 0:0" ] || { echo "✗ DATABASE_FILE=$db handed over: $owners"; exit 1; }
+for db in /./btctx.db /data/../btctx.db /dev/btctx.db /srv/btctx/x/dev/btctx.db /etc/hosts/btctx.db; do
+  owners=$(docker run --rm -v "$VOL2:/srv/btctx" -e DATABASE_FILE="$db" "$NEW" \
+    stat -c %u:%g /etc/passwd /app /dev/null /etc/hosts 2>/dev/null) || owners="(it didn't start)"
+  [ "$(echo $owners)" = "0:0 0:0 0:0 0:0" ] || { echo "✗ DATABASE_FILE=$db handed over: $owners"; exit 1; }
 done
 
 echo "✓ an update from 1.2.8's root-owned /data works, and every file is btctx's"
