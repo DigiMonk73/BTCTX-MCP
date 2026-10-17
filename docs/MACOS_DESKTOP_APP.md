@@ -134,7 +134,7 @@ quit the app and copy the whole `BitcoinTX` folder.
 
 ## Building
 
-Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 22).
+Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 24).
 
 ```bash
 ./desktop/build-mac.sh

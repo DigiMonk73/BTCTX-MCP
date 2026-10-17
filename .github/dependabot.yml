@@ -110,8 +110,8 @@ updates:
     ignore:
       # Pinned to the browsers preinstalled in cloud sessions (TESTING.md)
       - dependency-name: "@playwright/test"
-      # Deferred majors (MAINTENANCE.md): React 18, Vite 6, TypeScript 5,
-      # ESLint 9 (moves with react-hooks 7); Node 22 in Docker and CI
+      # Deferred majors (MAINTENANCE.md): React 18, Vite 6, TypeScript 5;
+      # @types/node follows Node 24, the version Docker and CI run
       - dependency-name: react
         update-types: ["version-update:semver-major"]
       - dependency-name: react-dom
@@ -125,12 +125,6 @@ updates:
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
       - dependency-name: typescript
-        update-types: ["version-update:semver-major"]
-      - dependency-name: eslint
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@eslint/js"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: eslint-plugin-react-hooks
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
@@ -153,7 +147,7 @@ updates:
       - dependency-name: tor-startos
 
   # The Dockerfile's base images, pinned by digest: a new build of the same
-  # tag (OS security fixes) comes as a PR. Python 3.11 and Node 22 change
+  # tag (OS security fixes) comes as a PR. Python 3.11 and Node 24 change
   # only on purpose (MAINTENANCE.md).
   - package-ecosystem: docker
     directory: /
