@@ -191,6 +191,16 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing to do.
 
 ### Fixed
+- **Two saves of a setting at the same moment both work** (#398). Saving
+  a setting for the first time (the price choice in Settings → Privacy &
+  network, the answer about the price history without Tor, the AI access
+  switch, an AI key, the tax timezone) from two tabs or browsers at once
+  failed one of them with a server error (a 500; the server's log said
+  "UNIQUE constraint failed"); nothing was lost or wrong, and trying again
+  worked. Now each setting is
+  written in one step (`models/app_setting.save_setting`), so both saves
+  land and the later one's value is kept, as when a setting already saved
+  is changed in two tabs: of two AI keys made at once, the later one works.
 - **A save of several rows no longer holds your other saves up while it
   looks for prices** (#421; #426 in part). An import, or the AI
   connector's preview or add, prices its later rows (a BTC fee, an income
