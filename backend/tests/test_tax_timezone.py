@@ -74,8 +74,10 @@ def rows(year):
     return data["short_term"] + data["long_term"]
 
 
-# A folder of zones in the tz database, and a name too long for a file name
-NOT_A_ZONE = ["America", "A" * 5000]
+# A folder of zones in the tz database, a name too long for a file name,
+# and one of hundreds of parts (ZoneInfo ran out of recursion on it)
+NOT_A_ZONE = ["America", "A" * 5000, "a/" * 300 + "b"]
+NOT_A_ZONE_IDS = ["a folder", "too long", "many parts"]
 
 
 class TestSetting:
@@ -88,11 +90,12 @@ class TestSetting:
         r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": "Mars/Olympus", "chosen": True})
         assert r.status_code == 400
 
-    @pytest.mark.parametrize("name", NOT_A_ZONE, ids=["a folder", "too long"])
+    @pytest.mark.parametrize("name", NOT_A_ZONE, ids=NOT_A_ZONE_IDS)
     def test_a_folder_of_zones_or_a_name_too_long_is_unknown_too(self, name):
         """#384: ZoneInfo fails on these with an OS error, which was a 500."""
         r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": name, "chosen": True})
         assert r.status_code == 400 and r.json()["detail"].startswith("Unknown timezone"), r.text[:200]
+        assert len(r.json()["detail"]) < 150  # the name cut short, not all of it
         assert CLIENT.get("/api/settings/tax-timezone").json()["timezone"] == "UTC"
 
     def test_requires_login(self):
@@ -149,7 +152,7 @@ class TestLoginFill:
         never_chosen()
         assert fill(NY) == {"timezone": "Asia/Tokyo", "source": "env", "filled": False}
 
-    @pytest.mark.parametrize("name", ["Mars/Olympus", *NOT_A_ZONE], ids=["unknown", "a folder", "too long"])
+    @pytest.mark.parametrize("name", ["Mars/Olympus", *NOT_A_ZONE], ids=["unknown", *NOT_A_ZONE_IDS])
     def test_unknown_timezone_refused(self, name):
         never_chosen()
         r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": name})

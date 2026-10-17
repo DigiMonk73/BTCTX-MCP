@@ -183,11 +183,11 @@ All notable changes to BitcoinTX are documented in this file.
   loss listed there as a sale, or income left out, would be in that year.
 - **A tax timezone name that isn't a zone is refused, not a server error**
   (#384). Saving a tax timezone named like a folder of zones (`America`)
-  or with a name too long for a file answered "Internal Server Error"
+  or with a name longer than any zone's answered "Internal Server Error"
   instead of "Unknown timezone". Nothing was saved either way. Settings
   offers only real zones and the login page sends the browser's, so only
-  a hand-made request could send one. **Affected:** 1.2.8 (Settings' save)
-  and this version's login fill. Nothing to do.
+  a hand-made request could send one. **Affected:** every version since
+  0.8.0 (Settings' save), and this version's login fill. Nothing to do.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved

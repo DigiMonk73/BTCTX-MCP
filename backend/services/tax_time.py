@@ -24,16 +24,24 @@ from sqlalchemy.orm import Session
 
 SETTING_KEY = "tax_timezone"
 DEFAULT_TIMEZONE = "UTC"
+# Longer than any zone's name (the longest is 32 characters,
+# America/Argentina/ComodRivadavia): never looked up (#384)
+MAX_ZONE_NAME = 64
 
 
 def validate_timezone(name: str) -> str:
     """`name` when it's a timezone ZoneInfo can read; ValueError otherwise.
-    A name that is a folder of zones ("America") or too long for a file
-    name fails with an OS error, not as unknown (#384)."""
+    A name longer than any zone's isn't looked up: ZoneInfo fails on one
+    with an OS error, or, of hundreds of parts, runs out of recursion. A
+    folder of zones ("America") fails with an OS error too (#384)."""
+    shown = name if len(name) <= MAX_ZONE_NAME else name[:MAX_ZONE_NAME] + "…"
+    unknown = f"Unknown timezone '{shown}'. Use an IANA name like America/Chicago."
+    if len(name) > MAX_ZONE_NAME:
+        raise ValueError(unknown)
     try:
         ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
-        raise ValueError(f"Unknown timezone '{name}'. Use an IANA name like America/Chicago.") from exc
+        raise ValueError(unknown) from exc
     return name
 
 
