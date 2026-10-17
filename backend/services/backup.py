@@ -125,7 +125,10 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
         enc_key, mac_key = keys[:KEY_LENGTH], keys[KEY_LENGTH:]
         if not hmac.compare_digest(_mac(mac_key, body), tag):
             raise ValueError("❌ Failed to decrypt backup. Wrong password?")
-        return _decrypt_data(body[_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH:], enc_key, iv)
+        try:
+            return _decrypt_data(body[_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH:], enc_key, iv)
+        except ValueError as e:  # the library's own words (padding) aren't the owner's (#422)
+            raise ValueError(DAMAGED) from e
 
     # v1: no header, fixed iterations, no MAC. A wrong key still unpads about
     # 1 time in 256, so the database header inside is the password check.
