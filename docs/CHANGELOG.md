@@ -956,12 +956,14 @@ All notable changes to BitcoinTX are documented in this file.
   to Node 22.23.2 because 22.23.3 couldn't build `diskusage` (#32), take
   Node 24, which builds it. ESLint 10 and react-hooks 7 check the code;
   nothing they install ships (the web pages' 40 packages are unchanged).
-  react-hooks 7 adds the React Compiler's checks: they stay on, except two
-  that flag how the screens load their data from an effect and pass
-  react-hook-form's `handleSubmit` in the form's markup, which
-  `frontend/eslint.config.js` turns off, saying why, until 2.0's screens.
-  The one other spot they found, the Dashboard's Tor state declared after
-  the effect that sets it, moved up a few lines: nothing it does changes.
+  react-hooks 7 adds the React Compiler's checks: they stay on, except
+  the one that flags the screens setting state from an effect (to load
+  their data, or to reset or derive state when something changes: nine
+  places), which `frontend/eslint.config.js` turns off, saying why, until
+  2.0's screens. Of the two other spots they found, the transaction form's
+  `handleSubmit` (a false alarm) says so where it is, and the Dashboard's
+  Tor state, declared after the effect that sets it, moved up a few lines:
+  nothing it does changes.
   The configuration now uses ESLint's own `defineConfig` (typescript-eslint
   deprecated `tseslint.config`).
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5

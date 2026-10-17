@@ -20,13 +20,12 @@ export default defineConfig(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // Two of react-hooks 7's React Compiler checks, off: the screens load
-      // their data from an effect (nine places) and the transaction form
-      // passes react-hook-form's handleSubmit in its markup, which they flag.
-      // Rewriting that is for 2.0's screens with React 19, not a tools
-      // upgrade (#425); the preset's other new checks stay on.
+      // One of react-hooks 7's React Compiler checks, off: the screens set
+      // state from an effect, to load their data and to reset or derive
+      // state when something changes (nine places). Rewriting that is for
+      // 2.0's screens with React 19 (docs/MAINTENANCE.md, "Deferred
+      // upgrades"), not a tools upgrade (#425); the other new checks stay on.
       'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/refs': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

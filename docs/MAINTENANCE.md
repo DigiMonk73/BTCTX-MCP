@@ -151,7 +151,8 @@ merge into `develop`. Nothing reaches `main` before a release.
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
   bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"; the SDK brings
-  TypeScript and the other build tools). Docker: Python minor and major versions and Node majors, so the
+  TypeScript and the other build tools). npm: `@types/node` majors too, since
+  it moves with the Node that Docker and CI run. Docker: Python minor and major versions and Node majors, so the
   base images stay `3.11-slim` and `24-slim` and only their digests move.
 - The locked directories (`backend/`, `desktop/`, `.github/release-tools/`)
   are `uv` entries: Dependabot edits the pin in `requirements.in` and
@@ -253,7 +254,7 @@ From `backend/requirements.in`:
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. 6.168.5 is the last for Python 3.10 (see below) |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
-ESLint 10 (with eslint-plugin-react-hooks 7, two of whose React Compiler checks
+ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
 `frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
 Docker frontend build and CI use Node 24.
 `@playwright/test` is pinned exactly to match the browsers preinstalled in
@@ -270,7 +271,7 @@ take the upgrade.
 |---------|-------------|-----|--------------|
 | `reportlab` | 4.5.x | Output drift risk: changes to acroform `None` handling, `cssParse` colors, table bounds errors | Someone compares generated PDFs before/after and accepts the differences |
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass |
+| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
 | `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.11 or later (Docker and StartOS 3.11, the Mac app 3.13, pinned and tested, #284) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
 | `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it). #294 | No CI job installs `requirements-dev.txt` on Python 3.10: not before SQLAlchemy 2.1, and not while a 3.10 job for the connector alone remains |
 
