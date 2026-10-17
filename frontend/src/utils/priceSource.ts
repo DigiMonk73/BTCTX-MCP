@@ -34,6 +34,8 @@ export interface NetworkSettingsData {
   mempool_certificate?: { name: string; sha256: string } | null;
   /** The Mempool's address is an https home-network one: its certificate may be trusted (#188). */
   mempool_trustable?: boolean;
+  /** The answer to "Download the price history once without Tor?" (#241): the owner's, even when the server sets the choice. */
+  history_without_tor?: { answer: "yes" | "no" | null; at: string | null; via: "dashboard" | "settings" | null };
 }
 
 /** A stored choice made before the card kept a record: asked once (#145, 2.9). */

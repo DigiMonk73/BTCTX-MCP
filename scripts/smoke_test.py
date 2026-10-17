@@ -145,6 +145,10 @@ def stub_prices() -> None:
     hourly_prices.start_download = lambda: False
 
 
+# A Tor whose exits Bitstamp refuses (#241), for the fake internet: a proxy at this host
+TOR_BITSTAMP_REFUSES = "refused-by-bitstamp.test"
+
+
 def fake_internet(log_path: str) -> None:
     """
     Answer the app's requests to outside services from a fake internet, so
@@ -153,9 +157,11 @@ def fake_internet(log_path: str) -> None:
     block height of the stubs, and each past day its own price
     (fake_past_price), except that a host under .invalid (RFC 2606: it never
     resolves) doesn't answer: a mempool server that's down, or a proxy
-    that's stopped. A request the app's code never makes gets a 404, so it
-    can't produce a price. Each request goes to `log_path` as a JSON line:
-    its URL and the proxy it was sent through.
+    that's stopped; and through a proxy at TOR_BITSTAMP_REFUSES, Bitstamp
+    answers its block page, as it does Tor's exits (#241). A request the
+    app's code never makes gets a 404, so it can't produce a price. Each
+    request goes to `log_path` as a JSON line: its URL and the proxy it was
+    sent through.
     """
     class FakeInternetClient(httpx.AsyncClient):
         def __init__(self, *, proxy: str | None = None, **kwargs):
@@ -164,6 +170,8 @@ def fake_internet(log_path: str) -> None:
                     log.write(json.dumps({"url": str(request.url), "proxy": proxy}) + "\n")
                 if any(host.endswith(".invalid") for host in (request.url.host, httpx.URL(proxy or "").host)):
                     raise httpx.ConnectError("no answer (fake internet)", request=request)
+                if request.url.host == "www.bitstamp.net" and httpx.URL(proxy or "").host == TOR_BITSTAMP_REFUSES:
+                    return httpx.Response(403, text="Request unsuccessful. Incapsula incident ID: 0-0")
                 return _fake_answer(request)
 
             super().__init__(transport=httpx.MockTransport(answer), **kwargs)
