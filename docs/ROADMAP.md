@@ -17,9 +17,9 @@ Nothing that changes the package goes to Start9 during that test, so what's
 under "Soon" waits for the maintenance releases after promotion.
 
 After 1.2.9, until 2.0 replaces it, we expect 1.x to get maintenance
-updates only (bug and security fixes, each year's IRS forms, the price
-history's update), and new work goes into 2.0, below. No dates are
-promised.
+updates (bug and security fixes, each year's IRS forms, the price history's
+update) and the small improvements under "Soon" (the owner, 2026-10-17);
+the big new work goes into 2.0, below. No dates are promised.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
       blocking item, then 14 days on Community Beta (1.2.9), then the

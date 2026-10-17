@@ -18,7 +18,8 @@ All notable changes to BitcoinTX are documented in this file.
 ### Changed
 - **The README says what comes after 1.2.9** (#369, #251; "Versions", also
   `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
-  version, with maintenance updates only after it until 2.0 replaces it;
+  version, with maintenance updates and small improvements after it, until
+  2.0 replaces it;
   2.0, with several wallets, exchanges and banks, is planned to be tested as
   a beta on GitHub pre-releases before it comes to Start9's Community Beta.
   No dates are promised.
