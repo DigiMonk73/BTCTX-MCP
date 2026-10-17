@@ -56,7 +56,6 @@ def get_historical_bitcoin_price(date: str | None = None, at: str | None = None,
     if day > datetime.now(timezone.utc).date():
         raise HTTPException(status_code=400, detail="Date cannot be in the future.")
     price = price_history.daily_price(db, day)
-    db.commit()  # keep a newly downloaded price
     return {"USD": float(price), "source": price_history.stored_source(db, day) or ""}
 
 
@@ -75,7 +74,6 @@ def _price_at(at: str, db: Session) -> dict:
     if when > datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Time cannot be in the future.")
     priced = hourly_prices.price_at(db, when)
-    db.commit()  # keep a newly downloaded price
     return {"USD": float(priced.usd), "moment": priced.moment, "at": priced.at.isoformat().replace("+00:00", "Z"),
             "source": priced.source}
 

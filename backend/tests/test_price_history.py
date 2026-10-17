@@ -169,7 +169,7 @@ def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_late
 
 def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
     """#161: Kraken is the only fallback for the latest days."""
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     day = TODAY - timedelta(days=2)
     with pytest.raises(HTTPException) as exc:  # both down: no third site
         price_history.daily_price(db, day)
@@ -189,7 +189,7 @@ def test_a_day_a_site_gives_at_no_price_is_never_kept(sources, db, given):
     rounded to the cent, so a site's 0.004 was kept as $0.00 (and a stored
     day never changes), and one that wasn't a number lost the whole answer.
     Such a day has no price (a 422, never $0); the other days are kept."""
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     odd, other = TODAY - timedelta(days=2), TODAY - timedelta(days=3)
     sources.bitstamp = candles(TODAY - timedelta(days=9), 10, price=lambda d: given if d == odd else 64000)
     assert price_history.daily_price(db, other) == D("64000.00")
@@ -208,7 +208,7 @@ def test_a_candle_for_another_day_is_never_used(sources, db):
     """F42: Kraken returns only its latest 720 daily candles; a price from
     years later must never stand in for an older day."""
     db.add(price_history.BtcPriceDaily(day=date(2020, 1, 1), usd=D("7000"), source="test"))
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
     with pytest.raises(HTTPException) as exc:
         price_history.daily_price(db, date(2021, 1, 5))
@@ -232,36 +232,50 @@ def test_a_read_keeps_the_prices_it_finds_at_once(db, test_engine):
 
 
 def test_a_save_keeps_the_prices_it_finds_in_its_own_transaction(db, test_engine):
-    """A save holds the write lock already: its prices go into its own
-    transaction (another one would wait for that lock), and go if it rolls
-    back."""
+    """A caller that has already written holds the write lock: its prices go
+    into its own transaction (another one would wait for that lock), and go
+    if it rolls back."""
     day = date(2020, 5, 5)
-    db.execute(text("BEGIN IMMEDIATE"))  # a save
+    db.execute(text("BEGIN IMMEDIATE"))  # a save holding the lock
     assert price_history.daily_price(db, day) == D("50000.00")
     assert price_history.stored_price(db, day) == D("50000.00")
     db.rollback()
     assert price_history.stored_price(db, day) is None
 
 
-def test_a_price_found_while_a_save_holds_the_lock_is_still_used(test_engine, caplog):
-    """While a save holds the write lock longer than SQLite waits, a read's
-    price isn't stored, but the read still gets it: it's asked again next
-    time."""
+def test_the_full_download_is_marked_done_only_with_its_days(sources, test_engine, monkeypatch):
+    """#381's review: the days and the mark that the full download is done
+    are kept in one transaction. Kept apart, the days could fail (a save held
+    the lock) and the mark be kept: from then on only the latest days were
+    asked, and every older day had no price for good."""
     from sqlalchemy import create_engine
+    from sqlalchemy.exc import OperationalError
 
+    sources.bitstamp = all_days()
     impatient = create_engine(test_engine.url, connect_args={"timeout": 0.2})
-    day = date(2020, 5, 5)
+    saving = test_engine.connect()
+    saving.exec_driver_sql("BEGIN IMMEDIATE")  # a save holding the lock
+    real_keep = price_history.keep
+
+    def keep_then_the_save_ends(db, write):
+        try:
+            real_keep(db, write)
+        finally:
+            if saving.in_transaction():
+                saving.rollback()
+
+    monkeypatch.setattr(price_history, "keep", keep_then_the_save_ends)
     try:
-        with test_engine.connect() as saving:
-            saving.exec_driver_sql("BEGIN IMMEDIATE")
-            with sessionmaker(bind=impatient)() as db:
-                assert price_history.daily_price(db, day) == D("50000.00")
-            saving.rollback()
+        with sessionmaker(bind=impatient)() as db:
+            with pytest.raises(OperationalError):  # busy: refused, as a save is
+                price_history.daily_price(db, date(2015, 5, 5))
+            assert not price_history._history_complete(db)
+            later = date(2014, 3, 3)  # the full download again, kept this time
+            assert price_history.daily_price(db, later) == D(dict(sources.bitstamp)[later])
+            assert price_history._history_complete(db) and price_history.stored_price(db, date(2015, 5, 5))
     finally:
+        saving.close()
         impatient.dispose()
-    with sessionmaker(bind=test_engine)() as db:
-        assert price_history.stored_price(db, day) is None
-    assert "BTC prices not stored: the database was busy" in caplog.text
 
 
 @pytest.mark.parametrize("source", ["unset", "off"])

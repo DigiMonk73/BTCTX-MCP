@@ -373,7 +373,7 @@ def _store(db: Session, prices: dict[int, tuple[Decimal, str]]) -> None:
             session.execute(sqlite_insert(BtcPriceHourly).values(rows[i:i + STORE_CHUNK]).on_conflict_do_nothing())
 
     if rows:
-        price_history.keep(db, write)  # at once, unless a save keeps them (#364)
+        price_history.keep(db, write)  # at once, unless the caller has already written (#364)
 
 
 def _wanted(line: pf.YearLine) -> bool:

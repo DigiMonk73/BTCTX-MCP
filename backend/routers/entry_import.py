@@ -128,7 +128,6 @@ async def preview_entries(
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
     await autofill_fmv(prepared, db)
-    db.commit()  # keep the prices it looked up (nothing else is written yet)
     await run_in_threadpool(mark_duplicates, prepared, db)
     affected, balances = await run_in_threadpool(simulate, prepared, db)
 
@@ -200,7 +199,6 @@ async def execute_entries(
         await run_in_threadpool(_check_ai_request, prepared, db)
 
     await autofill_fmv(prepared, db)
-    db.commit()  # keep the prices it looked up (nothing else is written yet)
     await run_in_threadpool(mark_duplicates, prepared, db, exact_only=True)
     skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
 

@@ -274,10 +274,10 @@ All notable changes to BitcoinTX are documented in this file.
   seconds failed with "database is locked". The AI connector's preview and
   add, and the River import's preview, looked their prices up the same
   way. A price found is now stored at once, in a short transaction of its
-  own (a save still stores the prices it looks up with itself), so saves
-  go through. What Ledger Review shows doesn't change, and a stored price
-  still never changes. Nothing was ever half-saved: the save was refused
-  whole.
+  own (within a save that has already written something, such as an
+  import's later rows, it goes with that save), so saves go through. What
+  Ledger Review shows doesn't change, and a stored price still never
+  changes. Nothing was ever half-saved: the save was refused whole.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
