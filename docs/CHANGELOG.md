@@ -309,10 +309,17 @@ All notable changes to BitcoinTX are documented in this file.
   - an account that transactions name can't be deleted ("Not deleted: 1
     transaction names Old wallet…").
 
-  **What to do:** edit each into one of your accounts, or delete it. With
-  more than one that stops saves, each stops the others' fix, and for now
-  they need fixing outside the app (#368). No figure changes: the ledger
-  replays as before, and only the message differs.
+  **What to do:** edit each into one of your accounts, or delete it, one
+  at a time. With more than one that stops saves, each edit or delete of
+  one was refused too, naming another, so none could be fixed in the app
+  (#368). Now an edit or a delete of such a transaction goes on past the
+  others, replaying them as BitcoinTX replays one that doesn't stop saves;
+  they still stop every other save, by name, until they're fixed. If that
+  leaves a later transaction short of BTC, the refusal names the others it
+  went past: fix the one that's why first. Until the last is fixed, the figures
+  (Form 8949, the dashboard) can be off: fix them all before relying on a
+  report. No figure changes for a ledger without them: it replays as
+  before, and only the message differs.
 - **Text that isn't text is refused, not a server error** (#313). A JSON
   string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
   isn't a character and can't be saved. Sent in a transaction's purpose, an
