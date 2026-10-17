@@ -219,8 +219,16 @@ for (const [fixture, label] of [["unconfirmed-off", "Nobody"], ["unconfirmed-mem
       expect(outsideRequests(app)).toEqual([]);
       await card.getByRole("button", { name: "Confirm" }).click();
       await expect(card).toHaveCount(0);
-      const origins = [...new Set(outsideRequests(app).map((r) => new URL(r.url).origin))];
-      expect(origins).toEqual(fixture === "unconfirmed-off" ? [] : ["http://umbrel.local:3006"]);
+      // The lookup Confirm starts runs after the save's answer, so it can come
+      // after the card goes (#444): wait for it, rather than read once.
+      const origins = () => [...new Set(outsideRequests(app).map((r) => new URL(r.url).origin))];
+      if (fixture === "unconfirmed-off") {
+        // Nothing may ever come: read once that lookup has answered (Nobody)
+        await expect(page.getByText("You chose Nobody: no live price.")).toBeVisible();
+        expect(origins()).toEqual([]);
+      } else {
+        await expect.poll(origins).toEqual(["http://umbrel.local:3006"]);
+      }
     });
   });
 }

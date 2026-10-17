@@ -1055,6 +1055,14 @@ All notable changes to BitcoinTX are documented in this file.
   database by hand, which Settings → Backup & Restore and BitcoinTX's own
   copies before each upgrade cover; `mcp_server/README.md` no longer
   points to it.
+- **The price card's "confirm once" click-through test waits for the
+  lookup Confirm starts** (#444). "Confirm once: My own Mempool" read the
+  requests sent to the outside once, right after the card went, and
+  expected one to the Mempool; the lookup Confirm starts runs after the
+  save's answer, so on a slow runner it came later and the test saw none
+  (WebKit, in #441's CI). It now waits for that request; "Confirm once:
+  Nobody" reads once that lookup has answered ("You chose Nobody: no live
+  price."), so it can't pass by reading too early either. Test-only.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
