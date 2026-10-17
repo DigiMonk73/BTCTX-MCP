@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 import backend.services.price_history as price_history
 from backend.services import outbound
-from backend.tests.conftest import stub_daily_prices, stub_prices_at
+from backend.tests.conftest import empty_price_history, stub_daily_prices, stub_prices_at
 
 # The real function, captured before the session fixture stubs it.
 from backend.services.price_history import find_prices as real_find_prices
@@ -106,14 +106,14 @@ def use(**settings):
     outbound._current = outbound.NetworkSettings(**settings)
 
 
-def test_the_whole_history_comes_in_the_same_requests_whatever_the_day(sources, db):
+def test_the_whole_history_comes_in_the_same_requests_whatever_the_day(sources, db, test_engine):
     sources.bitstamp = all_days()
     seen = []
     for day in (date(2015, 5, 5), date(2021, 3, 14)):
         assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
         assert not sources.names_a_day(day)
         seen.append(list(sources.requests))
-        db.rollback()  # a fresh install again
+        empty_price_history(test_engine)  # a fresh install again
         price_history.reset_state()
         sources.requests.clear()
     assert seen[0] == seen[1]
@@ -169,7 +169,7 @@ def test_when_bitstamp_is_down_no_other_site_is_asked_and_it_is_tried_again_late
 
 def test_the_latest_days_ask_bitstamp_then_kraken_and_nothing_else(sources, db):
     """#161: Kraken is the only fallback for the latest days."""
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     day = TODAY - timedelta(days=2)
     with pytest.raises(HTTPException) as exc:  # both down: no third site
         price_history.daily_price(db, day)
@@ -189,7 +189,7 @@ def test_a_day_a_site_gives_at_no_price_is_never_kept(sources, db, given):
     rounded to the cent, so a site's 0.004 was kept as $0.00 (and a stored
     day never changes), and one that wasn't a number lost the whole answer.
     Such a day has no price (a 422, never $0); the other days are kept."""
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     odd, other = TODAY - timedelta(days=2), TODAY - timedelta(days=3)
     sources.bitstamp = candles(TODAY - timedelta(days=9), 10, price=lambda d: given if d == odd else 64000)
     assert price_history.daily_price(db, other) == D("64000.00")
@@ -208,11 +208,74 @@ def test_a_candle_for_another_day_is_never_used(sources, db):
     """F42: Kraken returns only its latest 720 daily candles; a price from
     years later must never stand in for an older day."""
     db.add(price_history.BtcPriceDaily(day=date(2020, 1, 1), usd=D("7000"), source="test"))
-    price_history._mark_history_complete(db)
+    price_history._store(db, {}, complete=True)  # the full download done
     sources.kraken = candles(TODAY - timedelta(days=719), 720, price=lambda d: 64000)
     with pytest.raises(HTTPException) as exc:
         price_history.daily_price(db, date(2021, 1, 5))
     assert exc.value.status_code == 422 and "2021-01-05" in exc.value.detail
+
+
+def holds_write_lock(db) -> bool:
+    return db.connection().connection.driver_connection.in_transaction
+
+
+def test_a_read_keeps_the_prices_it_finds_at_once(db, test_engine):
+    """#364: a lookup outside a save (Ledger Review, the form's Refresh)
+    kept its prices in the caller's transaction, holding SQLite's write lock
+    until the caller ended, so a save made meanwhile waited and failed. They
+    are kept at once now, in a short transaction of their own."""
+    day = date(2020, 5, 5)
+    assert price_history.daily_price(db, day) == D("50000.00")
+    assert not holds_write_lock(db)
+    with sessionmaker(bind=test_engine)() as other:
+        assert price_history.stored_price(other, day) == D("50000.00")
+
+
+def test_a_save_keeps_the_prices_it_finds_in_its_own_transaction(db, test_engine):
+    """A caller that has already written holds the write lock: its prices go
+    into its own transaction (another one would wait for that lock), and go
+    if it rolls back."""
+    day = date(2020, 5, 5)
+    db.execute(text("BEGIN IMMEDIATE"))  # a save holding the lock
+    assert price_history.daily_price(db, day) == D("50000.00")
+    assert price_history.stored_price(db, day) == D("50000.00")
+    db.rollback()
+    assert price_history.stored_price(db, day) is None
+
+
+def test_the_full_download_is_marked_done_only_with_its_days(sources, test_engine, monkeypatch):
+    """#381's review: the days and the mark that the full download is done
+    are kept in one transaction. Kept apart, the days could fail (a save held
+    the lock) and the mark be kept: from then on only the latest days were
+    asked, and every older day had no price for good."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.exc import OperationalError
+
+    sources.bitstamp = all_days()
+    impatient = create_engine(test_engine.url, connect_args={"timeout": 0.2})
+    saving = test_engine.connect()
+    saving.exec_driver_sql("BEGIN IMMEDIATE")  # a save holding the lock
+    real_keep = price_history.keep
+
+    def keep_then_the_save_ends(db, write):
+        try:
+            real_keep(db, write)
+        finally:
+            if saving.in_transaction():
+                saving.rollback()
+
+    monkeypatch.setattr(price_history, "keep", keep_then_the_save_ends)
+    try:
+        with sessionmaker(bind=impatient)() as db:
+            with pytest.raises(OperationalError):  # busy: refused, as a save is
+                price_history.daily_price(db, date(2015, 5, 5))
+            assert not price_history._history_complete(db)
+            later = date(2014, 3, 3)  # the full download again, kept this time
+            assert price_history.daily_price(db, later) == D(dict(sources.bitstamp)[later])
+            assert price_history._history_complete(db) and price_history.stored_price(db, date(2015, 5, 5))
+    finally:
+        saving.close()
+        impatient.dispose()
 
 
 @pytest.mark.parametrize("source", ["unset", "off"])

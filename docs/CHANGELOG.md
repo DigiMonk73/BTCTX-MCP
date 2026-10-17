@@ -266,6 +266,18 @@ All notable changes to BitcoinTX are documented in this file.
   technical text, and `cli review` shows that line too. A transaction
   deleted while the check runs, or while you apply the hour's prices, is
   left out instead of causing a server error.
+- **A save made while Ledger Review looks up a price no longer fails**
+  (#364). When one of Ledger Review's checks needed a BTC price not stored
+  yet (with a price source chosen), it stored the price in the review's own
+  database transaction and held the write lock until the review ended: a
+  transaction saved meanwhile, yours or the AI's, waited and after 5
+  seconds failed with "database is locked". The AI connector's preview and
+  add, and the River import's preview, looked their prices up the same
+  way. A price found is now stored at once, in a short transaction of its
+  own (within a save that has already written something, such as an
+  import's later rows, it goes with that save), so saves go through. What
+  Ledger Review shows doesn't change, and a stored price still never
+  changes. Nothing was ever half-saved: the save was refused whole.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
