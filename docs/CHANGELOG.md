@@ -1074,6 +1074,13 @@ All notable changes to BitcoinTX are documented in this file.
   no longer shows a recalculation error's own text.
 
 ### StartOS package
+- **Connect an AI Assistant takes the server's root certificate the way
+  Start9's guide says** (#463). The action found the certificate your AI
+  app must trust by asking StartOS for a certificate for `127.0.0.1` and
+  taking the third one of its chain, which worked only while that chain
+  had exactly three. It now asks StartOS for the root directly
+  (`sdk.getRootCa`, Start9's "Trusting this server's certificates"). What
+  the action shows is unchanged.
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
   README said a backup made on an older version is migrated forward when
   it's restored, and its README and instructions said to go back by
