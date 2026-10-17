@@ -34,7 +34,7 @@ def test_the_ledger_is_never_kept_in_the_browser_cache(auth_client):
     for r in (auth_client.get("/api/backup/csv"), auth_client.get("/api/reports/years"),
               auth_client.get("/api/transactions"), TestClient(app).get("/api/backup/csv")):  # a refusal too
         assert r.headers.get_list("cache-control") == ["no-store"], (r.url, r.status_code)
-    assert auth_client.get("/").headers["cache-control"] == "no-cache"  # the page: checked on every load
+    # The page keeps its own no-cache: test_plain_dates.test_the_page_is_checked_with_the_server_on_every_load
 
 
 def test_no_store_replaces_a_cache_control_a_route_set():
