@@ -170,6 +170,8 @@ def test_reportlab_trusts_no_url_even_for_unescaped_markup(listener):
     # Look-alikes: spaces or a full-width sign before it (#229's review)
     (" =1+1", "' =1+1"), ("\uff1d1+1", "'\uff1d1+1"), ("\u3000=1+1", "'\u3000=1+1"), ("\xa0=1+1", "'\xa0=1+1"),
     ("rent, March", "rent, March"),
+    # A ' already before such a text gets another, so the import gives it back (#380); before other text, none
+    ("'=1", "''=1"), ("''=1", "'''=1"), ("' =1", "'' =1"), ("'hello", "'hello"), ("'", "'"),
 ])
 def test_csv_text(value, expected):
     assert csv_text(value) == expected

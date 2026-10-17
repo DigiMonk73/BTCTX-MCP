@@ -180,8 +180,9 @@ def _cell(column: str, value: str | None) -> str:
     A cell's text, stripped. In a column the CSV export writes through
     safe_text.csv_text, less the ' it puts in front of text a spreadsheet
     could run as a formula: one leading ' is dropped when the rest is text
-    csv_text prefixes, so an export imports as it was (#230). A ' before
-    anything else is kept.
+    csv_text prefixes, so an export imports as it was (#230). A text that
+    starts with ' itself is exported with another (#380), so it comes back
+    too. A ' before anything else is kept.
     """
     text = (value or "").strip()
     if column in QUOTED_COLUMNS and text.startswith("'") and csv_text(text[1:]) == text:
