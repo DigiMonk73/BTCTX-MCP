@@ -22,6 +22,7 @@ from backend.constants import FIRST_TAX_YEAR, LAST_TAX_YEAR
 from backend.database import get_db
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
+from backend.services.csv_import import log_unexpected
 from backend.services.reports import draft_forms, transaction_history
 from backend.services.reports.form_8949 import (
     build_form_8949_and_schedule_d,
@@ -93,6 +94,11 @@ def get_complete_tax_report(
     )
 
 
+# Never the error's own text, which can carry SQL, a server path or a
+# transaction's date (#422): the log says what it was (log_unexpected)
+IRS_FORMS_FAILED = "The IRS forms couldn't be made: something unexpected stopped it. BitcoinTX's log says what."
+
+
 @reports_router.get("/irs_reports")
 def get_irs_reports(
     year: int,
@@ -160,12 +166,11 @@ def get_irs_reports(
             headers={"Content-Disposition": f'attachment; filename=\"IRSReports_{year}.pdf\"'}
         )
 
+    except HTTPException:
+        raise  # a refusal raised on purpose keeps its status and words
     except Exception as e:
-        logger.error(f"IRS report generation failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"IRS report generation failed: {str(e)}"
-        )
+        log_unexpected(f"IRS forms for {year}", e, logger)
+        raise HTTPException(status_code=500, detail=IRS_FORMS_FAILED) from e
 
 
 @reports_router.get("/simple_transaction_history")

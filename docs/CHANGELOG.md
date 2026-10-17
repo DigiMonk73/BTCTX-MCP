@@ -860,6 +860,11 @@ All notable changes to BitcoinTX are documented in this file.
   long as the others, and with no copy nothing is recalculated or added. An
   import of later entries only, and your own Recalculate Ledger or imports
   (Settings, or StartOS's action), are unchanged.
+- **The IRS forms and a restore that fail unexpectedly say so in plain
+  words** (#422), as the imports now do: never the error's own text, which
+  could hold a database query, a server path or a transaction's date; the
+  log names the kind of error. A backup the restore can't read past its
+  password check is called damaged, as other unreadable files are.
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
