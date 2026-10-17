@@ -182,12 +182,14 @@ def _cell(column: str, value: str | None) -> str:
     could run as a formula: one leading ' is dropped when the rest is text
     csv_text prefixes, so an export imports as it was (#230). A text that
     starts with ' itself is exported with another (#380), so it comes back
-    too. A ' before anything else is kept.
+    too. A ' before anything else is kept, and so is one after spaces: the
+    export never writes a space before its own, so the cell is looked at
+    before it's stripped.
     """
-    text = (value or "").strip()
-    if column in QUOTED_COLUMNS and text.startswith("'") and csv_text(text[1:]) == text:
-        return text[1:]
-    return text
+    raw = value or ""
+    if column in QUOTED_COLUMNS and raw.startswith("'") and csv_text(raw[1:]) == raw:
+        return raw[1:].strip()
+    return raw.strip()
 
 
 def _file_error(message: str) -> CSVParseError:

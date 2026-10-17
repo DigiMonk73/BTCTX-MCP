@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.routers.backup import _csv_number
 from backend.services import outbound
 from backend.services.csv_import import CSV_COLUMNS, TEMPLATE_ROWS
+from backend.services.reports.safe_text import csv_text
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.tests.conftest import stub_daily_prices
 from backend.tests.test_golden_years import LEDGER as GOLDEN, _normalize
@@ -283,6 +284,7 @@ def test_a_sale_listed_before_its_same_time_buy_says_to_reorder(auth_client):
     ("＝look-alike", "＝look-alike"), ("－10 off", "－10 off"),
     (" =x", "=x"),  # the import trims a cell's spaces, as it always has
     ("'=typed with an apostrophe", "'=typed with an apostrophe"), ("''=1", "''=1"), ("' =x", "' =x"),
+    (" '=x", "'=x"), ("\u3000'=x", "'=x"),  # #393's review: trimmed, its ' kept
 ])
 def test_text_a_spreadsheet_could_run_comes_back_as_it_was(auth_client, purpose, back):
     """#230: the export puts a ' in front of such text (safe_text.csv_text),
@@ -300,7 +302,7 @@ def test_text_a_spreadsheet_could_run_comes_back_as_it_was(auth_client, purpose,
         assert r.status_code == 200, r.text
     stored = [t["purpose"] for t in auth_client.get("/api/transactions").json() if t["type"] == "Withdrawal"]
     exported = auth_client.get("/api/backup/csv").text
-    assert f",'{stored[0]}," in exported
+    assert f",{csv_text(stored[0])}," in exported  # quoted when it could run
     assert auth_client.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
     r = auth_client.post("/api/import/execute", files=csv_file(exported))
     assert r.status_code == 200, r.text
@@ -310,7 +312,8 @@ def test_text_a_spreadsheet_could_run_comes_back_as_it_was(auth_client, purpose,
 
 @pytest.mark.parametrize("column, cell, read", [
     ("purpose", "'-5% fee", "-5% fee"), ("purpose", "'hello", "'hello"), ("purpose", "'", "'"),
-    ("purpose", "  '=1 ", "=1"), ("purpose", "''=1", "'=1"),  # the export of "'=1" (#380)
+    ("purpose", "  '=1 ", "'=1"),  # a ' after spaces isn't the export's: it never writes one there
+    ("purpose", "''=1", "'=1"),  # the export of "'=1" (#380)
     ("purpose", "'''=1", "''=1"), ("purpose", "'hello'", "'hello'"),
     ("amount", "'+0.01", "'+0.01"),  # a number the export writes as it is: a ' there was never its
 ])
@@ -323,23 +326,37 @@ def test_only_the_exports_quote_is_dropped(column, cell, read):
 
 
 def test_every_short_text_comes_back_and_none_starts_a_formula():
-    """#380: every text of up to five of ' = - @ ＝ a and spaces (none at
-    its ends, which the import trims) is exported as a cell no spreadsheet
-    runs, and imported as it was."""
+    """#380: every text of up to five of ' = - @ ＝ a and spaces is exported
+    as a cell no spreadsheet runs, and imported as it was, but for the
+    spaces at its ends, which the import trims."""
     from itertools import product
 
     from backend.services.csv_import import _cell
-    from backend.services.reports.safe_text import FORMULA_START, csv_text
+    from backend.services.reports.safe_text import FORMULA_START
 
     for size in range(1, 6):
         for chars in product("'=-@＝a ", repeat=size):
             text = "".join(chars)
-            if text != text.strip():
-                continue
             cell = csv_text(text)
             looks = unicodedata.normalize("NFKC", cell).lstrip()
             assert not cell.startswith(FORMULA_START) and not looks.startswith(FORMULA_START[:4]), repr(text)
-            assert _cell("purpose", cell) == text, repr(text)
+            assert _cell("purpose", cell) == text.strip(), repr(text)
+
+
+def test_thousands_of_apostrophes_are_quoted_and_refused_as_too_long(auth_client):
+    """#393's review: csv_text looked past each leading ' in turn, and a
+    cell of 1,000 of them before = ran out of Python's recursion (a 500).
+    However many, it's quoted once more, and the import's length check
+    refuses the row."""
+    assert csv_text("'" * 5000 + "=") == "'" * 5001 + "="
+    row = {c: "" for c in CSV_COLUMNS} | {
+        "date": "2024-01-03T12:00:00Z", "type": "Withdrawal", "amount": "100", "from_account": "Bank",
+        "to_account": "External", "purpose": "'" * 2000 + "=",
+    }
+    text = ",".join(CSV_COLUMNS) + "\n" + ",".join(row[c] for c in CSV_COLUMNS) + "\n"
+    r = auth_client.post("/api/import/preview", files=csv_file(text))
+    assert r.status_code == 200, r.text[:300]
+    assert "too long" in r.text
 
 
 def test_the_quoted_columns_are_the_ones_the_export_quotes():
