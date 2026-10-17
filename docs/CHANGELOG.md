@@ -698,6 +698,11 @@ All notable changes to BitcoinTX are documented in this file.
   the license, how Start9's release workflow reads the id and version, the
   instructions' wording, and one exact SDK. Everything else already
   conformed; nothing the package does changes.
+- **A package fix while a version is only on Community Beta** (#376, the
+  owner's rule): Start9 keeps the version number until the community
+  registry serves it, so `UPDATING.md` now ships such a fix inside a small
+  app release (a new version with a real app fix, the package back at `:0`)
+  instead of a package revision.
 
 ### Development
 - **A bug found during big work gets its own session** (AGENTS.md, "Big
