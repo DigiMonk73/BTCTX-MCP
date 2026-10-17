@@ -42,9 +42,9 @@ backdated entries come out right.
 - **Deposit**: dollars into Bank or Exchange USD, or bitcoin into Wallet or
   Exchange BTC. A bitcoin deposit's **Source** decides its cost basis:
   - **MyBTC** (your own bitcoin from somewhere BitcoinTX doesn't track) and
-    **Gift** (the giver's cost) take the basis you enter, and the date you
-    originally acquired the coins, which starts the holding period; without
-    that date, the deposit's date counts.
+    **Gift** (the giver's cost) take the basis you enter. The date you
+    originally acquired the coins, if you give it, starts the holding
+    period; without it, the deposit's date does.
   - **Income**, **Interest** and **Reward** (mining, staking, a sign-up or
     referral bonus) are income: their basis is their value when received
     (left blank, the price at that hour), and that value is the income on
@@ -52,8 +52,9 @@ backdated entries come out right.
   - **Rebate** (bitcoin back for spending, such as a rewards card's
     sats-back) is valued the same way but isn't income: the reports list it
     apart.
-  - **Inherited**: the basis is the value on the date of death, which you
-    enter, and any sale of those coins is long-term.
+  - **Inherited**: the basis is the value on the date of death (you enter
+    the date; left blank, the value is that day's price), and any sale of
+    those coins is long-term.
 - **Withdrawal**: money leaving to External. A bitcoin withdrawal's
   **Purpose** decides how it's taxed: **Spent** is a disposal at its
   proceeds (left blank, the value at the hour's price); **Gift**,
@@ -63,8 +64,9 @@ backdated entries come out right.
 - **Transfer**: a move between your own accounts, such as Exchange BTC to
   Wallet. A bitcoin transfer's amount is what left, network fee included;
   the destination gets the rest and keeps each lot's acquisition date and
-  its share of the basis, and the fee is a disposal. A consolidation (Wallet to Wallet, or
-  between exchanges BitcoinTX counts as one) records only its network fee.
+  its share of the basis, and the fee is a disposal. A consolidation
+  (Wallet to Wallet, or between exchanges BitcoinTX counts as one) records
+  only its network fee.
 - **Buy**: dollars from Bank or Exchange USD for bitcoin into Exchange BTC.
   The cost basis is the dollars spent without the fee; the fee is added to
   the basis.
@@ -75,9 +77,9 @@ backdated entries come out right.
 ## Lots, gains and the holding period
 
 Each bitcoin account keeps FIFO lots: whatever leaves an account takes its
-oldest coins first. A sale is long-term only when it comes
-after the first anniversary of its lot's acquisition date (the IRS's "more
-than one year"), dates taken in your tax timezone.
+oldest coins first. A sale is long-term only when it comes after the first
+anniversary of its lot's acquisition date (the IRS's "more than one year"),
+dates taken in your tax timezone.
 
 The **Tax Timezone** (Settings) decides which tax year a late-night
 December 31 transaction lands in, the dates on Form 8949, and when a lot
