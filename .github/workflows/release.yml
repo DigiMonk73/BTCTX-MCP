@@ -78,7 +78,7 @@ jobs:
         run: scripts/start9-pull.sh --check
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: The hourly price history is well formed, current and cross-checked
         # scripts/price_history.py release-check: the manifest's newest 30
         # days still give their fingerprint and agree with Bitfinex and
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: Build the connector
         # With the locked build and setuptools (hashes checked), not an
         # isolated build that fetches setuptools unchecked.
