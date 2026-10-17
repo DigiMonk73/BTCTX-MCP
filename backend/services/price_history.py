@@ -17,6 +17,9 @@ Lookup order:
        that are the same for every install (retried later if it fails), then
        only "the latest days" (Bitstamp, else Kraken). Coinbase is never
        asked: its terms forbid building an end-user app on its data (#161).
+       Through Tor, Bitstamp refuses them (#241): after the owner's Yes to
+       downloading the history without Tor, the fixed blocks (only they) go
+       directly (outbound.history_client); the latest days stay on Tor.
 Every price found is stored and a stored day never changes, so tax figures
 don't move. There is never a fallback to today's live price: a past value at
 today's price is wrong. No price means a clear 422 (type the value in).
@@ -40,7 +43,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from backend.models.btc_price import BtcPriceDaily
-from backend.services import outbound
+from backend.services import outbound, price_status
 from backend.services.price_files import BITSTAMP_OHLC_URL, HOUR, usable_price
 
 logger = logging.getLogger(__name__)
@@ -63,6 +66,12 @@ HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is do
 # When each download last ran (in memory: a restart may ask again, and every
 # public request is the same for every install anyway).
 _state: dict = {}
+
+
+def try_again_now() -> None:
+    """The whole history is asked again at the next lookup, not RETRY_SECONDS
+    after it failed: after the owner's Yes to it without Tor (#241)."""
+    _state["full_failed_at"] = -1e9
 
 
 def reset_state() -> None:
@@ -153,11 +162,13 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     # waits RETRY_SECONDS before the next try; a success clears it (the
     # caller may not keep what came, and then it's asked again)
     _state["full_failed_at"] = now
-    async with outbound.async_client() as client:
+    without_tor = outbound.history_without_tor()
+    async with outbound.history_client() as client:
         got = await _bitstamp_blocks(client)
     if got:
         _state["full_failed_at"] = -1e9
-        logger.info("BTC price history from public site bitstamp: %d days", len(got))
+        how = f", without Tor (agreed on {outbound.agreed_on()})" if without_tor else ""
+        logger.info("BTC price history from public site bitstamp%s: %d days", how, len(got))
         return _kept(got, "bitstamp"), True
     return {}, False
 
@@ -170,6 +181,7 @@ async def _bitstamp_blocks(client) -> dict[date, str]:
             got.update(await _bitstamp(client, start))
     except Exception as exc:
         logger.info("BTC price history from bitstamp failed: %s", exc)
+        price_status.bitstamp_refused(exc)  # through Tor: the card asks (#241)
         return {}
     return got
 

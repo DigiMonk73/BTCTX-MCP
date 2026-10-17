@@ -146,10 +146,12 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     );
   });
 
-  it("downloading, with its progress, through Tor when it is", () => {
+  it("downloading, with its progress, through Tor when it is, or without it after the owner's Yes (#241)", () => {
     const line = historyLine(h({ state: "downloading", years_done: 6 }), { ...ctx, tor: true });
     expect(line?.text).toMatch(/^Downloading the hourly history from Bitstamp through Tor: 6 of 14 years, each checked\./);
     expect(line?.progress).toEqual({ done: 6, total: 14 });
+    expect(historyLine(h({ state: "downloading", years_done: 6, without_tor: true }), { ...ctx, tor: true })?.text)
+      .toMatch(/^Downloading the hourly history from Bitstamp without Tor, as you agreed: 6 of 14 years/);
   });
 
   it("done, failed, a year that didn't match, and a choice that doesn't allow it", () => {
@@ -159,10 +161,15 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     expect(historyLine(h({ state: "failed" }), { ...ctx, tor: true })?.text).toMatch(
       /through Tor: is Tor running\? It's tried again when BitcoinTX next needs it or restarts, at least 10 minutes later\./,
     );
-    expect(historyLine(h({ state: "failed", refused: true }), { ...ctx, tor: true })).toEqual({
-      tone: "warning", text: `The hourly history didn't download. ${TOR_REFUSED}`,
-    });
-    expect(TOR_REFUSED).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download/);
+    // #241: refused through Tor, the card asks below; after No, what's left; after Yes, Tor isn't in the way
+    const refused = "The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests.";
+    expect(historyLine(h({ state: "failed", refused: true }), { ...ctx, tor: true })).toEqual({ tone: "warning", text: refused });
+    expect(historyLine(h({ state: "failed", refused: true }), { ...ctx, tor: true, withoutTor: "no" })?.text).toBe(
+      `${refused} You chose to keep it on Tor: type older values, or use your own Mempool for newer ones.`,
+    );
+    expect(historyLine(h({ state: "failed", refused: true, without_tor: true }), { ...ctx, tor: true, withoutTor: "yes" })?.text)
+      .toMatch(/didn't download: Bitstamp refused it\./);
+    expect(TOR_REFUSED).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once/);
     expect(historyLine(h({ state: "failed", refused: true }), ctx)?.text).toMatch(/didn't download: Bitstamp refused it\./);
     expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
       "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. " +
@@ -237,13 +244,18 @@ describe("where a blank value's price comes from (#208, plan 2.5)", () => {
   it("through Tor while the history isn't held: an older hour may need typing, refused or not yet (#241)", () => {
     // Bitstamp refuses Tor's exits whatever the download's state: "refused" lasts only 10 minutes after a try
     const warning = "Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older hour may have no price: "
-      + "then type the value.";
+      + "then type the value, or let BitcoinTX download the price history once without Tor when it asks.";
     const tor = { backup: false, tor: true };
     for (const h of [{ ...history, state: "failed" as const, refused: true }, { ...history, state: "waiting" as const }]) {
       expect(blankPriceSource(st({ source: "public" }, h), tor)).toBe(`It comes from public price sites. ${warning}`);
       expect(blankPriceSource(st({ source: "mempool" }, h), { backup: true, tor: true }))
         .toBe(`It comes from your Mempool, else public price sites. ${warning}`);
     }
+    // After No: type it; after Yes, the history downloads without Tor: no warning
+    expect(blankPriceSource(st({ source: "public" }, history), { ...tor, withoutTor: "no" })).toBe("It comes from public "
+      + "price sites. Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older hour may have no price: "
+      + "then type the value (you chose to keep the price history on Tor).");
+    expect(blankPriceSource(st({ source: "public" }, history), { ...tor, withoutTor: "yes" })).toBe("It comes from public price sites.");
     // Held: the older hours are stored. Your Mempool alone through Tor (an .onion) never asks Bitstamp
     expect(blankPriceSource(st({ source: "public" }), tor)).not.toMatch(/refuses/);
     expect(blankPriceSource(st({ source: "mempool" }, history), tor)).not.toMatch(/refuses/);
@@ -282,7 +294,9 @@ describe("where a blank value's price comes from (#208, plan 2.5)", () => {
       .toBe("Unless BitcoinTX already has that day's price, type it: Mempool isn't installed on this server yet.");
     // Through Tor, past days don't download either (#241)
     expect(blankDayPriceSource(st({ source: "public" }), { backup: false, tor: true }))
-      .toBe("Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older date may have no price: then type the value.");
+      .toBe("Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older date may have no price: then type the value, "
+        + "or let BitcoinTX download the price history once without Tor when it asks.");
+    expect(blankDayPriceSource(st({ source: "public" }), { backup: false, tor: true, withoutTor: "yes" })).toBe("");
     expect([blankDayPriceSource(st({ source: "mempool" }), backup), blankDayPriceSource(st({ source: "public" }), alone)])
       .toEqual(["", ""]);
   });

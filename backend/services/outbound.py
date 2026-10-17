@@ -30,6 +30,16 @@ With a choice made in the app, the server may lend its Tor
 (BTCTX_TOR_PROXY_URL; StartOS's "Use Tor" with Decide in BitcoinTX instead): it is
 the proxy then, locked on, and an invalid one asks nobody (server_tor).
 
+Through Tor, Bitstamp refuses BitcoinTX's requests (#241), so the price
+card asks once whether to download the price history without Tor. The
+answer is the owner's own (stored here, kept by a restore, changeable in
+Settings even while the server sets the choice). After a Yes, and only
+then, Bitstamp's fixed-block history downloads go directly
+(history_client): the hourly year files, the hours after them and the
+daily history, each a block that's the same for every install. Nothing
+else ever goes around the proxy; FixedBlocksOnly refuses any other request
+on that route before it's sent.
+
 Every request ends in bounded time and size (BoundedClient): httpx's
 timeouts limit each wait, not the whole request, so the whole of it gets a
 deadline (WAITS times its timeout), and an answer over MAX_ANSWER_BYTES is
@@ -45,6 +55,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import json
 import logging
 import os
@@ -59,6 +70,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.services.desktop import is_desktop
+from backend.services.price_files import BITSTAMP_OHLC_URL
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +99,13 @@ CHOSEN_VIA = ("first-run", "settings")
 # A home server's root certificate the owner trusts for their Mempool (#188,
 # services/mempool_trust.py): {"url", "pem"}, for that Mempool address only
 TRUSTED_ROOT_KEY = "mempool_trusted_root"
+# The owner's answer to "Download the price history once without Tor?"
+# (#241): "yes" or "no", when, and where ("dashboard" or "settings"); no
+# row: not asked. Written only by answer_history_without_tor(), from
+# PUT /api/settings/network/history-without-tor (a login, never the AI key).
+DIRECT_KEY, DIRECT_AT_KEY, DIRECT_VIA_KEY = (
+    "history_without_tor", "history_without_tor_at", "history_without_tor_via")
+DIRECT_ANSWERS, DIRECT_VIA = ("yes", "no"), ("dashboard", "settings")
 SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
@@ -107,6 +126,8 @@ ENV_HOST, HOSTS = "BTCTX_HOST", ("mac", "server", "startos")
 
 # Tests set this to an httpx.MockTransport to fake the outside services.
 _transport: httpx.AsyncBaseTransport | None = None
+# The request extension those fake services read: the proxy taken, None for direct
+PROXY_TAG = "btctx_proxy"
 
 
 @dataclass(frozen=True)
@@ -125,6 +146,9 @@ class NetworkSettings:
     # The root certificate the owner trusts for this Mempool address (#188):
     # its requests are checked against it alone
     mempool_root: str | None = None
+    # The owner answered Yes to downloading the price history without Tor
+    # (#241): Bitstamp's fixed blocks go directly (history_client)
+    history_direct: bool = False
 
     @property
     def own_node(self) -> str | None:
@@ -167,17 +191,22 @@ def as_dict() -> dict:
 
     settings = asdict(_current)
     root = settings.pop("mempool_root")
+    settings.pop("history_direct")  # the answer's record says it
     certificate = mempool_trust.root_of(root) if root else None
     return {
         **settings, "host": host(), "confirmed": not _current.waiting, **_record,
         # #188: the home server's root trusted for the Mempool, and whether one may be
         "mempool_certificate": {"name": certificate.name, "sha256": certificate.sha256} if certificate else None,
         "mempool_trustable": mempool_trust.private_address(_current.mempool_url),
+        # #241: the answer to "Download the price history once without Tor?"
+        "history_without_tor": dict(_direct_record),
     }
 
 
 # When and where the stored choice was made, as load() last read it
 _record: dict = {"chosen_at": None, "chosen_via": None}
+# The answer about the price history without Tor (#241), as load() last read it
+_direct_record: dict = {"answer": None, "at": None, "via": None}
 
 
 def where_to_change() -> str:
@@ -282,7 +311,8 @@ def from_env() -> NetworkSettings | None:
 def snapshot(db: Session) -> dict:
     """The owner's own price settings (not the server's), to keep across a restore."""
     kept = {key: _get(db, key) for key in (
-        FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY, TRUSTED_ROOT_KEY)}
+        FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY, TRUSTED_ROOT_KEY,
+        DIRECT_KEY, DIRECT_AT_KEY, DIRECT_VIA_KEY)}
     # Not chosen yet stays "unset": a restored database's stored prices must
     # not pass for a pre-1.1.0 install's public choice (_upgrade_from_live_data)
     kept[SOURCE_KEY] = _get(db, SOURCE_KEY) or "unset"
@@ -312,9 +342,11 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     """
     global _current
     managed = from_env()
+    # The answer about the history without Tor is the owner's, whoever sets the choice (#241)
+    direct = _load_direct_answer(db)
     if managed:
         _record.update(chosen_at=None, chosen_via=None)  # the server's choice: nothing to confirm
-        _current = replace(managed, mempool_root=_trusted_root(db, managed.mempool_url))
+        _current = replace(managed, mempool_root=_trusted_root(db, managed.mempool_url), history_direct=direct)
         try:
             _mark_unchosen(db)
         except Exception:
@@ -335,8 +367,51 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
         tor_from_server=bool(tor),
         invalid=tor == "",
         mempool_root=_trusted_root(db, _get(db, MEMPOOL_KEY)),
+        history_direct=direct,
     )
     return _current
+
+
+def _load_direct_answer(db: Session) -> bool:
+    """Read the answer about the history without Tor into its record (#241);
+    True only for a Yes. Anything but "yes" or "no" counts as not asked."""
+    answer = _get(db, DIRECT_KEY)
+    if answer in DIRECT_ANSWERS:
+        _direct_record.update(answer=answer, at=_get(db, DIRECT_AT_KEY), via=_get(db, DIRECT_VIA_KEY))
+    else:
+        _direct_record.update(answer=None, at=None, via=None)
+    return answer == "yes"
+
+
+def answer_history_without_tor(db: Session, answer: str, via: str) -> NetworkSettings:
+    """
+    The owner's answer to "Download the price history once without Tor?"
+    (#241), with when and where it was given. Allowed while the server sets
+    the price choice too: the answer is the owner's, and only says whether
+    Bitstamp's fixed blocks may go around the proxy.
+    """
+    if answer not in DIRECT_ANSWERS:
+        raise HTTPException(status_code=422, detail="The answer must be yes or no.")
+    _set(db, DIRECT_KEY, answer)
+    _set(db, DIRECT_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
+    _set(db, DIRECT_VIA_KEY, via if via in DIRECT_VIA else "settings")
+    db.commit()
+    logger.info("Price history without Tor: %s (answered in %s)", answer,
+                "the Dashboard" if via == "dashboard" else "Settings")
+    return load(db)
+
+
+def history_without_tor() -> bool:
+    """Whether Bitstamp's fixed-block history goes directly now (#241): the
+    owner's Yes, with a proxy set (without one everything is direct anyway)
+    and public price sites allowed."""
+    s = _current
+    return s.history_direct and bool(s.proxy_url) and s.public_allowed
+
+
+def agreed_on() -> str:
+    """The day the owner's answer was given, for the log (e.g. "2026-10-16")."""
+    return (_direct_record["at"] or "")[:10] or "an unknown day"
 
 
 def _trusted_root(db: Session, mempool_url: str | None) -> str | None:
@@ -493,12 +568,78 @@ def unreachable(exc: Exception) -> bool:
 def async_client(timeout: float | None = None) -> BoundedClient:
     """A client for public sites: through the proxy when one is set.
     `timeout`: each wait's limit, TIMEOUT unless given."""
-    timeout = timeout or TIMEOUT
+    return _client(timeout or TIMEOUT, _current.proxy_url)
+
+
+def history_client(timeout: float | None = None) -> BoundedClient | FixedBlocksOnly:
+    """
+    A client for Bitstamp's fixed-block price history (#241: the hourly year
+    files, the hours after them, the daily history): through the proxy like
+    any public site, unless the owner answered Yes to downloading it without
+    Tor (history_without_tor); then directly, for those blocks only.
+    """
+    if not history_without_tor():
+        return async_client(timeout)
+    return FixedBlocksOnly(_client(timeout or TIMEOUT, None))
+
+
+def _client(timeout: float, proxy: str | None, verify: bool | ssl.SSLContext = True) -> BoundedClient:
+    """Every client's one builder: through `proxy`, or directly with None."""
     if _transport is not None:
-        client = httpx.AsyncClient(timeout=timeout, transport=_transport)
+        # Tests: the fake sites answer, and each request carries the proxy it would take
+        hooks = {"request": [functools.partial(_tag_proxy, proxy)]}
+        client = httpx.AsyncClient(timeout=timeout, transport=_transport, event_hooks=hooks)
     else:
-        client = httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url)
+        client = httpx.AsyncClient(timeout=timeout, proxy=proxy, verify=verify)
     return BoundedClient(client, WAITS * timeout)
+
+
+async def _tag_proxy(proxy: str | None, request: httpx.Request) -> None:
+    request.extensions[PROXY_TAG] = proxy
+
+
+class NotAFixedBlock(RuntimeError):
+    """A request that isn't one of Bitstamp's fixed history blocks, refused
+    on the route that goes without Tor (#241) before it's sent."""
+
+
+class FixedBlocksOnly:
+    """
+    The route around the proxy (#241): only GETs of Bitstamp's OHLC history,
+    hourly or daily, 1,000 candles from a `start` on the hour (the hourly
+    blocks) or at midnight (the daily ones), and only while the owner's Yes
+    still holds (checked before each request: a download may outlast it).
+    Which starts are asked is the callers' (hourly_prices, price_history:
+    the same fixed blocks on every install); anything else, a request
+    without `start` included, is refused.
+    """
+
+    def __init__(self, client: BoundedClient):
+        self._client = client
+
+    async def __aenter__(self) -> FixedBlocksOnly:
+        await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc_info) -> None:
+        await self._client.__aexit__(*exc_info)
+
+    async def get(self, url: str, params: dict | None = None, **kwargs) -> httpx.Response:
+        if kwargs or not fixed_block(url, params):
+            raise NotAFixedBlock(f"only Bitstamp's fixed history blocks go without Tor, not {url}")
+        if not history_without_tor():
+            raise NotAFixedBlock("nothing goes without Tor any more: the owner's Yes no longer holds")
+        return await self._client.get(url, params=params)
+
+
+def fixed_block(url: str, params: dict | None) -> bool:
+    """Whether a request is one of Bitstamp's history blocks: its OHLC URL,
+    1,000 hourly or daily candles from a start on that step."""
+    if url != BITSTAMP_OHLC_URL or not params or set(params) != {"step", "limit", "start"}:
+        return False
+    step, limit, start = (params[k] for k in ("step", "limit", "start"))
+    whole = all(isinstance(v, int) and not isinstance(v, bool) for v in (step, limit, start))
+    return whole and step in (3600, 86400) and limit == 1000 and start >= 0 and start % step == 0
 
 
 def own_node_client(timeout: float | None = None) -> BoundedClient:
@@ -512,13 +653,9 @@ def own_node_client(timeout: float | None = None) -> BoundedClient:
     if onion and not _current.proxy_url:
         # Never directly: the system's DNS resolver would see the .onion name.
         raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
-    if _transport is not None:
-        client = httpx.AsyncClient(timeout=timeout, transport=_transport)
-    else:
-        # A home server's root the owner trusts for this address: it alone (#188)
-        verify = trusting(_current.mempool_root) if _current.mempool_root else True
-        client = httpx.AsyncClient(timeout=timeout, proxy=_current.proxy_url if onion else None, verify=verify)
-    return BoundedClient(client, WAITS * timeout)
+    # A home server's root the owner trusts for this address: it alone (#188)
+    verify = trusting(_current.mempool_root) if _current.mempool_root and _transport is None else True
+    return _client(timeout, _current.proxy_url if onion else None, verify)
 
 
 class AnswerTooSlow(httpx.TimeoutException):

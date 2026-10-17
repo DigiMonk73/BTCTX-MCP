@@ -60,10 +60,12 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   price is used. BitcoinTX records one price per hour, so it won't always
   match a chart of one exchange at another moment. A VPN or Tor hides your
   IP address from the sites. Through Tor, Bitstamp currently refuses
-  BitcoinTX's requests, so the hourly history and past prices don't
-  download; only the live price works. Choose public price sites without
-  Tor to download them (once checked, the hourly history stays), use your
-  own Mempool for newer values, or type them
+  BitcoinTX's requests for the price history, so the Dashboard asks once
+  whether to download it without Tor: only Bitstamp's history downloads,
+  the same for every install and naming none of your dates, would show
+  Bitstamp your address; the live price stays on Tor. You can change the
+  answer in Settings. With No, use your own Mempool for newer values, or
+  type them
 - **Tax timezone** (Settings): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login

@@ -1,8 +1,10 @@
 import React from "react";
 import { useToast } from "../../contexts/useToast";
 import { CONFIRM_WHY, FOOTER, cardView, type NetworkSettingsData } from "../../utils/priceSource";
+import { answerOf } from "../../utils/historyWithoutTor";
 import { historyLine, statusLine, type PriceStatus, type StatusLine } from "../../utils/priceStatus";
 import EditableChoices from "./EditableChoices";
+import HistoryWithoutTor from "./HistoryWithoutTor";
 import MempoolTrust from "./MempoolTrust";
 import ReadOnlyChoices from "./ReadOnlyChoices";
 import { usePriceCard } from "./usePriceCard";
@@ -22,8 +24,9 @@ function lineFor(status: PriceStatus | null, saved: NetworkSettingsData): Status
 }
 
 /** The hourly history's line, first on the card, with the download's progress (#145). */
-const History: React.FC<{ status: PriceStatus | null; tor: boolean }> = ({ status, tor }) => {
-  const line = status ? historyLine(status, { backup: false, tor }) : null;
+const History: React.FC<{ status: PriceStatus | null; saved: NetworkSettingsData }> = ({ status, saved }) => {
+  const ctx = { backup: false, tor: Boolean(saved.proxy_url), withoutTor: answerOf(saved) };
+  const line = status ? historyLine(status, ctx) : null;
   if (!line) return null;
   return (
     <div className={`price-history ${line.tone}`}>
@@ -74,7 +77,9 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
       </Heading>
       {view.confirming && <p className="price-help">{CONFIRM_WHY}</p>}
       {/* While confirming nothing is downloaded, and the window must fit (800 × 600) */}
-      {!view.confirming && <History status={status} tor={Boolean(saved.proxy_url)} />}
+      {!view.confirming && <History status={status} saved={saved} />}
+      {/* #241: asked once Bitstamp refuses through Tor; here, also the answer to change it */}
+      <HistoryWithoutTor saved={saved} status={status} via="settings" onChange={applied} />
       {saved.managed ? (
         <ReadOnlyChoices settings={saved} />
       ) : (

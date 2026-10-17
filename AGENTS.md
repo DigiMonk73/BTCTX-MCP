@@ -266,6 +266,17 @@ from the Transaction row alone.
   year files in fixed 1,000-hour blocks from 1 January, every year, newest
   first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
   blocks from the hour after the files; never the hour asked.
+  **A proxy (Tor) carries every request to a public site**, with one
+  exception the owner opts into (#241): Bitstamp refuses Tor's exits, so
+  the price card asks once "Download the price history once without
+  Tor?" (only after Bitstamp refused through the proxy, never before). The
+  answer (`app_settings` `history_without_tor`, with when and where) is
+  the owner's: a login-only route (never the AI key), kept by a restore,
+  changeable in Settings even while the server sets the choice. After a
+  Yes, and only then, Bitstamp's fixed history blocks (the year files, the
+  hours after them, the daily history) go directly
+  (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
+  that route. The live price, block height and latest days stay on Tor.
   Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.

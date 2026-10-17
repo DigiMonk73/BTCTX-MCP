@@ -70,7 +70,7 @@ def test_the_route_asks_nothing_and_starts_empty(auth_client, monkeypatch):
     status = auth_client.get("/api/bitcoin/price/status").json()
     assert status["source"] == "unset" and status["last_ok"] is None and status["last_problem"] is None
     assert set(status) == {"source", "managed", "invalid", "waiting", "host", "last_ok", "last_problem",
-                           "last_mempool_problem", "history"}
+                           "last_mempool_problem", "bitstamp_refused", "history"}
     assert status["history"]["shipped"] is False
     assert seen == []
 

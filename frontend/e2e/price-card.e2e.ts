@@ -301,3 +301,41 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   await card.getByRole("button", { name: "Forget this server's certificate" }).click();
   await expect(card.getByRole("button", { name: "Trust this server" })).toBeVisible();
 });
+
+// #241: a Tor whose exits Bitstamp refuses (the fake internet's, smoke_test.py TOR_BITSTAMP_REFUSES)
+const TOR_BITSTAMP_REFUSES = "socks5h://refused-by-bitstamp.test:9050";
+const FIXED_BLOCK = /^https:\/\/www\.bitstamp\.net\/api\/v2\/ohlc\/btcusd\/\?step=(3600|86400)&limit=1000&start=\d+$/;
+
+test("through a Tor Bitstamp refuses, the Dashboard asks once; Yes sends only its fixed blocks without Tor", async ({
+  page, app,
+}) => {
+  const browser = await logIn(page, app);
+  await choosePriceSource(page, { price_source: "public", proxy_url: TOR_BITSTAMP_REFUSES });
+  const question = page.getByRole("group", { name: "Download the price history once without Tor?" });
+  await expect(question).toBeVisible();
+  await expect(question).toContainText("Bitstamp would see this server's address.");
+  await expect(page.getByText("The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests."))
+    .toBeVisible();
+  const before = outsideRequests(app);
+  expect(before.filter((r) => r.proxy === null)).toEqual([]); // nothing around Tor before the answer
+  expect(before.some((r) => r.url.startsWith("https://www.bitstamp.net/") && r.proxy === TOR_BITSTAMP_REFUSES)).toBe(true);
+
+  await question.getByRole("button", { name: "Yes, download without Tor" }).click();
+  await expect(question).toHaveCount(0);
+  expect((await page.request.get("/api/bitcoin/price/history?date=2016-05-05")).ok()).toBe(true); // the daily history
+  const direct = outsideRequests(app).filter((r) => r.proxy === null);
+  expect(direct.some((r) => r.url.includes("step=86400"))).toBe(true);
+  for (const r of direct) expect(r.url).toMatch(FIXED_BLOCK); // only Bitstamp's fixed blocks, never a date
+  // The live price still goes through Tor
+  expect(outsideRequests(app).filter((r) => !r.url.includes("bitstamp.net/api/v2/ohlc")).every((r) => r.proxy === TOR_BITSTAMP_REFUSES))
+    .toBe(true);
+
+  // Settings shows the answer, and changes it
+  await page.getByRole("link", { name: "Settings" }).click();
+  const card = page.getByRole("region", { name: "Privacy & network" });
+  await expect(card.getByText(/^Bitstamp's price history without Tor: yes, since .+ \(answered on the Dashboard\)\./)).toBeVisible();
+  await card.getByRole("button", { name: "Keep it on Tor instead" }).click();
+  await expect(card.getByText(/^Bitstamp's price history without Tor: no, since .+ \(answered in Settings\)\./)).toBeVisible();
+  await expect(card.getByRole("button", { name: "Download it without Tor" })).toBeVisible();
+  expect(browser).toEqual([]);
+});

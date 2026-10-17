@@ -25,13 +25,17 @@ export interface HistoryStatus {
   /** The download failed because Bitstamp refused it (a block or a challenge page). */
   refused?: boolean;
   mismatched: number[];
+  /** Bitstamp's history blocks go without Tor: the owner's Yes, with Tor on (#241). */
+  without_tor?: boolean;
 }
 
-/** What Bitstamp gives Tor's exits (#241), said wherever Tor and the history meet. */
+/** The answer to "Download the price history once without Tor?" (#241): null until it's given. */
+export type WithoutTorAnswer = "yes" | "no" | null;
+
+/** What Bitstamp gives Tor's exits (#241), and the card's offer, said under the Tor box. */
 export const TOR_REFUSED =
-  "Through Tor, Bitstamp currently refuses BitcoinTX's requests, so the hourly history and past prices don't download; only the live price works. " +
-  "Choose Public price sites without Tor (on StartOS: turn off Use Tor in its Price Source & Privacy action) to download them " +
-  "(once checked, the hourly history stays), use your own Mempool for newer values, or type them.";
+  "Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once whether to " +
+  "download it without Tor: only that download, the same for every install; the live price stays on Tor.";
 
 export interface PriceStatus {
   source: PriceSource | "unset";
@@ -44,6 +48,8 @@ export interface PriceStatus {
   /** Your Mempool's last problem, kept when the backup then fails too. */
   last_mempool_problem?: { at: string; what: Problem } | null;
   history: HistoryStatus;
+  /** Bitstamp refused a history download through Tor (#241): the card asks whether to go without Tor. */
+  bitstamp_refused?: boolean;
 }
 
 export type Tone = "ok" | "idle" | "warning";
@@ -61,6 +67,8 @@ export interface StatusContext {
   trustable?: boolean;
   /** Your Mempool chosen with no address: StartOS gives none while it isn't installed (#208's hint). */
   mempoolMissing?: boolean;
+  /** The answer about the price history without Tor (#241). */
+  withoutTor?: WithoutTorAnswer;
 }
 
 /** "2:04 pm" on this device's clock, as the transaction list shows times (#260). */
@@ -171,7 +179,7 @@ export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | 
   // Invalid server settings: the status line says why; "your choice" would be wrong
   if (!h.until || !h.first_year || st.invalid) return null;
   const span = `${h.first_year} to ${untilDay(h.until)}`;
-  const tor = ctx.tor ? " through Tor" : "";
+  const tor = h.without_tor ? " without Tor, as you agreed" : ctx.tor ? " through Tor" : "";
   if (h.shipped) return { tone: "ok", text: `Built in: every hourly price from ${span}. Works offline, nothing to set.` };
   if (h.state === "complete") {
     return { tone: "ok", text: `Hourly prices, ${span}: downloaded and checked. They work offline from now on, whatever you choose.` };
@@ -193,12 +201,19 @@ export function historyLine(st: PriceStatus, ctx: StatusContext): HistoryLine | 
 // Tried again when a value next needs a missing year, or at the next start (hourly_prices.start_download)
 const LATER = "when BitcoinTX next needs it or restarts";
 
+/** Bitstamp refused the history through Tor (#241): asked below until answered; after No, what's left. */
+function torRefusedLine(answer: WithoutTorAnswer | undefined): HistoryLine {
+  const refused = "The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests.";
+  return answer === "no"
+    ? { tone: "warning", text: `${refused} You chose to keep it on Tor: type older values, or use your own Mempool for newer ones.` }
+    : { tone: "warning", text: refused };
+}
+
 function problemLine(h: HistoryStatus, span: string, ctx: StatusContext): HistoryLine | null {
-  if (h.state === "failed" && ctx.tor && h.refused) {
-    return { tone: "warning", text: `The hourly history didn't download. ${TOR_REFUSED}` };
-  }
+  const tor = ctx.tor && !h.without_tor; // after a Yes, Bitstamp's blocks don't go through Tor
+  if (h.state === "failed" && tor && h.refused) return torRefusedLine(ctx.withoutTor);
   if (h.state === "failed") {
-    const why = ctx.tor ? "Bitstamp didn't answer through Tor: is Tor running?" : h.refused ? "Bitstamp refused it." : "Bitstamp didn't answer.";
+    const why = tor ? "Bitstamp didn't answer through Tor: is Tor running?" : h.refused ? "Bitstamp refused it." : "Bitstamp didn't answer.";
     return { tone: "warning", text: `The hourly history didn't download: ${why} It's tried again ${LATER}, at least 10 minutes later. Meanwhile values use the day's price.` };
   }
   if (h.mismatched.length > 0) {
@@ -252,13 +267,17 @@ function newerFrom(st: PriceStatus, ctx: StatusContext): string {
   return ctx.backup ? "your Mempool, else public price sites" : "your Mempool where it has them; otherwise type it";
 }
 
-/** Public sites asked through Tor: Bitstamp refuses BitcoinTX's requests there (#241), so no past prices download. */
+/** Public sites asked through Tor: Bitstamp refuses BitcoinTX's requests there (#241), so no past prices
+ * download, unless the owner said Yes to downloading them without Tor. */
 function throughTorRefused(st: PriceStatus, ctx: StatusContext): boolean {
-  return ctx.tor && (st.source === "public" || ctx.backup);
+  return ctx.tor && (st.source === "public" || ctx.backup) && ctx.withoutTor !== "yes";
 }
 
-function torWarning(what: "hour" | "date"): string {
-  return `Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older ${what} may have no price: then type the value.`;
+function torWarning(what: "hour" | "date", answer: WithoutTorAnswer | undefined): string {
+  const then = answer === "no"
+    ? "then type the value (you chose to keep the price history on Tor)"
+    : "then type the value, or let BitcoinTX download the price history once without Tor when it asks";
+  return `Through Tor, Bitstamp currently refuses BitcoinTX's requests, so an older ${what} may have no price: ${then}.`;
 }
 
 /**
@@ -281,7 +300,7 @@ export function blankPriceSource(st: PriceStatus, ctx: StatusContext): string {
     return "Your Mempool has prices only from when it began recording: for an older hour, unless BitcoinTX already has its price, type the value.";
   }
   const from = `It comes from ${newerFrom(st, ctx)}.`;
-  return throughTorRefused(st, ctx) ? `${from} ${torWarning("hour")}` : from;
+  return throughTorRefused(st, ctx) ? `${from} ${torWarning("hour", ctx.withoutTor)}` : from;
 }
 
 /**
@@ -295,7 +314,7 @@ export function blankDayPriceSource(st: PriceStatus, ctx: StatusContext): string
   if (mempoolOnly(st, ctx)) {
     return "Your Mempool has prices only from when it began recording: for an older date, unless BitcoinTX already has its price, type the value.";
   }
-  return throughTorRefused(st, ctx) ? torWarning("date") : "";
+  return throughTorRefused(st, ctx) ? torWarning("date", ctx.withoutTor) : "";
 }
 
 /** Under a chosen Mempool without its backup, or Nobody: what that means for older values. */
