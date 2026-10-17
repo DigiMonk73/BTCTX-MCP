@@ -154,6 +154,23 @@ def in_use_is_what_the_table_holds(engine) -> bool:
     return in_use == (outbound.current(), outbound.as_dict())
 
 
+class WatchedLock:
+    """outbound's lock, setting `held_up` when a thread other than `first`
+    finds it held and has to wait for it."""
+
+    def __init__(self, lock, first: threading.Thread, held_up: threading.Event):
+        self.lock, self.first, self.held_up = lock, first, held_up
+
+    def __enter__(self):
+        if not self.lock.acquire(blocking=False):
+            if threading.current_thread() is not self.first:
+                self.held_up.set()
+            self.lock.acquire()
+
+    def __exit__(self, *exc_info):
+        self.lock.release()
+
+
 @pytest.mark.parametrize("name", CHANGES_AT_ONCE)
 def test_a_save_made_while_another_is_read_back_is_the_one_in_use(fresh_db, monkeypatch, name):
     """
@@ -166,21 +183,6 @@ def test_a_save_made_while_another_is_read_back_is_the_one_in_use(fresh_db, monk
     first = threading.current_thread()
     later_waits = threading.Event()  # set once the later save is held up by the lock (or is done)
     errors: list[Exception] = []
-
-    class WatchedLock:
-        """outbound's lock, telling when another thread's change is held up by it."""
-
-        def __init__(self, lock):
-            self.lock = lock
-
-        def __enter__(self):
-            if not self.lock.acquire(blocking=False):
-                if threading.current_thread() is not first:
-                    later_waits.set()
-                self.lock.acquire()
-
-        def __exit__(self, *exc_info):
-            self.lock.release()
 
     def save_later():
         try:
@@ -201,7 +203,7 @@ def test_a_save_made_while_another_is_read_back_is_the_one_in_use(fresh_db, monk
             assert later_waits.wait(timeout=10), "the later save never got going"
         return real_server_tor()
 
-    monkeypatch.setattr(outbound, "_one_at_a_time", WatchedLock(outbound._one_at_a_time))
+    monkeypatch.setattr(outbound, "_one_at_a_time", WatchedLock(outbound._one_at_a_time, first, later_waits))
     monkeypatch.setattr(outbound, "server_tor", while_reading_back)
     with sessionmaker(bind=fresh_db)() as db:
         earlier(db)
@@ -302,19 +304,6 @@ def test_a_reading_back_that_writes_never_waits_for_a_save(fresh_db, monkeypatch
     held_up = threading.Event()  # set once the save is held up by the lock (or is done)
     errors: list[Exception] = []
 
-    class WatchedLock:
-        def __init__(self, lock):
-            self.lock = lock
-
-        def __enter__(self):
-            if not self.lock.acquire(blocking=False):
-                if threading.current_thread() is not first:
-                    held_up.set()
-                self.lock.acquire()
-
-        def __exit__(self, *exc_info):
-            self.lock.release()
-
     def answer_no():
         try:
             with sessionmaker(bind=fresh_db)() as db:
@@ -332,7 +321,7 @@ def test_a_reading_back_that_writes_never_waits_for_a_save(fresh_db, monkeypatch
             saving.start()
             assert held_up.wait(timeout=10), "the save never got going"
 
-    monkeypatch.setattr(outbound, "_one_at_a_time", WatchedLock(outbound._one_at_a_time))
+    monkeypatch.setattr(outbound, "_one_at_a_time", WatchedLock(outbound._one_at_a_time, first, held_up))
     event.listen(fresh_db, "before_cursor_execute", before_the_note)
     try:
         with sessionmaker(bind=fresh_db)() as db:
