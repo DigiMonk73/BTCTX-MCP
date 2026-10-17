@@ -25,9 +25,7 @@ router = APIRouter()
 
 @router.get("")
 def get_review(db: Session = Depends(get_db)):
-    review = build_review(db)
-    db.commit()  # keep downloaded prices; no transaction was touched
-    return review
+    return build_review(db)
 
 
 class HourlyPrices(BaseModel):

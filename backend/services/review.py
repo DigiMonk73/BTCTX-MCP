@@ -80,8 +80,9 @@ Checks:
   one only when it's dated before the latest, #172).
 
 The price checks read the local price history (and fill it from the
-network if a day is missing; an hourly year not downloaded yet isn't
-waited for: the day's price stands in). A day with no price is counted in
+network if a day is missing, kept at once so the review never holds the
+write lock, #364; an hourly year not downloaded yet isn't waited for: the
+day's price stands in). A day with no price is counted in
 no_price_for: F42 passes over its row, income_without_value lists it
 without the value. Any other failure of the lookup is an error.
 """

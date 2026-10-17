@@ -367,10 +367,13 @@ def _wait_for_year(line: pf.YearLine) -> dict[int, Decimal] | None:
 
 def _store(db: Session, prices: dict[int, tuple[Decimal, str]]) -> None:
     rows = [{"hour": h, "usd": usd, "source": src} for h, (usd, src) in sorted(prices.items())]
-    for i in range(0, len(rows), STORE_CHUNK):
-        db.execute(sqlite_insert(BtcPriceHourly).values(rows[i:i + STORE_CHUNK]).on_conflict_do_nothing())
+
+    def write(session: Session) -> None:
+        for i in range(0, len(rows), STORE_CHUNK):
+            session.execute(sqlite_insert(BtcPriceHourly).values(rows[i:i + STORE_CHUNK]).on_conflict_do_nothing())
+
     if rows:
-        db.flush()
+        price_history.keep(db, write)  # at once, unless the caller has already written (#364)
 
 
 def _wanted(line: pf.YearLine) -> bool:

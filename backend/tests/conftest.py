@@ -191,12 +191,21 @@ def _empty_price_history(request):
     """Each test starts with no stored BTC prices, so a price a test stubs
     isn't hidden by one an earlier test stored for the same day."""
     if "test_engine" in request.fixturenames:
-        from sqlalchemy import text
-
-        with request.getfixturevalue("test_engine").begin() as con:
-            con.execute(text("DELETE FROM btc_price_daily"))
-            con.execute(text("DELETE FROM btc_price_hourly"))
+        empty_price_history(request.getfixturevalue("test_engine"))
     yield
+
+
+def empty_price_history(engine):
+    """No stored BTC prices and no full download done, as on a fresh install
+    (prices found are kept at once, #364: a rollback doesn't undo them)."""
+    from sqlalchemy import text
+
+    from backend.services.price_history import HISTORY_FLAG
+
+    with engine.begin() as con:
+        con.execute(text("DELETE FROM btc_price_daily"))
+        con.execute(text("DELETE FROM btc_price_hourly"))
+        con.execute(text("DELETE FROM app_settings WHERE key = :key"), {"key": HISTORY_FLAG})
 
 
 def init_test_db(engine):

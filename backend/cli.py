@@ -165,7 +165,6 @@ def cmd_review(args: argparse.Namespace) -> int:
                   + (" and recalculated." if result["changed"] else "."))
         else:
             print(format_text(build_review(db)), end="")
-            db.commit()  # downloaded prices only
     finally:
         db.close()
     return 0
