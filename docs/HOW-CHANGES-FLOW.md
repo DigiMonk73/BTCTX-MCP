@@ -71,9 +71,10 @@ A big job (a release, a redesign, research then build) is split up first.
 One main session talks it through with the owner and writes the plan on
 GitHub: an issue for the whole job, an issue for each numbered session
 with its checklist, and a ready-to-paste kickoff prompt on each. The
-owner starts each session from a card or its prompt, and each one works
-through its own checklist, pull request by pull request, stopping where
-the owner decides. The plan also says which files each session will
+owner starts each session from a card or its prompt, each from the
+latest `develop` (never `main`), and each one works through its own
+checklist, pull request by pull request, stopping where the owner
+decides. The plan also says which files each session will
 touch and the order their work merges in, so sessions don't trip over
 each other. The main session keeps a ready-to-paste handoff for
 itself on the job's issue, up to date after every change, so a fresh

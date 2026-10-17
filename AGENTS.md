@@ -794,6 +794,14 @@ one session. Claude suggests this setup when a request is that big.
 - **Starting one:** the desktop app's one-click card (`spawn_task`), or
   the kickoff prompt pasted into a new session. Each title starts with
   its number ("6 · Build hourly prices (#144)").
+- **Every session starts from `develop`.** When the lead starts one with
+  a working folder of its own, it names `develop` as that folder's base
+  (the tool's `source_branch`, after a `git fetch`): otherwise the app
+  copies GitHub's default branch, `main`, which lacks everything not yet
+  released. Each kickoff prompt says it too: before any work, check the
+  folder is on `origin/develop` (`git status`, then `git switch -C
+  <branch> origin/develop` while nothing is committed). #369's sessions
+  were cut from `main` on 2026-10-16 and had to move.
 - **Each session** first posts or refreshes its checklist on its issue,
   ticks the boxes there as it goes, and writes its decisions there. It
   carries on from its own issue, not from #41's "Next". After a
