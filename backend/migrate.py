@@ -47,11 +47,11 @@ BACKUP_DIRNAME = "backups"
 BACKUPS_KEPT = 5
 # Copies the AI key asked for (POST /api/backup/ai-copy), or made before its
 # first change in an hour (PUT or DELETE /api/transactions/{id}, POST
-# /api/transactions/recalculate; label AI_CHANGE_LABEL), kept apart: the
-# newest 3, and for AI_DAYS_HELD days the oldest of them and the first made
-# before a change each day (_ai_copies_held), so for a week they hold the
-# ledger from before each day's changes, however many copies are made after
-# them. At most 11.
+# /api/transactions/recalculate, an import that recalculates; label
+# AI_CHANGE_LABEL), kept apart: the newest 3, and for AI_DAYS_HELD days the
+# oldest of them and the first made before a change each day
+# (_ai_copies_held), so for a week they hold the ledger from before each day's
+# changes, however many copies are made after them. At most 11.
 AI_COPIES_KEPT = 3
 AI_DAYS_HELD = 7  # UTC days: today and the 6 before it
 AI_CHANGE_LABEL = "before-changing"
