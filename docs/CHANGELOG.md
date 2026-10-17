@@ -174,6 +174,21 @@ All notable changes to BitcoinTX are documented in this file.
   basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
   2024-03-01 (Bitstamp)". Only `get_btc_price` and the tax report said it
   before. The AI key reaches no new route.
+- **The server runs Python 3.13** (the Docker image and the StartOS
+  package, #425; the owner's choice for 1.2.9, 2026-10-17). It ran Python
+  3.11, which gets security fixes until October 2027; 3.13 gets them until
+  October 2029, so the stable 1.2.9 keeps a supported runtime longer. The
+  Mac app already ran 3.13 (#284), and the automatic tests already ran on
+  it. The packages and their versions are the same. Checked before the
+  change: everything the app produces (figures, IRS forms, reports, CSV
+  files, API answers, error messages) for the reference and random test
+  ledgers, with the same code inside the 3.11 image and the 3.13 image,
+  showed no difference; and on a StartOS test server, Start9's 1.2.8:0
+  updated to a 3.13 build kept every stored figure, with the IRS forms and
+  CSV files byte for byte the same. CI's checks of the image (the smoke
+  test, the click-through tests, the dependency audit) and the release
+  jobs run 3.13 too; running from source still works on 3.10 and later.
+  Nothing to do.
 
 ### Fixed
 - **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
@@ -587,7 +602,7 @@ All notable changes to BitcoinTX are documented in this file.
   newer runner would have changed it without anyone choosing that. Now the
   macOS build and release jobs set up Python 3.13 and hand it to the build
   (`BTCTX_BUILD_PYTHON`), and the automatic tests run on 3.13 too, beside
-  3.10 and 3.11 (Docker and StartOS stay on 3.11). The owner chose 3.13,
+  3.10 and 3.11 (and Docker and StartOS now run 3.13, #425). The owner chose 3.13,
   what 1.2.8 shipped and was tested on, over 3.11, which GitHub offers for
   the Mac only as a release from April 2024. A build on your own Mac still
   takes the newest it finds, unless you name one.
