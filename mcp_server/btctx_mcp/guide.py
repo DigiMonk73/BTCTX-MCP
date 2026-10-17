@@ -208,7 +208,8 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    anyway, and dropping one can leave an identical row beside it taken for
    the recorded one). The write is all-or-nothing. A duplicate
    the user says is another transaction (two payouts of the same amount at
-   the same time, say) goes with not_a_duplicate: true, and is saved. Never
+   the same time, say) goes with not_a_duplicate_of: the
+   matched_transaction_id the preview gave that row, and is saved. Never
    set it without their word. It's saved once: sent again (a retry after a
    timeout, say), it's found and left out.
 4. For corrections use list_transactions to find the id, then

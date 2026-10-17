@@ -236,12 +236,13 @@ class TestDedup:
         assert execute([later])["imported_count"] == 1 and tx_count() == 2
 
     def test_a_duplicate_is_saved_when_the_user_says_it_is_another_transaction(self):
-        """D1: left out by default; not_a_duplicate saves it."""
-        execute([INTEREST])
+        """D1: left out by default; naming the match in not_a_duplicate_of saves it."""
+        recorded = execute([INTEREST])["created"][0]["id"]
         res = preview([INTEREST])["results"][0]
-        assert res["status"] == "duplicate" and any("not_a_duplicate" in w for w in res["warnings"])
+        assert res["status"] == "duplicate" and res["matched_transaction_id"] == recorded
+        assert any(f"not_a_duplicate_of: {recorded}" in w for w in res["warnings"])
         assert execute([INTEREST])["skipped_duplicates"] == 1 and tx_count() == 1
-        another = dict(INTEREST, not_a_duplicate=True)
+        another = dict(INTEREST, not_a_duplicate_of=recorded)
         assert preview([another])["results"][0]["status"] == "ready"
         out = execute([another])
         assert out["imported_count"] == 1 and out["skipped_duplicates"] == 0 and tx_count() == 2
@@ -254,13 +255,56 @@ class TestDedup:
     def test_a_flagged_row_keeps_its_match_so_an_identical_one_beside_it_is_saved(self):
         """The review of #277: the same payout twice, once recorded. The
         preview's duplicate, flagged, takes the match; the other stays ready."""
-        execute([INTEREST])
+        recorded = execute([INTEREST])["created"][0]["id"]
         assert [r["status"] for r in preview([INTEREST, INTEREST])["results"]] == ["duplicate", "ready"]
-        rows = [dict(INTEREST, not_a_duplicate=True), INTEREST]
+        rows = [dict(INTEREST, not_a_duplicate_of=recorded), INTEREST]
         assert [r["status"] for r in preview(rows)["results"]] == ["ready", "ready"]
         out = execute(rows)
         assert out["imported_count"] == 2 and out["skipped_duplicates"] == 0 and tx_count() == 3
         assert execute(rows)["imported_count"] == 0 and tx_count() == 3  # sent again: nothing more
+
+    @pytest.mark.parametrize("named, saved", [
+        ([True], 1),
+        ([True, True], 2),
+        ([True, True, True], 3),
+        ([True, False], 2),
+        ([False, True], 1),
+    ], ids=["one named", "two named", "three named", "named, then plain", "plain, then named"])
+    def test_a_request_sent_again_saves_nothing_more(self, named, saved):
+        """#378: identical rows, some naming the recorded Buy as the one
+        they aren't, sent three times (a retry after a timeout, say): only
+        the first send saves anything. A row naming it that matched
+        another copy is that copy (an identical row beside it took the
+        named one). A resend saved one more copy per extra named row, and
+        one for a named row after a plain one."""
+        recorded = execute([BUY])["created"][0]["id"]
+        rows = [dict(BUY, not_a_duplicate_of=recorded) if n else BUY for n in named]
+        assert [execute(rows)["imported_count"] for _ in range(3)] == [saved, 0, 0]
+        assert tx_count() == 1 + saved
+        results = preview(rows)["results"]
+        assert all(r["status"] == "duplicate" for r in results)
+        assert all(any("sent twice" in w for w in r["warnings"]) for r, n in zip(results, named) if n)
+
+    def test_two_rows_each_naming_its_own_match_are_both_saved(self):
+        """Two identical Buys recorded, and the user says the two rows are
+        two more: each names the one the preview matched it to. Both are
+        saved, once."""
+        recorded = [tx["id"] for tx in execute([BUY, BUY])["created"]]
+        matched = [r["matched_transaction_id"] for r in preview([BUY, BUY])["results"]]
+        assert sorted(matched) == sorted(recorded)
+        rows = [dict(BUY, not_a_duplicate_of=tx_id) for tx_id in matched]
+        assert [execute(rows)["imported_count"] for _ in range(3)] == [2, 0, 0]
+        assert tx_count() == 4
+
+    def test_a_row_naming_a_transaction_that_isnt_its_duplicate_is_checked_as_any_other(self):
+        """A wrong id frees the row from nothing: a duplicate is still left
+        out, and the warning names the right one to send."""
+        recorded = execute([BUY, TO_COLD])["created"]
+        buy, move = recorded[0]["id"], recorded[1]["id"]
+        res = preview([dict(BUY, not_a_duplicate_of=move)])["results"][0]
+        assert res["status"] == "duplicate" and res["matched_transaction_id"] == buy
+        assert any(f"not_a_duplicate_of: {buy}" in w and f"names tx #{move}, which isn't" in w for w in res["warnings"])
+        assert execute([dict(BUY, not_a_duplicate_of=move)])["imported_count"] == 0 and tx_count() == 2
 
     def test_a_gap_under_a_minute_is_said_so(self):
         execute([dict(INTEREST, date="2025-03-20T12:00:59Z")])

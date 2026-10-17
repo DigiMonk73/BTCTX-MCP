@@ -302,6 +302,16 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **An AI request sent again saves nothing more** (tax figures, #378). When
+  you told the AI that a duplicate was another transaction, a second send
+  of the same request (a retry after a timeout, say) could save extra
+  copies: with two or three identical rows marked that way, or one after
+  an identical row that wasn't. Now the AI names the transaction the row
+  isn't (the one the preview matched, `not_a_duplicate_of`, as River's
+  import already keeps its matches), so a request sent again finds the
+  copies the first one saved. **Affected:** no release: telling the AI a
+  duplicate is another transaction is new in this version (#253). Nothing
+  to do.
 - **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its

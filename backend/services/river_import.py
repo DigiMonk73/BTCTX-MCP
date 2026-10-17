@@ -550,7 +550,7 @@ def annotate_duplicates(
     Passes 2 and 3 are skipped when exact_only=True: the execute
     endpoints' double-submit guard leaves out only duplicates.
     """
-    existing: list[Transaction] = db.query(Transaction).all()
+    existing: list[Transaction] = db.query(Transaction).order_by(Transaction.id).all()  # ties: the oldest first
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
@@ -574,16 +574,32 @@ def annotate_duplicates(
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
-    going the same way: from the row's account or to it, so a send never
-    matches a deposit, nor a receive a withdrawal (#253)."""
-    types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+    going the same way (_compatible)."""
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
-        and tx.type in types
-        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+        and _compatible(proposal, tx)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
+
+
+def _compatible(proposal: RiverProposal, tx: Transaction) -> bool:
+    """A compatible type going the same way: from the row's account or to
+    it, so a send never matches a deposit, nor a receive a withdrawal (#253)."""
+    return (
+        tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+    )
+
+
+def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, tz) -> bool:
+    """Whether pass 1 could take `tx` for `proposal`: a compatible type going
+    the same way, the same moment, an amount `rule` accepts and nothing
+    else different (#253)."""
+    return (
+        _compatible(proposal, tx) and _same_moment(proposal, tx, tz)
+        and any(same(proposal, tx) for same in rule.amounts) and not rule.differences(proposal, tx)
+    )
 
 
 def _nearest(proposal: RiverProposal, txs: list[Transaction]) -> Transaction | None:
