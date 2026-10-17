@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """
 The database: the SQLAlchemy engine and sessions for DATABASE_FILE (SQLite;
-DATABASE_URL overrides it), the UTC timestamp and plain date column types, and the startup
-step that migrates the schema and seeds the default login and the six fixed
-accounts. Everything persistent lives in DATABASE_FILE's directory
+DATABASE_URL overrides it) and how a session takes SQLite's write lock, the
+UTC timestamp and plain date column types, and the startup step that
+migrates the schema and seeds the default login and the six fixed accounts.
+Everything persistent lives in DATABASE_FILE's directory
 (docs/STARTOS_COMPATIBILITY.md).
 """
 
@@ -15,8 +16,9 @@ from contextlib import contextmanager
 from dotenv import load_dotenv
 import sqlite3
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.types import TypeDecorator, String
@@ -146,6 +148,32 @@ def scratch_copy(db: Session) -> Iterator[Session]:
             engine.dispose()
     finally:
         memory.close()
+
+
+def take_write_lock(db: Session) -> bool:
+    """
+    SQLite's write lock for db's transaction, until its commit or rollback,
+    for a step that must see the ledger unchanged until it saves (Delete
+    All, the hourly prices' apply, a login's timezone fill): other saves
+    wait for it, 5 s at most (sqlite3's timeout), then fail. False, nothing
+    taken, when another save held it longer; the caller answers that in its
+    own words. A session that has a transaction open already fails here,
+    loudly.
+    """
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+    except OperationalError as e:
+        if not is_busy(e):
+            raise
+        return False
+    return True
+
+
+def is_busy(error: Exception) -> bool:
+    """Whether SQLite's write lock was held past the 5 s wait: SQLite's own
+    message ("database is locked"), never a query's parameters, says so."""
+    return isinstance(error, OperationalError) and "locked" in str(error.orig)
+
 
 FIXED_ACCOUNTS = [
     {"id": 1, "name": "Bank", "currency": "USD"},
