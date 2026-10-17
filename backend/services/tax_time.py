@@ -27,9 +27,12 @@ DEFAULT_TIMEZONE = "UTC"
 
 
 def validate_timezone(name: str) -> str:
+    """`name` when it's a timezone ZoneInfo can read; ValueError otherwise.
+    A name that is a folder of zones ("America") or too long for a file
+    name fails with an OS error, not as unknown (#384)."""
     try:
         ZoneInfo(name)
-    except (ZoneInfoNotFoundError, ValueError) as exc:
+    except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
         raise ValueError(f"Unknown timezone '{name}'. Use an IANA name like America/Chicago.") from exc
     return name
 

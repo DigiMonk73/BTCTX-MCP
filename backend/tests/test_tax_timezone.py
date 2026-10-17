@@ -74,6 +74,10 @@ def rows(year):
     return data["short_term"] + data["long_term"]
 
 
+# A folder of zones in the tz database, and a name too long for a file name
+NOT_A_ZONE = ["America", "A" * 5000]
+
+
 class TestSetting:
     def test_get_and_put(self):
         assert CLIENT.get("/api/settings/tax-timezone").json()["timezone"] == "UTC"
@@ -83,6 +87,13 @@ class TestSetting:
     def test_invalid_timezone_rejected(self):
         r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": "Mars/Olympus", "chosen": True})
         assert r.status_code == 400
+
+    @pytest.mark.parametrize("name", NOT_A_ZONE, ids=["a folder", "too long"])
+    def test_a_folder_of_zones_or_a_name_too_long_is_unknown_too(self, name):
+        """#384: ZoneInfo fails on these with an OS error, which was a 500."""
+        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": name, "chosen": True})
+        assert r.status_code == 400 and r.json()["detail"].startswith("Unknown timezone"), r.text[:200]
+        assert CLIENT.get("/api/settings/tax-timezone").json()["timezone"] == "UTC"
 
     def test_requires_login(self):
         from fastapi.testclient import TestClient
@@ -138,10 +149,11 @@ class TestLoginFill:
         never_chosen()
         assert fill(NY) == {"timezone": "Asia/Tokyo", "source": "env", "filled": False}
 
-    def test_unknown_timezone_refused(self):
+    @pytest.mark.parametrize("name", ["Mars/Olympus", *NOT_A_ZONE], ids=["unknown", "a folder", "too long"])
+    def test_unknown_timezone_refused(self, name):
         never_chosen()
-        r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": "Mars/Olympus"})
-        assert r.status_code == 400
+        r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": name})
+        assert r.status_code == 400 and r.json()["detail"].startswith("Unknown timezone"), r.text[:200]
         assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
 
     def test_a_fill_after_delete_all_takes_the_browsers_timezone(self):
