@@ -448,7 +448,7 @@ def _download(lines: list[pf.YearLine]) -> None:
     try:
         asyncio.run(_download_years(lines))
     except outbound.ChoiceChanged:
-        logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
+        logger.info("Hourly BTC prices: the download stopped (the price settings changed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
         price_status.record_refusal(exc)

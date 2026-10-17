@@ -341,7 +341,7 @@ def test_a_yes_taken_back_stops_the_next_direct_request(world):
             outbound._current = outbound.NetworkSettings(price_source="public", proxy_url=TOR)  # No, meanwhile
             await client.get(pf.BITSTAMP_OHLC_URL, params={"step": DAY, "limit": 1000, "start": second})
 
-    with pytest.raises(outbound.NotAFixedBlock):
+    with pytest.raises(outbound.ChoiceChanged):  # the choice changed (#437)
         asyncio.run(two_blocks())
     assert [(httpx.URL(u).params["start"], p) for u, p in world.seen] == [(str(first), None)]
 

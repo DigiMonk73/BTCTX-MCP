@@ -655,9 +655,10 @@ class FixedBlocksOnly:
     The route around the proxy (#241): only GETs of Bitstamp's OHLC history
     that are one of its fixed blocks (fixed_block: the same requests on every
     install, so none can name a ledger's hour or day), and only while the
-    owner's Yes still holds (checked before each request: a download may
-    outlast it). Anything else, a request without `start` included, is
-    refused before it's sent.
+    owner's Yes still holds with public sites allowed (checked before each
+    request: a download may outlast them; else ChoiceChanged). Anything
+    else, a request without `start` included, is refused before it's sent
+    (NotAFixedBlock).
     """
 
     def __init__(self, client: BoundedClient):
@@ -674,7 +675,7 @@ class FixedBlocksOnly:
         if kwargs or not fixed_block(url, params):
             raise NotAFixedBlock(f"only Bitstamp's fixed history blocks go without Tor, not {url}")
         if not history_without_tor():
-            raise NotAFixedBlock("nothing goes without Tor any more: the owner's Yes no longer holds")
+            raise ChoiceChanged("the price settings changed: nothing goes without Tor now")
         return await self._client.get(url, params=params)
 
 
@@ -876,4 +877,5 @@ async def own_node_certificates(host: str, port: int, context: ssl.SSLContext) -
 
 
 def _is_onion(url: str | None) -> bool:
-    return (urlparse(url or "").hostname or "").endswith(".onion")
+    # A dot at the end ("x.onion.") names the same host: an .onion all the same
+    return (urlparse(url or "").hostname or "").rstrip(".").endswith(".onion")

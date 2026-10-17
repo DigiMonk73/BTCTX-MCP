@@ -461,22 +461,29 @@ def test_mempool_on_startos_through_the_bridge_address(auth_client, server_env, 
 ONION = "http://mempoolabcdefghijklmnopqrstuvwxyz234567abcdefghijklmnop.onion"
 
 
-def test_an_onion_mempool_address_needs_the_proxy(auth_client):
+# An .onion address as typed: with a dot at its end it names the same host
+# (the review of #443: it was taken for a home-network address, asked directly)
+ONIONS = pytest.mark.parametrize("onion", [ONION, ONION + "."], ids=["onion", "onion with a dot at its end"])
+
+
+@ONIONS
+def test_an_onion_mempool_address_needs_the_proxy(auth_client, onion):
     """Privacy audit 2026-09-29 (1h): saved without a proxy, the .onion name
     went to the system's DNS resolver on every price lookup."""
-    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": ONION})
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool", "mempool_url": onion})
     assert r.status_code == 422 and ".onion" in r.json()["detail"]
     r = auth_client.put("/api/settings/network", json={
-        **PUBLIC, "price_source": "mempool", "mempool_url": ONION, "proxy_url": "socks5h://127.0.0.1:9050"})
+        **PUBLIC, "price_source": "mempool", "mempool_url": onion, "proxy_url": "socks5h://127.0.0.1:9050"})
     assert r.status_code == 200, r.text
     # Switching to Nobody or public sites keeps the .onion address for later, without Tor (#145)
-    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off", "mempool_url": ONION})
-    assert r.status_code == 200 and r.json()["mempool_url"] == ONION, r.text
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off", "mempool_url": onion})
+    assert r.status_code == 200 and r.json()["mempool_url"] == onion, r.text
     assert outbound.current().own_node is None
 
 
-def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_env, requests_seen):
-    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=ONION, BTCTX_PROXY_URL="")
+@ONIONS
+def test_a_server_set_onion_without_a_proxy_is_never_asked(auth_client, server_env, requests_seen, onion):
+    server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=onion, BTCTX_PROXY_URL="")
     assert auth_client.get("/api/bitcoin/price").status_code == 502
     assert requests_seen == []
 

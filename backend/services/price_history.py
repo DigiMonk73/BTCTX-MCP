@@ -164,8 +164,12 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     # caller may not keep what came, and then it's asked again)
     _state["full_failed_at"] = now
     without_tor = outbound.history_without_tor()
-    async with outbound.history_client() as client:
-        got = await _bitstamp_blocks(client)
+    try:
+        async with outbound.history_client() as client:
+            got = await _bitstamp_blocks(client)
+    except outbound.ChoiceChanged:
+        _state["full_failed_at"] = -1e9  # a save stopped it, no failure: asked again as the new choice says (#437)
+        return {}, False
     if got:
         _state["full_failed_at"] = -1e9
         how = f", without Tor (agreed on {outbound.agreed_on()})" if without_tor else ""
@@ -175,11 +179,14 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
 
 
 async def _bitstamp_blocks(client) -> dict[date, str]:
-    """Every block of Bitstamp's daily history, or nothing when one of them fails."""
+    """Every block of Bitstamp's daily history, or nothing when one of them
+    fails. A save that stops them (ChoiceChanged) is the caller's: no failure."""
     got: dict[date, str] = {}
     try:
         for start in _blocks(FIRST_PRICE_DAY, BITSTAMP_BLOCK):
             got.update(await _bitstamp(client, start))
+    except outbound.ChoiceChanged:
+        raise  # not a failure: _whole_public_history asks again
     except Exception as exc:
         logger.info("BTC price history from bitstamp failed: %s", exc)
         price_status.record_refusal(exc)  # through Tor: the card asks (#241)
@@ -195,6 +202,8 @@ async def _latest_public_prices() -> tuple[dict[date, tuple], bool]:
         for name, fetch in (("bitstamp", _bitstamp), ("kraken", _kraken_latest)):
             try:
                 got = _kept(await fetch(client), name)
+            except outbound.ChoiceChanged:
+                return {}, False  # a save stopped it, no failure: asked again as the new choice says (#437)
             except Exception as exc:
                 logger.info("Latest BTC prices from %s failed: %s", name, exc)
                 continue
@@ -251,6 +260,9 @@ async def own_node_rows() -> tuple[list[dict], bool]:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
             resp.raise_for_status()
             rows = resp.json()["prices"]
+    except outbound.ChoiceChanged:
+        _state["mempool_at"] = -1e9  # a save stopped it, no failure: asked again as the new choice says (#437)
+        return [], False
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
         return [], False
