@@ -126,7 +126,8 @@ its release notes (what StartOS shows before updating) and its migration.
   and `down: IMPOSSIBLE`. A migration belongs to the version that
   introduced it; overwriting it in place would skip it for installs that
   haven't run it yet. If the old `up` is empty, just edit `current.ts`.
-- **Revision only** (package change, same app): bump the number after the
+- **Revision only** (package change, same app, once the community registry
+  serves the current version; below): bump the number after the
   `:`, moving the old `current.ts` to its own file first in the same way if
   its `up` does real work (1.2.0:0's does), or installs already on it would
   run it again.
@@ -150,8 +151,8 @@ its release notes (what StartOS shows before updating) and its migration.
   into the next one.
 - Release notes are the only home for what an update asks of the user
   (Start9's `versions.md`): a step before or after updating, a warning, and
-  in every release the AI connector's new version (`btctx-mcp==` in the AI
-  app's configuration). `instructions.md`, `README.md` and the action
+  with every new `VERSION` the AI connector's new version (`btctx-mcp==` in
+  the AI app's configuration). `instructions.md`, `README.md` and the action
   messages describe the package as it is, to someone who never ran an older
   version.
 
@@ -170,8 +171,9 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    `maintaining-a-package.md`: the first install's lockfile isn't final).
    To move `mempool-startos` and `tor-startos` (the packages the dependency
    constants come from, pinned at `#next`) to their newest commits, delete
-   their entries, and the entries under them, from `package-lock.json` and
-   run `npm install`: `npm update` does nothing for a git dependency. Then
+   every git-resolved entry from `package-lock.json` (`"resolved": "git+…"`:
+   those two and the packages they bring, such as `bitcoin-core-startos`)
+   and run `npm install`: `npm update` does nothing for a git dependency. Then
    check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
    and no copy under another package (`overrides` keeps it so).
 3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and
@@ -181,7 +183,8 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    test a release with that version too. Once Start9 has forked the mirror,
    they may bump the SDK there first: take it with `scripts/start9-pull.sh`
    instead.
-4. Run the checks, bump the package revision, release.
+4. Run the checks, bump the package revision (or keep the version while
+   the community registry doesn't serve it: "The package version"), release.
 
 ## Building locally
 

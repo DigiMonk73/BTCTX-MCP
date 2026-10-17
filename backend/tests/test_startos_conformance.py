@@ -155,7 +155,8 @@ def test_instructions_describe_the_service_as_it_is():
     # "now uses…", "no longer…" is releaseNotes; versions.md: release notes are
     # "the only home for what an update asks of the user".
     update_words = re.compile(
-        r"\bafter (?:updating|(?:an?|each|every) (?:\w+ )?update)\b|\bnow uses\b|\bno longer\b", re.I
+        r"\bafter (?:updating|(?:an?|the|this|each|every) (?:\w+ )?update)\b|\bnow uses\b|\bno longer\b",
+        re.I,
     )
     assert update_words.findall(read("instructions.md")) == []
 
@@ -179,12 +180,13 @@ def test_start9s_release_workflow_reads_one_id_and_one_version():
 
 def test_one_exact_sdk_and_siblings_at_next():
     # maintaining-a-package.md: the SDK pinned to an exact version, one copy of
-    # it in the lockfile (the overrides entry), sibling packages at #next.
+    # it in the lockfile (the overrides entry), sibling packages at #next (or
+    # #next/<base> for a package with parallel lines).
     package = json.loads(read("package.json"))
     deps = package["dependencies"]
     assert re.fullmatch(r"\d+\.\d+\.\d+", deps.pop("@start9labs/start-sdk"))
     assert package["overrides"] == {"@start9labs/start-sdk": "$@start9labs/start-sdk"}
-    assert deps and all(spec.endswith("#next") for spec in deps.values()), deps
+    assert all(re.search(r"#next(/[\w.-]+)?$", spec) for spec in deps.values()), deps
     lock = json.loads(read("package-lock.json"))["packages"]
     sdks = [path for path in lock if path.endswith("node_modules/@start9labs/start-sdk")]
     assert sdks == ["node_modules/@start9labs/start-sdk"]
