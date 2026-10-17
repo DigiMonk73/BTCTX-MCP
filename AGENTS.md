@@ -85,9 +85,11 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
-squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required).
+squash-merged, once the 10 required checks of `ci.yml` have passed on a
+branch that's up to date with `develop` ("Protect develop": every job
+except the macOS build and the macOS dependency audit, which run but
+aren't required; "up to date" since 2026-10-17, the owner's choice, so a
+pull request's checks have always run on everything already merged).
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from
@@ -795,7 +797,11 @@ for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
 when the 10 required checks pass (if they already have, GitHub refuses
-`--auto`; the same command without `--auto` merges it at once). The owner
+`--auto`; the same command without `--auto` merges it at once). A branch
+behind `develop` merges only once it's brought up to date
+(`gh pr update-branch N`, which merges `develop` in) and its checks pass
+again: auto-merge waits for that but doesn't do it. During big work the
+lead does all of this ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
 These pull requests get auto-merge only after the owner's "merge" in chat:
 a change in tax figures or what the app computes, the database, the StartOS
@@ -897,6 +903,20 @@ one session. Claude suggests this setup when a request is that big.
 - **Stacking within a session:** at most two pull requests on the same
   files; merge the first before starting a third, since each squash makes
   the next one conflict.
+- **The lead runs the merges** (the owner, 2026-10-17: "You, as lead,
+  run every merge from one queue on the umbrella; sessions report ready
+  instead of turning on auto-merge"). A session never turns on
+  auto-merge: once a pull request's review and re-check are posted with
+  nothing open, it tells the lead "ready: #N". The lead keeps one merge
+  queue on the umbrella issue (the order, what each needs, its state)
+  and takes each in turn: it brings the branch up to date with `develop`
+  (`gh pr update-branch N`; on a conflict, the session merges `develop`
+  in and resolves it), waits for green checks, quotes the owner's
+  "merge" where one is needed, and merges. Pull requests that touch the
+  same files or tests, in one session or several, merge one at a time,
+  each tested on top of the one before; the lead plans that order when
+  it hands out the work. (#413 merged on checks run before #416 changed
+  the sentence its test expected, and `develop` broke: #417.)
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:
