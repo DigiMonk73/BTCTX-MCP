@@ -1,7 +1,8 @@
 // The dialog before every transaction is deleted (#256): Settings' Delete
 // All, and Create account on an install that has transactions. It says what
 // goes, offers the encrypted backup first, and deletes only once DELETE is
-// typed (the server checks it too), and only what it showed (#377).
+// typed (the server checks it too), and only what it showed: how many,
+// over which tax years (#377).
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CONFIRMATION, describeExtent, type LedgerExtent } from "../utils/deleteAll";
@@ -33,7 +34,7 @@ const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
   useEffect(() => {
     setTyped("");
     confirmInput.current?.focus();
-  }, [extent.transactions]);
+  }, [extent.transactions, extent.first_year, extent.last_year]);
   // A backup downloading: nothing is deleted or closed until it's saved
   const [saving, setSaving] = useState(false);
   const waiting = busy || saving;
@@ -63,10 +64,11 @@ const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
           It can't be undone here.
         </p>
         {changed && (
-          <p className="note note-error" role="alert">
+          // Keyed by the figure, so a second change is announced again
+          <div key={describeExtent(extent)} className="note note-error" role="alert">
             Transactions were saved or deleted while this was open. Nothing was deleted: check what this
             deletes now, and type {CONFIRMATION} again.
-          </p>
+          </div>
         )}
         <p className="dialog-note">
           BitcoinTX first keeps a copy of the database in its data folder (in <code>backups</code>,

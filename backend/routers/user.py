@@ -110,9 +110,11 @@ class AccountReset(BaseModel):
     current_password: str | None = None
     setup_code: str | None = None
     # "DELETE", typed in the dialog, when the ledger has transactions (#256),
-    # and how many the dialog showed (#377)
+    # and what the dialog showed: how many, over which tax years (#377)
     confirm: str | None = None
     transactions: int | None = None
+    first_year: int | None = None
+    last_year: int | None = None
 
     @field_validator("username", "password")
     @classmethod
@@ -140,7 +142,7 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     (with the setup code), or when current_password is
     the account's real password (verified here, server-side). Throttled like
     the login. With transactions to delete, only with confirm=DELETE (for
-    the number the dialog showed, when given: #377), asked once the code or
+    what the dialog showed, when given: #377), asked once the code or
     password is right: otherwise 409 says what would go, and nothing
     changes. A copy of the database comes first (#256).
     """
@@ -152,7 +154,7 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
-    refused = wipe.delete_all(db, payload.confirm, payload.transactions)
+    refused = wipe.delete_all(db, payload.confirm, payload.model_dump(include={"transactions", "first_year", "last_year"}))
     if refused is not None:
         return refused
     update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)

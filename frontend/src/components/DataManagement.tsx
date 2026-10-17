@@ -39,15 +39,13 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
     }
   };
 
-  /** Deletes what the dialog shows, its count sent along: the server
-   * refuses another (#377), and the dialog then shows that one. */
+  /** Deletes what the dialog shows, sent along: the server refuses a
+   * ledger that changed since (#377), and the dialog then shows what goes now. */
   const confirmDelete = async () => {
     if (!toDelete) return;
     setLoading(true);
     try {
-      await api.delete("/transactions/delete_all", {
-        params: { confirm: CONFIRMATION, transactions: toDelete.transactions },
-      });
+      await api.delete("/transactions/delete_all", { params: { confirm: CONFIRMATION, ...toDelete } });
       setMessage(
         `Deleted ${describeExtent(toDelete)}. A copy of the database from before is kept in ` +
           "BitcoinTX's data folder (in backups, unencrypted).",
@@ -59,7 +57,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
         setLedgerChanged(true);
         setToDelete(now);
       } else {
-        setMessage(now ? "There are no transactions to delete." : extractErrorMessage(error) || "Failed to delete transactions.");
+        setMessage(extractErrorMessage(error) || "Failed to delete transactions.");
         setToDelete(null);
       }
     } finally {

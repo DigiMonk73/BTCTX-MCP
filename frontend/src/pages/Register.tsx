@@ -79,8 +79,8 @@ const RegisterPage: React.FC = () => {
   /**
    * The server checks the setup code or current password first, then, when
    * the ledger has transactions, answers what would go (409) until the
-   * owner confirms in the dialog, for the count it shows (#377: another
-   * count is refused, and shown); then it keeps a copy, deletes them and
+   * owner confirms in the dialog, for what it shows (#377: a ledger that
+   * changed since is refused, and shown); then it keeps a copy, deletes them and
    * sets the new login, in one step.
    */
   const submit = async (confirm?: string) => {
@@ -92,7 +92,7 @@ const RegisterPage: React.FC = () => {
         current_password: isDefault ? undefined : overridePassword,
         setup_code: isDefault && codeRequired ? setupCode.trim() : undefined,
         confirm,
-        transactions: confirm ? toDelete?.transactions : undefined,
+        ...(confirm ? toDelete : null), // what the dialog shows (#377)
       });
       toast.success(
         "Registration successful! Your credentials have been updated." +
@@ -105,11 +105,8 @@ const RegisterPage: React.FC = () => {
         setLedgerChanged(Boolean(confirm));
         setToDelete(extent);
       } else {
-        setErrorMsg(
-          extent
-            ? "There are no transactions to delete any more. Press Register again."
-            : extractErrorMessage(err) || "Failed to register. Please try again.",
-        );
+        const why = extractErrorMessage(err);
+        setErrorMsg(extent ? `${why} Press Register again.` : why || "Failed to register. Please try again.");
         setToDelete(null);
       }
     } finally {

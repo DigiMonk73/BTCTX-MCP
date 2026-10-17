@@ -174,6 +174,22 @@ def test_a_transaction_deleted_while_the_dialog_was_open_is_said_too(ledger):
     }
 
 
+def test_the_same_count_over_other_years_is_a_change_too(ledger, test_engine):
+    """#390's review: one transaction added and another deleted while the
+    dialog was open keep the count; its tax years say the ledger changed."""
+    shown = ledger.get(DELETE_ALL).json()
+    assert shown == {"transactions": 3, "first_year": 2023, "last_year": 2024}
+    deposit(ledger, "2025-05-01T12:00:00Z")
+    first = min(ledger.get("/api/transactions").json(), key=lambda tx: tx["timestamp"])
+    assert ledger.delete(f"/api/transactions/{first['id']}").status_code == 204
+    query = "&".join(f"{key}={value}" for key, value in shown.items())
+    r = ledger.delete(f"{CONFIRMED}&{query}")
+    assert r.status_code == 409 and r.json()["first_year"] == 2024 and r.json()["last_year"] == 2025
+    assert "now deletes all 3 transactions, 2024–2025" in r.json()["detail"]
+    assert count(ledger) == 3
+    assert ledger.delete(f"{CONFIRMED}&transactions=3&first_year=2024&last_year=2025").status_code == 204
+
+
 def test_no_copy_no_delete(ledger, monkeypatch):
     def full_disk(*args, **kwargs):
         raise OSError("No space left on device")
@@ -232,8 +248,8 @@ def test_a_save_just_after_an_empty_ledger_was_checked_isnt_deleted(auth_client,
     real_refusal = wipe.refusal
     saves: list = []
 
-    def refusal_then_save(db, confirm, transactions=None):
-        answer = real_refusal(db, confirm, transactions)  # None: nothing to delete
+    def refusal_then_save(db, confirm, shown=None):
+        answer = real_refusal(db, confirm, shown)  # None: nothing to delete
         saving_meanwhile(Path(test_engine.url.database), saves)
         return answer
 

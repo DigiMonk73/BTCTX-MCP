@@ -496,11 +496,14 @@ All notable changes to BitcoinTX are documented in this file.
 - **Delete All deletes only what its dialog showed** (#377). A transaction
   saved while the dialog was open (by the AI connector, say) was deleted
   too, and Settings then said "Deleted" with the count the dialog had
-  shown. The confirmation now carries that count: if the ledger changed
-  meanwhile, nothing is deleted, and the dialog shows what would go now
-  and asks you to type `DELETE` again. The same at Create account on an
-  install with transactions. **Affected:** no release: the dialog is new
-  in this version (#256). Nothing to do.
+  shown. The confirmation now carries what the dialog showed, the number
+  of transactions and their tax years: if the ledger changed meanwhile,
+  nothing is deleted, and the dialog shows what would go now and asks you
+  to type `DELETE` again. The same at Create account on an install with
+  transactions. (A change that keeps both, one transaction swapped for
+  another within those years, still goes ahead; the copy made first keeps
+  it.) **Affected:** no release: the dialog is new in this version (#256).
+  Nothing to do.
 - **The newest database copies are the ones kept** (#308). BitcoinTX keeps
   the newest few copies of each kind in its data folder's `backups/` (before
   an update or a restore, before Delete All, before Ledger Review's hourly
