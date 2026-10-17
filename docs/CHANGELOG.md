@@ -657,6 +657,30 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing used it: the connector's version notice already read the
   package's version.
 
+### Security
+- **Hardening from the 1.2.8 and 1.2.9 security reviews** (#204). None of
+  these could be used against an install; each closes a gap before it
+  could matter:
+  - **A login with a username that doesn't exist takes as long as one
+    with a wrong password.** Only an existing username's password was
+    checked (about 0.2 s, against 1 ms), so the time an answer took said
+    whether that name exists. Now an unknown one is checked against a
+    stand-in all the same.
+  - **The AI key goes by the route a request reached**, not by its web
+    address read a second time, where a `%3F` in the address cut that
+    reading short. No route outside the key's list could be reached that
+    way (checked); now none can by any address.
+  - **A `SECRET_KEY` set in the environment needs at least 32
+    characters**, like the key file's. A shorter one is ignored, with a
+    warning in the log, and the key file next to the database is used
+    instead (everyone logs in again once). Docker, StartOS and the Mac app
+    set none, so nothing changes for them.
+  - **Trust this server says where to check the fingerprint.** The
+    certificate authority's name it shows is what the server says about
+    itself; the card now asks you to check that the SHA-256 fingerprint
+    is your server's own (on StartOS, the Root CA in About this Server)
+    before you trust it.
+
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
   README said a backup made on an older version is migrated forward when

@@ -11,6 +11,8 @@ The routes anyone can reach that check a password or code:
 - New passwords are at least 12 characters (older, shorter ones still log
   in); a password change needs the current password.
 - setup-status runs bcrypt once per set of credentials, not on every call.
+- An unknown username costs a bcrypt check too (a stand-in hash), so the
+  time a login takes doesn't tell whether a username exists.
 - The first-run setup code (backend/services/first_run.py): logging in with
   the default admin/password login and claiming it need a code from the
   server's data folder (and its log, outside the Mac app, whose window
@@ -30,6 +32,7 @@ from itsdangerous import TimestampSigner
 
 from backend import secret_key
 from backend.main import app
+from backend.models import user as user_model
 from backend.models.user import User
 from backend.services import first_run, login_throttle
 
@@ -39,11 +42,42 @@ from backend.tests.conftest import MAC_APP_HOST, default_login
 def good() -> dict:
     return default_login()
 BAD = {"username": "admin", "password": "not-the-password"}
-NOBODY = {"username": "nobody", "password": "x"}  # a failure without bcrypt's wait
+NOBODY = {"username": "nobody", "password": "x"}  # a failure checking only the stand-in hash
+REAL_STAND_IN = user_model._stand_in_hash
+
+
+@pytest.fixture(autouse=True)
+def cheap_stand_in(monkeypatch):
+    """An unknown username costs a check of the stand-in hash (#204): a cheap
+    one here, so the many failures below stay quick."""
+    cheap = bcrypt.hashpw(b"stand-in", bcrypt.gensalt(rounds=4)).decode()
+    monkeypatch.setattr(user_model, "_stand_in_hash", lambda: cheap)
 
 
 def anon(host: str = "testclient") -> TestClient:
     return TestClient(app, client=(host, 50000))
+
+
+# ---------------------------------------------------------------------------
+# Timing
+# ---------------------------------------------------------------------------
+def test_an_unknown_username_costs_a_password_check_too(fresh_app, monkeypatch):
+    """#204: bcrypt ran only for a username that exists (177 ms against 1 ms),
+    so the time a login took told whether it does."""
+    checks = []
+    real = bcrypt.checkpw
+    monkeypatch.setattr(bcrypt, "checkpw", lambda password, hashed: checks.append(hashed) or real(password, hashed))
+    assert anon().post("/api/login", json=NOBODY).status_code == 401
+    assert anon().post("/api/login", json=BAD).status_code == 401
+    assert len(checks) == 2
+
+
+def test_the_stand_in_hash_costs_what_a_password_hash_does():
+    user = User(username="me")
+    user.set_password("real-password-1")
+    stand_in = REAL_STAND_IN()
+    assert stand_in[:7] == user.password_hash[:7]  # "$2b$12$": the same cost
+    assert not user_model.password_matches(None, "real-password-1")
 
 
 @pytest.fixture

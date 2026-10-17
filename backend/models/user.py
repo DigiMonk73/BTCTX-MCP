@@ -1,6 +1,8 @@
 """The login: BitcoinTX has one user, who owns the fixed accounts."""
 
 from __future__ import annotations
+import functools
+import secrets
 from typing import TYPE_CHECKING
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -36,15 +38,34 @@ class User(Base):
 
     def verify_password(self, password: str) -> bool:
         """Whether `password` matches the stored hash."""
-        try:
-            encoded = password.encode('utf-8')
-        except UnicodeEncodeError:  # a lone surrogate: not text, so never the password (#210)
-            return False
-        # bcrypt only reads 72 bytes and raises for more; a longer password never matches.
-        if len(encoded) > 72:
-            return False
-        return bcrypt.checkpw(encoded, self.password_hash.encode('utf-8'))
+        return _matches(password, self.password_hash)
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username={self.username})>"
-    
+
+
+def password_matches(user: User | None, password: str) -> bool:
+    """Whether there is such a user and `password` is theirs. With no user it
+    checks a stand-in hash all the same, so the time a login takes doesn't
+    tell whether a username exists (#204)."""
+    if user is None:
+        _matches(password, _stand_in_hash())
+        return False
+    return user.verify_password(password)
+
+
+def _matches(password: str, password_hash: str) -> bool:
+    try:
+        encoded = password.encode('utf-8')
+    except UnicodeEncodeError:  # a lone surrogate: not text, so never the password (#210)
+        return False
+    # bcrypt only reads 72 bytes and raises for more; a longer password never matches.
+    if len(encoded) > 72:
+        return False
+    return bcrypt.checkpw(encoded, password_hash.encode('utf-8'))
+
+
+@functools.cache
+def _stand_in_hash() -> str:
+    """A hash, at set_password's cost, of a random password nobody knows."""
+    return bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode('utf-8')

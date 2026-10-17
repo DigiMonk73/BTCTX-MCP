@@ -289,6 +289,8 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   const confirm = card.getByRole("group", { name: "Trust this server" });
   await expect(confirm).toContainText("start9.local's certificate authority: start9 Local Root CA");
   await expect(confirm).toContainText(`SHA-256: ${SHA}`);
+  await expect(confirm).toContainText("check that this fingerprint is your server's own"); // #204
+  await expect(confirm).toContainText("On StartOS, it's the Root CA in About this Server");
   await expect(confirm).toContainText("Only do this on your own home network.");
   await expect(confirm.getByRole("button", { name: "Trust", exact: true })).toBeFocused(); // keyboard users follow
   await confirm.getByRole("button", { name: "Cancel" }).click();
