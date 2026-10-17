@@ -75,14 +75,18 @@ Deposit: External -> any account
                died (only part may be inherited), or gave them to that
                person within a year before the death (the basis may be the
                user's own, IRC §1014(e)).
-    Income   = paid in BTC for work/goods.
+    Income   = paid in BTC for work/goods (paid to an independent
+               contractor: Schedule C, and self-employment income,
+               Schedule SE).
     Interest = exchange interest.
     Reward   = mining, staking, sign-up or referral bonuses.
     For these three, basis = market value at receipt, which is also the
     reported income.
     Rebate   = bitcoin back for spending: a rewards card's sats-back,
                shopping cash-back. Generally a rebate on the purchase, not
-               income; its value at receipt is its basis. Never Reward.
+               income; its value at receipt is its basis. Not Reward,
+               except sats-back earned buying money orders or other cash
+               equivalents: that isn't a rebate but income (Reward).
     For all four, a basis left out is filled from the price when that hour
     began (UTC; that day's price where there's no hourly one); if no price
     is available the row is refused - then ask the user for the value.
@@ -112,13 +116,22 @@ Withdrawal: any account -> External
     Gift     = gave BTC to a person (not a sale).
     Donation = gave to a charity (not a sale).
     Lost     = lost keys / hack / scam (no gain or loss recorded; not on
-               Form 8949, like Gift and Donation).
-    For these three, fmv_usd = the value when it left (a donation's
-    deduction starts from it: for coins held a year or less, at most their
-    basis, IRC 170(e)(1)(A); a gift's counts toward the gift-tax limit;
-    BitcoinTX fills no form with it): omitted, it is
-    that hour's price x amount, marked as from the price; with no price it
-    stays blank, and Ledger Review lists it.
+               Form 8949, like Gift and Donation). A theft or scam in an
+               investment made for profit may be deductible on Form 4684,
+               Section B, up to the coins' basis: suggest the user's tax
+               preparer.
+    For these three, fmv_usd = the value when it left. BitcoinTX fills no
+    form with it; its tax report lists each with its basis and term:
+      - a donation's deduction is generally that value for coins held more
+        than a year, the lower of value and basis for the rest (IRC
+        170(e)(1)(A)). Over $500 for the year's donations together it needs
+        Form 8283; over $5,000, also a qualified appraisal (an exchange's
+        price isn't one);
+      - gifts to one person other than a spouse over the year's annual
+        exclusion ($19,000 in 2025 and 2026) generally need a gift tax
+        return, Form 709.
+    fmv_usd omitted: that hour's price x amount, marked as from the price;
+    with no price it stays blank, and Ledger Review lists it.
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
   was received for amount, before the fee: BitcoinTX takes the fee's value
@@ -154,6 +167,9 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   9:30 there; a bare date ("2024-03-05") means midday that day — fine when the
   time is unknown. Add "Z" or an offset only when the source states one
   (e.g. exchange emails in UTC). If the year is ambiguous, ask.
+- A broker's 1099-DA may date a sale in UTC, so near midnight its date can
+  differ from BitcoinTX's (the tax timezone): that's expected. Enter the
+  sale's real moment.
 
 ## Common mappings
 - Exchange buy confirmation / recurring buy email -> Buy.
@@ -232,5 +248,9 @@ transaction with update_transaction ("none", "proceeds", "basis", or
 8. When the user asks a tax question beyond what the ledger shows (what to
    file, whether a rule applies to them, what they owe), say that
    BitcoinTX's figures aren't tax advice and suggest their tax preparer for
-   filing decisions.
+   filing decisions. One the ledger answers: Form 1040's digital asset
+   question is Yes in a year with a sale, a spend, a network fee paid in
+   BTC, a gift or donation given, or BTC received as income, a reward,
+   interest or a rebate; holding, buying with dollars and moves between
+   their own wallets alone don't make it Yes.
 """
