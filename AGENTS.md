@@ -348,6 +348,7 @@ from the Transaction row alone.
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
+| `backend/unexpected_errors.py` | an error nobody expected: a fixed sentence in the answer, its type in the log, its trace at DEBUG (`log_unexpected`, `UnexpectedErrorMiddleware`) |
 | `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing, no-store on the API; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
@@ -430,16 +431,20 @@ from the Transaction row alone.
   (`security_headers.py`): exports and the ledger's JSON stay out of the
   browser's disk cache. A new encrypted backup's password needs 12+
   characters (`routers/backup.py`); a restore takes an older, shorter one.
-- A CSV or River import, the IRS forms or a restore that fails for an
-  unexpected reason (not the ledger's or the backup's own words) answers
-  one fixed sentence, never the error's own text (it can hold SQL, a
-  server path or a date), and logs only the error's type
-  (`services/csv_import.log_unexpected`; the trace at DEBUG): the imports'
-  `routers/csv_import.import_failure` (busy, 503, when the database was
-  locked; else `IMPORT_FAILED`, 500), `reports.IRS_FORMS_FAILED`,
-  `backup.RESTORE_FAILED`. The AI preview's dry run does the same for a
-  row it stops at (`entry_import.SIMULATION_BUSY` or `SIMULATION_FAILED`;
-  `csv_import.is_busy`).
+- An error nobody expected is said and logged without its own text (it can
+  hold SQL with a transaction's date, or a server path): one fixed sentence
+  in the answer, the error's type in the log at ERROR, its trace only at
+  DEBUG (`backend/unexpected_errors.py`: `log_unexpected`). An error no
+  route handled answers `UNEXPECTED` (500) through
+  `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
+  logs no trace (#430); the imports' `routers/csv_import.import_failure`
+  (busy, 503, when the database was locked: `csv_import.is_busy`; else
+  `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
+  the AI preview's dry run (`entry_import.SIMULATION_BUSY` or
+  `SIMULATION_FAILED`) and Ledger Review's (`review.DRY_RUN_FAILED`) say
+  their own. A refusal raised on purpose (an `HTTPException`, the backup's
+  or the ledger's own words) keeps them. Never `logger.exception` or
+  `exc_info=True` above DEBUG.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the

@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
@@ -26,6 +27,7 @@ from backend.services.reports.form_8949 import (
 )
 
 from backend.services import hourly_prices, price_history
+from backend.unexpected_errors import log_unexpected
 from backend.services.transaction import (
     DEPOSIT_SOURCES, WITHDRAWAL_PURPOSES, cost_left, listed_spelling, price_used, recalculate_all_transactions,
 )
@@ -45,9 +47,11 @@ def _held_value_price(db: Session, when: datetime) -> hourly_prices.Priced | Non
         return None  # the year isn't over: no year-end value yet
     try:
         return hourly_prices.price_at(db, when)
-    except Exception as exc:
-        logger.warning("No BTC price for %s: %s", when.isoformat(), getattr(exc, "detail", exc))
-        return None
+    except HTTPException as exc:  # no price: the bound (not a transaction's date) and why
+        logger.warning("No BTC price for %s: %s", when.isoformat(), exc.detail)
+    except Exception as exc:  # never its text at WARNING (#430)
+        log_unexpected(f"The BTC price for {when.isoformat()}", exc, logger)
+    return None
 
 
 def _year_end_note(priced: hourly_prices.Priced | None, year: int) -> str:

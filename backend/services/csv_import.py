@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import csv
 import io
-import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -59,8 +58,6 @@ from backend.constants import (
     VALUED_AT_RECEIPT,
     normalized,
 )
-
-logger = logging.getLogger(__name__)
 
 # Matched case-insensitively.
 VALID_TYPES = {"deposit", "withdrawal", "transfer", "buy", "sell"}
@@ -902,15 +899,6 @@ def is_busy(error: Exception) -> bool:
     """Whether SQLite's write lock was held past the 5 s wait: SQLite's own
     message, never a query's parameters, says so."""
     return isinstance(error, OperationalError) and "locked" in str(error.orig)
-
-
-def log_unexpected(what: str, error: Exception, log: logging.Logger = logger) -> None:
-    """An unexpected failure (an import's, a report's, a restore's) in the
-    log, the caller's: its type, its trace only at DEBUG, where whole rows
-    already are, since its text can hold a transaction's date and dates
-    stay out of the normal log (#204, #422)."""
-    log.error("%s failed: %s", what, type(error).__name__)
-    log.debug("%s failed", what, exc_info=error)
 
 
 def check_database_empty(db: Session) -> tuple[bool, int]:
