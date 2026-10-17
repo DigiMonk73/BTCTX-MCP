@@ -945,6 +945,16 @@ All notable changes to BitcoinTX are documented in this file.
   it is. And `scripts/equivalence_check.py` no longer reports the
   `open_sessions` setting, whose login session hashes are new on every run,
   as a difference in every ledger.
+- **ReportLab 4.5.1** (#425; the owner's choice for 1.2.9, 2026-10-17, if
+  no PDF moved). It draws the Complete Tax Report and the transaction
+  history PDF, and had stayed on 4.4 since 4.5 might change their output.
+  The before-and-after comparison (`scripts/equivalence_check.py`'s
+  snapshot with 4.4.10, then 4.5.1, the same code, in the Docker image on
+  Python 3.11 and on 3.13) found every PDF byte for byte the same: the
+  IRS forms and every year's Complete Tax Report and transaction history
+  of the reference, golden and 40 random test ledgers, and the CSV
+  instructions. The parts 4.5 changed most (its own form fields, CSS
+  colours) aren't used. No other package moves.
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
   (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
   and CI still tests 3.10; deferred in #294). Nothing that ships changes;
