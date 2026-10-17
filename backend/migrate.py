@@ -46,8 +46,8 @@ BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
 # Copies the AI key asked for (POST /api/backup/ai-copy), or made before its
-# first change in an hour (PUT or DELETE /api/transactions/{id}, label
-# AI_CHANGE_LABEL), kept apart: the newest 3, and for AI_DAYS_HELD days the
+# first change in an hour (PUT or DELETE /api/transactions/{id}, POST
+# /api/transactions/recalculate; label AI_CHANGE_LABEL), kept apart: the newest 3, and for AI_DAYS_HELD days the
 # oldest of them and the first made before a change each day
 # (_ai_copies_held), so for a week they hold the ledger from before each
 # day's changes, however many copies are made after them. At most 11.

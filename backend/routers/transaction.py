@@ -101,12 +101,16 @@ def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/recalculate")
-def recalculate_ledger(db: Session = Depends(get_db)):
+def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
     """
     Rebuild every ledger line, lot and disposal from the transactions in
     chronological order (the same "scorched earth" pass edits trigger).
     Run once after upgrading so calculation fixes reach existing data.
+    With the AI key, its first change in an hour comes after an AI copy of
+    the database: a recalculation can move stored figures (#336).
     """
+    if not request.session.get("user_id"):  # the AI key
+        _copy_before_ai_changes(db, "Not recalculated")
     try:
         tx_service.recalculate_all_transactions(db)
         db.commit()
@@ -122,7 +126,8 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
     transaction doesn't exist. With the AI key, its first change in an hour
-    (an edit or a deletion) comes after an AI copy of the database.
+    (an edit, a deletion or a recalculation) comes after an AI copy of the
+    database.
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -159,8 +164,9 @@ def delete_transaction(transaction_id: int, request: Request, db: Session = Depe
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
-    With the AI key, its first change in an hour (an edit or a deletion)
-    comes after an AI copy of the database (in the backups folder).
+    With the AI key, its first change in an hour (an edit, a deletion or a
+    recalculation) comes after an AI copy of the database (in the backups
+    folder).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -183,10 +189,10 @@ def _made_this_hour_today(made: float) -> bool:
 
 def _copy_before_ai_changes(db: Session, refused: str) -> None:
     """
-    An AI copy before the AI key's first change in an hour (an edit or a
-    deletion), which the AI copies the key asks for next never push out
-    (migrate._ai_copies_held). No copy, no change: `refused` ("Not changed",
-    "Not deleted") opens the message.
+    An AI copy before the AI key's first change in an hour (an edit, a
+    deletion or a recalculation), which the AI copies the key asks for next
+    never push out (migrate._ai_copies_held). No copy, no change: `refused`
+    ("Not changed", "Not deleted", "Not recalculated") opens the message.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
