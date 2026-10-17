@@ -41,6 +41,10 @@ Only the latest release gets security fixes. On StartOS, that's the newest
 BitcoinTX package Start9 publishes (each release goes to Start9's Community
 Beta registry first). Updating is the fix for every older version.
 
+While 2.0 is in beta, the latest release is the latest 1.2.x, which keeps
+getting security fixes. A 2.0 pre-release is for testing: a fix for it comes
+in the next pre-release.
+
 ## Checking a download
 
 Each release lists the SHA-256 of its files (the macOS `.dmg` and `.zip`,

@@ -86,8 +86,23 @@ Several wallets or exchanges all go into those two accounts. The rule is
 Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
 coins held on that date. With several wallets, BitcoinTX may figure a sale
 from one wallet with the cost and purchase date of coins that were in
-another. Several wallets and exchanges, each with its own lots, is an idea
-for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
+another. Several wallets and exchanges, each with its own lots, are planned
+for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
+see [Versions](#versions)).
+
+## Versions
+
+1.2.9 is planned as BitcoinTX's stable version. After it, we expect 1.2.x to
+get maintenance updates only: bug and security fixes, and each year's IRS
+forms, but no new features.
+
+New work goes into 2.0, which adds several wallets, exchanges and banks, each
+with its own cost-basis lots
+([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). Because 2.0
+changes how the ledger is stored, it will be tested as a beta, on GitHub
+pre-releases, for as long as it needs before it replaces 1.2.9; on StartOS it
+comes to Start9's Community Beta only once it's ready. We can't promise
+dates.
 
 ## Install
 
