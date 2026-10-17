@@ -13,6 +13,7 @@ Every outside service is faked.
 
 import random
 import time
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -553,3 +554,32 @@ def test_a_refused_download_says_so_and_a_silent_one_doesnt(sites, db, answer):
     hp.start_download()
     finish_download()
     assert hp.download_status()["refused"] is False
+
+
+def _three_year_files(monkeypatch, kept: OrderedDict, missing=()):
+    """Year files for 2019-2021 (2019's cached as `kept` holds it), without disk."""
+    monkeypatch.setattr(hp, "_years", kept)
+    lines = [pf.YearLine(y, pf.year_start(y), pf.year_end(y), 1, f"sha{y}") for y in (2019, 2020, 2021)]
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: lines)
+    monkeypatch.setattr(hp, "_file_text", lambda line: None if line.year in missing else str(line.year))
+    monkeypatch.setattr(pf, "parse_year_text", lambda text: {int(text): Decimal("1.00")})
+    return [datetime(y, 3, 1, tzinfo=timezone.utc) for y in (2019, 2020, 2021)]
+
+
+def test_a_requests_year_files_leave_the_years_kept_in_memory(monkeypatch):
+    """#419's review: the AI preview reads its rows' year files before its
+    dry run (#204); keeping them in memory (two years) pushed out a year the
+    dry run's own pricing then read again under the write lock."""
+    kept = OrderedDict({2019: ("sha2019", {2019: Decimal("1.00")})})
+    years: dict = {}
+    hp.read_year_files(_three_year_files(monkeypatch, kept), years)
+    assert list(kept) == [2019]
+    assert {y for y in years if y != "manifest"} == {2019, 2020, 2021}
+
+
+def test_a_year_not_downloaded_yet_is_looked_up_again(monkeypatch):
+    """#419's review: a year file missing when read before the dry run was
+    noted as missing, so a price the dry run waited for went unnamed."""
+    years: dict = {}
+    hp.read_year_files(_three_year_files(monkeypatch, OrderedDict(), missing={2020}), years)
+    assert 2020 not in years and 2021 in years

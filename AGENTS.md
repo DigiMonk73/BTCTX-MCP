@@ -87,7 +87,10 @@ add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` have passed
 ("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required).
+dependency audit, which run but aren't required), on a branch that's up
+to date with `develop` ("Require branches to be up to date before
+merging", on since 2026-10-17, the owner's choice), so a pull request's
+checks have run on everything already merged.
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from
@@ -427,6 +430,13 @@ from the Transaction row alone.
   (`security_headers.py`): exports and the ledger's JSON stay out of the
   browser's disk cache. A new encrypted backup's password needs 12+
   characters (`routers/backup.py`); a restore takes an older, shorter one.
+- A CSV or River import that fails for an unexpected reason answers one
+  fixed sentence (`routers/csv_import.import_failure`: busy, 503, when the
+  database was locked; else `IMPORT_FAILED`, 500), never the error's own
+  text (it can hold SQL, a server path or a date), and logs only the
+  error's type (`services/csv_import.log_unexpected`; the trace at DEBUG).
+  The AI preview's dry run does the same for a row it stops at
+  (`entry_import.SIMULATION_BUSY` or `SIMULATION_FAILED`; `csv_import.is_busy`).
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the
@@ -468,6 +478,9 @@ from the Transaction row alone.
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
   before the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
+  The preview reads the price year files its rows may need before its dry
+  run (`hourly_prices.read_year_files`), so finding which price filled each
+  value (#208) reads no file under the lock.
 - A JSON body whose text (or a key) holds a lone surrogate (`"\ud800"`)
   is refused, 422 naming the field, before the route runs
   (`main.refuse_text_that_isnt_text`, #313): it can't be saved or quoted
@@ -485,10 +498,11 @@ from the Transaction row alone.
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
   chunked body passes it. A route taking a file is listed in `main.py` with
   its own file limit (plus room for the form) and keeps checking the file
-  itself: the restore 1 GiB, the CSV and River files 5 MB. That larger
-  allowance is for a logged-in owner's file: only a request whose session
-  cookie is validly signed, unexpired and holds a `user_id` gets it. A new
-  upload route goes in that list.
+  itself: the CSV and River files 5 MB, read at most to the limit and one
+  byte; the restore 1 GiB, copied in 1 MiB pieces until past it. That
+  larger allowance is for a logged-in owner's file: only a request whose
+  session cookie is validly signed, unexpired and holds a `user_id` gets
+  it. A new upload route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 
@@ -795,7 +809,16 @@ for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
 when the 10 required checks pass (if they already have, GitHub refuses
-`--auto`; the same command without `--auto` merges it at once). The owner
+`--auto`; the same command without `--auto` merges it at once). A branch
+behind `develop` is brought up to date first (`gh pr update-branch N`,
+which merges `develop` in, or `git merge origin/develop` and a push; a
+Dependabot pull request: comment
+"@dependabot rebase" instead, since Dependabot stops maintaining a
+branch once anyone else commits to it, and it rewrites only its own
+branch) and merges only once its checks pass again: auto-merge never
+updates a branch by itself, and GitHub refuses to merge one that's behind
+("Branches"). During big work the lead does all of this
+("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
 These pull requests get auto-merge only after the owner's "merge" in chat:
 a change in tax figures or what the app computes, the database, the StartOS
@@ -807,8 +830,9 @@ when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
 request merges" and the two sections after it.
 
 A branch that falls behind `develop` gets `develop` merged into it, never a
-rebase: a pushed branch is not rewritten, and the squash keeps `develop`
-clean anyway.
+rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
+pushed branch is not rewritten, and the squash keeps `develop` clean
+anyway.
 
 ## Big work: a main session and numbered sessions
 
@@ -895,8 +919,29 @@ one session. Claude suggests this setup when a request is that big.
   that the diff shows only the two sessions' intended moves, and checks
   the migration numbering.
 - **Stacking within a session:** at most two pull requests on the same
-  files; merge the first before starting a third, since each squash makes
-  the next one conflict.
+  files; wait until the first has merged before starting a third, since
+  each squash makes the next one conflict.
+- **The lead runs the merges** (the owner, 2026-10-17: "You, as lead,
+  run every merge from one queue on the umbrella; sessions report ready
+  instead of turning on auto-merge"). A session never turns on
+  auto-merge: once a pull request's review (and re-check, where
+  "Reviews" asks one) has nothing open, it posts "ready: #N" on the
+  umbrella issue (and tells the lead, if it's running), so a new lead
+  finds it too. The lead keeps one merge queue on the umbrella issue
+  (the order, what each needs, its state) and takes each in turn: it
+  brings the branch up to date with `develop` (`gh pr update-branch N`;
+  on a conflict or red checks, or where "Running sessions at once" has
+  the session merge `develop` in itself, its session, or one the lead
+  starts for it, does that and fixes what broke; a session still working
+  on that branch pulls before its next push), waits for green checks,
+  checks that the owner's "merge" is quoted on it where one is needed,
+  and merges. Dependabot's pull requests, and any other merge into
+  `develop` while big work runs, go through the same queue. Pull
+  requests that touch the same files or tests, in one session or
+  several, merge one at a time, each tested on top of the one before;
+  the lead plans that order when it hands out the work. (#413 merged on
+  checks run before #416 changed the sentence its test expected, and
+  `develop` broke: #417.)
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:

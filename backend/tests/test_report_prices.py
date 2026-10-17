@@ -197,7 +197,7 @@ def test_the_report_reads_the_year_files_once(auth_client, test_engine, clean, m
     line = pf.YearLine(2026, pf.year_start(2026), hour + 3600, 1, "x")
     reads = []
     monkeypatch.setattr(pf, "read_manifest", lambda path=None: reads.append(1) or [line])
-    monkeypatch.setattr(hourly_prices, "_year_prices", lambda y: {hour: Decimal("70000.00")})
+    monkeypatch.setattr(hourly_prices, "_year_prices", lambda line, remember=True: {hour: Decimal("70000.00")})
     monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, **k: (Decimal("70000.00"), "bitstamp"))
     for minute in ("10", "20"):
         post(auth_client, type="Deposit", timestamp=f"2026-04-01T12:{minute}:00Z", from_account_id=EXTERNAL,

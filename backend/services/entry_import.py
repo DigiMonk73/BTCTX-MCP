@@ -41,7 +41,9 @@ from backend.services import hourly_prices
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
-from backend.services.csv_import import _parse_date, _parse_decimal, _validate_row, number_limits, number_text
+from backend.services.csv_import import (
+    _parse_date, _parse_decimal, _validate_row, is_busy, log_unexpected, number_limits, number_text,
+)
 from backend.services.river_import import (
     STATUS_MATCHED,
     STATUS_NEW,
@@ -75,6 +77,10 @@ STATUS_NOT_SIMULATED = "not_simulated"
 
 # Rows with these statuses are written by execute
 WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
+# A row the dry run stopped at for a reason other than the ledger's: never
+# the error's own text (SQL, a path, a date), which the AI would pass on (#204)
+SIMULATION_FAILED = "Unexpected error: the dry run stopped at this row. BitcoinTX's log says what."
+SIMULATION_BUSY = "BitcoinTX was busy saving something else: preview again in a moment."
 
 
 @dataclass
@@ -429,6 +435,13 @@ def simulate(
     if not ordered:
         return [], []
 
+    # The year files the price lookups below (from_price) may read, read
+    # first: the dry run holds SQLite's write lock, and reading and
+    # fingerprinting them would hold it the longer (#204). Looked up after
+    # the rollback instead, a price the dry run itself stored would be gone.
+    years: dict = {}
+    hourly_prices.read_year_files((p.tx_data["timestamp"] for p in ordered), years)
+
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
 
@@ -439,7 +452,6 @@ def simulate(
             db.flush()
         else:
             _mark_not_simulated(ordered[failed_at + 1:])
-        years: dict = {}  # the year files, read once for every row
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,
@@ -483,8 +495,9 @@ def _create_until_refused(
             _reject(p, str(exc.detail))
             return created, pos
         except Exception as exc:  # defensive: surface, never write
-            logger.exception("Entry simulation failed on row %s", p.row)
-            _reject(p, f"Unexpected error: {exc}")
+            if not is_busy(exc):
+                log_unexpected(f"Entry simulation of row {p.row}", exc)
+            _reject(p, SIMULATION_BUSY if is_busy(exc) else SIMULATION_FAILED)
             return created, pos
         created.append((p, tx))
     return created, None
