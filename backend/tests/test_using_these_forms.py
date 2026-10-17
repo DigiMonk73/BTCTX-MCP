@@ -95,8 +95,9 @@ def test_it_says_when_the_forms_are_drafts_or_missing(forms, expected):
     if forms != "draft":
         # Nothing filled: the Form 8949 instructions' attached statement, never totals alone
         assert "Form 8949: every Bitcoin disposal" not in text and "Fill Form 8949 from section 2's list" in text
-        assert 'enter each box\'s totals on Form 8949: "see attached statement" in column (a), (b) and (c) ' \
-               "blank, code M in column (f) (Form 8949 instructions, Exception 2)" in text
+        assert "enter each box's totals on Form 8949 (Exception 2 of its instructions): column (a) \"see " \
+               "attached statement\", after the exchange's name in box H; (b) and (c) blank; (f) code M; " \
+               "(g) -0-." in text
 
 
 NEWER = max(get_supported_years()) + 5  # past the newest forms and any draft
@@ -119,3 +120,59 @@ def test_a_report_made_without_the_forms_choice_says_nothing_of_it():
     text = " ".join("\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(pdf)).pages).split())
     assert "Form 8949: every Bitcoin disposal of 2025" in text
     assert "no IRS forms" not in text and "drafts" not in text
+
+
+@pytest.mark.parametrize("boxes, column_a", [
+    ([box("G", "1b", 1.0), box("I", "3", 1.0), box("K", "9", 1.0)],
+     'column (a) "see attached statement", after the exchange\'s name in boxes G and K;'),
+    ([box("C", "3", 1.0), box("F", "10", 1.0)], 'column (a) "see attached statement"; (b) and (c) blank'),
+])
+def test_a_year_without_forms_names_the_exchange_in_its_boxes(boxes, column_a):
+    """#114: Exception 2's example puts the broker's name before "see
+    attached statement", and code M's row says -0- in column (g); only the
+    boxes of sales a broker reported take its name."""
+    text = report_text(irs_forms="none", form_8949_boxes=boxes)
+    assert column_a in text and "(f) code M; (g) -0-." in text
+
+
+def section_pages(**data) -> tuple[int, int]:
+    """The pages sections 1 and 6 take, each from its heading to the next
+    section's."""
+    base = {"tax_year": 2025, "tax_timezone": "America/New_York", "report_date": "2026-02-01 15:00:00",
+            "period": "2025-01-01 to 2025-12-31", "income_transactions": [
+                {"date": "2025-03-01T12:00:00Z", "asset": "BTC", "amount": 0.01, "value_usd": 600.0,
+                 "type": "Income"}],
+            "capital_gains_transactions": [{"asset": "BTC", "date_sold": "2025-07-01T03:00:00Z", "amount": 0.1}],
+            # With all three, the Summary's 1040 line is its longest (#160)
+            "gifts_donations_lost": [{"date": "2025-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02,
+                                      "fmv_usd": 1200.0, "type": "Gift"}],
+            # And both of its holdings notes: no price at either end of the year
+            "start_of_year_balances": [{"quantity": 0.5, "avg_cost_basis": 30000.0, "value": None}],
+            "end_of_year_balances": [
+                {"asset": "BTC (Bitcoin)", "account": "Wallet", "acquired": "2024-01-15T12:00:00Z", "quantity": 0.5,
+                 "cost": 15000.0, "value": None, "description": "No BTC price for when 2025 ended: not priced"},
+                {"asset": "Total", "quantity": 0.5, "cost": 15000.0, "value": None, "description": ""}]}
+    pdf = generate_comprehensive_tax_report({**base, **data})
+    pages = [page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages]
+
+    def starts(n: int) -> int:
+        return max(i for i, text in enumerate(pages) if any(line.startswith(f"{n}. ") for line in text.split("\n")))
+
+    # Section 6 ends on 7's page when more than that page's header and foot
+    # (which ends "before filing.") comes before 7's heading
+    before_notes = pages[starts(7)].split("7. Notes")[0].split("before filing.")[-1].strip()
+    six_ends = starts(7) if before_notes else starts(7) - 1
+    return starts(2) - starts(1), six_ends - starts(6) + 1
+
+
+SIX_BOXES = [box(b, line, 10.0) for b, line in (("G", "1b"), ("H", "2"), ("I", "3"), ("J", "8b"), ("K", "9"),
+                                                 ("L", "10"))]
+
+
+@pytest.mark.parametrize("forms", ["final", "draft", "none", "newer"])
+def test_the_summary_and_this_page_still_fit_one_page_each(forms):
+    """#114 and #160 add words to the summary and to this page: with all six
+    boxes, the year not over (this page's longest without a rebate or an
+    inherited coin) and the summary's notes, each still takes one page, as
+    before them."""
+    assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date="2025-10-01 12:00:00") == (1, 1)
