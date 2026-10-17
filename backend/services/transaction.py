@@ -942,6 +942,8 @@ def lot_holding_period(lot: BitcoinLot, disposed: datetime, tz=timezone.utc) -> 
 
 # Types whose proceeds are derived (net of fees) from the user's gross input
 GROSS_PROCEEDS_TYPES = ("Sell", "Withdrawal")
+# What a disposal does, for its shortage: "Not enough BTC to withdraw …" (#415)
+DISPOSAL_VERBS = {"Sell": "sell", "Withdrawal": "withdraw"}
 
 
 def _record_gross_proceeds(tx_data: dict) -> None:
@@ -1256,7 +1258,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if disposal.remaining_fee + disposal.remaining_amount > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Not enough BTC to {tx.type.lower()} {btc_outflow:.8f} BTC"
+            detail=f"Not enough BTC to {DISPOSAL_VERBS[tx.type]} {btc_outflow:.8f} BTC"
         )
 
     db.flush()

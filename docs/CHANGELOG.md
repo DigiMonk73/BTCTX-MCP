@@ -176,6 +176,11 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
+  read "Not enough BTC to withdrawal 0.70000000 BTC", the type's name in
+  place of the verb; it now reads "Not enough BTC to withdraw …", in the
+  app, the AI connector and the command line. A sale's ("to sell") was
+  right already. The wording only: no figure changes.
 - **A River auto-withdrawal is imported as a move to your wallet, and a
   River mining payout as income** (tax figures, #397, #399). River's
   activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
