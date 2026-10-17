@@ -221,6 +221,11 @@ from the Transaction row alone.
   differ).
 - **River Sells**: River's Received Amount is net of River's fee, so
   `proceeds_usd` (gross) = Received + fee.
+- **River sends**: River's Sent Amount is what the destination got, its
+  network fee on top (River's record gives the total as Sent + Fee, #39),
+  so a Transfer's `amount` is Sent + fee. A send tagged `Withdrawal` is an
+  auto-withdrawal, to the address the owner set: a Transfer to Wallet like
+  any other send (#397). A `Mining` payout is a Reward deposit (#399).
 - **Import duplicates** (#253, the owner's rule): the AI connector's and the
   River import's check (`river_import.annotate_duplicates`) leaves out only
   a duplicate: the same kind (going the same way), BTC amount and minute as
