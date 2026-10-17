@@ -220,6 +220,18 @@ def test_backups_made_before_0_9_2_still_restore(tmp_path):
         backup.decrypt_backup(v1, "nope")
 
 
+def test_a_v2_backup_unreadable_past_its_password_is_damaged():
+    """#427's review: past the password check, the cipher's own ValueError
+    ("Invalid padding bytes.") was shown as the backup's words."""
+    salt, iv = b"s" * backup.SALT_LENGTH, b"i" * backup.IV_LENGTH
+    keys = backup._derive_key("pw", salt, backup.MIN_ITERATIONS, 2 * backup.KEY_LENGTH)
+    body = backup.MAGIC + bytes([backup.FORMAT_VERSION]) + struct.pack(">I", backup.MIN_ITERATIONS) + salt + iv
+    body += b"x" * 33  # not a whole number of cipher blocks
+    with pytest.raises(ValueError) as refused:
+        backup.decrypt_backup(body + backup._mac(keys[backup.KEY_LENGTH:], body), "pw")
+    assert str(refused.value) == backup.DAMAGED
+
+
 def test_a_v1_wrong_password_that_happens_to_unpad_is_still_caught():
     """v1 has no MAC: a wrong key unpads cleanly about 1 time in 256 and
     used to come back as garbage (the test above failed at random). Here the

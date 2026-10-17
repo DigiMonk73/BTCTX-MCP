@@ -517,7 +517,7 @@ def _create_until_refused(
             return created, pos
         except Exception as exc:  # defensive: surface, never write
             if not is_busy(exc):
-                log_unexpected(f"Entry simulation of row {p.row}", exc)
+                log_unexpected(f"Entry simulation of row {p.row}", exc, logger)
             _reject(p, SIMULATION_BUSY if is_busy(exc) else SIMULATION_FAILED)
             return created, pos
         created.append((p, tx))
