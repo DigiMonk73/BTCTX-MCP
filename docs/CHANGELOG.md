@@ -1105,6 +1105,13 @@ All notable changes to BitcoinTX are documented in this file.
   tells the open page as the price card does after its own save: the page
   asks again in place, with no page load. Real Safari, Chrome and the Mac
   app were never at fault (#149).
+- **One helper takes SQLite's write lock** (#402): `database.take_write_lock`,
+  with `database.is_busy` (moved from `csv_import`) the one check of
+  "database is locked". Delete All, the hourly prices' apply and a login's
+  timezone fill each took it with a copy of the same lines; each keeps its
+  own answer to a busy database (Delete All's 503 and log line, the
+  apply's 503, the fill's False) and the step where it takes the lock,
+  which `test_write_lock.py` checks. Nothing BitcoinTX does changes.
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate

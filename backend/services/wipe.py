@@ -16,10 +16,10 @@ import sqlite3
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from backend.database import take_write_lock
 from backend.migrate import DELETE_COPIES_KEPT, DELETE_KIND, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services.tax_time import get_tax_timezone, local_date
@@ -85,29 +85,17 @@ def delete_all(db: Session, confirm: str | None, shown: dict | None = None) -> J
     check, the copy and the delete hold one write lock (#276): they see the
     same ledger, and what is saved meanwhile waits until after the delete.
     """
-    _hold_write_lock(db)
+    if not take_write_lock(db):
+        logger.warning("Deleting every transaction: the database is busy, nothing deleted")
+        raise HTTPException(
+            status_code=503, detail="Not deleted: BitcoinTX was busy saving something else. Try again."
+        )
     refused = refusal(db, confirm, shown)
     if refused is not None:
         db.rollback()  # the lock goes
         return refused
     _copy_then_delete(db)
     return None
-
-
-def _hold_write_lock(db: Session) -> None:
-    """SQLite's write lock for this session's transaction, until its commit
-    or rollback: other saves wait for it (5 s at most, then fail). A busy
-    database (an import holding the lock longer) deletes nothing (503). A
-    session that has a transaction open already fails here, loudly."""
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except OperationalError as e:
-        if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
-            raise
-        logger.warning("Deleting every transaction: the database is busy, nothing deleted")
-        raise HTTPException(
-            status_code=503, detail="Not deleted: BitcoinTX was busy saving something else. Try again."
-        ) from e
 
 
 def _copy_then_delete(db: Session) -> int:
