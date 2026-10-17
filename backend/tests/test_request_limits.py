@@ -306,8 +306,10 @@ def test_raw_deflate_still_decodes_and_a_cut_gzip_answer_is_refused(monkeypatch)
 
 
 def test_a_download_whose_prices_werent_kept_is_asked_again_at_once(monkeypatch, test_engine):
-    """A success clears the retry timer: if the request that asked failed
-    afterwards (nothing committed), the next lookup downloads again."""
+    """A success clears the retry timer: if the save that asked failed
+    afterwards (nothing committed), the next lookup downloads again. (A
+    lookup in a session that hasn't written keeps its prices at once, #364.)"""
+    from sqlalchemy import text
     from sqlalchemy.orm import sessionmaker
 
     from backend.tests.test_price_history import FakeSources, all_days
@@ -319,8 +321,9 @@ def test_a_download_whose_prices_werent_kept_is_asked_again_at_once(monkeypatch,
     use(price_source="public")
     day = date(2020, 5, 5)
     with sessionmaker(bind=test_engine)() as db:
+        db.execute(text("BEGIN IMMEDIATE"))  # a save holding the lock: its transaction keeps the prices
         assert price_history.daily_price(db, day) > 0
-        db.rollback()  # the request failed later: nothing kept
+        db.rollback()  # the save failed later: nothing kept
     fake.requests.clear()
     with sessionmaker(bind=test_engine)() as db:
         assert price_history.daily_price(db, day) > 0
