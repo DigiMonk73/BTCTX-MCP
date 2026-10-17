@@ -24,6 +24,8 @@ const RegisterPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   // What a new account would delete: asked once the code or password is right (#256)
   const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
+  // The ledger changed after the owner confirmed: the dialog shows what goes now (#377)
+  const [ledgerChanged, setLedgerChanged] = useState(false);
   const registerButton = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const toast = useToast();
@@ -77,7 +79,8 @@ const RegisterPage: React.FC = () => {
   /**
    * The server checks the setup code or current password first, then, when
    * the ledger has transactions, answers what would go (409) until the
-   * owner confirms in the dialog; then it keeps a copy, deletes them and
+   * owner confirms in the dialog, for what it shows (#377: a ledger that
+   * changed since is refused, and shown); then it keeps a copy, deletes them and
    * sets the new login, in one step.
    */
   const submit = async (confirm?: string) => {
@@ -89,6 +92,7 @@ const RegisterPage: React.FC = () => {
         current_password: isDefault ? undefined : overridePassword,
         setup_code: isDefault && codeRequired ? setupCode.trim() : undefined,
         confirm,
+        ...(confirm ? toDelete : null), // what the dialog shows (#377)
       });
       toast.success(
         "Registration successful! Your credentials have been updated." +
@@ -96,10 +100,15 @@ const RegisterPage: React.FC = () => {
       );
       navigate('/login');
     } catch (err) {
-      const extent = confirm ? null : extentToConfirm(err);
-      if (extent) setToDelete(extent);
-      else setErrorMsg(extractErrorMessage(err) || "Failed to register. Please try again.");
-      if (confirm) setToDelete(null);
+      const extent = extentToConfirm(err);
+      if (extent && extent.transactions > 0) {
+        setLedgerChanged(Boolean(confirm));
+        setToDelete(extent);
+      } else {
+        const why = extractErrorMessage(err);
+        setErrorMsg(extent ? `${why} Press Register again.` : why || "Failed to register. Please try again.");
+        setToDelete(null);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -193,6 +202,7 @@ const RegisterPage: React.FC = () => {
       {toDelete && (
         <DeleteAllDialog
           extent={toDelete}
+          changed={ledgerChanged}
           title="Create a new account and delete every transaction?"
           canDownloadBackup={false}
           busy={isSubmitting}

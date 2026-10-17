@@ -17,7 +17,7 @@ describe("describeExtent", () => {
 describe("extentToConfirm", () => {
   it("reads what would go from the server's 409", () => {
     const what = { detail: "…", transactions: 2, first_year: 2024, last_year: 2025 };
-    expect(extentToConfirm(failed(409, what))).toMatchObject({ transactions: 2, first_year: 2024 });
+    expect(extentToConfirm(failed(409, what))).toEqual({ transactions: 2, first_year: 2024, last_year: 2025 });
   });
 
   it("is null for any other failure", () => {

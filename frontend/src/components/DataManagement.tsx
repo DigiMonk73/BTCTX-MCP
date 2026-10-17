@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import api from "../api";
 import { detailOr, extractErrorMessage } from "../utils/apiError";
-import { CONFIRMATION, describeExtent, type LedgerExtent } from "../utils/deleteAll";
+import { CONFIRMATION, describeExtent, extentToConfirm, type LedgerExtent } from "../utils/deleteAll";
 import { downloadMessage } from "../utils/desktopDownload";
 import CsvImportPreview from "./CsvImportPreview";
 import DeleteAllDialog from "./DeleteAllDialog";
@@ -20,6 +20,8 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   const [showPreview, setShowPreview] = useState(false);
   // What Delete All would take, while its dialog is open (#256)
   const [toDelete, setToDelete] = useState<LedgerExtent | null>(null);
+  // The ledger changed after the owner confirmed: the dialog shows what goes now (#377)
+  const [ledgerChanged, setLedgerChanged] = useState(false);
   const deleteButton = useRef<HTMLButtonElement>(null);
 
   const handleDeleteTransactions = async () => {
@@ -27,6 +29,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
     setMessage("");
     try {
       const { data } = await api.get<LedgerExtent>("/transactions/delete_all");
+      setLedgerChanged(false);
       if (data.transactions === 0) setMessage("There are no transactions to delete.");
       else setToDelete(data);
     } catch (error) {
@@ -36,19 +39,28 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
     }
   };
 
+  /** Deletes what the dialog shows, sent along: the server refuses a
+   * ledger that changed since (#377), and the dialog then shows what goes now. */
   const confirmDelete = async () => {
     if (!toDelete) return;
     setLoading(true);
     try {
-      await api.delete("/transactions/delete_all", { params: { confirm: CONFIRMATION } });
+      await api.delete("/transactions/delete_all", { params: { confirm: CONFIRMATION, ...toDelete } });
       setMessage(
         `Deleted ${describeExtent(toDelete)}. A copy of the database from before is kept in ` +
           "BitcoinTX's data folder (in backups, unencrypted).",
       );
-    } catch (error) {
-      setMessage(extractErrorMessage(error) || "Failed to delete transactions.");
-    } finally {
       setToDelete(null);
+    } catch (error) {
+      const now = extentToConfirm(error);
+      if (now && now.transactions > 0) {
+        setLedgerChanged(true);
+        setToDelete(now);
+      } else {
+        setMessage(extractErrorMessage(error) || "Failed to delete transactions.");
+        setToDelete(null);
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -179,6 +191,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
       {toDelete && (
         <DeleteAllDialog
           extent={toDelete}
+          changed={ledgerChanged}
           title="Delete all transactions?"
           canDownloadBackup
           busy={loading}
