@@ -13,9 +13,10 @@ import struct
 import tempfile
 import threading
 from collections.abc import Callable
+from decimal import Decimal
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import Numeric, create_engine
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
@@ -440,21 +441,51 @@ def _quoted(name: str) -> str:
 def _read_as_the_app_does(new) -> None:
     """
     Every copied row read through BitcoinTX's models, as the app will read
-    it (its types turn stored text into dates and numbers): a value it can't
-    read would fail every later read of that table, so it refuses the
-    restore now.
+    it (its types turn stored text into dates and numbers), and as the
+    screens and reports go on to use it (_usable): a value it can't read
+    would fail every later read of that table, so it refuses the restore
+    now.
     """
     from backend.models import Base
 
     with Session(new) as session:
         for mapper in Base.registry.mappers:
+            numbers = [a.key for a in mapper.column_attrs if isinstance(a.columns[0].type, Numeric)]
             try:
-                for _ in session.query(mapper.class_).yield_per(1000):
-                    pass
+                for row in session.query(mapper.class_).yield_per(1000):
+                    _usable(row, numbers)
             except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
                 logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
                 raise ValueError(DOESNT_FIT.format(table=mapper.local_table.name)) from e
             session.expunge_all()
+
+
+# Every number a restore brings back is below this: the columns are
+# Numeric(18, ...), BitcoinTX writes nothing as big (an entered USD value
+# has at most 16 digits before the point, a BTC amount 10), and the reports'
+# sums and prices work well past it (Decimal's 28 digits). A bigger one, or
+# an infinity, comes from no BitcoinTX ledger and fails them (#460).
+NUMBERS_BELOW = Decimal(10) ** 18
+
+
+def _usable(row, numbers: list[str]) -> None:
+    """
+    A row as the screens and reports use it, stricter than the models
+    (#460): its numbers finite and below NUMBERS_BELOW, and a transaction
+    read through the API's TransactionRead, as the list reads it (its type
+    and broker reporting one of BitcoinTX's, its dates in range). Sources
+    and purposes aren't checked: the app reads any (one saved as " gift ",
+    #342; a withdrawal's of its own counts as Spent, #61).
+    """
+    from backend.models import Transaction
+    from backend.schemas.transaction import TransactionRead
+
+    for name in numbers:
+        value = getattr(row, name)
+        if value is not None and not (value.is_finite() and abs(value) < NUMBERS_BELOW):
+            raise ValueError(f"{name} isn't a number BitcoinTX uses")
+    if isinstance(row, Transaction):
+        TransactionRead.model_validate(row)
 
 
 def _require_one_login(new) -> None:

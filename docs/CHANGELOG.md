@@ -804,6 +804,22 @@ All notable changes to BitcoinTX are documented in this file.
   another within those years, still goes ahead; the copy made first keeps
   it.) **Affected:** no release: the dialog is new in this version (#256).
   Nothing to do.
+- **A restore refuses a backup with a value the app can't show** (#460).
+  A restore checked each row it brought back by reading it through the
+  database's models, but the screens and reports read transactions more
+  strictly. A backup holding a type or a broker reporting that isn't one of
+  BitcoinTX's, or a number far too big (such as 1e300), was restored with
+  "✅ Database successfully restored", and then the transaction list or the
+  Complete Tax Report failed with an error. The restore now also reads each
+  transaction as the list does, and every number in the ledger's tables
+  must be finite and have at most 18 digits before the point (BitcoinTX
+  writes at most 16); otherwise it says the backup's rows "don't fit
+  BitcoinTX's database" and nothing changes. Only a backup BitcoinTX didn't
+  make (crafted, or edited by hand) holds such values: every backup
+  BitcoinTX made still restores, old ones included. **Affected:** 1.2.8
+  (earlier versions took a backup's database as it was, with the same
+  result). Nothing to do: the copy made before the restore (in the data
+  folder's `backups/`) and restoring a good backup always put it right.
 - **The newest database copies are the ones kept** (#308). BitcoinTX keeps
   the newest few copies of each kind in its data folder's `backups/` (before
   an update or a restore, before Delete All, before Ledger Review's hourly
