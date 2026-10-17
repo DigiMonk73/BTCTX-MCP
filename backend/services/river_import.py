@@ -551,7 +551,7 @@ def annotate_duplicates(
     """
     if not proposals:
         return  # nothing to look up the ledger for
-    existing: list[Transaction] = db.query(Transaction).all()
+    existing: list[Transaction] = db.query(Transaction).order_by(Transaction.id).all()  # ties: the oldest first
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
@@ -603,18 +603,96 @@ def _window(moment: datetime) -> tuple[datetime, datetime]:
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
-    going the same way: from the row's account or to it, so a send never
-    matches a deposit, nor a receive a withdrawal (#253). The window is
-    checked here too, so that over the whole ledger (the speed test's
-    reference) it's exact."""
-    types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+    going the same way (_compatible). The window is checked here too, so
+    that over the whole ledger (the speed test's reference) it's exact."""
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
-        and tx.type in types
-        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+        and _compatible(proposal, tx)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
+
+
+def _compatible(proposal: RiverProposal, tx: Transaction) -> bool:
+    """A compatible type going the same way: from the row's account or to
+    it, so a send never matches a deposit, nor a receive a withdrawal (#253)."""
+    return (
+        tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+    )
+
+
+def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, tz) -> bool:
+    """Whether pass 1 could take `tx` for `proposal`: a compatible type going
+    the same way, the same moment, an amount `rule` accepts and nothing
+    else different (#253)."""
+    return (
+        _compatible(proposal, tx) and _same_moment(proposal, tx, tz)
+        and any(same(proposal, tx) for same in rule.amounts) and not rule.differences(proposal, tx)
+    )
+
+
+def match_by_moving(
+    stuck: list[RiverProposal], holders: list[RiverProposal], db: Session, rule: DuplicateRule,
+    kept_tx_ids: Collection[int],
+) -> None:
+    """
+    Each proposal in `stuck` (still new) matched after all when a duplicate
+    of it can be freed: one a proposal in `holders` matched, when that one
+    can take another duplicate of its own instead, and so on down (an
+    augmenting path: the most proposals matched). Never a transaction in
+    `kept_tx_ids`. For the AI's rows the user says are other transactions:
+    sent again, a looser row beside one (a date alone, nearer to the copy
+    the first send saved for it) can have taken that copy (#388's review).
+    """
+    if not stuck:
+        return
+    existing = db.query(Transaction).order_by(Transaction.id).all()
+    holder = {p.matched_tx_id: p for p in holders}
+    if all(tx.id in holder or tx.id in kept_tx_ids for tx in existing):
+        return  # every transaction taken: none can be freed
+    proposals = [*stuck, *holders]
+    tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
+    nearby = _nearby(proposals, existing)
+    duplicates: dict[int, list[Transaction]] = {}
+
+    def duplicates_of(proposal: RiverProposal) -> list[Transaction]:
+        """Its duplicates it may take, nearest first, found once."""
+        if id(proposal) not in duplicates:
+            duplicates[id(proposal)] = sorted(
+                (tx for tx in nearby[id(proposal)] if tx.id not in kept_tx_ids and is_duplicate(proposal, tx, rule, tz)),
+                key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp),
+            )
+        return duplicates[id(proposal)]
+
+    seen: set = set()  # no path through these until a row is placed (then the matches change)
+    for proposal in sorted(stuck, key=lambda p: p.timestamp):
+        if _place(proposal, duplicates_of, holder, seen):
+            seen = set()
+
+
+def _place(start: RiverProposal, duplicates_of, holder: dict, seen: set) -> bool:
+    """`start` matched to a free duplicate, or to one its holder gives up for
+    another of its own, and so on down: a search kept on a list, not in
+    Python's recursion (a long chain of identical rows ran past its limit).
+    Every row on the path found takes the transaction it reached."""
+    path = [(start, iter(duplicates_of(start)), None)]  # (row, its duplicates left, the one it would take)
+    while path:
+        proposal, options, _ = path[-1]
+        tx = next((tx for tx in options if tx.id not in seen), None)
+        if tx is None:
+            path.pop()
+            continue
+        seen.add(tx.id)
+        path[-1] = (proposal, options, tx)
+        if tx.id in holder:
+            path.append((holder[tx.id], iter(duplicates_of(holder[tx.id])), None))
+            continue
+        for row, _, taken in path:
+            holder[taken.id] = row
+            row.matched_tx_id, row.status = taken.id, STATUS_MATCHED
+        return True
+    return False
 
 
 def _nearest(proposal: RiverProposal, txs: list[Transaction]) -> Transaction | None:
