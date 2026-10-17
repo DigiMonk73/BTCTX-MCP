@@ -256,7 +256,7 @@ def test_a_damaged_row_trusts_nothing(test_engine):
     try:
         for pem, kept in ((one, True), (one + one, False), (key + one, False), ("junk", False), (None, False)):
             outbound._set(db, outbound.TRUSTED_ROOT_KEY, json.dumps({"url": "https://box.local", "pem": pem}))
-            assert (outbound._trusted_root(db, "https://box.local") is not None) is kept, pem
+            assert (outbound._trusted_root(outbound._stored(db), "https://box.local") is not None) is kept, pem
         outbound._set(db, outbound.TRUSTED_ROOT_KEY, None)
         db.commit()
     finally:

@@ -628,6 +628,19 @@ async def test_a_time_without_an_offset_is_read_in_the_tax_timezone_as_add_trans
     assert price["priced_at"] == "2024-01-16T00:00:00Z"
 
 
+@pytest.mark.parametrize("name", ["America", "America/__init__/x"], ids=["a folder", "a module"])
+async def test_a_tax_timezone_this_computer_cant_open_is_a_plain_error(monkeypatch, name):
+    """#407: a 1.2.8 server kept a name only its own zone files opened; here
+    a folder of zones failed with an OS error and, on Python 3.10 and 3.11, a
+    module of tzdata with a TypeError, not the connector's own message."""
+    async def answer(method, path, **kwargs):
+        return {"timezone": name, "source": "setting"}
+
+    monkeypatch.setattr(server, "_call", answer)
+    with pytest.raises(server.ToolError, match=f"doesn't know the tax timezone {name};"):
+        await server._tax_zone()
+
+
 async def test_wrong_key_is_a_clear_error(backend_db):
     make_ai_key(backend_db)
     btctx = BtctxClient(

@@ -1,5 +1,6 @@
-// The encrypted backup (POST /api/backup/download), which Restore brings back:
-// from Settings' Backup & Restore, and offered before Delete All (#256).
+// The encrypted backup (POST /api/backup/download), which Restore brings back
+// (POST /api/backup/restore): from Settings' Backup & Restore, and offered
+// before Delete All (#256).
 import api from "../api";
 import { PASSWORD_RULE, passwordTooShort } from "./credentials";
 import { downloadMessage } from "./desktopDownload";
@@ -26,4 +27,18 @@ export async function downloadEncryptedBackup(password: string): Promise<string 
   formData.append("password", password);
   const res = await api.post("/backup/download", formData, { responseType: "blob" });
   return downloadMessage(new Blob([res.data]), "bitcoin_backup.btx", "btx", "Backup");
+}
+
+/** A restore's answer: `notice` when something of the backup wasn't kept,
+ * such as a tax timezone BitcoinTX doesn't know (#407). */
+export interface RestoreAnswer {
+  message?: string;
+  notice?: string;
+}
+
+/** What Settings says after a restore, and whether it waits for the owner to
+ * read a notice before the login page, rather than moving on after 2 s. */
+export function restoreOutcome(answer: RestoreAnswer): { message: string; waits: boolean } {
+  const message = answer.message || "Backup restored. Redirecting to login...";
+  return answer.notice ? { message: `${message} ${answer.notice}`, waits: true } : { message, waits: false };
 }

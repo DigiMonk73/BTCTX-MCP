@@ -1,12 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import api from "../api";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
-import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup } from "../utils/encryptedBackup";
+import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup, restoreOutcome } from "../utils/encryptedBackup";
 
 /** Settings' Backup & Restore section: the CSV export, the encrypted backup
  * and its restore. */
 const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
+  // A restore with a notice waits here for the owner to read it (#407)
+  const [loginAgain, setLoginAgain] = useState(false);
+
   const handleExportCsv = async () => {
     setLoading(true);
     setMessage("");
@@ -66,12 +69,15 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
     try {
       formData.set("file", file);
       const res = await api.post("/backup/restore", formData);
-      setMessage(res.data.message || "Backup restored. Redirecting to login...");
+      const outcome = restoreOutcome(res.data);
+      setMessage(outcome.message);
       // The restored database may have other user ids: log in again (the
       // login in use stays; the backup's doesn't come back).
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 2000);
+      if (outcome.waits) {
+        setLoginAgain(true);
+      } else {
+        setTimeout(goToLogin, 2000);
+      }
     } catch (error) {
       // The server says why (a wrong password, not a BitcoinTX backup, or a
       // restore that stopped and left the database as it was)
@@ -134,10 +140,19 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
               {loading ? "Processing..." : "Restore"}
             </button>
           </div>
+          {loginAgain && (
+            <button type="button" onClick={goToLogin} className="btn btn-primary">
+              Log in again
+            </button>
+          )}
         </form>
       </div>
     </div>
   );
 };
+
+function goToLogin() {
+  window.location.href = "/login";
+}
 
 export default BackupRestore;
