@@ -29,6 +29,7 @@ from backend.database import get_db
 from backend.models.transaction import Transaction
 from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS
+from backend.routers.transaction import _copy_before_ai_changes
 from backend.schemas.entry_import import (
     CreatedTransaction,
     EntryExecuteResponse,
@@ -41,6 +42,7 @@ from backend.services.entry_import import (
     STATUS_POSSIBLE_DUPLICATE,
     STATUS_READY,
     STATUS_REJECTED,
+    WRITABLE_STATUSES,
     PreparedRow,
     autofill_fmv,
     from_price,
@@ -83,6 +85,17 @@ def _check_size(payload: EntryRequest, ai: bool) -> None:
             detail=f"Too many transactions. Maximum is {AI_MAX_ROWS} rows per request with the AI key: "
                    "send them in smaller groups, oldest first. Nothing was saved.",
         )
+
+
+def _recalculates(prepared: list[PreparedRow], db: Session) -> bool:
+    """Whether saving the rows recalculates the whole ledger: one dated
+    before the ledger's latest entry does (services/transaction
+    _is_backdated), and can move stored figures. The rows are saved oldest
+    first, so one can't come before another of the same import."""
+    latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
+    return latest is not None and any(
+        p.tx_data["timestamp"] < latest.timestamp
+        for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES)
 
 
 def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
@@ -183,7 +196,9 @@ async def execute_entries(
     (not_a_duplicate_of);
     possible duplicates ARE written: the caller is expected to have removed
     any the user rejected after preview.
-    Any invalid row or ledger rejection aborts the whole batch.
+    Any invalid row or ledger rejection aborts the whole batch. With the AI
+    key, rows that recalculate the ledger come after the hour's AI copy of
+    the database (#414), as an edit, a deletion or Recalculate Ledger do.
     """
     ai = _with_ai_key(request)
     _check_size(payload, ai)
@@ -202,6 +217,8 @@ async def execute_entries(
     await autofill_fmv(prepared, db)
     await run_in_threadpool(mark_duplicates, prepared, db, exact_only=True)
     skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
+    if ai and await run_in_threadpool(_recalculates, prepared, db):
+        await run_in_threadpool(_copy_before_ai_changes, db, "Not added")
 
     created = await run_in_threadpool(write_rows, prepared, db)
     out = await run_in_threadpool(_created_answers, created, db)
