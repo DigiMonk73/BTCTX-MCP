@@ -641,9 +641,10 @@ def match_by_moving(
     of it can be freed: one a proposal in `holders` matched, when that one
     can take another duplicate of its own instead, and so on down (an
     augmenting path: the most proposals matched). Never a transaction in
-    `kept_tx_ids`. For the AI's rows the user says are other transactions:
-    sent again, a looser row beside one (a date alone, nearer to the copy
-    the first send saved for it) can have taken that copy (#388's review).
+    `kept_tx_ids`. For the AI's rows: a looser row (a date alone, nearer to
+    a timed row's copy) can have taken the one copy another row has (#411),
+    and sent again, a copy the first send saved for a row the user says is
+    another transaction (#388's review).
     """
     if not stuck:
         return

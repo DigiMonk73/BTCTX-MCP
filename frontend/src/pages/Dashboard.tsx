@@ -26,6 +26,9 @@ const Dashboard: React.FC = () => {
   const [unchosen, setUnchosen] = useState(false);
   // Bumped when the price choice is saved: prices are asked again, no reload (#149)
   const [priceRound, setPriceRound] = useState(0);
+  // null until the settings answer: the source line waits for it, so it
+  // never shows without "through Tor" first
+  const [throughTor, setThroughTor] = useState<boolean | null>(null);
 
   useEffect(() => {
     const again = () => setPriceRound((n) => n + 1);
@@ -46,9 +49,6 @@ const Dashboard: React.FC = () => {
   }, [priceRound]);
 
   const live = useLivePrice(priceRound);
-  // null until the settings answer: the source line waits for it, so it
-  // never shows without "through Tor" first
-  const [throughTor, setThroughTor] = useState<boolean | null>(null);
   const price = { ...live, source: throughTor === null ? undefined : live.source, throughTor: Boolean(throughTor) };
   useEffect(() => {
     api
