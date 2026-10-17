@@ -201,11 +201,14 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 ## Building locally
 
-Needs Docker 28.1 or later (start-cli 2.3 packs using Docker's `--platform`),
-with the containerd image store for multi-arch images, `squashfs-tools`
-(start-cli 2.4 and later make SquashFS images themselves), `jq`, Node 24 and
-[start-cli](https://docs.start9.com/packaging/environment-setup.html). start-cli
-packs only inside a *packaging workspace*: a directory above the package that
+Needs Docker 28.1 or later (start-cli takes the image with Docker's
+`image save --platform`), with the containerd image store for multi-arch
+images, `jq`, Node 24 and
+[start-cli](https://docs.start9.com/packaging/environment-setup.html): the
+release `START_CLI_VERSION` names in BTCTX-MCP's `.github/workflows/ci.yml`
+(Start9's builds take the newest). From 2.4, start-cli makes the SquashFS
+images itself, without `squashfs-tools`. start-cli packs only inside a
+*packaging workspace*: a directory above the package that
 holds `.startos/build.key.pem`. Create it above the repository, not inside it:
 
 ```sh

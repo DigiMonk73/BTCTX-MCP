@@ -1192,6 +1192,16 @@ All notable changes to BitcoinTX are documented in this file.
   it is. And `scripts/equivalence_check.py` no longer reports the
   `open_sessions` setting, whose login session hashes are new on every run,
   as a difference in every ledger.
+- **CI and the release pack the StartOS package with start-cli 2.4.1**
+  (#466), the version Start9's builds use (they take the newest start-cli
+  at each build). They packed with 2.3.0, and from 2.4 start-cli makes the
+  package's image itself (its SquashFS, from the image's layers), so the
+  package we tested wasn't built the way the one users install from
+  Start9's registries is. `START_CLI_VERSION` in `ci.yml` and
+  `release.yml`; the jobs no longer install `squashfs-tools`, which 2.4
+  doesn't use. `test_start_cli_466.py` checks that both pin the same
+  start-cli, 2.4 or later, and that every download takes it. Nothing the
+  app does changes.
 - **Node 24, ESLint 10 and eslint-plugin-react-hooks 7** (#425; the
   owner's choice for 1.2.9, 2026-10-17). Node builds the web pages (the
   Docker image's first stage, CI, the release) and gets security fixes on

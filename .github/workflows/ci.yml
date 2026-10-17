@@ -25,8 +25,9 @@ permissions:
 
 env:
   # start-cli for the StartOS jobs: the release that goes with the SDK in
-  # startos/package.json (startos/UPDATING.md, "Bumping the SDK")
-  START_CLI_VERSION: v2.3.0
+  # startos/package.json, and the one Start9's builds pack with (they take
+  # the newest: startos/UPDATING.md, "Bumping the SDK"). release.yml repeats it
+  START_CLI_VERSION: v2.4.1
 
 jobs:
   python:
@@ -261,15 +262,16 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: startos/package-lock.json
-      # start-cli 2.3.0 packs with `docker ... --platform`, which needs Docker
-      # 28.1 or later; the runner's is older (Start9's own builds do the same)
+      # start-cli takes the image with `docker image save --platform`, which
+      # needs Docker 28.1 or later; the runner's is older (Start9's own builds
+      # do the same). From 2.4 it makes the SquashFS image itself: no
+      # squashfs-tools
       - name: Docker (current release, containerd image store for multi-arch)
         uses: docker/setup-docker-action@2bf61fb9464cc67f0cbdeabed6aa0380accd1c70 # v5.5.0
         with:
           daemon-config: '{"features":{"containerd-snapshotter":true}}'
-      - name: Tools (squashfs, start-cli)
+      - name: start-cli
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q squashfs-tools squashfs-tools-ng
           sudo curl -sSL -o /usr/local/bin/start-cli \
             "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
           sudo chmod +x /usr/local/bin/start-cli && start-cli --version
