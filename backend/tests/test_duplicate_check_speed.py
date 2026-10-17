@@ -169,6 +169,20 @@ def test_the_answers_are_the_ones_the_whole_ledger_gives(seed, monkeypatch):
         remove_temp_db(path)
 
 
+def test_the_window_is_measured_in_utc_across_a_clock_change():
+    """#391's review: a row given in a zone with daylight saving measured
+    its 48 hours by that zone's clock, an hour off across the change. A
+    Buy 47.5 hours before a row at noon in Chicago the day after the
+    spring change is within it."""
+    from zoneinfo import ZoneInfo
+
+    row = datetime(2024, 3, 11, 12, tzinfo=ZoneInfo("America/Chicago"))
+    buy = row.astimezone(timezone.utc) - timedelta(hours=47.5)
+    low, high = river_import._window(row)
+    assert low.tzinfo is high.tzinfo is timezone.utc
+    assert low <= buy and high - low == 2 * river_import.SIMILAR_WINDOW
+
+
 @pytest.mark.parametrize("date", ["0001-01-01 00:00:00", "9999-12-31 23:59:59"])
 def test_a_river_row_at_the_ends_of_the_calendar_is_previewed(auth_client, date):
     """#391's review: the window around a row dated in year 1 or 9999 ran
