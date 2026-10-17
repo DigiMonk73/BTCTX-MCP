@@ -120,6 +120,9 @@ def test_a_home_servers_mempool_untrusted_then_trusted_then_forgotten(auth_clien
 
 def test_the_trusted_root_is_never_used_for_public_sites(auth_client, home_server):
     url, fingerprint = home_server
+    # Public sites as the Mempool's backup, so the public sites' client may ask (#437)
+    backup = {"price_source": "mempool", "mempool_url": url, "mempool_fallback": True}
+    assert auth_client.put(NETWORK, json=backup).status_code == 200
     assert auth_client.put(CERTIFICATE, json={"sha256": fingerprint}).status_code == 200
     with pytest.raises(httpx.ConnectError) as refused:  # the public sites' client: the usual trust store only
         asyncio.run(_price(outbound.async_client))

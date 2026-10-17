@@ -286,13 +286,14 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     only when the own mempool server doesn't have it): no request names
     it. `stored`: the hours after the files already kept.
     """
-    settings = outbound.current()
     found: dict[int, tuple[Decimal, str]] = {}
     rows, _ = await price_history.own_node_rows()  # none (and none kept) without a mempool server
     price = live_hours(rows).get(hour)
     if price is not None:
         found[hour] = (price, "mempool")
-    if hour not in found and files_end is not None and hour > files_end and settings.public_allowed:
+    # The choice as it is after the wait for the mempool server: a save may have come meanwhile (#437)
+    public = outbound.current().public_allowed
+    if hour not in found and files_end is not None and hour > files_end and public:
         found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
     return found
 
@@ -446,8 +447,8 @@ def _wanted(line: pf.YearLine) -> bool:
 def _download(lines: list[pf.YearLine]) -> None:
     try:
         asyncio.run(_download_years(lines))
-    except ChoiceChanged:
-        logger.info("Hourly BTC prices: the download stopped (public price sites are no longer allowed)")
+    except outbound.ChoiceChanged:
+        logger.info("Hourly BTC prices: the download stopped (the price settings changed)")
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
         price_status.record_refusal(exc)
@@ -481,10 +482,6 @@ async def _download_years(lines: list[pf.YearLine]) -> None:
             _changed.notify_all()
 
 
-class ChoiceChanged(Exception):
-    """Public price sites are no longer allowed: nothing more is asked."""
-
-
 class ChoiceClient:
     """Asks each request with the owner's choice as it is then: never once
     public sites aren't allowed, and through the proxy (Tor) set then, or
@@ -492,7 +489,7 @@ class ChoiceClient:
 
     async def get(self, url, **kwargs):
         if not outbound.current().public_allowed:
-            raise ChoiceChanged
+            raise outbound.ChoiceChanged("public price sites are no longer allowed: nothing more is asked")
         async with outbound.history_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             return await client.get(url, **kwargs)
 
