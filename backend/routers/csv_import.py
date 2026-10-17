@@ -24,6 +24,8 @@ from backend.services.csv_import import (
     check_database_empty,
     execute_import,
     generate_template_csv,
+    is_busy,
+    log_unexpected,
 )
 
 
@@ -31,6 +33,23 @@ router = APIRouter()
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 MAX_ROWS = 10000
+# An import stopped by something other than a row the ledger refused: the
+# same plain words for the CSV and River imports, as the restore's, never the
+# error's own text, which can carry SQL, a server path or a transaction's
+# date (#204). The log says what it was (log_unexpected).
+IMPORT_FAILED = ("Import failed: something unexpected stopped it, and no transactions were saved. "
+                 "BitcoinTX's log says what.")
+IMPORT_BUSY = "Import failed: BitcoinTX was busy saving something else, and no transactions were saved. Try again."
+
+
+def import_failure(what: str, error: Exception) -> HTTPException:
+    """The answer to an import that `error` stopped (not a row the ledger
+    refused): busy (503) when SQLite's write lock was held past its 5 s
+    wait, as other saves answer it, else the fixed sentence (500)."""
+    if is_busy(error):
+        return HTTPException(status_code=503, detail=IMPORT_BUSY)
+    log_unexpected(what, error)
+    return HTTPException(status_code=500, detail=IMPORT_FAILED)
 
 
 def _require_auth(request: Request):
@@ -58,7 +77,7 @@ def _read_validated_csv(file: UploadFile) -> bytes:
             detail="File must be a CSV file (.csv extension)"
         )
 
-    content = file.file.read()
+    content = file.file.read(MAX_FILE_SIZE + 1)  # enough to tell it's too large (#204)
 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
@@ -216,7 +235,4 @@ def execute_csv_import(
             detail=f"Import failed: {detail} No transactions were saved."
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Import failed: {str(e)}. No transactions were saved."
-        )
+        raise import_failure("CSV import", e) from e
