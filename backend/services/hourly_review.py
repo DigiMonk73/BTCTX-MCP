@@ -9,9 +9,9 @@ inheritance is left out: its value is the date of death's day price by rule
 change; nothing changes until the owner applies them (apply_hourly_prices,
 login only): a backup copy first, then each picked transaction's priced
 values at its hour's price, marked "hour", and a recalculation. Typed
-values are never listed or touched. The apply holds the write lock from
-the copy on and works each change out again from the transaction as it is
-then, so an edit made while it runs keeps its own amount (#387).
+values are never listed or touched. The apply takes the write lock right
+after the copy and works each change out again from the transaction as it
+is then, so an edit made while it runs keeps its own amount (#387).
 
 Where there's no hourly price (before 2013, or none here: an own mempool
 server without the public fallback, before its record), a value is
@@ -85,11 +85,14 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     _hold_write_lock(db)
     # Each listed transaction as it is now (#387): one deleted meanwhile is
     # gone, one edited is worked out again from its own amount, at the price
-    # the check found for its hour (an edit that moved it to another hour
-    # gets that hour's, never waited for: the lock is held)
+    # the check found for its hour. Found as the check found them (a year's
+    # ids in one IN (...) could pass SQLite's limit), the listed ones kept.
     db.expire_all()
     seen = {c["id"]: c for c in listed}
-    changes = _changes(db, list(seen), year, lambda t: _price_seen(db, t, seen[t.id]))
+    changes = _changes(db, ids, year, lambda t: _price_seen(db, t, seen[t.id]) if t.id in seen else None)
+    if not changes:  # each one deleted or edited meanwhile: nothing left to apply
+        db.rollback()  # the lock goes
+        return {"changed": [], "backup": backup.name if backup else None}
     for change in changes:
         t = db.get(Transaction, change["id"])
         for field, (_old, new) in change["values"].items():
@@ -118,10 +121,15 @@ def _hold_write_lock(db: Session) -> None:
 
 def _price_seen(db: Session, t: Transaction, listed: dict[str, Any]) -> tuple[Decimal, str] | None:
     """The price the check found for t's hour (or day), unless an edit has
-    moved t since: then its new hour's, without waiting for a download."""
+    moved t since: then the one stored for its new hour, else its day (the
+    edit stored what it found). Never a request: the write lock is held."""
     if listed["at"] == _start(hourly_prices.hour_of(t.timestamp), listed["moment"]):
         return listed["price"], listed["moment"]
-    return _price_of(db, t.timestamp, wait=False)
+    for moment in ("hour", "day"):
+        stored = hourly_prices.stored_price_at(db, t.timestamp, moment)
+        if stored is not None:
+            return stored.usd, moment
+    return None
 
 
 def _price_of(db: Session, moment, wait: bool) -> tuple[Decimal, str] | None:

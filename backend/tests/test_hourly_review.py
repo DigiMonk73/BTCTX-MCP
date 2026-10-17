@@ -13,8 +13,12 @@ from pathlib import Path
 
 import pytest
 
+from sqlalchemy.orm import sessionmaker
+
 from backend.services import hourly_prices
 from backend.tests.conftest import stub_daily_prices, stub_prices_at
+
+REAL_PRICE_AT = hourly_prices.price_at
 
 BANK, WALLET, EXCHANGE_BTC, EXTERNAL = 1, 2, 4, 99
 D = Decimal
@@ -140,21 +144,15 @@ def test_an_edit_made_while_the_hours_prices_are_applied_keeps_its_own_value(
     made in between was overwritten with the value for its old amount or
     hour. The apply now holds the write lock from the copy on and works
     each value out again from the transaction as it is then."""
-    from sqlalchemy.orm import sessionmaker
-
-    from backend.services import hourly_review
-    from backend.services.transaction import update_transaction_record
+    from backend.models.btc_price import BtcPriceHourly
 
     monkeypatch.setattr(hourly_prices, "hourly_price",  # 14:00 UTC's price, and 16:00's
                         lambda db, when, wait=True: (D(45000 if when.hour == 16 else HOUR_PRICE), "bitstamp"))
-    real_copy = hourly_review.backup_sqlite
-
-    def edit_then_copy(*args, **kwargs):
-        with sessionmaker(bind=test_engine)() as other:
-            update_transaction_record(ledger["income"], edit, other)
-        return real_copy(*args, **kwargs)
-
-    monkeypatch.setattr(hourly_review, "backup_sqlite", edit_then_copy)
+    with sessionmaker(bind=test_engine)() as db:  # 16:00's, kept by the edit that finds it
+        db.add(BtcPriceHourly(hour=int(datetime(2025, 3, 1, 16, tzinfo=timezone.utc).timestamp()),
+                              usd=D("45000.00"), source="bitstamp"))
+        db.commit()
+    edit_during_the_copy(monkeypatch, test_engine, ledger["income"], edit)
     r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger["income"]]})
     assert r.status_code == 200, r.text
     (Path(test_engine.url.database).parent / "backups" / r.json()["backup"]).unlink()
@@ -163,12 +161,45 @@ def test_an_edit_made_while_the_hours_prices_are_applied_keeps_its_own_value(
     assert r.json()["changed"][0]["values"]["cost_basis_usd"][1] == value
 
 
+@pytest.mark.parametrize("row, field, edit, value, applied", [
+    # An amount edit of a spend with a BTC fee keeps the day's price: still listed, priced for 0.1 BTC
+    ("spend", "gross_proceeds_usd", {"amount": D("0.1")}, "4000.00", True),
+    # An income edit is priced at its hour by the edit itself: left as it is
+    ("income", "cost_basis_usd", {"amount": D("0.2")}, "8000.00", False),
+])
+def test_an_edit_priced_by_the_app_itself_during_the_apply_keeps_its_own_value(
+        auth_client, ledger, test_engine, monkeypatch, row, field, edit, value, applied):
+    """#392's review: the same, with an edit priced as BitcoinTX prices it."""
+    monkeypatch.setattr(hourly_prices, "price_at", REAL_PRICE_AT)
+    edit_during_the_copy(monkeypatch, test_engine, ledger[row], edit)
+    r = auth_client.post("/api/review/hourly-prices", json={"ids": [ledger[row]]})
+    assert r.status_code == 200, r.text
+    (Path(test_engine.url.database).parent / "backups" / r.json()["backup"]).unlink()
+    edited = tx(auth_client, ledger[row])
+    assert (edited[field], edited["price_moment"]) == (value, "hour")
+    assert [c["id"] for c in r.json()["changed"]] == ([ledger[row]] if applied else [])
+
+
+def edit_during_the_copy(monkeypatch, engine, tx_id: int, edit: dict) -> None:
+    """The apply's backup copy edits the transaction first, from another session."""
+    from backend.services import hourly_review
+    from backend.services.transaction import update_transaction_record
+
+    real_copy = hourly_review.backup_sqlite
+
+    def edit_then_copy(*args, **kwargs):
+        with sessionmaker(bind=engine)() as other:
+            update_transaction_record(tx_id, edit, other)
+        return real_copy(*args, **kwargs)
+
+    monkeypatch.setattr(hourly_review, "backup_sqlite", edit_then_copy)
+
+
 def test_a_busy_database_applies_nothing(auth_client, ledger, test_engine):
     """While another save holds the write lock longer than SQLite waits, the
     apply changes nothing and says so (503), never half of it."""
     from fastapi import HTTPException
     from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
 
     from backend.services.hourly_review import apply_hourly_prices
 
@@ -201,8 +232,6 @@ def test_the_typed_income_check_compares_with_the_hour_and_skips_priced_values(a
 
 
 def test_the_cli_applies_a_year(auth_client, ledger, test_engine, monkeypatch, capsys):
-    from sqlalchemy.orm import sessionmaker
-
     from backend import cli as backend_cli
     from backend import database
 

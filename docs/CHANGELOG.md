@@ -284,9 +284,9 @@ All notable changes to BitcoinTX are documented in this file.
   the backup copy, then wrote that value. A transaction edited in those
   few seconds (its amount or its time changed) got the value worked out for
   its old amount or hour: for example $4,000 for 0.2 BTC that the hour's
-  $40,000 values at $8,000. The apply now holds the database's write lock
-  from the copy on, so an edit made then waits until it's done, and works
-  each value out again from the transaction as it is at that moment. While
+  $40,000 values at $8,000. The apply now takes the database's write lock
+  right after the copy, so an edit made from then on waits until it's done,
+  and works each value out again from the transaction as it is then. While
   another save holds the lock too long, nothing is applied, and it says
   so. **Affected:** 1.2.8, only a transaction edited while the apply ran
   (by you in another window, or by the AI); not seen in real use. **What
