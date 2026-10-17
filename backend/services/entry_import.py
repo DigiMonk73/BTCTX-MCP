@@ -323,13 +323,16 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     The duplicate rule (D1, #253). The same type, BTC amount, source or
     purpose and minute as a transaction in the ledger (a row given as a date
     alone: the same day), and for a Buy the same cost basis => duplicate,
-    left out. A row the user says is another transaction names the one the
-    preview matched (not_a_duplicate_of) and is freed only from that one: it
-    still takes it, so an identical row beside it is checked as in the
-    preview, and is checked again against the rest of the ledger, so a
-    repeated add_transactions doesn't save it twice. The same amount within
-    48 hours with anything else different, or a BTC move of a near amount
-    => possible_duplicate: written unless removed, the warning naming the
+    left out. The most rows are matched: a row left without one takes a
+    duplicate another row holds when that row can take another of its own,
+    so a row given as a date alone can't take a timed row's only copy (#411).
+    A row the user says is another transaction names the one the preview
+    matched (not_a_duplicate_of) and is freed only from that one: it still
+    takes it, so an identical row beside it is checked as in the preview,
+    and is checked again against the rest of the ledger, so a repeated
+    add_transactions doesn't save it twice. The same amount within 48 hours
+    with anything else different, or a BTC move of a near amount =>
+    possible_duplicate: written unless removed, the warning naming the
     match and what differs. exact_only (execute's double-submit guard)
     looks for duplicates only.
     """
@@ -337,7 +340,12 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     if not valid:
         return
     stubs = [_stub(p) for p in valid]
-    annotate_duplicates(stubs, db, exact_only=exact_only, rule=ENTRY_RULE)
+    annotate_duplicates(stubs, db, exact_only=True, rule=ENTRY_RULE)
+    _match_the_most(stubs, db)
+    if not exact_only:
+        matched = {stub.matched_tx_id for stub in stubs if stub.status == STATUS_MATCHED}
+        unmatched = [stub for stub in stubs if stub.status == STATUS_NEW]
+        annotate_duplicates(unmatched, db, rule=ENTRY_RULE, reserved_tx_ids=matched)  # the similar ones
     _check_overrides_again(valid, stubs, db)
     again = _named_duplicates(valid, stubs, db)
     for i, (p, stub) in enumerate(zip(valid, stubs)):
@@ -350,6 +358,19 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
         else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
             p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
+
+
+def _match_the_most(stubs: list[RiverProposal], db: Session) -> None:
+    """Each row the duplicates pass left new matched after all when a
+    duplicate of it can be freed (match_by_moving): the pass gives each row,
+    in time order, its nearest duplicate, and a row given as a date alone
+    (noon, matching the whole day) could take a timed row's only copy,
+    leaving the timed row to be saved again, or once more on a first send
+    (#411). The names rows give (not_a_duplicate_of) count for nothing here,
+    so the answer is the one the AI's preview without them gave."""
+    stuck = [stub for stub in stubs if stub.status == STATUS_NEW]
+    holders = [stub for stub in stubs if stub.status == STATUS_MATCHED]
+    match_by_moving(stuck, holders, db, ENTRY_RULE, kept_tx_ids=())
 
 
 def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> None:

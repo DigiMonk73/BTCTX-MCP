@@ -426,6 +426,16 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **A payout given to the AI as a date alone no longer takes a timed one's
+  place** (tax figures, #411). The AI connector's duplicate check gave each
+  row, in time order, the nearest recorded transaction it matched, and a
+  row given as a date alone matches the whole day, so it could take the
+  copy that was a timed row's only match. Sent again (a retry), the timed
+  row was saved twice; on a first send it was shown as a possible
+  duplicate and saved unless you removed it: an extra payout (income) or
+  purchase. Now the rows are matched so that each finds a copy when the
+  ledger holds one for each. **Affected:** no release: matching a date
+  alone is new in this version (#253). Nothing to do.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same
@@ -434,10 +444,9 @@ All notable changes to BitcoinTX are documented in this file.
   wasn't, or one beside the same payout given as a date alone. Now the AI
   names the transaction the row isn't (the one the preview matched,
   `not_a_duplicate_of`, as River's import already keeps its matches), so a
-  request sent again finds the copies the first one saved. (A row not
-  marked can still be saved again beside the same payout given as a date
-  alone: #411.) **Affected:** no release: telling the AI a duplicate is
-  another transaction is new in this version (#253). Nothing to do.
+  request sent again finds the copies the first one saved. **Affected:**
+  no release: telling the AI a duplicate is another transaction is new in
+  this version (#253). Nothing to do.
 - **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
