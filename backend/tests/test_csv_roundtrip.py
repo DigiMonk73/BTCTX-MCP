@@ -359,6 +359,32 @@ def test_thousands_of_apostrophes_are_quoted_and_refused_as_too_long(auth_client
     assert "too long" in r.text
 
 
+def test_a_cell_longer_than_the_export_writes_is_refused_without_its_slow_look(auth_client):
+    """#393's re-check: the import looked at a cell's whole text, through
+    NFKC, for the export's ', and a long run of combining marks made that
+    take seconds (131,070 of them: about 4 s a cell). A cell longer than a
+    ' and MAX_TEXT characters is never the export's: it's refused as too
+    long at once, while one at that length still comes back."""
+    import time
+
+    from backend.services.csv_import import _cell
+    from backend.services.transaction import MAX_TEXT
+
+    longest = "=" + "x" * (MAX_TEXT - 1)
+    assert _cell("purpose", csv_text(longest)) == longest
+    marks = "'a" + "\u0301\u0316" * 65_000
+    started = time.perf_counter()
+    assert _cell("purpose", marks) == marks
+    assert time.perf_counter() - started < 0.1
+    row = {c: "" for c in CSV_COLUMNS} | {
+        "date": "2024-01-03T12:00:00Z", "type": "Withdrawal", "amount": "100", "from_account": "Bank",
+        "to_account": "External", "purpose": marks,
+    }
+    text = ",".join(CSV_COLUMNS) + "\n" + ",".join(row[c] for c in CSV_COLUMNS) + "\n"
+    r = auth_client.post("/api/import/preview", files=csv_file(text))
+    assert r.status_code == 200 and "too long" in r.text, r.text[:300]
+
+
 def test_the_quoted_columns_are_the_ones_the_export_quotes():
     """The import takes the ' off only where the export may have put one."""
     import re

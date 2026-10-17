@@ -21,7 +21,7 @@ from backend.schemas.transaction import (
 )
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    FEE_CURRENCIES, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
+    FEE_CURRENCIES, MAX_TEXT, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
     amount_problem,
     create_transaction_record,
     fee_cents_problem,
@@ -184,10 +184,14 @@ def _cell(column: str, value: str | None) -> str:
     starts with ' itself is exported with another (#380), so it comes back
     too. A ' before anything else is kept, and so is one after spaces: the
     export never writes a space before its own, so the cell is looked at
-    before it's stripped.
+    before it's stripped. A cell longer than any text the export writes
+    there (a ' and MAX_TEXT characters) is never the export's: it's refused
+    as too long, and isn't normalized first (a long run of combining marks
+    makes NFKC slow).
     """
     raw = value or ""
-    if column in QUOTED_COLUMNS and raw.startswith("'") and csv_text(raw[1:]) == raw:
+    if (column in QUOTED_COLUMNS and raw.startswith("'") and len(raw.rstrip()) <= MAX_TEXT + 1
+            and csv_text(raw[1:]) == raw):
         return raw[1:].strip()
     return raw.strip()
 
