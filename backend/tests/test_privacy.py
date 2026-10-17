@@ -28,6 +28,17 @@ def test_every_response_says_no_referrer_nosniff_no_framing(auth_client):
     assert "default-src 'self'" in CSP and "frame-ancestors 'none'" in CSP
 
 
+def test_exports_are_never_kept_in_the_browser_cache(auth_client):
+    """#204: the ledger's backups, CSV export and reports could stay in the
+    browser's disk cache; every /api/backup/ and /api/reports/ answer says
+    no-store now, whatever the route set."""
+    for r in (auth_client.get("/api/backup/csv"), auth_client.get("/api/reports/years"),
+              TestClient(app).get("/api/backup/csv")):  # a refusal too
+        assert r.headers["cache-control"] == "no-store", (r.url, r.status_code)
+        assert r.headers.get_list("cache-control") == ["no-store"]
+    assert auth_client.get("/api/transactions").headers.get("cache-control") != "no-store"
+
+
 def test_no_csp_in_the_mac_app(auth_client, monkeypatch):
     monkeypatch.setenv("BTCTX_DESKTOP", "1")
     r = auth_client.get("/api/health", headers=MAC_APP_HOST)

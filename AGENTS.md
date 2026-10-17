@@ -396,6 +396,10 @@ from the Transaction row alone.
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.
+- Every answer under `/api/backup/` and `/api/reports/` says
+  `Cache-Control: no-store` (`security_headers.py`): exports stay out of the
+  browser's disk cache. A new encrypted backup's password needs 12+
+  characters (`routers/backup.py`); a restore takes an older, shorter one.
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the

@@ -2,7 +2,7 @@
 // deleted (#256): the encrypted backup, its password typed twice as in
 // Backup & Restore.
 import React, { useState } from "react";
-import { downloadEncryptedBackup } from "../utils/encryptedBackup";
+import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup } from "../utils/encryptedBackup";
 
 /** `onSaving(true)` while the backup downloads: the dialog waits for it. */
 const BackupFirst: React.FC<{ busy: boolean; onSaving: (saving: boolean) => void }> = ({ busy, onSaving }) => {
@@ -14,8 +14,9 @@ const BackupFirst: React.FC<{ busy: boolean; onSaving: (saving: boolean) => void
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") || "");
-    if (password !== String(form.get("repeat") || "")) {
-      setNote("The two passwords don't match.");
+    const problem = backupPasswordProblem(password, String(form.get("repeat") || ""));
+    if (problem) {
+      setNote(problem);
       return;
     }
     setSaving(true);
@@ -46,6 +47,7 @@ const BackupFirst: React.FC<{ busy: boolean; onSaving: (saving: boolean) => void
       <button type="submit" disabled={busy || saving} className="btn btn-secondary">
         {saving ? "Processing..." : "Download backup"}
       </button>
+      <p className="field-hint">{BACKUP_PASSWORD_HINT}</p>
       {note && <p className="field-hint" role="status">{note}</p>}
     </form>
   );

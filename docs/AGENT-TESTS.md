@@ -694,8 +694,9 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
   password boxes (hidden as typed), then **Download**. Different entries
   in the two boxes say "The two passwords don't match." and download
-  nothing. Expect: the file `bitcoin_backup.btx` and "Backup
-  downloaded."
+  nothing; so does `backup-pass` in both (11 characters: "The password is
+  too short. At least 12 characters.", #204). Expect: the file
+  `bitcoin_backup.btx` and "Backup downloaded."
 - **IMP-1** Data Management > **Template** and **Instructions**. Expect:
   `btctx_import_template.csv`, whose header is the same as BAK-1's, and
   `BitcoinTX_CSV_Import_Guide.pdf`, which opens.

@@ -657,6 +657,20 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing used it: the connector's version notice already read the
   package's version.
 
+### Security
+- **Hardening of the backups from the 1.2.8 security review** (#204).
+  Neither could be used against an install:
+  - **A new encrypted backup needs a password of at least 12 characters**,
+    the login passwords' rule. Any password made one before, a single
+    letter included. The file holds the whole ledger and the login's
+    hashed password; its encryption slows guessing, but a short password
+    still falls to someone who has the file. A backup made earlier with a
+    shorter password still restores. Settings' Backup & Restore and the
+    Delete All dialog's backup say so under the password boxes.
+  - **Backups, the CSV export and the reports stay out of the browser's
+    cache** (`Cache-Control: no-store`): a downloaded ledger no longer
+    lingers in the browser's own files after you've saved it.
+
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
   README said a backup made on an older version is migrated forward when

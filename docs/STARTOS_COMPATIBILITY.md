@@ -247,8 +247,8 @@ session):
 ```bash
 curl -c jar -H 'content-type: application/json' \
   -d '{"username":"admin","password":"..."}' http://localhost:8080/api/login
-curl -b jar -X POST -F password=test123 http://localhost:8080/api/backup/download -o backup.btx
-curl -b jar -X POST -F password=test123 -F file=@backup.btx http://localhost:8080/api/backup/restore
+curl -b jar -X POST -F password=backup-pass-123 http://localhost:8080/api/backup/download -o backup.btx
+curl -b jar -X POST -F password=backup-pass-123 -F file=@backup.btx http://localhost:8080/api/backup/restore
 ```
 
 ## Quick reference

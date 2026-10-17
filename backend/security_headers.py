@@ -7,6 +7,9 @@ Response headers that keep the browser from leaking or loading anything:
   (backend/tests/test_privacy.py).
 - Referrer-Policy: no-referrer, X-Content-Type-Options: nosniff,
   X-Frame-Options: DENY.
+- Cache-Control: no-store on /api/backup/ and /api/reports/: the backups,
+  the CSV export and the reports hold the whole ledger, and stay out of the
+  browser's disk cache (#204).
 - Every cookie the app sets (the session's, and the login throttle's device
   cookie: services/login_throttle.py) gets Secure when the request came over
   HTTPS (StartOS serves the app through its HTTPS proxy, which sets
@@ -52,6 +55,7 @@ CSP = "; ".join([
     "form-action 'self'",
     "frame-ancestors 'none'",
 ])
+NO_STORE_PATHS = ("/api/backup/", "/api/reports/")
 
 
 def _is_https(scope: Scope) -> bool:
@@ -73,6 +77,7 @@ class SecurityHeadersMiddleware:
             return
         https = _is_https(scope)
         csp = not is_desktop()
+        no_store = scope["path"].startswith(NO_STORE_PATHS)
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -80,6 +85,8 @@ class SecurityHeadersMiddleware:
                 for name, value in message.get("headers", []):
                     if https and name == b"set-cookie" and b"; secure" not in value.lower():
                         value += b"; Secure"
+                    if no_store and name.lower() == b"cache-control":
+                        continue  # replaced below
                     headers.append((name, value))
                 present = {name.lower() for name, _ in headers}
                 extra = [
@@ -89,6 +96,8 @@ class SecurityHeadersMiddleware:
                 ]
                 if csp:
                     extra.append((b"content-security-policy", CSP.encode()))
+                if no_store:
+                    extra.append((b"cache-control", b"no-store"))
                 headers += [(n, v) for n, v in extra if n not in present]
                 message["headers"] = headers
             await send(message)

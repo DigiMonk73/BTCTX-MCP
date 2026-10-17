@@ -25,7 +25,7 @@ from backend.database import get_db
 from backend.models.app_setting import AppSetting
 from backend.models.transaction import Transaction
 from backend.models.user import User
-from backend.schemas.user import NOT_TEXT, is_text
+from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
 from backend.services import ai_key, first_run, outbound
@@ -61,6 +61,14 @@ def _require_text_password(password: str) -> None:
         raise HTTPException(status_code=422, detail=NOT_TEXT.format("password"))
 
 
+# A new backup's password: the login passwords' rule (#204). The file holds
+# the whole ledger and the login's hash; PBKDF2 slows guessing, but a short
+# password still falls offline. A backup made before with a shorter one
+# still restores: the restore asks only for the right password.
+BACKUP_PASSWORD_TOO_SHORT = (f"A new backup's password must be at least {MIN_PASSWORD_LENGTH} "
+                             "characters. (A backup made earlier with a shorter one still restores.)")
+
+
 @router.post("/download", response_class=StreamingResponse)
 def download_encrypted_backup(
     request: Request,
@@ -74,6 +82,8 @@ def download_encrypted_backup(
     """
     _require_auth(request)
     _require_text_password(password)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(status_code=422, detail=BACKUP_PASSWORD_TOO_SHORT)
     with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
         temp_path = Path(temp_file.name)
         make_backup(password, temp_path)
