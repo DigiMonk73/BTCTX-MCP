@@ -185,6 +185,13 @@ class TestAutofill:
         assert res["status"] == "ready" and res["normalized"]["cost_basis_usd"] == "0"
 
 
+def api_payout(when: str, amount: str = "0.002") -> dict:
+    """INTEREST as the transactions API takes it, saved as it is: unlike an
+    import, a second identical one isn't left out."""
+    return {"type": "Deposit", "timestamp": when, "from_account_id": 99, "to_account_id": 2, "amount": amount,
+            "source": "Interest", "cost_basis_usd": "210.00", "fee_amount": "0", "fee_currency": "BTC"}
+
+
 class TestDedup:
     def test_exact_duplicate_flagged_and_skipped_on_execute(self):
         first = execute([BUY, TO_COLD])
@@ -323,6 +330,65 @@ class TestDedup:
             rows = [payout() for _ in range(rng.randrange(1, 5))]
             for row, res in zip(rows, preview(rows)["results"]):
                 if res["status"] == "duplicate" and rng.random() < 0.6:
+                    row["not_a_duplicate_of"] = res["matched_transaction_id"]
+            saved = [execute(rows)["imported_count"] for _ in range(3)]
+            assert saved[1:] == [0, 0], (rows, saved)
+
+    def test_a_date_alone_row_never_takes_a_timed_rows_only_copy_on_a_resend(self):
+        """#411: a payout at 09:00 recorded; the AI sends it as a date alone
+        beside another at 13:00. The first send saves the 13:00 one; sent
+        again, the date-alone row (noon) would take that copy, an hour away
+        against three for 09:00, and the 13:00 row would be saved again.
+        Each row keeps a copy of its own."""
+        execute([dict(INTEREST, date="2025-03-20T09:00:00Z")])
+        rows = [dict(INTEREST, date="2025-03-20"), dict(INTEREST, date="2025-03-20T13:00:00Z")]
+        assert [r["status"] for r in preview(rows)["results"]] == ["duplicate", "ready"]
+        assert [execute(rows)["imported_count"] for _ in range(3)] == [1, 0, 0]
+        assert tx_count() == 2
+
+    def test_a_date_alone_row_beside_a_timed_one_of_that_day_finds_both_recorded(self):
+        """#411, a first send: payouts at 09:00 and 13:00 recorded, and the
+        AI sends one as a date alone beside the 13:00 one. Both are
+        recorded: the date-alone row is the 09:00 one, the 13:00 row the
+        13:00 one. The 13:00 row was a possible duplicate of 09:00, and saved."""
+        nine, one = (execute([dict(INTEREST, date=f"2025-03-20T{hour}:00:00Z")])["created"][0]["id"] for hour in ("09", "13"))
+        rows = [dict(INTEREST, date="2025-03-20"), dict(INTEREST, date="2025-03-20T13:00:00Z")]
+        results = preview(rows)["results"]
+        assert [(r["status"], r["matched_transaction_id"]) for r in results] == [("duplicate", nine), ("duplicate", one)]
+        assert execute(rows)["imported_count"] == 0 and tx_count() == 2
+
+    def test_a_named_date_alone_row_beside_a_timed_one_saves_nothing_more(self):
+        """#411 with a row named (the re-check of #388): payouts at 10:00:30
+        and 10:00 recorded; a date-alone row named as its preview's match,
+        beside a payout at 13:00:45. Sent again, the date-alone row would
+        take the 13:00:45 copy and the timed row would be saved again."""
+        execute([dict(INTEREST, date="2025-03-20T10:00:30Z")])
+        CLIENT.post("/api/transactions", json=api_payout("2025-03-20T10:00:00Z"))
+        day, later = dict(INTEREST, date="2025-03-20"), dict(INTEREST, date="2025-03-20T13:00:45Z")
+        named = dict(day, not_a_duplicate_of=preview([day, later])["results"][0]["matched_transaction_id"])
+        assert [execute([named, later])["imported_count"] for _ in range(3)] == [1, 0, 0]
+
+    @pytest.mark.parametrize("seed", range(3))
+    def test_any_request_sent_again_saves_nothing_more(self, seed):
+        """#411 and #378 on random ledgers that can hold identical copies
+        (saved through the transactions API), payouts of two amounts at
+        times on either side of noon, rows given with a time or as a date
+        alone, some of the preview's duplicates named as other
+        transactions: sent three times, only the first send saves."""
+        import random
+
+        rng = random.Random(seed)
+        times = ["2025-03-20T09:00:00Z", "2025-03-20T10:00:00Z", "2025-03-20T10:00:30Z", "2025-03-20T13:00:00Z",
+                 "2025-03-20T13:00:45Z", "2025-03-20T15:00:00Z"]
+        for _ in range(40):
+            CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+            for _ in range(rng.randrange(5)):
+                r = CLIENT.post("/api/transactions", json=api_payout(rng.choice(times), rng.choice(["0.002", "0.003"])))
+                assert r.status_code == 200, r.text
+            rows = [dict(INTEREST, date=rng.choice([*times, "2025-03-20"]), amount=rng.choice(["0.002", "0.003"]))
+                    for _ in range(rng.randrange(1, 5))]
+            for row, res in zip(rows, preview(rows)["results"]):
+                if res["status"] == "duplicate" and rng.random() < 0.5:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
