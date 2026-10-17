@@ -49,8 +49,9 @@ def _autofill_fmv_basis(
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
-    proposals (River's Interest, Income and Mining payouts) at the BTC price of their hour (else their
-    day: services/hourly_prices.py). Degrades gracefully: on lookup failure
+    proposals (River's Interest, Income and Mining payouts) at the BTC
+    price of their hour (else their day: services/hourly_prices.py).
+    Degrades gracefully: on lookup failure
     the basis stays blank and a warning tells the user to fill it in.
     """
     price_cache: dict[int, hourly_prices.Priced | None] = {}

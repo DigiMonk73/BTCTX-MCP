@@ -172,33 +172,34 @@ All notable changes to BitcoinTX are documented in this file.
 - **A River auto-withdrawal is imported as a move to your wallet, and a
   River mining payout as income** (tax figures, #397, #399). River's
   activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
-  sending your balance to the address you set, normally your own wallet.
-  The River import read the tag as bitcoin that had left your hands, and
+  sending your balance to the address you set, normally your own wallet. The
+  River import read the tag as bitcoin that had left your hands, and
   suggested each such row as a Withdrawal with purpose Spent. Kept as
   suggested, a move to your own wallet counted as a sale on Form 8949 (a
   gain or loss that didn't happen), and the coins were missing from your
   Wallet's balance, so a later sale from it took the wrong lots. A row
-  tagged `Mining` (a River mining payout) was skipped with a warning, so
-  its income was left out unless you added it by hand. Every version from
-  0.7.0 (the River import) to 1.2.8. Now an auto-withdrawal is suggested like any other send
-  from River, a Transfer from Exchange BTC to Wallet with River's network
-  fee (you can still make it a Withdrawal in the preview), and a mining
-  payout as a deposit into Exchange BTC with source Reward: income, valued
-  at the hour it arrived. Importing a file again finds an auto-withdrawal
-  you saved as a spend, so it isn't added twice. River's network fee on a
-  send is on top of its Sent Amount, as the import already read it: River's
-  record of a send gives its total as Sent plus Fee (#39).
+  tagged `Mining` (a River mining payout) was skipped with a warning, so its
+  income was left out unless you added it by hand. Every version from 0.7.0
+  (the River import) to 1.2.8. Now an auto-withdrawal is suggested like any
+  other send from River, a Transfer from Exchange BTC to Wallet with River's
+  network fee (you can still make it a Withdrawal in the preview), and a
+  mining payout as a deposit into Exchange BTC with source Reward: income,
+  valued at the hour it arrived. Importing a file again finds an
+  auto-withdrawal you saved as a spend, so it isn't added twice. River's
+  network fee on a send is on top of its Sent Amount, as the import already
+  read it: River's record of a send gives its total as Sent plus Fee (#39).
   **Affected:** only ledgers with River files holding auto-withdrawals kept
   as suggested, or mining payouts.
-  **What to do:** in Transactions, look for withdrawals from Exchange BTC
-  to External with purpose Spent on the days of River's auto-withdrawals.
-  If the bitcoin went to your own wallet, delete each one, then import that
+  **What to do:** in Transactions, look for withdrawals from Exchange BTC to
+  External with purpose Spent on the days of River's auto-withdrawals. If
+  the bitcoin went to your own wallet, delete each one, then import that
   River file again: it suggests them as Transfers to Wallet, and a mining
-  payout the import skipped as a Reward deposit. Rows already in your
-  ledger are left out; a row that only looks like one of yours ("need
-  review") is ticked, so untick any you entered yourself, such as a mining
-  payout you added by hand. If you filed a return from BitcoinTX's
-  figures, such a sale, or income left out, would be in that year.
+  payout the import skipped as a Reward deposit. Rows already in your ledger
+  are left out. A row marked Review, which only looks like one of yours, is
+  ticked when its amount is the same: untick any you entered yourself, such
+  as a mining payout you added by hand. If you filed a return from
+  BitcoinTX's figures, such a sale, or income left out, would be in that
+  year.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it
