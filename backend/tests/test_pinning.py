@@ -74,7 +74,7 @@ def test_the_image_runs_the_python_ci_names():
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
     matrix = re.findall(r'"([\d.]+)"', re.search(r"^\s+python: \[(.*?)\]", ci, re.M).group(1))
     assert image == max(matrix, key=lambda v: tuple(map(int, v.split("."))))
-    named = {(w.name, v) for w in WORKFLOWS for v in re.findall(r'python-version: "([\d.]+)"', w.read_text())}
+    named = {(w.name, v) for w in WORKFLOWS for v in re.findall(r"python-version:\s*[\"']?(\d+\.\d+)", w.read_text())}
     assert named and {v for _, v in named} == {image}, sorted(named)
 
 
