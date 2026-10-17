@@ -23,6 +23,36 @@ All notable changes to BitcoinTX are documented in this file.
   Tor text says so). Nothing goes around Tor before a Yes, and a Tor that
   isn't running never brings the question. The privacy audit
   (`docs/PRIVACY_AUDIT.md`) lists what Bitstamp then sees.
+- **Tax notes in the Complete Tax Report, the AI's guide and the form**
+  (#160, #114; no figure is computed differently). Each was checked
+  against the IRS's own text (its digital asset FAQ, the instructions for
+  Forms 1040, 709, 8283, 8949 and 1099-DA, CCA 202511015, Pub. 525):
+  - Gifts, donations and lost coins (section 4) list each one's **cost
+    basis and term** (Long, Short, or Both, split in a note), from the
+    lots it used. Below them, only for the kinds the year has: a
+    donation's deduction rules (the value for coins held more than a year,
+    the lower of value and basis for the rest), Form 8283 over $500 and a
+    qualified appraisal over $5,000 (an exchange's price isn't one); a gift
+    tax return (Form 709) when gifts to one person other than your spouse
+    pass the year's annual exclusion ($19,000 in 2025 and 2026); a theft
+    or scam loss in an investment possibly deductible on Form 4684, up to
+    the coins' basis.
+  - The Summary answers **Form 1040's digital asset question**: Yes for a
+    year with bitcoin sold, spent, paid as a fee, given away or donated, or
+    received as income, a reward, interest or a rebate.
+  - Income (section 3): pay for work as an independent contractor goes on
+    Schedule C and is self-employment income (Schedule SE).
+  - Notes (section 7), in a year with a broker's form: the IRS hasn't said
+    which time zone sets your dates, and a broker may date a sale in
+    another (UTC), so near midnight its date can differ.
+  - "Using these forms", for a year without BitcoinTX's IRS forms (#114):
+    -0- in column (g), and the exchange's name before "see attached
+    statement" in its boxes (Form 8949 instructions, Exception 2).
+  - The form's Rebate hint and the AI's guide: sats-back for buying money
+    orders or other cash equivalents is income (Reward), not a rebate. The
+    guide carries the other notes too.
+  The Summary and "Using these forms" still take one page each wherever
+  they did.
 - **A way to support BitcoinTX:** the README's "Support BitcoinTX" gives its
   Lightning address (digimonk73@strike.me), and GitHub's Sponsor button
   (`.github/FUNDING.yml`) opens the tipping page. Nothing in the app changes.
@@ -191,6 +221,23 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing to do.
 
 ### Fixed
+- **Two different price-setting saves at the same moment: the later one is
+  the one in use** (#435). Saving Settings → Privacy & network from two
+  tabs or browsers at the same moment, with different choices, could leave
+  BitcoinTX using a mix of the two that neither tab chose, and it could be
+  less private than both: public price sites through Tor in one tab and
+  Nobody in the other could leave public sites allowed with no proxy, so a
+  price lookup could go to a public site without Tor. The database held the
+  later save; the mix lasted until the next save, a restore or a restart.
+  Every version from 0.9.2; and from 1.2.2, a restore started while a save
+  was being made could keep a mix of the two in the restored database. Now
+  the price settings are read in one go, and read back into memory one
+  reading at a time, so the last save is the one in use (this release's
+  answer about the price history without Tor included) and a restore keeps
+  one save's settings. Only your own two saves within a moment of each
+  other could cause it (these settings are login only, never the AI key),
+  and on StartOS with Tor from its Price Source & Privacy action the proxy
+  couldn't drop out. Nothing to do.
 - **Two saves of a setting at the same moment both work** (#398). Saving
   a setting for the first time (the price choice in Settings → Privacy &
   network, the answer about the price history without Tor, the AI access
@@ -310,6 +357,31 @@ All notable changes to BitcoinTX are documented in this file.
   offers only real zones and the login page sends the browser's, so only
   a hand-made request could send one. **Affected:** every version since
   0.8.0 (Settings' save), and this version's login fill. Nothing to do.
+- **A tax timezone name only one computer knew no longer breaks the
+  reports after a restore** (#407). BitcoinTX saved any timezone name the
+  computer's own zone files opened, and that differs between computers: on
+  a Mac `america/chicago` (in any case), `utc` and `posixrules`; in the
+  Docker image and on StartOS `localtime` and `posixrules`. Restored on
+  another computer, such a name made the tax forms, the reports and the
+  gains page fail with a server error (a 500) until a timezone was saved in
+  Settings again; nothing was lost. Only a hand-made request could save
+  one: Settings and the login page send names from the browser's own list.
+  Now BitcoinTX takes only the names of the timezone package it ships with
+  (`tzdata`), the same list on every computer. A restore whose backup holds
+  another name keeps this install's tax timezone (none chosen: UTC or
+  `BTCTX_TIMEZONE`, as before) and says so, waiting for you to read it
+  before the login page: check the timezone in Settings → Account, then run
+  Recalculate Ledger there, so the restored ledger is worked out in it. An
+  install that already holds such a name keeps working with the same
+  figures: a case variant is read as its proper name (`America/Chicago`),
+  another name as before where the computer opens it, and one it can't open
+  (from a restore) counts as none chosen, where every report failed (the
+  server's log says so once). The upgrade to 1.2.9 (migration 0012)
+  reads it the same way, so such a name never stops the upgrade.
+  The AI connector says plainly that its computer doesn't know the tax
+  timezone, where some names failed with a raw error. The trade-off: a
+  timezone newer than the shipped `tzdata` is refused until an update
+  brings it.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
@@ -1009,6 +1081,20 @@ All notable changes to BitcoinTX are documented in this file.
   `main`, which lacks everything not yet released.
   The 1.2.9 release's sessions A, B and C (#369) started from `main` on
   2026-10-16 and moved to `develop` themselves.
+- **The stale `.devcontainer` is gone** (#431). Its Python 3.11
+  environment with old, unhashed pins (some with known advisories, some for
+  packages the app dropped long ago) and its Node 18 image matched nothing
+  BitcoinTX runs, and nothing documented or used it: opened in VS Code or
+  Codespaces, it built an environment unlike the image, the locks and CI.
+  A development setup follows `docs/MAINTENANCE.md` and `docs/TESTING.md`,
+  from the hashed locks.
+- **Two old scripts are gone** (#44). `scripts/release-docker.sh` pushed
+  an image to a Docker Hub repository no longer used, with `:latest`; the
+  images come from `.github/workflows/image.yml`
+  (`ghcr.io/digimonk73/btctx-mcp`). `scripts/backup-db.sh` copied a
+  database by hand, which Settings → Backup & Restore and BitcoinTX's own
+  copies before each upgrade cover; `mcp_server/README.md` no longer
+  points to it.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
@@ -1019,6 +1105,13 @@ All notable changes to BitcoinTX are documented in this file.
   tells the open page as the price card does after its own save: the page
   asks again in place, with no page load. Real Safari, Chrome and the Mac
   app were never at fault (#149).
+- **One helper takes SQLite's write lock** (#402): `database.take_write_lock`,
+  with `database.is_busy` (moved from `csv_import`) the one check of
+  "database is locked". Delete All, the hourly prices' apply and a login's
+  timezone fill each took it with a copy of the same lines; each keeps its
+  own answer to a busy database (Delete All's 503 and log line, the
+  apply's 503, the fill's False) and the step where it takes the lock,
+  which `test_write_lock.py` checks. Nothing BitcoinTX does changes.
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate

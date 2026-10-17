@@ -25,11 +25,10 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.database import take_write_lock
 from backend.migrate import REVIEW_COPIES_KEPT, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
@@ -92,7 +91,10 @@ def _apply(db: Session, listed: list[dict[str, Any]], ids, year: int | None) -> 
     now; then the recalculation, committed. None left: rolled back."""
     from backend.services.transaction import recalculate_all_transactions
 
-    _hold_write_lock(db)
+    if not take_write_lock(db):
+        raise HTTPException(
+            status_code=503, detail="Not applied: BitcoinTX was busy saving something else. Try again."
+        )
     # Each listed transaction as it is now (#387): one deleted meanwhile is
     # gone, one edited is worked out again from its own amount, at the price
     # the check found for its hour. Found as the check found them (a year's
@@ -113,20 +115,6 @@ def _apply(db: Session, listed: list[dict[str, Any]], ids, year: int | None) -> 
     recalculate_all_transactions(db)
     db.commit()
     return changes
-
-
-def _hold_write_lock(db: Session) -> None:
-    """SQLite's write lock until the apply ends: an edit made from now on
-    waits until after it (5 s at most, then fails). While another save holds
-    the lock longer, nothing is applied (503)."""
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except OperationalError as e:
-        if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
-            raise
-        raise HTTPException(
-            status_code=503, detail="Not applied: BitcoinTX was busy saving something else. Try again."
-        ) from e
 
 
 def _price_seen(db: Session, t: Transaction, listed: dict[str, Any]) -> tuple[Decimal, str] | None:

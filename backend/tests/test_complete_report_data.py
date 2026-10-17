@@ -115,3 +115,27 @@ def test_an_old_expenses_withdrawal_is_reported_as_spending(auth_client, test_en
     CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
     assert "expenses" not in data
     assert [(r["amount"], r["proceeds"]) for r in data["capital_gains_transactions"]] == [(0.01, 600.0)]
+
+
+def test_a_donation_brings_its_lots_cost_basis_by_term(auth_client, test_engine):
+    """#160: what a donation took from its lots, by term, without its
+    network fee's part (a disposal of its own, on Form 8949): oldest first,
+    the fee from the long-term lot, then the rest of it and part of the
+    newer one."""
+    _setup(auth_client, test_engine)
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+    tx(type="Buy", timestamp="2023-01-10T12:00:00Z", from_account_id=1, to_account_id=4,
+       amount="0.01", cost_basis_usd="200")
+    tx(type="Buy", timestamp="2024-03-01T12:00:00Z", from_account_id=1, to_account_id=4,
+       amount="0.02", cost_basis_usd="1000")
+    tx(type="Withdrawal", timestamp="2024-06-01T12:00:00Z", from_account_id=4, to_account_id=99,
+       amount="0.015", fee_amount="0.0001", fee_currency="BTC", fee_usd="7.00", purpose="Donation",
+       fmv_usd="1050.00")
+    data = report(2024)
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+    [donation] = data["gifts_donations_lost"]
+    assert donation["lots_by_term"] == [{"term": "LONG", "btc": 0.0099, "cost_basis": 198.0},
+                                        {"term": "SHORT", "btc": 0.0051, "cost_basis": 255.0}]
+    # The fee's piece of the old lot is section 2's, not the donation's
+    assert [(r["kind"], r["amount"], r["cost"]) for r in data["capital_gains_transactions"]] == \
+        [("Network fee", 0.0001, 2.0)]

@@ -39,12 +39,10 @@ backend/*.db-*
 backend/.btctx_secret_key
 backend/setup-code.txt
 backend/backups/
-environment.yml
 
 # -----------------------------
 # Local dev / container configs
 # -----------------------------
-.devcontainer/
 .vscode/
 .github/
 

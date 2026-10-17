@@ -489,6 +489,13 @@
       "asset": "BTC",
       "date": "2023-10-05T15:00:00+00:00",
       "fmv_usd": 270.0,
+      "lots_by_term": [
+       {
+        "btc": 0.01,
+        "cost_basis": 210.0,
+        "term": "SHORT"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Gift"
      },
@@ -497,6 +504,13 @@
       "asset": "BTC",
       "date": "2023-11-25T12:00:00+00:00",
       "fmv_usd": 75.0,
+      "lots_by_term": [
+       {
+        "btc": 0.002,
+        "cost_basis": 42.0,
+        "term": "SHORT"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Lost"
      },
@@ -505,6 +519,13 @@
       "asset": "BTC",
       "date": "2023-12-20T14:00:00+00:00",
       "fmv_usd": 860.0,
+      "lots_by_term": [
+       {
+        "btc": 0.02,
+        "cost_basis": 420.0,
+        "term": "SHORT"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Donation"
      }
@@ -1424,6 +1445,13 @@
       "asset": "BTC",
       "date": "2024-09-01T16:00:00+00:00",
       "fmv_usd": 0.0,
+      "lots_by_term": [
+       {
+        "btc": 0.03,
+        "cost_basis": 630.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Lost"
      },
@@ -1432,6 +1460,13 @@
       "asset": "BTC",
       "date": "2024-11-15T11:00:00+00:00",
       "fmv_usd": 1800.0,
+      "lots_by_term": [
+       {
+        "btc": 0.02,
+        "cost_basis": 420.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Gift"
      },
@@ -1440,6 +1475,13 @@
       "asset": "BTC",
       "date": "2024-12-20T15:00:00+00:00",
       "fmv_usd": 1500.0,
+      "lots_by_term": [
+       {
+        "btc": 0.015,
+        "cost_basis": 315.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Donation"
      }
@@ -3044,6 +3086,13 @@
       "asset": "BTC",
       "date": "2025-06-15T15:00:00+00:00",
       "fmv_usd": 2750.0,
+      "lots_by_term": [
+       {
+        "btc": 0.025,
+        "cost_basis": 525.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Gift"
      },
@@ -3052,6 +3101,13 @@
       "asset": "BTC",
       "date": "2025-08-01T11:00:00+00:00",
       "fmv_usd": 0.0,
+      "lots_by_term": [
+       {
+        "btc": 0.01,
+        "cost_basis": 601.2,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Lost"
      },
@@ -3060,6 +3116,13 @@
       "asset": "BTC",
       "date": "2025-09-15T10:00:00+00:00",
       "fmv_usd": 2400.0,
+      "lots_by_term": [
+       {
+        "btc": 0.02,
+        "cost_basis": 420.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Donation"
      },
@@ -3068,6 +3131,13 @@
       "asset": "BTC",
       "date": "2025-11-20T15:00:00+00:00",
       "fmv_usd": 2100.0,
+      "lots_by_term": [
+       {
+        "btc": 0.015,
+        "cost_basis": 901.8,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Gift"
      },
@@ -3076,6 +3146,13 @@
       "asset": "BTC",
       "date": "2025-12-10T10:00:00+00:00",
       "fmv_usd": 0.0,
+      "lots_by_term": [
+       {
+        "btc": 0.005,
+        "cost_basis": 105.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Lost"
      },
@@ -3084,6 +3161,13 @@
       "asset": "BTC",
       "date": "2025-12-20T14:00:00+00:00",
       "fmv_usd": 1450.0,
+      "lots_by_term": [
+       {
+        "btc": 0.01,
+        "cost_basis": 210.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Donation"
      }
@@ -4418,6 +4502,13 @@
       "asset": "BTC",
       "date": "2026-09-01T12:00:00+00:00",
       "fmv_usd": 1480.0,
+      "lots_by_term": [
+       {
+        "btc": 0.01,
+        "cost_basis": 235.96,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Gift"
      },
@@ -4426,6 +4517,13 @@
       "asset": "BTC",
       "date": "2026-09-05T12:00:00+00:00",
       "fmv_usd": 592.0,
+      "lots_by_term": [
+       {
+        "btc": 0.004,
+        "cost_basis": 92.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Donation"
      },
@@ -4434,6 +4532,13 @@
       "asset": "BTC",
       "date": "2026-09-08T12:00:00+00:00",
       "fmv_usd": 148.0,
+      "lots_by_term": [
+       {
+        "btc": 0.001,
+        "cost_basis": 23.0,
+        "term": "LONG"
+       }
+      ],
       "proceeds_usd": 0.0,
       "type": "Lost"
      }

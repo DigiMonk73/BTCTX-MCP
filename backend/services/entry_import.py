@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.database import is_busy
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -42,7 +43,7 @@ from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, 
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import (
-    _parse_date, _parse_decimal, _validate_row, is_busy, number_limits, number_text,
+    _parse_date, _parse_decimal, _validate_row, number_limits, number_text,
 )
 from backend.unexpected_errors import log_unexpected
 from backend.services.river_import import (

@@ -172,9 +172,34 @@ async def test_ledger_guide_maps_card_sats_back_to_rebate():
 
     flat = " ".join(LEDGER_GUIDE.split())
     assert "Reward = mining, staking, sign-up or referral bonuses." in flat
-    assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Never Reward." in flat
+    assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Not Reward," in flat
     assert "sats-back, bonuses" not in flat
     assert "Rebate" in DepositSource.__args__
+    # Card rewards on cash equivalents are income (#160)
+    assert "Not Reward, except sats-back earned buying money orders or other cash equivalents: that isn't a " \
+           "rebate but income (Reward)." in flat
+
+
+async def test_ledger_guide_carries_the_tax_notes():
+    """#160: what the AI tells the user of lost, donated and given coins,
+    independent contractors' pay, a broker's dates and the Form 1040
+    question."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    for note in (
+        "paid to an independent contractor: Schedule C, and self-employment income, Schedule SE",
+        "A theft or scam in an investment made for profit may be deductible on Form 4684, Section B, up to the "
+        "coins' basis: suggest the user's tax preparer.",
+        "the lower of value and basis for the rest (IRC 170(e)(1)(A)). Over $500 for the year's donations "
+        "together it needs Form 8283; over $5,000, also a qualified appraisal (an exchange's price isn't one)",
+        "gifts to one person other than a spouse over the year's annual exclusion ($19,000 in 2025 and 2026) "
+        "generally need a gift tax return, Form 709",
+        "A broker's 1099-DA may date a sale in UTC",
+        "Form 1040's digital asset question is Yes in a year with a sale, a spend, a network fee paid in BTC, a "
+        "gift or donation given, or BTC received as income, a reward, interest or a rebate",
+    ):
+        assert note in flat, note
 
 
 async def test_preview_then_add_then_list(mcp_client):
@@ -626,6 +651,19 @@ async def test_a_time_without_an_offset_is_read_in_the_tax_timezone_as_add_trans
     assert price["priced_at"] == "2024-01-16T00:00:00Z"
     price = await call(mcp_client, "get_btc_price", {"date": "2024-01-15 21:05:00"})  # a space, too
     assert price["priced_at"] == "2024-01-16T00:00:00Z"
+
+
+@pytest.mark.parametrize("name", ["America", "America/__init__/x"], ids=["a folder", "a module"])
+async def test_a_tax_timezone_this_computer_cant_open_is_a_plain_error(monkeypatch, name):
+    """#407: a 1.2.8 server kept a name only its own zone files opened; here
+    a folder of zones failed with an OS error and, on Python 3.10 and 3.11, a
+    module of tzdata with a TypeError, not the connector's own message."""
+    async def answer(method, path, **kwargs):
+        return {"timezone": name, "source": "setting"}
+
+    monkeypatch.setattr(server, "_call", answer)
+    with pytest.raises(server.ToolError, match=f"doesn't know the tax timezone {name};"):
+        await server._tax_zone()
 
 
 async def test_wrong_key_is_a_clear_error(backend_db):

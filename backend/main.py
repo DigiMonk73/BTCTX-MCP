@@ -58,7 +58,15 @@ from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyM
 from backend.services import ai_key
 from backend.unexpected_errors import UnexpectedErrorMiddleware, log_unexpected
 from backend.schemas.user import is_text
-from backend.services.tax_time import DateOutOfRange
+from backend.services.tax_time import DateOutOfRange, bundled_zones
+
+
+def _read_timezone_names() -> None:
+    """tzdata's list of zone names, the tax timezones BitcoinTX accepts
+    (#407), read once at startup: a build without it (the Mac app bundles
+    tzdata's data) stops here, where CI's launch checks see it, rather than
+    failing every tax timezone it reads."""
+    bundled_zones()
 
 
 def _load_network_settings() -> None:
@@ -207,9 +215,11 @@ def _text(value: str) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """At startup: migrate the schema and seed the defaults, then the setup
-    code, the network settings, (Mac app) the AI key file, and with public
-    price sites chosen the hourly price history's download."""
+    """At startup: tzdata's zone names, migrate the schema and seed the
+    defaults, then the setup code, the network settings, (Mac app) the AI key
+    file, and with public price sites chosen the hourly price history's
+    download."""
+    _read_timezone_names()
     init_db()
     _prepare_first_run()
     _load_network_settings()

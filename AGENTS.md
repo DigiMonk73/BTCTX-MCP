@@ -318,7 +318,11 @@ from the Transaction row alone.
   `backend/services/tax_time.py`. Never slice a year with naive UTC dates.
   A login fills it from the browser only while none was chosen and the
   ledger is empty (`tax_time.fill_tax_timezone`, #334); with transactions,
-  only the owner's change in Settings moves it.
+  only the owner's change in Settings moves it. Only the bundled `tzdata`
+  package's names are saved, the same on every machine (#407); a name saved
+  before 1.2.9 is still read (`tax_time.readable_zone`; one this machine
+  can't open counts as none chosen, logged once), and a restore keeps this
+  install's own in place of a backup's that `tzdata` doesn't name.
   Times on screen are the device's clock (#260), except Ledger Review's
   (the tax timezone, as `cli review` and the AI see them) and a price's
   hour (UTC, labelled).
@@ -455,7 +459,7 @@ from the Transaction row alone.
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot, its Recalculate Ledger action). The
   imports' `routers/csv_import.import_failure`
-  (busy, 503, when the database was locked: `csv_import.is_busy`; else
+  (busy, 503, when the database was locked: `database.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
   the AI preview's dry run (`entry_import.SIMULATION_BUSY` or
   `SIMULATION_FAILED`) and Ledger Review's (`review.DRY_RUN_FAILED`) say
