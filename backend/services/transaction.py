@@ -16,7 +16,6 @@ from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from collections import defaultdict
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
@@ -67,13 +66,8 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     ledger lines and its effect on the lots. One dated before the latest
     transaction recalculates the whole ledger, so FIFO stays in time order.
     auto_commit=False leaves the commit to the caller (an import commits
-    once, for all its rows). Its prices are found first (prices_found_ahead).
+    once, for all its rows).
     """
-    with prices_found_ahead(db, [tx_data]):
-        return _create(tx_data, db, auto_commit)
-
-
-def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
     ensure_fee_account_exists(db)
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
@@ -446,14 +440,8 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     Change a transaction (only the fields in tx_data), checked as the whole
     transaction it becomes, then recalculate the whole ledger. None when it
     doesn't exist. One naming a missing account is fixed past the others
-    that do (#368), as a delete of one is. The prices the recalculation
-    needs are found first (prices_found_ahead).
+    that do (#368), as a delete of one is.
     """
-    with prices_found_ahead(db):
-        return _update(transaction_id, tx_data, db)
-
-
-def _update(transaction_id: int, tx_data: dict, db: Session):
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
@@ -908,69 +896,36 @@ def _priced_at_the_day(db: Session, at_the_day: bool):
 DAY_PRICES = "btctx_price_at_the_day"
 
 
-@contextmanager
-def prices_found_ahead(db: Session, rows: list[dict] = ()):
+def find_prices_first(db: Session, rows: list[dict]) -> None:
     """
-    A save that writes (or a recalculation) finds every price it needs
-    first: the values its new rows fill from the price
-    (values_the_save_prices) and the stored transactions' missing ones a
-    replay prices (_missing_values). Each one found is stored at once
-    (price_history.keep). Within it, once the save has written and holds
-    SQLite's write lock, a lookup reads stored prices only: no request and
-    no wait for a download, which the owner's saves would wait behind and
-    fail (#421, #426). A price not found first isn't found then either: the
-    save names the value, as before. A save that has written already finds
-    nothing first, and its lookups ask as they did, unless a save around it
-    found its prices.
+    Before a save of several rows first writes (an import, the AI's preview
+    or add), find the prices its rows' values are filled from, so they're
+    stored: from its second row on it holds SQLite's write lock, and a price
+    asked for then, from the price sites or the owner's Mempool, held the
+    owner's saves up behind it (#426). In time order, as the save goes (the
+    year files kept in memory are few). A price not found here is looked
+    for again as its row is saved, as before.
     """
-    found = not price_history.writing(db)
-    if found:
-        for when, at_the_day in _moments_needing_prices(db, rows):
-            try:
-                with _priced_at_the_day(db, at_the_day):
-                    if _price_at(when, db).moment == "day":
-                        price_history.daily_price(db, when)  # stored, for the lookups under the lock
-            except HTTPException:
-                pass  # no price: the save says which value lacks one
-    before = db.info.get(price_history.FOUND_AHEAD)
-    db.info[price_history.FOUND_AHEAD] = bool(before) or found
-    try:
-        yield
-    finally:
-        db.info[price_history.FOUND_AHEAD] = before
+    if price_history.writing(db):
+        return
+    for when, at_the_day in sorted(_moments_priced(db, rows)):
+        try:
+            with _priced_at_the_day(db, at_the_day):
+                _price_at(when, db)
+        except HTTPException:
+            pass  # the save looks again, and says which value lacks one
 
 
-def _moments_needing_prices(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
-    """When the new rows' priced values and the stored missing ones are
-    priced, each as (the moment, whether at the day)."""
-    new = {(when, at == "day") for row in rows for _field, when, at in values_the_save_prices(row, db)}
-    return new | _missing_values(db)
-
-
-def _missing_values(db: Session) -> set[tuple[datetime, bool]]:
-    """When a replay prices the stored transactions' values that were never
-    stored: a BTC fee's USD value (_stored_fee_usd) and a Spent's proceeds
-    (_withdrawal_gross_proceeds), at the day when its other values are."""
-    rows = db.query(Transaction).filter(or_(
-        and_(Transaction.fee_usd.is_(None), func.upper(Transaction.fee_currency) == "BTC", Transaction.fee_amount > 0),
-        and_(Transaction.type == "Withdrawal", Transaction.gross_proceeds_usd.is_(None),
-             Transaction.proceeds_usd.is_(None)),
-    ))
-    return {
-        (tx.timestamp, tx.price_moment == "day") for tx in rows
-        if tx.timestamp is not None and (tx.fee_usd is None and _has_btc_fee_stored(tx) or _spends_unpriced(tx))
-    }
-
-
-def _has_btc_fee_stored(tx: Transaction) -> bool:
-    return (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
-
-
-def _spends_unpriced(tx: Transaction) -> bool:
-    """A withdrawal whose proceeds a replay prices: one counted as spent with
-    no proceeds stored (_withdrawal_gross_proceeds)."""
-    return tx.type == "Withdrawal" and tx.gross_proceeds_usd is None and tx.proceeds_usd is None \
-        and normalized(tx.purpose) not in GIFT_LIKE_PURPOSES and _spent_as_matched(tx)
+def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
+    """When the rows' values filled from a price are priced, as (the moment,
+    whether at the day): those a save won't do without
+    (values_the_save_prices), and a gift's blank value (_value_blank_gift)."""
+    moments = set()
+    for row in rows:
+        moments |= {(when, at == "day") for _field, when, at in values_the_save_prices(row, db)}
+        if _is_gift_like(row) and row.get("fmv_usd") is None and Decimal(row.get("amount") or 0) > 0:
+            moments.add((row.get("timestamp") or datetime.now(timezone.utc), _prices_at_the_day(row)))
+    return moments
 
 
 # Written as given when the edit sends them, in this order.
@@ -1009,14 +964,8 @@ def delete_transaction_record(transaction_id: int, db: Session):
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
     A transaction naming a missing account is deleted past the others that
-    do (#368), so they can be fixed one by one. The prices the
-    recalculation needs are found first (prices_found_ahead).
+    do (#368), so they can be fixed one by one.
     """
-    with prices_found_ahead(db):
-        return _delete(transaction_id, db)
-
-
-def _delete(transaction_id: int, db: Session):
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
@@ -1899,14 +1848,8 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
     naming a missing account that stops it is refused by name
     (AccountMissing, #337); given a `past_missing` list (an edit or a delete
     of such a row, #368), it's replayed without the balance check it fails,
-    and added to the list. The missing values it prices are found first
-    (prices_found_ahead).
+    and added to the list.
     """
-    with prices_found_ahead(db):
-        _recalculate(db, until, past_missing)
-
-
-def _recalculate(db: Session, until: datetime | None, past_missing: list[Transaction] | None) -> None:
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
     db.query(BitcoinLot).delete()

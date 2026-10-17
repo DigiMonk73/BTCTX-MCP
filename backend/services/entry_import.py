@@ -59,8 +59,8 @@ from backend.services.transaction import (
     date_of_death,
     date_of_death_price,
     ensure_fee_account_exists,
+    find_prices_first,
     price_used,
-    prices_found_ahead,
     values_from_price,
 )
 
@@ -445,11 +445,11 @@ def simulate(
 
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
+    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
 
     before = _gain_snapshot(db)
     try:
-        with prices_found_ahead(db, [p.tx_data for p in ordered]):  # before the first row is written (#426)
-            created, failed_at = _create_until_refused(ordered, db)
+        created, failed_at = _create_until_refused(ordered, db)
         if failed_at is None:
             db.flush()
         else:
@@ -552,18 +552,18 @@ def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedR
         return []
 
     ensure_fee_account_exists(db)
+    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     created: list[tuple[PreparedRow, Transaction]] = []
     try:
-        with prices_found_ahead(db, [p.tx_data for p in ordered]):  # before the first row is written (#426)
-            for p in ordered:
-                try:
-                    tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
-                except HTTPException as exc:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
-                    )
-                created.append((p, tx))
+        for p in ordered:
+            try:
+                tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+            except HTTPException as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
+                )
+            created.append((p, tx))
         db.commit()
     except Exception:
         db.rollback()

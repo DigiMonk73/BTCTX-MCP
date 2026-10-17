@@ -292,6 +292,10 @@ from the Transaction row alone.
   Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
+  A save that has written never waits for a year's download (#421); an
+  import and the AI's preview and add find their rows' prices before
+  their first write (`transaction.find_prices_first`, #426); a request
+  waits for a year once and asks a source once per hour.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date

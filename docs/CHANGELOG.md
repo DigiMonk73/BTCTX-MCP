@@ -176,21 +176,24 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
-- **A save no longer holds your other saves up while it looks for prices**
-  (#421, #426). A save of several rows (an import, the AI connector's
-  preview or add) prices its later rows (a BTC fee, an income value) after
-  the earlier ones are written, and a recalculation can price an old
-  transaction's missing value after it starts rewriting the ledger; both
-  hold the database's lock from then on. A price not stored yet was asked
-  for from the price sites or your own Mempool at that point (on a fresh
-  install, up to a 3-minute download of the price history), and while
-  BitcoinTX was still downloading a year of hourly prices the save waited
-  up to 30 seconds for it, so a save of yours made meanwhile failed after
-  5 seconds. Now every save, edit, delete and recalculation finds the
-  prices it needs before it writes anything, and stores them; once it
-  holds the lock it only reads stored prices. The prices are the same as
-  before. A price it can't find is reported as before, by the value that
-  needs it.
+- **A save of several rows no longer holds your other saves up while it
+  looks for prices** (#421; #426 in part). An import, or the AI
+  connector's preview or add, prices its later rows (a BTC fee, an income
+  value, a gift's value) after the earlier ones are written, holding the
+  database's lock from then on. While BitcoinTX was still downloading a
+  year of hourly prices (a fresh install, or after a failed download, with
+  public price sites allowed) it waited up to 30 seconds for that year
+  there, and a price not stored yet was asked for from the price sites or
+  your own Mempool there, so a save of yours made meanwhile failed after 5
+  seconds. Now a save that has started writing never waits for the
+  download (it takes the day's price, marked so, which Ledger Review's
+  check of values priced at the day can price at its hour later), and an
+  import or the AI's preview or add finds its rows' prices before it
+  writes anything. A request waits for a year's download once. The prices
+  are the same as before. Still to do (#426, a known issue): a
+  recalculation pricing an old transaction's missing value, or an edit
+  that newly needs a Spent's proceeds, can ask for that price while
+  holding the lock; rare, and a save that fails then can be tried again.
 - **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
   read "Not enough BTC to withdrawal 0.70000000 BTC", the type's name in
   place of the verb; it now reads "Not enough BTC to withdraw …", in the
