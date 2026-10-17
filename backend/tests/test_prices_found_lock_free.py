@@ -33,6 +33,11 @@ from backend.tests.conftest import empty_price_history
 from backend.services.hourly_prices import find_hours as real_find_hours
 from backend.services.price_history import find_prices as real_find_prices
 
+# A save run again whose new rows collide with what its first run left in
+# the session fails, not only warns (#442's re-checks: then, or once the
+# old object was freed, an AttributeError in the flush)
+pytestmark = pytest.mark.filterwarnings("error::sqlalchemy.exc.SAWarning")
+
 DAY_PRICE = Decimal("40000")
 NODE = "http://umbrel.local:3006"
 BANK, WALLET, EXCHANGE_USD, EXCHANGE_BTC, EXTERNAL = 1, 2, 3, 4, 99
@@ -396,9 +401,10 @@ def test_a_save_run_again_waits_for_no_download(auth_client, test_engine, sites,
 
 
 def test_a_save_runs_again_in_a_clean_session(test_engine, monkeypatch):
-    """#442's re-check: the rollback can put back rows the first run deleted
-    in bulk (a recalculation's lots), and one whose object was freed by then
-    broke the rerun's flush; so nothing the first run loaded is kept."""
+    """#442's re-checks: the rollback expires what the first run loaded,
+    which a recalculation's bulk delete then left in the session for the
+    rerun's new rows to collide with; so nothing it loaded is kept. Its
+    notes go when it ends, so a later save in the session starts afresh."""
     from backend.models.account import Account
 
     loaded = []
@@ -413,6 +419,7 @@ def test_a_save_runs_again_in_a_clean_session(test_engine, monkeypatch):
     with sessionmaker(bind=test_engine)() as db:
         assert hp.with_prices_found(db, save) is not loaded[0]
         assert inspect(loaded[0]).detached
+        assert not {price_history.ASK_FIRST, hp.RUN_AGAIN} & set(db.info)
 
 
 def test_after_its_caller_changed_anything_it_only_runs_the_save(test_engine):

@@ -257,10 +257,12 @@ def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
                 return save()
             except price_history.PriceNeeded as need:
                 db.rollback()
-                # Nothing of the run is kept in the session: the rollback puts
-                # back the rows it deleted (a recalculation's lots), and one
-                # whose object was freed meanwhile broke the rerun's flush
-                # (AttributeError in SQLAlchemy, #442's re-check)
+                # Nothing of the run is kept in the session: the rollback
+                # expires what it loaded, which a recalculation's bulk delete
+                # then leaves there, so the rerun's new rows (SQLite gives
+                # them the same ids) collided with it: SQLAlchemy's identity
+                # warning, or an AttributeError once the old object was
+                # freed (#442's re-checks)
                 db.expunge_all()
                 if (need.moment, need.when) in looked_for:  # kept or noted: never needed twice
                     raise RuntimeError("A price looked for with the lock free was needed again") from need
