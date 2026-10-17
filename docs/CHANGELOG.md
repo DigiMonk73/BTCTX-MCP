@@ -497,7 +497,8 @@ All notable changes to BitcoinTX are documented in this file.
   of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
   inherited deposit without its basis, or a Spent without its proceeds,
   when no price for that day was stored and none could be asked for (no
-  price source chosen, or Nobody, or a day before any price). Preview now
+  price source chosen, or Nobody, or a day before any price or after
+  today). Preview now
   lists such a row as an error naming the value to fill. A price BitcoinTX
   may still ask for is left to the import, as before. Nothing was ever saved
   wrong: the import refused the whole file and said why. **Affected:** every

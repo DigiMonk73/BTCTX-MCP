@@ -139,8 +139,8 @@ def preview_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """Every row checked, with its errors and warnings, a row whose save
-    needs a price there is none to be had for included; nothing is saved."""
+    """Every row checked, with its errors and warnings (a row whose save
+    needs a price that can't be had is an error); nothing is saved."""
     _require_auth(request)
 
     content = _read_validated_csv(file)

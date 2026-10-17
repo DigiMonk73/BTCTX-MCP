@@ -154,15 +154,16 @@ def _unpriced(tx_data: dict[str, Any], db: Session, years: dict) -> tuple[list[s
     """(the columns, why) for the values the save would price with no price
     to be had, by the first such value's day; None when every one has a
     price, or may get one."""
-    missing = [(column, price_history.utc_day(when)) for column, when, moment in values_the_save_prices(tx_data, db)
-               if not _price_stored(db, when, moment, years)]
-    for _, day in missing:
+    missing = []  # (column, day, why): the stored price looked for only when the import couldn't ask for one
+    for column, when, moment in values_the_save_prices(tx_data, db):
+        day = price_history.utc_day(when)
         why = _why_unpriced(day)
-        if why is not None:
-            break
-    else:
+        if why is not None and not _price_stored(db, when, moment, years):
+            missing.append((column, day, why))
+    if not missing:
         return None
-    columns = [column for column, other in missing if other == day]
+    _, day, why = missing[0]
+    columns = [column for column, other, _ in missing if other == day]
     named = f" for {' and '.join(columns)}" if len(columns) > 1 else ""
     it = "them" if len(columns) > 1 else "it"
     return columns, f"Needs the BTC price of {day.isoformat()}{named}, {why[0]}: fill {it}.{why[1]}"
@@ -180,7 +181,7 @@ def _why_unpriced(day) -> tuple[str, str] | None:
     (daily_price's and no_price's reasons); None when one may be asked for."""
     if day < price_history.FIRST_PRICE_DAY:
         return "and there is none for that day", ""
-    if day > datetime.now(timezone.utc).date():
+    if day > price_history._today():  # daily_price's today
         return "and there is none yet for that day", ""
     settings = outbound.current()
     if not (settings.own_node or settings.public_allowed):
