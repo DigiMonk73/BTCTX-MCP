@@ -6,7 +6,9 @@
 # volume, removed at the end (pass --keep to leave it running). Same checks
 # as the "Docker image + container smoke" job in .github/workflows/ci.yml:
 # claim with the setup code, the smoke test (live prices, so price steps may
-# be skipped until a price source is chosen), data on /data, health, CLI.
+# be skipped until a price source is chosen), data on /data, the app as its
+# own user (btctx), health, CLI. The update from 1.2.8 is its own script,
+# scripts/docker_update_check.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,7 +20,7 @@ KEEP=${1:-}
 
 cleanup() {
   [ "$KEEP" = "--keep" ] || docker rm -fv "$NAME" >/dev/null 2>&1 || true
-  [ -n "${TMP_CONFIG:-}" ] && rm -rf "$TMP_CONFIG"
+  [ -z "${TMP_CONFIG:-}" ] || rm -rf "$TMP_CONFIG"   # a failed test here would fail the script
 }
 trap cleanup EXIT
 
@@ -48,13 +50,16 @@ CODE=$(docker exec "$NAME" cat /data/setup-code.txt)
   --user local-owner --password local-password-123 --setup-code "$CODE"
 docker exec "$NAME" sh -c '! test -e /data/setup-code.txt'
 docker exec "$NAME" test -s /data/btctx.db -a -s /data/.btctx_secret_key
+# The app runs as its own user, btctx, never root, and /data is all its (#202)
+docker exec "$NAME" grep -qE '^Uid:\s+10001\s+10001\s+10001\s+10001$' /proc/1/status
+test -z "$(docker exec "$NAME" find /data \( \! -user btctx -o \! -group btctx \) -print)"
 
 curl -sf "http://127.0.0.1:$PORT/api/health" | grep -q "\"version\":\"$(tr -d '[:space:]' < VERSION)\""
-docker exec "$NAME" python -m backend.cli migrate | grep -q "up to date"
-echo "local-password-456" | docker exec -i "$NAME" python -m backend.cli set-password --password-stdin >/dev/null
+docker exec -u btctx "$NAME" python -m backend.cli migrate | grep -q "up to date"
+echo "local-password-456" | docker exec -i -u btctx "$NAME" python -m backend.cli set-password --password-stdin >/dev/null
 curl -sf -o /dev/null -X POST "http://127.0.0.1:$PORT/api/login" -H 'content-type: application/json' \
   -d '{"username":"local-owner","password":"local-password-456"}'
-docker exec "$NAME" python -m backend.cli recalculate >/dev/null
+docker exec -u btctx "$NAME" python -m backend.cli recalculate >/dev/null
 
 echo "✓ Docker image from this checkout passed the container checks"
 [ "$KEEP" = "--keep" ] && echo "  still running: http://127.0.0.1:$PORT (docker rm -fv $NAME to remove)"

@@ -6,6 +6,42 @@ import { sdk } from './sdk'
 export const uiPort = 80
 export const ADMIN_USERNAME = 'admin'
 
+/**
+ * The image's own user (the Dockerfile's `btctx`, uid 10001): BitcoinTX
+ * never runs as root (#202). Volumes from before 1.2.9 are root's.
+ */
+export const APP_USER = 'btctx'
+
+/** Gives the `main` volume to the app's user; run as root (main.md, "Oneshots"). */
+export const OWN_DATA: [string, ...string[]] = [
+  'chown',
+  '-R',
+  `${APP_USER}:${APP_USER}`,
+  '/data',
+]
+
+/**
+ * Runs `command` as the app's user from root, keeping one right: to open
+ * port 80, which an ordinary user may not in StartOS's container
+ * (net.ipv4.ip_unprivileged_port_start is 1024 there). The image's
+ * docker-entrypoint.sh drops to it the same way.
+ */
+export function asAppUser(
+  command: [string, ...string[]],
+): [string, ...string[]] {
+  return [
+    'setpriv',
+    `--reuid=${APP_USER}`,
+    `--regid=${APP_USER}`,
+    '--init-groups',
+    '--inh-caps=-all,+net_bind_service',
+    '--ambient-caps=-all,+net_bind_service',
+    '--no-new-privs',
+    '--',
+    ...command,
+  ]
+}
+
 /** Environment for every process that runs BitcoinTX code. */
 export const appEnv = {
   DATABASE_FILE: '/data/btctx.db',
@@ -42,9 +78,12 @@ export function generatePassword(): string {
 
 /**
  * Run `python -m backend.cli <args>` (backend/cli.py) in a temporary
- * subcontainer on the app's volume. Every command migrates the database first,
- * so this works on an empty volume. Throws on a non-zero exit. `prices`: pass
- * the Price Source & Privacy choice, for a command that may look up a price.
+ * subcontainer on the app's volume, as the app's user: the volume is given to
+ * it first, as at every start, since an action or init may run before the
+ * first start after an update or a restore. Every command migrates the
+ * database first, so this works on an empty volume. Throws on a non-zero exit.
+ * `prices`: pass the Price Source & Privacy choice, for a command that may
+ * look up a price.
  */
 export async function runAppCli(
   effects: T.Effects,
@@ -67,9 +106,11 @@ export async function runAppCli(
     mainMounts(),
     `cli-${args[0]}`,
     async (sub) => {
+      await sub.execFail(OWN_DATA, { user: 'root', timeout: 10 * 60_000 })
       const res = await sub.execFail(['python', '-m', 'backend.cli', ...args], {
         cwd: '/app',
         env,
+        user: APP_USER,
         input: opts.input,
         timeout: 10 * 60_000,
       })

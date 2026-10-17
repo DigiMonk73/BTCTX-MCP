@@ -960,6 +960,33 @@ All notable changes to BitcoinTX are documented in this file.
   package's version.
 
 ### Security
+- **BitcoinTX no longer runs as root in its container** (#202), in Docker
+  and on StartOS, which runs the same image. It runs as its own user,
+  `btctx` (uid and gid 10001), keeping one right: to open port 80. A flaw
+  in BitcoinTX or a library it uses can then change only BitcoinTX's own
+  files, never the rest of the container. Nothing to do on StartOS or with
+  the README's Docker command: at a start the image, or StartOS's package,
+  first gives `/data` to that user, so a volume an earlier version made
+  (every file root's) keeps working, and so does a StartOS backup made
+  before. With Docker:
+  - Run a maintenance command as that user:
+    `docker exec -u btctx <container> python -m backend.cli …`. Run as
+    root, a file it creates stays root's until the next start.
+  - A host folder mounted at `/data` is given to uid 10001 at a start when
+    anything in it isn't that user's. With `DATABASE_FILE` set elsewhere,
+    its folder must be a volume or a mounted folder itself, which is then
+    handed over; a subfolder of one isn't: give it to uid 10001 yourself.
+  - With capabilities dropped (`--cap-drop ALL`), keep CHOWN, DAC_OVERRIDE,
+    SETUID, SETGID and NET_BIND_SERVICE.
+  - Started with `--user`, the image runs as that user and leaves `/data`
+    as it is: it must then be that user's.
+  - A `/data` that can't be given to uid 10001 (a read-only mount, network
+    storage that refuses it, a missing capability) stops the start, with a
+    message saying so.
+
+  Checked on every pull request: an update from the published 1.2.8 image
+  on a volume with a ledger, its setup code and a backup copy
+  (`scripts/docker_update_check.sh`); and on the StartOS test VM.
 - **Hardening from the 1.2.8 and 1.2.9 security reviews** (#204). None of
   these could be used against an install; each closes a gap before it
   could matter:

@@ -85,7 +85,7 @@ python -m backend.cli install-draft-forms --from-dir DIR     # f8949.pdf and f10
 python -m backend.cli install-draft-forms --remove           # take them out again
 ```
 
-In Docker: `docker exec <container> python -m backend.cli install-draft-forms`.
+In Docker: `docker exec -u btctx <container> python -m backend.cli install-draft-forms`.
 On the StartOS test VM, `tools/vmtest seed` in the lab does it. No restart
 is needed.
 
