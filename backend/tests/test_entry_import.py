@@ -5,6 +5,7 @@ Tests for the JSON entry import (/api/import/entries) used by the MCP server:
 validation, FMV autofill, dedup, dry-run simulation, atomic execute.
 """
 
+import sqlite3
 from decimal import Decimal
 
 import pytest
@@ -434,3 +435,41 @@ class TestInputFormats:
         assert anon.post("/api/import/entries/preview", json={"rows": [BUY]}).status_code == 401
         r = anon.post("/api/import/entries/preview", json={"rows": [BUY]}, headers=ai_key_headers)
         assert r.status_code == 200, r.text
+
+
+def test_the_preview_reads_the_year_files_before_its_dry_run(test_engine, monkeypatch):
+    """#204: which price filled each value (#208) was looked up inside the
+    dry run, reading and fingerprinting each year file not cached (the module
+    keeps two), so SQLite's write lock was held the longer. The year files
+    are read before the dry run now: while one is read another connection
+    can take the write lock, and the lookups inside read none."""
+    from datetime import datetime
+
+    from backend.services import hourly_prices
+    from backend.services import price_files as pf
+
+    dates = ["2019-03-01T12:00:00Z", "2020-03-01T12:00:00Z", "2021-03-01T12:00:00Z"]
+    hours = [hourly_prices.hour_of(datetime.fromisoformat(d.replace("Z", "+00:00"))) for d in dates]
+    lines = [pf.YearLine(y, pf.year_start(y), pf.year_end(y), 1, "x") for y in (2019, 2020, 2021)]
+    free = []
+
+    def year_file(line, remember=True):
+        other = sqlite3.connect(test_engine.url.database, timeout=0)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+            free.append(True)
+        except sqlite3.OperationalError:  # database is locked
+            free.append(False)
+        finally:
+            other.close()
+        return {h: Decimal("40000.00") for h in hours}
+
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: lines)
+    monkeypatch.setattr(hourly_prices, "_year_prices", year_file)
+    monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, **k: (Decimal("40000.00"), "bitstamp"))
+    rows = [{"date": d, "type": "Deposit", "amount": "0.01", "from_account": "External",
+             "to_account": "Wallet", "source": "Income"} for d in dates]
+    results = preview(rows)["results"]
+    assert [r["simulated"]["from_price"]["source"] for r in results] == ["bitstamp"] * 3
+    assert free == [True, True, True]
