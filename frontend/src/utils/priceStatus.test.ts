@@ -170,8 +170,8 @@ describe("the hourly history's line (#145, the amendment's A)", () => {
     expect(historyLine(h({ state: "failed", refused: true, without_tor: true }), { ...ctx, tor: true, withoutTor: "yes" })?.text)
       .toMatch(/didn't download: Bitstamp refused it\./);
     expect(torRefused(null)).toMatch(/^Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX asks once/);
-    expect(torRefused("yes")).toMatch(/so its history downloads go without Tor, as you agreed \(below\); everything else stays on Tor\.$/);
-    expect(torRefused("no")).toMatch(/; you chose to keep it on Tor \(below\)\.$/);
+    expect(torRefused("yes")).toMatch(/so its history downloads go without Tor, as you agreed; everything else stays on Tor\.$/);
+    expect(torRefused("no")).toMatch(/; you chose to keep it on Tor\.$/);
     expect(historyLine(h({ state: "failed", refused: true }), ctx)?.text).toMatch(/didn't download: Bitstamp refused it\./);
     expect(historyLine(h({ state: "waiting", mismatched: [2019] }), ctx)?.text).toBe(
       "Bitstamp's prices for 2019 didn't match BitcoinTX's fingerprint, so 2019 uses the day's price. " +

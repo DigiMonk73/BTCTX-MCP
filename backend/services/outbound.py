@@ -636,9 +636,10 @@ def fixed_block(url: str, params: dict | None) -> bool:
     """
     Whether a request is one of Bitstamp's fixed history blocks, 1,000
     candles from a start every install asks for (no ledger decides it):
-    hourly, from 1 January of a year or from the hour after the year files,
-    each 1,000 hours on (hourly_prices); daily, from the first price day,
-    each 1,000 days on (price_history).
+    hourly, a block of the release's year files (from 1 January, each 1,000
+    hours on, to the year's last hour) or one from the hour after them
+    (hourly_prices); daily, from the first price day, each 1,000 days on
+    (price_history).
     """
     if url != pf.BITSTAMP_OHLC_URL or not params or set(params) != {"step", "limit", "start"}:
         return False
@@ -646,19 +647,21 @@ def fixed_block(url: str, params: dict | None) -> bool:
     if not all(isinstance(v, int) and not isinstance(v, bool) for v in (step, limit, start)) or limit != 1000:
         return False
     if step == pf.HOUR:
-        hours = pf.BLOCK_HOURS * pf.HOUR
-        return _on_grid(start, pf.year_start(pf.year_of(start)), hours) or _on_grid(start, _after_year_files(), hours)
+        return _hourly_block(start)
     return step == 86400 and _on_grid(start, _first_price_midnight(), 1000 * 86400)
 
 
-def _on_grid(start: int, first: int | None, size: int) -> bool:
-    return first is not None and start >= first and (start - first) % size == 0
-
-
-def _after_year_files() -> int | None:
-    """The hour after the release's year files (MANIFEST.csv): the newer hours' first block."""
+def _hourly_block(start: int) -> bool:
+    """One of the release's year files' blocks (MANIFEST.csv), or one from
+    the hour after them: the hours the app downloads, and no others."""
     lines = pf.read_manifest(pf.MANIFEST)
-    return lines[-1].last_hour + pf.HOUR if lines else None
+    if any(start in pf.block_starts(line.year, line.last_hour) for line in lines):
+        return True
+    return bool(lines) and _on_grid(start, lines[-1].last_hour + pf.HOUR, pf.BLOCK_HOURS * pf.HOUR)
+
+
+def _on_grid(start: int, first: int, size: int) -> bool:
+    return start >= first and (start - first) % size == 0
 
 
 def _first_price_midnight() -> int:

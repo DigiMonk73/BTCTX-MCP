@@ -40,7 +40,7 @@ describe("the question about the price history without Tor (#241)", () => {
     expect(refusedWords(status())).toBe("The hourly history didn't download: through Tor, Bitstamp refuses BitcoinTX's requests.");
     const held = status();
     held.history = { ...held.history, state: "complete", years_done: 14, refused: false };
-    expect(refusedWords(held)).toBe("Through Tor, Bitstamp refuses BitcoinTX's requests, so newer hours and past days don't download.");
+    expect(refusedWords(held)).toBe("Through Tor, Bitstamp refuses BitcoinTX's requests, so newer hours, and any past day not stored yet, don't download.");
   });
 
   it("is open while the server sets the choice too: the answer is the owner's", () => {

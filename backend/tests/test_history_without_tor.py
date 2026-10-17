@@ -305,6 +305,11 @@ def test_no_takes_a_yes_back_and_a_yes_matters_only_with_tor(world, auth_client)
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": ASKED_HOUR}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": pf.year_start(2025) + 5 * HOUR}),
     (pf.BITSTAMP_OHLC_URL, {"step": DAY, "limit": 1000, "start": int(datetime(2012, 5, 17, tzinfo=timezone.utc).timestamp())}),
+    # On a year's grid, but a block no install asks for (the re-check's B): past the files, another year, far off
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": pf.year_start(2026) + 2000 * HOUR}),
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": pf.year_start(2024)}),
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": pf.year_start(2027)}),
+    (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": 10 ** 15}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 10, "start": FILES_END + HOUR}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": str(FILES_END + HOUR)}),
     (pf.BITSTAMP_OHLC_URL, {"step": HOUR, "limit": 1000, "start": FILES_END + HOUR, "end": NOW}),
