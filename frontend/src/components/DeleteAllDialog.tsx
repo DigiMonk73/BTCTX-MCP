@@ -1,7 +1,8 @@
 // The dialog before every transaction is deleted (#256): Settings' Delete
 // All, and Create account on an install that has transactions. It says what
 // goes, offers the encrypted backup first, and deletes only once DELETE is
-// typed (the server checks it too).
+// typed (the server checks it too), and only what it showed: how many,
+// over which tax years (#377).
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CONFIRMATION, describeExtent, type LedgerExtent } from "../utils/deleteAll";
@@ -10,6 +11,9 @@ import BackupFirst from "./BackupFirst";
 
 interface DeleteAllDialogProps {
   extent: LedgerExtent;
+  /** The ledger changed after the owner confirmed: the server refused, and
+   * `extent` is what goes now (#377). */
+  changed?: boolean;
   title: string;
   /** Logged in, the backup can be downloaded here; on Create account, the
    * owner is told how to get one. */
@@ -22,9 +26,15 @@ interface DeleteAllDialogProps {
 }
 
 const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
-  extent, title, canDownloadBackup, busy, opener, onConfirm, onCancel,
+  extent, changed = false, title, canDownloadBackup, busy, opener, onConfirm, onCancel,
 }) => {
   const [typed, setTyped] = useState("");
+  const confirmInput = useRef<HTMLInputElement>(null);
+  // A new figure is confirmed anew: DELETE typed again, for what goes now
+  useEffect(() => {
+    setTyped("");
+    confirmInput.current?.focus();
+  }, [extent.transactions, extent.first_year, extent.last_year]);
   // A backup downloading: nothing is deleted or closed until it's saved
   const [saving, setSaving] = useState(false);
   const waiting = busy || saving;
@@ -53,6 +63,13 @@ const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
           This deletes {describeExtent(extent)}: every transaction, and the tax figures made from them.
           It can't be undone here.
         </p>
+        {changed && (
+          // Keyed by the figure, so a second change is announced again
+          <div key={describeExtent(extent)} className="note note-error" role="alert">
+            Transactions were saved or deleted while this was open. Nothing was deleted: check what this
+            deletes now, and type {CONFIRMATION} again.
+          </div>
+        )}
         <p className="dialog-note">
           BitcoinTX first keeps a copy of the database in its data folder (in <code>backups</code>,
           unencrypted), to help put it back.
@@ -72,8 +89,8 @@ const DeleteAllDialog: React.FC<DeleteAllDialogProps> = ({
           <label htmlFor="delete-all-confirm" className="field-label">
             Type {CONFIRMATION} to confirm
           </label>
-          <input id="delete-all-confirm" className="input" value={typed} autoComplete="off" spellCheck={false}
-            autoFocus onChange={(e) => setTyped(e.target.value)} disabled={busy} />
+          <input ref={confirmInput} id="delete-all-confirm" className="input" value={typed} autoComplete="off"
+            spellCheck={false} autoFocus onChange={(e) => setTyped(e.target.value)} disabled={busy} />
         </div>
         <div className="dialog-actions">
           <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={waiting}>Cancel</button>
