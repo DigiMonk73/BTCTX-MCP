@@ -102,13 +102,7 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
     _record_gross_proceeds(tx_data)
-    # An import's values priced at the day (a file without the moment means
-    # the day): a value priced now takes the day too, so the transaction's
-    # priced values share one price
-    imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
-        or tx_data.get("fee_usd_from_price") or tx_data.get("fmv_from_price")
-    at_the_day = tx_data.get("price_moment") == "day" or (imported and not tx_data.get("price_moment"))
-    with _priced_at_the_day(db, bool(at_the_day)):
+    with _priced_at_the_day(db, _prices_at_the_day(tx_data)):
         _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
         _mark_gift_value(tx_data, priced=_value_blank_gift(tx_data, db))
         _value_btc_fee(tx_data, db, manual=tx_data.get("fee_usd") is not None)
@@ -122,6 +116,57 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
 
 
 PRICE_MOMENTS = ("hour", "day")
+
+
+def _prices_at_the_day(tx_data: dict) -> bool:
+    """An import's values priced at the day (a file without the moment means
+    the day): a value priced now takes the day too, so the transaction's
+    priced values share one price."""
+    imported = tx_data.get("cost_basis_from_price") or tx_data.get("proceeds_from_price") \
+        or tx_data.get("fee_usd_from_price") or tx_data.get("fmv_from_price")
+    return tx_data.get("price_moment") == "day" or bool(imported and not tx_data.get("price_moment"))
+
+
+def values_the_save_prices(tx_data: dict, db: Session) -> list[tuple[str, datetime, str]]:
+    """
+    The values a new transaction's save fills from the BTC price, and won't
+    save without (#125): (the field, the moment it's priced at, "hour" or
+    "day"). An "hour" falls back to that day's price, as _price_at does.
+    These are a BTC fee's USD value, an income, rebate or inherited
+    deposit's basis (an inheritance's at its date of death), and a Spent's
+    proceeds, each left out. A gift's value is filled only when there is a
+    price, so it's never one.
+    """
+    moment = tx_data.get("timestamp") or datetime.now(timezone.utc)
+    at = "day" if _prices_at_the_day(tx_data) else "hour"
+    values = []
+    if _valued_at_receipt(tx_data, db) and Decimal(tx_data.get("cost_basis_usd") or 0) <= 0 \
+            and Decimal(tx_data.get("amount") or 0) > 0:
+        if _is_inherited(tx_data):
+            day = date_of_death(tx_data.get("acquired_at") or moment, db)
+            values.append(("cost_basis_usd", datetime(day.year, day.month, day.day, tzinfo=timezone.utc), "day"))
+        else:
+            values.append(("cost_basis_usd", moment, at))
+    if _has_btc_fee(tx_data) and tx_data.get("fee_usd") is None:
+        values.append(("fee_usd", moment, at))
+    if _is_spent(tx_data) and tx_data.get("from_account_id") in BTC_ACCOUNTS and tx_data.get("proceeds_usd") is None:
+        values.append(("proceeds_usd", moment, _spent_proceeds_moment(tx_data, at)))
+    return values
+
+
+def _spent_proceeds_moment(tx_data: dict, at: str) -> str:
+    """Where a Spent's proceeds left out are priced: at the moment its fee's
+    value has when that comes from a price (priced at save, at `at`, or an
+    import's, at its price_moment or else the day), else at the hour. The
+    save prices them last (_withdrawal_gross_proceeds), at the price_moment
+    _prepare_input stores (_price_moment)."""
+    if not _has_btc_fee(tx_data):
+        return "hour"
+    if tx_data.get("fee_usd") is None:
+        return at
+    if tx_data.get("fee_usd_from_price"):
+        return tx_data["price_moment"] if tx_data.get("price_moment") in PRICE_MOMENTS else "day"
+    return "hour"
 
 
 def _has_priced_value(data) -> bool:
@@ -282,12 +327,21 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
 
 # A saved row naming an account that doesn't exist (an id saved before 0.9.2,
 # F28; none, where an account it named was deleted) whose replay fails its
-# balance check: the refusal names it (#337). With two or more such rows each
-# stops the others' fix (#368), which the text says.
+# balance check: the refusal names it (#337). An edit or a delete of one
+# goes past the others (#368), which the text says.
 ACCOUNT_MISSING = (
     "Transaction {id} (a {kind} of {date}) {what}. Edit it into one of your accounts, or delete it. "
-    "Ledger Review lists every such transaction; if it lists more than one that stops saves, each stops the "
-    "others' fix, and for now they need fixing outside the app (BitcoinTX issue #368)."
+    "Ledger Review lists every such transaction; if it lists more than one that stops saves, fix them one at a "
+    "time: an edit or a delete of one goes past the others."
+)
+
+
+# An edit or a delete that went past such rows (#368) and left a later
+# transaction short of BTC: the rows it went past may be why.
+MISSING_MAY_BE_WHY = (
+    "a later transaction would run short of BTC. It may depend on this one; or {rows}, which {names} a missing "
+    "account, or another that Ledger Review lists, may be why: fix that one first (edit it into one of your "
+    "accounts, or delete it). "
 )
 
 
@@ -384,12 +438,14 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
     Change a transaction (only the fields in tx_data), checked as the whole
     transaction it becomes, then recalculate the whole ledger. None when it
-    doesn't exist.
+    doesn't exist. One naming a missing account is fixed past the others
+    that do (#368), as a delete of one is.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
 
+    past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
@@ -411,11 +467,33 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         f"[Update] Tx {tx.id} timestamp {old_timestamp} => {tx.timestamp}. "
         f"Running scorched earth re-lot."
     )
-    recalculate_all_transactions(db)
+    _recalculate_past(tx, past, db)
 
     db.commit()
     db.refresh(tx)
     return tx
+
+
+def _recalculate_past(edited: Transaction, past: list[Transaction] | None, db: Session) -> None:
+    """The replay after an edit, past the other rows naming a missing
+    account when the edited one named one (#368). It goes past only the
+    others: the edited row must pass its own balance check."""
+    try:
+        recalculate_all_transactions(db, past_missing=past)
+    except HTTPException as e:
+        if e.status_code != 400 or isinstance(e, AccountMissing) or not past:
+            raise
+        _refuse_if_still_missing(edited, past, db)
+        raise HTTPException(status_code=400, detail=f"Not changed: {_why_short(past, db)}{e.detail}") from e
+    _refuse_if_still_missing(edited, past, db)
+
+
+def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None, db: Session) -> None:
+    """An edit that leaves its row failing its balance check on a missing
+    account is refused by name, as without #368."""
+    if past and edited in past:
+        missing = missing_accounts(edited, known_accounts(db))
+        raise AccountMissing(edited, missing, local_date(edited.timestamp, get_tax_timezone(db)))
 
 
 def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
@@ -852,26 +930,44 @@ def delete_transaction_record(transaction_id: int, db: Session):
     is rebuilt.
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
+    A transaction naming a missing account is deleted past the others that
+    do (#368), so they can be fixed one by one.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
 
+    # One naming a missing account goes even while others like it stop the
+    # replay, or none of them could ever go (#368)
+    past = [] if missing_accounts(tx, known_accounts(db)) else None
     db.delete(tx)
     db.flush()
     try:
-        recalculate_all_transactions(db)
+        recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
         db.rollback()
         if isinstance(e, AccountMissing):
             raise
-        why = "later transactions depend on this one. " if e.status_code == 400 else ""
+        why = _why_short(past, db) if e.status_code == 400 else ""
         raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
     except Exception:
         db.rollback()
         raise
     db.commit()
     return True
+
+
+def _why_short(past: list[Transaction] | None, db: Session) -> str:
+    """Why an edit or a delete leaves a later transaction short of BTC: it
+    needed this one, or a row naming a missing account the replay went past
+    (#368) takes its coins, or gets none where they went."""
+    if not past:
+        return "later transactions depend on this one. "
+    tz = get_tax_timezone(db)
+    rows = [f"{t.id} (a {t.type} of {local_date(t.timestamp, tz).isoformat()})" for t in past]
+    one = len(rows) == 1
+    return MISSING_MAY_BE_WHY.format(
+        rows=("Transaction " if one else "Transactions ") + " and ".join(rows), names="names" if one else "name")
 
 
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
@@ -897,6 +993,8 @@ def lot_holding_period(lot: BitcoinLot, disposed: datetime, tz=timezone.utc) -> 
 
 # Types whose proceeds are derived (net of fees) from the user's gross input
 GROSS_PROCEEDS_TYPES = ("Sell", "Withdrawal")
+# What a disposal does, for its shortage: "Not enough BTC to withdraw …" (#415)
+DISPOSAL_VERBS = {"Sell": "sell", "Withdrawal": "withdraw"}
 
 
 def _record_gross_proceeds(tx_data: dict) -> None:
@@ -1124,7 +1222,7 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     If Deposit/Buy => create a new BitcoinLot if 'to_acct' is BTC.
     If fee is USD for a Buy, add it to cost basis automatically.
     """
-    to_acct = db.get(Account, tx.to_account_id)
+    to_acct = db.get(Account, tx.to_account_id) if tx.to_account_id else None
     if not to_acct or to_acct.currency != "BTC":
         return
 
@@ -1179,7 +1277,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
       at the fee's stored USD value, taxable whatever the purpose. It uses the
       oldest BTC first, then the amount follows.
     """
-    from_acct = db.get(Account, tx.from_account_id)
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
     if not from_acct or from_acct.currency != "BTC":
         return
 
@@ -1211,7 +1309,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     if disposal.remaining_fee + disposal.remaining_amount > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Not enough BTC to {tx.type.lower()} {btc_outflow:.8f} BTC"
+            detail=f"Not enough BTC to {DISPOSAL_VERBS[tx.type]} {btc_outflow:.8f} BTC"
         )
 
     db.flush()
@@ -1583,8 +1681,8 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     BitcoinTX pools, #159) disposes of the fee only: the coins that moved stay
     in their lots, with their dates and basis.
     """
-    from_acct = db.get(Account, tx.from_account_id)
-    to_acct = db.get(Account, tx.to_account_id)
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
+    to_acct = db.get(Account, tx.to_account_id) if tx.to_account_id else None
     if not from_acct or not to_acct:
         return
     if from_acct.currency != "BTC" or to_acct.currency != "BTC":
@@ -1705,7 +1803,8 @@ class _LotMove:
             ))
 
 
-def recalculate_all_transactions(db: Session, until: datetime | None = None):
+def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
+                                 past_missing: list[Transaction] | None = None):
     """
     "Scorched Earth": remove all ledger lines, partial-lot disposals,
     and BitcoinLots. Then re-lot everything in chronological order.
@@ -1714,7 +1813,9 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     snapshot of lots/balances as of that instant (used for year-end
     balances). Callers must run a full recalculation afterwards. A row
     naming a missing account that stops it is refused by name
-    (AccountMissing, #337).
+    (AccountMissing, #337); given a `past_missing` list (an edit or a delete
+    of such a row, #368), it's replayed without the balance check it fails,
+    and added to the list.
     """
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
@@ -1727,15 +1828,17 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
     for rec_tx in all_txs:
-        _replay(rec_tx, db, known)
+        _replay(rec_tx, db, known, past_missing)
 
     db.flush()
 
 
-def _replay(tx: Transaction, db: Session, known: set[int]) -> None:
+def _replay(tx: Transaction, db: Session, known: set[int], past_missing: list[Transaction] | None) -> None:
     """One saved transaction's ledger lines and lots, in the replay. Its
-    balance check failing on a missing account is refused by name; any other
-    refusal (short of BTC, say) stays its own."""
+    balance check failing on a missing account is refused by name, or, with
+    a `past_missing` list, it goes on, as a row naming a missing account
+    that passes its check does, and is added to it (#368). Any other refusal
+    (short of BTC, say) stays its own."""
     _fill_stored_fee_currency(tx, db)
     stored = _stored_inputs(tx)
     build_ledger_entries_for_transaction(tx, stored, db)
@@ -1745,7 +1848,9 @@ def _replay(tx: Transaction, db: Session, known: set[int]) -> None:
         missing = missing_accounts(tx, known)
         if e.status_code != 400 or not missing:
             raise
-        raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
+        if past_missing is None:
+            raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
+        past_missing.append(tx)
     _post_lots(tx, stored, db)
 
 

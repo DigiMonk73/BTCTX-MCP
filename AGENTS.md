@@ -236,9 +236,13 @@ from the Transaction row alone.
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits. The amount tests go in turn (the
   ledger amount, then River's), and within each a transaction of the row's
-  own type first. The user can override a duplicate (`not_a_duplicate`),
-  which frees it only from the transaction it matched: it's checked against
-  the rest, so a resent request doesn't save it twice.
+  own type first. The user can override a duplicate: the AI's row names
+  the transaction the preview matched (`not_a_duplicate_of`), a River row
+  is ticked. That frees it only from that transaction: it's checked against
+  the rest, so a resent request doesn't save it twice (a row that matched
+  another copy is that copy, #378). A named row that check leaves new
+  takes a copy another row holds when that row can take another of its
+  own (`match_by_moving`), never one a row names.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
@@ -453,12 +457,12 @@ from the Transaction row alone.
   Recalculate Ledger, or an import holding a row dated before the ledger's
   latest, which recalculates it: each can move stored figures, #336, #414)
   an AI copy is made (`backups/…-ai-before-changing-…db`; no copy, no
-  change), never for the owner's; it is written under a temporary name and renamed once complete,
-  one at a time, so a failed or unfinished copy never counts as the hour's.
-  Of the AI copies BitcoinTX keeps the newest 3 and, for a week (today and
-  the 6 UTC days before), the oldest and the first copy of each day made
-  before the AI changed anything that day (`migrate._ai_copies_held`): at
-  most 11.
+  change), never for the owner's; it is written under a temporary name and
+  renamed once complete, one at a time, so a failed or unfinished copy never
+  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and,
+  for a week (today and the 6 UTC days before), the oldest and the first
+  copy of each day made before the AI changed anything that day
+  (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. With the
   key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated

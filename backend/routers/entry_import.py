@@ -192,7 +192,8 @@ async def execute_entries(
 ):
     """
     Write rows atomically. Duplicates of a transaction in the ledger
-    (mark_duplicates) are skipped unless the row says not_a_duplicate;
+    (mark_duplicates) are skipped unless the row names the one it isn't
+    (not_a_duplicate_of);
     possible duplicates ARE written: the caller is expected to have removed
     any the user rejected after preview.
     Any invalid row or ledger rejection aborts the whole batch. With the AI

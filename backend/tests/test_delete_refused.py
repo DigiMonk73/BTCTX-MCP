@@ -63,3 +63,12 @@ def test_a_delete_nothing_depends_on_still_recalculates(auth_client, ledger):
     assert balances["Exchange BTC"] == pytest.approx(0.4)
     assert balances["Exchange USD"] == 0
     assert auth_client.get("/api/calculations/gains-and-losses").json()["total_net_capital_gains"] == pytest.approx(5.40)
+
+
+def test_a_withdrawal_short_of_btc_says_withdraw(auth_client, ledger):
+    """#415: the refusal used the type as its verb, "Not enough BTC to
+    withdrawal 0.70000000 BTC"."""
+    spend = dict(type="Withdrawal", timestamp="2023-10-01T16:00:00Z", from_account_id=2, to_account_id=99,
+                 amount="0.7", purpose="Spent", gross_proceeds_usd="100", fee_amount="0", fee_currency="USD")
+    r = auth_client.post("/api/transactions", json=spend)
+    assert (r.status_code, r.json()["detail"]) == (400, "Not enough BTC to withdraw 0.70000000 BTC")

@@ -176,6 +176,11 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
+  read "Not enough BTC to withdrawal 0.70000000 BTC", the type's name in
+  place of the verb; it now reads "Not enough BTC to withdraw …", in the
+  app, the AI connector and the command line. A sale's ("to sell") was
+  right already. The wording only: no figure changes.
 - **A River auto-withdrawal is imported as a move to your wallet, and a
   River mining payout as income** (tax figures, #397, #399). River's
   activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
@@ -207,6 +212,12 @@ All notable changes to BitcoinTX are documented in this file.
   as a mining payout you added by hand. If you filed a return from
   BitcoinTX's figures, such a sale, or income left out, would be in that
   year.
+- **The password forms count characters as the server does** (#405).
+  Create account, Settings' password change and the Mac app's "Choose your
+  username and password" counted an emoji as two characters, so a password
+  of 6 emoji passed the form, then the server refused it with the
+  12-character rule. They now count the way the server does. The server's
+  rule itself is unchanged.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it
@@ -298,10 +309,17 @@ All notable changes to BitcoinTX are documented in this file.
   - an account that transactions name can't be deleted ("Not deleted: 1
     transaction names Old wallet…").
 
-  **What to do:** edit each into one of your accounts, or delete it. With
-  more than one that stops saves, each stops the others' fix, and for now
-  they need fixing outside the app (#368). No figure changes: the ledger
-  replays as before, and only the message differs.
+  **What to do:** edit each into one of your accounts, or delete it, one
+  at a time. With more than one that stops saves, each edit or delete of
+  one was refused too, naming another, so none could be fixed in the app
+  (#368). Now an edit or a delete of such a transaction goes on past the
+  others, replaying them as BitcoinTX replays one that doesn't stop saves;
+  they still stop every other save, by name, until they're fixed. If that
+  leaves a later transaction short of BTC, the refusal names the others it
+  went past: fix the one that's why first. Until the last is fixed, the figures
+  (Form 8949, the dashboard) can be off: fix them all before relying on a
+  report. No figure changes for a ledger without them: it replays as
+  before, and only the message differs.
 - **Text that isn't text is refused, not a server error** (#313). A JSON
   string can hold a lone surrogate (`"\ud800"`): JSON allows it, but it
   isn't a character and can't be saved. Sent in a transaction's purpose, an
@@ -393,6 +411,18 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **A transaction you told the AI is another one is saved once, even if
+  the request is sent again** (tax figures, #378). When you told the AI
+  that a duplicate was another transaction, a second send of the same
+  request (a retry after a timeout, say) could save extra copies: with two
+  or three identical rows marked that way, one after an identical row that
+  wasn't, or one beside the same payout given as a date alone. Now the AI
+  names the transaction the row isn't (the one the preview matched,
+  `not_a_duplicate_of`, as River's import already keeps its matches), so a
+  request sent again finds the copies the first one saved. (A row not
+  marked can still be saved again beside the same payout given as a date
+  alone: #411.) **Affected:** no release: telling the AI a duplicate is
+  another transaction is new in this version (#253). Nothing to do.
 - **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
@@ -531,6 +561,19 @@ All notable changes to BitcoinTX are documented in this file.
   transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
+- **The CSV import's Preview says when a row needs a price BitcoinTX can't
+  get** (#125). Preview called a row valid that Import then refused for want
+  of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
+  inherited deposit without its basis, or a Spent without its proceeds,
+  when no price for that day was stored and none could be asked for (no
+  price source chosen, or Nobody, or a day before any price or after
+  today). Preview now
+  lists such a row as an error naming the value to fill. A price BitcoinTX
+  may still ask for is left to the import, as before. Nothing was ever saved
+  wrong: the import refused the whole file and said why. **Affected:** every
+  version since 1.1.0 (where nothing is asked for prices until a source is
+  chosen, nor with Nobody), and every version for a day before any price or
+  after today. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
