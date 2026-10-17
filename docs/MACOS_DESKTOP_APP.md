@@ -267,7 +267,7 @@ running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md
 On every pull request, every push to `develop` or `main`, or manually from the Actions tab, `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
 sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the
-newest in the test matrix, which tests it; Docker and StartOS run 3.11. It
+newest in the test matrix, which tests it; Docker and StartOS run 3.13 too. It
 never takes whichever Python the runner has. It launches the bundled binary,
 checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the

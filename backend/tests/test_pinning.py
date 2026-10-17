@@ -61,7 +61,7 @@ def test_docker_base_images_are_pinned_by_digest():
     loose = [line for line in froms if not FROM.match(line)]
     assert froms and loose == [], (
         "each FROM starts the line (Dependabot skips an indented one) and pins "
-        f"tag and digest, python:3.11-slim@sha256:…: {loose}"
+        f"tag and digest, python:3.13-slim@sha256:…: {loose}"
     )
 
 
