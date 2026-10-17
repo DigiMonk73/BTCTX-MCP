@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.models.account import Account
@@ -58,6 +60,8 @@ from backend.constants import (
     VALUED_AT_RECEIPT,
     normalized,
 )
+
+logger = logging.getLogger(__name__)
 
 # Matched case-insensitively.
 VALID_TYPES = {"deposit", "withdrawal", "transfer", "buy", "sell"}
@@ -893,6 +897,20 @@ def _default_fee_currency(tx_type: str, from_account_id: int | None = None) -> s
     if from_account_id in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD):
         return "USD"
     return "BTC"
+
+
+def is_busy(error: Exception) -> bool:
+    """Whether SQLite's write lock was held past the 5 s wait: SQLite's own
+    message, never a query's parameters, says so."""
+    return isinstance(error, OperationalError) and "locked" in str(error.orig)
+
+
+def log_unexpected(what: str, error: Exception) -> None:
+    """An import's unexpected failure in the log: its type, its trace only at
+    DEBUG, where whole rows already are, since its text can hold a
+    transaction's date and dates stay out of the normal log (#204)."""
+    logger.error("%s failed: %s", what, type(error).__name__)
+    logger.debug("%s failed", what, exc_info=error)
 
 
 def check_database_empty(db: Session) -> tuple[bool, int]:

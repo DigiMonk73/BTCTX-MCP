@@ -1,11 +1,11 @@
 """
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
-first change in an hour (an edit, a deletion or a recalculation) BitcoinTX
-makes one itself, and the pruning keeps the newest 3 and, for the last 7 UTC
-days, the oldest and the first made before a change each day. So for a week
-the AI copies hold the ledger from before each day's changes, however many
-copies are asked for next. The copies the AI asks for are tested in
-test_ai_key.py too.
+first change in an hour (an edit, a deletion, a recalculation, or an import
+that recalculates) BitcoinTX makes one itself, and the pruning keeps the
+newest 3 and, for the last 7 UTC days, the oldest and the first made before
+a change each day. So for a week the AI copies hold the ledger from before
+each day's changes, however many copies are asked for next. The copies the
+AI asks for are tested in test_ai_key.py too.
 """
 
 import os
@@ -286,6 +286,74 @@ def test_no_copy_no_recalculation(ledger, monkeypatch):
     assert (r.status_code, r.json()["detail"]) == (
         500, "Not recalculated: BitcoinTX couldn't make its copy of the database first.")
     assert ledger_lines(path) == 0
+
+
+# Imports (#414): one holding a row dated before the ledger's latest recalculates it, so it comes after a copy
+IMPORT = "/api/import/entries/execute"
+
+
+def entry(date: str) -> dict:
+    return {"date": f"{date}T17:00:00Z", "type": "Deposit", "amount": "500", "from_account": "External",
+            "to_account": "Bank", "source": "N/A"}
+
+
+def test_an_ai_import_dated_before_the_latest_comes_after_a_copy(ledger):
+    path, ids, owner, ai = ledger
+    figures_out_of_date(path)
+    r = ai.post(IMPORT, json={"rows": [entry("2024-04-15"), entry("2024-01-20")]})
+    assert r.status_code == 200, r.text
+    [copy] = made_before_changing(path)
+    assert set(amounts(copy)) == set(ids) and ledger_lines(copy) == 0
+    assert len(amounts(path)) == 5 and ledger_lines(path) > 0
+
+
+def test_an_ai_import_after_the_latest_makes_no_copy(ledger):
+    """Nothing saved is recalculated: no copy, as before."""
+    path, ids, owner, ai = ledger
+    r = ai.post(IMPORT, json={"rows": [entry("2024-03-15"), entry("2024-04-15")]})  # the latest's date, then later
+    assert r.status_code == 200, r.text
+    assert backup_copies(path, "ai") == []
+
+
+def test_a_duplicate_left_out_counts_for_nothing(ledger):
+    """A row dated before the latest that isn't saved (a repeat of one in
+    the ledger, left out) recalculates nothing."""
+    path, ids, owner, ai = ledger
+    repeat = {**entry("2024-01-15"), "amount": "1000"}  # DEPOSITS[0]
+    r = ai.post(IMPORT, json={"rows": [repeat, entry("2024-04-15")]})
+    assert (r.status_code, r.json()["skipped_duplicates"]) == (200, 1), r.text
+    assert backup_copies(path, "ai") == []
+
+
+def test_one_copy_an_hour_across_imports_and_edits(ledger):
+    path, ids, owner, ai = ledger
+    assert ai.post(IMPORT, json={"rows": [entry("2024-01-20")]}).status_code == 200
+    assert ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"}).status_code == 200
+    [first] = made_before_changing(path)
+
+    age(first, 3601)
+    assert ai.post(IMPORT, json={"rows": [entry("2024-02-20")]}).status_code == 200
+    second, older = made_before_changing(path)
+    assert older == first and len(amounts(second)) == 4
+
+
+def test_the_owners_import_makes_no_copy(ledger):
+    path, ids, owner, ai = ledger
+    assert owner.post(IMPORT, json={"rows": [entry("2024-01-20")]}).status_code == 200
+    assert backup_copies(path, "ai") == []
+
+
+def test_no_copy_no_import(ledger, monkeypatch):
+    path, ids, owner, ai = ledger
+
+    def full_disk(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(tx_router, "backup_sqlite", full_disk)
+    r = ai.post(IMPORT, json={"rows": [entry("2024-01-20")]})
+    assert (r.status_code, r.json()["detail"]) == (
+        500, "Not added: BitcoinTX couldn't make its copy of the database first.")
+    assert set(amounts(path)) == set(ids)
 
 
 # A copy that fails, and a change while the copy is being written

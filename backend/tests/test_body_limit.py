@@ -9,18 +9,20 @@ for a logged-in owner's request only.
 """
 
 import asyncio
+import io
 import json
 import time
 from base64 import b64encode
 
 import itsdangerous
 import pytest
+from fastapi import HTTPException, UploadFile
 
 from backend.body_limit import FORM_ROOM, MAX_BODY_BYTES, too_large
 from backend.main import SECRET_KEY, SESSION_COOKIE, SESSION_MAX_AGE, app
 from backend.routers import backup
 from backend.routers.backup import RESTORE_TOO_LARGE
-from backend.routers.csv_import import MAX_FILE_SIZE
+from backend.routers.csv_import import MAX_FILE_SIZE, _read_validated_csv
 from backend.services.csv_import import CSV_COLUMNS
 from backend.tests.conftest import default_login
 
@@ -166,6 +168,21 @@ def test_a_csv_import_keeps_its_own_limit_and_words(auth_client):
 
     r = auth_client.post("/api/import/preview", files={"file": ("big.csv", at_limit + b"x", "text/csv")})
     assert r.status_code == 400 and r.json()["detail"] == "File too large. Maximum size is 5MB."
+
+
+def test_an_upload_is_read_only_up_to_its_limit():
+    """#204: the CSV and River imports read the whole upload (spooled by
+    Starlette) before the 5 MB check; now at most the limit and one byte."""
+    class Spool(io.BytesIO):
+        def read(self, size=-1):
+            reads.append(size)
+            return super().read(size)
+
+    reads = []
+    upload = UploadFile(Spool(b"x" * (MAX_FILE_SIZE + 4096)), filename="big.csv")
+    with pytest.raises(HTTPException) as refused:
+        _read_validated_csv(upload)
+    assert refused.value.status_code == 400 and reads == [MAX_FILE_SIZE + 1]
 
 
 def test_a_busy_database_answers_busy_not_too_large(auth_client, monkeypatch):
