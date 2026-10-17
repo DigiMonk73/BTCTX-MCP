@@ -27,7 +27,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT
+from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -205,11 +205,11 @@ def _autofill_target(tx_data: dict[str, Any]) -> str | None:
     """
     tx_type = tx_data["type"]
     if tx_type == "Deposit" and tx_data["to_account_id"] in BTC_ACCOUNTS:
-        source = (tx_data.get("source") or "").lower()
+        source = normalized(tx_data.get("source"))
         if source in VALUED_AT_RECEIPT and tx_data.get("cost_basis_usd") is None:
             return "cost_basis_usd"
     elif tx_type == "Withdrawal" and tx_data["from_account_id"] in BTC_ACCOUNTS:
-        purpose = (tx_data.get("purpose") or "").lower()
+        purpose = normalized(tx_data.get("purpose"))
         if purpose == "spent" and tx_data.get("proceeds_usd") is None:
             return "proceeds_usd"
         if purpose in GIFT_LIKE_PURPOSES and tx_data.get("fmv_usd") is None:
@@ -238,7 +238,7 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
         if target is None:
             continue
         # An inheritance is valued on the date of death (#154), anything else at its own time
-        inherited = target == "cost_basis_usd" and str(p.tx_data.get("source") or "").lower() == INHERITED_SOURCE
+        inherited = target == "cost_basis_usd" and normalized(p.tx_data.get("source")) == INHERITED_SOURCE
         when = (p.tx_data.get("acquired_at") if inherited else None) or p.tx_data["timestamp"]
         key = ("day", date_of_death(when, db)) if inherited else ("hour", hourly_prices.hour_of(when))
         if key not in price_cache:

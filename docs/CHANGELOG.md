@@ -151,6 +151,36 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **An old gift, donation or lost coins saved with spaces in its purpose is
+  no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
+  withdrawal's purpose and a deposit's source as typed (and a source it
+  didn't list yet, such as `" rebate "` or `" inherited "`, until 1.1.0),
+  so an old ledger can hold `" gift "` or `" Income "`. The screens read
+  those as Gift and Income, but the figures didn't:
+  - a bitcoin withdrawal of `" gift "`, `" donation "` or `" lost "`
+    counted as a sale on Form 8949 (at $0 when nothing was recorded as
+    received, so its whole basis showed as a loss), and was missing from
+    the tax report's gifts;
+  - a deposit of `" Income "`, `" Interest "` or `" Reward "` was left out
+    of the income totals, `" rebate "` out of the rebates, and an
+    `" inherited "` one was missed by Ledger Review's checks of Inherited
+    deposits (it was already long-term).
+
+  Every version through 1.2.8. Now each counts as its listed spelling,
+  everywhere, and the tax report prints that spelling. An old `" spent "`
+  works differently: versions through 1.2.8 didn't count it as Spent, so
+  it counts as the entry on purposes BitcoinTX doesn't know (#61, below)
+  describes, and the change shows in Ledger Review's "Figures that
+  Recalculate Ledger would change". With nothing recorded as received,
+  Ledger Review also lists it among withdrawals whose purpose it doesn't
+  know. **Affected:** only
+  ledgers started before 0.9.2 (or 1.1.0, for those two sources) that hold
+  such a row; Gift, `"GIFT"` and blank always counted the same on the
+  screens and in the figures.
+  **What to do:** Ledger Review's "figures a recalculation would change"
+  shows what moves. Then Recalculate Ledger (any edit or delete does it
+  too). If you filed a return from BitcoinTX's figures, a gift, donation or
+  loss listed there as a sale, or income left out, would be in that year.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved

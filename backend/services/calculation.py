@@ -11,7 +11,7 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
-from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE
+from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE, normalized
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
@@ -171,7 +171,7 @@ def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
         tx_type = tx.type.lower()
         if tx_type == "sell":
             totals["sell"] += Decimal(str(tx.proceeds_usd))
-        elif tx_type == "withdrawal" and ((tx.purpose or "").lower() == "spent" or counts_as_spent(tx)):
+        elif tx_type == "withdrawal" and (normalized(tx.purpose) == "spent" or counts_as_spent(tx)):
             totals["spent"] += Decimal(str(tx.proceeds_usd))
     return totals
 
@@ -181,7 +181,7 @@ def _deposits_by_source(transactions: list[Transaction]) -> tuple[dict[str, Deci
     usd = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     btc = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     for tx in transactions:
-        source = (tx.source or "").lower()
+        source = normalized(tx.source)
         # Into Wallet or Exchange BTC only: a USD deposit's amount is dollars
         if tx.type.lower() != "deposit" or source not in usd or tx.to_account_id not in BTC_ACCOUNTS:
             continue

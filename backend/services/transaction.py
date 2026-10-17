@@ -35,6 +35,7 @@ from backend.constants import (
     INHERITED_SOURCE,
     ORIGINAL_DATE_SOURCES,
     VALUED_AT_RECEIPT,
+    normalized,
 )
 
 CENT = Decimal("0.01")
@@ -154,7 +155,7 @@ def _price_moment(data) -> str | None:
 
 def _is_spent(data: dict) -> bool:
     kind = getattr(data.get("type"), "value", data.get("type"))
-    return kind == "Withdrawal" and (data.get("purpose") or "").lower() == "spent"
+    return kind == "Withdrawal" and normalized(data.get("purpose")) == "spent"
 
 
 def counts_as_spent(tx: Transaction) -> bool:
@@ -166,16 +167,32 @@ def counts_as_spent(tx: Transaction) -> bool:
     rule, #61); Ledger Review lists those until the owner chooses.
     """
     return tx.type == "Withdrawal" and tx.from_account_id in BTC_ACCOUNTS \
-        and (tx.purpose or "").lower() not in GIFT_LIKE_PURPOSES
+        and normalized(tx.purpose) not in GIFT_LIKE_PURPOSES
 
 
-def _received_known(tx: Transaction) -> bool:
+def received_known(tx: Transaction) -> bool:
     """Whether what a withdrawal counted as Spent received is known: a
     Spent's always is (typed, or priced), one of unknown purpose only when an
     amount above $0 is recorded (#61). Until then it stays as it was, a $0
     sale with its fee at its value, and no 0 is written over what's stored
-    (#329)."""
-    return (tx.purpose or "").lower() == "spent" or Decimal(tx.gross_proceeds_usd or 0) > 0
+    (#329). Spent here is the spelling versions 0.8.0 to 0.9.1 matched
+    (_spent_as_matched): an old " spent " (#342) is known only as an
+    unknown purpose is."""
+    return _spent_as_matched(tx) or Decimal(tx.gross_proceeds_usd or 0) > 0
+
+
+def _spent_as_matched(tx: Transaction) -> bool:
+    """Spent in any case, without trimming: the purpose 0.8.0 to 0.9.1 took
+    a BTC fee offset off, and priced a missing amount for. To them " spent "
+    was a purpose they didn't know, so recovering its gross follows the
+    unknown purpose's rules (#61, #329), not a Spent's."""
+    return (tx.purpose or "").lower() == "spent"
+
+
+def listed_spelling(value, choices) -> str | None:
+    """A saved purpose or source in its listed spelling (" gift " is Gift),
+    as the screens show it (#342); other text as saved."""
+    return _canonical(value, choices) or value
 
 
 def _is_gift_like(data) -> bool:
@@ -183,7 +200,7 @@ def _is_gift_like(data) -> bool:
     get = data.get if isinstance(data, dict) else lambda key: getattr(data, key)
     kind = getattr(get("type"), "value", get("type"))
     return kind == "Withdrawal" and get("from_account_id") in BTC_ACCOUNTS \
-        and (get("purpose") or "").lower() in GIFT_LIKE_PURPOSES
+        and normalized(get("purpose")) in GIFT_LIKE_PURPOSES
 
 
 def _gift_value_at(amount, when: datetime, db: Session) -> tuple[Decimal, str] | None:
@@ -549,7 +566,7 @@ def _income_inputs_changed(tx: Transaction, tx_data: dict, db: Session) -> bool:
         if key in tx_data and getattr(tx_data[key], "value", tx_data[key]) != getattr(tx, key):
             return True
     if "source" in tx_data and tx_data["source"] != tx.source \
-            and (tx.source or "").lower() not in VALUED_AT_RECEIPT:
+            and normalized(tx.source) not in VALUED_AT_RECEIPT:
         return True
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
@@ -917,13 +934,13 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     if tx.gross_proceeds_usd is not None:
         return Decimal(tx.gross_proceeds_usd)
 
-    purpose = (tx.purpose or "").lower()
     amount = Decimal(tx.amount or 0)
-    if purpose in GIFT_LIKE_PURPOSES:
+    if normalized(tx.purpose) in GIFT_LIKE_PURPOSES:
         # Gift/Donation/Lost have no proceeds. Their stored proceeds_usd is the
         # network fee's (its own disposal), never a gross to recover.
         return Decimal("0")
-    if purpose != "spent" and Decimal(tx.proceeds_usd or 0) <= 0:
+    spent = _spent_as_matched(tx)  # the spelling the offset and the pricing went by
+    if not spent and Decimal(tx.proceeds_usd or 0) <= 0:
         return Decimal("0")
     if tx.proceeds_usd is None:
         priced = _price_for(tx, "it has no Proceeds (USD) value", db)
@@ -933,7 +950,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     else:
         gross = Decimal(tx.proceeds_usd)
         has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
-        if purpose == "spent" and has_btc_fee and gross > 0 and amount > 0:
+        if spent and has_btc_fee and gross > 0 and amount > 0:
             gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
 
     tx.gross_proceeds_usd = gross
@@ -1176,11 +1193,11 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     # Gift/Donation/Lost => no gain or loss on the amount: not a sale, and
     # not on Form 8949 (form_8949.NON_TAXABLE_PURPOSES); the dashboard and
     # the tax report's summary leave it out too (owner decision 2026-09-26).
-    not_a_sale = tx.type == "Withdrawal" and (tx.purpose or "").lower() in GIFT_LIKE_PURPOSES
+    not_a_sale = tx.type == "Withdrawal" and normalized(tx.purpose) in GIFT_LIKE_PURPOSES
     if not_a_sale:
         total_proceeds = Decimal("0")
     fee_usd = _stored_fee_usd(tx, fee_btc, db) if (tx.type == "Withdrawal" and fee_btc > 0) else Decimal("0")
-    if counts_as_spent(tx) and _received_known(tx):
+    if counts_as_spent(tx) and received_known(tx):
         total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
@@ -1358,12 +1375,12 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     tx.cost_basis_usd = total_basis
     tx.realized_gain_usd = total_gain
 
-    purpose = (tx.purpose or "").lower()
+    purpose = normalized(tx.purpose)
     if tx.type == "Withdrawal" and purpose in GIFT_LIKE_PURPOSES:
         # No proceeds for the amount (its fee's are tx.fee_usd): a Spent
         # edited into a Gift kept its old proceeds, printed with the gifts.
         tx.proceeds_usd = None
-    elif total_proceeds > 0 or (counts_as_spent(tx) and _received_known(tx)):
+    elif total_proceeds > 0 or (counts_as_spent(tx) and received_known(tx)):
         # A spend whose fee took all it brought in has 0 (#157), not the
         # gross. One counted as Spent with nothing recorded (an old ledger's
         # unknown purpose, #61) keeps what's stored: never 0 written over an
@@ -1509,13 +1526,13 @@ def date_of_death_price(db: Session, when: date | datetime) -> hourly_prices.Pri
 
 def _valued_at_receipt(tx_data: dict, db: Session) -> bool:
     """A deposit with source Income, Interest, Reward, Rebate or Inherited into a BTC account."""
-    if tx_data.get("type") != "Deposit" or (tx_data.get("source") or "").lower() not in VALUED_AT_RECEIPT:
+    if tx_data.get("type") != "Deposit" or normalized(tx_data.get("source")) not in VALUED_AT_RECEIPT:
         return False
     return _into_btc(tx_data, db)
 
 
 def _is_inherited(tx_data: dict) -> bool:
-    return str(tx_data.get("source") or "").strip().lower() == INHERITED_SOURCE
+    return normalized(tx_data.get("source")) == INHERITED_SOURCE
 
 
 def _into_btc(tx_data: dict, db: Session) -> bool:
@@ -2117,13 +2134,13 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
     # it's sold. Income and rebates are valued at the hour's price instead
     # (_value_at_receipt).
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
-            and (data.get("source") or "").lower() not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
+            and normalized(data.get("source")) not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
 
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:
     return tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
-        and str(source or "").strip().lower() in ORIGINAL_DATE_SOURCES
+        and normalized(source) in ORIGINAL_DATE_SOURCES
 
 
 def original_date_name(source: str | None) -> str:
@@ -2139,7 +2156,7 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
     no earlier than the day Bitcoin began and no later than the deposit's
     day in the tax timezone (deposit None: not compared).
     """
-    if not (tx_type == "Deposit" and into_btc and (source or "").lower() in ORIGINAL_DATE_SOURCES):
+    if not (tx_type == "Deposit" and into_btc and normalized(source) in ORIGINAL_DATE_SOURCES):
         return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
                 "death, into Wallet or Exchange BTC.")
     what = original_date_name(source)

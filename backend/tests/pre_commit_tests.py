@@ -390,7 +390,7 @@ def test_form_8949_excludes_nontaxable() -> bool:
 
     # Check for NON_TAXABLE_PURPOSES constant and filter
     has_nontaxable_const = "NON_TAXABLE_PURPOSES" in content
-    has_purpose_filter = "Transaction.purpose" in content and "Gift" in content
+    has_purpose_filter = "normalized(tx.purpose)" in content and "Gift" in content
 
     passed = has_nontaxable_const and has_purpose_filter
     details = "" if passed else "Missing filter for Gift/Donation/Lost disposals"

@@ -19,7 +19,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS
+from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS, normalized
 from backend.models.account import Account
 from backend.models.transaction import Transaction
 from backend.services.reports.pdf_layout import (
@@ -141,7 +141,7 @@ def _map_tx_type(tx: Transaction) -> str:
         # A deposit into Bank or Exchange USD is dollars, never income
         if tx.to_account_id not in BTC_ACCOUNTS:
             return "Deposit"
-        return SOURCE_LABELS.get((tx.source or "").lower(), "Deposit")
+        return SOURCE_LABELS.get(normalized(tx.source), "Deposit")
     if tx.type in ("Sell", "Withdrawal"):
         return "Sell/Withdrawal"
     return tx.type

@@ -52,6 +52,7 @@ from backend.constants import (
     BTC_ACCOUNTS,
     INHERITED_SOURCE,
     VALUED_AT_RECEIPT,
+    normalized,
 )
 
 # Matched case-insensitively.
@@ -506,7 +507,7 @@ def _fee_usd_fields(row: _Row, fee_currency: str | None, warnings: list[CSVParse
 def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     if row.fmv_usd is None:
         return {}
-    if row.tx_type == "Withdrawal" and (row.purpose or "").lower() in GIFT_LIKE_PURPOSES:
+    if row.tx_type == "Withdrawal" and normalized(row.purpose) in GIFT_LIKE_PURPOSES:
         # "no" in fmv_typed: the value came from the price (#255), so an edit prices it again
         return {"fmv_usd": row.fmv_usd, **({"fmv_from_price": True} if row.fmv_typed == "no" else {})}
     warnings.append(_warning(row.number, "fmv_usd", "fmv_usd is ignored: it is for Gift, Donation and Lost withdrawals."))
@@ -755,13 +756,13 @@ def _deposit_rules(row: _Row):
     yield from _fee_currency_rules(row)
     source = row.source
     into_btc = row.to_id in BTC_ACCOUNTS
-    if source and source.lower() not in {c.lower() for c in DEPOSIT_SOURCES}:
+    if source and normalized(source) not in {c.lower() for c in DEPOSIT_SOURCES}:
         yield _error(row.number, "source", DEPOSIT_SOURCE_UNKNOWN)
         return
-    if into_btc and (source or "").lower() == INHERITED_SOURCE and row.acquired_at is None:
+    if into_btc and normalized(source) == INHERITED_SOURCE and row.acquired_at is None:
         yield _error(row.number, "acquired_at", INHERITED_NEEDS_DATE)
-    if not row.cost_basis_usd and source and source.lower() in VALUED_AT_RECEIPT and into_btc:
-        valued_as = _VALUED_AS.get(source.lower(),
+    if not row.cost_basis_usd and source and normalized(source) in VALUED_AT_RECEIPT and into_btc:
+        valued_as = _VALUED_AS.get(normalized(source),
                                    "that hour's BTC price (its market value at receipt, which is also the income)")
         yield _warning(
             row.number, "cost_basis_usd",
@@ -776,7 +777,7 @@ def _withdrawal_rules(row: _Row):
     yield from _fee_currency_rules(row)
     if row.from_id not in BTC_ACCOUNTS:
         return
-    purpose = (row.purpose or "").lower()
+    purpose = normalized(row.purpose)
     if purpose not in ("spent", "gift", "donation", "lost"):
         yield _error(row.number, "purpose", "A BTC withdrawal needs a purpose: Spent, Gift, Donation or Lost.")
     if purpose == "spent" and row.proceeds_usd is None:

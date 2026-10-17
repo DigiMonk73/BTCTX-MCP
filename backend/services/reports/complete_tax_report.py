@@ -28,6 +28,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
+from backend.constants import normalized
 from backend.services.reports.pdf_layout import (
     ACCENT, ACCENT_SOFT, DISCLAIMER, FONT, FOOTER_NOTE, INK, RULE, ReportStyles, data_table, draw_footer_note,
     draw_running_header, numbered_canvas,
@@ -464,7 +465,7 @@ class _TaxReport:
                              "of their own; a network fee paid with them is a disposal (section 2).")
         if not self.gifts:
             return story + [self.nothing("gifts, donations or lost coins")]
-        if any((g.get("type") or "").lower() == "donation" for g in self.gifts):
+        if any(normalized(g.get("type")) == "donation" for g in self.gifts):
             story.append(self.text(
                 "A deduction for donated bitcoin over $5,000 needs a qualified appraisal (IRS digital asset FAQ, "
                 "Q78): the values here don't replace it.", self.styles.note))
