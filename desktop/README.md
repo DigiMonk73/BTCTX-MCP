@@ -10,8 +10,8 @@ this folder is for building it yourself.
 ## Prerequisites
 
 - macOS
-- Python 3.10+ (e.g. `brew install python@3.11`)
-- Node.js with npm (CI uses Node 22)
+- Python 3.10+ (e.g. `brew install python@3.13`)
+- Node.js with npm (CI uses Node 24)
 
 Nothing else: IRS forms are filled in pure Python (pypdf).
 

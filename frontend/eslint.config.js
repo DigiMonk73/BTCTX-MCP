@@ -1,11 +1,12 @@
 import js from '@eslint/js'
+import { defineConfig, globalIgnores } from 'eslint/config'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
-export default tseslint.config(
-  { ignores: ['dist', 'playwright-report', 'test-results'] },
+export default defineConfig(
+  globalIgnores(['dist', 'playwright-report', 'test-results']),
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['src/**/*.{ts,tsx}', '*.ts'],
@@ -19,6 +20,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // One of react-hooks 7's React Compiler checks, off: the screens set
+      // state from an effect, to load their data and to reset or derive
+      // state when something changes (nine places). Rewriting that is for
+      // 2.0's screens with React 19 (docs/MAINTENANCE.md, "Deferred
+      // upgrades"), not a tools upgrade (#425); the other new checks stay on.
+      'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

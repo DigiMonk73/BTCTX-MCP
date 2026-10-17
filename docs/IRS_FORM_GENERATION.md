@@ -293,8 +293,7 @@ The endpoint then concatenates the flattened PDFs with pypdf.
 |---|---|
 | HTTP 400 `Tax year YYYY not supported. Available years: [...]` | No `backend/assets/irs_templates/YYYY/` folder with both PDFs (nor a draft of it: the shipped preview until January 1 after its year, or a test install's). |
 | A draft year isn't offered | The shipped preview stops on January 1 after its year (update for the final forms). Otherwise the log says why (`IRS draft forms in ... left out: ...`): not the IRS's draft of that year, or a field the app writes is missing. |
-| HTTP 500 `IRS report generation failed: N field(s) not in .../f8949.pdf ...` | A field name in the config doesn't exist in that year's template (template swapped, or config wrong). See [IRS_ANNUAL_FORM_UPDATE.md, Step 4](IRS_ANNUAL_FORM_UPDATE.md#step-4--if-field-names-changed). |
-| HTTP 500 `... Box X is not in Part I of the YYYY Form 8949` | `_determine_box()` returned a letter that the year's `boxes_part1` / `boxes_part2` doesn't have. |
+| HTTP 500 `The IRS forms couldn't be made: …`, and the log `IRS forms for YYYY failed: ValueError` | The error's own text is only in the trace, at `LOG_LEVEL=DEBUG` (#422). `N field(s) not in .../f8949.pdf ...`: a field name in the config doesn't exist in that year's template (template swapped, or config wrong); see [IRS_ANNUAL_FORM_UPDATE.md, Step 4](IRS_ANNUAL_FORM_UPDATE.md#step-4--if-field-names-changed). `Box X is not in Part I of the YYYY Form 8949`: `_determine_box()` returned a letter that the year's `boxes_part1` / `boxes_part2` doesn't have. |
 | Tests fail with `templates are present but get_8949_field_config has not been verified for YYYY` | A new year folder was added without signing it off in `verified_years`. See the runbook. |
 
 ## Tests

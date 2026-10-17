@@ -1,6 +1,6 @@
 # The frontend is built on the build machine's own architecture: the output
 # is static files, so a multi-arch build doesn't run npm under emulation.
-FROM --platform=$BUILDPLATFORM node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS frontend-builder
 
 WORKDIR /app/frontend
 # The manifests first, so a source-only change reuses the npm ci layer.
@@ -9,7 +9,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce AS backend
+FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f AS backend
 
 # Unbuffered, so log lines reach `docker logs` (and StartOS) as they happen.
 ENV PYTHONUNBUFFERED=1

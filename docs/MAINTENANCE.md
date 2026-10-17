@@ -78,7 +78,7 @@ it changes only by pull request:
   connector under test install without hashes.
 - JavaScript: `frontend/package-lock.json` and `startos/package-lock.json`
   (`npm ci` installs exactly what they hold).
-- Docker base images: tag and digest (`python:3.11-slim@sha256:…`).
+- Docker base images: tag and digest (`python:3.13-slim@sha256:…`).
 - GitHub Actions: a full commit SHA with the release as a comment
   (`actions/checkout@<sha> # v7.0.1`): a tag can be moved, a commit can't.
 - The exception is the AI connector (`mcp_server/pyproject.toml`): it is
@@ -88,7 +88,7 @@ it changes only by pull request:
   backend takes a capped range too (`setuptools>=77,<85`); the release
   builds with the locked setuptools, which must stay inside it.
 
-The CI runtimes (`python-version: "3.11"`, `node-version: 22`) and GitHub's
+The CI runtimes (`python-version: "3.13"`, `node-version: 24`) and GitHub's
 runner images follow their release line. Dependabot proposes the updates
 (below). The Mac build uses the `pip` its venv comes with and installs no
 `wheel`; proxy-tools (under pywebview), published only as source, is built
@@ -135,7 +135,7 @@ one grouped PR per directory for minor and patch updates (`backend/`,
 `mcp_server/`, `desktop/`, `.github/release-tools/`, the dev tools in
 `requirements-dev.txt`, `frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
 in `.github/workflows/`, and one per Dockerfile base image when its tag gets
-a new build (Python 3.11 and Node 22 themselves change only on purpose).
+a new build (Python 3.13 and Node 24 themselves change only on purpose).
 CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
 merge into `develop`. Nothing reaches `main` before a release.
@@ -151,8 +151,9 @@ merge into `develop`. Nothing reaches `main` before a release.
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
   bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"; the SDK brings
-  TypeScript and the other build tools). Docker: Python minor and major versions and Node majors, so the
-  base images stay `3.11-slim` and `22-slim` and only their digests move.
+  TypeScript and the other build tools). npm: `@types/node` majors too, since
+  it moves with the Node that Docker and CI run. Docker: Python minor and major versions and Node majors, so the
+  base images stay `3.13-slim` and `24-slim` and only their digests move.
 - The locked directories (`backend/`, `desktop/`, `.github/release-tools/`)
   are `uv` entries: Dependabot edits the pin in `requirements.in` and
   recompiles `requirements.txt` with the command in its header (so the
@@ -253,7 +254,9 @@ From `backend/requirements.in`:
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. 6.168.5 is the last for Python 3.10 (see below) |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
-ESLint 9, axios 1.20, lucide-react. Docker frontend build and CI use Node 22.
+ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
+`frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
+Docker frontend build and CI use Node 24.
 `@playwright/test` is pinned exactly to match the browsers preinstalled in
 cloud sessions (see `docs/TESTING.md`): don't bump it on its own. start-sdk:
 see `startos/UPDATING.md`.
@@ -267,9 +270,8 @@ take the upgrade.
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `eslint` | 10.x | Major (eslintrc removal, Node ≥ 20.19) | Move together with `eslint-plugin-react-hooks` 7.x, whose preset shapes our flat config uses |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass |
-| `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.11 or later (Docker and StartOS 3.11, the Mac app 3.13, pinned and tested, #284) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
+| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
+| `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.13 (Docker, StartOS and the Mac app, pinned and tested, #284, #425) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
 | `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it). #294 | No CI job installs `requirements-dev.txt` on Python 3.10: not before SQLAlchemy 2.1, and not while a 3.10 job for the connector alone remains |
 
 ---
