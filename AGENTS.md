@@ -87,12 +87,10 @@ add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` have passed
 ("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required). The owner chose on
-2026-10-17 to require too that a branch be up to date with `develop`
-("Require branches to be up to date before merging"), so a pull
-request's checks have run on everything already merged; until it's
-switched on, whoever merges does that by hand ("Pull requests"; during
-big work, the lead's queue).
+dependency audit, which run but aren't required), on a branch that's up
+to date with `develop` ("Require branches to be up to date before
+merging", on since 2026-10-17, the owner's choice), so a pull request's
+checks have run on everything already merged.
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from
@@ -807,10 +805,8 @@ Dependabot pull request: comment
 "@dependabot rebase" instead, since Dependabot stops maintaining a
 branch once anyone else commits to it, and it rewrites only its own
 branch) and merges only once its checks pass again: auto-merge never
-updates a branch by itself. Until "Protect develop" requires it
-("Branches"), auto-merge doesn't check it either: it merges a branch that
-falls behind while its checks run, so only one pull request waits on
-auto-merge at a time. During big work the lead does all of this
+updates a branch by itself, and GitHub refuses to merge one that's behind
+("Branches"). During big work the lead does all of this
 ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
 These pull requests get auto-merge only after the owner's "merge" in chat:
