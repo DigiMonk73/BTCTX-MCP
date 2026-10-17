@@ -75,10 +75,11 @@ moves these breaks or silently weakens a test):
   valuation and the report's holdings go through that module name:
   `conftest.stub_prices_at`), `price_history.find_prices` (the stored day's
   price: `conftest.stub_daily_prices`), the routers' `parse_csv_file`,
-  `execute_import` and `annotate_duplicates`, `login_throttle._now` (the
-  throttle's clock), `secret_key.app_secret_key` (another install's
-  key, for the device cookie) and `migrate._second` (the second a copy is
-  named for). Callers keep calling the module names
+  `execute_import` and `annotate_duplicates`, `river_import._nearby` (the
+  whole ledger instead, the duplicate check's reference),
+  `login_throttle._now` (the throttle's clock),
+  `secret_key.app_secret_key` (another install's key, for the device
+  cookie) and `migrate._second` (the second a copy is named for). Callers keep calling the module names
   (`hourly_prices.price_at(...)`, never a name imported from it), and
   those handlers stay plain `def` (a test checks imports don't block the
   server).

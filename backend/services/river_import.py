@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -550,16 +551,19 @@ def annotate_duplicates(
     Passes 2 and 3 are skipped when exact_only=True: the execute
     endpoints' double-submit guard leaves out only duplicates.
     """
+    if not proposals:
+        return  # nothing to look up the ledger for
     existing: list[Transaction] = db.query(Transaction).all()
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
     used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
+    nearby = _nearby(proposals, existing)
 
     def each_new(match, types=None) -> None:
         """One pass: `match` for every row still new (of `types`), in time order."""
         for proposal in by_time:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
-                match(proposal, _candidates(proposal, existing, used_tx_ids), used_tx_ids)
+                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids), used_tx_ids)
 
     for same_amount in rule.amounts:
         for same_type in (True, False):
@@ -572,10 +576,39 @@ def annotate_duplicates(
     each_new(_match_roughly, types=("Transfer", "Withdrawal"))
 
 
+def _nearby(proposals: list[RiverProposal], existing: list[Transaction]) -> dict[int, list[Transaction]]:
+    """Each proposal's transactions within the window (by id(proposal)),
+    found by time once per call, so no pass scans the whole ledger for
+    every row (#379). Kept in the ledger's order: _nearest gives a tie to
+    the first of them, as over the whole ledger."""
+    by_time = sorted((_as_utc(tx.timestamp), i) for i, tx in enumerate(existing))
+    times = [moment for moment, _ in by_time]
+    nearby = {}
+    for proposal in proposals:
+        low, high = _window(proposal.timestamp)
+        start, end = bisect_left(times, low), bisect_right(times, high)
+        nearby[id(proposal)] = [existing[i] for i in sorted(i for _, i in by_time[start:end])]
+    return nearby
+
+
+def _window(moment: datetime) -> tuple[datetime, datetime]:
+    """From SIMILAR_WINDOW before `moment` to SIMILAR_WINDOW after, in UTC
+    (an aware time elsewhere would move by its wall clock), stopping at
+    Python's first and last years: a River file's row can be dated anywhere
+    until its import refuses it (#211)."""
+    moment = _as_utc(moment)
+    first, last = datetime.min.replace(tzinfo=timezone.utc), datetime.max.replace(tzinfo=timezone.utc)
+    low = moment - SIMILAR_WINDOW if moment - first > SIMILAR_WINDOW else first
+    high = moment + SIMILAR_WINDOW if last - moment > SIMILAR_WINDOW else last
+    return low, high
+
+
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
     going the same way: from the row's account or to it, so a send never
-    matches a deposit, nor a receive a withdrawal (#253)."""
+    matches a deposit, nor a receive a withdrawal (#253). The window is
+    checked here too, so that over the whole ledger (the speed test's
+    reference) it's exact."""
     types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
     return [
         tx for tx in existing
