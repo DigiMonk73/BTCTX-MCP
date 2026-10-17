@@ -1070,6 +1070,13 @@ All notable changes to BitcoinTX are documented in this file.
   own and no longer runs the two removed scripts. `.gitignore` now ignores
   `setup-code.txt` and `*.orig` (a comment after the pattern made it match
   nothing).
+- **One helper takes SQLite's write lock** (#402): `database.take_write_lock`,
+  with `database.is_busy` (moved from `csv_import`) the one check of
+  "database is locked". Delete All, the hourly prices' apply and a login's
+  timezone fill each took it with a copy of the same lines; each keeps its
+  own answer to a busy database (Delete All's 503 and log line, the
+  apply's 503, the fill's False) and the step where it takes the lock,
+  which `test_write_lock.py` checks. Nothing BitcoinTX does changes.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

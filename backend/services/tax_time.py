@@ -18,9 +18,9 @@ import os
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
+from backend.database import take_write_lock
 
 SETTING_KEY = "tax_timezone"
 DEFAULT_TIMEZONE = "UTC"
@@ -92,11 +92,7 @@ def fill_tax_timezone(db: Session, name: str) -> bool:
     a ValueError.
     """
     validate_timezone(name)
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except OperationalError as e:
-        if "locked" not in str(e.orig):  # SQLITE_BUSY's "database is locked"
-            raise
+    if not take_write_lock(db):
         return False
     if not (_never_chosen(db) and _ledger_is_empty(db)):
         db.rollback()  # the lock goes
