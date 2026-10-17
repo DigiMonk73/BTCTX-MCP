@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import { extractErrorMessage } from "../utils/apiError";
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, setupCodeHint, type SetupStatus } from "../utils/credentials";
+import { PASSWORD_RULE, passwordTooShort, setupCodeHint, type SetupStatus } from "../utils/credentials";
 import TaxTimezoneSetting from "./TaxTimezoneSetting";
 
 /** The first (and only) user's id, or null. */
@@ -53,7 +53,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
   /** Why the new credentials can't be sent yet, or null. */
   const credentialProblem = (): string | null => {
     if (!newUsername && !newPassword) return "Please enter a new username or password (or both).";
-    if (newPassword && newPassword.length < MIN_PASSWORD_LENGTH) {
+    if (newPassword && passwordTooShort(newPassword)) {
       return `The new password is too short. ${PASSWORD_RULE}`;
     }
     if (!currentPassword) return "Enter your current password to change your username or password.";
