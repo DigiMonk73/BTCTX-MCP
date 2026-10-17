@@ -248,7 +248,7 @@ From `backend/requirements.in`:
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone; update yearly |
 | `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
-| `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison |
+| `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. 6.168.5 is the last for Python 3.10 (see below) |
 
