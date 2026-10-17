@@ -445,9 +445,11 @@ from the Transaction row alone.
   route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
-  `unexpected_error`); a failure while BitcoinTX starts (a migration's) is
-  still logged in full, since it can't start and that text is the only
-  diagnosis. The imports' `routers/csv_import.import_failure`
+  `unexpected_error`). Two kinds still show an error in full, to the owner
+  only: a failure that stops BitcoinTX starting (`init_db`, a migration),
+  whose text is then the only diagnosis, and a `backend/cli.py` command's
+  error (StartOS's migrate oneshot, its Recalculate Ledger action). The
+  imports' `routers/csv_import.import_failure`
   (busy, 503, when the database was locked: `csv_import.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
   the AI preview's dry run (`entry_import.SIMULATION_BUSY` or

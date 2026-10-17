@@ -107,7 +107,7 @@ def _no_unhandled_error(request, caplog):
     yield
     if request.node.get_closest_marker("unexpected_error"):
         return
-    caught = [r.getMessage() for phase in ("setup", "call") for r in caplog.get_records(phase)
+    caught = [r.getMessage() for phase in ("setup", "call", "teardown") for r in caplog.get_records(phase)
               if r.name == "backend.unexpected_errors" and r.levelno >= logging.ERROR]
     assert not caught, f"An error no route handled: {caught} (its trace: LOG_LEVEL=DEBUG)"
 
