@@ -494,7 +494,8 @@ All notable changes to BitcoinTX are documented in this file.
   .onion like any other, in Settings and on the server: it needs Tor, and
   goes through it. An address whose host has a character no host name has
   (a backslash, a `%`), which went around Tor the same way, is now refused
-  when saved (or, set by the server, makes its price settings invalid).
+  when saved (or, set by the server, makes its price settings invalid),
+  and one saved before is never asked until you save it again.
   Nothing to do, unless you typed your Mempool's address that way without
   Tor: Settings now offers Tor for it when you next save, and BitcoinTX
   asks that Mempool nothing until then.

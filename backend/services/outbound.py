@@ -750,6 +750,9 @@ def own_node_client(timeout: float | None = None) -> BoundedClient:
     """
     timeout = timeout or TIMEOUT
     made = _current  # one reading of the settings (#437)
+    if not _ordinary_host(made.mempool_url or ""):
+        # Saved before such hosts were refused (_clean_url): as typed it'd go to the resolver
+        raise RuntimeError("your mempool server's address can't be asked as it's written: save it again")
     onion = _is_onion(made.mempool_url)
     if onion and not made.proxy_url:
         # Never directly: the system's DNS resolver would see the .onion name.

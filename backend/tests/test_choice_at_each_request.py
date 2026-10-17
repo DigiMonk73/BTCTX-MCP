@@ -216,6 +216,17 @@ def test_the_mempools_history_a_save_stopped_is_asked_again_at_once(sent, monkey
     assert requests == [("umbrel.local", None)]
 
 
+def test_a_mempool_address_saved_before_odd_hosts_were_refused_is_never_asked(sent):
+    """An address whose host httpx keeps as typed ("….onion\\"), saved
+    before _clean_url refused it, is read as stored: never asked, its name
+    never to the resolver, with Tor set or not (the review of #443)."""
+    requests, _ = sent
+    outbound._current = outbound.NetworkSettings(price_source="mempool", mempool_url=ONION + "\\", proxy_url=TOR)
+    with pytest.raises(RuntimeError, match="save it again"):
+        asyncio.run(_get(outbound.own_node_client, ONION + "\\/api/v1/prices"))
+    assert requests == []
+
+
 @pytest.mark.parametrize("full", [True, False], ids=["whole history", "latest days"])
 def test_a_history_download_a_save_stopped_is_asked_again_as_the_new_choice_says(sent, full):
     """Tor is set while the daily history comes in through no proxy (its
