@@ -3,7 +3,7 @@
 # Build script for BitcoinTX macOS Desktop App
 #
 # Prerequisites:
-#   - Python 3.10+ with pip (brew install python@3.11)
+#   - Python 3.10+ with pip (brew install python@3.13)
 #   - Node.js 18+ with npm
 #
 # Usage:
@@ -62,7 +62,7 @@ if [ -z "$PYTHON_CMD" ]; then
     echo "ERROR: Python 3.10+ is required but not found"
     echo ""
     echo "Install with Homebrew:"
-    echo "  brew install python@3.11"
+    echo "  brew install python@3.13"
     echo ""
     echo "Then run this script again."
     exit 1

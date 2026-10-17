@@ -134,12 +134,12 @@ def test_later_lookups_need_no_request(sources, db):
 def test_a_new_day_later_asks_only_for_the_latest_days(sources, db):
     sources.bitstamp = all_days()
     price_history.daily_price(db, date(2019, 1, 1))  # the whole history, flag set
-    db.execute(text("DELETE FROM btc_price_daily WHERE day >= :d"), {"d": TODAY - timedelta(days=3)})
+    db.execute(text("DELETE FROM btc_price_daily WHERE day >= :d"), {"d": (TODAY - timedelta(days=3)).isoformat()})
     sources.requests.clear()
     day = TODAY - timedelta(days=2)
     assert price_history.daily_price(db, day) == D(dict(sources.bitstamp)[day])
     assert len(sources.requests) == 1 and "start=" not in sources.requests[0]
-    db.execute(text("DELETE FROM btc_price_daily WHERE day = :d"), {"d": day})
+    db.execute(text("DELETE FROM btc_price_daily WHERE day = :d"), {"d": day.isoformat()})
     # Once a UTC day is enough: another missing recent day asks nothing more.
     with pytest.raises(HTTPException):
         price_history.daily_price(db, day)
