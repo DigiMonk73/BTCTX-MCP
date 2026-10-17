@@ -125,9 +125,9 @@ CHECKS: dict[str, tuple] = {
         "A BitcoinTX before 0.9.2 saved these, or an account they named was deleted. The missing account's side "
         "is in none of your balances, and a transfer, deposit or withdrawal between one of your accounts and a "
         "missing one stops every save that recalculates (an edit, a delete, an add dated before the latest) and "
-        "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, "
-        "each stops an edit of the others, but not a delete: delete all but one, then edit or delete the last, "
-        "and enter again any you still need.",
+        "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, fix "
+        "them one at a time: an edit or a delete of one goes past the others. Until the last is fixed, figures "
+        "can be off, so fix them all before relying on a report.",
     ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
@@ -517,13 +517,15 @@ def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:
-    """Whether the row stops every save that recalculates: its balance check
+    """Whether the row stops every save that recalculates (but an edit or a
+    delete of another such row, #368): its balance check
     (transaction._verify_double_entry_balance_for_internal) runs, as for any
     type but a Buy or a Sell with no External side, and fails, as one of its
     sides is an account that exists and the other isn't (#367's review)."""
     sides = (t.from_account_id, t.to_account_id)
     stops = t.type not in ("Buy", "Sell") and ACCOUNT_EXTERNAL not in sides and any(a in known for a in sides)
-    return " It stops every save that recalculates." if stops else " It doesn't stop saves."
+    return (" It stops every save that recalculates, except an edit or a delete of one of these." if stops
+            else " It doesn't stop saves.")
 
 
 def _sentence(text: str) -> str:

@@ -282,13 +282,20 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
 
 # A saved row naming an account that doesn't exist (an id saved before 0.9.2,
 # F28; none, where an account it named was deleted) whose replay fails its
-# balance check: the refusal names it (#337). With two or more such rows each
-# stops an edit of the others, but not a delete (#368), which the text says.
+# balance check: the refusal names it (#337). An edit or a delete of one
+# goes past the others (#368), which the text says.
 ACCOUNT_MISSING = (
     "Transaction {id} (a {kind} of {date}) {what}. Edit it into one of your accounts, or delete it. "
-    "Ledger Review lists every such transaction; if it lists more than one that stops saves, each stops an "
-    "edit of the others, but not a delete: delete all but one, then edit or delete the last, and enter again "
-    "any you still need."
+    "Ledger Review lists every such transaction; if it lists more than one that stops saves, fix them one at a "
+    "time: an edit or a delete of one goes past the others."
+)
+
+
+# An edit or a delete that went past such rows (#368) and left a later
+# transaction short of BTC: the rows it went past may be why.
+MISSING_MAY_BE_WHY = (
+    "a later transaction would run short of BTC. It may depend on this one; or {rows}, which {names} a missing "
+    "account, may be why: edit {it} into one of your accounts, or delete {it}, first. "
 )
 
 
@@ -385,12 +392,14 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     """
     Change a transaction (only the fields in tx_data), checked as the whole
     transaction it becomes, then recalculate the whole ledger. None when it
-    doesn't exist.
+    doesn't exist. One naming a missing account is fixed past the others
+    that do (#368), as a delete of one is.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
 
+    past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
@@ -412,11 +421,33 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
         f"[Update] Tx {tx.id} timestamp {old_timestamp} => {tx.timestamp}. "
         f"Running scorched earth re-lot."
     )
-    recalculate_all_transactions(db)
+    _recalculate_past(tx, past, db)
 
     db.commit()
     db.refresh(tx)
     return tx
+
+
+def _recalculate_past(edited: Transaction, past: list[Transaction] | None, db: Session) -> None:
+    """The replay after an edit, past the other rows naming a missing
+    account when the edited one named one (#368). It goes past only the
+    others: the edited row must pass its own balance check."""
+    try:
+        recalculate_all_transactions(db, past_missing=past)
+    except HTTPException as e:
+        if e.status_code != 400 or isinstance(e, AccountMissing) or not past:
+            raise
+        _refuse_if_still_missing(edited, past, db)
+        raise HTTPException(status_code=400, detail=f"Not changed: {_why_short(past, db)}{e.detail}") from e
+    _refuse_if_still_missing(edited, past, db)
+
+
+def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None, db: Session) -> None:
+    """An edit that leaves its row failing its balance check on a missing
+    account is refused by name, as without #368."""
+    if past and edited in past:
+        missing = missing_accounts(edited, known_accounts(db))
+        raise AccountMissing(edited, missing, local_date(edited.timestamp, get_tax_timezone(db)))
 
 
 def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
@@ -854,7 +885,7 @@ def delete_transaction_record(transaction_id: int, db: Session):
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
     A transaction naming a missing account is deleted past the others that
-    do (#368): each stops an edit of the others, so they go one by one.
+    do (#368), so they can be fixed one by one.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
@@ -862,22 +893,36 @@ def delete_transaction_record(transaction_id: int, db: Session):
 
     # One naming a missing account goes even while others like it stop the
     # replay, or none of them could ever go (#368)
-    missing_stops = not missing_accounts(tx, known_accounts(db))
+    past = [] if missing_accounts(tx, known_accounts(db)) else None
     db.delete(tx)
     db.flush()
     try:
-        recalculate_all_transactions(db, missing_stops=missing_stops)
+        recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
         db.rollback()
         if isinstance(e, AccountMissing):
             raise
-        why = "later transactions depend on this one. " if e.status_code == 400 else ""
+        why = _why_short(past, db) if e.status_code == 400 else ""
         raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
     except Exception:
         db.rollback()
         raise
     db.commit()
     return True
+
+
+def _why_short(past: list[Transaction] | None, db: Session) -> str:
+    """Why an edit or a delete leaves a later transaction short of BTC: it
+    needed this one, or a row naming a missing account the replay went past
+    (#368) takes its coins, or gets none where they went."""
+    if not past:
+        return "later transactions depend on this one. "
+    tz = get_tax_timezone(db)
+    rows = [f"{t.id} (a {t.type} of {local_date(t.timestamp, tz).isoformat()})" for t in past]
+    one = len(rows) == 1
+    return MISSING_MAY_BE_WHY.format(
+        rows=("Transaction " if one else "Transactions ") + " and ".join(rows), names="names" if one else "name",
+        it="it" if one else "them")
 
 
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
@@ -1711,7 +1756,8 @@ class _LotMove:
             ))
 
 
-def recalculate_all_transactions(db: Session, until: datetime | None = None, *, missing_stops: bool = True):
+def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
+                                 past_missing: list[Transaction] | None = None):
     """
     "Scorched Earth": remove all ledger lines, partial-lot disposals,
     and BitcoinLots. Then re-lot everything in chronological order.
@@ -1720,8 +1766,9 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *, 
     snapshot of lots/balances as of that instant (used for year-end
     balances). Callers must run a full recalculation afterwards. A row
     naming a missing account that stops it is refused by name
-    (AccountMissing, #337); with `missing_stops` False (a delete of such a
-    row, #368) it's replayed without the balance check it fails.
+    (AccountMissing, #337); given a `past_missing` list (an edit or a delete
+    of such a row, #368), it's replayed without the balance check it fails,
+    and added to the list.
     """
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
@@ -1734,17 +1781,17 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *, 
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
     for rec_tx in all_txs:
-        _replay(rec_tx, db, known, missing_stops)
+        _replay(rec_tx, db, known, past_missing)
 
     db.flush()
 
 
-def _replay(tx: Transaction, db: Session, known: set[int], missing_stops: bool) -> None:
+def _replay(tx: Transaction, db: Session, known: set[int], past_missing: list[Transaction] | None) -> None:
     """One saved transaction's ledger lines and lots, in the replay. Its
-    balance check failing on a missing account is refused by name, unless
-    `missing_stops` is False: then it goes on, as a row naming a missing
-    account that passes its check does (#368). Any other refusal (short of
-    BTC, say) stays its own."""
+    balance check failing on a missing account is refused by name, or, with
+    a `past_missing` list, it goes on, as a row naming a missing account
+    that passes its check does, and is added to it (#368). Any other refusal
+    (short of BTC, say) stays its own."""
     _fill_stored_fee_currency(tx, db)
     stored = _stored_inputs(tx)
     build_ledger_entries_for_transaction(tx, stored, db)
@@ -1754,8 +1801,9 @@ def _replay(tx: Transaction, db: Session, known: set[int], missing_stops: bool) 
         missing = missing_accounts(tx, known)
         if e.status_code != 400 or not missing:
             raise
-        if missing_stops:
+        if past_missing is None:
             raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
+        past_missing.append(tx)
     _post_lots(tx, stored, db)
 
 

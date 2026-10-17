@@ -13,8 +13,8 @@ from sqlalchemy import text
 
 WALLET, EXTERNAL, MISSING = 2, 99, 999
 FIX = ("Edit it into one of your accounts, or delete it. Ledger Review lists every such transaction; if it lists "
-       "more than one that stops saves, each stops an edit of the others, but not a delete: delete all but one, then "
-       "edit or delete the last, and enter again any you still need.")
+       "more than one that stops saves, fix them one at a time: an edit or a delete of one goes past the others.")
+STOPS = "It stops every save that recalculates, except an edit or a delete of one of these."
 NAMED = ("Transaction 970 (a Transfer of 2024-02-01) names account 999, which doesn't exist (a BitcoinTX before "
          "0.9.2 saved it). " + FIX)
 
@@ -53,8 +53,7 @@ def test_ledger_review_lists_each_row_and_says_why_it_cant_check(auth_client, le
     review = auth_client.get("/api/review").json()
     check = next(c for c in review["checks"] if c["key"] == "account_missing")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
-        (970, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it). "
-              "It stops every save that recalculates."),
+        (970, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it). " + STOPS),
         (971, "Names account 999, which doesn't exist (a BitcoinTX before 0.9.2 saved it). "
               "It doesn't stop saves.")]  # its other side is External
     assert review["recalc_error"] == NAMED
@@ -106,7 +105,7 @@ def test_a_transaction_naming_no_account_is_named_too(auth_client, test_engine, 
         "deleted). " + FIX))
     check = next(c for c in auth_client.get("/api/review").json()["checks"] if c["key"] == "account_missing")
     assert [(i["id"], i["issue"]) for i in check["items"]] == [
-        (981, "Names no account on one side (the one it named was deleted). It stops every save that recalculates.")]
+        (981, "Names no account on one side (the one it named was deleted). " + STOPS)]
 
 
 def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_client, test_engine, empty):
@@ -158,15 +157,26 @@ def _detail(r) -> str:
     return r.json()["detail"]
 
 
+FIRST = ("Transaction 985 (a Transfer of 2024-03-01) names account 999, which doesn't exist (a BitcoinTX before "
+         "0.9.2 saved it). " + FIX)
+SECOND = ("Transaction 986 (a Transfer of 2024-03-01) names no account on one side (the one it named was deleted). "
+          + FIX)
+
+
+def _settled(test_engine) -> tuple:
+    """The stored figures: every lot, disposal and ledger line."""
+    with test_engine.connect() as con:
+        return tuple(con.execute(text(f"SELECT * FROM {table} ORDER BY id")).all()
+                     for table in ("bitcoin_lots", "lot_disposals", "ledger_entries"))
+
+
 def test_each_row_naming_a_missing_account_can_be_deleted_one_by_one(auth_client, test_engine, two_blocking):
     """#368: each delete was refused, naming the other row, so neither could
     go. A delete of one now goes past the other; the other still stops every
     other save, by name, until it goes too. Then the ledger is whole again."""
     assert auth_client.delete("/api/transactions/985").status_code == 204
-    second = ("Transaction 986 (a Transfer of 2024-03-01) names no account on one side (the one it named was "
-              "deleted). " + FIX)
     r = auth_client.post("/api/transactions/recalculate")
-    assert (r.status_code, _detail(r)) == (400, second)
+    assert (r.status_code, _detail(r)) == (400, SECOND)
     assert auth_client.delete("/api/transactions/986").status_code == 204
     assert auth_client.post("/api/transactions/recalculate").status_code == 200
     review = auth_client.get("/api/review").json()
@@ -183,27 +193,70 @@ def test_the_other_order_too(auth_client, two_blocking):
     assert auth_client.post("/api/transactions/recalculate").status_code == 200
 
 
-def test_only_a_delete_of_such_a_row_goes_past_the_others(auth_client, two_blocking):
-    """An edit of one is still refused (the other stops its replay), and so
-    is an edit or a delete of an ordinary transaction, each naming the first
-    row that stops it; nothing changes."""
-    first = ("Transaction 985 (a Transfer of 2024-03-01) names account 999, which doesn't exist (a BitcoinTX before "
-             "0.9.2 saved it). " + FIX)
-    second = ("Transaction 986 (a Transfer of 2024-03-01) names no account on one side (the one it named was "
-              "deleted). " + FIX)
-    for r, named in ((auth_client.put("/api/transactions/985", json={"to_account_id": 4}), second),
-                     (auth_client.put(f"/api/transactions/{two_blocking}", json={"amount": "0.9"}), first),
-                     (auth_client.delete(f"/api/transactions/{two_blocking}"), first)):
-        assert (r.status_code, _detail(r)) == (400, named), r.request.method
+def test_an_edit_of_one_goes_past_the_others_too(auth_client, test_engine, two_blocking):
+    """#368's review: the edit that fixes one goes past the other, which
+    still stops every other save; an edit that leaves its own row naming a
+    missing account is still refused, by name, changing nothing."""
+    before = _settled(test_engine)
+    r = auth_client.put("/api/transactions/986", json={"amount": "0.2"})  # still naming none
+    assert (r.status_code, _detail(r)) == (400, SECOND)
+    assert _settled(test_engine) == before
+    assert auth_client.put("/api/transactions/986", json={"to_account_id": 4}).status_code == 200
+    r = auth_client.post("/api/transactions/recalculate")
+    assert (r.status_code, _detail(r)) == (400, FIRST)
+    assert auth_client.put("/api/transactions/985", json={"to_account_id": 4}).status_code == 200
+    assert auth_client.post("/api/transactions/recalculate").status_code == 200
+    with test_engine.connect() as con:  # both moved to the exchange: 0.2 there, 0.8 left in Wallet
+        lots = con.execute(text("SELECT remaining_btc FROM bitcoin_lots ORDER BY remaining_btc")).scalars().all()
+    assert lots == [0.1, 0.1, 0.8]
+
+
+def test_only_a_fix_of_such_a_row_goes_past_the_others(auth_client, test_engine, two_blocking):
+    """An edit or a delete of an ordinary transaction is still refused,
+    naming the first row that stops it; nothing changes."""
+    before = _settled(test_engine)
+    for r in (auth_client.put(f"/api/transactions/{two_blocking}", json={"amount": "0.9"}),
+              auth_client.delete(f"/api/transactions/{two_blocking}")):
+        assert (r.status_code, _detail(r)) == (400, FIRST), r.request.method
     assert {t["id"] for t in auth_client.get("/api/transactions").json()} == {two_blocking, 985, 986}
+    assert _settled(test_engine) == before
+
+
+def test_an_old_account_deleted_before_367_can_be_fixed(auth_client, test_engine, empty):
+    """#368's review: the realistic way in. An account (deleted before
+    #367) got a deposit and sent it to Wallet in two transfers, and Wallet
+    later spent most of it. A transfer's delete alone can't go: past the
+    other transfer, which brings Wallet no lots, the spend runs short, and
+    the refusal names that transfer. Editing the deposit into Wallet goes
+    past them both; then each transfer can go."""
+    _old_row(test_engine, 960, "Deposit", EXTERNAL, None, amount="1")
+    _old_row(test_engine, 961, "Transfer", None, WALLET, amount="0.5")
+    _old_row(test_engine, 962, "Transfer", None, WALLET, amount="0.5")
+    with test_engine.begin() as con:
+        con.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, purpose, gross_proceeds_usd) VALUES (963, 'Withdrawal', '2024-04-01T12:00:00Z', 2, 99,"
+            " '0.8', '0', 'USD', 'Spent', '100')"))
+    r = auth_client.delete("/api/transactions/961")
+    assert (r.status_code, _detail(r)) == (400, (
+        "Not deleted: a later transaction would run short of BTC. It may depend on this one; or Transaction 962 "
+        "(a Transfer of 2024-03-01), which names a missing account, may be why: edit it into one of your "
+        "accounts, or delete it, first. Not enough BTC to withdrawal 0.80000000 BTC"))
+    edit = auth_client.put("/api/transactions/960", json={"to_account_id": WALLET, "source": "MyBTC",
+                                                          "cost_basis_usd": "1000"})
+    assert edit.status_code == 200, edit.text
+    assert auth_client.delete("/api/transactions/961").status_code == 204
+    assert auth_client.delete("/api/transactions/962").status_code == 204
+    assert auth_client.post("/api/transactions/recalculate").status_code == 200
+    with test_engine.connect() as con:  # the deposit's lot, less the spend
+        assert con.execute(text("SELECT remaining_btc FROM bitcoin_lots")).scalar() == 0.2
 
 
 def test_a_shortage_still_stops_such_a_delete(auth_client, test_engine, empty):
     """Going past the other row's balance check isn't going past a shortage.
     The other row, a withdrawal naming a deleted account, is replayed: its
-    BTC leaves Wallet, and a later spend runs short. That delete is refused
-    as any delete a later transaction needs is, and nothing changes; the
-    withdrawal itself can go first."""
+    BTC leaves Wallet, and a later spend runs short. The delete is refused,
+    naming that withdrawal, and nothing changes; the withdrawal can go first."""
     assert auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2024-01-02T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
         amount="1", source="MyBTC", cost_basis_usd="1000")).status_code == 200
@@ -214,9 +267,13 @@ def test_a_shortage_still_stops_such_a_delete(auth_client, test_engine, empty):
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
             " fee_currency, purpose, gross_proceeds_usd) VALUES (989, 'Withdrawal', '2024-04-01T12:00:00Z', 2, 99,"
             " '0.6', '0', 'USD', 'Spent', '100')"))
+    before = _settled(test_engine)
     r = auth_client.delete("/api/transactions/987")
-    assert r.status_code == 400 and _detail(r).startswith("Not deleted: later transactions depend on this one."), r.text
+    assert r.status_code == 400 and _detail(r).startswith(
+        "Not deleted: a later transaction would run short of BTC. It may depend on this one; or Transaction 988 "
+        "(a Withdrawal of 2024-03-01), which names a missing account, may be why"), r.text
     assert {t["id"] for t in auth_client.get("/api/transactions").json()} >= {987, 988, 989}
+    assert _settled(test_engine) == before
     assert auth_client.delete("/api/transactions/988").status_code == 204
     assert auth_client.delete("/api/transactions/987").status_code == 204
     assert auth_client.post("/api/transactions/recalculate").status_code == 200
