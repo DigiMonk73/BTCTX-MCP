@@ -169,6 +169,12 @@ All notable changes to BitcoinTX are documented in this file.
   before. The AI key reaches no new route.
 
 ### Fixed
+- **The password forms count characters as the server does** (#405).
+  Create account, Settings' password change and the Mac app's "Choose your
+  username and password" counted an emoji as two characters, so a password
+  of 6 emoji passed the form, then the server refused it with the
+  12-character rule. They now count the way the server does. The server's
+  rule itself is unchanged.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it

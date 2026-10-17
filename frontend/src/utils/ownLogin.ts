@@ -5,7 +5,7 @@
 // (PATCH /api/users/{id}), never reset-account, which deletes every
 // transaction.
 import api from "../api";
-import { MIN_PASSWORD_LENGTH, PASSWORD_RULE } from "./credentials";
+import { PASSWORD_RULE, passwordTooShort } from "./credentials";
 
 // backend/services/first_run.py
 const DEFAULT_LOGIN = { username: "admin", password: "password" };
@@ -19,7 +19,7 @@ export function ownLoginProblem(username: string, password: string, repeat: stri
   if (username.trim().toLowerCase() === DEFAULT_LOGIN.username) {
     return "The username 'admin' is reserved and cannot be used. Please choose a different username.";
   }
-  if (password.length < MIN_PASSWORD_LENGTH) return `The new password is too short. ${PASSWORD_RULE}`;
+  if (passwordTooShort(password)) return `The new password is too short. ${PASSWORD_RULE}`;
   if (password !== repeat) return "The two passwords don't match.";
   return null;
 }

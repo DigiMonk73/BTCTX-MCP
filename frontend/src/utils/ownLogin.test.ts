@@ -23,6 +23,13 @@ describe("ownLoginProblem", () => {
     );
   });
 
+  it("counts characters as the server does (#405)", () => {
+    const sixEmoji = "\u{1F511}".repeat(6); // 12 UTF-16 units, 6 characters
+    expect(ownLoginProblem("owner", sixEmoji, sixEmoji)).toMatch(/too short/);
+    const twelveEmoji = sixEmoji + sixEmoji;
+    expect(ownLoginProblem("owner", twelveEmoji, twelveEmoji)).toBeNull();
+  });
+
   it("refuses two passwords that differ", () => {
     expect(ownLoginProblem("owner", GOOD, GOOD + " ")).toBe("The two passwords don't match.");
   });

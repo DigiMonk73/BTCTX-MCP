@@ -4,6 +4,12 @@
 export const MIN_PASSWORD_LENGTH = 12;
 export const PASSWORD_RULE = `At least ${MIN_PASSWORD_LENGTH} characters.`;
 
+/** Whether a new password is shorter than the rule, its characters counted
+ * as the server counts them: an emoji is one, where `.length` says two (#405). */
+export function passwordTooShort(password: string): boolean {
+  return Array.from(password).length < MIN_PASSWORD_LENGTH;
+}
+
 /** GET /api/users/setup-status, read before anyone logs in. */
 export interface SetupStatus {
   has_user: boolean;
