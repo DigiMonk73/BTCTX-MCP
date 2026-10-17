@@ -495,8 +495,8 @@ All notable changes to BitcoinTX are documented in this file.
   goes through it. An address whose host has a character no host name has
   (a backslash, a `%`), which went around Tor the same way, is now refused
   when saved (or, set by the server, makes its price settings invalid),
-  and one saved before is never asked until you save it again.
-  Nothing to do, unless you typed your Mempool's address that way without
+  and one saved before is never asked until you correct it. Nothing to
+  do, unless you typed your Mempool's address with such a dot without
   Tor: Settings now offers Tor for it when you next save, and BitcoinTX
   asks that Mempool nothing until then.
 - **A save made while Ledger Review looks up a price no longer fails**

@@ -515,8 +515,11 @@ def _clean_url(value: str | None, schemes, what: str) -> str | None:
     value = (value or "").strip()
     if not value:
         return None
-    parsed = urlparse(value)
-    if parsed.scheme not in schemes or not parsed.hostname:
+    try:
+        parsed = urlparse(value)
+    except ValueError:  # e.g. "Invalid IPv6 URL": a "[" without its "]"
+        parsed = None
+    if parsed is None or parsed.scheme not in schemes or not parsed.hostname:
         raise HTTPException(
             status_code=422,
             detail=f"{what} must look like {schemes[0]}://host:port (one of: {', '.join(schemes)}).",
@@ -525,7 +528,7 @@ def _clean_url(value: str | None, schemes, what: str) -> str | None:
         raise HTTPException(status_code=422, detail=f"{what} can't contain a username or password.")
     if not _ordinary_host(value):
         raise HTTPException(status_code=422, detail=(
-            f"{what}'s host must be a name of letters, digits, dots and dashes, or an IP address."))
+            f"{what}'s host must be a name of letters, digits, dots, dashes and underscores, or an IP address."))
     return value.rstrip("/")
 
 
@@ -750,7 +753,7 @@ def own_node_client(timeout: float | None = None) -> BoundedClient:
     """
     timeout = timeout or TIMEOUT
     made = _current  # one reading of the settings (#437)
-    if not _ordinary_host(made.mempool_url or ""):
+    if made.own_node and not _ordinary_host(made.own_node):
         # Saved before such hosts were refused (_clean_url): as typed it'd go to the resolver
         raise RuntimeError("your mempool server's address can't be asked as it's written: save it again")
     onion = _is_onion(made.mempool_url)

@@ -496,13 +496,22 @@ def test_an_address_whose_host_isnt_an_ordinary_name_is_refused(auth_client, ser
     TOR = "socks5h://127.0.0.1:9050"
     r = auth_client.put("/api/settings/network", json={
         **PUBLIC, "price_source": "mempool", "mempool_url": odd, "proxy_url": TOR})
-    assert r.status_code == 422 and "letters, digits, dots and dashes" in r.json()["detail"], r.text
+    assert r.status_code == 422 and "letters, digits, dots, dashes and underscores" in r.json()["detail"], r.text
     r = auth_client.put("/api/settings/network", json={**PUBLIC, "proxy_url": odd.replace("http://", "socks5h://")})
     assert r.status_code == 422, r.text
     server_env(BTCTX_PRICE_SOURCE="mempool", BTCTX_MEMPOOL_URL=odd, BTCTX_PROXY_URL=TOR)
     assert outbound.current().invalid  # the server's: nothing is asked
     assert auth_client.get("/api/bitcoin/price").status_code == 503
     assert requests_seen == []
+
+
+@pytest.mark.parametrize("field, value", [
+    ("mempool_url", "http://[abc.onion"), ("proxy_url", "socks5h://[127.0.0.1:9050")])
+def test_an_address_with_a_bracket_left_open_is_refused_not_a_server_error(auth_client, field, value):
+    """The third re-check of #443: urlparse raised, a 500."""
+    r = auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "mempool",
+                                                       "mempool_url": "http://umbrel.local:3006", field: value})
+    assert r.status_code == 422 and "must look like" in r.json()["detail"], r.text
 
 
 @pytest.mark.parametrize("ordinary", [

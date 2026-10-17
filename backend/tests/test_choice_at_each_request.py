@@ -216,6 +216,26 @@ def test_the_mempools_history_a_save_stopped_is_asked_again_at_once(sent, monkey
     assert requests == [("umbrel.local", None)]
 
 
+def test_the_live_price_whose_mempool_a_save_cleared_says_try_again(sent, monkeypatch):
+    """Public sites saved (no Mempool now) just before the live price's
+    client for the Mempool is made: nothing sent, "try again", and no
+    Mempool problem on the status line (the third re-check of #443)."""
+    requests, _ = sent
+    outbound._current = MEMPOOL_NO_BACKUP
+    real_client = outbound.own_node_client
+
+    def saved_then_made(timeout=None):
+        outbound._current = PUBLIC_NO_PROXY
+        return real_client(timeout)
+
+    monkeypatch.setattr(outbound, "own_node_client", saved_then_made)
+    with pytest.raises(HTTPException) as refused:
+        asyncio.run(real_current_price())
+    assert (refused.value.status_code, refused.value.detail) == (502, TRY_AGAIN)
+    assert requests == []
+    assert price_status.status()["last_mempool_problem"] is None
+
+
 def test_a_mempool_address_saved_before_odd_hosts_were_refused_is_never_asked(sent):
     """An address whose host httpx keeps as typed ("….onion\\"), saved
     before _clean_url refused it, is read as stored: never asked, its name
