@@ -61,6 +61,7 @@ import json
 import logging
 import os
 import ssl
+import threading
 import zlib
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
@@ -68,6 +69,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.services.desktop import is_desktop
@@ -108,6 +110,9 @@ TRUSTED_ROOT_KEY = "mempool_trusted_root"
 DIRECT_KEY, DIRECT_AT_KEY, DIRECT_VIA_KEY = (
     "history_without_tor", "history_without_tor_at", "history_without_tor_via")
 DIRECT_ANSWERS, DIRECT_VIA = ("yes", "no"), ("dashboard", "settings")
+# Every price setting the table holds (OLD_LIVE_KEY aside: only an upgrade reads it)
+STORED_KEYS = (SOURCE_KEY, FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY,
+               TRUSTED_ROOT_KEY, DIRECT_KEY, DIRECT_AT_KEY, DIRECT_VIA_KEY)
 SOURCES = ("off", "public", "mempool")
 PROXY_SCHEMES = ("socks5", "socks5h", "http", "https")
 ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
@@ -171,6 +176,11 @@ class NetworkSettings:
 
 
 _current = NetworkSettings()
+# A change to the price settings and its reading back into memory, one at a
+# time (#435): the last change to commit is the last one read, so BitcoinTX
+# uses what the table holds, never a mix of two saves made at once. Held only
+# for the commit and the reading, never while a save writes its rows.
+_one_at_a_time = threading.Lock()
 
 
 def current() -> NetworkSettings:
@@ -223,6 +233,16 @@ def _get(db: Session, key: str) -> str | None:
 
     row = db.get(AppSetting, key)
     return row.value if row else None
+
+
+def _stored(db: Session) -> dict[str, str]:
+    """The price settings the table holds, read in one statement (#435): one
+    moment of the database, so a save committing meanwhile can't give some
+    of them from before it and the rest from after."""
+    from backend.models.app_setting import AppSetting
+
+    rows = db.execute(select(AppSetting.key, AppSetting.value).where(AppSetting.key.in_(STORED_KEYS)))
+    return dict(rows.all())
 
 
 def _set(db: Session, key: str, value: str | None) -> None:
@@ -303,13 +323,13 @@ def from_env() -> NetworkSettings | None:
 
 
 def snapshot(db: Session) -> dict:
-    """The owner's own price settings (not the server's), to keep across a restore."""
-    kept = {key: _get(db, key) for key in (
-        FALLBACK_KEY, MEMPOOL_KEY, PROXY_KEY, CHOSEN_AT_KEY, CHOSEN_VIA_KEY, TRUSTED_ROOT_KEY,
-        DIRECT_KEY, DIRECT_AT_KEY, DIRECT_VIA_KEY)}
+    """The owner's own price settings (not the server's), to keep across a
+    restore: one save's, read at once (#435)."""
+    stored = _stored(db)
+    kept = {key: stored.get(key) for key in STORED_KEYS}
     # Not chosen yet stays "unset": a restored database's stored prices must
     # not pass for a pre-1.1.0 install's public choice (_upgrade_from_live_data)
-    kept[SOURCE_KEY] = _get(db, SOURCE_KEY) or "unset"
+    kept[SOURCE_KEY] = kept[SOURCE_KEY] or "unset"
     kept[OLD_LIVE_KEY] = None
     return kept
 
@@ -332,15 +352,30 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     Read the settings (at startup, after a restore): the server's, else the
     database's. `upgrade=False` (a command-line run, which on StartOS may lack
     the server's variables) never works out a pre-1.1.0 install's choice:
-    the app's start does that (#134).
+    the app's start does that (#134). One at a time with the changes that
+    read them back (#435).
     """
+    with _one_at_a_time:
+        return _load(db, upgrade)
+
+
+def _commit_and_load(db: Session) -> NetworkSettings:
+    """Commit a change to the price settings and read them back into memory,
+    one change at a time (#435)."""
+    with _one_at_a_time:
+        db.commit()
+        return _load(db)
+
+
+def _load(db: Session, upgrade: bool = True) -> NetworkSettings:
     global _current
+    stored = _stored(db)
     managed = from_env()
     # The answer about the history without Tor is the owner's, whoever sets the choice (#241)
-    direct = _load_direct_answer(db)
+    direct = _load_direct_answer(stored)
     if managed:
         _record.update(chosen_at=None, chosen_via=None)  # the server's choice: nothing to confirm
-        _current = replace(managed, mempool_root=_trusted_root(db, managed.mempool_url), history_direct=direct)
+        _current = replace(managed, mempool_root=_trusted_root(stored, managed.mempool_url), history_direct=direct)
         try:
             _mark_unchosen(db)
         except Exception as e:
@@ -348,30 +383,32 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
             db.rollback()
             log_unexpected("Recording that no price source was chosen in the app", e, logger)
         return _current
-    source = _get(db, SOURCE_KEY) or (_upgrade_from_live_data(db) if upgrade else None)
-    _record.update(chosen_at=_get(db, CHOSEN_AT_KEY), chosen_via=_get(db, CHOSEN_VIA_KEY))
+    if not stored.get(SOURCE_KEY) and upgrade and _upgrade_from_live_data(db):
+        stored = _stored(db)  # with the choice it worked out
+    source = stored.get(SOURCE_KEY)
+    _record.update(chosen_at=stored.get(CHOSEN_AT_KEY), chosen_via=stored.get(CHOSEN_VIA_KEY))
     chosen = source in SOURCES
     tor = server_tor()
     _current = NetworkSettings(
         price_source=source if chosen else "unset",
-        mempool_url=_get(db, MEMPOOL_KEY),
-        mempool_fallback=_get(db, FALLBACK_KEY) == "on",
-        proxy_url=tor or _get(db, PROXY_KEY),
+        mempool_url=stored.get(MEMPOOL_KEY),
+        mempool_fallback=stored.get(FALLBACK_KEY) == "on",
+        proxy_url=tor or stored.get(PROXY_KEY),
         waiting=chosen and not _record["chosen_at"],
         tor_from_server=bool(tor),
         invalid=tor == "",
-        mempool_root=_trusted_root(db, _get(db, MEMPOOL_KEY)),
+        mempool_root=_trusted_root(stored, stored.get(MEMPOOL_KEY)),
         history_direct=direct,
     )
     return _current
 
 
-def _load_direct_answer(db: Session) -> bool:
+def _load_direct_answer(stored: dict[str, str]) -> bool:
     """Read the answer about the history without Tor into its record (#241);
     True only for a Yes. Anything but "yes" or "no" counts as not asked."""
-    answer = _get(db, DIRECT_KEY)
+    answer = stored.get(DIRECT_KEY)
     if answer in DIRECT_ANSWERS:
-        _direct_record.update(answer=answer, at=_get(db, DIRECT_AT_KEY), via=_get(db, DIRECT_VIA_KEY))
+        _direct_record.update(answer=answer, at=stored.get(DIRECT_AT_KEY), via=stored.get(DIRECT_VIA_KEY))
     else:
         _direct_record.update(answer=None, at=None, via=None)
     return answer == "yes"
@@ -389,10 +426,10 @@ def answer_history_without_tor(db: Session, answer: str, via: str) -> NetworkSet
     _set(db, DIRECT_KEY, answer)
     _set(db, DIRECT_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     _set(db, DIRECT_VIA_KEY, via if via in DIRECT_VIA else "settings")
-    db.commit()
+    settings = _commit_and_load(db)
     logger.info("Price history without Tor: %s (answered %s)", answer,
                 "on the Dashboard" if via == "dashboard" else "in Settings")
-    return load(db)
+    return settings
 
 
 def history_without_tor() -> bool:
@@ -408,16 +445,16 @@ def agreed_on() -> str:
     return (_direct_record["at"] or "")[:10] or "an unknown day"
 
 
-def _trusted_root(db: Session, mempool_url: str | None) -> str | None:
+def _trusted_root(stored: dict[str, str], mempool_url: str | None) -> str | None:
     """The root the owner trusted for this Mempool address (#188), or None:
     one trusted for another address never applies."""
     try:
-        stored = json.loads(_get(db, TRUSTED_ROOT_KEY) or "null")
+        trusted = json.loads(stored.get(TRUSTED_ROOT_KEY) or "null")
     except ValueError:
         return None
-    if not isinstance(stored, dict) or not mempool_url or stored.get("url") != mempool_url:
+    if not isinstance(trusted, dict) or not mempool_url or trusted.get("url") != mempool_url:
         return None
-    pem = stored.get("pem")
+    pem = trusted.get("pem")
     try:
         if not isinstance(pem, str) or pem.count("-----BEGIN") != 1 or "-----BEGIN CERTIFICATE-----" not in pem:
             raise ValueError("not one certificate")
@@ -452,14 +489,12 @@ def trusting(pem: str) -> ssl.SSLContext:
 def trust_root(db: Session, mempool_url: str, pem: str) -> NetworkSettings:
     """Trust a home server's root certificate for this Mempool address (#188)."""
     _set(db, TRUSTED_ROOT_KEY, json.dumps({"url": mempool_url, "pem": pem}))
-    db.commit()
-    return load(db)
+    return _commit_and_load(db)
 
 
 def forget_root(db: Session) -> NetworkSettings:
     _set(db, TRUSTED_ROOT_KEY, None)
-    db.commit()
-    return load(db)
+    return _commit_and_load(db)
 
 
 def server_tor() -> str | None:
@@ -518,8 +553,7 @@ def save(
     _set(db, PROXY_KEY, proxy)
     _set(db, CHOSEN_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     _set(db, CHOSEN_VIA_KEY, via if via in CHOSEN_VIA else "settings")
-    db.commit()
-    return load(db)
+    return _commit_and_load(db)
 
 
 def refuse_public() -> HTTPException:

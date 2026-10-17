@@ -191,6 +191,24 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing to do.
 
 ### Fixed
+- **Two different price-setting saves at the same moment: the later one is
+  the one in use** (#435). Saving Settings → Privacy & network from two
+  tabs or browsers at the same moment, with different choices, could leave
+  BitcoinTX using a mix of the two that neither tab chose, and it could be
+  less private than both: public price sites through Tor in one tab and
+  Nobody in the other could leave public sites allowed with no proxy, so a
+  price lookup could go to a public site without Tor. The database held the
+  later save; the mix lasted until the next save, a restore or a restart.
+  Two answers at once to "Download the price history once without Tor?"
+  could keep a Yes in use after a later No, and a restore started while a
+  save was being made could keep a mix of the two in the restored
+  database. Every version from 0.9.2. Now a change and its reading back
+  into memory go one at a time, and the price settings are read in one
+  go, so the last save is the one in use and a restore keeps one save's
+  settings. Only your own two saves within a moment of each other could
+  cause it (these settings are login only, never the AI key), and on
+  StartOS with Tor from its Price Source & Privacy action the proxy
+  couldn't drop out. Nothing to do.
 - **Two saves of a setting at the same moment both work** (#398). Saving
   a setting for the first time (the price choice in Settings → Privacy &
   network, the answer about the price history without Tor, the AI access
