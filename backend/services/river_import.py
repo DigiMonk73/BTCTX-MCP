@@ -578,23 +578,37 @@ def annotate_duplicates(
 
 def _nearby(proposals: list[RiverProposal], existing: list[Transaction]) -> dict[int, list[Transaction]]:
     """Each proposal's transactions within the window (by id(proposal)),
-    found once by time: the passes look only at these, never again at the
-    whole ledger for every row (#379). In the ledger's own order, so a tie
-    in _nearest goes to the same transaction as before."""
+    found by time once per call, so no pass scans the whole ledger for
+    every row (#379). Kept in the ledger's order: _nearest gives a tie to
+    the first of them, as over the whole ledger."""
     by_time = sorted((_as_utc(tx.timestamp), i) for i, tx in enumerate(existing))
     times = [moment for moment, _ in by_time]
     nearby = {}
     for proposal in proposals:
-        start = bisect_left(times, proposal.timestamp - SIMILAR_WINDOW)
-        end = bisect_right(times, proposal.timestamp + SIMILAR_WINDOW)
+        low, high = _window(proposal.timestamp)
+        start, end = bisect_left(times, low), bisect_right(times, high)
         nearby[id(proposal)] = [existing[i] for i in sorted(i for _, i in by_time[start:end])]
     return nearby
+
+
+def _window(moment: datetime) -> tuple[datetime, datetime]:
+    """From SIMILAR_WINDOW before `moment` to SIMILAR_WINDOW after, in UTC
+    (an aware time elsewhere would move by its wall clock), stopping at
+    Python's first and last years: a River file's row can be dated anywhere
+    until its import refuses it (#211)."""
+    moment = _as_utc(moment)
+    first, last = datetime.min.replace(tzinfo=timezone.utc), datetime.max.replace(tzinfo=timezone.utc)
+    low = moment - SIMILAR_WINDOW if moment - first > SIMILAR_WINDOW else first
+    high = moment + SIMILAR_WINDOW if last - moment > SIMILAR_WINDOW else last
+    return low, high
 
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
     going the same way: from the row's account or to it, so a send never
-    matches a deposit, nor a receive a withdrawal (#253)."""
+    matches a deposit, nor a receive a withdrawal (#253). The window is
+    checked here too, so that over the whole ledger (the speed test's
+    reference) it's exact."""
     types = _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
     return [
         tx for tx in existing

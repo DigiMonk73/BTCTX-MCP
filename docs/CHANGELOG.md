@@ -449,7 +449,7 @@ All notable changes to BitcoinTX are documented in this file.
   and each pass looked through the whole ledger for every row: a River
   file of 2,000 rows against 2,000 transactions took about 13 seconds, and
   the AI connector's 500 rows against 10,000 about 8. Each row's
-  transactions within two days are now found once, by date: about a tenth
+  transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →

@@ -1,9 +1,9 @@
 """
 The duplicate check of the River and AI imports on a large ledger (#379).
-1.2.9's rule (#253) runs up to seven passes for River and three for the AI,
-and each pass looked through the whole ledger for every row: 2,000 rows
-against 2,000 entries took about 13 s. Each row's transactions within the
-window are now found once, by time, and the answers are the same.
+1.2.9's rule (#253) runs up to seven passes for River and three for the AI:
+each row's transactions within the window are found by time once per call,
+so the check stays fast, and the answers are the ones a scan of the whole
+ledger gives.
 """
 
 import copy
@@ -24,7 +24,7 @@ from backend.tests.conftest import init_test_db, remove_temp_db, temp_db_file
 
 START = datetime(2020, 1, 1, tzinfo=timezone.utc)
 LEDGER = 5_000
-BUDGET = 2.0  # seconds; about 0.1 s here, 13 s before
+BUDGET = 2.0  # seconds; about 0.15 s on a Mac, 0.5 s on CI's runners
 
 
 def database(transactions: list[Transaction]):
@@ -92,7 +92,8 @@ def random_moment(rng: random.Random) -> datetime:
 
 def random_ledger(rng: random.Random, count: int) -> list[Transaction]:
     """Transactions of every kind, a quarter of them recorded twice (the
-    same everything), so that equally close matches tie."""
+    same everything, or 6 hours later), so that equally close matches tie:
+    at the same time, or on either side of a row."""
     txs = []
     for _ in range(count):
         kind, from_id, to_id = rng.choice(KINDS)
@@ -103,7 +104,8 @@ def random_ledger(rng: random.Random, count: int) -> list[Transaction]:
             fee_amount=fee, fee_currency="BTC" if fee else "USD", source=rng.choice(LABELS),
             purpose=rng.choice(LABELS),
         ))
-    txs += rng.sample(txs, count // 4)
+    txs += [dict(tx, timestamp=tx["timestamp"] + rng.choice([timedelta(0), timedelta(hours=6)]))
+            for tx in rng.sample(txs, count // 4)]
     rng.shuffle(txs)
     return [Transaction(**tx) for tx in txs]
 
@@ -114,16 +116,16 @@ def like(rng: random.Random, value, others):
 
 
 def random_rows(rng: random.Random, ledger: list[Transaction], count: int) -> list[RiverProposal]:
-    """Mostly copies of recorded transactions (some moved by seconds, hours
-    or days, some given as a date alone, some with a field changed), and
-    others."""
+    """Mostly copies of recorded transactions (some moved by seconds, hours,
+    days or exactly the window, some given as a date alone, some with a
+    field changed), and others."""
     rows = []
     for i in range(count):
         tx = rng.choice(ledger)
         kind, from_id, to_id = like(rng, (tx.type, tx.from_account_id, tx.to_account_id), KINDS)
         moment = tx.timestamp.replace(tzinfo=timezone.utc) + rng.choice(
             [timedelta(0), timedelta(0), timedelta(seconds=20), timedelta(hours=3), timedelta(hours=-30),
-             timedelta(days=3)])
+             timedelta(days=3), river_import.SIMILAR_WINDOW, -river_import.SIMILAR_WINDOW])
         day = moment.date() if rng.random() < 0.15 else None
         rows.append(RiverProposal(
             row_number=i + 1, timestamp=datetime(moment.year, moment.month, moment.day, 12, tzinfo=timezone.utc)
@@ -165,3 +167,15 @@ def test_the_answers_are_the_ones_the_whole_ledger_gives(seed, monkeypatch):
     finally:
         engine.dispose()
         remove_temp_db(path)
+
+
+@pytest.mark.parametrize("date", ["0001-01-01 00:00:00", "9999-12-31 23:59:59"])
+def test_a_river_row_at_the_ends_of_the_calendar_is_previewed(auth_client, date):
+    """#391's review: the window around a row dated in year 1 or 9999 ran
+    past Python's dates, and the whole preview failed (500). Such a row is
+    previewed as new; the import refuses it by name."""
+    river = ("Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Tag\n"
+             f"{date},25.00,USD,0.00030000,BTC,,,Buy\n")
+    r = auth_client.post("/api/import/river/preview", files={"file": ("river.csv", river.encode(), "text/csv")})
+    assert r.status_code == 200, r.text
+    assert [p["status"] for p in r.json()["proposals"]] == [river_import.STATUS_NEW]
