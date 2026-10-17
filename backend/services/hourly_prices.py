@@ -26,6 +26,11 @@ Lookup order (hourly_price):
   Nothing: price_at() takes the day's 00:00 UTC price instead
   (price_history.daily_price) and says so ("day").
 
+A save that holds SQLite's write lock sends no request (#426): it runs in
+with_prices_found, and a request about to go out for it stops it
+(price_history.PriceNeeded); the save rolls back, finds that price with
+the lock free, and runs again.
+
 The download asks for every year, newest first, in fixed blocks: nothing
 in it depends on a ledger. It runs in the background once the choice allows
 public sites (public, or your Mempool with its backup: #145), at startup or
@@ -46,12 +51,16 @@ import os
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import TypeVar
 
+from fastapi import HTTPException
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.database import DATABASE_FILE
@@ -157,10 +166,13 @@ def _year_of(hour: int, years: dict, remember: bool = True) -> dict[int, Decimal
 # Session.info keys, noted while an import finds its prices first
 # (transaction.find_prices_first, WARMING) and heeded for the rest of it:
 # the years whose download a lookup waited for, and the hours a source had
-# no price for (hourly_price)
+# no price for (hourly_price), which a save in with_prices_found notes too;
+# and a save run again for a price (with_prices_found), which waited for its
+# years' downloads, if at all, on its first run
 WARMING = "btctx_finding_prices_first"
 WAITED_FOR = "btctx_years_waited_for"
 UNPRICED_HOURS = "btctx_hours_without_price"
+RUN_AGAIN = "btctx_save_run_again"
 
 
 def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:
@@ -173,7 +185,10 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     #426), it waits for a year once and notes the hours a source had none
     for; the rest of that import asks for those hours no more (a day the
     sites failed to give isn't asked again soon anyway: price_history's
-    RETRY_SECONDS). Every other caller looks as before."""
+    RETRY_SECONDS). Every other caller looks as before. A save holding the
+    write lock in with_prices_found sends no request: one about to go out
+    raises price_history.PriceNeeded (#426); run again, it waits for no
+    download."""
     hour = hour_of(when)
     if not pf.year_start(pf.FIRST_YEAR) <= hour <= _current_hour():
         return None
@@ -185,8 +200,10 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     prices = _year_prices(line) if line else None
     if prices is not None:
         return prices[hour], "bitstamp"
-    if hour in db.info.get(UNPRICED_HOURS, ()):  # a source had none a moment ago, in this import
+    if hour in db.info.get(UNPRICED_HOURS, ()):  # a source had none a moment ago, in this save
         return None
+    if hour in db.info.get(price_history.LOOKUPS_FAILED, {}):
+        raise db.info[price_history.LOOKUPS_FAILED][hour]
     files_end = lines[-1].last_hour if lines else None
     found, keep = _from_sources(db, hour, files_end)
     if found is None and line is not None and start_download() and wait and _may_wait(db, line):
@@ -200,12 +217,85 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
 
 def _may_wait(db: Session, line: pf.YearLine) -> bool:
     """Whether a lookup may wait for its year's download: not holding the
-    write lock (#421), and once a year in an import (WARMING)."""
-    if price_history.writing(db) or line.year in db.info.get(WAITED_FOR, ()):
+    write lock (#421), once a year in an import (WARMING), and not in a save
+    run again for a price (RUN_AGAIN): its first run waited already."""
+    if price_history.writing(db) or db.info.get(RUN_AGAIN) or line.year in db.info.get(WAITED_FOR, ()):
         return False
     if db.info.get(WARMING):
         db.info.setdefault(WAITED_FOR, set()).add(line.year)
     return True
+
+
+T = TypeVar("T")
+
+
+def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
+    """
+    Run save(), which commits or rolls back all it writes, so that no price
+    is asked for while it holds SQLite's write lock (#426): the owner's
+    other saves wait only 5 s for that lock. A request about to go out then
+    raises price_history.PriceNeeded instead (price_history.requests_held);
+    the save rolls back, the price is looked for with the lock free (kept,
+    or noted as having none), and the save runs again in a clean session
+    (an object its caller loaded before is detached then), each dict in
+    `inputs` (its input, which it completes in place) as given. Each time a
+    price is kept or noted, so it ends. Inside another such save it's only
+    run, and so it is after its caller has changed anything (written or
+    not yet flushed), which a rollback would undo.
+    """
+    if db.info.get(price_history.ASK_FIRST) or price_history.writing(db) or db.new or db.dirty or db.deleted:
+        return save()
+    given = [dict(d) for d in inputs]
+    looked_for: set = set()
+    db.info[price_history.ASK_FIRST] = True
+    try:
+        while True:
+            for d, as_given in zip(inputs, given):
+                d.clear()
+                d.update(as_given)
+            try:
+                return save()
+            except price_history.PriceNeeded as need:
+                db.rollback()
+                # Nothing of the run is kept in the session: the rollback
+                # expires what it loaded, which a recalculation's bulk delete
+                # then leaves there, so the rerun's new rows (SQLite gives
+                # them the same ids) collided with it: SQLAlchemy's identity
+                # warning, or an AttributeError once the old object was
+                # freed (#442's re-checks)
+                db.expunge_all()
+                if (need.moment, need.when) in looked_for:  # kept or noted: never needed twice
+                    raise RuntimeError("A price looked for with the lock free was needed again") from need
+                looked_for.add((need.moment, need.when))
+                _look_with_the_lock_free(db, need)
+                db.info[RUN_AGAIN] = True
+    finally:
+        for key in (price_history.ASK_FIRST, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED,
+                    UNPRICED_HOURS, RUN_AGAIN):
+            db.info.pop(key, None)
+
+
+def _look_with_the_lock_free(db: Session, need: price_history.PriceNeeded) -> None:
+    """Look for the price a save needed as its lookup would have under the
+    lock (never waiting for a download, #421), with the lock free: what's
+    found is kept at once; a price there's none of is noted, and the save
+    asks for it no more. An hour without one takes its day's, which is
+    looked for too. A lookup that fails (keeping its price met a busy
+    database) fails again where the save needs it, which answers as it does
+    for a busy database."""
+    key = hour_of(need.when) if need.moment == "hour" else price_history.utc_day(need.when)
+    try:
+        if need.moment == "hour":
+            if hourly_price(db, need.when, wait=False) is not None:
+                return
+            db.info.setdefault(UNPRICED_HOURS, set()).add(key)
+            key = price_history.utc_day(need.when)
+        try:
+            price_history.daily_price(db, need.when)
+        except HTTPException:
+            db.info.setdefault(price_history.UNPRICED_DAYS, set()).add(key)
+    except OperationalError as exc:  # the save's own handling meets it, where it needs the price
+        db.info.setdefault(price_history.LOOKUPS_FAILED, {})[key] = exc
 
 
 def start_download() -> bool:
@@ -408,7 +498,10 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
     if files_end is not None:
         stored = {h for (h,) in db.query(BtcPriceHourly.hour).filter(BtcPriceHourly.hour > files_end)}
     try:
-        found = price_history._run(find_hours(hour, files_end, stored))
+        with price_history.requests_held(db):
+            found = price_history._run(find_hours(hour, files_end, stored))
+    except price_history.RequestHeld:
+        raise price_history.PriceNeeded(_utc(hour), "hour") from None
     except Exception as exc:
         logger.warning("Hourly BTC price lookup failed: %s", exc)
         price_status.record_refusal(exc)  # through Tor: the card asks (#241)
@@ -543,10 +636,12 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     """
     if time.monotonic() - _state["public_at"] < RETRY_SECONDS:
         return {}
-    _state["public_at"] = time.monotonic()
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
     starts = [start for start in range(files_end + HOUR, current + 1, size)
               if not all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR))]
+    if starts:
+        price_history.refuse_if_held()
+    _state["public_at"] = time.monotonic()
     if starts:
         _log_without_tor("the hours after the year files")
     client, out = ChoiceClient(), {}

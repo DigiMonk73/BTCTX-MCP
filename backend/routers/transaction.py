@@ -112,8 +112,7 @@ def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
     if not request.session.get("user_id"):  # the AI key
         _copy_before_ai_changes(db, "Not recalculated")
     try:
-        tx_service.recalculate_all_transactions(db)
-        db.commit()
+        tx_service.recalculate_ledger(db)
     except Exception:
         db.rollback()
         raise

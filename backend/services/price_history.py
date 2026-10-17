@@ -26,16 +26,21 @@ today's price is wrong. No price means a clear 422 (type the value in).
 
 Prices found are kept at once (keep()): in a short transaction of their
 own, or in the caller's when it has already written, so a lookup never
-holds SQLite's write lock until its request ends (#364).
+holds SQLite's write lock until its request ends (#364). A save that holds
+that lock sends none (#426): a request about to go out for it is held
+(requests_held), the lookup raises PriceNeeded, and the save finds that
+price with the lock free and runs again (hourly_prices.with_prices_found).
 """
 
 from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import contextvars
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -159,6 +164,7 @@ async def _whole_public_history() -> tuple[dict[date, tuple], bool]:
     now = time.monotonic()
     if now - _state["full_failed_at"] < RETRY_SECONDS:
         return {}, False
+    refuse_if_held()
     # Counted before it starts, so a lookup ended at its limit (_run) still
     # waits RETRY_SECONDS before the next try; a success clears it (the
     # caller may not keep what came, and then it's asked again)
@@ -198,6 +204,7 @@ async def _latest_public_prices() -> tuple[dict[date, tuple], bool]:
     now, today = time.monotonic(), _today()
     if _state["latest_day"] == today or now - _state["latest_failed_at"] < RETRY_SECONDS:
         return {}, False
+    refuse_if_held()
     async with outbound.async_client() as client:
         for name, fetch in (("bitstamp", _bitstamp), ("kraken", _kraken_latest)):
             try:
@@ -254,6 +261,7 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     now = time.monotonic()
     if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
         return _state["mempool_rows"], False
+    refuse_if_held()
     _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
     try:
         async with outbound.own_node_client(timeout=outbound.HISTORY_TIMEOUT) as client:
@@ -311,9 +319,10 @@ def _run(coro):
         finally:
             loop.close()
 
+    context = contextvars.copy_context()  # the caller's: whether its requests are held (requests_held)
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        return pool.submit(target).result(timeout=LOOKUP_SECONDS)
+        return pool.submit(context.run, target).result(timeout=LOOKUP_SECONDS)
     except (asyncio.TimeoutError, concurrent.futures.TimeoutError):  # two classes in Python 3.10
         raise TimeoutError(f"no prices within {LOOKUP_SECONDS} seconds") from None
     finally:
@@ -375,6 +384,67 @@ def writing(db: Session) -> bool:
     return db.connection().connection.driver_connection.in_transaction
 
 
+class PriceNeeded(Exception):
+    """
+    A price not stored here that a save holding SQLite's write lock needs,
+    which only a request could bring (#426): sent then, the request held
+    the owner's other saves up, which wait 5 s for that lock. The save rolls
+    back, finds it with the lock free, and runs again
+    (hourly_prices.with_prices_found). Never an HTTPException, which a
+    lookup's caller takes for "no price".
+    """
+
+    def __init__(self, when: date | datetime, moment: str):
+        super().__init__(f"a price at the {moment} is to be found first")
+        self.when, self.moment = when, moment
+
+
+# Session.info keys while a save runs in hourly_prices.with_prices_found:
+# its lookups send no request while it holds the write lock (ASK_FIRST:
+# requests_held); a day then found to have no price isn't asked for again
+# in that save (UNPRICED_DAYS), and a day or hour whose lookup failed then
+# (keeping its price met a busy database) fails where the save needs it
+# (LOOKUPS_FAILED: the error, by day or hour)
+ASK_FIRST = "btctx_prices_found_with_the_lock_free"
+UNPRICED_DAYS = "btctx_days_without_price"
+LOOKUPS_FAILED = "btctx_price_lookups_failed"
+
+# Whether the requests of the lookup running are held (requests_held): read
+# where each request is about to go out, once it's due (refuse_if_held)
+_held = contextvars.ContextVar("btctx_requests_held", default=False)
+
+
+class RequestHeld(Exception):
+    """A request about to go out for a lookup whose requests are held: the
+    lookup raises PriceNeeded instead."""
+
+
+def requests_wait(db: Session) -> bool:
+    """Whether a lookup's requests wait until the lock is free: its save
+    holds SQLite's write lock and finds its prices first (ASK_FIRST)."""
+    return bool(db.info.get(ASK_FIRST)) and writing(db)
+
+
+@contextmanager
+def requests_held(db: Session) -> Iterator[None]:
+    """Around a lookup's requests (_run): each one about to go out raises
+    RequestHeld while db's save holds the lock (requests_wait). Decided
+    where each request would go out, so none slips through between a check
+    and its request."""
+    token = _held.set(requests_wait(db))
+    try:
+        yield
+    finally:
+        _held.reset(token)
+
+
+def refuse_if_held() -> None:
+    """Where a request is about to go out: none for a lookup whose requests
+    are held (requests_held)."""
+    if _held.get():
+        raise RequestHeld
+
+
 def no_price(day: date) -> HTTPException:
     settings = outbound.current()
     if settings.own_node or settings.public_allowed:
@@ -397,10 +467,15 @@ def daily_price(db: Session, when: date | datetime) -> Decimal:
     price = stored_price(db, day)
     if price is not None:
         return price
-    if day > _today() or day < FIRST_PRICE_DAY:
+    if day > _today() or day < FIRST_PRICE_DAY or day in db.info.get(UNPRICED_DAYS, ()):
         raise no_price(day)
+    if day in db.info.get(LOOKUPS_FAILED, {}):
+        raise db.info[LOOKUPS_FAILED][day]
     try:
-        prices, complete = _run(find_prices(day, full=not _history_complete(db)))
+        with requests_held(db):
+            prices, complete = _run(find_prices(day, full=not _history_complete(db)))
+    except RequestHeld:
+        raise PriceNeeded(day, "day") from None
     except Exception as exc:
         logger.warning("BTC price lookup failed: %s", exc)
         prices, complete = {}, False

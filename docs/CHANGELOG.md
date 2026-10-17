@@ -248,6 +248,19 @@ All notable changes to BitcoinTX are documented in this file.
   written in one step (`models/app_setting.save_setting`), so both saves
   land and the later one's value is kept, as when a setting already saved
   is changed in two tabs: of two AI keys made at once, the later one works.
+- **No save asks for a price while it holds the database's lock** (#426).
+  A recalculation that prices an old transaction's missing value (from
+  Recalculate Ledger, in the app or StartOS's action, an edit, a delete, a
+  transaction or an import dated before others, a change of the tax
+  timezone, or Ledger Review's pricing at the hour), a Spent's proceeds
+  left blank (priced once its row is written), or a price an import's
+  first look missed, was asked for from the price sites or your own
+  Mempool while BitcoinTX held the database's lock, so a save of yours
+  made meanwhile failed after 5 seconds. Now such a save stops before
+  asking, lets go of the lock, finds the price, and starts again. No
+  figure changes: each value gets the price it got before, and one that
+  can't be priced is refused as before (a 422 naming the transaction,
+  never $0).
 - **A save of several rows no longer holds your other saves up while it
   looks for prices** (#421; #426 in part). An import, or the AI
   connector's preview or add, prices its later rows (a BTC fee, an income
@@ -263,10 +276,7 @@ All notable changes to BitcoinTX are documented in this file.
   that can't be priced at its hour while the year is still downloading
   takes the day's price, marked so, which Ledger Review's check of values
   priced at the day can price at its hour later; once the download is
-  done, prices are as before. Still to do (#426, a known issue): a
-  recalculation pricing an old transaction's missing value, or an edit
-  that newly needs a Spent's proceeds, can ask for that price while
-  holding the lock; rare, and a save that fails then can be tried again.
+  done, prices are as before. The rest of #426: the entry above.
 - **A withdrawal short of bitcoin says "withdraw"** (#415). Its refusal
   read "Not enough BTC to withdrawal 0.70000000 BTC", the type's name in
   place of the verb; it now reads "Not enough BTC to withdraw …", in the

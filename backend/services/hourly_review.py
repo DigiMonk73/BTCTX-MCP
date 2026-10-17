@@ -73,15 +73,24 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     Price the picked transactions' day-priced values at their hour (where
     there's none, the day's), after a backup copy of the database, and
     recalculate. Typed values never change. Commits (rolls back when an
-    edit or a delete made meanwhile left nothing to apply).
+    edit or a delete made meanwhile left nothing to apply). A price the
+    recalculation needs is looked for with the lock free, and the apply
+    made again (hourly_prices.with_prices_found, #426).
     """
-    from backend.services.transaction import recalculate_all_transactions
-
     listed = hourly_changes(db, ids=ids, year=year, wait=wait)
     if not listed:
         return {"changed": [], "backup": None}
     path = sqlite_file(db.get_bind())
     backup = backup_sqlite(path, "hourly-prices", kind="review", keep=REVIEW_COPIES_KEPT) if path is not None else None
+    changes = hourly_prices.with_prices_found(db, lambda: _apply(db, listed, ids, year))
+    return {"changed": changes, "backup": backup.name if backup else None}
+
+
+def _apply(db: Session, listed: list[dict[str, Any]], ids, year: int | None) -> list[dict[str, Any]]:
+    """The listed changes, under SQLite's write lock, as each transaction is
+    now; then the recalculation, committed. None left: rolled back."""
+    from backend.services.transaction import recalculate_all_transactions
+
     if not take_write_lock(db):
         raise HTTPException(
             status_code=503, detail="Not applied: BitcoinTX was busy saving something else. Try again."
@@ -95,7 +104,7 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     changes = _changes(db, ids, year, lambda t: _price_seen(db, t, seen[t.id]) if t.id in seen else None)
     if not changes:  # each one deleted or edited meanwhile: nothing left to apply
         db.rollback()  # the lock goes
-        return {"changed": [], "backup": backup.name if backup else None}
+        return []
     for change in changes:
         t = db.get(Transaction, change["id"])
         for field, (_old, new) in change["values"].items():
@@ -105,7 +114,7 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
         t.price_moment = change["moment"]
     recalculate_all_transactions(db)
     db.commit()
-    return {"changed": changes, "backup": backup.name if backup else None}
+    return changes
 
 
 def _price_seen(db: Session, t: Transaction, listed: dict[str, Any]) -> tuple[Decimal, str] | None:
