@@ -454,7 +454,7 @@ from the Transaction row alone.
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot, its Recalculate Ledger action). The
   imports' `routers/csv_import.import_failure`
-  (busy, 503, when the database was locked: `csv_import.is_busy`; else
+  (busy, 503, when the database was locked: `database.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
   the AI preview's dry run (`entry_import.SIMULATION_BUSY` or
   `SIMULATION_FAILED`) and Ledger Review's (`review.DRY_RUN_FAILED`) say

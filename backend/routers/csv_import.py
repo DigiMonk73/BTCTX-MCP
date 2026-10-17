@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
+from backend.database import get_db, is_busy
 from backend.services.tax_time import get_tax_timezone
 from backend.schemas.csv_import import (
     CSVPreviewResponse,
@@ -25,7 +25,6 @@ from backend.services.csv_import import (
     check_database_empty,
     execute_import,
     generate_template_csv,
-    is_busy,
 )
 from backend.unexpected_errors import log_unexpected
 
