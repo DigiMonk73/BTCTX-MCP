@@ -1112,6 +1112,16 @@ All notable changes to BitcoinTX are documented in this file.
   database by hand, which Settings → Backup & Restore and BitcoinTX's own
   copies before each upgrade cover; `mcp_server/README.md` no longer
   points to it.
+- **The price card's "confirm once" click-through tests wait for the
+  price lookups that Confirm starts** (#444). "Confirm once: My own
+  Mempool" read the requests sent to the outside once, right after the
+  card went, and expected one to the Mempool; the price lookups that
+  Confirm starts run after the save's answer, so on a slow runner they
+  came later and the test saw none (WebKit, in #441's CI). It now reads
+  once the Dashboard shows the price and the block height they gave; the
+  tests that choose Nobody read once the Dashboard says "You chose Nobody:
+  no live price.", so none can pass by reading too early either.
+  Test-only.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
@@ -1122,6 +1132,13 @@ All notable changes to BitcoinTX are documented in this file.
   tells the open page as the price card does after its own save: the page
   asks again in place, with no page load. Real Safari, Chrome and the Mac
   app were never at fault (#149).
+- **One helper takes SQLite's write lock** (#402): `database.take_write_lock`,
+  with `database.is_busy` (moved from `csv_import`) the one check of
+  "database is locked". Delete All, the hourly prices' apply and a login's
+  timezone fill each took it with a copy of the same lines; each keeps its
+  own answer to a busy database (Delete All's 503 and log line, the
+  apply's 503, the fill's False) and the step where it takes the lock,
+  which `test_write_lock.py` checks. Nothing BitcoinTX does changes.
 - **The certificate test no longer fails 1 run in 256** (#299).
   `test_a_changed_certificate_isnt_trusted` made a "changed" fingerprint by
   writing `AB` over the first byte; when the test server's new certificate

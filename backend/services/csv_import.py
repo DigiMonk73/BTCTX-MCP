@@ -13,7 +13,6 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.models.account import Account
@@ -894,12 +893,6 @@ def _default_fee_currency(tx_type: str, from_account_id: int | None = None) -> s
     if from_account_id in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD):
         return "USD"
     return "BTC"
-
-
-def is_busy(error: Exception) -> bool:
-    """Whether SQLite's write lock was held past the 5 s wait: SQLite's own
-    message, never a query's parameters, says so."""
-    return isinstance(error, OperationalError) and "locked" in str(error.orig)
 
 
 def check_database_empty(db: Session) -> tuple[bool, int]:
