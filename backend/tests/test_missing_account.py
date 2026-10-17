@@ -242,7 +242,7 @@ def test_an_old_account_deleted_before_367_can_be_fixed(auth_client, test_engine
         "Not deleted: a later transaction would run short of BTC. It may depend on this one; or Transaction 962 "
         "(a Transfer of 2024-03-01), which names a missing account, or another that Ledger Review lists, may be "
         "why: fix that one first (edit it into one of your accounts, or delete it). Not enough BTC to withdraw "
-        "0.80000000 BTC"))  # #416's wording
+        "0.80000000 BTC"))
     edit = auth_client.put("/api/transactions/960", json={"to_account_id": WALLET, "source": "MyBTC",
                                                           "cost_basis_usd": "1000"})
     assert edit.status_code == 200, edit.text
