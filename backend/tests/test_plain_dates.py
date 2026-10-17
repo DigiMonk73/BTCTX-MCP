@@ -260,6 +260,10 @@ def _dates(db) -> list[tuple]:
     (KIRITIMATI, None, "2021-03-14"),  # the tax timezone in Settings
     (None, KIRITIMATI, "2021-03-14"),  # else the server's (BTCTX_TIMEZONE)
     (None, None, "2021-03-13"),  # else UTC
+    # #407: read as the app reads them; one this machine can't open stopped the upgrade
+    (KIRITIMATI.upper(), None, "2021-03-14"),  # a case variant (saved on macOS)
+    ("localzone", KIRITIMATI, "2021-03-14"),  # only another machine's zone files hold it
+    (None, KIRITIMATI.lower(), "2021-03-14"),  # the server's, read the same way
 ])
 def test_migration_0012_stores_the_date_the_form_showed(tmp_path, monkeypatch, setting, server_setting, shown):
     if server_setting:
@@ -279,6 +283,18 @@ def test_migration_0012_stores_the_date_the_form_showed(tmp_path, monkeypatch, s
     in_kiritimati = bool(setting or server_setting)
     assert _dates(db) == [(1, "2021-03-13T22:00:00Z" if in_kiritimati else "2021-03-13T12:00:00Z"), (2, None),
                           (3, "2025-03-31T22:00:00Z" if in_kiritimati else "2025-04-01T09:00:00Z")]
+
+
+def test_migration_0012_looks_up_no_timezone_with_nothing_to_convert(tmp_path, monkeypatch):
+    """#407 review: it read BTCTX_TIMEZONE on every database, so one this
+    machine can't read stopped a fresh start and every restore (whose new
+    database the migrations make) too."""
+    monkeypatch.setenv("BTCTX_TIMEZONE", "Mars/Olympus")
+    db = tmp_path / "btctx.db"
+    engine = create_engine(f"sqlite:///{db}")
+    upgrade_database(engine, backup=False)
+    engine.dispose()
+    assert _dates(db) == []
 
 
 def test_a_backup_from_before_0012_is_restored_with_its_own_timezone(tmp_path):

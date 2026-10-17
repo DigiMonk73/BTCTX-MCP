@@ -6,7 +6,9 @@ printed on Form 8949, holding-period anniversaries, and AI-entered dates
 without a timezone.
 """
 
+import zoneinfo
 from datetime import datetime, timezone
+from importlib import resources
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -16,7 +18,9 @@ from sqlalchemy.orm import sessionmaker
 from backend.models.app_setting import AppSetting
 from backend.routers.settings import RELOAD_TO_CHOOSE
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
-from backend.services.tax_time import SETTING_KEY, fill_tax_timezone, tax_year_bounds
+from backend.services.tax_time import (
+    MAX_ZONE_NAME, SETTING_KEY, bundled_zones, fill_tax_timezone, tax_year_bounds, validate_timezone,
+)
 from backend.services.transaction import holding_period
 
 CLIENT = None
@@ -79,17 +83,28 @@ def rows(year):
 # with a part naming a module of tzdata (a TypeError on Python 3.10, 3.11)
 NOT_A_ZONE = ["America", "A" * 5000, "a/" * 300 + "b", "America/__init__/x"]
 NOT_A_ZONE_IDS = ["a folder", "too long", "many parts", "a module"]
+# Names a machine's own zone files open and tzdata doesn't hold (#407):
+# links in a Linux system's zone files (`localtime` in the Docker image),
+# case variants (macOS's disk ignores case) and a module of tzdata (opens on
+# Python 3.12 and later). Stored on one machine, they failed every report
+# after a restore on another.
+NOT_TZDATA = ["localtime", "posixrules", "america/chicago", "AMERICA/CHICAGO", "utc", "__init__/UTC"]
 
 
 def test_every_zone_fits_the_name_limit():
     """A tzdata update with a longer name would be refused as unknown."""
-    import zoneinfo
-
-    from backend.services.tax_time import MAX_ZONE_NAME, validate_timezone
-
-    zones = zoneinfo.available_timezones()
+    zones = bundled_zones()
     assert max(map(len, zones)) <= MAX_ZONE_NAME
     assert all(validate_timezone(zone) == zone for zone in zones)
+
+
+def test_the_names_are_tzdatas_own_on_every_machine():
+    """#407: the list is the package's, not the machine's zone files (which
+    on Linux add `localtime`); it keeps old names and Factory."""
+    listed = resources.files("tzdata").joinpath("zones").read_text(encoding="utf-8").split()
+    assert bundled_zones() == frozenset(listed)
+    assert {"UTC", "America/Chicago", "Asia/Calcutta", "Factory"} <= bundled_zones()
+    assert not {"localtime", "posixrules"} & bundled_zones()
 
 
 class TestSetting:
@@ -102,9 +117,10 @@ class TestSetting:
         r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": "Mars/Olympus", "chosen": True})
         assert r.status_code == 400
 
-    @pytest.mark.parametrize("name", NOT_A_ZONE, ids=NOT_A_ZONE_IDS)
+    @pytest.mark.parametrize("name", NOT_A_ZONE + NOT_TZDATA, ids=NOT_A_ZONE_IDS + NOT_TZDATA)
     def test_a_folder_of_zones_or_a_name_too_long_is_unknown_too(self, name):
-        """#384: ZoneInfo fails on these with an OS error, which was a 500."""
+        """#384: ZoneInfo fails on these with an OS error, which was a 500.
+        #407: a name tzdata doesn't hold, which some machines open, too."""
         r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": name, "chosen": True})
         assert r.status_code == 400 and r.json()["detail"].startswith("Unknown timezone"), r.text[:200]
         assert len(r.json()["detail"]) < 150  # the name cut short, not all of it
@@ -164,7 +180,8 @@ class TestLoginFill:
         never_chosen()
         assert fill(NY) == {"timezone": "Asia/Tokyo", "source": "env", "filled": False}
 
-    @pytest.mark.parametrize("name", ["Mars/Olympus", *NOT_A_ZONE], ids=["unknown", *NOT_A_ZONE_IDS])
+    @pytest.mark.parametrize("name", ["Mars/Olympus", *NOT_A_ZONE, *NOT_TZDATA],
+                             ids=["unknown", *NOT_A_ZONE_IDS, *NOT_TZDATA])
     def test_unknown_timezone_refused(self, name):
         never_chosen()
         r = CLIENT.post("/api/settings/tax-timezone/fill", json={"timezone": name})
@@ -194,6 +211,77 @@ class TestLoginFill:
             holder.rollback()
             holder.close()
         assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
+
+
+def store(name):
+    """A name saved before #407, or brought by a restore, as it is."""
+    with ENGINE.begin() as conn:
+        conn.exec_driver_sql("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (SETTING_KEY, name))
+
+
+@pytest.fixture
+def own_zone_file(tmp_path):
+    """A zone file only this machine holds, as `localtime` is in the Docker
+    image: "localzone", Chicago's rules, which ZoneInfo opens while the
+    fixture lasts."""
+    (tmp_path / "localzone").write_bytes(
+        resources.files("tzdata").joinpath("zoneinfo", "America", "Chicago").read_bytes())
+    zoneinfo.reset_tzpath([str(tmp_path)])
+    ZoneInfo.clear_cache()
+    yield "localzone"
+    zoneinfo.reset_tzpath()
+    ZoneInfo.clear_cache()
+
+
+class TestAStoredNameTzdataDoesntHold:
+    """#407: an install that saved such a name before 1.2.9, or got one from
+    a restore, keeps working: the figures it showed stay, and where it had
+    none (every report a 500), the reports answer."""
+
+    @pytest.fixture(autouse=True)
+    def _no_env(self, monkeypatch):
+        monkeypatch.delenv("BTCTX_TIMEZONE", raising=False)
+
+    def test_a_case_variant_is_read_as_tzdatas_name(self):
+        """The zone the Mac opened, also on a machine whose disk minds case."""
+        buy("2024-06-01T12:00:00Z")
+        sell("2025-01-01T03:00:00Z")          # Dec 31 2024, 10 pm in New York
+        store("america/new_york")
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": NY, "source": "setting"}
+        assert len(rows(2024)) == 1 and not rows(2025)
+
+    def test_a_name_this_machine_opens_is_read_as_it_was(self, own_zone_file):
+        buy("2024-06-01T12:00:00Z")
+        sell("2025-01-01T03:00:00Z")          # Dec 31 2024, 9 pm in Chicago
+        store(own_zone_file)
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": own_zone_file, "source": "setting"}
+        assert len(rows(2024)) == 1 and not rows(2025)
+        r = CLIENT.put("/api/settings/tax-timezone", json={"timezone": own_zone_file, "chosen": True})
+        assert r.status_code == 400  # but never saved again
+
+    def test_a_name_this_machine_cant_open_counts_as_none(self):
+        """Stored on another machine (the restore of #407): the reports were
+        a 500 every time. Settings then suggests choosing one (#334)."""
+        buy("2024-06-01T12:00:00Z")
+        sell("2025-01-01T03:00:00Z")
+        store("localzone")
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": "UTC", "source": "default"}
+        assert CLIENT.get("/api/reports/irs_reports", params={"year": 2025}).status_code == 200
+        assert CLIENT.get("/api/calculations/gains-and-losses").status_code == 200
+        assert len(rows(2025)) == 1
+
+    def test_the_log_says_so_once(self, caplog):
+        store("nowhere/407")
+        with caplog.at_level("WARNING", logger="backend.services.tax_time"):
+            for _ in range(3):
+                assert CLIENT.get("/api/settings/tax-timezone").json()["source"] == "default"
+        said = [r.getMessage() for r in caplog.records if r.name == "backend.services.tax_time"]
+        assert len(said) == 1 and "'nowhere/407' can't be read on this computer" in said[0]
+
+    def test_btctx_timezone_is_read_the_same_way(self, monkeypatch):
+        never_chosen()
+        monkeypatch.setenv("BTCTX_TIMEZONE", "asia/tokyo")
+        assert CLIENT.get("/api/settings/tax-timezone").json() == {"timezone": "Asia/Tokyo", "source": "env"}
 
 
 class TestOldPage:

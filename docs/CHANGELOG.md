@@ -317,6 +317,31 @@ All notable changes to BitcoinTX are documented in this file.
   offers only real zones and the login page sends the browser's, so only
   a hand-made request could send one. **Affected:** every version since
   0.8.0 (Settings' save), and this version's login fill. Nothing to do.
+- **A tax timezone name only one computer knew no longer breaks the
+  reports after a restore** (#407). BitcoinTX saved any timezone name the
+  computer's own zone files opened, and that differs between computers: on
+  a Mac `america/chicago` (in any case), `utc` and `posixrules`; in the
+  Docker image and on StartOS `localtime` and `posixrules`. Restored on
+  another computer, such a name made the tax forms, the reports and the
+  gains page fail with a server error (a 500) until a timezone was saved in
+  Settings again; nothing was lost. Only a hand-made request could save
+  one: Settings and the login page send names from the browser's own list.
+  Now BitcoinTX takes only the names of the timezone package it ships with
+  (`tzdata`), the same list on every computer. A restore whose backup holds
+  another name keeps this install's tax timezone (none chosen: UTC or
+  `BTCTX_TIMEZONE`, as before) and says so, waiting for you to read it
+  before the login page: check the timezone in Settings → Account, then run
+  Recalculate Ledger there, so the restored ledger is worked out in it. An
+  install that already holds such a name keeps working with the same
+  figures: a case variant is read as its proper name (`America/Chicago`),
+  another name as before where the computer opens it, and one it can't open
+  (from a restore) counts as none chosen, where every report failed (the
+  server's log says so once). The upgrade to 1.2.9 (migration 0012)
+  reads it the same way, so such a name never stops the upgrade.
+  The AI connector says plainly that its computer doesn't know the tax
+  timezone, where some names failed with a raw error. The trade-off: a
+  timezone newer than the shipped `tzdata` is refused until an update
+  brings it.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
@@ -1045,6 +1070,20 @@ All notable changes to BitcoinTX are documented in this file.
   `main`, which lacks everything not yet released.
   The 1.2.9 release's sessions A, B and C (#369) started from `main` on
   2026-10-16 and moved to `develop` themselves.
+- **The stale `.devcontainer` is gone** (#431). Its Python 3.11
+  environment with old, unhashed pins (some with known advisories, some for
+  packages the app dropped long ago) and its Node 18 image matched nothing
+  BitcoinTX runs, and nothing documented or used it: opened in VS Code or
+  Codespaces, it built an environment unlike the image, the locks and CI.
+  A development setup follows `docs/MAINTENANCE.md` and `docs/TESTING.md`,
+  from the hashed locks.
+- **Two old scripts are gone** (#44). `scripts/release-docker.sh` pushed
+  an image to a Docker Hub repository no longer used, with `:latest`; the
+  images come from `.github/workflows/image.yml`
+  (`ghcr.io/digimonk73/btctx-mcp`). `scripts/backup-db.sh` copied a
+  database by hand, which Settings → Backup & Restore and BitcoinTX's own
+  copies before each upgrade cover; `mcp_server/README.md` no longer
+  points to it.
 - **The WebKit click-through check no longer fails now and then on a
   page load** (#231). In Playwright's WebKit, the reload or `goto` that
   followed a price choice saved over the API sometimes failed with
