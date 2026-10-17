@@ -102,8 +102,9 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
       </p>
       <p className="price-help price-fingerprint">SHA-256: {offer.sha256}</p>
       <p className="price-help">
-        That name is what the server says about itself: before you trust it, check that this fingerprint is your
-        server's own. On StartOS, it's the Root CA in About this Server (System, or the menu at the top right).
+        That name is what the server says about itself: before you trust it, check that this fingerprint is{" "}
+        {offer.server}'s own. On a StartOS server, it's the Root CA in that server's About this server (System
+        &gt; General, or the menu at the top right).
       </p>
       <p className="price-help">Only do this on your own home network.</p>
       <div className="price-actions">

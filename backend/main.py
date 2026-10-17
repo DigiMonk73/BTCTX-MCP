@@ -445,8 +445,8 @@ except ImportError:
 
 @app.get("/api/protected")
 def read_protected_route(current_user: str = Depends(get_current_user)):
-    """200 when logged in (or with the AI key), 401 otherwise: the frontend
-    asks it whether to show the login page."""
+    """200 when logged in, 401 otherwise (the AI key gets 403: it's outside
+    the routers): the frontend asks it whether to show the login page."""
     return {"message": f"Hello, user {current_user}. You have access to this route!"}
 
 

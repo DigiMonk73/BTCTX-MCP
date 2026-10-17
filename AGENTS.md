@@ -418,8 +418,10 @@ from the Transaction row alone.
   It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template
   of the route the request matched (`main.route_template`), never its URL;
-  any other route is 403. A new MCP tool that needs a route adds it there
-  on purpose (a test checks the tools and the list agree). Never allow the
+  any other route is 403. Every router is mounted with `main.include()`,
+  which notes its routes' templates (a router mounted otherwise is closed
+  to the key). A new MCP tool that needs a route adds it there on purpose
+  (a test checks the tools and the list agree). Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or

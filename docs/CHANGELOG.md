@@ -678,8 +678,9 @@ All notable changes to BitcoinTX are documented in this file.
   - **Trust this server says where to check the fingerprint.** The
     certificate authority's name it shows is what the server says about
     itself; the card now asks you to check that the SHA-256 fingerprint
-    is your server's own (on StartOS, the Root CA in About this Server)
-    before you trust it.
+    is that server's own before you trust it (on a StartOS server, the
+    Root CA in its About this server: System > General, or the menu at
+    the top right).
 
 ### StartOS package
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's

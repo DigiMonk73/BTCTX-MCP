@@ -43,7 +43,7 @@ def good() -> dict:
     return default_login()
 BAD = {"username": "admin", "password": "not-the-password"}
 NOBODY = {"username": "nobody", "password": "x"}  # a failure checking only the stand-in hash
-REAL_STAND_IN = user_model._stand_in_hash
+REAL_STAND_IN = user_model.STAND_IN_HASH
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +51,7 @@ def cheap_stand_in(monkeypatch):
     """An unknown username costs a check of the stand-in hash (#204): a cheap
     one here, so the many failures below stay quick."""
     cheap = bcrypt.hashpw(b"stand-in", bcrypt.gensalt(rounds=4)).decode()
-    monkeypatch.setattr(user_model, "_stand_in_hash", lambda: cheap)
+    monkeypatch.setattr(user_model, "STAND_IN_HASH", cheap)
 
 
 def anon(host: str = "testclient") -> TestClient:
@@ -63,20 +63,22 @@ def anon(host: str = "testclient") -> TestClient:
 # ---------------------------------------------------------------------------
 def test_an_unknown_username_costs_a_password_check_too(fresh_app, monkeypatch):
     """#204: bcrypt ran only for a username that exists (177 ms against 1 ms),
-    so the time a login took told whether it does."""
-    checks = []
+    so the time a login took told whether it does. The first such login makes
+    no hash either (that would take twice as long)."""
+    checks, made = [], []
     real = bcrypt.checkpw
     monkeypatch.setattr(bcrypt, "checkpw", lambda password, hashed: checks.append(hashed) or real(password, hashed))
+    monkeypatch.setattr(bcrypt, "hashpw", lambda *args: made.append(args))
     assert anon().post("/api/login", json=NOBODY).status_code == 401
     assert anon().post("/api/login", json=BAD).status_code == 401
-    assert len(checks) == 2
+    assert len(checks) == 2 and made == []
 
 
 def test_the_stand_in_hash_costs_what_a_password_hash_does():
     user = User(username="me")
     user.set_password("real-password-1")
-    stand_in = REAL_STAND_IN()
-    assert stand_in[:7] == user.password_hash[:7]  # "$2b$12$": the same cost
+    assert REAL_STAND_IN[:7] == user.password_hash[:7]  # "$2b$12$": the same cost
+    assert bcrypt.checkpw(b"x", REAL_STAND_IN.encode()) is False  # a real hash, checked in full
     assert not user_model.password_matches(None, "real-password-1")
 
 

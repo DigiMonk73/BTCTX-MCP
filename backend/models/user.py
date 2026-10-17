@@ -1,8 +1,6 @@
 """The login: BitcoinTX has one user, who owns the fixed accounts."""
 
 from __future__ import annotations
-import functools
-import secrets
 from typing import TYPE_CHECKING
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -44,12 +42,19 @@ class User(Base):
         return f"<User(id={self.id}, username={self.username})>"
 
 
+# A bcrypt hash at set_password's cost of a random password nobody kept:
+# checked, never matched, when a login names no user (password_matches).
+# Written here, not made at the first such login, which would take twice as
+# long as the rest.
+STAND_IN_HASH = "$2b$12$f7fhgGbBCQLpv4YwFBG89OVOTm2vBZV3.osNlxgGNrScEByU8ZyR."
+
+
 def password_matches(user: User | None, password: str) -> bool:
     """Whether there is such a user and `password` is theirs. With no user it
-    checks a stand-in hash all the same, so the time a login takes doesn't
+    checks the stand-in hash all the same, so the time a login takes doesn't
     tell whether a username exists (#204)."""
     if user is None:
-        _matches(password, _stand_in_hash())
+        _matches(password, STAND_IN_HASH)
         return False
     return user.verify_password(password)
 
@@ -63,9 +68,3 @@ def _matches(password: str, password_hash: str) -> bool:
     if len(encoded) > 72:
         return False
     return bcrypt.checkpw(encoded, password_hash.encode('utf-8'))
-
-
-@functools.cache
-def _stand_in_hash() -> str:
-    """A hash, at set_password's cost, of a random password nobody knows."""
-    return bcrypt.hashpw(secrets.token_urlsafe(32).encode(), bcrypt.gensalt()).decode('utf-8')
