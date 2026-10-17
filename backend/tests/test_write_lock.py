@@ -18,11 +18,17 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.database import is_busy, take_write_lock
 from backend.models.app_setting import AppSetting
-from backend.services import hourly_review, tax_time, wipe
+from backend.models.transaction import Transaction
+from backend.schemas.transaction import TransactionCreate
+from backend.services import hourly_review, tax_time, transaction, wipe
+from backend.services.transaction import create_transaction_record
 from backend.tests.conftest import init_test_db, remove_temp_db, temp_db_file
 
 WAIT = 0.1  # seconds a session here waits for the lock (5 in the app)
 NY = "America/New_York"
+# Dollars into the bank: no price asked
+DEPOSIT = {"type": "Deposit", "timestamp": "2024-03-01T12:00:00Z", "from_account_id": 99, "to_account_id": 1,
+           "amount": "100", "fee_amount": "0", "fee_currency": "USD"}
 
 
 @pytest.fixture
@@ -187,16 +193,37 @@ def test_the_hourly_apply_takes_the_lock_after_its_copy(session, database, one_t
     assert not locked_elsewhere(database)
 
 
-def test_the_timezone_fill_holds_the_lock_from_its_check_to_its_save(session, database, monkeypatch):
+def test_the_hourly_apply_holds_the_lock_to_its_save(session, database, monkeypatch):
+    """Until the changes are saved, so an edit made meanwhile waits until
+    after them (#387)."""
+    tx_id = create_transaction_record(TransactionCreate(**DEPOSIT).model_dump(), session).id
+    monkeypatch.setattr(hourly_review, "hourly_changes", lambda db, **_: [{"id": tx_id}])
+    monkeypatch.setattr(hourly_review, "_changes", lambda db, *_: [{"id": tx_id, "values": {}, "moment": "hour"}])
     seen = []
-    real = tax_time._never_chosen
+    real = transaction.recalculate_all_transactions
 
-    def check(db):
+    def recalculate(db):
         seen.append(locked_elsewhere(database))
         return real(db)
 
-    monkeypatch.setattr(tax_time, "_never_chosen", check)
-    assert fill(session) is True
+    monkeypatch.setattr(transaction, "recalculate_all_transactions", recalculate)
+    assert [c["id"] for c in apply_hourly(session)["changed"]] == [tx_id]
     assert seen == [True]
+    assert not locked_elsewhere(database)
+    assert session.get(Transaction, tx_id).price_moment == "hour"
+
+
+def test_the_timezone_fill_holds_the_lock_from_its_check_to_its_save(session, database, monkeypatch):
+    seen = []
+    for name in ("_never_chosen", "_ledger_is_empty", "set_tax_timezone"):
+        real = getattr(tax_time, name)
+
+        def step(*args, _real=real, _name=name):
+            seen.append((_name, locked_elsewhere(database)))
+            return _real(*args)
+
+        monkeypatch.setattr(tax_time, name, step)
+    assert fill(session) is True
+    assert seen == [("_never_chosen", True), ("_ledger_is_empty", True), ("set_tax_timezone", True)]
     assert not locked_elsewhere(database)
     assert session.get(AppSetting, tax_time.SETTING_KEY).value == NY
