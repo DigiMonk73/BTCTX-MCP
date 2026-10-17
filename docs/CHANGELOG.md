@@ -237,6 +237,14 @@ All notable changes to BitcoinTX are documented in this file.
   shows what moves. Then Recalculate Ledger (any edit or delete does it
   too). If you filed a return from BitcoinTX's figures, a gift, donation or
   loss listed there as a sale, or income left out, would be in that year.
+- **A tax timezone name that isn't a zone is refused, not a server error**
+  (#384). Saving a tax timezone named like a folder of zones (`America`),
+  with a name hundreds of characters long, or with a part named like a
+  module of the zone package (`America/__init__/x`) answered "Internal
+  Server Error" instead of "Unknown timezone". Nothing was saved either way. Settings
+  offers only real zones and the login page sends the browser's, so only
+  a hand-made request could send one. **Affected:** every version since
+  0.8.0 (Settings' save), and this version's login fill. Nothing to do.
 - **A login no longer changes the tax timezone of a ledger with
   transactions** (tax figures, #334). While no tax timezone had ever been
   chosen (Settings showed UTC, and no `BTCTX_TIMEZONE`), every login saved
