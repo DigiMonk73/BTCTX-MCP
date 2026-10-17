@@ -172,8 +172,8 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    To move `mempool-startos` and `tor-startos` (the packages the dependency
    constants come from, pinned at `#next`) to their newest commits, delete
    every git-resolved entry from `package-lock.json` (`"resolved": "git+…"`:
-   those two and the packages they bring, such as `bitcoin-core-startos`)
-   and run `npm install`: `npm update` does nothing for a git dependency. Then
+   those two and the packages they bring, such as `bitcoin-core-startos`),
+   and anything under them, and run `npm install`: `npm update` does nothing for a git dependency. Then
    check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
    and no copy under another package (`overrides` keeps it so).
 3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and

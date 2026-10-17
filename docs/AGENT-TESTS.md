@@ -888,8 +888,9 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   teardown works"). Expect a fresh install, as INS-1 and INS-2: the two
   critical tasks, and nothing kept from before. Run them as INS-3 and INS-4
   and start it: `admin` with the new password logs in, `fresh` doesn't, and
-  `start-cli package attach btctx -n btctx -- ls /data/backups` lists no
-  `btctx-before-delete-all-….db` (END-2's copy went with the uninstall).
+  `start-cli package attach btctx -n btctx -- ls /data` lists no `backups`
+  folder: a fresh install has made no copy yet, and END-2's
+  `btctx-before-delete-all-….db` went with the uninstall.
   Then uninstall it and revert the VM to `clean`.
 
 ---
