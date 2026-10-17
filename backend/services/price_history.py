@@ -274,11 +274,11 @@ async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
     whole public history came in. `day` only decides whether to ask the
     public sites: no request ever names it.
     """
-    settings = outbound.current()
     prices: dict[date, tuple] = {}
     complete = False
     prices.update(await own_node_history())  # nothing (and nothing kept) without a mempool server
-    if day not in prices and settings.public_allowed:
+    # The choice as it is after the wait for the mempool server: a save may have come meanwhile (#437)
+    if day not in prices and outbound.current().public_allowed:
         public, complete = await public_history(full)
         for d, value in public.items():
             prices.setdefault(d, value)

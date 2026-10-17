@@ -44,7 +44,11 @@ it's sent.
 Every request ends in bounded time and size (BoundedClient): httpx's
 timeouts limit each wait, not the whole request, so the whole of it gets a
 deadline (WAITS times its timeout), and an answer over MAX_ANSWER_BYTES is
-refused. Either is a failed request, handled as any other.
+refused. Either is a failed request, handled as any other. And each request
+is sent only as the settings in use just before it allow (#437: a lookup
+can outlast a save): to a public site only while they allow public sites,
+through the proxy its client was made with; to the own mempool server only
+at the address in use. Anything else is refused unsent (ChoiceChanged).
 
 A test checks no other backend module builds its own client. The one
 exception is an admin's command, not the app: `python -m backend.cli
@@ -63,6 +67,7 @@ import os
 import ssl
 import threading
 import zlib
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -591,8 +596,18 @@ def unreachable(exc: Exception) -> bool:
 
 def async_client(timeout: float | None = None) -> BoundedClient:
     """A client for public sites: through the proxy when one is set.
-    `timeout`: each wait's limit, TIMEOUT unless given."""
-    return _client(timeout or TIMEOUT, _current.proxy_url)
+    `timeout`: each wait's limit, TIMEOUT unless given. Each request goes
+    only while the settings in use allow public sites through that same
+    proxy (#437): a lookup can outlast a save, which must never leave it
+    asking a public site the owner no longer allows, or around Tor."""
+    proxy = _current.proxy_url
+    return _client(timeout or TIMEOUT, proxy, allows=lambda url: _public_through(proxy))
+
+
+def _public_through(proxy: str | None) -> bool:
+    """Whether the settings in use allow public sites, through this proxy."""
+    s = _current
+    return s.public_allowed and s.proxy_url == proxy
 
 
 def history_client(timeout: float | None = None) -> BoundedClient | FixedBlocksOnly:
@@ -607,19 +622,27 @@ def history_client(timeout: float | None = None) -> BoundedClient | FixedBlocksO
     return FixedBlocksOnly(_client(timeout or TIMEOUT, None))
 
 
-def _client(timeout: float, proxy: str | None, verify: bool | ssl.SSLContext = True) -> BoundedClient:
-    """Every client's one builder: through `proxy`, or directly with None."""
+def _client(timeout: float, proxy: str | None, verify: bool | ssl.SSLContext = True,
+            allows: Callable[[str], bool] | None = None) -> BoundedClient:
+    """Every client's one builder: through `proxy`, or directly with None;
+    `allows(url)`, checked before each request, refuses it (ChoiceChanged)."""
     if _transport is not None:
         # Tests: the fake sites answer, and each request carries the proxy it would take
         hooks = {"request": [functools.partial(_tag_proxy, proxy)]}
         client = httpx.AsyncClient(timeout=timeout, transport=_transport, event_hooks=hooks)
     else:
         client = httpx.AsyncClient(timeout=timeout, proxy=proxy, verify=verify)
-    return BoundedClient(client, WAITS * timeout)
+    return BoundedClient(client, WAITS * timeout, allows)
 
 
 async def _tag_proxy(proxy: str | None, request: httpx.Request) -> None:
     request.extensions[PROXY_TAG] = proxy
+
+
+class ChoiceChanged(RuntimeError):
+    """A request refused before it's sent (#437): the price settings in use
+    changed since its client was made (a save meanwhile), and no longer
+    allow it, or not the way that client would send it."""
 
 
 class NotAFixedBlock(RuntimeError):
@@ -701,13 +724,25 @@ def own_node_client(timeout: float | None = None) -> BoundedClient:
     each wait's limit, TIMEOUT unless given.
     """
     timeout = timeout or TIMEOUT
-    onion = _is_onion(_current.mempool_url)
-    if onion and not _current.proxy_url:
+    made = _current  # one reading of the settings (#437)
+    onion = _is_onion(made.mempool_url)
+    if onion and not made.proxy_url:
         # Never directly: the system's DNS resolver would see the .onion name.
         raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
     # A home server's root the owner trusts for this address: it alone (#188)
-    verify = trusting(_current.mempool_root) if _current.mempool_root and _transport is None else True
-    return _client(timeout, _current.proxy_url if onion else None, verify)
+    verify = trusting(made.mempool_root) if made.mempool_root and _transport is None else True
+    return _client(timeout, made.proxy_url if onion else None, verify, allows=lambda url: _own_node_as(made, url))
+
+
+def _own_node_as(made: NetworkSettings, url: str) -> bool:
+    """Whether a request to `url` goes to the own mempool server the client
+    was made for, still the one in use, with the same proxy and trusted root
+    (#437): a save meanwhile never sends an .onion's name to the system's
+    resolver, nor a request to an address no longer chosen."""
+    s = _current
+    base = made.own_node
+    same = (s.own_node, s.proxy_url, s.mempool_root) == (base, made.proxy_url, made.mempool_root)
+    return bool(base) and same and (url == base or url.startswith(base + "/"))
 
 
 class AnswerTooSlow(httpx.TimeoutException):
@@ -727,8 +762,8 @@ class BoundedClient:
     within them, would otherwise keep a request open with no end.
     """
 
-    def __init__(self, client: httpx.AsyncClient, deadline: float):
-        self._client, self.deadline = client, deadline
+    def __init__(self, client: httpx.AsyncClient, deadline: float, allows: Callable[[str], bool] | None = None):
+        self._client, self.deadline, self._allows = client, deadline, allows
 
     async def __aenter__(self) -> BoundedClient:
         await self._client.__aenter__()
@@ -738,6 +773,8 @@ class BoundedClient:
         await self._client.__aexit__(*exc_info)
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
+        if self._allows is not None and not self._allows(url):
+            raise ChoiceChanged("the price settings changed: this request isn't sent")
         try:
             return await asyncio.wait_for(self._whole_answer(url, kwargs), self.deadline)
         except asyncio.TimeoutError:

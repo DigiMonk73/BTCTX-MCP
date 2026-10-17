@@ -63,6 +63,8 @@ async def _from_own_node(path: str, parse: Callable, record: bool = False):
             resp = await client.get(base + path)
             resp.raise_for_status()
             value = parse(resp)
+    except outbound.ChoiceChanged:
+        return None  # a save meanwhile (#437): not asked, so nothing to report about it
     except Exception as exc:
         logger.warning("Own mempool server %s%s failed: %s", base, path, exc)
         if record:
@@ -93,6 +95,11 @@ async def _first_public(urls_and_parsers, what: str, record: bool = False) -> tu
                         if record:
                             price_status.answered(_site(url))
                         return value, _site(url)
+            except outbound.ChoiceChanged:
+                # A save meanwhile (#437): nothing more is asked through this client
+                outbound.require_public()
+                raise HTTPException(status_code=502, detail=(
+                    f"The price settings changed while the {what} was being asked: try again.")) from None
             except Exception as exc:
                 unreached += outbound.unreachable(exc)
                 logger.info("%s from %s failed: %s", what, url.split("/")[2], exc)
