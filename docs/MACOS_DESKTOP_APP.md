@@ -119,7 +119,8 @@ it into `backups/`). Opening an older app version on a database a newer one
 already upgraded is refused with an error instead of risking your data.
 
 The desktop app does not hardcode a secret key. `backend/secret_key.py` uses
-`SECRET_KEY` from the environment if set (and not a known public default),
+`SECRET_KEY` from the environment if set (and not a known public default or
+shorter than 32 characters),
 otherwise generates a random key once and stores it next to the database.
 Deleting the key file only logs everyone out; a new one is generated.
 

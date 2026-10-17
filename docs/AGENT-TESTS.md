@@ -572,7 +572,9 @@ Start from the `clean` snapshot.
   the service), fallback off. Save.
   - Expect the status line to say the Mempool's certificate isn't trusted,
     and **Trust this server** to show the server's name, its root
-    certificate's name ("… Local Root CA") and a SHA-256 fingerprint.
+    certificate's name ("… Local Root CA") and a SHA-256 fingerprint,
+    with where to check it (#204): the fingerprint must be the one the
+    VM's own StartOS shows as Root CA in About this server.
   - Press it. Expect the certificate check to pass: the status line first
     says "Newer prices will come from your Mempool.", then, within a minute
     or two (after the next live-price request), "Your Mempool didn't answer

@@ -354,8 +354,9 @@ from the Transaction row alone.
   `POST /api/users/register`, `GET /api/users/setup-status`,
   `POST /api/users/reset-account`, `GET /api/health` (status, version,
   schema only) and login. User routes may only touch the logged-in user.
-- `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
-  default key anywhere.
+- `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored, and so is
+  one shorter than 32 characters (the key file is used). Never add a default
+  key anywhere.
 - The debug router, `DELETE /api/transactions/delete_all`,
   `PUT /api/settings/tax-timezone` and `POST /api/settings/tax-timezone/fill`
   are login-only (never the AI key); tests
@@ -390,6 +391,9 @@ from the Transaction row alone.
   a proxy, everyone's) and the global cap don't stop it; its own failures
   slow it. Logging out keeps it; a new password voids every earlier one.
   New passwords need 12+ characters; a change needs the current password.
+  A login with a username that doesn't exist checks a stand-in hash all the
+  same (`models/user.password_matches`), so its time says nothing about
+  which names exist.
 - While the account has the default login (before it's claimed: Docker,
   source and the Mac app alike), logging in with it and claiming it need
   the one-time setup code (`services/first_run.py`,
@@ -426,12 +430,16 @@ from the Transaction row alone.
   it was and answers in plain words, never SQL
   (`services/backup.restore_backup`, `routers/backup._write_kept`).
   It works only while AI access is on (off by default) and only on
-  `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
-  new MCP tool that needs a route adds it there on purpose (a test checks the
-  tools and the list agree). Never allow the key on login, users, key or
-  switch settings, backup download/restore, CSV export, file imports (CSV,
-  River), delete-all, Ledger Review fixes, settings changes (the Mempool
-  certificate's trust, #188, included) or debug.
+  `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template
+  of the route the request matched (`main.route_template`), never its URL;
+  any other route is 403. Every router is mounted with `main.include()`,
+  which notes its routes' templates (a router mounted otherwise is closed
+  to the key). A new MCP tool that needs a route adds it there on purpose
+  (a test checks the tools and the list agree). Never allow the
+  key on login, users, key or switch settings, backup download/restore, CSV
+  export, file imports (CSV, River), delete-all, Ledger Review fixes,
+  settings changes (the Mempool certificate's trust, #188, included) or
+  debug.
 - Before the AI key's first change in an hour (an edit or a deletion) an AI
   copy is made (`backups/…-ai-before-changing-…db`; no copy, no change),
   never for the owner's; it is written under a temporary name and renamed

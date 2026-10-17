@@ -3,8 +3,9 @@ The key that signs the session cookie and the login throttle's device cookie
 (services/login_throttle.py). Anyone who knows it can forge a login cookie,
 so it must never be a value published in this repo.
 
-Order: SECRET_KEY env var (unless it's a known public default) -> a random
-key generated once and stored next to the database (DATABASE_FILE's folder:
+Order: SECRET_KEY env var (unless it's a known public default or shorter
+than 32 characters, #204) -> a random key generated once and stored next to
+the database (DATABASE_FILE's folder:
 /data on Docker/StartOS, Application Support on macOS), readable only by the
 app's user. Stable across restarts, unique per install. A key file that is
 empty or too short to be one of ours is replaced with a new key (everyone
@@ -46,7 +47,12 @@ def _read_key(path: str) -> str | None:
 def load_secret_key(data_dir: str) -> str:
     env_key = os.getenv("SECRET_KEY", "")
     if env_key not in PUBLIC_DEFAULTS:
-        return env_key
+        if len(env_key) >= MIN_KEY_LENGTH:
+            return env_key
+        logger.warning(
+            "SECRET_KEY is shorter than %d characters, too short to be a safe key; "
+            "using the key file next to the database instead.", MIN_KEY_LENGTH
+        )
 
     path = os.path.join(data_dir, KEY_FILENAME)
     key = _read_key(path)
