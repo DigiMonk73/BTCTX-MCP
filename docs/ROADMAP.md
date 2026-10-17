@@ -9,19 +9,20 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
 Registry, then maintenance only. The plan and its checklist are #143. The
-version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with every fix
-found in 1.2.8's user test and in the reviews since, is the stable
+version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
+every bug found in 1.2.8's user test and in the reviews since, is the stable
 candidate, released with no known bugs if possible (#369); it gets the 14
 days on Community Beta and the promotion request (1.2.8 isn't promoted).
 Nothing that changes the package goes to Start9 during that test, so what's
 under "Soon" waits for the maintenance releases after promotion.
 
-After 1.2.9 we expect 1.2.x to get maintenance updates only (bug and
-security fixes, each year's IRS forms), and new work goes into 2.0, below.
-No dates are promised.
+After 1.2.9, until 2.0 replaces it, we expect 1.x to get maintenance
+updates only (bug and security fixes, each year's IRS forms, the price
+history's update), and new work goes into 2.0, below. No dates are
+promised.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
-      blocking item, then 14 days on Community Beta (1.2.8), then the
+      blocking item, then 14 days on Community Beta (1.2.9), then the
       promotion request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
@@ -103,10 +104,12 @@ No dates are promised.
 
 ## BitcoinTX 2.0 (planned, after 1.2.9)
 
-Planned in #251; the build starts the day Start9 promotes 1.2.9. Because it
-changes how the ledger is stored, 2.0 is tested as a beta on GitHub
-pre-releases for as long as it needs; Start9's copy carries only 1.2.x until
-2.0 is ready for its own 14 days on Community Beta (the owner, 2026-10-16).
+Planned in #251; the build is planned to start the day Start9 promotes the
+stable version (#251, decision 8). Because it changes how the ledger is
+stored, we plan to test 2.0 as a beta on GitHub pre-releases for as long as
+it needs; Start9's copy carries only 1.x until 2.0 is ready for its own 14
+days on Community Beta (the owner, 2026-10-16; Start9 is asked in the
+promotion request).
 
 - [ ] **Multiple wallets and exchange accounts**, each tracked as its own
       account with its own cost-basis lots, as the IRS's wallet-by-wallet
@@ -114,4 +117,4 @@ pre-releases for as long as it needs; Start9's copy carries only 1.2.x until
       2024-28), and several bank accounts, with transfers between them and
       reports by account. BitcoinTX 1.x is deliberately limited to one
       self-custody wallet and one exchange account (#86). No dates
-      promised; meanwhile 1.2.x stays in maintenance.
+      promised; meanwhile 1.x stays in maintenance.

@@ -16,11 +16,12 @@ All notable changes to BitcoinTX are documented in this file.
   with the next package release.
 
 ### Changed
-- **The README says what comes after 1.2.9** ("Versions"; also
+- **The README says what comes after 1.2.9** (#369, #251; "Versions", also
   `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
-  version, with maintenance updates only after it; 2.0, with several
-  wallets, exchanges and banks, is tested as a beta on GitHub pre-releases
-  before it comes to Start9's Community Beta. No dates are promised.
+  version, with maintenance updates only after it until 2.0 replaces it;
+  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  a beta on GitHub pre-releases before it comes to Start9's Community Beta.
+  No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
   900 its table was 1,500 px wide in a 776 px card, so the amounts, cost
   basis, proceeds and fees were off to the right and the table had to be
