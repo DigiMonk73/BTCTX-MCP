@@ -176,10 +176,12 @@ class NetworkSettings:
 
 
 _current = NetworkSettings()
-# A change to the price settings and its reading back into memory, one at a
-# time (#435): the last change to commit is the last one read, so BitcoinTX
-# uses what the table holds, never a mix of two saves made at once. Held only
-# for the commit and the reading, never while a save writes its rows.
+# Reading the price settings into memory, one reading at a time (#435). Each
+# change commits, then reads them back (load), so the last reading to start is
+# the last one kept, and it sees every change before it: BitcoinTX uses what
+# the table holds, never a mix of two saves made at once, nor an earlier
+# save's reading kept last. Never held while a change writes or commits, so
+# none waits for it holding SQLite's write lock.
 _one_at_a_time = threading.Lock()
 
 
@@ -352,19 +354,10 @@ def load(db: Session, upgrade: bool = True) -> NetworkSettings:
     Read the settings (at startup, after a restore): the server's, else the
     database's. `upgrade=False` (a command-line run, which on StartOS may lack
     the server's variables) never works out a pre-1.1.0 install's choice:
-    the app's start does that (#134). One at a time with the changes that
-    read them back (#435).
+    the app's start does that (#134). One reading at a time (#435).
     """
     with _one_at_a_time:
         return _load(db, upgrade)
-
-
-def _commit_and_load(db: Session) -> NetworkSettings:
-    """Commit a change to the price settings and read them back into memory,
-    one change at a time (#435)."""
-    with _one_at_a_time:
-        db.commit()
-        return _load(db)
 
 
 def _load(db: Session, upgrade: bool = True) -> NetworkSettings:
@@ -426,10 +419,10 @@ def answer_history_without_tor(db: Session, answer: str, via: str) -> NetworkSet
     _set(db, DIRECT_KEY, answer)
     _set(db, DIRECT_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     _set(db, DIRECT_VIA_KEY, via if via in DIRECT_VIA else "settings")
-    settings = _commit_and_load(db)
+    db.commit()
     logger.info("Price history without Tor: %s (answered %s)", answer,
                 "on the Dashboard" if via == "dashboard" else "in Settings")
-    return settings
+    return load(db)
 
 
 def history_without_tor() -> bool:
@@ -489,12 +482,14 @@ def trusting(pem: str) -> ssl.SSLContext:
 def trust_root(db: Session, mempool_url: str, pem: str) -> NetworkSettings:
     """Trust a home server's root certificate for this Mempool address (#188)."""
     _set(db, TRUSTED_ROOT_KEY, json.dumps({"url": mempool_url, "pem": pem}))
-    return _commit_and_load(db)
+    db.commit()
+    return load(db)
 
 
 def forget_root(db: Session) -> NetworkSettings:
     _set(db, TRUSTED_ROOT_KEY, None)
-    return _commit_and_load(db)
+    db.commit()
+    return load(db)
 
 
 def server_tor() -> str | None:
@@ -553,7 +548,8 @@ def save(
     _set(db, PROXY_KEY, proxy)
     _set(db, CHOSEN_AT_KEY, datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"))
     _set(db, CHOSEN_VIA_KEY, via if via in CHOSEN_VIA else "settings")
-    return _commit_and_load(db)
+    db.commit()
+    return load(db)
 
 
 def refuse_public() -> HTTPException:

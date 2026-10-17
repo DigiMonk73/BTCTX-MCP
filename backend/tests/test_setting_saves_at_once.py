@@ -7,12 +7,13 @@ models/app_setting.save_setting writes it in one statement.
 
 And two different Privacy & network saves at the same moment leave
 BitcoinTX using the later one, what the table holds, never a mix of the two
-such as public price sites without Tor (#435): a change and its reading back
-into memory go one at a time (outbound._one_at_a_time), and the price
-settings are read in one statement (outbound._stored), so a commit can't
-fall between the reads of two of them.
+such as public price sites without Tor (#435): each change commits, then
+reads the settings back into memory, one reading at a time
+(outbound._one_at_a_time), and they're read in one statement
+(outbound._stored), so a commit can't fall between the reads of two of them.
 """
 
+import logging
 import threading
 
 import pytest
@@ -225,23 +226,32 @@ def committing_while_reading(engine, key: str, commit):
     return at_the_read
 
 
-def test_a_restore_keeps_one_saves_price_settings(fresh_db):
+NOBODY, PUBLIC_THROUGH_TOR = ("off", None, False, None), ("public", None, False, TOR)
+
+
+@pytest.mark.parametrize("earlier, later, key", [
+    # The save lands as the source is read: read last, it was the later save's
+    (NOBODY, PUBLIC_THROUGH_TOR, outbound.SOURCE_KEY),
+    # ... or as the proxy is read: read after the source, it was the later save's
+    (PUBLIC_THROUGH_TOR, NOBODY, outbound.PROXY_KEY),
+], ids=["at the source", "at the proxy"])
+def test_a_restore_keeps_one_saves_price_settings(fresh_db, earlier, later, key):
     """
     A restore keeps this install's price settings (outbound.snapshot) and
     writes them into the restored database. A save committing while it
-    reads them: what it keeps is one save's, the table's, never the earlier
-    save's proxy with the later save's source (Nobody, then public sites
-    through Tor, would have become public sites with no proxy).
+    reads them: what it keeps is one save's, the table's, never one save's
+    source with the other's proxy (either way round, public sites with no
+    proxy).
     """
     Session = sessionmaker(bind=fresh_db)
     with Session() as db:
-        outbound.save(db, "off", None, False, None)
+        outbound.save(db, *earlier)
 
-    def save_public_through_tor():
+    def save_later():
         with Session() as other_tab:
-            outbound.save(other_tab, "public", None, False, TOR)
+            outbound.save(other_tab, *later)
 
-    listener = committing_while_reading(fresh_db, outbound.SOURCE_KEY, save_public_through_tor)
+    listener = committing_while_reading(fresh_db, key, save_later)
     try:
         with Session() as db:
             kept = outbound.snapshot(db)
@@ -249,7 +259,7 @@ def test_a_restore_keeps_one_saves_price_settings(fresh_db):
         event.remove(fresh_db, "before_cursor_execute", listener)
     with Session() as db:
         assert kept == outbound.snapshot(db)
-    assert (kept[outbound.SOURCE_KEY], kept[outbound.PROXY_KEY]) == ("public", TOR)
+    assert (kept[outbound.SOURCE_KEY], kept[outbound.PROXY_KEY]) == (later[0], later[3])
 
 
 def test_a_change_from_outside_while_the_settings_are_read_leaves_no_mix(fresh_db):
@@ -276,4 +286,64 @@ def test_a_change_from_outside_while_the_settings_are_read_leaves_no_mix(fresh_d
     finally:
         event.remove(fresh_db, "before_cursor_execute", listener)
     assert (outbound.current().price_source, outbound.current().proxy_url) == ("off", None)
+    assert in_use_is_what_the_table_holds(fresh_db)
+
+
+def test_a_reading_back_that_writes_never_waits_for_a_save(fresh_db, monkeypatch, caplog):
+    """
+    A reading of the settings may write: with the server setting the price
+    choice, its note that none was chosen in the app (outbound._mark_unchosen).
+    A save meanwhile commits before it waits for its own reading, so it never
+    waits holding SQLite's write lock: the note is written, not refused after
+    SQLite's 5 seconds while the save waits too.
+    """
+    monkeypatch.setenv(outbound.ENV_SOURCE, "public")
+    first = threading.current_thread()
+    held_up = threading.Event()  # set once the save is held up by the lock (or is done)
+    errors: list[Exception] = []
+
+    class WatchedLock:
+        def __init__(self, lock):
+            self.lock = lock
+
+        def __enter__(self):
+            if not self.lock.acquire(blocking=False):
+                if threading.current_thread() is not first:
+                    held_up.set()
+                self.lock.acquire()
+
+        def __exit__(self, *exc_info):
+            self.lock.release()
+
+    def answer_no():
+        try:
+            with sessionmaker(bind=fresh_db)() as db:
+                outbound.answer_history_without_tor(db, "no", "settings")
+        except Exception as e:
+            errors.append(e)
+        finally:
+            held_up.set()
+
+    saving = threading.Thread(target=answer_no)
+
+    def before_the_note(conn, cursor, statement, params, context, executemany):
+        if threading.current_thread() is first and statement.startswith("INSERT INTO app_settings") \
+                and saving.ident is None:
+            saving.start()
+            assert held_up.wait(timeout=10), "the save never got going"
+
+    monkeypatch.setattr(outbound, "_one_at_a_time", WatchedLock(outbound._one_at_a_time))
+    event.listen(fresh_db, "before_cursor_execute", before_the_note)
+    try:
+        with sessionmaker(bind=fresh_db)() as db:
+            outbound.load(db)  # the server's start
+    finally:
+        event.remove(fresh_db, "before_cursor_execute", before_the_note)
+    saving.join(timeout=30)
+    assert not saving.is_alive() and errors == []
+    refused = [r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR]
+    assert refused == []  # not "Recording that no price source was chosen in the app failed"
+    with fresh_db.connect() as con:
+        stored = dict(con.execute(text("SELECT key, value FROM app_settings")).all())
+    assert (stored.get(outbound.SOURCE_KEY), stored.get(outbound.DIRECT_KEY)) == ("unset", "no")
     assert in_use_is_what_the_table_holds(fresh_db)
