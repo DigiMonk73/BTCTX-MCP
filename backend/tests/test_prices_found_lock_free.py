@@ -26,6 +26,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.services import csv_import, entry_import, outbound, price_history
 from backend.services import hourly_prices as hp
+from backend.services import price_files as pf
 from backend.tests.conftest import empty_price_history
 
 # The real lookups, captured before the session fixture stubs them
@@ -55,14 +56,15 @@ def _midnight(day: str) -> int:
 
 
 class Sites:
-    """Bitstamp's daily history (every day at DAY_PRICE) and a mempool server
-    (its hourly record of a few days in March 2019), faked: each request
-    noted as (host, whether the write lock was free)."""
+    """Bitstamp (every day and hour at DAY_PRICE, but the days in `missing`)
+    and a mempool server (its hourly record of a few days in March 2019),
+    faked: each request noted as (host, whether the write lock was free)."""
 
     def __init__(self, engine):
         self.engine = engine
         self.requests: list[tuple[str, bool]] = []
         self.down = False
+        self.missing: set[int] = set()
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.url.host, _lock_free(self.engine)))
@@ -71,8 +73,11 @@ class Sites:
         if request.url.path == price_history.MEMPOOL_HISTORY_PATH:
             hours = range(_midnight("2019-03-01"), _midnight("2019-03-08"), 3600)
             return httpx.Response(200, json={"prices": [{"time": t, "USD": str(DAY_PRICE)} for t in hours]})
-        start = int(request.url.params.get("start", _midnight("2026-01-01")))
-        rows = [{"timestamp": str(t), "open": str(DAY_PRICE)} for t in range(start, start + 1000 * DAY, DAY)]
+        step = int(request.url.params["step"])
+        latest = _midnight(price_history._today().isoformat()) - 999 * step  # no start: the latest 1,000
+        start = int(request.url.params.get("start", latest))
+        rows = [{"timestamp": str(t), "open": str(DAY_PRICE), "volume": "1"}
+                for t in range(start, start + 1000 * step, step) if t not in self.missing]
         return httpx.Response(200, json={"data": {"pair": "BTC/USD", "ohlc": rows}})
 
     def all_with_the_lock_free(self) -> None:
@@ -112,15 +117,14 @@ BUY = dict(type="Buy", timestamp="2019-03-01T10:00:00Z", from_account_id=BANK, t
            amount="1", fee_amount="0", fee_currency="USD", cost_basis_usd="1000")
 
 
-@pytest.fixture
-def unvalued_fee(auth_client, test_engine, sites):
-    """A buy, a transfer whose BTC fee has no USD value (a row saved before
-    values were stored, which a recalculation prices once) and a deposit
-    after them; no price stored."""
-    buy = post(auth_client, **BUY)
-    transfer = post(auth_client, type="Transfer", timestamp="2019-03-02T12:00:00Z", from_account_id=EXCHANGE_BTC,
+def _ledger_with_an_unvalued_fee(client, test_engine, sites, year: int = 2019) -> dict[str, int]:
+    """A buy on 1 March, a transfer on the 2nd whose BTC fee has no USD value
+    (a row saved before values were stored, which a recalculation prices
+    once) and a deposit on the 3rd; no price stored."""
+    buy = post(client, **{**BUY, "timestamp": f"{year}-03-01T10:00:00Z"})
+    transfer = post(client, type="Transfer", timestamp=f"{year}-03-02T12:00:00Z", from_account_id=EXCHANGE_BTC,
                     to_account_id=WALLET, amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
-    deposit = post(auth_client, type="Deposit", timestamp="2019-03-03T09:00:00Z", from_account_id=EXTERNAL,
+    deposit = post(client, type="Deposit", timestamp=f"{year}-03-03T09:00:00Z", from_account_id=EXTERNAL,
                    to_account_id=WALLET, amount="0.1", fee_amount="0", fee_currency="BTC", source="MyBTC",
                    cost_basis_usd="100")
     with test_engine.begin() as con:
@@ -131,10 +135,21 @@ def unvalued_fee(auth_client, test_engine, sites):
     return {"buy": buy["id"], "transfer": transfer["id"], "deposit": deposit["id"]}
 
 
-def _fee_valued(client, ids) -> None:
+@pytest.fixture
+def unvalued_fee(auth_client, test_engine, sites):
+    return _ledger_with_an_unvalued_fee(auth_client, test_engine, sites)
+
+
+def _fee_valued(client, ids, moment: str = "day") -> None:
     transfer = get(client, ids["transfer"])
-    assert (Decimal(transfer["fee_usd"]), transfer["price_moment"]) == (Decimal("4.00"), "day")
+    assert (Decimal(transfer["fee_usd"]), transfer["price_moment"]) == (Decimal("4.00"), moment)
     assert "fee_usd" in transfer["values_from_price"]
+
+
+def _store_day(test_engine, day: str, usd: str = "30000.00") -> None:
+    with test_engine.begin() as con:
+        con.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES (:d, :usd, 'bitstamp')"),
+                    {"d": day, "usd": usd})
 
 
 # A row of an import, dated before the ledger's latest: the ledger is recalculated
@@ -218,6 +233,57 @@ def test_with_your_own_mempool_too(auth_client, sites, unvalued_fee):
     _fee_valued(auth_client, unvalued_fee)
 
 
+def test_bitstamps_hours_after_the_year_files_too(auth_client, sites, unvalued_fee, monkeypatch):
+    """The year files ending on 28 February 2019 (a release's last hour),
+    the transfer's hour comes from Bitstamp's blocks after them."""
+    files_end = _midnight("2019-03-01") - 3600
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
+        pf.YearLine(2019, pf.year_start(2019), files_end, 1416, "sha2019")])
+    monkeypatch.setattr(hp, "_current_hour", lambda: _midnight("2019-03-10"))
+    r = auth_client.post("/api/transactions/recalculate")
+    assert r.status_code == 200, r.text
+    assert sites.requests == [("www.bitstamp.net", True)]  # one block: the hours from 1 March
+    _fee_valued(auth_client, unvalued_fee, moment="hour")
+
+
+def test_an_hour_a_source_hasnt_is_asked_for_once(auth_client, sites, unvalued_fee, monkeypatch):
+    """Noted when it's looked for with the lock free, so the save run again
+    takes the day's price without asking, however soon a source may be
+    asked again (here at every lookup)."""
+    monkeypatch.setattr(pf, "read_manifest", lambda path=None: [
+        pf.YearLine(2019, pf.year_start(2019), _midnight("2019-03-01") - 3600, 1416, "sha2019")])
+    monkeypatch.setattr(hp, "_current_hour", lambda: _midnight("2019-03-10"))
+    monkeypatch.setattr(hp, "RETRY_SECONDS", 0)
+    sites.missing.add(_midnight("2019-03-02") + 12 * 3600)  # the transfer's hour
+    r = auth_client.post("/api/transactions/recalculate")
+    assert r.status_code == 200, r.text
+    assert [host for host, _free in sites.requests].count("www.bitstamp.net") == 7  # the hours' block, the 6 days'
+    sites.all_with_the_lock_free()
+    _fee_valued(auth_client, unvalued_fee)
+
+
+def test_the_latest_days_too(auth_client, test_engine, sites):
+    """Once the whole history is in, a day not stored comes from the latest days."""
+    ids = _ledger_with_an_unvalued_fee(auth_client, test_engine, sites, year=2025)
+    with test_engine.begin() as con:
+        con.execute(text("INSERT INTO app_settings (key, value) VALUES (:k, '2026-01-01')"),
+                    {"k": price_history.HISTORY_FLAG})
+    r = auth_client.post("/api/transactions/recalculate")
+    assert r.status_code == 200, r.text
+    assert sites.requests == [("www.bitstamp.net", True)]
+    _fee_valued(auth_client, ids)
+
+
+def test_a_whole_history_without_the_day_answers_as_before(auth_client, sites, unvalued_fee):
+    """Its days are kept, and the day it lacks is refused once, not asked again."""
+    sites.missing.add(_midnight("2019-03-02"))
+    r = auth_client.post("/api/transactions/recalculate")
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"].endswith("No BTC price is available for 2019-03-02; enter the USD value yourself.")
+    sites.all_with_the_lock_free()
+    assert get(auth_client, unvalued_fee["transfer"])["fee_usd"] is None
+
+
 def test_without_a_price_it_answers_as_before(auth_client, sites, unvalued_fee):
     """A 422 naming the transaction, never $0; asked once, with the lock free."""
     sites.down = True
@@ -259,6 +325,47 @@ def test_so_are_those_an_edit_clears(auth_client, test_engine, sites, bought):
     r = auth_client.put(f"/api/transactions/{spent['id']}", json={"proceeds_usd": None})
     assert r.status_code == 200, r.text
     _proceeds_priced(r.json())
+    sites.all_with_the_lock_free()
+
+
+def test_a_save_runs_again_from_its_input_as_given(auth_client, test_engine, sites, unvalued_fee):
+    """A backdated transfer's fee is priced before it's written (its day is
+    stored); the old transfer's then isn't, so the save runs again: its
+    fee is still one from the price, never taken for a typed one."""
+    _store_day(test_engine, "2019-03-01")
+    new = post(auth_client, type="Transfer", timestamp="2019-03-01T15:00:00Z", from_account_id=EXCHANGE_BTC,
+               to_account_id=WALLET, amount="0.1", fee_amount="0.0002", fee_currency="BTC")
+    assert (new["fee_usd"], new["values_from_price"], new["price_moment"]) == ("6.00", ["fee_usd"], "day")
+    sites.all_with_the_lock_free()
+    _fee_valued(auth_client, unvalued_fee)
+
+
+def test_so_does_an_edit(auth_client, test_engine, sites, unvalued_fee):
+    """A Spent's proceeds from the price, priced again for its new amount
+    before the edit is written, stay from the price when it runs again."""
+    _store_day(test_engine, "2019-03-04")
+    spent = post(auth_client, **{**SPENT, "timestamp": "2019-03-04T10:00:00Z"})
+    assert sites.requests == []  # its day is stored
+    r = auth_client.put(f"/api/transactions/{spent['id']}", json={"amount": "0.02"})
+    assert r.status_code == 200, r.text
+    assert (r.json()["gross_proceeds_usd"], r.json()["values_from_price"]) == ("600.00", ["gross_proceeds_usd"])
+    sites.all_with_the_lock_free()
+    _fee_valued(auth_client, unvalued_fee)
+
+
+def test_a_busy_database_while_keeping_the_price_answers_as_before(auth_client, sites, unvalued_fee, monkeypatch):
+    """Keeping the price found with the lock free can meet another save
+    holding it: the save meets that where it needs the price, and the AI
+    preview's dry run says its row was busy (SIMULATION_BUSY), as #423 does."""
+    from sqlalchemy.exc import OperationalError
+
+    def busy(db, write):
+        raise OperationalError("INSERT INTO btc_price_daily", {}, sqlite3.OperationalError("database is locked"))
+
+    monkeypatch.setattr(price_history, "keep", busy)
+    r = auth_client.post("/api/import/entries/preview", json={"rows": [EARLIER]})
+    assert r.status_code == 200, r.text
+    assert entry_import.SIMULATION_BUSY in r.json()["results"][0]["errors"]
     sites.all_with_the_lock_free()
 
 
