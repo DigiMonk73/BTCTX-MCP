@@ -142,12 +142,10 @@ def test_an_edit_made_while_the_hours_prices_are_applied_keeps_its_own_value(
     """#387: the apply worked each value out from the transaction as the
     check found it, then made the backup copy, then wrote that value: an edit
     made in between was overwritten with the value for its old amount or
-    hour. The apply now holds the write lock from the copy on and works
+    hour. The apply takes the write lock right after the copy and works
     each value out again from the transaction as it is then."""
     from backend.models.btc_price import BtcPriceHourly
 
-    monkeypatch.setattr(hourly_prices, "hourly_price",  # 14:00 UTC's price, and 16:00's
-                        lambda db, when, wait=True: (D(45000 if when.hour == 16 else HOUR_PRICE), "bitstamp"))
     with sessionmaker(bind=test_engine)() as db:  # 16:00's, kept by the edit that finds it
         db.add(BtcPriceHourly(hour=int(datetime(2025, 3, 1, 16, tzinfo=timezone.utc).timestamp()),
                               usd=D("45000.00"), source="bitstamp"))

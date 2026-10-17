@@ -73,7 +73,8 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
     """
     Price the picked transactions' day-priced values at their hour (where
     there's none, the day's), after a backup copy of the database, and
-    recalculate. Typed values never change. Commits.
+    recalculate. Typed values never change. Commits (rolls back when an
+    edit or a delete made meanwhile left nothing to apply).
     """
     from backend.services.transaction import recalculate_all_transactions
 
@@ -106,7 +107,7 @@ def apply_hourly_prices(db: Session, ids=None, year: int | None = None, wait: bo
 
 
 def _hold_write_lock(db: Session) -> None:
-    """SQLite's write lock until the apply commits: an edit made from now on
+    """SQLite's write lock until the apply ends: an edit made from now on
     waits until after it (5 s at most, then fails). While another save holds
     the lock longer, nothing is applied (503)."""
     try:
