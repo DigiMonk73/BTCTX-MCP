@@ -115,9 +115,9 @@ names the area (the latest pass on #41 says which is next); if not, ask.
    (`backend/services/reports/safe_text.py`, `csv_text`). A CSV cell
    BitcoinTX writes never starts a formula. One transaction per row. The
    connector's tools and the routes the AI key may call have to match. The
-   AI key's first edit or delete in an hour is preceded by a copy
-   (`_copy_before_ai_changes`, `backend/routers/transaction.py`); an import
-   makes none (the connector offers `backup_ledger`).
+   AI key's first edit, delete or recalculation in an hour is preceded by a
+   copy (`_copy_before_ai_changes`, `backend/routers/transaction.py`); an
+   import makes none (the connector offers `backup_ledger`; #414).
 
 ## How to report
 

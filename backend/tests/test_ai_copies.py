@@ -1,10 +1,11 @@
 """
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
-first change in an hour (an edit or a deletion) BitcoinTX makes one itself,
-and the pruning keeps the newest 3 and, for the last 7 UTC days, the oldest
-and the first made before a change each day. So for a week the AI copies
-hold the ledger from before each day's changes, however many copies are
-asked for next. The copies the AI asks for are tested in test_ai_key.py too.
+first change in an hour (an edit, a deletion or a recalculation) BitcoinTX
+makes one itself, and the pruning keeps the newest 3 and, for the last 7 UTC
+days, the oldest and the first made before a change each day. So for a week
+the AI copies hold the ledger from before each day's changes, however many
+copies are asked for next. The copies the AI asks for are tested in
+test_ai_key.py too.
 """
 
 import os
@@ -222,6 +223,69 @@ def test_editing_a_missing_entry_is_still_404_with_the_key_and_makes_no_copy(led
     r = ai.put("/api/transactions/999999", json={"amount": "1"})
     assert r.status_code == 404 and r.json()["detail"] == "Transaction not found."
     assert backup_copies(path, "ai") == []
+
+
+# Recalculations (#336): one can move stored figures, so the key's comes after a copy too
+def ledger_lines(copy) -> int:
+    conn = sqlite3.connect(copy)
+    try:
+        return conn.execute("SELECT COUNT(*) FROM ledger_entries").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def figures_out_of_date(path) -> None:
+    """Stored figures a recalculation changes: here, the ledger lines gone."""
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute("DELETE FROM ledger_entries")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_an_ai_recalculation_comes_after_a_copy_holding_the_figures_as_they_were(ledger):
+    path, ids, owner, ai = ledger
+    figures_out_of_date(path)
+    r = ai.post("/api/transactions/recalculate")
+    assert r.status_code == 200, r.text
+    [copy] = made_before_changing(path)
+    assert ledger_lines(copy) == 0 and ledger_lines(path) > 0
+    assert set(amounts(copy)) == set(ids)
+
+
+def test_one_copy_an_hour_across_recalculations_and_edits(ledger):
+    path, ids, owner, ai = ledger
+    assert ai.post("/api/transactions/recalculate").status_code == 200
+    assert ai.put(f"/api/transactions/{ids[0]}", json={"amount": "1"}).status_code == 200
+    assert ai.post("/api/transactions/recalculate").status_code == 200
+    [first] = made_before_changing(path)
+
+    age(first, 3601)
+    assert ai.post("/api/transactions/recalculate").status_code == 200
+    second, older = made_before_changing(path)
+    assert older == first and amounts(second)[ids[0]] == 1  # the edit, before the new hour's recalculation
+
+
+def test_the_owners_recalculation_makes_no_copy(ledger):
+    path, ids, owner, ai = ledger
+    figures_out_of_date(path)
+    assert owner.post("/api/transactions/recalculate").status_code == 200
+    assert backup_copies(path, "ai") == [] and ledger_lines(path) > 0
+
+
+def test_no_copy_no_recalculation(ledger, monkeypatch):
+    path, ids, owner, ai = ledger
+    figures_out_of_date(path)
+
+    def full_disk(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(tx_router, "backup_sqlite", full_disk)
+    r = ai.post("/api/transactions/recalculate")
+    assert (r.status_code, r.json()["detail"]) == (
+        500, "Not recalculated: BitcoinTX couldn't make its copy of the database first.")
+    assert ledger_lines(path) == 0
 
 
 # A copy that fails, and a change while the copy is being written
