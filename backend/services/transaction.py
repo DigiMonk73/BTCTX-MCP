@@ -283,11 +283,12 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
 # A saved row naming an account that doesn't exist (an id saved before 0.9.2,
 # F28; none, where an account it named was deleted) whose replay fails its
 # balance check: the refusal names it (#337). With two or more such rows each
-# stops the others' fix (#368), which the text says.
+# stops an edit of the others, but not a delete (#368), which the text says.
 ACCOUNT_MISSING = (
     "Transaction {id} (a {kind} of {date}) {what}. Edit it into one of your accounts, or delete it. "
-    "Ledger Review lists every such transaction; if it lists more than one that stops saves, each stops the "
-    "others' fix, and for now they need fixing outside the app (BitcoinTX issue #368)."
+    "Ledger Review lists every such transaction; if it lists more than one that stops saves, each stops an "
+    "edit of the others, but not a delete: delete all but one, then edit or delete the last, and enter again "
+    "any you still need."
 )
 
 
@@ -852,15 +853,20 @@ def delete_transaction_record(transaction_id: int, db: Session):
     is rebuilt.
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
+    A transaction naming a missing account is deleted past the others that
+    do (#368): each stops an edit of the others, so they go one by one.
     """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
 
+    # One naming a missing account goes even while others like it stop the
+    # replay, or none of them could ever go (#368)
+    missing_stops = not missing_accounts(tx, known_accounts(db))
     db.delete(tx)
     db.flush()
     try:
-        recalculate_all_transactions(db)
+        recalculate_all_transactions(db, missing_stops=missing_stops)
     except HTTPException as e:
         db.rollback()
         if isinstance(e, AccountMissing):
@@ -1124,7 +1130,7 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     If Deposit/Buy => create a new BitcoinLot if 'to_acct' is BTC.
     If fee is USD for a Buy, add it to cost basis automatically.
     """
-    to_acct = db.get(Account, tx.to_account_id)
+    to_acct = db.get(Account, tx.to_account_id) if tx.to_account_id else None
     if not to_acct or to_acct.currency != "BTC":
         return
 
@@ -1179,7 +1185,7 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
       at the fee's stored USD value, taxable whatever the purpose. It uses the
       oldest BTC first, then the amount follows.
     """
-    from_acct = db.get(Account, tx.from_account_id)
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
     if not from_acct or from_acct.currency != "BTC":
         return
 
@@ -1583,8 +1589,8 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     BitcoinTX pools, #159) disposes of the fee only: the coins that moved stay
     in their lots, with their dates and basis.
     """
-    from_acct = db.get(Account, tx.from_account_id)
-    to_acct = db.get(Account, tx.to_account_id)
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
+    to_acct = db.get(Account, tx.to_account_id) if tx.to_account_id else None
     if not from_acct or not to_acct:
         return
     if from_acct.currency != "BTC" or to_acct.currency != "BTC":
@@ -1705,7 +1711,7 @@ class _LotMove:
             ))
 
 
-def recalculate_all_transactions(db: Session, until: datetime | None = None):
+def recalculate_all_transactions(db: Session, until: datetime | None = None, *, missing_stops: bool = True):
     """
     "Scorched Earth": remove all ledger lines, partial-lot disposals,
     and BitcoinLots. Then re-lot everything in chronological order.
@@ -1714,7 +1720,8 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     snapshot of lots/balances as of that instant (used for year-end
     balances). Callers must run a full recalculation afterwards. A row
     naming a missing account that stops it is refused by name
-    (AccountMissing, #337).
+    (AccountMissing, #337); with `missing_stops` False (a delete of such a
+    row, #368) it's replayed without the balance check it fails.
     """
     db.query(LedgerEntry).delete()
     db.query(LotDisposal).delete()
@@ -1727,15 +1734,17 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None):
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
     for rec_tx in all_txs:
-        _replay(rec_tx, db, known)
+        _replay(rec_tx, db, known, missing_stops)
 
     db.flush()
 
 
-def _replay(tx: Transaction, db: Session, known: set[int]) -> None:
+def _replay(tx: Transaction, db: Session, known: set[int], missing_stops: bool) -> None:
     """One saved transaction's ledger lines and lots, in the replay. Its
-    balance check failing on a missing account is refused by name; any other
-    refusal (short of BTC, say) stays its own."""
+    balance check failing on a missing account is refused by name, unless
+    `missing_stops` is False: then it goes on, as a row naming a missing
+    account that passes its check does (#368). Any other refusal (short of
+    BTC, say) stays its own."""
     _fill_stored_fee_currency(tx, db)
     stored = _stored_inputs(tx)
     build_ledger_entries_for_transaction(tx, stored, db)
@@ -1745,7 +1754,8 @@ def _replay(tx: Transaction, db: Session, known: set[int]) -> None:
         missing = missing_accounts(tx, known)
         if e.status_code != 400 or not missing:
             raise
-        raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
+        if missing_stops:
+            raise AccountMissing(tx, missing, local_date(tx.timestamp, get_tax_timezone(db))) from e
     _post_lots(tx, stored, db)
 
 

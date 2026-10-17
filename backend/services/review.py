@@ -126,7 +126,8 @@ CHECKS: dict[str, tuple] = {
         "is in none of your balances, and a transfer, deposit or withdrawal between one of your accounts and a "
         "missing one stops every save that recalculates (an edit, a delete, an add dated before the latest) and "
         "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, "
-        "each stops the others' fix: for now they need fixing outside the app (BitcoinTX issue #368).",
+        "each stops an edit of the others, but not a delete: delete all but one, then edit or delete the last, "
+        "and enter again any you still need.",
     ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
