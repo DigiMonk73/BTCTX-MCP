@@ -607,11 +607,12 @@ All notable changes to BitcoinTX are documented in this file.
   `-5% fee`, `=…`, `+…`, `@…`, or one that only looks like it, such as
   `－10`), and importing that file kept the `'`: `-5% fee` came back as
   `'-5% fee`. The import now drops that one `'` again, in the columns the
-  export writes that way; a `'` before any other text stays. A purpose you
-  typed yourself as `'-5% fee` loses its `'` too, since it reads the same
-  as the export's, and spaces at either end of a cell are trimmed, as
-  before. Text only, no figure. Every version since 1.1.0 (the look-alikes
-  since 1.2.8).
+  export writes that way; a `'` before any other text stays. A purpose
+  saved with its own `'` before such text (`'-5% fee`) is exported with
+  another, so it comes back with its own (#380). In a CSV file you write
+  yourself, `'-5% fee` reads as the export's and loses its `'`, and spaces
+  at either end of a cell are trimmed, as before. Text only, no figure.
+  Every version since 1.1.0 (the look-alikes since 1.2.8).
 - **The CSV guide says what the import takes** (#304). Its rules table said
   a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
   only from them, while its own troubleshooting table and the import take
