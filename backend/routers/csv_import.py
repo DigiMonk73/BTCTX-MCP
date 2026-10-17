@@ -9,7 +9,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,6 +24,7 @@ from backend.services.csv_import import (
     check_database_empty,
     execute_import,
     generate_template_csv,
+    is_busy,
     log_unexpected,
 )
 
@@ -46,7 +46,7 @@ def import_failure(what: str, error: Exception) -> HTTPException:
     """The answer to an import that `error` stopped (not a row the ledger
     refused): busy (503) when SQLite's write lock was held past its 5 s
     wait, as other saves answer it, else the fixed sentence (500)."""
-    if isinstance(error, OperationalError) and "locked" in str(error.orig):  # SQLITE_BUSY
+    if is_busy(error):
         return HTTPException(status_code=503, detail=IMPORT_BUSY)
     log_unexpected(what, error)
     return HTTPException(status_code=500, detail=IMPORT_FAILED)

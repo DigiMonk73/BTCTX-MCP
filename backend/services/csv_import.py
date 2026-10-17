@@ -14,6 +14,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.models.account import Account
@@ -897,6 +898,11 @@ def _default_fee_currency(tx_type: str, from_account_id: int | None = None) -> s
     return "BTC"
 
 
+def is_busy(error: Exception) -> bool:
+    """Whether SQLite's write lock was held past the 5 s wait: SQLite's own
+    message, never a query's parameters, says so."""
+    return isinstance(error, OperationalError) and "locked" in str(error.orig)
+
 
 def log_unexpected(what: str, error: Exception) -> None:
     """An import's unexpected failure in the log: its type, its trace only at
@@ -904,6 +910,7 @@ def log_unexpected(what: str, error: Exception) -> None:
     transaction's date and dates stay out of the normal log (#204)."""
     logger.error("%s failed: %s", what, type(error).__name__)
     logger.debug("%s failed", what, exc_info=error)
+
 
 def check_database_empty(db: Session) -> tuple[bool, int]:
     """(whether the ledger is empty, how many transactions it has)."""

@@ -433,7 +433,7 @@ from the Transaction row alone.
   text (it can hold SQL, a server path or a date), and logs only the
   error's type (`services/csv_import.log_unexpected`; the trace at DEBUG).
   The AI preview's dry run does the same for a row it stops at
-  (`entry_import.SIMULATION_FAILED`).
+  (`entry_import.SIMULATION_BUSY` or `SIMULATION_FAILED`; `csv_import.is_busy`).
 - The MCP server authenticates with the AI key (`backend/services/ai_key.py`,
   `Authorization: Bearer`), never a password; there is no other API key. Mac
   app: the key is in the owner-only `mcp.json`, a new one at every start (the

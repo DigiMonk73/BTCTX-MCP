@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from backend.routers.csv_import import IMPORT_BUSY, IMPORT_FAILED
-from backend.services.entry_import import SIMULATION_FAILED
+from backend.services.entry_import import SIMULATION_BUSY, SIMULATION_FAILED
 from backend.tests.conftest import stub_daily_prices
 from backend.tests.test_imports_do_not_block import CSV, ENTRY, RIVER_ROW
 
@@ -55,15 +55,22 @@ def test_an_unexpected_failure_answers_a_fixed_sentence(clean, monkeypatch, capl
     assert f"{case} failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
 
 
+LOCKED = OperationalError("INSERT INTO transactions", {}, sqlite3.OperationalError("database is locked"))
+# "locked" in a query's parameters, not SQLite's message: not busy
+NOT_LOCKED = OperationalError("INSERT INTO transactions", ("locked",), sqlite3.OperationalError("disk I/O error"))
+
+
 @pytest.mark.parametrize("case", list(CASES))
 def test_a_locked_database_answers_busy(clean, monkeypatch, case):
     """#419's review: SQLite's write lock held past the 5 s wait is the
-    likeliest unexpected failure; other saves answer it busy (503)."""
+    likeliest unexpected failure; other saves answer it busy (503). Only
+    SQLite's own message says so."""
     step, url, request = CASES[case]
-    locked = OperationalError("INSERT INTO transactions", {}, sqlite3.OperationalError("database is locked"))
-    monkeypatch.setattr(step, _raises(locked))
+    monkeypatch.setattr(step, _raises(LOCKED))
+    assert clean.post(url, **request).json() == {"detail": IMPORT_BUSY}
+    monkeypatch.setattr(step, _raises(NOT_LOCKED))
     r = clean.post(url, **request)
-    assert (r.status_code, r.json()) == (503, {"detail": IMPORT_BUSY})
+    assert (r.status_code, r.json()) == (500, {"detail": IMPORT_FAILED})
 
 
 def test_the_ai_previews_dry_run_names_no_error_text(clean, monkeypatch, caplog):
@@ -77,3 +84,9 @@ def test_the_ai_previews_dry_run_names_no_error_text(clean, monkeypatch, caplog)
     assert (row["status"], row["errors"]) == ("rejected", [SIMULATION_FAILED])
     assert not _leaked(r.text)
     assert "Entry simulation of row 1 failed: RuntimeError" in caplog.text and not _leaked(caplog.text)
+
+
+def test_the_ai_previews_dry_run_answers_busy(clean, monkeypatch):
+    monkeypatch.setattr("backend.services.entry_import.create_transaction_record", _raises(LOCKED))
+    [row] = clean.post("/api/import/entries/preview", json={"rows": [ENTRY]}).json()["results"]
+    assert (row["status"], row["errors"]) == ("rejected", [SIMULATION_BUSY])
