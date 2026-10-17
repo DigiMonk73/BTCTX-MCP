@@ -91,7 +91,8 @@ dependency audit, which run but aren't required). The owner chose on
 2026-10-17 to require too that a branch be up to date with `develop`
 ("Require branches to be up to date before merging"), so a pull
 request's checks have run on everything already merged; until it's
-switched on, the lead's merge queue ("Big work") does that.
+switched on, whoever merges does that by hand ("Pull requests"; during
+big work, the lead's queue).
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from
@@ -801,11 +802,15 @@ open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 when the 10 required checks pass (if they already have, GitHub refuses
 `--auto`; the same command without `--auto` merges it at once). A branch
 behind `develop` is brought up to date first (`gh pr update-branch N`,
-which merges `develop` in; a Dependabot pull request: comment
+which merges `develop` in, or `git merge origin/develop` and a push; a
+Dependabot pull request: comment
 "@dependabot rebase" instead, since Dependabot stops maintaining a
 branch once anyone else commits to it, and it rewrites only its own
 branch) and merges only once its checks pass again: auto-merge never
-updates a branch by itself. During big work the lead does all of this
+updates a branch by itself. Until "Protect develop" requires it
+("Branches"), auto-merge doesn't check it either: it merges a branch that
+falls behind while its checks run, so only one pull request waits on
+auto-merge at a time. During big work the lead does all of this
 ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
 These pull requests get auto-merge only after the owner's "merge" in chat:
@@ -818,8 +823,9 @@ when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
 request merges" and the two sections after it.
 
 A branch that falls behind `develop` gets `develop` merged into it, never a
-rebase: a pushed branch is not rewritten, and the squash keeps `develop`
-clean anyway.
+rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
+pushed branch is not rewritten, and the squash keeps `develop` clean
+anyway.
 
 ## Big work: a main session and numbered sessions
 
@@ -917,16 +923,18 @@ one session. Claude suggests this setup when a request is that big.
   finds it too. The lead keeps one merge queue on the umbrella issue
   (the order, what each needs, its state) and takes each in turn: it
   brings the branch up to date with `develop` (`gh pr update-branch N`;
-  on a conflict, its session, or one the lead starts for it, merges
-  `develop` in and resolves it; a session that keeps working pulls
-  first), waits for green checks, checks that the owner's "merge" is
-  quoted on it where one is needed, and merges. Dependabot's pull
-  requests, and any other merge into `develop` while big work runs, go
-  through the same queue. Pull requests that touch the same files or
-  tests, in one session or several, merge one at a time, each tested on
-  top of the one before; the lead plans that order when it hands out the
-  work. (#413 merged on checks run before #416 changed the sentence its
-  test expected, and `develop` broke: #417.)
+  on a conflict or red checks, or where "Running sessions at once" has
+  the session merge `develop` in itself, its session, or one the lead
+  starts for it, does that and fixes what broke; a session still working
+  on that branch pulls before its next push), waits for green checks,
+  checks that the owner's "merge" is quoted on it where one is needed,
+  and merges. Dependabot's pull requests, and any other merge into
+  `develop` while big work runs, go through the same queue. Pull
+  requests that touch the same files or tests, in one session or
+  several, merge one at a time, each tested on top of the one before;
+  the lead plans that order when it hands out the work. (#413 merged on
+  checks run before #416 changed the sentence its test expected, and
+  `develop` broke: #417.)
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:
