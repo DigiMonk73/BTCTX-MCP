@@ -200,6 +200,7 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     await expect(card).toHaveCount(0);
     const shown = await (await page.request.get("/api/settings/network")).json();
     expect([shown.price_source, shown.confirmed]).toEqual(["off", true]);
+    await expect(page.getByText("You chose Nobody: no live price.")).toBeVisible(); // its lookup has answered (#444)
     expect(outsideRequests(app)).toEqual([]);
   });
 });
@@ -219,6 +220,14 @@ for (const [fixture, label] of [["unconfirmed-off", "Nobody"], ["unconfirmed-mem
       expect(outsideRequests(app)).toEqual([]);
       await card.getByRole("button", { name: "Confirm" }).click();
       await expect(card).toHaveCount(0);
+      // The price lookups that Confirm starts run after the save's answer, so
+      // they can come after the card goes (#444): read once they've answered.
+      if (fixture === "unconfirmed-off") {
+        await expect(page.getByText("You chose Nobody: no live price.")).toBeVisible();
+      } else {
+        await expect(page.locator(".btc-price-value")).toHaveText(/^\$/);
+        await expect(page.getByText(/^Block Height:/)).toBeVisible();
+      }
       const origins = [...new Set(outsideRequests(app).map((r) => new URL(r.url).origin))];
       expect(origins).toEqual(fixture === "unconfirmed-off" ? [] : ["http://umbrel.local:3006"]);
     });
