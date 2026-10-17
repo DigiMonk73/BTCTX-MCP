@@ -22,8 +22,10 @@ River (river.com → **Taxes & Documents**, web only) exports two CSVs:
 - **Bitcoin activity** — all BTC transactions. Columns:
   `Date, Sent Amount, Sent Currency, Received Amount, Received Currency, Fee Amount, Fee Currency, Tag`
   Dates are `YYYY-MM-DD HH:MM:SS` (UTC). `Tag` is one of
-  `Buy`, `Sell`, `Income`, `Interest`, `Withdrawal`, or empty (on-chain
-  sends/receives).
+  `Buy`, `Sell`, `Income`, `Interest`, `Mining` (a mining payout),
+  `Withdrawal` (an auto-withdrawal, to the address the user set), or empty
+  (on-chain sends/receives). River's help page "How do I download my
+  account activity?" defines them.
 - **Account activity** — BTC *and* cash movements (USD deposits/withdrawals).
   Format TBD — needed for Phase 3.
 
@@ -72,7 +74,8 @@ Implications:
 | Tag=Interest / Income | `Deposit: External → Exchange BTC`, source=Interest/Income, `cost_basis_usd`=**FMV autofill** (editable) | River gives no USD value |
 | Untagged send (Sent=BTC, no Received) | `Transfer: Exchange BTC → Wallet`, fee from Fee cols (River often omits it) | toggle → Withdrawal + purpose |
 | Untagged receive (Received=BTC, no Sent) | `Transfer: Wallet → Exchange BTC`, fee 0 (River can't see wallet-side fee; editable) | toggle → Deposit + source |
-| Tag=Withdrawal | `Withdrawal: Exchange BTC → External`, purpose chosen in preview (default Spent) | rare |
+| Tag=Withdrawal (an auto-withdrawal) | `Transfer: Exchange BTC → Wallet`, like an untagged send (#397; until 1.2.8 a `Withdrawal`, default Spent, read as a spend) | toggle → Withdrawal + purpose |
+| Tag=Mining | `Deposit: External → Exchange BTC`, source=Reward, `cost_basis_usd`=**FMV autofill** (#399; until 1.2.8 skipped with a warning) | |
 
 **Funding heuristic (Buys):** compute total outlay = Sent + USD fee. Group by
 outlay across the file; an outlay value that recurs (≥4 occurrences) with no

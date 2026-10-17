@@ -54,7 +54,8 @@ def river_csv(rows: List[str]) -> bytes:
 
 # Five recurring $25 no-fee buys (auto-buy pattern → Bank), one irregular
 # $150 buy with a fee (→ Exchange USD), one sell, one Interest payout, one
-# untagged send (cold storage), one untagged receive, one tagged Withdrawal.
+# untagged send (cold storage), one untagged receive, one auto-withdrawal
+# (Tag Withdrawal), one mining payout.
 SYNTHETIC_ROWS = [
     "2026-01-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy",
     "2026-01-12 12:00:00,25.00,USD,0.00031000,BTC,,,Buy",
@@ -67,6 +68,7 @@ SYNTHETIC_ROWS = [
     "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,",
     "2026-03-01 10:00:00,,,0.00060000,BTC,,,",
     "2026-03-10 10:00:00,0.00010000,BTC,,,0.00000200,BTC,Withdrawal",
+    "2026-03-12 12:00:00,,,0.00001234,BTC,,,Mining",
 ]
 
 
@@ -189,13 +191,32 @@ class TestRiverAdapter:
         assert p.fee_amount is None  # River can't see wallet-side fee
         assert p.type_choices == ["Transfer", "Deposit"]
 
-    def test_tagged_withdrawal(self):
+    def test_an_auto_withdrawal_is_a_move_to_the_wallet(self):
+        """#397: River tags an auto-withdrawal "Withdrawal" (to the address
+        the owner set, their wallet), never a spend."""
         proposals, _, _ = adapt(SYNTHETIC_ROWS)
         p = by_row(proposals, 12)
-        assert p.type == "Withdrawal"
-        assert p.to_account == "External"
-        assert p.purpose == "Spent"
-        assert p.type_choices == ["Withdrawal", "Transfer"]
+        assert p.river_tag == "Withdrawal"
+        assert p.type == "Transfer"
+        assert p.from_account == "Exchange BTC"
+        assert p.to_account == "Wallet"
+        assert p.amount == Decimal("0.00010000")
+        assert p.fee_amount == Decimal("0.00000200")
+        assert p.fee_currency == "BTC"
+        assert p.purpose is None
+        assert p.type_choices == ["Transfer", "Withdrawal"]
+
+    def test_a_mining_payout_is_reward_income(self):
+        """#399: River's Mining payout was skipped as an unknown row."""
+        proposals, _, warnings = adapt(SYNTHETIC_ROWS)
+        p = by_row(proposals, 13)
+        assert p.type == "Deposit"
+        assert p.from_account == "External"
+        assert p.to_account == "Exchange BTC"
+        assert p.amount == Decimal("0.00001234")
+        assert p.source == "Reward"
+        assert p.cost_basis_usd is None  # the value at receipt, filled by the router
+        assert not warnings
 
     def test_unknown_pattern_warns_and_skips(self):
         proposals, _, warnings = adapt(["2026-01-01 10:00:00,10.00,USD,,,,,"])
@@ -460,6 +481,19 @@ class TestExecute:
             again = preview([SYNTHETIC_ROWS[8]])
             assert again["proposals"][0]["status"] == STATUS_MATCHED, edit
 
+    def test_an_auto_withdrawal_saved_as_a_spend_is_in_the_ledger(self):
+        """#397: an auto-withdrawal an older version saved as a Spent
+        withdrawal (its default then) is still that send: proposed as a
+        Transfer now, it isn't imported a second time."""
+        delete_all_transactions()
+        seed_exchange_btc()
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[10]]))
+        rows[0].update({"type": "Withdrawal", "to_account": "External", "purpose": "Spent"})
+        assert execute(rows)["imported_count"] == 1
+        again = preview([SYNTHETIC_ROWS[10]])["proposals"][0]
+        assert again["type"] == "Transfer"
+        assert again["status"] == STATUS_MATCHED
+
     def test_a_ticked_row_keeps_its_match_so_an_identical_one_beside_it_is_imported(self):
         """The review of #277: the same payout twice in the file, once in the
         ledger. The preview shows one "In ledger" and one new; ticking both
@@ -490,20 +524,22 @@ class TestExecute:
         assert len(CLIENT.get("/api/transactions").json()) == recorded + imported
 
     def test_a_row_of_the_same_ledger_amount_takes_its_match_first(self):
-        """The re-check of #277: a tagged Withdrawal matched only by River's
-        amount took the Transfer that the identical send should match, and
-        was never saved."""
+        """The re-check of #277: a send matched only by River's amount (here
+        an auto-withdrawal with another fee) took the Transfer that the
+        identical send should match, and was never saved."""
         delete_all_transactions()
         seed_exchange_btc()
         create_tx({
             "type": "Transfer", "timestamp": "2026-03-10T10:00:00Z", "from_account_id": 4, "to_account_id": 2,
             "amount": "0.00010200", "fee_amount": "0.00000200", "fee_currency": "BTC",
         })
-        data = preview([SYNTHETIC_ROWS[10], "2026-03-10 10:00:00,0.00010000,BTC,,,0.00000200,BTC,"])
+        data = preview(["2026-03-10 10:00:00,0.00010000,BTC,,,0.00000300,BTC,Withdrawal",
+                        "2026-03-10 10:00:00,0.00010000,BTC,,,0.00000200,BTC,"])
         assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
         result = execute(default_request(data))
         assert result["imported_count"] == 1
-        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+        fees = sorted(t["fee_amount"] for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer")
+        assert [Decimal(str(f)) for f in fees] == [Decimal("0.00000200"), Decimal("0.00000300")]
 
     def test_a_receive_given_a_fee_or_a_withdrawal_imported_as_a_transfer_is_in_the_ledger(self):
         """River's own amount, for the other moves the owner can edit (the re-check of #277)."""
@@ -611,19 +647,23 @@ class TestExecute:
         result = execute(rows)
         assert result["imported_count"] == 1 and result["skipped_existing"] == 0, result
 
-    def test_a_send_imported_with_another_fee_keeps_its_match_beside_a_tagged_withdrawal(self):
+    def test_a_send_imported_with_another_fee_is_matched_before_a_withdrawal(self):
         """The second re-check of #277: within River's amount, a transaction of
-        the row's own type is matched first, so the tagged Withdrawal at the
-        same minute is new and saved."""
+        the row's own type is matched first. The send takes the Transfer it
+        was imported as, with another fee, not the auto-withdrawal saved as
+        a spend at the same minute (an older version's default, #397)."""
         delete_all_transactions()
         seed_exchange_btc()
-        rows = proposals_to_execute_rows(preview([self.SEND]))
-        rows[0]["fee_amount"] = "0.00000600"
+        rows = proposals_to_execute_rows(preview([self.TAGGED]))
+        rows[0].update({"type": "Withdrawal", "to_account": "External", "purpose": "Spent"})
         execute(rows)
-        data = preview([self.TAGGED, self.SEND])
-        assert [p["status"] for p in data["proposals"]] == ["new", STATUS_MATCHED]
-        assert execute(default_request(data))["imported_count"] == 1
-        assert any(t["type"] == "Withdrawal" for t in CLIENT.get("/api/transactions").json())
+        transfer = create_tx({
+            "type": "Transfer", "timestamp": "2026-02-15T10:00:00Z", "from_account_id": 4, "to_account_id": 2,
+            "amount": "0.00100600", "fee_amount": "0.00000600", "fee_currency": "BTC",
+        })
+        data = preview([self.SEND])
+        assert data["proposals"][0]["status"] == STATUS_MATCHED
+        assert data["proposals"][0]["matched_tx_id"] == transfer["id"]
 
     def test_a_lowercase_type_is_saved_with_its_fee_and_caught_the_second_time(self):
         """The re-check of #277: the fee went in by the type as written ("transfer")."""

@@ -5,8 +5,10 @@ into a live ledger. See docs/archive/RIVER_IMPORT_PLAN.md for the full design.
 River CSV columns:
     Date, Sent Amount, Sent Currency, Received Amount, Received Currency,
     Fee Amount, Fee Currency, Tag
-Dates are "YYYY-MM-DD HH:MM:SS" in UTC. Tag is one of Buy, Sell, Income,
-Interest, Withdrawal, or empty (on-chain sends/receives).
+Dates are "YYYY-MM-DD HH:MM:SS" in UTC. Tag is one of Buy, Sell, Income
+(a referral payout), Interest, Mining (a mining payout), Withdrawal (an
+auto-withdrawal), or empty (on-chain sends/receives). River's help page "How
+do I download my account activity?" defines the columns and tags.
 
 Account model (deliberate simplification, see plan doc):
     Exchange USD / Exchange BTC = River; Bank = outside bank; Wallet = cold
@@ -53,6 +55,10 @@ RIVER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # The amounts, as River's header names them
 RIVER_NUMBER_COLUMNS = ("Sent Amount", "Received Amount", "Fee Amount")
+
+# The deposit source of BTC River pays, by River's tag: a mining payout is a
+# Reward (mining, staking, bonuses), income like the others (#399)
+RIVER_PAYOUT_SOURCES = {"Interest": "Interest", "Income": "Income", "Mining": "Reward"}
 
 # A buy outlay (sent + USD fee) that repeats at least this many times with no
 # fee is treated as a recurring auto-buy pulled from the bank via ACH.
@@ -318,7 +324,7 @@ class _RiverAdapter:
             return self.buy(row)
         if tag == "Sell" and row.sent_currency == "BTC" and row.received_currency == "USD":
             return self.sell(row)
-        if tag in ("Interest", "Income") and row.received_currency == "BTC" and row.received:
+        if tag in RIVER_PAYOUT_SOURCES and row.received_currency == "BTC" and row.received:
             return self.income(row)
         if row.sent_currency == "BTC" and row.received is None:
             return self.send(row)
@@ -390,37 +396,29 @@ class _RiverAdapter:
             type="Deposit", from_account_id=ACCOUNT_EXTERNAL,
             to_account_id=ACCOUNT_EXCHANGE_BTC,
             amount=row.received,
-            source=row.tag,
+            source=RIVER_PAYOUT_SOURCES[row.tag],
         )
 
     def send(self, row: RiverRow) -> RiverProposal | None:
         """
-        BTC left River. Untagged, it's almost always a move to cold storage;
-        Tag=Withdrawal means the user told River it left their hands. The
-        user can flip either in the preview. River's Sent Amount is what the
-        destination receives, the network fee on top; the proposal keeps
-        River's numbers, and ledger_amount() gives a Transfer's BitcoinTX
-        amount (fee included) for dedup and at execute.
+        BTC left River: almost always a move to the user's cold storage,
+        whether a send (untagged) or an auto-withdrawal (Tag=Withdrawal: River
+        sends the balance to the address the user set, #397). The user can
+        make it a Withdrawal in the preview. River's Sent Amount is what the
+        destination receives, the network fee on top (River's Total is Sent
+        plus Fee, #39); the proposal keeps River's numbers, and
+        ledger_amount() gives a Transfer's BitcoinTX amount (fee included)
+        for dedup and at execute.
         """
         if not row.sent or row.sent <= 0:
             self.warn(row, "BTC send row missing amount — skipped.")
             return None
         self.check_fee_currency(row, "BTC")
-        fee = {"fee_amount": row.fee, "fee_currency": "BTC" if row.fee else None}
-        if row.tag == "Withdrawal":
-            return RiverProposal(
-                row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-                type="Withdrawal", from_account_id=ACCOUNT_EXCHANGE_BTC,
-                to_account_id=ACCOUNT_EXTERNAL,
-                amount=row.sent, **fee,
-                purpose="Spent",
-                type_choices=["Withdrawal", "Transfer"],
-            )
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
             type="Transfer", from_account_id=ACCOUNT_EXCHANGE_BTC,
             to_account_id=ACCOUNT_WALLET,
-            amount=row.sent, **fee,
+            amount=row.sent, fee_amount=row.fee, fee_currency="BTC" if row.fee else None,
             type_choices=["Transfer", "Withdrawal"],
         )
 
