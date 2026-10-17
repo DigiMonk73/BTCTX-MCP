@@ -349,7 +349,7 @@ def keep(db: Session, write: Callable[[Session], object]) -> None:
     never holds the lock until its request ends and a save made meanwhile
     doesn't wait for it and fail (#364).
     """
-    if _writing(db):
+    if writing(db):
         write(db)
         db.flush()
         return
@@ -358,7 +358,7 @@ def keep(db: Session, write: Callable[[Session], object]) -> None:
         own.commit()
 
 
-def _writing(db: Session) -> bool:
+def writing(db: Session) -> bool:
     """Whether db has written and not committed: its connection holds SQLite's write lock."""
     return db.connection().connection.driver_connection.in_transaction
 

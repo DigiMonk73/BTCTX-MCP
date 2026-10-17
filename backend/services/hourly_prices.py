@@ -139,7 +139,9 @@ def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict
 def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decimal, str] | None:
     """The opening price of `when`'s UTC hour and its source, or None when
     there's none. wait=False (Ledger Review's many lookups): a year not
-    downloaded yet has none, though the download starts."""
+    downloaded yet has none, though the download starts. A caller that has
+    already written doesn't wait either (an import's later rows): it holds
+    SQLite's write lock, which the owner's saves wait only 5 s for (#421)."""
     hour = hour_of(when)
     if not pf.year_start(pf.FIRST_YEAR) <= hour <= _current_hour():
         return None
@@ -153,8 +155,8 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
         return prices[hour], "bitstamp"
     files_end = lines[-1].last_hour if lines else None
     found, keep = _from_sources(db, hour, files_end)
-    if found is None and line is not None and start_download() and wait:
-        prices = _wait_for_year(line)  # before anything is written: no write lock held meanwhile
+    if found is None and line is not None and start_download() and wait and not price_history.writing(db):
+        prices = _wait_for_year(line)
         found = (prices[hour], "bitstamp") if prices is not None else None
     _store(db, keep)
     return found
