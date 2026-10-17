@@ -239,13 +239,16 @@ from the Transaction row alone.
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits. The amount tests go in turn (the
   ledger amount, then River's), and within each a transaction of the row's
-  own type first. The user can override a duplicate: the AI's row names
-  the transaction the preview matched (`not_a_duplicate_of`), a River row
-  is ticked. That frees it only from that transaction: it's checked against
-  the rest, so a resent request doesn't save it twice (a row that matched
-  another copy is that copy, #378). A named row that check leaves new
-  takes a copy another row holds when that row can take another of its
-  own (`match_by_moving`), never one a row names.
+  own type first. The AI's rows are matched so the most find a copy: a row
+  left without one takes a copy another row holds when that row can take
+  another (`match_by_moving`), so a date-alone row can't take a timed
+  row's only copy (#411). The user can override a duplicate: the AI's row
+  names the transaction the preview matched (`not_a_duplicate_of`), a
+  River row is ticked. That frees it only from that transaction: it's
+  checked against the rest, so a resent request doesn't save it twice (a
+  row that matched another copy is that copy, #378). A named row that
+  check leaves new takes a copy another row holds when that row can take
+  another of its own (`match_by_moving`), never one a row names.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
@@ -292,6 +295,10 @@ from the Transaction row alone.
   Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
+  A save that has written never waits for a year's download (#421); an
+  import and the AI's preview and add find their rows' prices before
+  their first write (`transaction.find_prices_first`, #426); such an
+  import waits for a year once and asks a source once per hour.
 - **Holding period**: long-term only when disposed *after* the one-year
   anniversary (IRS "more than one year"), dates taken in the tax timezone.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date

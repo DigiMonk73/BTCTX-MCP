@@ -895,6 +895,45 @@ def _priced_at_the_day(db: Session, at_the_day: bool):
 DAY_PRICES = "btctx_price_at_the_day"
 
 
+def find_prices_first(db: Session, rows: list[dict]) -> None:
+    """
+    Before a save of several rows first writes (an import, the AI's preview
+    or add), find the prices its rows' values are filled from, so they're
+    stored: from its second row on it holds SQLite's write lock, and a price
+    asked for then, from the price sites or the owner's Mempool, held the
+    owner's saves up behind it (#426). In time order, as the save goes (the
+    year files kept in memory are few). The rest of the import waits for no
+    year it waited for here, and asks no source again for an hour it had no
+    price for (hourly_prices.WARMING): such a row takes the day's price.
+    """
+    if price_history.writing(db):
+        return
+    db.info[hourly_prices.WARMING] = True
+    try:
+        for when, at_the_day in sorted(_moments_priced(db, rows)):
+            try:
+                with _priced_at_the_day(db, at_the_day):
+                    _price_at(when, db)
+            except HTTPException:
+                pass  # the save looks again, and says which value lacks one
+            except Exception:  # a busy database: the save meets it and answers as it does
+                return
+    finally:
+        db.info[hourly_prices.WARMING] = False
+
+
+def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
+    """When the rows' values filled from a price are priced, as (the moment,
+    whether at the day): those a save won't do without
+    (values_the_save_prices), and a gift's blank value (_value_blank_gift)."""
+    moments = set()
+    for row in rows:
+        moments |= {(when, at == "day") for _field, when, at in values_the_save_prices(row, db)}
+        if _is_gift_like(row) and row.get("fmv_usd") is None and Decimal(row.get("amount") or 0) > 0:
+            moments.add((row.get("timestamp") or datetime.now(timezone.utc), _prices_at_the_day(row)))
+    return moments
+
+
 # Written as given when the edit sends them, in this order.
 _EDITED_FIELDS = (
     "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency", "type", "timestamp",
