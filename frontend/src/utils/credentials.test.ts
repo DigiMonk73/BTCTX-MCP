@@ -11,6 +11,6 @@ describe("passwordTooShort", () => {
     const key = "\u{1F511}"; // one code point, two UTF-16 units
     expect(passwordTooShort(key.repeat(6))).toBe(true);
     expect(passwordTooShort(key.repeat(12))).toBe(false);
-    expect(Array.from("e\u0301").length).toBe(2); // a combining mark is a code point of its own, as in Python
+    expect(passwordTooShort("e\u0301".repeat(6))).toBe(false); // 12 code points, as Python's len(), in 6 letters
   });
 });
