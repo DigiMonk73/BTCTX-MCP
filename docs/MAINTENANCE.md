@@ -247,7 +247,7 @@ From `backend/requirements.in`:
 | `itsdangerous` | 2.2.0 | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
-| `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly |
+| `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
 | `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
