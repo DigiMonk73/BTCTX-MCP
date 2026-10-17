@@ -66,15 +66,10 @@ def get_tax_timezone(db: Session) -> ZoneInfo:
 
 
 def set_tax_timezone(db: Session, name: str) -> str:
-    from backend.models.app_setting import AppSetting
+    from backend.models.app_setting import save_setting
 
     validate_timezone(name)
-    row = db.get(AppSetting, SETTING_KEY)
-    if row:
-        row.value = name
-    else:
-        db.add(AppSetting(key=SETTING_KEY, value=name))
-    db.flush()
+    save_setting(db, SETTING_KEY, name)
     return name
 
 

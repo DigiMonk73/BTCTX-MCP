@@ -111,17 +111,9 @@ def _get(db: Session, key: str) -> str | None:
 
 def _set(db: Session, key: str, value: str | None) -> None:
     """Store a setting; None deletes it."""
-    from backend.models.app_setting import AppSetting
+    from backend.models.app_setting import save_setting
 
-    row = db.get(AppSetting, key)
-    if value is None:
-        if row:
-            db.delete(row)
-    elif row:
-        row.value = value
-    else:
-        db.add(AppSetting(key=key, value=value))
-    db.flush()
+    save_setting(db, key, value)
 
 
 def access_on(db: Session) -> bool:
