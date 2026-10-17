@@ -1,9 +1,10 @@
 # Privacy and leak audit
 
-## Every request BitcoinTX can make (1.2.8)
+## Every request BitcoinTX can make (1.2.8, re-checked for 1.2.9)
 
 The stable candidate's privacy audit (#151; develop 72ba76f, 2026-10-12,
-re-checked on 16bf055, 2026-10-13). It supersedes the 1.2.1 table below
+re-checked on 16bf055, 2026-10-13; for 1.2.9 on b785a00b, 2026-10-16,
+below the table). It supersedes the 1.2.1 table below
 where they differ (Coinbase and CoinGecko are gone, hourly prices are
 new); the 1.2.1 audit stays as the record of its fixes. When a change
 touches what leaves the machine, check it against this table and update
@@ -46,6 +47,14 @@ it.
 In every run: every Bitstamp `start` was one of the fixed block starts, no request carried any of the ledger's dates or hours (as a date, a Unix time, its hour or its day), and none went to Coinbase or CoinGecko.
 
 Re-checked on develop 16bf055 (2026-10-13): every test named above exists, and their files pass (252 backend + 13 connector tests).
+
+**Re-checked for 1.2.9** (#371; develop b785a00b, 2026-10-16, every change since v1.2.8): the table holds as it is. No new kind of request, and `outbound.py`, `hourly_prices.py` and `mempool_trust.py` are unchanged. What changed: more moments for the same lookups (rows 4 to 7), and new answers and screens that ask nobody:
+- A gift's, donation's or lost coins' value (#255): left blank, it's filled from the price when it's saved, as a blank income value is, and with no price it stays blank; the AI import fills one too (now lost coins as well), in its preview already; Ledger Review shows a blank or $0 one at its hour's price. Each asks as for an income value. A recalculation never prices it.
+- The AI connector's answers and the transactions API (`values_from_price` beside `price_used`) say which price a value came from (#208): read from this install's table and files, never asked.
+- The sidebar's new line (#208) says where the live price it already asks for (rows 1 and 2) came from, and reads the settings; the form's new hint reads only the settings and the price status. Neither asks anybody, and neither do the login's tax-timezone fill (#334) or Delete All (#256) (checked with every connection and DNS lookup blocked).
+- The AI connector reads its own version from its installed package (#133): no PyPI request; it still asks only your BitcoinTX.
+
+Every test named above still exists, and their files pass on the release's locked dependencies (264 backend + 13 connector tests). Observed again through the paths 1.2.9 changed (the login's timezone fill, a My BTC and an income deposit, a gift, a donation, lost coins and a spend with blank values, the transactions list, Ledger Review, Delete All's count and delete, an AI import preview, the 2024 Complete Tax Report), with the smoke test's fake internet (`scripts/smoke_test.py`), which answers no hourly block: the hourly download stops after its first request, so rows 6 and 7 were seen only that far. Not chosen, Nobody: 0 requests; Public: 7 (Bitstamp's 6 daily blocks and 1 hourly), direct; Public + Tor: the same 7, every one through Tor; your Mempool: 1, its whole history; your Mempool with its backup: that one plus 1 Bitstamp block. Every Bitstamp `start` was a fixed block start, no request named any of the ledger's dates or hours, and none went to Coinbase or CoinGecko.
 
 ## The 1.2.1 audit (2026-09-29)
 
