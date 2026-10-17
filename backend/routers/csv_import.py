@@ -20,6 +20,7 @@ from backend.schemas.csv_import import (
 )
 from backend.services.csv_import import (
     parse_csv_file,
+    flag_unpriced_rows,
     check_database_empty,
     execute_import,
     generate_template_csv,
@@ -138,12 +139,14 @@ def preview_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """Every row checked, with its errors and warnings; nothing is saved."""
+    """Every row checked, with its errors and warnings, a row whose save
+    needs a price there is none to be had for included; nothing is saved."""
     _require_auth(request)
 
     content = _read_validated_csv(file)
 
     result = parse_csv_file(content, get_tax_timezone(db))
+    flag_unpriced_rows(result, db)
 
     if len(result.transactions) > MAX_ROWS:
         raise HTTPException(

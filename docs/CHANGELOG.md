@@ -477,6 +477,17 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The CSV import's Preview says when a row needs a price BitcoinTX can't
+  get** (#125). Preview called a row valid that Import then refused for want
+  of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
+  inherited deposit without its basis, or a Spent without its proceeds,
+  when no price for that day was stored and none could be asked for (no
+  price source chosen, or Nobody, or a day before any price). Preview now
+  lists such a row as an error naming the value to fill. A price BitcoinTX
+  may still ask for is left to the import, as before. Nothing was ever saved
+  wrong: the import refused the whole file and said why. **Affected:** 1.2.8
+  (where no price source chosen or Nobody stops the asking), and earlier
+  versions for a day before any price. Nothing to do.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the

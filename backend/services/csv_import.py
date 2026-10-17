@@ -32,11 +32,13 @@ from backend.services.transaction import (
     original_date_name,
     original_date_problem,
     sell_fee_problem,
+    values_from_a_price,
     text_problem,
     timestamp_problem,
     transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
+from backend.services import hourly_prices, outbound, price_history
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
@@ -119,6 +121,44 @@ def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
         result = ParseResult()
         result.errors.append(unreadable_csv(exc))
         return result
+
+
+def flag_unpriced_rows(result: ParseResult, db: Session) -> None:
+    """
+    Each row whose save needs a BTC price this install has neither stored
+    nor may ask for (no source chosen, Nobody, or a day before any price)
+    moved from the valid rows to the errors, saying which value to fill
+    (#125): the preview no longer calls valid a row the import then refuses.
+    A price it may ask for is left to the import, which asks.
+    """
+    years: dict = {}  # the hourly files, read once for every row
+    kept = []
+    for tx_data, preview in zip(result.transactions, result.previews):
+        problem = _unpriced(tx_data, db, years)
+        if problem is None:
+            kept.append((tx_data, preview))
+        else:
+            result.errors.append(_error(preview.row_number, *problem))
+    result.transactions = [tx_data for tx_data, _ in kept]
+    result.previews = [preview for _, preview in kept]
+    result.errors.sort(key=lambda e: e.row_number)
+
+
+def _unpriced(tx_data: dict[str, Any], db: Session, years: dict) -> tuple[str, str] | None:
+    """(the column, why) for the first value the save would price with no
+    price to be had; None when every one has a price, or may get one."""
+    settings = outbound.current()
+    for column, when, moment in values_from_a_price(tx_data, db):
+        if hourly_prices.stored_price_at(db, when, moment, years) is not None \
+                or (moment == "hour" and hourly_prices.stored_price_at(db, when, "day", years) is not None):
+            continue
+        day = price_history.utc_day(when)
+        if day < price_history.FIRST_PRICE_DAY:
+            return column, f"{column} needs the BTC price of {day.isoformat()}, and there is none for that day: fill it."
+        if not (settings.own_node or settings.public_allowed):
+            return column, (f"{column} needs the BTC price of {day.isoformat()}, and none is stored: fill it. "
+                            f"{outbound.refuse_public().detail}")
+    return None
 
 
 def unreadable_csv(exc: csv.Error) -> CSVParseError:
