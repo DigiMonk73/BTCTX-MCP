@@ -668,6 +668,23 @@ All notable changes to BitcoinTX are documented in this file.
   languages. The instructions (in English) also say which of another
   server's addresses to use: the one on your home network (often
   192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
+- **The package checked against Start9's current guide** (#372; Start9's
+  published guide at `698a56c`, everything since `5c7e52e`, the last check).
+  The package's `LICENSE` is now an exact copy of BitcoinTX's
+  (`project-structure.md`: upstream's license text alone; it had a Markdown
+  heading). The instructions describe the AI connector's version and the
+  Recalculate Ledger task as they work, without "after each update" steps,
+  which Start9 keeps for release notes (`versions.md`,
+  `writing-instructions.md`). `UPDATING.md` gains Start9's rules for the
+  version and its notes (a version counts as released once the community
+  registry serves it, and the notes cover everything since the one it last
+  served) and for bumping the SDK (`npm install` until the lockfile stops
+  changing; `npm update` doesn't move a git dependency), and says Start9
+  packs with the newest start-cli. The release tests add a reinstall after
+  the uninstall (`publishing.md`), and `test_startos_conformance.py` checks
+  the license, how Start9's release workflow reads the id and version, the
+  instructions' wording, and one exact SDK. Everything else already
+  conformed; nothing the package does changes.
 
 ### Development
 - **The WebKit click-through check no longer fails now and then on a

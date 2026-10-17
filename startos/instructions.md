@@ -66,13 +66,13 @@ The configuration holds your AI key: anyone who can read it can do what the key 
 
 If BitcoinTX's address changes (StartOS can give it a new port after you restore it from a backup), run **Connect an AI Assistant** again and update `BTCTX_URL` in your AI app.
 
-After each BitcoinTX update, update the connector too: in your AI app's configuration, change the version after `btctx-mcp==` to the version the **Connect an AI Assistant** action shows, and restart the AI app. Your AI key stays the same; don't paste the action's whole configuration over yours, since it has placeholders for the key and the certificate path. Until you update it, the assistant's replies say which version to set. Where to change it in each AI app: [Updating](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#updating).
+The connector's version, after `btctx-mcp==` in your AI app's configuration, matches your BitcoinTX's: **Connect an AI Assistant** shows it. When they differ, the assistant's replies say which version to set; change it in your AI app's configuration and restart the AI app. Your AI key stays the same; don't paste the action's whole configuration over yours, since it has placeholders for the key and the certificate path. Where to change it in each AI app: [Updating](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#updating).
 
 ### Actions
 
 - **Price Source & Privacy**: where BitcoinTX gets Bitcoin prices, as above. BitcoinTX restarts to apply it.
 - **Connect an AI Assistant**: everything an AI client needs, as above.
-- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Recalculate Ledger** in the app. Your transactions are not changed. Before running it after an update, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. An update that needs it asks once, under **Tasks** on BitcoinTX's page in StartOS; if you recalculated in the app instead, choose **Dismiss** there.
+- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When a version of BitcoinTX calculates some gains differently, StartOS asks for it once, under **Tasks** on BitcoinTX's page; if you recalculated in the app instead, choose **Dismiss** there.
 - **Set Login Credentials**: if you are locked out, stop BitcoinTX and run it: it sets the username back to `admin` with a new random password. Your transactions are not touched.
 
 ## Limitations

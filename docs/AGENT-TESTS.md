@@ -883,7 +883,12 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   data folder (in backups, unencrypted).", and `ls /data/backups` (as in
   IMP-3) listing one more `btctx-before-delete-all-….db`. Logging in as
   `fresh` shows an empty ledger.
-- **END-3** Uninstall BitcoinTX and revert the VM to `clean`.
+- **END-3** Uninstall BitcoinTX, then sideload the same `btctx_x86_64.s9pk`
+  again (Start9's `publishing.md`: "Uninstall and reinstall to confirm
+  teardown works"). Expect a fresh install, as INS-1 and INS-2: the two
+  critical tasks, and nothing kept from before. Run them as INS-3 and INS-4
+  and start it: `admin` with the new password logs in, `fresh` doesn't, and
+  the ledger is empty. Then uninstall it and revert the VM to `clean`.
 
 ---
 
