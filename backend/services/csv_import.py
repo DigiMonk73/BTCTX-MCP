@@ -911,7 +911,10 @@ def check_database_empty(db: Session) -> tuple[bool, int]:
 def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
     """
     Save every transaction (parse_csv_file's) and commit once: if one is
-    refused, none is saved. Returns how many were saved.
+    refused, none is saved. Returns how many were saved. A price a row needs
+    once earlier rows are written is looked for with the lock free, and the
+    rows saved again from the file's values (hourly_prices.
+    with_prices_found, #426).
     """
     # By timestamp only; rows at the same time keep the file's order (a
     # stable sort). The ledger replays same-time transactions in the order
@@ -920,17 +923,20 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
     # Transfer before Sell, changed which lots a same-time sale used.)
     sorted_txns = sorted(transactions, key=lambda x: x["timestamp"])
 
-    imported_count = 0
-    find_prices_first(db, sorted_txns)  # before the first row is written (#426)
-    try:
-        for tx_data in sorted_txns:
-            create_transaction_record(tx_data, db, auto_commit=False)
-            imported_count += 1
-        db.commit()
-        return imported_count
-    except Exception:
-        db.rollback()
-        raise
+    def save() -> int:
+        imported_count = 0
+        find_prices_first(db, sorted_txns)  # before the first row is written (#426)
+        try:
+            for tx_data in sorted_txns:
+                create_transaction_record(tx_data, db, auto_commit=False)
+                imported_count += 1
+            db.commit()
+            return imported_count
+        except Exception:
+            db.rollback()
+            raise
+
+    return hourly_prices.with_prices_found(db, save, *sorted_txns)
 
 
 # The template's sample rows, in date order: at least one of each type, both

@@ -37,7 +37,7 @@ from backend.schemas.entry_import import (
     FromPrice,
     SimulatedResult,
 )
-from backend.services import hourly_prices
+from backend.services import hourly_prices, price_history
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -452,7 +452,10 @@ def simulate(
     """
     Run the real create path for every writable row, record what the ledger
     computed, then roll everything back. Stops at the first rejected row
-    (later rows depend on it for FIFO and are marked not_simulated).
+    (later rows depend on it for FIFO and are marked not_simulated). A
+    price a row needs once earlier rows are written is looked for with the
+    lock free, and the dry run made again (hourly_prices.with_prices_found,
+    #426).
     """
     ordered = _chronological(prepared)
     if not ordered:
@@ -467,8 +470,13 @@ def simulate(
 
     # May commit (only if the fee account is missing) — do it before the dry run.
     ensure_fee_account_exists(db)
-    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
+    return hourly_prices.with_prices_found(db, lambda: _dry_run(ordered, db, years))
 
+
+def _dry_run(
+    ordered: list[PreparedRow], db: Session, years: dict
+) -> tuple[list[AffectedTransaction], list[AccountBalance]]:
+    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     before = _gain_snapshot(db)
     try:
         created, failed_at = _create_until_refused(ordered, db)
@@ -518,6 +526,8 @@ def _create_until_refused(
         except HTTPException as exc:
             _reject(p, str(exc.detail))
             return created, pos
+        except price_history.PriceNeeded:  # the dry run is made again once it's found (simulate)
+            raise
         except Exception as exc:  # defensive: surface, never write
             if not is_busy(exc):
                 log_unexpected(f"Entry simulation of row {p.row}", exc, logger)
@@ -574,6 +584,15 @@ def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedR
         return []
 
     ensure_fee_account_exists(db)
+    # A price a row needs once earlier rows are written is looked for with
+    # the lock free, and the rows written again (#426)
+    created = hourly_prices.with_prices_found(db, lambda: _write_in_order(ordered, db))
+    for _p, tx in created:
+        db.refresh(tx)
+    return created
+
+
+def _write_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
     find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     created: list[tuple[PreparedRow, Transaction]] = []
     try:
@@ -590,7 +609,4 @@ def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedR
     except Exception:
         db.rollback()
         raise
-
-    for _p, tx in created:
-        db.refresh(tx)
     return created

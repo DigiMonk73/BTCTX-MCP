@@ -124,12 +124,11 @@ def cmd_set_password(args: argparse.Namespace) -> int:
 def cmd_recalculate(args: argparse.Namespace) -> int:
     _init_db()
     from backend.database import SessionLocal
-    from backend.services.transaction import get_all_transactions, recalculate_all_transactions
+    from backend.services.transaction import get_all_transactions, recalculate_ledger
 
     db = SessionLocal()
     try:
-        recalculate_all_transactions(db)
-        db.commit()
+        recalculate_ledger(db)
         count = len(get_all_transactions(db))
     except Exception:
         db.rollback()

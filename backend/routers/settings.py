@@ -57,14 +57,18 @@ def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, db: S
     _require_login(request)
     if not payload.chosen and never_chosen_with_transactions(db):
         raise HTTPException(status_code=409, detail=RELOAD_TO_CHOOSE)
-    try:
-        set_tax_timezone(db, payload.timezone)
-    except ValueError as exc:  # its own words: an unknown timezone
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(exc))
-    try:
+
+    def save() -> None:
+        try:
+            set_tax_timezone(db, payload.timezone)
+        except ValueError as exc:  # its own words: an unknown timezone
+            raise HTTPException(status_code=400, detail=str(exc))
         recalculate_all_transactions(db)
         db.commit()
+
+    try:
+        # A price the recalculation needs is looked for with the lock free (#426)
+        hourly_prices.with_prices_found(db, save)
     except Exception:  # never its text: an unexpected one answers a fixed sentence (#430)
         db.rollback()
         raise

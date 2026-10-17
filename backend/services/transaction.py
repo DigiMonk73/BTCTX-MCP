@@ -66,8 +66,15 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     ledger lines and its effect on the lots. One dated before the latest
     transaction recalculates the whole ledger, so FIFO stays in time order.
     auto_commit=False leaves the commit to the caller (an import commits
-    once, for all its rows).
+    once, for all its rows). A price the save needs once it holds SQLite's
+    write lock (a Spent's proceeds, priced once it's written; an old row's
+    missing value, in a recalculation) is looked for with the lock free
+    (hourly_prices.with_prices_found, #426); in an import, by the import.
     """
+    return hourly_prices.with_prices_found(db, lambda: _create(tx_data, db, auto_commit), tx_data)
+
+
+def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
     ensure_fee_account_exists(db)
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
@@ -439,8 +446,13 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     Change a transaction (only the fields in tx_data), checked as the whole
     transaction it becomes, then recalculate the whole ledger. None when it
     doesn't exist. One naming a missing account is fixed past the others
-    that do (#368), as a delete of one is.
+    that do (#368), as a delete of one is. A price the recalculation needs
+    is looked for with the lock free (hourly_prices.with_prices_found, #426).
     """
+    return hourly_prices.with_prices_found(db, lambda: _update(transaction_id, tx_data, db), tx_data)
+
+
+def _update(transaction_id: int, tx_data: dict, db: Session):
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
@@ -904,7 +916,9 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
     owner's saves up behind it (#426). In time order, as the save goes (the
     year files kept in memory are few). The rest of the import waits for no
     year it waited for here, and asks no source again for an hour it had no
-    price for (hourly_prices.WARMING): such a row takes the day's price.
+    price for (hourly_prices.WARMING): such a row takes the day's price. A
+    price it misses is found with the lock free all the same, at the cost
+    of starting the import again (hourly_prices.with_prices_found).
     """
     if price_history.writing(db):
         return
@@ -970,8 +984,14 @@ def delete_transaction_record(transaction_id: int, db: Session):
     Committed only if the ledger still recalculates without it: deleting a
     buy that a later sell or transfer spends is refused and changes nothing.
     A transaction naming a missing account is deleted past the others that
-    do (#368), so they can be fixed one by one.
+    do (#368), so they can be fixed one by one. A price the recalculation
+    needs is looked for with the lock free (hourly_prices.with_prices_found,
+    #426).
     """
+    return hourly_prices.with_prices_found(db, lambda: _delete(transaction_id, db))
+
+
+def _delete(transaction_id: int, db: Session) -> bool:
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
@@ -1840,6 +1860,17 @@ class _LotMove:
                 cost_basis_usd=cost_portion,
                 inherited=inherited,  # inherited coins stay inherited (#154)
             ))
+
+
+def recalculate_ledger(db: Session) -> None:
+    """Recalculate Ledger: the whole ledger again, committed. A price it
+    needs is looked for with the lock free (hourly_prices.with_prices_found,
+    #426)."""
+    def save() -> None:
+        recalculate_all_transactions(db)
+        db.commit()
+
+    hourly_prices.with_prices_found(db, save)
 
 
 def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
