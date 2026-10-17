@@ -96,6 +96,12 @@ CSV_COLUMNS = [
 
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
 
+# A row with more fields than the header (the reader lists the extras under
+# None): every column after a stray comma has moved one place, so an unquoted
+# 20,000.00 would be read as a basis of 20 (#453). River's import says the same.
+TOO_MANY_FIELDS = ("This row has more fields than the header: a stray comma, or an amount "
+                   "written with a comma (write 1000.00, not 1,000.00)?")
+
 
 @dataclass
 class ParseResult:
@@ -206,6 +212,9 @@ def _parse_rows(content: bytes, tz) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
+        if None in row:
+            result.errors.append(_error(row_number, None, TOO_MANY_FIELDS))
+            continue
         names = ((k.lower().strip(), v) for k, v in row.items() if k)
         normalized = {name: _cell(name, v) for name, v in names}
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
@@ -269,7 +278,7 @@ def _file_error(message: str) -> CSVParseError:
     return CSVParseError(row_number=0, column=None, message=message, severity="error")
 
 
-def _error(row_number: int, column: str, message: str) -> CSVParseError:
+def _error(row_number: int, column: str | None, message: str) -> CSVParseError:
     return CSVParseError(row_number=row_number, column=column, message=message, severity="error")
 
 
