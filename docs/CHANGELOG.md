@@ -162,7 +162,7 @@ All notable changes to BitcoinTX are documented in this file.
   Wallet's balance, so a later sale from it took the wrong lots. A row
   tagged `Mining` (a River mining payout) was skipped with a warning, so
   its income was left out unless you added it by hand. Every version from
-  0.8.0 to 1.2.8. Now an auto-withdrawal is suggested like any other send
+  0.7.0 (the River import) to 1.2.8. Now an auto-withdrawal is suggested like any other send
   from River, a Transfer from Exchange BTC to Wallet with River's network
   fee (you can still make it a Withdrawal in the preview), and a mining
   payout as a deposit into Exchange BTC with source Reward: income, valued
@@ -172,15 +172,15 @@ All notable changes to BitcoinTX are documented in this file.
   record of a send gives its total as Sent plus Fee (#39).
   **Affected:** only ledgers with River files holding auto-withdrawals kept
   as suggested, or mining payouts.
-  **What to do:** in Transactions, look for withdrawals from Exchange to
-  External with purpose Spent on the days of River's auto-withdrawals. If
-  the bitcoin went to your own wallet, delete each one, then import that
-  River file again: it brings them back as Transfers to Wallet, adds a
-  mining payout the import skipped, and adds nothing else twice. (Editing
-  one into a Transfer by hand works too, with River's Sent Amount plus its
-  fee as the amount sent: a Transfer's amount includes its fee.) If you
-  filed a return from BitcoinTX's figures, such a sale, or income left out,
-  would be in that year.
+  **What to do:** in Transactions, look for withdrawals from Exchange BTC
+  to External with purpose Spent on the days of River's auto-withdrawals.
+  If the bitcoin went to your own wallet, delete each one, then import that
+  River file again: it suggests them as Transfers to Wallet, and a mining
+  payout the import skipped as a Reward deposit. Rows already in your
+  ledger are left out; a row that only looks like one of yours ("need
+  review") is ticked, so untick any you entered yourself, such as a mining
+  payout you added by hand. If you filed a return from BitcoinTX's
+  figures, such a sale, or income left out, would be in that year.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it

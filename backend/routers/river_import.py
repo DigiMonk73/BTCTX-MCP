@@ -49,7 +49,7 @@ def _autofill_fmv_basis(
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
-    proposals (Interest/Income) at the BTC price of their hour (else their
+    proposals (River's Interest, Income and Mining payouts) at the BTC price of their hour (else their
     day: services/hourly_prices.py). Degrades gracefully: on lookup failure
     the basis stays blank and a warning tells the user to fill it in.
     """
@@ -116,7 +116,7 @@ def preview_river_import(
 ):
     """
     Parse a River bitcoin-activity CSV, map rows to proposed transactions,
-    autofill FMV basis for Interest/Income, and mark rows that already
+    autofill FMV basis for River's payouts, and mark rows that already
     exist in the ledger. Nothing is written to the database.
 
     Both endpoints here are plain `def`: FastAPI runs them in a worker

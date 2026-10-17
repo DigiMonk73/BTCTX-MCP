@@ -370,7 +370,7 @@ class TestPreview:
         })
         rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]]))
         rows[0]["source"] = "Reward"   # the Interest payout
-        rows[1]["purpose"] = "Gift"    # the tagged Withdrawal
+        rows[1].update({"type": "Withdrawal", "to_account": "External", "purpose": "Gift"})  # the auto-withdrawal
         assert execute(rows)["imported_count"] == 2
         data = preview([SYNTHETIC_ROWS[7], SYNTHETIC_ROWS[10]])
         assert [p["status"] for p in data["proposals"]] == [STATUS_MATCHED, STATUS_MATCHED]
@@ -541,23 +541,16 @@ class TestExecute:
         fees = sorted(t["fee_amount"] for t in CLIENT.get("/api/transactions").json() if t["type"] == "Transfer")
         assert [Decimal(str(f)) for f in fees] == [Decimal("0.00000200"), Decimal("0.00000300")]
 
-    def test_a_receive_given_a_fee_or_a_withdrawal_imported_as_a_transfer_is_in_the_ledger(self):
-        """River's own amount, for the other moves the owner can edit (the re-check of #277)."""
-        for row, edit in (
-            (SYNTHETIC_ROWS[9], {"fee_amount": "0.00000300", "fee_currency": "BTC"}),
-            (SYNTHETIC_ROWS[10], {"type": "Transfer", "to_account": "Wallet", "purpose": None}),
-        ):
-            delete_all_transactions()
-            seed_exchange_btc()
-            create_tx({
-                "type": "Deposit", "timestamp": ts(1, 1), "from_account_id": 99, "to_account_id": 2,
-                "amount": "0.01000000", "fee_amount": "0", "fee_currency": "BTC", "cost_basis_usd": "1000.00",
-                "source": "MyBTC",
-            })
-            rows = proposals_to_execute_rows(preview([row]))
-            rows[0].update(edit)
-            assert execute(rows)["imported_count"] == 1
-            assert preview([row])["proposals"][0]["status"] == STATUS_MATCHED, edit
+    def test_a_receive_given_a_fee_is_in_the_ledger(self):
+        """River's own amount, for a receive the owner gave a fee (the re-check
+        of #277). An auto-withdrawal saved as a spend: see
+        test_an_auto_withdrawal_saved_as_a_spend_is_in_the_ledger."""
+        delete_all_transactions()
+        seed_wallet_btc()
+        rows = proposals_to_execute_rows(preview([SYNTHETIC_ROWS[9]]))
+        rows[0].update({"fee_amount": "0.00000300", "fee_currency": "BTC"})
+        assert execute(rows)["imported_count"] == 1
+        assert preview([SYNTHETIC_ROWS[9]])["proposals"][0]["status"] == STATUS_MATCHED
 
     SEND = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,"
     TAGGED = "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,Withdrawal"
@@ -613,7 +606,7 @@ class TestExecute:
         assert sum(t["type"] == "Deposit" and t["to_account_id"] == 4 for t in CLIENT.get("/api/transactions").json()) == 1
 
     def test_a_send_never_matches_a_deposit(self):
-        """The fourth re-check of #277: a tagged Withdrawal made a Transfer was
+        """The fourth re-check of #277: a send (here an auto-withdrawal) was
         taken for a Deposit into Exchange BTC of the same amount and minute,
         though it goes the other way."""
         delete_all_transactions()
@@ -625,9 +618,7 @@ class TestExecute:
         })
         data = preview([self.TAGGED])
         assert data["proposals"][0]["status"] == "new"
-        rows = proposals_to_execute_rows(data)
-        rows[0].update({"type": "Transfer", "to_account": "Wallet", "purpose": None})
-        assert execute(rows)["imported_count"] == 1
+        assert execute(proposals_to_execute_rows(data))["imported_count"] == 1
 
     def test_a_new_row_edited_as_the_first_import_was_is_saved(self):
         """The second re-check of #277: the send was imported as a Withdrawal.
