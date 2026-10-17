@@ -135,6 +135,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       <form
         id={id || "transaction-form"}
         className="transaction-form"
+        // handleSubmit only wraps onSubmit, which reads submittingRef at submit, not in render
+        // eslint-disable-next-line react-hooks/refs
         onSubmit={handleSubmit(onSubmit)}
       >
         {isSubmitting && (

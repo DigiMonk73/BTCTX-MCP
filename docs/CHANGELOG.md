@@ -969,6 +969,23 @@ All notable changes to BitcoinTX are documented in this file.
   it is. And `scripts/equivalence_check.py` no longer reports the
   `open_sessions` setting, whose login session hashes are new on every run,
   as a difference in every ledger.
+- **Node 24, ESLint 10 and eslint-plugin-react-hooks 7** (#425; the
+  owner's choice for 1.2.9, 2026-10-17). Node builds the web pages (the
+  Docker image's first stage, CI, the release) and gets security fixes on
+  its 24 line until April 2028 (22: April 2027). The StartOS jobs, pinned
+  to Node 22.23.2 because 22.23.3 couldn't build `diskusage` (#32), take
+  Node 24, which builds it. ESLint 10 and react-hooks 7 check the code;
+  nothing they install ships (the web pages' 40 packages are unchanged).
+  react-hooks 7 adds the React Compiler's checks: they stay on, except
+  the one that flags the screens setting state from an effect (to load
+  their data, or to reset or derive state when something changes: nine
+  places), which `frontend/eslint.config.js` turns off, saying why, until
+  2.0's screens. Of the two other spots they found, the transaction form's
+  `handleSubmit` (a false alarm) says so where it is, and the Dashboard's
+  Tor state, declared after the effect that sets it, moved up a few lines:
+  nothing it does changes.
+  The configuration now uses ESLint's own `defineConfig` (typescript-eslint
+  deprecated `tseslint.config`).
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
   (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
   and CI still tests 3.10; deferred in #294). Nothing that ships changes;

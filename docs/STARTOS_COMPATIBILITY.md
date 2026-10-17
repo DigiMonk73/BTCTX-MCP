@@ -23,7 +23,7 @@ changes come back here: `startos/UPDATING.md`.
 
 `Dockerfile` is a two-stage build:
 
-1. `node:22-slim`: `npm ci && npm run build` in `frontend/`
+1. `node:24-slim`: `npm ci && npm run build` in `frontend/`
 2. `python:3.13-slim`: `pip install --require-hashes --only-binary :all: -r
    backend/requirements.txt` (the lock, wheels only), copies
    `backend/` to `/app/backend` and the built frontend to `/app/frontend/dist`,
