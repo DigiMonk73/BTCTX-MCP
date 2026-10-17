@@ -352,8 +352,10 @@ from the Transaction row alone.
   (`/docs`, `/openapi.json`) only with DEBUG.
 - Deleting every transaction (Delete All, and Create account's
   `reset-account` on a ledger with transactions) needs `confirm=DELETE`,
-  typed in its dialog, else 409 says what would go; reset-account checks
-  the setup code or password first. A copy of the database goes to
+  typed in its dialog, else 409 says what would go; the dialog sends the
+  count it showed (`transactions`), and a ledger with another count is a
+  409 with the new figure (#377). reset-account checks the setup code or
+  password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.
 - Sessions (`backend/session_auth.py`): each login gets a random session id,

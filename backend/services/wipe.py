@@ -1,8 +1,9 @@
 """
 Deleting every transaction (#256): Settings' Delete All, and Create account
 on an install that has transactions. Either needs the confirmation the
-owner types in its dialog ("DELETE"), and gets a safety copy of the database
-first, in the same request (<data dir>/backups/, kind "before-delete").
+owner types in its dialog ("DELETE"), for the number of transactions it
+showed (#377), and gets a safety copy of the database first, in the same
+request (<data dir>/backups/, kind "before-delete").
 The check of that confirmation, the copy and the delete hold SQLite's write
 lock together (#276): a transaction saved meanwhile (the AI connector's)
 waits until after the delete.
@@ -53,29 +54,40 @@ def _describe(what: dict) -> str:
     return f"{what['transactions']} {noun}, {years}"
 
 
-def refusal(db: Session, confirm: str | None) -> JSONResponse | None:
+def refusal(db: Session, confirm: str | None, transactions: int | None = None) -> JSONResponse | None:
     """None when the delete may go ahead: confirmed, or nothing to delete.
-    Otherwise the 409 that says what would go; nothing is deleted."""
-    if confirm == CONFIRMATION:
-        return None
+    A confirmation that says how many transactions its dialog showed
+    (`transactions`, #377) holds only while the ledger still has that many:
+    a transaction saved or deleted since (the AI connector's) is refused,
+    so the owner deletes only what they were shown. Otherwise the 409 that
+    says what would go now; nothing is deleted."""
     what = extent(db)
-    if what["transactions"] == 0:
+    changed = transactions is not None and transactions != what["transactions"]
+    if not changed and (confirm == CONFIRMATION or what["transactions"] == 0):
         return None
+    return JSONResponse(status_code=409, content={"detail": _asked(what, changed), **what})
+
+
+def _asked(what: dict, changed: bool) -> str:
+    """The refusal's words: what would go, and how to go ahead."""
+    if what["transactions"] == 0:  # only when the dialog showed some
+        return "The ledger changed since you were asked: there's nothing to delete now."
     every = "all " if what["transactions"] > 1 else ""
-    detail = f"This deletes {every}{_describe(what)}. To go ahead, confirm with {CONFIRMATION}."
-    return JSONResponse(status_code=409, content={"detail": detail, **what})
+    deletes = "The ledger changed since you were asked: this now deletes" if changed else "This deletes"
+    return f"{deletes} {every}{_describe(what)}. To go ahead, confirm with {CONFIRMATION}."
 
 
-def delete_all(db: Session, confirm: str | None) -> JSONResponse | None:
+def delete_all(db: Session, confirm: str | None, transactions: int | None = None) -> JSONResponse | None:
     """
     Every transaction deleted, after a copy of the database: None. Only
-    when confirmed, or with nothing to delete; otherwise the 409 refusal,
-    nothing deleted. The check, the copy and the delete hold one write lock
-    (#276): they see the same ledger, and what is saved meanwhile waits
-    until after the delete.
+    when confirmed (for the count the dialog showed, when it says one), or
+    with nothing to delete; otherwise the 409 refusal, nothing deleted.
+    The check, the copy and the delete hold one write lock (#276): they see
+    the same ledger, and what is saved meanwhile waits until after the
+    delete.
     """
     _hold_write_lock(db)
-    refused = refusal(db, confirm)
+    refused = refusal(db, confirm, transactions)
     if refused is not None:
         db.rollback()  # the lock goes
         return refused

@@ -137,6 +137,43 @@ def test_one_transaction_reads_as_one(auth_client):
     auth_client.delete(CONFIRMED)
 
 
+def test_a_confirmation_holds_only_for_the_count_its_dialog_showed(ledger, test_engine):
+    """#377: a transaction saved while the dialog was open (the AI
+    connector's) was deleted too, and Settings then reported the count the
+    dialog had shown. The confirmation says how many it showed: a ledger
+    with another count is refused with what would go now, nothing deleted."""
+    shown = ledger.get(DELETE_ALL).json()["transactions"]
+    deposit(ledger, "2025-01-15T12:00:00Z")  # saved meanwhile
+    before = delete_copies(test_engine)
+    r = ledger.delete(f"{CONFIRMED}&transactions={shown}")
+    assert r.status_code == 409, r.text
+    assert r.json() == {
+        "detail": "The ledger changed since you were asked: this now deletes all 4 transactions, 2023–2025. "
+                  "To go ahead, confirm with DELETE.",
+        "transactions": 4, "first_year": 2023, "last_year": 2025,
+    }
+    assert count(ledger) == 4 and delete_copies(test_engine) == before
+    # Confirmed for what's there now, it goes
+    assert ledger.delete(f"{CONFIRMED}&transactions=4").status_code == 204
+    assert count(ledger) == 0 and rows_in(delete_copies(test_engine)[0]) == 4
+
+
+def test_a_transaction_deleted_while_the_dialog_was_open_is_said_too(ledger):
+    """Fewer than the dialog showed is a change as well; none left, and
+    there's nothing to delete."""
+    tx_ids = [tx["id"] for tx in ledger.get("/api/transactions").json()]
+    assert ledger.delete(f"/api/transactions/{tx_ids[-1]}").status_code == 204
+    r = ledger.delete(f"{CONFIRMED}&transactions=3")
+    assert r.status_code == 409 and r.json()["transactions"] == 2 and count(ledger) == 2
+    for tx_id in tx_ids[:-1][::-1]:
+        assert ledger.delete(f"/api/transactions/{tx_id}").status_code == 204
+    r = ledger.delete(f"{CONFIRMED}&transactions=2")
+    assert r.status_code == 409 and r.json() == {
+        "detail": "The ledger changed since you were asked: there's nothing to delete now.",
+        "transactions": 0, "first_year": None, "last_year": None,
+    }
+
+
 def test_no_copy_no_delete(ledger, monkeypatch):
     def full_disk(*args, **kwargs):
         raise OSError("No space left on device")
@@ -195,8 +232,8 @@ def test_a_save_just_after_an_empty_ledger_was_checked_isnt_deleted(auth_client,
     real_refusal = wipe.refusal
     saves: list = []
 
-    def refusal_then_save(db, confirm):
-        answer = real_refusal(db, confirm)  # None: nothing to delete
+    def refusal_then_save(db, confirm, transactions=None):
+        answer = real_refusal(db, confirm, transactions)  # None: nothing to delete
         saving_meanwhile(Path(test_engine.url.database), saves)
         return answer
 
@@ -303,6 +340,22 @@ def test_create_account_with_transactions_asks_once_the_code_is_right(fresh_app)
     me = anon()
     assert me.post("/api/login", json=CLAIM).status_code == 200
     assert count(me) == 0
+
+
+def test_create_account_deletes_only_the_count_its_dialog_showed(fresh_app):
+    """#377 at Create account: a transaction saved after its dialog opened
+    is refused, nothing changes; confirmed for the new count, it goes."""
+    me = with_transactions()
+    code = first_run.ensure_code()
+    shown = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code)).json()["transactions"]
+    deposit(me, "2026-01-02T12:00:00Z")
+    r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE", transactions=shown))
+    assert r.status_code == 409 and r.json()["transactions"] == 3 and "now deletes all 3" in r.json()["detail"]
+    assert anon().get("/api/users/setup-status").json()["is_default"] is True
+    assert delete_copies(fresh_app.kw["bind"]) == []
+    r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE", transactions=3))
+    assert r.status_code == 200, r.text
+    assert rows_in(delete_copies(fresh_app.kw["bind"])[0]) == 3
 
 
 def test_create_account_on_an_empty_install_asks_nothing(fresh_app):
