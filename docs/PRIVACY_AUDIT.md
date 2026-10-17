@@ -1,9 +1,10 @@
 # Privacy and leak audit
 
-## Every request BitcoinTX can make (1.2.8)
+## Every request BitcoinTX can make (1.2.8, re-checked for 1.2.9)
 
 The stable candidate's privacy audit (#151; develop 72ba76f, 2026-10-12,
-re-checked on 16bf055, 2026-10-13). It supersedes the 1.2.1 table below
+re-checked on 16bf055, 2026-10-13; for 1.2.9 on b785a00b, 2026-10-16,
+below the table). It supersedes the 1.2.1 table below
 where they differ (Coinbase and CoinGecko are gone, hourly prices are
 new); the 1.2.1 audit stays as the record of its fixes. When a change
 touches what leaves the machine, check it against this table and update
@@ -46,6 +47,14 @@ it.
 In every run: every Bitstamp `start` was one of the fixed block starts, no request carried any of the ledger's dates or hours (as a date, a Unix time, its hour or its day), and none went to Coinbase or CoinGecko.
 
 Re-checked on develop 16bf055 (2026-10-13): every test named above exists, and their files pass (252 backend + 13 connector tests).
+
+**Re-checked for 1.2.9** (#371; develop b785a00b, 2026-10-16, every change since v1.2.8): the table holds as it is. No new kind of request, and `outbound.py`, `hourly_prices.py` and `mempool_trust.py` are unchanged. What changed is only when the same lookups (rows 4 to 7) can happen:
+- A gift's, donation's or lost coins' value left blank is filled from the price when it's saved (#255), as a blank income value is; with no price it stays blank. A recalculation never prices it.
+- The AI connector's answers and the transactions list say which price a value came from (#208): read from this install's table and files, never asked.
+- The sidebar's and the form's new price lines (#208) read only the settings and the status line, which ask nobody (checked with every connection and DNS lookup blocked). The login's tax-timezone fill (#334) and Delete All (#256) send nothing out.
+- The AI connector reads its own version from its installed package (#133): no PyPI request; it still asks only `BTCTX_URL`.
+
+Every test named above still exists, and their files pass on the release's locked dependencies (264 backend + 13 connector tests). Observed again, as above, through the paths 1.2.9 changed (the login's timezone fill, a My BTC and an income deposit, a gift, a donation, lost coins and a spend with blank values, the transactions list, Ledger Review, Delete All's count and delete, an AI import preview, the 2024 Complete Tax Report): not chosen, Nobody: 0 requests; Public: 7, all Bitstamp fixed blocks, direct; Public + Tor: the same 7, every one through Tor; your Mempool: 1, its whole history; your Mempool with its backup: that one plus 1 Bitstamp block. No request named any of the ledger's dates or hours, and none went to Coinbase or CoinGecko.
 
 ## The 1.2.1 audit (2026-09-29)
 
