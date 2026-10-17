@@ -175,6 +175,30 @@ async def test_ledger_guide_maps_card_sats_back_to_rebate():
     assert "Rebate = bitcoin back for spending: a rewards card's sats-back" in flat and "Never Reward." in flat
     assert "sats-back, bonuses" not in flat
     assert "Rebate" in DepositSource.__args__
+    # Card rewards on cash equivalents are income (#160)
+    assert "Sats-back earned buying money orders or other cash equivalents isn't a rebate: that is income " \
+           "(Reward)" in flat
+
+
+async def test_ledger_guide_carries_the_tax_notes():
+    """#160: what the AI tells the user of lost, donated and given coins,
+    independent contractors' pay, a broker's dates and the Form 1040
+    question."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    for note in (
+        "also self-employment income, Schedule SE",
+        "A theft or scam in an investment made for profit may be deductible on Form 4684, Section B, up to the "
+        "coins' basis: suggest the user's tax preparer.",
+        "the lower of value and basis for the rest (IRC 170(e)(1)(A)); over $5,000 for the year's donations "
+        "together it needs a qualified appraisal (an exchange's price isn't one) and Form 8283",
+        "($19,000 in 2025 and 2026; a U.S.-citizen spouse aside) generally need a gift tax return, Form 709",
+        "A broker's 1099-DA may date a sale in UTC",
+        "Form 1040's digital asset question is Yes in a year with a sale, a spend, a network fee paid in BTC, or "
+        "BTC received as income, a reward, interest or a rebate",
+    ):
+        assert note in flat, note
 
 
 async def test_preview_then_add_then_list(mcp_client):

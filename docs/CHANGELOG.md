@@ -23,6 +23,35 @@ All notable changes to BitcoinTX are documented in this file.
   Tor text says so). Nothing goes around Tor before a Yes, and a Tor that
   isn't running never brings the question. The privacy audit
   (`docs/PRIVACY_AUDIT.md`) lists what Bitstamp then sees.
+- **Tax notes in the Complete Tax Report, the AI's guide and the form**
+  (#160, #114; no figure is computed differently). Each was checked
+  against the IRS's own text (its digital asset FAQ, the instructions for
+  Forms 1040, 709, 8283, 8949 and 1099-DA, CCA 202511015, Pub. 525):
+  - Gifts, donations and lost coins (section 4) list each one's **cost
+    basis and term** (Long, Short, or Both, split in a note), from the
+    lots it used. Below them, only for the kinds the year has: a
+    donation's deduction rules (the value for coins held more than a year,
+    the lower of value and basis for the rest), Form 8283 over $500 and a
+    qualified appraisal over $5,000 (an exchange's price isn't one); a gift
+    tax return (Form 709) when gifts to one person pass the year's annual
+    exclusion ($19,000 in 2025 and 2026); a theft or scam loss in an
+    investment possibly deductible on Form 4684, up to the coins' basis.
+  - The Summary answers **Form 1040's digital asset question**: Yes for a
+    year with bitcoin sold, spent, paid as a fee or received as income, a
+    reward or a rebate.
+  - Income (section 3): pay for work as an independent contractor is also
+    self-employment income (Schedule SE).
+  - Notes (section 7), in a year with a broker's form: the IRS hasn't said
+    which time zone sets your dates, and a broker may date a sale in
+    another (UTC), so near midnight its date can differ.
+  - "Using these forms", for a year without BitcoinTX's IRS forms (#114):
+    -0- in column (g), and the exchange's name before "see attached
+    statement" in its boxes (Form 8949 instructions, Exception 2).
+  - The form's Rebate hint and the AI's guide: sats-back for buying money
+    orders or other cash equivalents is income (Reward), not a rebate. The
+    guide carries the other notes too.
+  The Summary and "Using these forms" still take one page each wherever
+  they did.
 - **A way to support BitcoinTX:** the README's "Support BitcoinTX" gives its
   Lightning address (digimonk73@strike.me), and GitHub's Sponsor button
   (`.github/FUNDING.yml`) opens the tipping page. Nothing in the app changes.

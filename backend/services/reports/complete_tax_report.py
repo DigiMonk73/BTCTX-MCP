@@ -58,6 +58,19 @@ BOX_MEANING = {
     "K": "Long-term, on Form 1099-DA, basis not reported",
     "L": "Long-term, not on a Form 1099-DA or 1099-B",
 }
+# The boxes of sales a broker reported (Form 1099-B or 1099-DA)
+BROKER_BOXES = ("A", "B", "D", "E", "G", "H", "J", "K")
+# A gift-like withdrawal's purpose as a noun: "the loss of 08/02/2025"
+KIND_NOUN = {"gift": "gift", "donation": "donation", "lost": "loss"}
+
+# The gift tax annual exclusion per person (IRS, "Frequently asked questions
+# on gift taxes"; Instructions for Form 709 (2025): file when the year's
+# gifts to someone other than your spouse total more than it), #160
+ANNUAL_GIFT_EXCLUSION = {
+    **dict.fromkeys(range(2011, 2013), 13_000), **dict.fromkeys(range(2013, 2018), 14_000),
+    **dict.fromkeys(range(2018, 2022), 15_000), 2022: 16_000, 2023: 17_000, 2024: 18_000, 2025: 19_000,
+    2026: 19_000,
+}
 
 
 def generate_comprehensive_tax_report(report_dict: dict[str, Any]) -> bytes:
@@ -124,6 +137,23 @@ def fmt_value(value) -> str:
 def _and_list(items: list[str]) -> str:
     """"2", "2 and 10", "1b, 2 and 10"."""
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _term(gift: dict) -> str:
+    """"Long", "Short" or "Both": the terms of what a gift, donation or loss
+    took from its lots (#160); blank in a report made before they were listed."""
+    terms = [part["term"] for part in gift.get("lots_by_term", [])]
+    return "Both" if len(terms) > 1 else terms[0].capitalize() if terms else ""
+
+
+def _broker_first(boxes: list[dict]) -> str:
+    """Exception 2's column (a) for the boxes of sales a broker reported:
+    its name before "see attached statement" (Instructions for Form 8949,
+    Exception 2's example; #114)."""
+    broker = [b["box"] for b in boxes if b["box"] in BROKER_BOXES]
+    if not broker:
+        return ""
+    return f", after the exchange's name in box{'es' if len(broker) > 1 else ''} {_and_list(broker)}"
 
 
 def _cell_table(rows: list, widths: list, commands: list) -> Table:
@@ -326,6 +356,26 @@ class _TaxReport:
             PageBreak(),
         ]
 
+    def digital_asset_question(self) -> str:
+        """
+        How to answer the digital asset question at the top of Form 1040
+        (#160), in one line: the summary page has a line to spare with all
+        six boxes, section 6 none. Instructions for Form 1040 (2025),
+        "Digital Assets": Yes for digital assets received as payment, as a
+        reward or award, or from mining or staking, and for any sale,
+        exchange or other disposal; not for holding, buying with real
+        currency or moving them between your own wallets alone. IRS "Digital
+        assets" page: a transfer fee paid in digital assets makes it Yes. A
+        rebate (a card's sats-back) is received as a reward.
+        """
+        did = [part for part, shown in (("disposed of (section 2)", self.disposals),
+                                        ("received (section 3)", self.income or self.rebates)) if shown]
+        if did:
+            return f"Form 1040's digital asset question: answer Yes, for the bitcoin {' and '.join(did)}."
+        return ("Form 1040's digital asset question: holding bitcoin, buying it with dollars and moving it between "
+                "your own wallets don't make the answer Yes; for gifts and other digital assets, see its "
+                "instructions.")
+
     def gains_table(self) -> Table:
         terms = self.gains_by_term()
         counts = Counter((d.get("holding_period") or "").upper() for d in self.disposals)
@@ -345,8 +395,9 @@ class _TaxReport:
 
     def boxes_table(self) -> list:
         boxes = self.data.get("form_8949_boxes", [])
+        question = self.text(self.digital_asset_question(), self.styles.note)
         if not boxes:
-            return [self.nothing("disposals for Form 8949")]
+            return [self.nothing("disposals for Form 8949"), question]
         rows = [self.header("Box", "What it holds", "Sch. D line", "Rows", "Proceeds", "Cost basis",
                             "Gain (loss)", numbers_from=2)]
         for b in boxes:
@@ -358,6 +409,7 @@ class _TaxReport:
             self.text("Each box takes a page or more of Form 8949, and its totals go on the Schedule D line "
                       "shown. For the years BitcoinTX has the IRS forms of, they are the totals of the forms it "
                       "fills (Reports: IRS Reports).", self.styles.note),
+            question,
         ]
 
     def income_summary_table(self) -> Table:
@@ -436,7 +488,14 @@ class _TaxReport:
                  for t in self.income]
         rows.append([self.total_label(), "", *self.numbers(
             fmt_btc(sum(t.get("amount", 0.0) for t in self.income)), fmt_usd(self.income_total()), bold=True)])
-        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)] + self.rebates_detail()
+        story.append(data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True))
+        if any(t.get("type") == "Income" for t in self.income):
+            # IRS digital asset FAQ Q60 (Part II, added Dec. 15, 2025; Part I's
+            # Q10): an independent contractor's pay in digital assets is
+            # self-employment income at its value when received (#160)
+            story.append(self.text("Income paid for your work as an independent contractor is also "
+                                   "self-employment income, at the same value (Schedule SE).", self.styles.note))
+        return story + self.rebates_detail()
 
     def rebates_detail(self) -> list:
         """Rebates (#98), listed so they can be checked: not income, but
@@ -465,18 +524,68 @@ class _TaxReport:
                              "of their own; a network fee paid with them is a disposal (section 2).")
         if not self.gifts:
             return story + [self.nothing("gifts, donations or lost coins")]
-        if any(normalized(g.get("type")) == "donation" for g in self.gifts):
-            story.append(self.text(
-                "A deduction for donated bitcoin over $5,000 needs a qualified appraisal (IRS digital asset FAQ, "
-                "Q78): the values here don't replace it.", self.styles.note))
-        rows = [self.header("Date", "Kind", "BTC", "Fair market value", numbers_from=2)]
+        # The cost basis and term of what each took from its lots (#160): a
+        # donation's deduction, a gift's Form 709 and a theft's Form 4684 need them
+        rows = [self.header("Date", "Kind", "Term", "BTC", "Fair market value", "Cost basis", numbers_from=3)]
         for g in self.gifts:
             fmv = g.get("fmv_usd")
-            rows.append([self.text(self.date(g.get("date", ""))), self.text(g.get("type", "")), *self.numbers(
-                fmt_btc(g.get("amount", 0.0)), fmt_usd(fmv) if fmv is not None else "not given")])
-        rows.append([self.total_label(), "", *self.numbers(
-            fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)), self.fmv_total(), bold=True)])
-        return story + [data_table(rows, [1.4, 2.0, 1.8, 1.8], total=True)]
+            rows.append([self.text(self.date(g.get("date", ""))), self.text(g.get("type", "")),
+                         self.text(_term(g)), *self.numbers(
+                             fmt_btc(g.get("amount", 0.0)), fmt_usd(fmv) if fmv is not None else "not given",
+                             self.gift_basis(g))])
+        rows.append([self.total_label(), "", "", *self.numbers(
+            fmt_btc(sum(g.get("amount", 0.0) for g in self.gifts)), self.fmv_total(),
+            fmt_usd(sum(p["cost_basis"] for g in self.gifts for p in g.get("lots_by_term", []))), bold=True)])
+        return story + [data_table(rows, [0.85, 0.85, 0.6, 1.3, 1.75, 1.65], total=True), *self.gift_notes()]
+
+    @staticmethod
+    def gift_basis(g: dict) -> str:
+        """The cost basis of what a gift took from its lots; blank in a
+        report made before it was listed."""
+        parts = g.get("lots_by_term", [])
+        return fmt_usd(sum(p["cost_basis"] for p in parts)) if parts else ""
+
+    def gift_notes(self) -> list:
+        """What each kind in the list means for the return, only for the
+        kinds the year has (#160); the IRS sources in comments."""
+        kinds = {normalized(g.get("type")) for g in self.gifts}
+        notes = [self.both_terms_note()] if any(_term(g) == "Both" for g in self.gifts) else []
+        if "donation" in kinds:
+            # IRS digital asset FAQ Q78 (Part II; Part I's Q35): generally the
+            # value if held more than a year, else the lower of basis and value
+            # (IRC §170(e)(1)(A)); Q78 and CCA 202302012: over $5,000 a qualified
+            # appraisal, an exchange's price isn't one; Instructions for Form 8283:
+            # over $500, similar items of the year combined; Q79: the charity signs
+            notes.append("Donations: the deduction is generally the value of coins held more than a year (Term "
+                         "Long) and the lower of value and cost basis for the rest (Short), within limits that "
+                         "depend on the charity and your income: ask your tax preparer. A deduction over $500 for "
+                         "the year's bitcoin donations together needs Form 8283; over $5,000, also a qualified "
+                         "appraisal (an exchange's price isn't one) and the charity's signature on it.")
+        if "gift" in kinds:
+            # Instructions for Form 709 (2025): the year's gifts to someone other
+            # than your spouse (a U.S. citizen) over the annual exclusion
+            limit = ANNUAL_GIFT_EXCLUSION.get(self.year)
+            over = fmt_usd(limit).removesuffix(".00") if limit else f"{self.year}'s annual exclusion"
+            notes.append(f"Gifts: if all you gave one person in {self.year} adds up to more than {over} (gifts to "
+                         "a spouse who is a U.S. citizen aside), you generally need to file a gift tax return, "
+                         "Form 709.")
+        if "lost" in kinds:
+            # CCA 202511015: a theft in a transaction entered into for profit
+            # (IRC §165(c)(2)) is deductible on Form 4684, Section B, up to its
+            # basis (§165(b)), in the year it's discovered
+            notes.append("Lost coins: BitcoinTX records no loss for them. A theft or scam loss in an investment "
+                         "made for profit may be deductible on Form 4684, Section B (not Form 8949), up to the "
+                         "coins' cost basis: ask your tax preparer.")
+        return [self.text(note, self.styles.note) for note in notes]
+
+    def both_terms_note(self) -> str:
+        """Each gift of coins of both terms, split: the deduction of a
+        donation's two parts follows different rules."""
+        split = [f"the {KIND_NOUN.get(normalized(g.get('type')), 'gift')} of {self.date(g.get('date', ''))} was "
+                 + " and ".join(f"{fmt_btc(p['btc'])} BTC {p['term'].lower()}-term (cost basis "
+                                f"{fmt_usd(p['cost_basis'])})" for p in g["lots_by_term"])
+                 for g in self.gifts if _term(g) == "Both"]
+        return f"Term Both: {'; '.join(split)}."
 
     def fmv_total(self) -> str:
         """The values given, and how many are not: an unvalued gift is never $0."""
@@ -595,10 +704,13 @@ class _TaxReport:
         if not boxes:
             notes = [f"No disposals in {self.year}: there is no Form 8949, and Schedule D's Bitcoin lines are blank."]
         elif forms in ("none", "newer"):
+            # Code M's row of the column (f) table: "Enter -0- in column (g)
+            # unless an adjustment is required because of another code" (#114)
             notes = [
                 f"Fill Form 8949 from section 2's list, a page or more per box, or attach that list as a statement "
-                f"and enter each box's totals on Form 8949: \"see attached statement\" in column (a), (b) and (c) "
-                f"blank, code M in column (f) (Form 8949 instructions, Exception 2). This year's boxes: {listed}.",
+                f"and enter each box's totals on Form 8949 (Exception 2 of its instructions): column (a) \"see "
+                f"attached statement\"{_broker_first(boxes)}; (b) and (c) blank; (f) code M; (g) -0-. This year's "
+                f"boxes: {listed}.",
                 f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 entries, as in the "
                 "Summary.",
             ]
@@ -693,12 +805,27 @@ class _TaxReport:
             "Holdings are valued at the price when the tax year began and ended (midnight in the tax "
             "timezone): the hour's price, or that day's 00:00 UTC price where there's none.",
             f"All dates are shown as MM/DD/YYYY (the IRS format) in the tax timezone ({self.tz_name}).",
+            *self.broker_dates(),
             "A Form 8949 box follows what a broker reports on Form 1099-B or 1099-DA; a transaction's "
             "Broker form setting records what your broker's form actually showed.",
             "This report is prepared from your own records: check it with a tax professional before you file.",
         )
         return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes),
                 *self.priced_values()]
+
+    def broker_dates(self) -> list[str]:
+        """Why a broker's form can date a sale differently, in a year with a
+        box of sales a broker reported (#160). No IRS rule says which time
+        zone sets an individual's dates (the digital asset FAQ speaks only of
+        "the date and time" of a transaction), and the Instructions for Form
+        1099-DA name none for the broker: the tax timezone is BitcoinTX's
+        choice, one zone for every date."""
+        if not any(b["box"] in BROKER_BOXES for b in self.data.get("form_8949_boxes", [])):
+            return []
+        return ["The IRS hasn't said which time zone sets your dates, so BitcoinTX uses one, your tax timezone, "
+                "for all of them. A broker's Form 1099-DA or 1099-B may date a sale in another (UTC, say): a sale "
+                "near midnight can show another date there, even another tax year. Check such a sale with your "
+                "tax preparer."]
 
     def priced_values(self) -> list:
         """The year's values filled in from the BTC price, and which price (#144)."""

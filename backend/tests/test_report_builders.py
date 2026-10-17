@@ -51,7 +51,7 @@ REPORT = {
     ],
     "gifts_donations_lost": [
         {"date": "2024-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02, "proceeds_usd": 0.0, "fmv_usd": 1200.0,
-         "type": "Gift"},
+         "type": "Gift", "lots_by_term": [{"term": "LONG", "btc": 0.02, "cost_basis": 500.0}]},
         {"date": "2024-08-02T12:00:00Z", "asset": "BTC", "amount": 0.03, "proceeds_usd": 0.0, "fmv_usd": None,
          "type": "Lost"},
     ],
@@ -83,17 +83,98 @@ def test_complete_report_sections():
         # The detail: dates in the tax timezone; one that isn't ISO 8601 is printed as it is
         "06/30/2024 not a date Sale F Long 0.10000000 $6,000.00 $3,000.00 $3,000.00",
         "02/29/2024 Income 0.01000000 $600.00 Total 0.01000000 $600.00",
-        # An unvalued gift is never counted as $0 (review of #63)
-        "08/01/2024 Gift 0.02000000 $1,200.00 08/02/2024 Lost 0.03000000 not given "
-        "Total 0.05000000 $1,200.00 + 1 not given",
+        # An unvalued gift is never counted as $0 (review of #63); each row's
+        # term and cost basis from its lots (#160), blank in an older report's
+        "08/01/2024 Gift Long 0.02000000 $1,200.00 $500.00 08/02/2024 Lost 0.03000000 not given "
+        "Total 0.05000000 $1,200.00 + 1 not given $500.00",
+        # What each kind means for the return (#160)
+        "Income paid for your work as an independent contractor is also self-employment income, at the same "
+        "value (Schedule SE).",
+        "Gifts: if all you gave one person in 2024 adds up to more than $18,000 (gifts to a spouse who is a U.S. "
+        "citizen aside), you generally need to file a gift tax return, Form 709.",
+        "Lost coins: BitcoinTX records no loss for them. A theft or scam loss in an investment made for profit "
+        "may be deductible on Form 4684, Section B (not Form 8949), up to the coins' cost basis: ask your tax "
+        "preparer.",
+        "Form 1040's digital asset question: answer Yes, for the bitcoin disposed of (section 2) and received "
+        "(section 3).",
         "Wallet 1 0.50000000 $20,000.00 not priced Total 1 0.50000000 $20,000.00 not priced "
-        "No BTC price for 2024-12-31: not priced Average cost: $40,000.00 per BTC",
+        "No BTC price for 2024-12-31: not priced",
+        "Average cost: $40,000.00 per BTC",  # after a page break since #160's notes
         "01/15/2024 Wallet 0.50000000 $20,000.00 not priced Total 0.50000000 $20,000.00 not priced",
         "in the tax timezone (America/New_York)",
     ):
         assert expected in text, expected
     assert "left out" not in text and "USD (Bank)" not in text and not re.search(r"\bETH\b", text)
     assert "-0.00" not in text
+    assert "Donations:" not in text and "Term Both" not in text  # no donation, none of both terms
+    assert "which time zone sets your dates" not in text  # box F: no broker's form
+
+
+def donation(date: str, *parts: tuple[str, float, float], fmv: float | None = 3000.0) -> dict:
+    return {"date": date, "asset": "BTC", "amount": sum(p[1] for p in parts), "proceeds_usd": 0.0, "fmv_usd": fmv,
+            "type": "Donation", "lots_by_term": [{"term": t, "btc": b, "cost_basis": c} for t, b, c in parts]}
+
+
+def test_a_donation_shows_its_basis_its_term_and_the_deduction_rules():
+    """#160: a donation's deduction depends on how long its coins were held
+    and their cost basis; one of both terms is split, as each part follows
+    its own rule. The appraisal and Form 8283 come with it."""
+    gifts = [donation("2024-05-01T12:00:00Z", ("SHORT", 0.01, 900.0)),
+             donation("2024-06-01T12:00:00Z", ("LONG", 0.02, 400.0), ("SHORT", 0.01, 950.0))]
+    text = pdf_text(generate_comprehensive_tax_report({**REPORT, "gifts_donations_lost": gifts}))
+    for expected in (
+        "05/01/2024 Donation Short 0.01000000 $3,000.00 $900.00 06/01/2024 Donation Both 0.03000000 $3,000.00 "
+        "$1,350.00 Total 0.04000000 $6,000.00 $2,250.00",
+        "Term Both: the donation of 06/01/2024 was 0.02000000 BTC long-term (cost basis $400.00) and 0.01000000 "
+        "BTC short-term (cost basis $950.00).",
+        "Donations: the deduction is generally the value of coins held more than a year (Term Long) and the lower "
+        "of value and cost basis for the rest (Short), within limits that depend on the charity and your income: "
+        "ask your tax preparer.",
+        "A deduction over $500 for the year's bitcoin donations together needs Form 8283; over $5,000, also a "
+        "qualified appraisal (an exchange's price isn't one) and the charity's signature on it.",
+    ):
+        assert expected in text, expected
+    assert "Gifts: if all you gave" not in text and "Lost coins:" not in text
+
+
+@pytest.mark.parametrize("year, over", [(2025, "$19,000"), (2026, "$19,000"), (2018, "$15,000"),
+                                        (2010, "2010's annual exclusion"), (2031, "2031's annual exclusion")])
+def test_the_gift_tax_return_names_the_years_exclusion(year, over):
+    """#160: the IRS's annual exclusion for the year where it's known (its
+    gift tax FAQ lists 2011 on), else the words."""
+    gift = {"date": f"{year}-08-01T12:00:00Z", "asset": "BTC", "amount": 0.02, "fmv_usd": 1200.0, "type": "Gift"}
+    text = pdf_text(generate_comprehensive_tax_report({**EMPTY_REPORT, "tax_year": year,
+                                                       "gifts_donations_lost": [gift]}))
+    assert f"Gifts: if all you gave one person in {year} adds up to more than {over} (gifts" in text
+
+
+def test_the_digital_asset_question_follows_the_year():
+    """#160: Yes for bitcoin disposed of or received as income, a reward or a
+    rebate; else what doesn't make it Yes."""
+    def question(**data) -> str:
+        """The summary's line, up to the next table's header."""
+        text = pdf_text(generate_comprehensive_tax_report({**EMPTY_REPORT, **data}))
+        return text[text.index("Form 1040's digital asset question"):].split(" Income Source")[0]
+    sale = {"asset": "BTC", "date_sold": "2023-07-01T03:00:00Z", "amount": 0.1, "kind": "Network fee"}
+    rebate = {"date": "2023-03-01T12:00:00Z", "amount": 0.001, "value_usd": 50.0}
+    assert question(capital_gains_transactions=[sale]) == \
+        "Form 1040's digital asset question: answer Yes, for the bitcoin disposed of (section 2)."
+    assert question(rebates=[rebate]) == \
+        "Form 1040's digital asset question: answer Yes, for the bitcoin received (section 3)."
+    assert question() == ("Form 1040's digital asset question: holding bitcoin, buying it with dollars and moving "
+                          "it between your own wallets don't make the answer Yes; for gifts and other digital "
+                          "assets, see its instructions.")
+
+
+def test_a_brokers_form_brings_the_time_zone_note():
+    """#160: a broker's form may date a sale in another time zone; said in
+    the notes of a year with a box of sales a broker reported."""
+    note = ("The IRS hasn't said which time zone sets your dates, so BitcoinTX uses one, your tax timezone, for all "
+            "of them. A broker's Form 1099-DA or 1099-B may date a sale in another (UTC, say): a sale near midnight "
+            "can show another date there, even another tax year. Check such a sale with your tax preparer.")
+    boxes = [{"box": "H", "line": "2", "rows": 1, "proceeds": 10.0, "cost": 5.0, "gain_loss": 5.0}]
+    text = pdf_text(generate_comprehensive_tax_report({**REPORT, "form_8949_boxes": boxes}))
+    assert note in text[text.rindex("7. Notes"):]
 
 
 def test_complete_report_with_nothing_in_it():
