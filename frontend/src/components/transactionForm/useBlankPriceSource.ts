@@ -22,6 +22,7 @@ export function useBlankPriceSource(): BlankPriceWords {
           backup: Boolean(settings.data.mempool_fallback),
           tor: Boolean(settings.data.proxy_url),
           mempoolMissing: settings.data.price_source === "mempool" && !settings.data.mempool_url,
+          withoutTor: settings.data.history_without_tor?.answer ?? null,
         };
         setWords({ hour: blankPriceSource(status.data, ctx), day: blankDayPriceSource(status.data, ctx) });
       })

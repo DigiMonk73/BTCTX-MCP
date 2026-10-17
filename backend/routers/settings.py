@@ -193,6 +193,27 @@ def put_network_settings(payload: NetworkSettingsIn, request: Request, db: Sessi
     return outbound.as_dict()
 
 
+class HistoryWithoutTorIn(BaseModel):
+    answer: Literal["yes", "no"]
+    # Where it was answered, for its record: the Dashboard's question, or Settings
+    via: Literal["dashboard", "settings"] = "settings"
+
+
+@router.put("/network/history-without-tor")
+def put_history_without_tor(payload: HistoryWithoutTorIn, request: Request, db: Session = Depends(get_db)):
+    """
+    The owner's answer to "Download the price history once without Tor?"
+    (#241): Yes lets Bitstamp's fixed-block history downloads go directly,
+    and they're asked again at once. Login only, never the AI key; allowed
+    while the server sets the price choice (the answer is the owner's).
+    """
+    _require_login(request)
+    outbound.answer_history_without_tor(db, payload.answer, payload.via)
+    if payload.answer == "yes":
+        hourly_prices.try_again_now()
+    return outbound.as_dict()
+
+
 # A home server's certificate for your own Mempool (#188, services/mempool_trust.py):
 # login only, never the AI key; only for the Mempool in use, at a home-network address.
 class TrustedRootIn(BaseModel):
