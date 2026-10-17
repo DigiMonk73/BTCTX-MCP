@@ -18,6 +18,7 @@ def main() -> int:
     ap.add_argument("--url", required=True)
     ap.add_argument("--transactions", type=int, default=7, help="expected count (the fixture has 7)")
     ap.add_argument("--setup-code", help="the first-run code (the fixture still has the default login)")
+    ap.add_argument("--write", action="store_true", help="also save a setting: the app writes its database")
     a = ap.parse_args()
 
     with httpx.Client(base_url=a.url.rstrip("/"), timeout=60) as c:
@@ -31,6 +32,11 @@ def main() -> int:
                        c.get("/api/settings/tax-timezone").status_code == 200))
         pdf = c.get("/api/reports/irs_reports", params={"year": 2024})
         checks.append(("2024 IRS forms generate", pdf.status_code == 200 and pdf.content[:4] == b"%PDF"))
+        if a.write:  # Settings' Save: the timezone, then a recalculation of the ledger
+            saved = c.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
+            source = c.get("/api/settings/tax-timezone").json().get("source")
+            checks.append(("a setting saves (the app writes its database)",
+                           saved.status_code == 200 and source == "setting"))
 
     for name, ok in checks:
         print(f"  {'✓' if ok else '✗'} {name}")

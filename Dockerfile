@@ -21,8 +21,13 @@ ENV DATABASE_FILE=/data/btctx.db
 # No system packages needed: IRS forms are filled in pure Python (pypdf)
 
 WORKDIR /app
-# The ledger is private: only the app's user (root here) can read /data.
-RUN mkdir -p /data && chmod 700 /data
+# The app's own user (#202): BitcoinTX never runs as root. A fixed uid and
+# gid, the same in every release, so /data keeps its owner across updates.
+RUN groupadd --system --gid 10001 btctx \
+ && useradd --system --uid 10001 --gid btctx --no-create-home \
+      --home-dir /nonexistent --shell /usr/sbin/nologin btctx
+# The ledger is private: only the app's user can read /data.
+RUN mkdir -p /data && chown btctx:btctx /data && chmod 700 /data
 
 # The lock: every package, indirect ones too, at a fixed version whose hash
 # must match, and only ready-built wheels, so nothing is built (with tools no
@@ -34,6 +39,12 @@ RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r requireme
 COPY backend/ ./backend
 COPY VERSION ./VERSION
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+# Compiled now: the code belongs to root, so the app can't cache it at run time.
+RUN python -m compileall -q backend
+
+# Starts as root only to give /data to btctx, then runs the command as btctx.
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 EXPOSE 80
 
