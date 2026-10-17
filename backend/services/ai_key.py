@@ -39,7 +39,6 @@ import threading
 from pathlib import Path
 
 from sqlalchemy.orm import Session
-from starlette.routing import compile_path
 
 from backend.services.desktop import desktop_info, is_desktop
 
@@ -53,14 +52,16 @@ PREFIX = "btctx_ak_"
 NOT_ALLOWED = "The AI key can't do this. Log in to BitcoinTX to do it."
 TURNED_OFF = "AI access is turned off in BitcoinTX Settings."
 
-# (method, path, the MCP tool that needs it). {name:int} matches digits only,
-# so /api/transactions/delete_all is never "a transaction".
+# (method, route, the MCP tool that needs it): each route's template as the
+# app declares it, its router's prefix and path. A request is compared by the
+# route it matched (main.route_template), never by its URL, so the list is
+# exactly these routes: /api/transactions/delete_all is a route of its own.
 # /api/health needs no login at all.
 AI_KEY_ROUTES = (
     ("GET", "/api/transactions", "list_transactions"),
-    ("GET", "/api/transactions/{transaction_id:int}", "update_transaction, delete_transaction"),
-    ("PUT", "/api/transactions/{transaction_id:int}", "update_transaction"),
-    ("DELETE", "/api/transactions/{transaction_id:int}", "delete_transaction"),
+    ("GET", "/api/transactions/{tx_id}", "update_transaction, delete_transaction"),
+    ("PUT", "/api/transactions/{transaction_id}", "update_transaction"),
+    ("DELETE", "/api/transactions/{transaction_id}", "delete_transaction"),
     ("POST", "/api/transactions/recalculate", "recalculate_ledger"),
     ("POST", "/api/import/entries/preview", "preview_transactions"),
     ("POST", "/api/import/entries/execute", "add_transactions"),
@@ -72,13 +73,14 @@ AI_KEY_ROUTES = (
     ("GET", "/api/review", "review_ledger"),
     ("POST", "/api/backup/ai-copy", "backup_ledger"),
 )
-_ALLOWED = [(method, compile_path(path)[0]) for method, path, _ in AI_KEY_ROUTES]
+_ALLOWED = {(method, route) for method, route, _ in AI_KEY_ROUTES}
 
 
-def key_may_use(method: str, path: str) -> bool:
-    """Is this request (method, URL path) one the AI key may make?"""
-    path = path.rstrip("/") or "/"
-    return any(m == method and regex.match(path) for m, regex in _ALLOWED)
+def key_may_use(method: str, route: str | None) -> bool:
+    """May the AI key use this route? `route` is the template of the route the
+    request matched, never its URL: a URL's path is re-parsed from the decoded
+    one, where a %3F cuts it short (#204)."""
+    return (method, route) in _ALLOWED
 
 
 # Mode and storage

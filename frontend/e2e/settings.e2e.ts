@@ -544,6 +544,7 @@ test("privacy & network: the price card, its fields and errors; Nobody shows on 
     host: "server",
     confirmed: true, chosen_at: expect.stringMatching(/Z$/), chosen_via: "settings",
     mempool_certificate: null, mempool_trustable: false, // an http address: nothing to trust (#188)
+    history_without_tor: { answer: null, at: null, via: null }, // never asked: Bitstamp hasn't refused (#241)
   });
 
   await net.getByLabel(/^Nobody/).check();

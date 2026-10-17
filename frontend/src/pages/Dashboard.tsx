@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
+import HistoryQuestionCard from "../components/dashboard/HistoryQuestionCard";
 import IncomeFeesCard from "../components/dashboard/IncomeFeesCard";
 import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
@@ -134,7 +135,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
-      {unchosen && <PriceSourceCard variant="first-run" />}
+      {unchosen ? <PriceSourceCard variant="first-run" /> : <HistoryQuestionCard />}
       <div className="dashboard-grid">
         <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
         <BtcPriceCard price={price} blockHeight={blockHeight} />

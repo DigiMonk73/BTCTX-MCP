@@ -268,6 +268,17 @@ from the Transaction row alone.
   year files in fixed 1,000-hour blocks from 1 January, every year, newest
   first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
   blocks from the hour after the files; never the hour asked.
+  **A proxy (Tor) carries every request to a public site**, with one
+  exception the owner opts into (#241): Bitstamp refuses Tor's exits, so
+  the price card asks once "Download the price history once without
+  Tor?" (only after Bitstamp refused through the proxy, never before). The
+  answer (`app_settings` `history_without_tor`, with when and where) is
+  the owner's: a login-only route (never the AI key), kept by a restore,
+  changeable in Settings even while the server sets the choice. After a
+  Yes, and only then, Bitstamp's fixed history blocks (the year files, the
+  hours after them, the daily history) go directly
+  (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
+  that route, a `start` off those blocks' grid included. The live price, block height and latest days stay on Tor.
   Stored days and hours never change. Never today's live price, never $0: no price is
   a 422. A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
@@ -345,8 +356,9 @@ from the Transaction row alone.
   `POST /api/users/register`, `GET /api/users/setup-status`,
   `POST /api/users/reset-account`, `GET /api/health` (status, version,
   schema only) and login. User routes may only touch the logged-in user.
-- `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored. Never add a
-  default key anywhere.
+- `SECRET_KEY` values in `secret_key.PUBLIC_DEFAULTS` are ignored, and so is
+  one shorter than 32 characters (the key file is used). Never add a default
+  key anywhere.
 - The debug router, `DELETE /api/transactions/delete_all`,
   `PUT /api/settings/tax-timezone` and `POST /api/settings/tax-timezone/fill`
   are login-only (never the AI key); tests
@@ -381,6 +393,9 @@ from the Transaction row alone.
   a proxy, everyone's) and the global cap don't stop it; its own failures
   slow it. Logging out keeps it; a new password voids every earlier one.
   New passwords need 12+ characters; a change needs the current password.
+  A login with a username that doesn't exist checks a stand-in hash all the
+  same (`models/user.password_matches`), so its time says nothing about
+  which names exist.
 - While the account has the default login (before it's claimed: Docker,
   source and the Mac app alike), logging in with it and claiming it need
   the one-time setup code (`services/first_run.py`,
@@ -417,12 +432,16 @@ from the Transaction row alone.
   it was and answers in plain words, never SQL
   (`services/backup.restore_backup`, `routers/backup._write_kept`).
   It works only while AI access is on (off by default) and only on
-  `AI_KEY_ROUTES`, the routes the MCP tools call; any other route is 403. A
-  new MCP tool that needs a route adds it there on purpose (a test checks the
-  tools and the list agree). Never allow the key on login, users, key or
-  switch settings, backup download/restore, CSV export, file imports (CSV,
-  River), delete-all, Ledger Review fixes, settings changes (the Mempool
-  certificate's trust, #188, included) or debug.
+  `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template
+  of the route the request matched (`main.route_template`), never its URL;
+  any other route is 403. Every router is mounted with `main.include()`,
+  which notes its routes' templates (a router mounted otherwise is closed
+  to the key). A new MCP tool that needs a route adds it there on purpose
+  (a test checks the tools and the list agree). Never allow the
+  key on login, users, key or switch settings, backup download/restore, CSV
+  export, file imports (CSV, River), delete-all, Ledger Review fixes,
+  settings changes (the Mempool certificate's trust, #188, included) or
+  debug.
 - Before the AI key's first change in an hour (an edit or a deletion) an AI
   copy is made (`backups/…-ai-before-changing-…db`; no copy, no change),
   never for the owner's; it is written under a temporary name and renamed
