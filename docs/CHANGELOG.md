@@ -970,8 +970,10 @@ All notable changes to BitcoinTX are documented in this file.
   are now counted from the digits typed (0.29 BTC is 29,000,000 sats).
   From dollars, the BTC and Sats fields could disagree by one ($1 at
   $60,000 showed 0.00001667 BTC beside 1,666 sats); both now show one
-  count, rounded to the nearest satoshi (1,667). Only the converter's
-  display changes: nothing it shows is saved. In 1.2.8 and earlier.
+  count, rounded to the nearest satoshi (1,667). A BTC amount typed with
+  more than 8 decimals rounds to the nearest satoshi too, where it was cut
+  off (0.000000009 BTC is 1 sat). Only the converter's display changes:
+  nothing it shows is saved. Every release.
 - **The AI connector's `btctx_mcp.__version__` is its real version**
   (#133). It said 0.1.0 whatever the release; it now reads the installed
   package's version (`unknown` when the connector isn't installed).

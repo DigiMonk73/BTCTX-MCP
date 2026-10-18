@@ -14,7 +14,7 @@ export function historyPriceUrl(date: string, hour: string): string | null {
 
 // A number field's text: sign, digits, decimal point, exponent ("1e-8")
 const DECIMAL = /^([+-]?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i;
-const SATS_PER_BTC = 100_000_000;
+export const SATS_PER_BTC = 100_000_000;
 
 /**
  * A typed BTC amount in satoshis, from its digits (#451): 0.29 as a float
@@ -25,7 +25,8 @@ export function satsFromBtc(text: string): number | null {
   const parts = DECIMAL.exec(text.trim());
   if (!parts || !(parts[2] || parts[3])) return null;
   const [, sign, whole, fraction = "", exponent = "0"] = parts;
-  // Past all the bitcoin there is, exactness means nothing (and the digits would be millions long)
+  // Far past all the bitcoin there is, or far under a satoshi: exactness means nothing there, and
+  // writing out the digits could take more memory than a string may hold
   if (Math.abs(Number(exponent)) > 20) return Math.round(Number(text) * SATS_PER_BTC);
   const integer = whole.replace(/^0+/, "");
   const digits = integer + fraction;
