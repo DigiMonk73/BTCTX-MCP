@@ -597,6 +597,24 @@ All notable changes to BitcoinTX are documented in this file.
   to do:** nothing, unless you edited a transaction while applying the
   hour's prices: then open it and, if its value doesn't match its amount,
   clear the value to price it again at its hour.
+- **A transaction you told the AI is another one no longer depends on the
+  rows' order** (tax figures, #497, #510). Two cases in the AI connector's
+  duplicate check:
+  - **A row named as another transaction** (`not_a_duplicate_of`) **beside
+    an identical row without a name.** The same request can be a first
+    send naming a new payout, or a send of two payouts already recorded.
+    The check decided by the rows' order: one order saved an extra payout
+    (income) or purchase, the other saved none. Now it never guesses (the
+    owner's rule): the preview marks those rows unclear, saying which rows
+    and what to do. The AI's add refuses them until the AI names each row
+    or sends the named one in a request of its own.
+  - **Identical rows, each named as the transaction its preview matched.**
+    They were all saved in the preview's order and all left out in another,
+    so payouts went missing. Now every transaction a row names is set
+    aside for all the rows, so a name means the same in any order.
+
+  **Affected:** no release: telling the AI a duplicate is another
+  transaction is new in this version (#253). Nothing to do.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
@@ -732,6 +750,61 @@ All notable changes to BitcoinTX are documented in this file.
   lists the transactions it would change first. Any tax year with a lot
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
+- **A Buy is never saved without its cost basis** (#459). The transactions
+  API saved a Buy sent without a cost basis (every release from 0.8.0, the
+  oldest tagged, to 1.2.8). So did an edit that made a transfer, a dollar
+  deposit or a dollar withdrawal a Buy without giving one (the same
+  releases), or a sale or a bitcoin withdrawal (from 1.2.2, when a type
+  change began to drop the old type's figures; before, the Buy kept the
+  cost basis stored on the sale or withdrawal). A dollar deposit made a
+  Buy that way kept its own cost basis as the Buy's: $0 on one entered
+  with the form before 0.9.2. The AI connector's `update_transaction` can send that
+  edit when it isn't given the cost. The Buy's bitcoin then cost $0: selling
+  or spending it later counted the whole proceeds as gain, and the
+  year-end holdings' cost and the dashboard's average cost were low by the
+  missing amount. The form, the CSV and River imports and the AI
+  connector's add never saved one without it. Now such a save is refused,
+  saying the Buy needs its cost basis; a basis of 0 you type is still
+  kept. Ledger Review lists every Buy with a $0 or blank cost basis ("Buys
+  with a $0 or blank cost basis"). An edit of an old Buy with a blank
+  basis, through the API or the AI connector, asks for it; the form shows
+  its Amount USD as 0 until you enter what it cost.
+
+  **What to do:** open Ledger Review (Settings). For each Buy it lists,
+  edit it and enter what the bitcoin cost in USD, before the fee (Amount
+  USD); the save recalculates the ledger. Any tax year in which coins from
+  such a Buy were sold or spent can be affected, its gain too high by the
+  missing basis. A ledger entered only with the form or the imports has
+  none.
+- **A dollar deposit moved into Wallet or Exchange BTC asks for the
+  bitcoin's cost** (#517). An edit that moved a dollar deposit into Wallet
+  or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
+  stored on the dollar deposit as the cost of that bitcoin, without
+  asking: $0 on a dollar deposit entered with the form before 0.9.2, or
+  whatever figure a program or a CSV file gave it. (A dollar deposit made
+  a Buy instead: the entry above.) Selling those coins later then counted
+  the whole proceeds as gain (or a gain off by the difference), and an
+  income deposit moved that way reported that figure as its income
+  instead of the coins' value. Every release from 0.8.0 (the oldest
+  tagged) to 1.2.8, through the API and the AI connector. Now such an
+  edit asks for the coins' cost (a My BTC, Gift or N/A deposit), or values
+  an income, interest, reward or rebate deposit at that hour's price (an
+  inherited one at the price on its date of death, which the edit must
+  give), unless it gives one. The form isn't changed: there the Cost Basis
+  field shows the figure the deposit had (a blank one as 0), and saving
+  keeps what it shows (a 0 on an income, rebate or inherited deposit is
+  valued at the price).
+
+  **What to do:** Ledger Review lists a bitcoin deposit with a $0 cost
+  basis ("BTC deposits (not income or a rebate) with a $0 or blank cost
+  basis"): edit it and enter what the coins cost. An income or rebate
+  deposit moved that way with another figure is listed under "Income and
+  rebate values you typed, far from that hour's price". Others with
+  another figure aren't listed: if you moved a dollar deposit into Wallet
+  or Exchange BTC, or made one a Buy, through the AI connector or another
+  program, check its cost basis. Any tax year in which those coins were
+  sold or spent can be affected, and for an income deposit the year it
+  was received.
 - **No proceeds row below zero** (#297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot

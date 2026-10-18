@@ -102,7 +102,8 @@ class TransactionInput(BaseModel):
     not_a_duplicate_of: int | None = Field(
         default=None, description="Only when the user says this row is another transaction than the one "
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "
-                                  "It's then saved, once (sent again, it's left out). Never set it on your own.")
+                                  "It's then saved, once (sent again, it's left out). Never set it on your own. "
+                                  "An identical row beside it needs it too, or the request is refused as unclear.")
 
 
 _client: BtctxClient | None = None
@@ -421,7 +422,7 @@ async def review_ledger() -> ToolResult:
     Spent, Gift, Donation or Lost (each counts as Spent until the owner chooses; only the owner knows which it was: ask, never
     guess; as Spent with none recorded, its proceeds are what the owner got for it); BTC
     deposits, not income or a rebate, with a $0 or
-    blank cost basis;
+    blank cost basis; Buys with a $0 or blank cost basis;
     values BitcoinTX priced at the day's price that the price of their hour would change,
     by tax year, which only the owner can apply, in Settings (they change figures, and a
     year already filed is a question for a tax professional); Inherited deposits without a
@@ -461,7 +462,8 @@ async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     values came from a price and its hour, source and USD per BTC. Duplicates are skipped (keep them in the
     list: dropping one can leave an identical row beside it skipped instead), unless the user
     says one is another transaction: then send that row with not_a_duplicate_of set to the
-    matched_transaction_id the preview gave it. Rows
+    matched_transaction_id the preview gave it (and each identical row beside it too, or send
+    that row in a call of its own: a named row beside an identical one without it is refused). Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
     The same row limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
@@ -493,6 +495,8 @@ async def update_transaction(
     date is read as add_transactions reads it: without a timezone, in the user's tax
     timezone (a bare date is midday there).
     Changing type or accounts requires passing type, from_account and to_account together.
+    A type change keeps only the figures the new type takes too, so pass the new type's own:
+    making a transaction a Buy needs cost_basis_usd (the USD it cost, before the fee).
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".

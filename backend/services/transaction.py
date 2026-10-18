@@ -459,6 +459,7 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
 
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
+    _drop_dollar_deposit_basis(tx, tx_data)
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _drop_proceeds_it_never_had(tx, tx_data)
     _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
@@ -508,6 +509,22 @@ def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None
     if past and edited in past:
         missing = missing_accounts(edited, known_accounts(db))
         raise AccountMissing(edited, missing, local_date(edited.timestamp, get_tax_timezone(db)))
+
+
+def _drop_dollar_deposit_basis(tx: Transaction, tx_data: dict) -> None:
+    """
+    A dollar deposit's cost basis is no bitcoin's cost ($0 on every one the
+    form before 0.9.2 saved, or a figure an API client or a CSV file gave
+    one). An edit that makes it bring bitcoin into Wallet or Exchange BTC,
+    as a deposit or a Buy, drops it unless it sends one: kept, it would be
+    the coins' cost, so the save asks for that instead, or values an
+    income, rebate or inherited deposit at its price (#459, #517).
+    """
+    if tx.type != "Deposit" or tx.to_account_id in BTC_ACCOUNTS or "cost_basis_usd" in tx_data:
+        return
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type", tx.type))
+    if new_type in ("Deposit", "Buy") and tx_data.get("to_account_id", tx.to_account_id) in BTC_ACCOUNTS:
+        tx_data["cost_basis_usd"] = None
 
 
 def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
@@ -2139,6 +2156,7 @@ GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+BUY_BASIS_REQUIRED = "A buy needs its cost basis (cost_basis_usd): what the BTC cost in USD, before the fee."
 INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
 FEE_CURRENCY_UNKNOWN = "fee_currency must be USD or BTC."
 TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or other control character."
@@ -2456,6 +2474,14 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
             and normalized(data.get("source")) not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
+
+    # A Buy's lot costs its basis: a blank one would be a $0 lot, its whole
+    # proceeds gain when sold (#459). Checked on the row an edit makes too,
+    # so a type change to a Buy (which drops the old type's figures,
+    # _drop_fields_of_old_type) needs one, as does any edit of a Buy saved
+    # without one.
+    if tx_type == "Buy" and data.get("cost_basis_usd") is None:
+        _bad(BUY_BASIS_REQUIRED)
 
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:

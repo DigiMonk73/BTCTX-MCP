@@ -239,8 +239,13 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    the user says is another transaction (two payouts of the same amount at
    the same time, say) goes with not_a_duplicate_of: the
    matched_transaction_id the preview gave that row, and is saved. Never
-   set it without their word. It's saved once: sent again (a retry after a
-   timeout, say), it's found and left out.
+   set it without their word. Rows identical to it (the same type, BTC
+   amount, source or purpose, a Buy's cost basis, and minute or day) need
+   it too when the user says none of them is that transaction; otherwise
+   send the named row in a request of its own, and the others in another.
+   A named row beside an identical one without it is refused as unclear:
+   the preview says which rows. It's saved once: sent again (a retry after
+   a timeout, say), it's found and left out.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
