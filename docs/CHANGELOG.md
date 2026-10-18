@@ -993,7 +993,8 @@ All notable changes to BitcoinTX are documented in this file.
   app, the Mac app and the AI connector alike, and the history without
   Tor goes directly. The public price sites still follow such a proxy
   when BitcoinTX sets none of its own (on Docker, a way to hide the
-  server's address), and so does your Mempool at an internet address.
+  server's address); your Mempool at an internet address follows it
+  always, Tor set or not (BitcoinTX's own proxy carries only an .onion).
   Certificates are checked as before. Only an install whose own
   environment or Mac sets such a proxy was affected; StartOS's package
   sets none. Nothing to do, unless you reached your home Mempool, or

@@ -89,19 +89,26 @@ def this_computer_or_home(url: str) -> bool:
         host = (httpx.URL(url).host or "").lower()
     except (httpx.InvalidURL, ValueError):
         return False
-    host = host[:-1] if host.endswith(".") else host  # "umbrel.local." names the same host
-    if not host or not host.isascii():
+    if not host.rstrip(".") or not host.isascii():
         return False
-    if host == "localhost" or host.endswith(".localhost"):
-        return True
+    if host.endswith("."):  # a name to the resolver, never an address: "umbrel.local." is umbrel.local
+        return _home_name(host[:-1])
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
         try:
             ip = ipaddress.ip_address(socket.inet_aton(host))
-        except OSError:  # a name: a one-word one is what a home server answers to
-            return host.endswith(HOME_SUFFIXES) if "." in host else True
+        except OSError:
+            return _home_name(host)
     return ip.is_loopback or any(ip in network for network in HOME_NETWORKS)
+
+
+def _home_name(name: str) -> bool:
+    """Whether a name (never an address) is this computer's or a home
+    server's: a .local or .lan name, or a one-word name."""
+    if name == "localhost" or name.endswith(".localhost"):
+        return True
+    return name.endswith(HOME_SUFFIXES) if "." in name else True
 
 
 def default_key_file() -> Path:

@@ -71,9 +71,15 @@ def home_host(host: str, this_computer: bool = False) -> bool:
     except ValueError:
         try:
             ip = ipaddress.ip_address(socket.inet_aton(host))
-        except OSError:  # a name: a one-word one is what a home server answers to
-            return host.endswith(PRIVATE_SUFFIXES) if "." in host else True
+        except OSError:
+            return home_name(host)
     return any(ip in network for network in PRIVATE_NETWORKS) or (this_computer and ip.is_loopback)
+
+
+def home_name(name: str) -> bool:
+    """Whether a name (never an address) is a home server's: a .local or
+    .lan name, or a one-word name, what a home server answers to."""
+    return name.endswith(PRIVATE_SUFFIXES) if "." in name else True
 
 
 def _plain_host(url: str | None) -> str | None:

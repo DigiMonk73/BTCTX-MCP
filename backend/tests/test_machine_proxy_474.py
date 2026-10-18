@@ -195,8 +195,9 @@ HOME = {
     "http://134744072": False, "http://2130706433": True, "http://8.8": False, "http://0": False,
     "http://127.1": True, "http://0x7f.1": True, "http://10.1": True, "http://192.168.1": True,
     "http://0.0.0.0": False,
-    # A dot at the end names the same host
-    "http://umbrel.local.:3006": True, "http://localhost.:8765": True, "https://btctx.example.com.": False,
+    # A dot at the end makes a name of it: the same host for a name, never an address
+    "http://umbrel.local.:3006": True, "http://localhost.:8765": True, "http://umbrel.:3006": True,
+    "https://btctx.example.com.": False, "http://10.0.0.1.:3006": False, "http://127.0.0.1.": False,
     "https://example.local.com": False, "http://[2001:db8::1]": False, "": False, "not a url": False,
 }
 
@@ -205,6 +206,15 @@ HOME = {
 def test_this_computer_and_the_home_network(url):
     assert outbound.this_computer_or_home(url) is HOME[url]
     assert connector.this_computer_or_home(url) is HOME[url]
+
+
+@pytest.mark.parametrize("url, offered", [
+    ("https://10.1", True), ("https://192.168.1", True),  # 10.0.0.1, 192.168.0.1
+    ("https://010.1", False), ("https://127.1", False), ("https://0x7f.1", False),  # 8.0.0.1, 127.0.0.1 twice
+])
+def test_trust_this_server_reads_a_short_address_as_the_resolver_does(url, offered):
+    """The home rule this file's rule shares (mempool_trust.home_host)."""
+    assert mempool_trust.private_address(url) is offered
 
 
 def test_the_connector_keeps_the_apps_list_of_home_addresses():
