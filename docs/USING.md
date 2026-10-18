@@ -2,8 +2,8 @@
 
 What BitcoinTX does and how you use it, the same wherever it runs. How to
 install it, log in the first time and update it depends on where it runs,
-so none of that is on this page; on StartOS, the service's Instructions tab
-covers it.
+so none of that is on this page: on StartOS, the service's Instructions tab
+covers it; elsewhere, the [README](../README.md#install).
 
 BitcoinTX is a self-hosted, single-user Bitcoin portfolio tracker and tax
 report generator. It tracks BTC and USD balances with **double-entry
@@ -42,19 +42,23 @@ backdated entries come out right.
 - **Deposit**: dollars into Bank or Exchange USD, or bitcoin into Wallet or
   Exchange BTC. A bitcoin deposit's **Source** decides its cost basis:
   - **MyBTC** (your own bitcoin from somewhere BitcoinTX doesn't track) and
-    **Gift** (the giver's cost) take the basis you enter. The date you
-    originally acquired the coins, if you give it, starts the holding
-    period; without it, the deposit's date does.
+    **Gift** (the giver's cost) take the basis you enter. Their **Date
+    originally acquired** (when you first got the coins; for a gift, when
+    the giver did), if you give it, starts the holding period, sets their
+    place in FIFO and is Form 8949's date acquired; left blank, the
+    deposit's date is used.
   - **Income**, **Interest** and **Reward** (mining, staking, a sign-up or
     referral bonus) are income: their basis is their value when received
     (left blank, the price at that hour), and that value is the income on
     the reports.
   - **Rebate** (bitcoin back for spending, such as a rewards card's
     sats-back) is valued the same way but isn't income: the reports list it
-    apart.
-  - **Inherited**: the basis is the value on the date of death (you enter
-    the date; left blank, the value is that day's price), and any sale of
-    those coins is long-term.
+    apart. Sats-back for buying money orders or other cash equivalents is
+    income: use Reward.
+  - **Inherited**: the **Date of death** is required, and the basis is the
+    value on it (or on the estate's alternate valuation date, if it chose
+    one; left blank, the date of death's price). Any sale of those coins is
+    long-term.
 - **Withdrawal**: money leaving to External. A bitcoin withdrawal's
   **Purpose** decides how it's taxed: **Spent** is a disposal at its
   proceeds (left blank, the value at the hour's price); **Gift**,
@@ -68,11 +72,11 @@ backdated entries come out right.
   (Wallet to Wallet, or between exchanges BitcoinTX counts as one) records
   only its network fee.
 - **Buy**: dollars from Bank or Exchange USD for bitcoin into Exchange BTC.
-  The cost basis is the dollars spent without the fee; the fee is added to
-  the basis.
-- **Sell**: bitcoin from Exchange BTC for dollars into Exchange USD. The
-  proceeds are what the sale brought before the fee; the fee comes off
-  them.
+  Enter the dollars spent without the fee as **Amount USD** and the fee as
+  **Fee (USD)**: the lot's cost basis is the two together.
+- **Sell**: bitcoin from Exchange BTC for dollars into Exchange USD. Enter
+  what the sale brought before the fee as **Gross Proceeds (USD)** and the
+  fee as **Fee (USD)**: the sale's proceeds are the gross less the fee.
 
 ## Lots, gains and the holding period
 
@@ -134,8 +138,9 @@ sites, or nobody. Where the server sets that choice (on StartOS, the
 **Price Source & Privacy** action), Settings shows it read-only.
 
 - **Your own Mempool**: the live price, block height and newer prices come
-  from it, and no public site is contacted. It has hourly prices only from
-  when it began recording. A home server's https address works too: when
+  from it, and no public site is contacted unless you tick **If it can't
+  answer, ask public price sites**. It has hourly prices only from when it
+  began recording. A home server's https address works too: when
   BitcoinTX can't trust its certificate, the card offers **Trust this
   server**, for that address only.
 - **Public price sites**: the hourly history (2013 on) comes in one

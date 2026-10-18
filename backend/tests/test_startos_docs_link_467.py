@@ -3,9 +3,10 @@ The StartOS instructions' Documentation links (#467). Start9's support
 indexer crawls each one into the package's documentation index, and says to
 leave out "upstream install guides [that] describe a deployment the package
 deliberately does not use" (writing-instructions.md, "Choosing documentation
-URLs"): linking the whole README taught it the Mac app's and Docker's steps.
-Each link is a page of this repository on `main`, which has it once a
-release fast-forwards `main` to `develop`, so the page must be here too.
+URLs"): a link to the whole README would teach it the Mac app's and
+Docker's steps. Each link is a page of this repository on `main`, which has
+it once a release fast-forwards `main` to `develop`, so the page must be
+here too.
 """
 
 import re
@@ -22,8 +23,8 @@ ON_MAIN = re.compile(r"https://github\.com/DigiMonk73/BTCTX-MCP/blob/main/(\S+)"
 CONNECTOR = "mcp_server/README.md"
 
 # What belongs to another install: its name, its commands, its sections.
-OTHER_INSTALLS = re.compile(r"docker|mac app|macos|desktop app|\.dmg|pip install|git clone|setup code", re.I)
-INSTALL_HEADINGS = re.compile(r"^#+ .*\b(?:install|upgrad|first login|from source).*$", re.I | re.M)
+OTHER_INSTALLS = re.compile(r"docker|mac app|macos|\.dmg|pip install|git clone|setup code", re.I)
+INSTALL_HEADINGS = re.compile(r"^#+ .*\b(?:install|upgrad|updat|first login|from source).*$", re.I | re.M)
 
 
 def documentation_links():
