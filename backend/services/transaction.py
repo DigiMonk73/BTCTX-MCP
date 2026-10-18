@@ -462,6 +462,7 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
     _drop_dollar_deposit_basis(tx, tx_data)
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _drop_proceeds_it_never_had(tx, tx_data)
+    _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
@@ -572,6 +573,26 @@ def _drop_proceeds_it_never_had(tx: Transaction, tx_data: dict) -> None:
         drop = (sold and not sent) or (not sold and edited["from_account_id"] in BTC_ACCOUNTS)
     if drop:
         tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = None
+
+
+def _send_gross_of_an_old_withdrawal_sold(tx: Transaction, tx_data: dict) -> None:
+    """
+    A withdrawal saved before 0.8.0 (no gross recorded) made a Sell by an
+    edit that sends no proceeds: the sale's gross is the one a recalculation
+    recovers from its stored proceeds, as the edit form shows it (#485),
+    sent as the edit's, so the Sell's check and its save read the same one,
+    and a USD fee comes off it. Left blank, the check read the proceeds as
+    the gross and the save as an old Sell's net, adding the fee on top
+    (#520). Run after _drop_proceeds_it_never_had: a gift's or a dollar
+    withdrawal's proceeds are none to carry.
+    """
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
+    if tx.type != "Withdrawal" or new_type != "Sell" or tx.gross_proceeds_usd is not None:
+        return
+    if "proceeds_usd" in tx_data or "gross_proceeds_usd" in tx_data or Decimal(tx.proceeds_usd or 0) <= 0:
+        return
+    fee_btc = Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal("0")
+    tx_data["gross_proceeds_usd"] = _gross_from_stored_proceeds(tx, Decimal(tx.amount or 0) + fee_btc)
 
 
 def _check_inherited_date_sent(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -1190,12 +1211,25 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         tx.proceeds_from_price = True
         tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     else:
-        gross = Decimal(tx.proceeds_usd)
-        has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
-        if spent and has_btc_fee and gross > 0 and amount > 0:
-            gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
+        gross = _gross_from_stored_proceeds(tx, btc_outflow)
 
     tx.gross_proceeds_usd = gross
+    return gross
+
+
+def _gross_from_stored_proceeds(tx: Transaction, btc_outflow: Decimal) -> Decimal:
+    """
+    The gross of a withdrawal saved before the gross was recorded, from the
+    proceeds_usd it stored: a Spent's (in the spelling _spent_as_matched
+    reads) is net of the BTC fee offset versions before 0.9.2 applied,
+    undone over the amount and the fee (`btc_outflow`); another purpose's
+    had none (#61) and is its gross.
+    """
+    gross = Decimal(tx.proceeds_usd)
+    amount = Decimal(tx.amount or 0)
+    has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
+    if _spent_as_matched(tx) and has_btc_fee and gross > 0 and amount > 0:
+        gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
     return gross
 
 
@@ -1321,8 +1355,10 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
     # and an edit of a Sell can't blank it (_check_sell_proceeds), so only
     # rows saved before that reach here, and their stored proceeds_usd is
     # ALREADY net of the USD fee: keep it as the net and recover the gross
-    # once. (A withdrawal from such a ledger changed into a Sell keeps its
-    # blank gross too, and its proceeds aren't a net: #520.)
+    # once. (A withdrawal from such a ledger made a Sell is given its
+    # recovered gross by the edit, _send_gross_of_an_old_withdrawal_sold,
+    # #520: its proceeds aren't a net. Only one with none above $0 reaches
+    # here, at $0.)
     proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
     net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
     if net_usd_in > 0:
@@ -1589,6 +1625,14 @@ class _FifoDisposal:
         lot.remaining_btc -= qty
 
 
+def _leaves_dollars(tx: Transaction, db: Session) -> bool:
+    """A withdrawal from Bank or Exchange USD: no bitcoin leaves, so it has no
+    lots, and no cost basis, gain or holding period. (A row naming a missing
+    account has no lots either, and keeps its figures until it's fixed.)"""
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
+    return tx.type == "Withdrawal" and from_acct is not None and from_acct.currency != "BTC"
+
+
 def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     """
     Summarize partial-lot disposals (Sell/Withdrawal). Overwrite
@@ -1597,7 +1641,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     inherited coins, #154, which are long-term whatever their date).
     The figures are for the amount sold or spent; a network fee's disposal
     is left out, as for a transfer (its value is tx.fee_usd, its gain is on
-    Form 8949 and in the gain totals).
+    Form 8949 and in the gain totals). A dollar withdrawal has none.
     """
     disposals = (
         db.query(LotDisposal)
@@ -1606,6 +1650,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         .all()
     )
     if not disposals:
+        if _leaves_dollars(tx, db):
+            # One a bitcoin withdrawal was edited into kept that one's basis,
+            # gain and term, shown in the list and the Transaction History,
+            # through every recalculation (#487)
+            tx.cost_basis_usd = tx.realized_gain_usd = tx.holding_period = None
         return
 
     total_basis = Decimal("0.0")
