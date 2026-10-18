@@ -341,6 +341,13 @@ from the Transaction row alone.
   hours after them, the daily history) go directly
   (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
   that route, a `start` off those blocks' grid included. The live price, block height and latest days stay on Tor.
+  A proxy set for the whole machine (`HTTPS_PROXY` and co., a Mac's
+  system proxy) carries only requests made without a proxy of
+  BitcoinTX's to addresses beyond the home network (the public sites):
+  never one to this computer or the home network (your Mempool there:
+  `outbound.this_computer_or_home`; the Mac app's checks:
+  `desktop_ports.open_here`; the AI connector: its own copy of the rule),
+  nor that direct route (#474).
   A lookup can outlast a save (#437): each request is checked just
   before it's sent against the settings in use then, and one they no
   longer allow (or not through that client's proxy) is refused unsent

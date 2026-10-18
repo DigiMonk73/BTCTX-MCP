@@ -1398,6 +1398,37 @@ All notable changes to BitcoinTX are documented in this file.
   package's version.
 
 ### Security
+- **What BitcoinTX sends directly no longer goes through a proxy set for
+  the whole machine** (#474). A proxy in BitcoinTX's environment
+  (`HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`) or a Mac's system proxy got
+  requests the privacy audit calls direct:
+  - your Mempool at a home address (`http://umbrel.local:3006`): the proxy
+    learned its name and when prices were asked (over plain http, the
+    prices too), and usually couldn't reach it ("Your Mempool didn't
+    answer"); on a Mac, even when the proxy's exceptions named it;
+  - the price history without Tor (#241, new in 1.2.9): it went through
+    that proxy, so Bitstamp didn't see this server's address as the card
+    says, and a Tor set that way kept Bitstamp refusing;
+  - the Mac app's checks of its own address at start, under a system
+    proxy whose exceptions don't name 127.0.0.1 (or `HTTP_PROXY`, for an
+    app started from a shell that sets it): a proxy elsewhere can't reach
+    this Mac's 127.0.0.1, so the app quit after 30 seconds ("Failed to
+    start backend").
+
+  Now this computer's own addresses (`localhost`, 127.x, `::1`) never go
+  through a machine-wide proxy, nor does the home network (a `.local` or
+  `.lan` name, a one-word name, 10.x, 172.16–31.x, 192.168.x), for the
+  app, the Mac app and the AI connector alike, and the history without
+  Tor goes directly. The public price sites still follow such a proxy
+  when BitcoinTX sets none of its own (on Docker, a way to hide the
+  server's address); your Mempool at an internet address follows it
+  always, Tor set or not (BitcoinTX's own proxy carries only an .onion).
+  Certificates are checked as before. Only an install whose own
+  environment or Mac sets such a proxy was affected; StartOS's package
+  sets none. Nothing to do, unless you reached your home Mempool, or
+  BitcoinTX from the AI connector, only through such a proxy (an SSH
+  tunnel, say): that no longer works, so reach them another way (a VPN).
+  `docs/PRIVACY_AUDIT.md` writes the rule down.
 - **BitcoinTX no longer runs as root in its container** (#202), in Docker
   and on StartOS, which runs the same image. It runs as its own user,
   `btctx` (uid and gid 10001), keeping one right: to open port 80. A flaw
