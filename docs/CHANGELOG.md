@@ -981,9 +981,11 @@ All notable changes to BitcoinTX are documented in this file.
   - the price history without Tor (#241, new in 1.2.9): it went through
     that proxy, so Bitstamp didn't see this server's address as the card
     says, and a Tor set that way kept Bitstamp refusing;
-  - the Mac app's checks of its own address at start: with `HTTP_PROXY`
-    set, or a system proxy whose exceptions don't name 127.0.0.1, it quit
-    after 30 seconds ("Failed to start backend").
+  - the Mac app's checks of its own address at start, under a system
+    proxy whose exceptions don't name 127.0.0.1 (or `HTTP_PROXY`, for an
+    app started from a shell that sets it): a proxy elsewhere can't reach
+    this Mac's 127.0.0.1, so the app quit after 30 seconds ("Failed to
+    start backend").
 
   Now this computer's own addresses (`localhost`, 127.x, `::1`) never go
   through a machine-wide proxy, nor does the home network (a `.local` or
@@ -994,7 +996,9 @@ All notable changes to BitcoinTX are documented in this file.
   server's address), and so does your Mempool at an internet address.
   Certificates are checked as before. Only an install whose own
   environment or Mac sets such a proxy was affected; StartOS's package
-  sets none. Nothing to do.
+  sets none. Nothing to do, unless you reached your home Mempool, or
+  BitcoinTX from the AI connector, only through such a proxy (an SSH
+  tunnel, say): that no longer works, so reach them another way (a VPN).
   `docs/PRIVACY_AUDIT.md` writes the rule down.
 - **BitcoinTX no longer runs as root in its container** (#202), in Docker
   and on StartOS, which runs the same image. It runs as its own user,

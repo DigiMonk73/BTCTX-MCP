@@ -82,13 +82,14 @@ def this_computer_or_home(url: str) -> bool:
     Whether BitcoinTX's address is this computer (localhost, 127.x, ::1) or
     the home network, on the host httpx connects to: never reached through a
     proxy set for the whole machine (HTTPS_PROXY and co., a Mac's system
-    proxy; #474). A number the resolver reads as an IPv4 address
-    ("2130706433" is 127.0.0.1) is that address, not a one-word name.
+    proxy; #474). What the resolver reads as an IPv4 address ("2130706433",
+    "127.1": 127.0.0.1) is that address, never a name.
     """
     try:
         host = (httpx.URL(url).host or "").lower()
     except (httpx.InvalidURL, ValueError):
         return False
+    host = host[:-1] if host.endswith(".") else host  # "umbrel.local." names the same host
     if not host or not host.isascii():
         return False
     if host == "localhost" or host.endswith(".localhost"):
@@ -96,12 +97,10 @@ def this_computer_or_home(url: str) -> bool:
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        if "." in host:
-            return host.endswith(HOME_SUFFIXES)
         try:
             ip = ipaddress.ip_address(socket.inet_aton(host))
-        except OSError:
-            return True  # a one-word name
+        except OSError:  # a name: a one-word one is what a home server answers to
+            return host.endswith(HOME_SUFFIXES) if "." in host else True
     return ip.is_loopback or any(ip in network for network in HOME_NETWORKS)
 
 
@@ -145,9 +144,11 @@ class BtctxClient:
             _warned_plain_http = True  # once: it goes to the AI app's log
             logger.warning(PLAIN_HTTP_WARNING)
         if transport is None and (key_file is not None or this_computer_or_home(self._configured_url or "")):
-            # The Mac app (its key file) or a BitcoinTX at this computer or a
-            # home address: given its own connection, the client takes no
-            # proxy from the machine (#474); certificates are checked as before
+            # The Mac app (its key file names this computer, and BTCTX_URL
+            # beside it the address the app answers at) or a BitcoinTX at
+            # this computer or a home address: given its own connection, the
+            # client takes no proxy from the machine (#474); its certificates
+            # are checked as any client's
             transport = httpx.AsyncHTTPTransport(verify=verify)
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",

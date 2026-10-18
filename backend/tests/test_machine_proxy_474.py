@@ -15,7 +15,8 @@ proxy is stood in where Python reads it (urllib.request.getproxies, which
 httpx calls too, and urllib's proxy_bypass, which reads its exceptions), with
 macOS's default exceptions (*.local, 169.254/16), so these run on any system.
 The Mac app's checks are real requests, to a server on 127.0.0.1 with a
-recording proxy beside it.
+recording proxy beside it. Only the route changes: certificates are checked
+as any client's, SSL_CERT_FILE included.
 """
 
 import http.server
@@ -29,14 +30,15 @@ from pathlib import Path
 import httpx
 import httpx._utils
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 
-from backend.services import outbound
+from backend.services import mempool_trust, outbound
 from backend.services import price_files as pf
+from backend.tests.test_mempool_trust import _cert, _name, _pem
 from btctx_mcp import client as connector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_ports  # noqa: E402
-import entrypoint  # noqa: E402
 
 CORP = "http://corp-proxy.example:3128"
 SOCKS = "socks5://10.9.9.9:1080"
@@ -188,8 +190,13 @@ HOME = {
     "http://10.0.0.5": True, "http://172.16.0.1": True, "http://172.31.255.255": True,
     "http://192.168.1.50:8080": True,
     "https://btctx.example.com": False, "http://8.8.8.8": False, "http://172.32.0.1": False,
-    "http://134744072": False,  # 8.8.8.8, as the resolver reads it
-    "http://2130706433": True,  # 127.0.0.1, as the resolver reads it
+    # As the resolver reads them: 8.8.8.8, 127.0.0.1, 8.0.0.8, 0.0.0.0, and the
+    # short forms of 127.0.0.1, 10.0.0.1 and 192.168.0.1
+    "http://134744072": False, "http://2130706433": True, "http://8.8": False, "http://0": False,
+    "http://127.1": True, "http://0x7f.1": True, "http://10.1": True, "http://192.168.1": True,
+    "http://0.0.0.0": False,
+    # A dot at the end names the same host
+    "http://umbrel.local.:3006": True, "http://localhost.:8765": True, "https://btctx.example.com.": False,
     "https://example.local.com": False, "http://[2001:db8::1]": False, "": False, "not a url": False,
 }
 
@@ -198,6 +205,32 @@ HOME = {
 def test_this_computer_and_the_home_network(url):
     assert outbound.this_computer_or_home(url) is HOME[url]
     assert connector.this_computer_or_home(url) is HOME[url]
+
+
+def test_the_connector_keeps_the_apps_list_of_home_addresses():
+    assert connector.HOME_SUFFIXES == mempool_trust.PRIVATE_SUFFIXES
+    assert connector.HOME_NETWORKS == mempool_trust.PRIVATE_NETWORKS
+
+
+def test_a_direct_client_checks_certificates_as_any_client(machine, monkeypatch, tmp_path):
+    """Its own connection changes the route only: the certificates a machine
+    names in SSL_CERT_FILE are the ones trusted, as for any client
+    (trust_env=False would have dropped them)."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    (tmp_path / "roots.pem").write_bytes(_pem(_cert(_name("BTCTX test root 474"), _name("BTCTX test root 474"),
+                                                     key, key, ca=True)))
+    monkeypatch.setenv("SSL_CERT_FILE", str(tmp_path / "roots.pem"))
+    monkeypatch.setattr(outbound, "_current", replace(PUBLIC_TOR, history_direct=True))
+    history = outbound.history_client()
+    monkeypatch.setattr(outbound, "_current", mempool("https://umbrel.local"))
+    home = outbound.own_node_client()
+    at_home = connector.BtctxClient(base_url="https://adjective-noun.local", ai_key="k")._http
+    for client, url in ((history, BITSTAMP_BLOCK), (home, "https://umbrel.local/api/v1/prices"),
+                        (at_home, "https://adjective-noun.local/api/health")):
+        while not isinstance(client, httpx.AsyncClient):
+            client = client._client
+        roots = client._transport_for_url(httpx.URL(url))._pool._ssl_context.get_ca_certs()
+        assert [dict(r["subject"][0])["commonName"] for r in roots] == ["BTCTX test root 474"]
 
 
 # The Mac app's start-up checks of 127.0.0.1: real requests, with a recording
@@ -254,5 +287,5 @@ def test_the_mac_apps_checks_of_this_computer_use_no_proxy(mac_app, monkeypatch,
     else:
         set_machine(monkeypatch, {}, proxy)
     assert desktop_ports.running_instance(port)["version"] == "1.2.9"
-    assert entrypoint.wait_for_backend(port, timeout=3.0)
+    assert desktop_ports.wait_for_backend(port, timeout=3.0)
     assert _RecordingProxy.seen == []

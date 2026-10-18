@@ -1,6 +1,6 @@
 """
-Port handling for the Mac app (imported by entrypoint.py; no pywebview here,
-so the tests run on any OS).
+Port handling for the Mac app, and its checks of its own address (imported
+by entrypoint.py; no pywebview here, so the tests run on any OS).
 
 The app serves on a fixed port (127.0.0.1:8765, BTCTX_DESKTOP_PORT) so the
 MCP server can find it. Up to v0.9.1 a probe bind without SO_REUSEADDR
@@ -115,6 +115,35 @@ def running_instance(port: int, timeout: float = 1.5) -> dict | None:
     if isinstance(data, dict) and {"status", "version"} <= data.keys():
         return data
     return None
+
+
+def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
+    """
+    Wait for the backend to become ready.
+    Uses exponential backoff from 0.1s to 1s.
+    """
+    # Poll the SPA root: it serves index.html without auth. API routes are
+    # router-level auth-protected since 2026-02 and return 401, which urllib
+    # raises as HTTPError — polling one of those would spin until timeout
+    # and the window would never be created.
+    url = f"http://{HOST}:{port}/"
+    start_time = time.time()
+    delay = 0.1
+
+    while time.time() - start_time < timeout:
+        try:
+            with open_here(url, timeout=2) as response:
+                if response.status == 200:
+                    logger.info("Backend ready on port %d", port)
+                    return True
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+            pass
+
+        time.sleep(delay)
+        delay = min(delay * 2, 1.0)
+
+    logger.error("Backend failed to start within %gs", timeout)
+    return False
 
 
 # Native dialogs (macOS: osascript; elsewhere: logged, sensible default)

@@ -10,14 +10,13 @@ import os
 import sys
 import socket
 import threading
-import time
 import logging
 import logging.handlers
 from pathlib import Path
 
 from desktop_api import DesktopAPI
 from desktop_paths import DATA_DIR_ENV, app_name, data_dir, data_dir_override, log_dir
-from desktop_ports import choose_socket, open_here, preferred_port, running_instance, tell_already_running
+from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running, wait_for_backend
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
@@ -57,37 +56,6 @@ def get_resource_path(relative_path: str) -> Path:
         # Running in development
         base_path = Path(__file__).parent.parent
     return base_path / relative_path
-
-
-def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
-    """
-    Wait for the backend to become ready.
-    Uses exponential backoff from 0.1s to 1s.
-    """
-    import urllib.error
-
-    # Poll the SPA root: it serves index.html without auth. API routes are
-    # router-level auth-protected since 2026-02 and return 401, which urllib
-    # raises as HTTPError — polling one of those would spin until timeout
-    # and the window would never be created.
-    url = f"http://127.0.0.1:{port}/"
-    start_time = time.time()
-    delay = 0.1
-
-    while time.time() - start_time < timeout:
-        try:
-            with open_here(url, timeout=2) as response:
-                if response.status == 200:
-                    logger.info(f"Backend ready on port {port}")
-                    return True
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
-            pass
-
-        time.sleep(delay)
-        delay = min(delay * 2, 1.0)
-
-    logger.error(f"Backend failed to start within {timeout}s")
-    return False
 
 
 def run_backend(sock: socket.socket):

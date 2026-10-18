@@ -62,17 +62,17 @@ def home_host(host: str, this_computer: bool = False) -> bool:
     """
     Whether a host (lower-case ASCII, as the connection uses it) is on the
     home network; with `this_computer`, this computer's own addresses
-    (127.x, ::1) count too (outbound.this_computer_or_home, #474).
+    (127.x, ::1) count too (outbound.this_computer_or_home, #474). What the
+    resolver reads as an IPv4 address ("134744072", "10.1", "0x7f.1") is
+    that address, never a name.
     """
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        if "." in host:
-            return host.endswith(PRIVATE_SUFFIXES)
-        try:  # a one-word name, unless the resolver takes it for an address
+        try:
             ip = ipaddress.ip_address(socket.inet_aton(host))
-        except OSError:
-            return True
+        except OSError:  # a name: a one-word one is what a home server answers to
+            return host.endswith(PRIVATE_SUFFIXES) if "." in host else True
     return any(ip in network for network in PRIVATE_NETWORKS) or (this_computer and ip.is_loopback)
 
 

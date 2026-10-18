@@ -794,6 +794,7 @@ def this_computer_or_home(url: str | None) -> bool:
     from backend.services import mempool_trust  # it imports this module
 
     host = (connection_host(url or "") or "").lower()
+    host = host[:-1] if host.endswith(".") else host  # "umbrel.local." names the same host
     if not host or not host.isascii():
         return False
     return host == "localhost" or host.endswith(".localhost") or mempool_trust.home_host(host, this_computer=True)
