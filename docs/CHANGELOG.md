@@ -1092,7 +1092,7 @@ All notable changes to BitcoinTX are documented in this file.
   `docker-entrypoint.sh`, the script Docker runs (#202), instead of
   commands the package named itself: the web server is the image's own
   command (`sdk.useEntrypoint()`), and an action hands its command to the
-  script. StartOS and Docker so share one copy of the step that gives
+  script. So StartOS and Docker share one copy of the step that gives
   `/data` to `btctx` (only when something in it isn't `btctx`'s) and of
   the switch to that user.
 - **Price Source & Privacy says where each Mempool goes** (#246). In

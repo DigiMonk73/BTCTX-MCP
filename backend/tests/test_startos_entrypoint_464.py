@@ -62,7 +62,7 @@ def test_every_cli_command_runs_through_the_image_entrypoint():
     options = cli.split("sub.execFail(")[1]
     assert not re.search(r"\b(user|cwd):", options)
     # The price variables (Recalculate Ledger) and the password on stdin
-    assert re.search(r"[{,]\s*env\b", options) and "input: opts.input" in options
+    assert re.search(r"[{,]\s*env\s*[,}]", options) and "input: opts.input" in options
 
 
 def test_the_package_keeps_no_copy_of_the_drop_to_btctx():
