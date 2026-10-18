@@ -175,6 +175,15 @@ def is_busy(error: Exception) -> bool:
     return isinstance(error, OperationalError) and "locked" in str(error.orig)
 
 
+def was_replaced(error: Exception) -> bool:
+    """Whether a save was refused because a restore replaced the database
+    file it was writing to (it waited for the restore's lock): SQLite writes
+    nothing to a file that has been replaced. Python 3.11+ names SQLite's
+    code; on 3.10 it's an error like any other."""
+    return (isinstance(error, OperationalError)
+            and getattr(error.orig, "sqlite_errorname", None) == "SQLITE_READONLY_DBMOVED")
+
+
 FIXED_ACCOUNTS = [
     {"id": 1, "name": "Bank", "currency": "USD"},
     {"id": 2, "name": "Wallet", "currency": "BTC"},

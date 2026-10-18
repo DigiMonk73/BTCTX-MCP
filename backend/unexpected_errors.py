@@ -9,7 +9,8 @@ rules"; #204, #422, #430).
 - UnexpectedErrorMiddleware: an error no route handled answers one fixed
   sentence (500) and is logged so. Starlette's own handler answers too,
   but raises the error again for the server, which then logs the whole
-  trace at ERROR ("Exception in ASGI application").
+  trace at ERROR ("Exception in ASGI application"). A save a restore's
+  swap refused (database.was_replaced) says so instead (503).
 """
 
 from __future__ import annotations
@@ -20,9 +21,12 @@ from urllib.parse import quote
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from backend.database import was_replaced
+
 logger = logging.getLogger(__name__)
 
 UNEXPECTED = "Something unexpected went wrong. BitcoinTX's log says what."
+REPLACED = "A restore replaced the database while this was being saved, so it wasn't saved. Check, then try again."
 
 
 def log_unexpected(what: str, error: Exception, log: logging.Logger = logger, then: str = "") -> None:
@@ -51,6 +55,12 @@ class UnexpectedErrorMiddleware:
             await self.app(scope, receive, send_tracked)
         except Exception as error:
             # The path quoted (as uvicorn's access log does: a %0A is no new line), without its query
-            log_unexpected(f"{scope['method']} {quote(scope['path'])}", error)
+            what = f"{scope['method']} {quote(scope['path'])}"
+            if was_replaced(error):
+                logger.warning("%s not saved: a restore replaced the database meanwhile", what)
+                answer = JSONResponse({"detail": REPLACED}, status_code=503)
+            else:
+                log_unexpected(what, error)
+                answer = JSONResponse({"detail": UNEXPECTED}, status_code=500)
             if not started:  # else the answer is under way: nothing more can be sent
-                await JSONResponse({"detail": UNEXPECTED}, status_code=500)(scope, receive, send)
+                await answer(scope, receive, send)

@@ -188,11 +188,10 @@ def test_a_restore_keeps_the_sessions_open_before_it(auth_client, test_engine, m
                                  {"k": session_auth.OPEN_SESSIONS}).scalar()
     assert gone.post("/api/logout").status_code == 200
 
-    def restore_old_backup(password, path, carry_over=None):  # the backup's database: gone was open then
-        with test_engine.begin() as conn:
+    def restore_old_backup(password, path, carry_over):  # the backup's database: gone was open then
+        with keep_in_use(test_engine, carry_over), test_engine.begin() as conn:
             conn.execute(text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, :v)"),
                          {"k": session_auth.OPEN_SESSIONS, "v": in_backup})
-        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})

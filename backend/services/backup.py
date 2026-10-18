@@ -12,7 +12,8 @@ import sqlite3
 import struct
 import tempfile
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -71,6 +72,8 @@ ONE_LOGIN = "This backup can't be restored: it holds more than one login, and Bi
 NEWER = ("This backup can't be restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, "
          "or restore a backup made with this version.")
 BUSY = "Another restore is running: wait for it to finish, then try again."
+SAVING = ("BitcoinTX was busy saving something else, so the restore stopped. Your database is unchanged: "
+          "try again in a moment.")
 NOT_WRITTEN = ("This backup couldn't be restored: BitcoinTX couldn't write to its data folder. "
                "Your database is unchanged.")
 # One restore at a time (one process serves the app): two at once would share
@@ -206,18 +209,19 @@ def restore_backup(
     encrypted_file: Path,
     db_path: Path | None = None,
     engine=None,
-    carry_over: Callable[[Session], None] | None = None,
+    carry_over: Callable[[Session, Session], None] | None = None,
 ):
     """
     Replace the database with a backup's. The live database stays as it was
     until the very end: the backup has decrypted, holds only BitcoinTX's kind
     of database objects, and has been upgraded to the current schema; then a
     new database is made by BitcoinTX's own migrations and only its own
-    tables' and columns' rows are copied into it (_rebuild), and
-    `carry_over`, given a session on that new database, has written what
-    this install keeps. Only then is the live database copied to
-    <db dir>/backups/ and replaced. Any error deletes the temporary files and
-    leaves the live database as it was. Returns the backup's MigrationResult.
+    tables' and columns' rows are copied into it (_rebuild). Only then, under
+    the live database's write lock (_swap), `carry_over`, given a session on
+    the live database and one on the new database, writes what this install
+    keeps, and the live database is copied to <db dir>/backups/ and replaced.
+    Any error deletes the temporary files and leaves the live database as it
+    was. Returns the backup's MigrationResult.
     """
     from backend.migrate import backup_sqlite
 
@@ -235,10 +239,6 @@ def restore_backup(
 
     try:
         result = _restore_into(db_path, decrypted, carry_over, engine, backup_sqlite)
-        # What SQLite kept beside the database it replaced: opened next to the
-        # new one, a write-ahead log or rollback journal would be applied to
-        # it. Still under the lock, so a next restore can't start meanwhile.
-        _remove_side_files(db_path)
         engine.dispose()
     finally:
         _restoring.release()
@@ -264,8 +264,8 @@ def _restore_into(db_path: Path, decrypted: bytes, carry_over, engine, backup_sq
             _remove_database(rebuilt)
             _write_owner_only(staging, decrypted)
             _write_owner_only(rebuilt, b"")
-            result = _rebuild(staging, rebuilt, carry_over)
-            _swap(rebuilt, db_path, engine, backup_sqlite)
+            result = _rebuild(staging, rebuilt)
+            _swap(rebuilt, db_path, engine, backup_sqlite, carry_over)
         finally:
             _remove_database(staging)
             _remove_database(rebuilt)
@@ -275,13 +275,61 @@ def _restore_into(db_path: Path, decrypted: bytes, carry_over, engine, backup_sq
     return result
 
 
-def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite) -> None:
-    """Keep a copy of the live database in backups/, then put the new one in its place."""
-    if db_path.exists():
-        kept = backup_sqlite(db_path, "restore")
-        logger.info(f"Database being replaced was saved to: {kept}")
-    engine.dispose()
-    os.replace(rebuilt, db_path)
+def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite, carry_over) -> None:
+    """
+    Under the live database's write lock, from reading what this install
+    keeps to the new database taking the live one's place: `carry_over`
+    reads it from the live database and writes it into the new one, a copy
+    of the live database goes to backups/, then the swap. So a change saved
+    before is kept, and one saved meanwhile waits for the lock, then is
+    refused (SQLite won't write a file that has been replaced): none is
+    undone. Another save holding the lock past 5 s stops the restore.
+    """
+    with _write_locked(db_path) as live:
+        if carry_over is not None:
+            _carry_over(carry_over, live, rebuilt)
+        if live is not None:
+            kept = backup_sqlite(db_path, "restore")
+            logger.info(f"Database being replaced was saved to: {kept}")
+        engine.dispose()
+        # What SQLite keeps beside the live database (in its rollback-journal
+        # mode, nothing while this lock is held): left next to the new one, a
+        # write-ahead log or journal would be applied to it.
+        _remove_side_files(db_path)
+        os.replace(rebuilt, db_path)
+
+
+@contextmanager
+def _write_locked(db_path: Path) -> Iterator[Session | None]:
+    """A session on the live database holding its write lock until the
+    block ends (None when there's no live database yet). ValueError when
+    another save held the lock longer than 5 s: nothing was changed."""
+    from backend.database import take_write_lock
+
+    if not db_path.exists():
+        yield None
+        return
+    live = create_engine(f"sqlite:///{db_path}", poolclass=NullPool)
+    try:
+        with Session(live) as session:
+            if not take_write_lock(session):
+                logger.warning("Restore stopped: another save held the database's lock")
+                raise ValueError(SAVING)
+            try:
+                yield session
+            finally:
+                session.rollback()
+    finally:
+        live.dispose()
+
+
+def _carry_over(carry_over: Callable[[Session, Session], None], live: Session | None, rebuilt: Path) -> None:
+    new = create_engine(f"sqlite:///{rebuilt}", poolclass=NullPool)
+    try:
+        with Session(new) as restored:
+            carry_over(live, restored)
+    finally:
+        new.dispose()
 
 
 def _write_owner_only(path: Path, data: bytes) -> None:
@@ -291,12 +339,12 @@ def _write_owner_only(path: Path, data: bytes) -> None:
         f.write(data)
 
 
-def _rebuild(staging: Path, rebuilt: Path, carry_over: Callable[[Session], None] | None):
+def _rebuild(staging: Path, rebuilt: Path):
     """
     Check and upgrade the backup's database, make the new one with the
     migrations (as a fresh install does), copy the backup's own data into
-    it, seed the fixed accounts, require one login, and let `carry_over`
-    write into it. Database errors come back in plain words, never SQL.
+    it, seed the fixed accounts and require one login. Database errors come
+    back in plain words, never SQL.
     """
     from backend.database import seed_defaults
     from backend.migrate import MigrationError, upgrade_database
@@ -310,9 +358,6 @@ def _rebuild(staging: Path, rebuilt: Path, carry_over: Callable[[Session], None]
             seed_defaults(new)
             _require_one_login(new)
             _read_as_the_app_does(new)
-            if carry_over is not None:
-                with Session(new) as session:
-                    carry_over(session)
         finally:
             new.dispose()
         return result
@@ -352,17 +397,38 @@ def _refuse_objects_not_ours(staged) -> None:
     Only BitcoinTX's kind of database is restored: ordinary tables and
     indexes, the only objects its migrations make, with its core tables. A
     trigger or a view runs SQL that isn't BitcoinTX's whenever the app reads
-    or writes; a virtual table runs a module's code on the backup's data.
-    Read from sqlite_master alone, so nothing in the backup runs first.
+    or writes; a virtual table runs a module's code on the backup's data; a
+    generated column, or an index on an expression, works out values with
+    the backup's own expression as its rows are read or written (the
+    backup's migrations do both), and a stored one keeps them. Read from the
+    schema alone (sqlite_master and the pragmas on it), so nothing in the
+    backup runs first.
     """
     from backend.migrate import CORE_TABLES
 
     with staged.connect() as conn:
         rows = conn.exec_driver_sql("SELECT type, name, sql FROM sqlite_master").all()
-    if any(kind not in ("table", "index") or _virtual(sql) for kind, _, sql in rows):
-        raise ValueError(NOT_OURS)
-    if not CORE_TABLES <= {name.lower() for kind, name, _ in rows if kind == "table"}:
+        if any(kind not in ("table", "index") or _virtual(sql) for kind, _, sql in rows):
+            raise ValueError(NOT_OURS)
+        tables = [name for kind, name, _ in rows if kind == "table"]
+        if any(_generated_columns(conn, table) or _expression_indexes(conn, table) for table in tables):
+            raise ValueError(NOT_OURS)
+    if not CORE_TABLES <= {name.lower() for name in tables}:
         raise ValueError(DAMAGED)
+
+
+def _generated_columns(conn, table: str) -> bool:
+    """Whether a table has a generated column (table_xinfo's hidden is 2
+    for a VIRTUAL one, 3 for a STORED one)."""
+    return any(row[6] in (2, 3) for row in conn.exec_driver_sql(f"PRAGMA table_xinfo({_quoted(table)})"))
+
+
+def _expression_indexes(conn, table: str) -> bool:
+    """Whether one of a table's indexes is on an expression (index_xinfo's
+    cid is -2 for one)."""
+    indexes = [row[1] for row in conn.exec_driver_sql(f"PRAGMA index_list({_quoted(table)})")]
+    return any(row[1] == -2 for index in indexes
+               for row in conn.exec_driver_sql(f"PRAGMA index_xinfo({_quoted(index)})"))
 
 
 def _virtual(sql: str | None) -> bool:

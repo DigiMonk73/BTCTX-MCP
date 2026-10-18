@@ -270,12 +270,11 @@ def test_restoring_an_old_backup_does_not_bring_back_a_revoked_key(
     auth_client.put("/api/settings/ai-access", json={"on": False})
 
     def restore_old_backup(password, path, carry_over):  # a backup from before: old key, access on
-        with test_engine.begin() as conn:
+        with keep_in_use(test_engine, carry_over), test_engine.begin() as conn:
             conn.execute(
                 text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, :v)"),
                 [{"k": ai_key.HASH_KEY, "v": leaked_hash}, {"k": ai_key.ACCESS_KEY, "v": "on"}],
             )
-        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})

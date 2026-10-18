@@ -411,9 +411,9 @@ from the Transaction row alone.
   browsers stay logged in. Sessions also carry a stamp of the password hash:
   changing the password (Settings or `cli set-password`) or resetting the
   account empties the list and ends every other session. A restore keeps
-  the other browsers' sessions open before it (only while the restored
-  account has the same id), never the backup's list; the restoring browser
-  logs in again. A route that reads `request.session` itself
+  the other browsers' sessions open when it replaces the database (only
+  while the restored account has the same id), never the backup's list;
+  the restoring browser logs in again. A route that reads `request.session` itself
   relies on its router's `get_current_user` having cleared an ended session
   first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled
@@ -481,11 +481,15 @@ from the Transaction row alone.
   switch (and the login and price settings in use: an in-app restore never
   brings back a backup's password or its price source). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
-  ordinary tables and indexes is refused, and the database that goes live is
-  made by BitcoinTX's own migrations with only the rows of its own tables
-  and columns copied in, one login, and these settings written and read back
-  before it replaces the live one; any failure leaves the live database as
-  it was and answers in plain words, never SQL
+  ordinary tables and indexes (no generated column, no index on an
+  expression) is refused, and the database that goes live is made by
+  BitcoinTX's own migrations with only the rows of its own tables and
+  columns copied in, one login, and these settings written and read back
+  before it replaces the live one. The settings are read from the live
+  database at the swap, under its write lock held until the new one is in
+  place (`backup._swap`), so a change saved before is kept and a save that
+  waits for the lock is refused in plain words; any failure leaves the live
+  database as it was and answers in plain words, never SQL
   (`services/backup.restore_backup`, `routers/backup._write_kept`).
   It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template
