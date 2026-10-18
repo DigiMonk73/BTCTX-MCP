@@ -219,8 +219,8 @@ def test_9_an_in_app_restore_keeps_the_current_record(auth_client, test_engine, 
     before = record(test_engine)
 
     def restore_old_backup(password, path, carry_over):  # an older backup: public, no record
-        stored(test_engine, price_source="public")
-        keep_in_use(test_engine, carry_over)
+        with keep_in_use(test_engine, carry_over):
+            stored(test_engine, price_source="public")
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})
