@@ -18,7 +18,8 @@ backdating effects on existing sells are exactly what execute would produce.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
-from backend.database import is_busy
+from backend.database import is_busy, take_write_lock
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
@@ -43,7 +44,7 @@ from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, 
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import (
-    _parse_date, _parse_decimal, _validate_row, number_limits, number_text,
+    _parse_date, _parse_decimal, _validate_row, dollar_withdrawal_warning, number_limits, number_text,
 )
 from backend.unexpected_errors import log_unexpected
 from backend.services.river_import import (
@@ -84,6 +85,7 @@ WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
 # the error's own text (SQL, a path, a date), which the AI would pass on (#204)
 SIMULATION_FAILED = "Unexpected error: the dry run stopped at this row. BitcoinTX's log says what."
 SIMULATION_BUSY = "BitcoinTX was busy saving something else: preview again in a moment."
+ADD_BUSY = "Not added: BitcoinTX was busy saving something else, and nothing was saved. Try again."
 
 
 @dataclass
@@ -188,6 +190,8 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             fmv = _parse_decimal(number_text(row.fmv_usd), USD_PLACES)
             if fmv is None:
                 error_msgs.append(f"fmv_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
+            elif tx_data["type"] == "Withdrawal" and tx_data["from_account_id"] not in BTC_ACCOUNTS:
+                warnings.append(dollar_withdrawal_warning(i, "fmv_usd"))  # the save drops it (#449)
             else:
                 tx_data["fmv_usd"] = fmv
 
@@ -301,6 +305,18 @@ def _label(value: str | None) -> str:
     return "" if text == "n/a" else text
 
 
+def _compared(item: RiverProposal | Transaction, name: str) -> str:
+    """A row's or a transaction's source or purpose as the duplicate check
+    compares it (_label): a dollar withdrawal's bitcoin purpose (Spent,
+    Gift, Donation, Lost) as none, since the save keeps none (#449) and an
+    older save may have left one."""
+    label = _label(getattr(item, name))
+    if name == "purpose" and item.type == "Withdrawal" and item.from_account_id not in BTC_ACCOUNTS \
+            and label in ("spent", *GIFT_LIKE_PURPOSES):
+        return ""
+    return label
+
+
 def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     """What else a row the AI sends must share with a transaction to be it
     (D1, #253): its type, its source or purpose, and a Buy's cost basis (a
@@ -311,7 +327,7 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     out = [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
-        if _label(getattr(tx, name)) != _label(getattr(row, name))
+        if _compared(tx, name) != _compared(row, name)
     ]
     if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
         out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
@@ -576,26 +592,59 @@ def _balances(db: Session) -> list[AccountBalance]:
 
 
 # Execute
-def write_rows(prepared: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
-    """
-    Atomically create every writable row in chronological order.
-    Raises HTTPException(400) and rolls back on the first failure.
-    """
-    ordered = _chronological(prepared)
-    if not ordered:
-        return []
+def writable_now(prepared: list[PreparedRow], db: Session) -> list[PreparedRow]:
+    """The rows a save would write as the ledger is now, in time order: the
+    duplicate check (exact_only) run on copies of them, so nothing is
+    recorded on the rows themselves. write_rows checks them again under the
+    write lock, where the answer can differ (#454)."""
+    copies = [replace(p, result=p.result.model_copy(deep=True)) for p in prepared]
+    mark_duplicates(copies, db, exact_only=True)
+    return _chronological(copies)
 
-    ensure_fee_account_exists(db)
-    # A price a row needs once earlier rows are written is looked for with
-    # the lock free, and the rows written again (#426)
-    created = hourly_prices.with_prices_found(db, lambda: _write_in_order(ordered, db))
+
+def write_rows(
+    prepared: list[PreparedRow], db: Session, before_writing: Callable[[], None] = lambda: None,
+) -> list[tuple[PreparedRow, Transaction]]:
+    """
+    Check the rows for duplicates of the ledger's transactions
+    (mark_duplicates, exact_only: the double-submit guard), then atomically
+    create every writable row in chronological order, the check and the
+    writes under one hold of SQLite's write lock (#454): a request sent
+    again while the first still runs (a retry after the connector's
+    timeout) waits for its commit, 5 s at most, and finds its rows.
+    before_writing() runs under the lock, between the check and the first
+    write. The prices the rows need are found first, with the lock free
+    (#426); one a row needs once earlier rows are written is looked for with
+    the lock free, and the check and the rows run again
+    (hourly_prices.with_prices_found). Raises HTTPException(400) and rolls
+    back on the first failure; 503 (ADD_BUSY) when the lock wasn't free.
+    """
+    if not any(p.result.status in WRITABLE_STATUSES for p in prepared if p.tx_data is not None):
+        return []
+    ensure_fee_account_exists(db)  # it may commit: before the lock
+    unchecked = [p.result.model_copy(deep=True) for p in prepared]
+
+    def check_and_write() -> list[tuple[PreparedRow, Transaction]]:
+        for p, result in zip(prepared, unchecked):  # as before the check, each time it runs
+            p.result = result.model_copy(deep=True)
+        find_prices_first(db, [p.tx_data for p in _chronological(prepared)])  # before the lock (#426)
+        if not take_write_lock(db):
+            raise HTTPException(status_code=503, detail=ADD_BUSY)
+        try:
+            mark_duplicates(prepared, db, exact_only=True)
+            before_writing()
+        except Exception:
+            db.rollback()  # the lock goes
+            raise
+        return _write_in_order(_chronological(prepared), db)
+
+    created = hourly_prices.with_prices_found(db, check_and_write)
     for _p, tx in created:
         db.refresh(tx)
     return created
 
 
 def _write_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
-    find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     created: list[tuple[PreparedRow, Transaction]] = []
     try:
         for p in ordered:
