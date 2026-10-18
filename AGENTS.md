@@ -266,14 +266,19 @@ from the Transaction row alone.
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). The AI's rows
-  also need the same type, source or purpose and a Buy's basis
-  (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
-  amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
-  the preview's or the owner's edits. The amount tests go in turn (the
-  ledger amount, then River's), and within each a transaction of the row's
-  own type first. The timed rows take their copies before the date-alone
-  rows (`_timed_first`, #472), so a date-alone row is the one saved when it
-  and a timed row share their only copy. The AI's rows are matched so the
+  also need the same type, accounts (from and to: a payout into Exchange
+  BTC beside one recorded into Wallet isn't that payout, only similar,
+  #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`);
+  a River row nothing else, and River's own amount counts (`RIVER_RULE`),
+  since its source, purpose, fee and type are the preview's or the
+  owner's edits;
+  of the accounts, a River row needs only to go the same way
+  (`_compatible`: the same source account or the same destination). The
+  amount tests go in turn (the ledger amount, then River's), and within
+  each a transaction of the row's own type first. The timed rows take
+  their copies before the date-alone rows (`_timed_first`, #472), so a
+  date-alone row is the one saved when it and a timed row share their only
+  copy. The AI's rows are matched so the
   most find a copy: a row left without one takes a copy another row holds
   when that row can take another (`match_by_moving`, #411). The user can
   override a duplicate: the AI's row names the transaction the preview
@@ -284,7 +289,8 @@ from the Transaction row alone.
   finds another copy is that copy, so a resent request doesn't save it
   twice (#378). A named row beside a row without a name that the named
   transaction is a duplicate of too is unclear, never guessed at (the
-  owner's rule, #497): the preview marks each such row invalid, saying
+  owner's rule, #497; a row into or out of another account than that
+  transaction never is): the preview marks each such row invalid, saying
   which rows and what to do, and an add refuses the request
   (`entry_import._unclear`) until the AI names each or sends the named
   one alone.
