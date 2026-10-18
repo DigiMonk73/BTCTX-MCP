@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { FormProvider, useForm, SubmitHandler } from "react-hook-form";
-import axios from "axios";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
+import { serverReason } from "../utils/apiError";
 import { parseTransaction } from "../utils/format";
 import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
 import TypeFields from "./transactionForm/TypeFields";
@@ -123,8 +123,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       onSubmitSuccess?.();
     } catch (error) {
       // The server says why (e.g. a later sell spends this buy's BTC)
-      const detail = axios.isAxiosError<ApiErrorResponse>(error) ? error.response?.data?.detail : undefined;
-      toast.error(detail ? `Failed to delete transaction: ${detail}` : "Failed to delete transaction. Please try again.");
+      const reason = serverReason(error);
+      toast.error(reason ? `Failed to delete transaction: ${reason}` : "Failed to delete transaction. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

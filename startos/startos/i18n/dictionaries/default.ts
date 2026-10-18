@@ -77,9 +77,11 @@ const dict = {
   'Log in to BitcoinTX with these and keep them somewhere safe: they are shown only now. If you lose them, run this action again.': 70,
   'Create your BitcoinTX login before starting the service': 71,
   'Your BitcoinTX login was still the original admin / password, so it has been locked. Set a new login before starting the service.': 72,
+  'BitcoinTX could not set the password: ${detail}': 76,
 
   // actions/recalculateLedger.ts
   'Transactions recalculated: ${count}': 73,
+  'BitcoinTX could not recalculate the ledger: ${detail}': 77,
 } as const
 
 /**

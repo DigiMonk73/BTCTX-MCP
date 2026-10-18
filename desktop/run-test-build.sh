@@ -114,7 +114,8 @@ fi
 BIN="$APP/Contents/MacOS/BitcoinTX"
 [ -x "$BIN" ] || fail "no app at $APP (build one with desktop/build-mac.sh, or give --app)"
 if [ "$fresh" = 1 ]; then
-  if curl -s -m 2 -o /dev/null "http://127.0.0.1:$PORT/api/health"; then
+  # Never through a proxy set for the whole machine (#474): its answer isn't BitcoinTX's
+  if curl -s --noproxy '*' -m 2 -o /dev/null "http://127.0.0.1:$PORT/api/health"; then
     fail "a BitcoinTX still answers on port $PORT: quit it before --fresh"
   fi
   for name in "${APP_FILES[@]}"; do rm -rf "${DATA:?}/$name"; done

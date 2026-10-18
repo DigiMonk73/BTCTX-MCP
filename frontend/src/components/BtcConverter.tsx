@@ -4,7 +4,7 @@ import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
-import { historyPriceUrl } from "../utils/converter";
+import { historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
@@ -178,12 +178,11 @@ const BtcConverter: React.FC = () => {
   const handleUsdChange = useCallback(
     (value: string, updateLastField = true) => {
       setUsdValue(value);
-      const usdNum = parseFloat(value) || 0;
-      const btcNum = btcPrice ? usdNum / btcPrice : 0;
-      const satsNum = btcNum * 100_000_000;
+      // One count, and the BTC field written from it, so the two agree (#451)
+      const sats = satsFromUsd(parseFloat(value) || 0, btcPrice);
 
-      setBtcValue(btcNum ? btcText(btcNum) : "");
-      setSatsValue(satsNum ? Math.floor(satsNum).toString() : "");
+      setBtcValue(sats === null ? "" : btcText(sats / SATS_PER_BTC));
+      setSatsValue(sats === null ? "" : sats.toString());
 
       if (updateLastField) {
         setLastChangedField("USD");
@@ -197,10 +196,10 @@ const BtcConverter: React.FC = () => {
       setBtcValue(value);
       const btcNum = parseFloat(value) || 0;
       const usdNum = btcNum * btcPrice;
-      const satsNum = btcNum * 100_000_000;
+      const sats = btcNum ? satsFromBtc(value) : null;
 
       setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
-      setSatsValue(satsNum ? Math.floor(satsNum).toString() : "");
+      setSatsValue(sats === null ? "" : sats.toString());
 
       if (updateLastField) {
         setLastChangedField("BTC");
@@ -213,7 +212,7 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setSatsValue(value);
       const satsNum = parseFloat(value) || 0;
-      const btcNum = satsNum / 100_000_000;
+      const btcNum = satsNum / SATS_PER_BTC;
       const usdNum = btcNum * btcPrice;
 
       setBtcValue(btcNum ? btcText(btcNum) : "");

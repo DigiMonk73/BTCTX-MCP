@@ -63,6 +63,8 @@ export default {
     73: 'Transacciones recalculadas: ${count}',
     74: 'Mi Mempool en este servidor (instalado aquí, recomendado)',
     75: 'La propia elección de BitcoinTX puede usar el servicio Tor de este servidor: instálalo e inícialo si no está en marcha.',
+    76: 'BitcoinTX no pudo establecer la contraseña: ${detail}',
+    77: 'BitcoinTX no pudo recalcular el libro contable: ${detail}',
   },
   de_DE: {
     0: 'BitcoinTX antwortet nicht',
@@ -123,6 +125,8 @@ export default {
     73: 'Neu berechnete Transaktionen: ${count}',
     74: 'Mein Mempool auf diesem Server (hier installiert, empfohlen)',
     75: "BitcoinTX' eigene Wahl kann den Tor-Dienst auf diesem Server verwenden: installiere und starte ihn, falls er nicht läuft.",
+    76: 'BitcoinTX konnte das Passwort nicht festlegen: ${detail}',
+    77: 'BitcoinTX konnte das Journal nicht neu berechnen: ${detail}',
   },
   pl_PL: {
     0: 'BitcoinTX nie odpowiada',
@@ -183,6 +187,8 @@ export default {
     73: 'Przeliczone transakcje: ${count}',
     74: 'Mój Mempool na tym serwerze (zainstalowany tutaj, zalecany)',
     75: 'Własny wybór BitcoinTX może korzystać z usługi Tor na tym serwerze: zainstaluj ją i uruchom, jeśli nie działa.',
+    76: 'BitcoinTX nie mógł ustawić hasła: ${detail}',
+    77: 'BitcoinTX nie mógł przeliczyć księgi: ${detail}',
   },
   fr_FR: {
     0: 'BitcoinTX ne répond pas',
@@ -243,5 +249,7 @@ export default {
     73: 'Transactions recalculées : ${count}',
     74: 'Mon Mempool sur ce serveur (installé ici, recommandé)',
     75: 'Le propre choix de BitcoinTX peut utiliser le service Tor de ce serveur : installez-le et démarrez-le s’il ne tourne pas.',
+    76: 'BitcoinTX n’a pas pu définir le mot de passe : ${detail}',
+    77: 'BitcoinTX n’a pas pu recalculer le registre : ${detail}',
   },
 } satisfies Record<string, LangDict>
