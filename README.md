@@ -97,18 +97,18 @@ see [Versions](#versions)).
 
 ## Versions
 
-1.2.9 is planned as BitcoinTX's stable version. After it, until 2.0
-replaces it, we expect 1.x to get maintenance updates: bug and security
-fixes, each year's IRS forms and the price history's update, and a few small
-improvements ([roadmap](docs/ROADMAP.md)).
+1.2.9 is the stable version of BitcoinTX 1.x. From now on, until 2.0
+replaces it, 1.x gets maintenance updates: bug and security fixes, each
+year's IRS forms and the price history's updates, and the few small
+improvements already planned for it ([roadmap](docs/ROADMAP.md)).
 
-The big new work goes into 2.0, planned to add several wallets, exchanges and
-banks, each wallet and exchange with its own cost-basis lots
-([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). Because 2.0
-changes how the ledger is stored, we plan to test it as a beta, on GitHub
-pre-releases, for as long as it needs before it replaces 1.x; on StartOS we
-plan to bring it to Start9's Community Beta only once it's ready. We can't
-promise dates.
+New features go into BitcoinTX 2.0, now in the works, which adds several
+wallets, exchanges and bank accounts, each wallet and exchange with its own
+cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
+Because 2.0 changes how the ledger is stored, it will be tested as a beta
+first, on GitHub pre-releases for as long as it needs, then on StartOS in
+Start9's Community Beta once it's ready, before it replaces 1.x. We don't
+promise dates; until then, 1.2.9 is the version to use.
 
 ## Install
 

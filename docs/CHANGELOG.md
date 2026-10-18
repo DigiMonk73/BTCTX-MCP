@@ -6,13 +6,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
-**In short.** 1.2.9 is planned as BitcoinTX's stable version. It fixes the
-bugs found in 1.2.8's testing and in the reviews since, several of which
-could make a tax figure wrong (each entry marked "tax figures" below says
-who could be affected and what to do); lets an install that uses Tor
-download the price history once without it, if you agree; asks before
-Delete All wipes the ledger, and keeps a copy first; and runs BitcoinTX as
-its own user instead of root, in Docker and on StartOS.
+**About this release.** 1.2.9 is the stable version of BitcoinTX 1.x.
+From now on, 1.x gets maintenance updates: bug and security fixes, each
+year's IRS forms and the price history's updates, and the few small
+improvements already planned for it. New features go into BitcoinTX 2.0,
+now in the works, which adds several wallets, exchanges and bank accounts,
+each wallet and exchange with its own cost-basis lots (#251). Because 2.0
+changes how the ledger is stored, it will be tested as a beta first, on
+GitHub pre-releases, then on Start9's Community Beta once it's ready,
+before it replaces 1.x. We don't promise dates; until then, 1.2.9 is the
+version to use.
+
+**In short.** 1.2.9 fixes the bugs found in 1.2.8's testing and in the
+reviews since, several of which could make a tax figure wrong (each entry
+marked "tax figures" below says who could be affected and what to do);
+lets an install that uses Tor download the price history once without it,
+if you agree; asks before Delete All wipes the ledger, and keeps a copy
+first; and runs BitcoinTX as its own user instead of root, in Docker and
+on StartOS.
 
 **What to do after updating**
 
@@ -50,16 +61,6 @@ update):
   wrongly (#489).
 - The AI connector's preview note on a dollar row that may already be
   recorded calls the dollars "BTC" (#525).
-
-**What's next.** 1.2.9 is planned as BitcoinTX's stable version. After it,
-until 2.0 replaces it, we expect 1.x to get maintenance updates: bug and
-security fixes, each year's IRS forms and the price history's update, and
-a few small improvements. The big new work goes into 2.0, planned to add
-several wallets, exchanges and banks, each wallet and exchange with its
-own cost-basis lots (#251). Because 2.0 changes how the ledger is stored,
-we plan to test it as a beta, on GitHub pre-releases, for as long as it
-needs before it replaces 1.x; on StartOS we plan to bring it to Start9's
-Community Beta only once it's ready. We can't promise dates.
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,

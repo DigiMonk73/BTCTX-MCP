@@ -16,7 +16,7 @@ const CHANGELOG =
 export const current = VersionInfo.of({
   version: '1.2.9:0',
   releaseNotes: {
-    en_US: `BitcoinTX 1.2.9 is planned as the stable version. It fixes the bugs found in 1.2.8's testing and the reviews since, several of which could make a tax figure wrong; lets an install that uses Tor download the price history once without it, if you agree; asks before Delete All wipes the ledger; and runs BitcoinTX as its own user instead of root. Updating from 1.2.7, you also get 1.2.8's changes, marked (1.2.8): prices at the hour, one price choice, inherited bitcoin and consolidation fees.
+    en_US: `BitcoinTX 1.2.9 is the stable version of BitcoinTX 1.x (below, "About this release"). It fixes the bugs found in 1.2.8's testing and the reviews since, several of which could make a tax figure wrong; lets an install that uses Tor download the price history once without it, if you agree; asks before Delete All wipes the ledger; and runs BitcoinTX as its own user instead of root. Updating from 1.2.7, you also get 1.2.8's changes, marked (1.2.8): prices at the hour, one price choice, inherited bitcoin and consolidation fees.
 
 **What to do after updating**
 
@@ -75,6 +75,7 @@ Each says who could be affected and what to do; most ledgers need only the steps
 - Set Login Credentials and Recalculate Ledger say why they failed, in your language, with no time limit; a dismissed Recalculate Ledger task no longer comes back at every restart.
 - A dollar transfer's Amount (To) now counts: with a fee, both dollar balances were off by it (no tax figure). If your Bank or Exchange (USD) balance differs from your statements, open each dollar transfer and set what left and what arrived.
 - From 1.2.8's security review: logging out ends that session for every copy of its cookie; a restore keeps this install's login, AI key and price settings; every request has limits on size and time.
+- The sidebar's calculator now works as a pocket calculator, and its Sats Converter counts to the satoshi; nothing either shows is saved.
 - BitcoinTX runs on Python 3.13. Many more small fixes are in the changelog.
 
 **Known issues** (none can make a figure wrong; for the first maintenance update)
@@ -85,12 +86,12 @@ Each says who could be affected and what to do; most ledgers need only the steps
 - An amount of 10^21 BTC or more, far beyond what exists, is shown wrongly.
 - The AI connector's note on a dollar row that may already be recorded calls the dollars BTC.
 
-**What's next**
+**About this release**
 
-1.2.9 is planned as BitcoinTX's stable version. After it, until 2.0 replaces it, we expect 1.x to get maintenance updates: bug and security fixes, each year's IRS forms and the price history's update, and a few small improvements. The big new work goes into 2.0, planned to add several wallets, exchanges and banks; we plan to test it as a beta on GitHub, and to bring it to Start9's Community Beta only once it's ready. No dates are promised.
+1.2.9 is the stable version of BitcoinTX 1.x. From now on, 1.x gets maintenance updates: bug and security fixes, each year's IRS forms and the price history's updates, and the few small improvements already planned for it. New features go into BitcoinTX 2.0, now in the works, which adds several wallets, exchanges and bank accounts, each wallet and exchange with its own cost-basis lots. Because 2.0 changes how the ledger is stored, it will be tested as a beta first, on GitHub pre-releases, then on Start9's Community Beta once it's ready, before it replaces 1.x. We don't promise dates; until then, 1.2.9 is the version to use.
 
 [Everything in 1.2.9 and 1.2.8](${CHANGELOG})`,
-    es_ES: `BitcoinTX 1.2.9 está pensada como la versión estable. Corrige los errores encontrados en las pruebas de la 1.2.8 y en las revisiones posteriores, varios de los cuales podían falsear una cifra fiscal; permite a una instalación que usa Tor descargar una vez el historial de precios sin Tor, si aceptas; pregunta antes de que Delete All borre el libro contable; y ejecuta BitcoinTX con su propio usuario en lugar de root. Si actualizas desde la 1.2.7, recibes también los cambios de la 1.2.8, marcados (1.2.8): precios por hora, una sola elección de precios, el bitcoin heredado y las comisiones de consolidación.
+    es_ES: `BitcoinTX 1.2.9 es la versión estable de BitcoinTX 1.x (abajo, "Sobre esta versión"). Corrige los errores encontrados en las pruebas de la 1.2.8 y en las revisiones posteriores, varios de los cuales podían falsear una cifra fiscal; permite a una instalación que usa Tor descargar una vez el historial de precios sin Tor, si aceptas; pregunta antes de que Delete All borre el libro contable; y ejecuta BitcoinTX con su propio usuario en lugar de root. Si actualizas desde la 1.2.7, recibes también los cambios de la 1.2.8, marcados (1.2.8): precios por hora, una sola elección de precios, el bitcoin heredado y las comisiones de consolidación.
 
 **Qué hacer después de actualizar**
 
@@ -149,6 +150,7 @@ Cada una dice a quién pudo afectar y qué hacer; a la mayoría de los libros co
 - Establecer credenciales de acceso y Recalcular el libro contable dicen por qué fallaron, en tu idioma, sin límite de tiempo; una tarea Recalcular el libro contable descartada ya no vuelve en cada reinicio.
 - El Amount (To) de una transferencia en dólares ahora cuenta: con una comisión, los dos saldos en dólares quedaban desviados en ella (ninguna cifra fiscal). Si tu saldo de Bank o de Exchange (USD) difiere de tus extractos, abre cada transferencia en dólares e indica lo que salió y lo que llegó.
 - De la revisión de seguridad de la 1.2.8: cerrar sesión termina esa sesión para toda copia de su cookie; una restauración conserva el acceso, la clave de IA y los ajustes de precios de esta instalación; cada petición tiene límites de tamaño y de tiempo.
+- La calculadora de la barra lateral funciona ahora como una calculadora de bolsillo, y su Sats Converter cuenta hasta el satoshi; nada de lo que muestran se guarda.
 - BitcoinTX usa Python 3.13. Muchas más correcciones pequeñas están en el registro de cambios.
 
 **Problemas conocidos** (ninguno puede falsear una cifra; para la primera actualización de mantenimiento)
@@ -159,12 +161,12 @@ Cada una dice a quién pudo afectar y qué hacer; a la mayoría de los libros co
 - Un importe de 10^21 BTC o más, muy por encima de lo que existe, se muestra mal.
 - La nota del conector de IA sobre una fila en dólares que quizá ya esté registrada llama BTC a los dólares.
 
-**Lo que viene**
+**Sobre esta versión**
 
-La 1.2.9 está pensada como la versión estable de BitcoinTX. Después, hasta que la 2.0 la sustituya, esperamos que la 1.x reciba actualizaciones de mantenimiento: correcciones de errores y de seguridad, los formularios del IRS de cada año y la actualización del historial de precios, y algunas mejoras pequeñas. El gran trabajo nuevo va a la 2.0, que prevé añadir varios monederos, exchanges y bancos; pensamos probarla como beta en GitHub y llevarla al Community Beta de Start9 solo cuando esté lista. No prometemos fechas.
+La 1.2.9 es la versión estable de BitcoinTX 1.x. A partir de ahora, la 1.x recibe actualizaciones de mantenimiento: correcciones de errores y de seguridad, los formularios del IRS de cada año y las actualizaciones del historial de precios, y las pocas mejoras pequeñas ya previstas para ella. Las funciones nuevas van a BitcoinTX 2.0, ya en preparación, que añade varios monederos, exchanges y cuentas bancarias, cada monedero y cada exchange con sus propios lotes de coste base. Como la 2.0 cambia cómo se guarda el libro contable, primero se probará como beta, en versiones preliminares de GitHub y después en el Community Beta de Start9 cuando esté lista, antes de sustituir a la 1.x. No prometemos fechas; hasta entonces, la 1.2.9 es la versión que hay que usar.
 
 [Todo lo de la 1.2.9 y la 1.2.8](${CHANGELOG})`,
-    de_DE: `BitcoinTX 1.2.9 ist als stabile Version geplant. Sie behebt die Fehler, die in den Tests von 1.2.8 und den Prüfungen seither gefunden wurden, von denen einige eine Steuerzahl verfälschen konnten; lässt eine Installation mit Tor den Preisverlauf einmal ohne Tor herunterladen, wenn du zustimmst; fragt, bevor Delete All das Journal löscht; und führt BitcoinTX als eigenen Benutzer statt als root aus. Beim Update von 1.2.7 bekommst du auch die Änderungen von 1.2.8, markiert mit (1.2.8): Kurse zur Stunde, eine Kurswahl, geerbte Bitcoin und Konsolidierungsgebühren.
+    de_DE: `BitcoinTX 1.2.9 ist die stabile Version von BitcoinTX 1.x (unten, "Über diese Version"). Sie behebt die Fehler, die in den Tests von 1.2.8 und den Prüfungen seither gefunden wurden, von denen einige eine Steuerzahl verfälschen konnten; lässt eine Installation mit Tor den Preisverlauf einmal ohne Tor herunterladen, wenn du zustimmst; fragt, bevor Delete All das Journal löscht; und führt BitcoinTX als eigenen Benutzer statt als root aus. Beim Update von 1.2.7 bekommst du auch die Änderungen von 1.2.8, markiert mit (1.2.8): Kurse zur Stunde, eine Kurswahl, geerbte Bitcoin und Konsolidierungsgebühren.
 
 **Was nach dem Update zu tun ist**
 
@@ -223,6 +225,7 @@ Jede sagt, wen sie betreffen konnte und was zu tun ist; den meisten Journalen ge
 - Zugangsdaten festlegen und Journal neu berechnen sagen, warum sie fehlgeschlagen sind, in deiner Sprache, ohne Zeitlimit; eine verworfene Aufgabe Journal neu berechnen kommt nicht mehr bei jedem Neustart zurück.
 - Amount (To) eines Dollar-Transfers zählt jetzt: Mit einer Gebühr lagen beide Dollar-Salden um sie daneben (keine Steuerzahl). Weicht dein Saldo bei Bank oder Exchange (USD) von deinen Auszügen ab, öffne jeden Dollar-Transfer und gib an, was abging und was ankam.
 - Aus der Sicherheitsprüfung von 1.2.8: Abmelden beendet diese Sitzung für jede Kopie ihres Cookies; eine Wiederherstellung behält Anmeldung, KI-Schlüssel und Kurseinstellungen dieser Installation; jede Anfrage hat Grenzen für Größe und Zeit.
+- Der Rechner in der Seitenleiste arbeitet jetzt wie ein Taschenrechner, und sein Sats Converter rechnet auf den Satoshi genau; nichts, was beide zeigen, wird gespeichert.
 - BitcoinTX läuft mit Python 3.13. Viele weitere kleine Korrekturen stehen im Änderungsprotokoll.
 
 **Bekannte Probleme** (keines kann eine Zahl verfälschen; für das erste Wartungsupdate)
@@ -233,12 +236,12 @@ Jede sagt, wen sie betreffen konnte und was zu tun ist; den meisten Journalen ge
 - Ein Betrag von 10^21 BTC oder mehr, weit jenseits dessen, was es gibt, wird falsch angezeigt.
 - Der Hinweis des KI-Connectors zu einer Dollar-Zeile, die vielleicht schon erfasst ist, nennt die Dollar BTC.
 
-**Wie es weitergeht**
+**Über diese Version**
 
-1.2.9 ist als stabile Version von BitcoinTX geplant. Danach, bis 2.0 sie ersetzt, erwarten wir für 1.x Wartungsupdates: Fehler- und Sicherheitskorrekturen, die IRS-Formulare jedes Jahres und die Aktualisierung des Preisverlaufs, dazu einige kleine Verbesserungen. Die große neue Arbeit geht in 2.0, das mehrere Wallets, Börsen und Banken bringen soll; wir wollen es als Beta auf GitHub testen und erst zu Start9s Community Beta bringen, wenn es bereit ist. Termine versprechen wir nicht.
+1.2.9 ist die stabile Version von BitcoinTX 1.x. Ab jetzt bekommt 1.x Wartungsupdates: Fehler- und Sicherheitskorrekturen, die IRS-Formulare jedes Jahres und die Aktualisierungen des Preisverlaufs, dazu die wenigen schon dafür geplanten kleinen Verbesserungen. Neue Funktionen kommen in BitcoinTX 2.0, das in Arbeit ist und mehrere Wallets, Börsen und Bankkonten bringt, jede Wallet und jede Börse mit eigenen Losen und Anschaffungskosten. Weil 2.0 ändert, wie das Journal gespeichert wird, wird es zuerst als Beta getestet, als Vorabversionen auf GitHub und dann in Start9s Community Beta, sobald es bereit ist, bevor es 1.x ersetzt. Termine versprechen wir nicht; bis dahin ist 1.2.9 die Version, die du verwenden solltest.
 
 [Alles in 1.2.9 und 1.2.8](${CHANGELOG})`,
-    pl_PL: `BitcoinTX 1.2.9 ma być wersją stabilną. Naprawia błędy znalezione w testach 1.2.8 i w późniejszych przeglądach, z których kilka mogło zafałszować wartość podatkową; pozwala instalacji korzystającej z Tora raz pobrać historię cen bez Tora, jeśli się zgodzisz; pyta, zanim Delete All wyczyści księgę; i uruchamia BitcoinTX jako jego własnego użytkownika zamiast roota. Przy aktualizacji z 1.2.7 dostajesz też zmiany z 1.2.8, oznaczone (1.2.8): ceny według godziny, jeden wybór źródła cen, odziedziczone bitcoiny i opłaty za konsolidację.
+    pl_PL: `BitcoinTX 1.2.9 to stabilna wersja BitcoinTX 1.x (niżej, "O tym wydaniu"). Naprawia błędy znalezione w testach 1.2.8 i w późniejszych przeglądach, z których kilka mogło zafałszować wartość podatkową; pozwala instalacji korzystającej z Tora raz pobrać historię cen bez Tora, jeśli się zgodzisz; pyta, zanim Delete All wyczyści księgę; i uruchamia BitcoinTX jako jego własnego użytkownika zamiast roota. Przy aktualizacji z 1.2.7 dostajesz też zmiany z 1.2.8, oznaczone (1.2.8): ceny według godziny, jeden wybór źródła cen, odziedziczone bitcoiny i opłaty za konsolidację.
 
 **Co zrobić po aktualizacji**
 
@@ -297,6 +300,7 @@ Każda mówi, kogo mogła dotyczyć i co zrobić; większości ksiąg wystarczą
 - Ustaw dane logowania i Przelicz księgę mówią, dlaczego się nie powiodły, w Twoim języku, bez limitu czasu; odrzucone zadanie Przelicz księgę nie wraca już przy każdym ponownym uruchomieniu.
 - Amount (To) transferu w dolarach jest teraz liczony: przy opłacie oba salda w dolarach różniły się o nią (żadna wartość podatkowa). Jeśli saldo Bank lub Exchange (USD) różni się od wyciągów, otwórz każdy transfer w dolarach i podaj, ile wyszło, a ile dotarło.
 - Z przeglądu bezpieczeństwa 1.2.8: wylogowanie kończy tę sesję dla każdej kopii jej ciasteczka; przywracanie zachowuje logowanie, klucz AI i ustawienia cen tej instalacji; każde zapytanie ma limity rozmiaru i czasu.
+- Kalkulator na pasku bocznym działa teraz jak kalkulator kieszonkowy, a jego Sats Converter liczy co do satoshi; nic z tego, co pokazują, nie jest zapisywane.
 - BitcoinTX działa na Pythonie 3.13. Wiele innych drobnych poprawek jest w dzienniku zmian.
 
 **Znane problemy** (żaden nie może zafałszować wartości; do pierwszej aktualizacji serwisowej)
@@ -307,12 +311,12 @@ Każda mówi, kogo mogła dotyczyć i co zrobić; większości ksiąg wystarczą
 - Kwota 10^21 BTC lub większa, daleko ponad to, co istnieje, jest pokazywana błędnie.
 - Uwaga łącznika AI o wierszu w dolarach, który może być już zapisany, nazywa dolary BTC.
 
-**Co dalej**
+**O tym wydaniu**
 
-1.2.9 ma być stabilną wersją BitcoinTX. Po niej, aż zastąpi ją 2.0, spodziewamy się dla 1.x aktualizacji serwisowych: poprawek błędów i bezpieczeństwa, formularzy IRS na każdy rok i aktualizacji historii cen oraz kilku drobnych ulepszeń. Duża nowa praca trafia do 2.0, które ma dodać wiele portfeli, giełd i banków; planujemy testować je jako betę na GitHubie i wprowadzić do Community Beta Start9 dopiero, gdy będzie gotowe. Nie obiecujemy terminów.
+1.2.9 to stabilna wersja BitcoinTX 1.x. Od teraz 1.x dostaje aktualizacje serwisowe: poprawki błędów i bezpieczeństwa, formularze IRS na każdy rok i aktualizacje historii cen oraz kilka drobnych ulepszeń już dla niej zaplanowanych. Nowe funkcje trafiają do BitcoinTX 2.0, nad którym trwają prace, z wieloma portfelami, giełdami i kontami bankowymi, każdy portfel i każda giełda z własnymi partiami i kosztem nabycia. Ponieważ 2.0 zmienia sposób zapisu księgi, najpierw zostanie przetestowane jako beta, w wersjach przedpremierowych na GitHubie, a potem w Community Beta Start9, gdy będzie gotowe, zanim zastąpi 1.x. Nie obiecujemy terminów; do tego czasu 1.2.9 jest wersją, której należy używać.
 
 [Wszystko w 1.2.9 i 1.2.8](${CHANGELOG})`,
-    fr_FR: `BitcoinTX 1.2.9 est prévue comme la version stable. Elle corrige les bugs trouvés lors des tests de la 1.2.8 et des revues depuis, dont plusieurs pouvaient fausser un montant fiscal ; permet à une installation qui utilise Tor de télécharger une fois l’historique des prix sans Tor, si vous l’acceptez ; demande avant que Delete All n’efface le registre ; et fait tourner BitcoinTX sous son propre utilisateur au lieu de root. En mettant à jour depuis la 1.2.7, vous recevez aussi les changements de la 1.2.8, marqués (1.2.8) : les prix à l’heure, un seul choix de prix, les bitcoins hérités et les frais de consolidation.
+    fr_FR: `BitcoinTX 1.2.9 est la version stable de BitcoinTX 1.x (ci-dessous, "À propos de cette version"). Elle corrige les bugs trouvés lors des tests de la 1.2.8 et des revues depuis, dont plusieurs pouvaient fausser un montant fiscal ; permet à une installation qui utilise Tor de télécharger une fois l’historique des prix sans Tor, si vous l’acceptez ; demande avant que Delete All n’efface le registre ; et fait tourner BitcoinTX sous son propre utilisateur au lieu de root. En mettant à jour depuis la 1.2.7, vous recevez aussi les changements de la 1.2.8, marqués (1.2.8) : les prix à l’heure, un seul choix de prix, les bitcoins hérités et les frais de consolidation.
 
 **Que faire après la mise à jour**
 
@@ -371,6 +375,7 @@ Chacune dit qui a pu être touché et que faire ; pour la plupart des registres,
 - Définir les identifiants et Recalculer le registre disent pourquoi ils ont échoué, dans votre langue, sans limite de temps ; une tâche Recalculer le registre écartée ne revient plus à chaque redémarrage.
 - L’Amount (To) d’un transfert en dollars compte désormais : avec des frais, les deux soldes en dollars étaient faussés de leur montant (aucun chiffre fiscal). Si votre solde Bank ou Exchange (USD) diffère de vos relevés, ouvrez chaque transfert en dollars et indiquez ce qui est parti et ce qui est arrivé.
 - De l’audit de sécurité de la 1.2.8 : se déconnecter met fin à cette session pour toute copie de son cookie ; une restauration garde l’identifiant, la clé IA et les réglages de prix de cette installation ; chaque requête a des limites de taille et de durée.
+- La calculatrice de la barre latérale fonctionne désormais comme une calculatrice de poche, et son Sats Converter compte au satoshi près ; rien de ce qu’ils affichent n’est enregistré.
 - BitcoinTX tourne sous Python 3.13. Bien d’autres petites corrections figurent dans le journal des modifications.
 
 **Problèmes connus** (aucun ne peut fausser un chiffre ; pour la première mise à jour de maintenance)
@@ -381,9 +386,9 @@ Chacune dit qui a pu être touché et que faire ; pour la plupart des registres,
 - Un montant de 10^21 BTC ou plus, bien au-delà de ce qui existe, s’affiche mal.
 - La note du connecteur IA sur une ligne en dollars peut-être déjà enregistrée appelle les dollars BTC.
 
-**La suite**
+**À propos de cette version**
 
-La 1.2.9 est prévue comme la version stable de BitcoinTX. Ensuite, jusqu’à ce que la 2.0 la remplace, nous prévoyons pour la 1.x des mises à jour de maintenance : corrections de bugs et de sécurité, les formulaires de l’IRS de chaque année et la mise à jour de l’historique des prix, et quelques petites améliorations. Le gros du travail nouveau va dans la 2.0, qui doit ajouter plusieurs portefeuilles, plateformes et banques ; nous comptons la tester en bêta sur GitHub et ne l’apporter au Community Beta de Start9 qu’une fois prête. Nous ne promettons pas de dates.
+La 1.2.9 est la version stable de BitcoinTX 1.x. Désormais, la 1.x reçoit des mises à jour de maintenance : corrections de bugs et de sécurité, les formulaires de l’IRS de chaque année et les mises à jour de l’historique des prix, ainsi que les quelques petites améliorations déjà prévues pour elle. Les nouvelles fonctions vont dans BitcoinTX 2.0, en préparation, qui ajoute plusieurs portefeuilles, plateformes et comptes bancaires, chaque portefeuille et chaque plateforme avec ses propres lots et son coût d’acquisition. Comme la 2.0 change la façon dont le registre est enregistré, elle sera d’abord testée en bêta, en préversions sur GitHub puis dans le Community Beta de Start9 une fois prête, avant de remplacer la 1.x. Nous ne promettons pas de dates ; d’ici là, la 1.2.9 est la version à utiliser.
 
 [Tout ce que contiennent la 1.2.9 et la 1.2.8](${CHANGELOG})`,
   },
