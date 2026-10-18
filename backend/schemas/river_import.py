@@ -52,6 +52,9 @@ class RiverExecuteRow(BaseModel):
     A final row to import — the preview proposal after any user edits
     (funding toggle, type reclassification, basis/fee edits).
     """
+    # The file's row number the preview gave it, which an error names (#455);
+    # without it (a screen loaded before 1.2.9), its place among the rows sent
+    row_number: int | None = None
     date: datetime
     type: str
     amount: Decimal
