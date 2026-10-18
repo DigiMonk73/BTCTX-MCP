@@ -30,6 +30,11 @@ Checks:
 - deposit_without_basis (F15): a BTC deposit that isn't income or a rebate
   (source MyBTC, Gift, Inherited, N/A...) with a $0 or blank cost basis. Its whole value
   becomes gain when it's sold. New deposits must state a basis (0 allowed).
+- buy_without_basis (#459): a Buy with a $0 or blank cost basis. Before
+  1.2.9 the transactions API saved a Buy sent without one, and an edit
+  that made a row a Buy without giving one (a type change drops the old
+  type's figures): its lot cost $0, so its whole proceeds become gain when
+  it's sold. New Buys must state a basis (0 allowed).
 - day_priced_values (#144): values BitcoinTX priced at the day's price
   before hourly prices that the price of their hour would change, by tax
   year (services/hourly_review.py); the owner applies them by item or by
@@ -161,6 +166,10 @@ CHECKS: dict[str, tuple] = {
     "deposit_without_basis": (
         "BTC deposits (not income or a rebate) with a $0 or blank cost basis",
         "If you know what the BTC cost (for a gift, the giver's cost basis), edit the deposit's cost basis.",
+    ),
+    "buy_without_basis": (
+        "Buys with a $0 or blank cost basis",
+        "Edit each one: enter what the BTC cost in USD, before the fee (Amount USD).",
     ),
     "inherited_without_date": (
         "Inherited deposits without a date of death",
@@ -418,7 +427,7 @@ def build_review(db: Session) -> dict[str, Any]:
     moved, recalc_error = simulate_recalculation(db)
     rows: list[Transaction] = (
         db.query(Transaction)
-        .filter(Transaction.type.in_(("Withdrawal", "Deposit")))
+        .filter(Transaction.type.in_(("Withdrawal", "Deposit", "Buy")))
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
@@ -454,7 +463,7 @@ def build_review(db: Session) -> dict[str, Any]:
 
 
 def _row_issues(t: Transaction, tz):
-    """(check, item) for each check a withdrawal or deposit fails on its own."""
+    """(check, item) for each check a withdrawal, deposit or buy fails on its own."""
     yield from _purpose_issues(t, tz)
     # Only bitcoin leaving has a bitcoin purpose: a dollar withdrawal's is one an older save left there (#449)
     purpose = normalized(t.purpose) if t.from_account_id in BTC_ACCOUNTS else ""
@@ -479,10 +488,17 @@ def _row_issues(t: Transaction, tz):
         yield "inherited_without_date", _item(t, tz, "No date of death.", "")
     if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
             and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
-        yield "deposit_without_basis", _item(
-            t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
-            "A basis you enter lowers the gain when this BTC is sold by the same amount.",
-        )
+        yield "deposit_without_basis", _no_basis_item(t, tz)
+    if t.type == "Buy" and _is_zero_or_blank(t.cost_basis_usd):
+        yield "buy_without_basis", _no_basis_item(t, tz)
+
+
+def _no_basis_item(t: Transaction, tz) -> dict[str, Any]:
+    """A deposit's or a buy's item for its $0 or blank cost basis."""
+    return _item(
+        t, tz, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
+        "A basis you enter lowers the gain when this BTC is sold by the same amount.",
+    )
 
 
 def _purpose_issues(t: Transaction, tz):
