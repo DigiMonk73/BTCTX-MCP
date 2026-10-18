@@ -286,6 +286,24 @@ update):
   Nothing to do.
 
 ### Fixed
+- **Turning public price sites off and on again doesn't hold back the
+  newest hours for 10 minutes** (#475). The hours newer than the
+  release's price files come from Bitstamp in blocks of 1,000 hours,
+  asked at most every 10 minutes. If you saved a choice without public
+  sites (Nobody, or your Mempool with no backup) while more than one such
+  block was being asked, the rest was rightly not asked, but the log
+  called it a failure ("Hourly BTC price lookup failed"), the hours
+  already received were dropped, and with public sites allowed again
+  those hours weren't asked until the 10 minutes had passed. A value
+  needing one of them meanwhile took its day's price, marked "day". Every
+  version from 1.2.8. Now the hours received before the save are kept,
+  nothing is logged as a failure, and the rest is asked at the next
+  lookup as the new choice says, as the daily history already was. Only
+  your own change of these settings during such a download could cause
+  it (they're login only, never the AI key), and nothing was asked that
+  your choice didn't allow. Nothing to do: Ledger Review's check of
+  values priced at the day lists any such value, and can price it at its
+  hour.
 - **Two different price-setting saves at the same moment: the later one is
   the one in use** (#435). Saving Settings → Privacy & network from two
   tabs or browsers at the same moment, with different choices, could leave
@@ -1418,6 +1436,16 @@ update):
   Deposit and Withdrawal example rows had a comma too few, so they didn't
   import as printed; they do now. And its tables' longer rows no longer
   run off the page.
+- **A deposit switched to or from Inherited saves in the Mac app and
+  Safari** (#456). Switching a deposit's Source to or from Inherited
+  clears its date (a date of death isn't a date originally acquired), and
+  in WebKit on macOS, the Mac app's window and Safari, **Save transaction**
+  or **Update transaction** then did nothing and said nothing: WebKit kept
+  judging the cleared date field invalid, so the form never ran. A
+  deposit made My BTC or Gift couldn't be saved without a date, and one
+  made Inherited never said "Enter the date of death." The date field is
+  now a new one each time it's cleared. Nothing was saved wrong. Every
+  version since 1.2.8.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
