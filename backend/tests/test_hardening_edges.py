@@ -8,8 +8,9 @@ Edges kept closed around the request, the reports and the Mac window:
   escaping is the first line, this the second.
 - The Mac window's Save dialog answers only the app's own pages
   (desktop/desktop_api.py), as its setup code does.
-- The Docker image's server takes a client's address from its connection,
-  never from an X-Forwarded-For header (Dockerfile: --no-proxy-headers).
+- The Docker image's server, which StartOS runs too, takes a client's
+  address from its connection, never from an X-Forwarded-For header
+  (Dockerfile: --no-proxy-headers).
 """
 
 import asyncio
@@ -164,3 +165,6 @@ def test_the_docker_image_takes_no_client_address_from_headers():
     assert args[0] == "uvicorn"
     params = uvicorn_cli.make_context("uvicorn", args[1:]).params
     assert params["proxy_headers"] is False
+    # StartOS runs this command; its README, which Start9's support agent
+    # reads, quotes it
+    assert f"`{' '.join(args)}`" in (REPO / "startos" / "README.md").read_text()

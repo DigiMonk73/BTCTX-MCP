@@ -481,10 +481,10 @@ from the Transaction row alone.
   else `Origin`) are refused (`security_headers.py`); no CORS unless
   `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
   to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
-  `security_headers.LocalAddressOnlyMiddleware`). Neither the Mac app's
-  server nor the Docker image's takes a client's address from
-  `X-Forwarded-For` (`desktop/entrypoint.py`; the Dockerfile's
-  `--no-proxy-headers`).
+  `security_headers.LocalAddressOnlyMiddleware`). No server of ours, the
+  Mac app's, the Docker image's or StartOS's (which runs the image's
+  command), takes a client's address from `X-Forwarded-For`
+  (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
   ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
