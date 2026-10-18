@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import axios from "axios";
 import api from "../../api";
 import { useToast } from "../../contexts/useToast";
+import { detailOr } from "../../utils/apiError";
 import {
   CHANGE_LATER,
   IF_NO,
@@ -43,8 +43,7 @@ const HistoryWithoutTor: React.FC<Props> = ({ saved, status, via, onChange }) =>
       onChange((await api.put<NetworkSettingsData>(ROUTE, { answer: value, via })).data);
       toast.success(value === "yes" ? "Downloading the price history without Tor." : "Kept on Tor: nothing goes without it.");
     } catch (err) {
-      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-      toast.error(typeof detail === "string" ? detail : "Could not save the answer.");
+      toast.error(detailOr(err, "Could not save the answer."));
     } finally {
       setBusy(false);
     }

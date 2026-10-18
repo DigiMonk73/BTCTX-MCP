@@ -27,7 +27,7 @@ COLUMNS = [
     ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
     ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
     ["source", "No", "For Deposits: N/A, MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate"],
-    ["purpose", "Conditional", "A BTC withdrawal (from Wallet or Exchange BTC): Spent, Gift, Donation or Lost. From Bank or Exchange USD: any short text on one line, or blank"],
+    ["purpose", "Conditional", "A BTC withdrawal (from Wallet or Exchange BTC): Spent, Gift, Donation or Lost. From Bank or Exchange USD: any short text on one line, or blank; Spent, Gift, Donation or Lost isn't kept there"],
     ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value when it left (shown in the tax report); blank = the BTC price when its hour began x the amount (that day's where there's no hourly price), or blank without a price"],

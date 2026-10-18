@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -95,6 +96,12 @@ CSV_COLUMNS = [
 
 
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
+
+# A row with more fields than the header (the reader lists the extras under
+# None): every column after a stray comma has moved one place, so an unquoted
+# 20,000.00 would be read as a basis of 20 (#453). River's import says the same.
+TOO_MANY_FIELDS = ("This row has more fields than the header: a stray comma, or an amount "
+                   "written with a comma (write 1000.00, not 1,000.00)?")
 
 
 @dataclass
@@ -206,6 +213,9 @@ def _parse_rows(content: bytes, tz) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
+        if None in row:
+            result.errors.append(_error(row_number, None, TOO_MANY_FIELDS))
+            continue
         names = ((k.lower().strip(), v) for k, v in row.items() if k)
         normalized = {name: _cell(name, v) for name, v in names}
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
@@ -269,7 +279,7 @@ def _file_error(message: str) -> CSVParseError:
     return CSVParseError(row_number=0, column=None, message=message, severity="error")
 
 
-def _error(row_number: int, column: str, message: str) -> CSVParseError:
+def _error(row_number: int, column: str | None, message: str) -> CSVParseError:
     return CSVParseError(row_number=row_number, column=column, message=message, severity="error")
 
 
@@ -327,6 +337,7 @@ def _validate_row(
     warnings: list[CSVParseError] = []
     try:
         checked = _check_row(row, row_number, tz, warnings)
+        _leave_out_btc_withdrawal_fields(checked, warnings)
         errors, type_warnings = _validate_type_specific(checked)
         warnings.extend(type_warnings)
         if errors:
@@ -355,6 +366,35 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     acquired_at = _optional_acquired_at(row, row_number, tz)
     return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
                 acquired_at=acquired_at)
+
+
+# What the save drops from a withdrawal from Bank or Exchange USD (#449),
+# with why each is ignored
+_DOLLAR_WITHDRAWAL_IGNORES = {
+    "purpose": "Spent, Gift, Donation and Lost are for bitcoin, and this withdrawal is in dollars",
+    "proceeds_usd": "it is for Sells and bitcoin spends, and this withdrawal is in dollars",
+    "fmv_usd": "it is for Gift, Donation and Lost withdrawals of bitcoin",
+}
+
+
+def _leave_out_btc_withdrawal_fields(row: _Row, warnings: list[CSVParseError]) -> None:
+    """A dollar withdrawal's bitcoin purpose, proceeds_usd and fmv_usd left
+    out with a warning: the save drops them (#449), so the preview (the
+    AI's too) shows what will be saved. Other text in purpose is a label,
+    kept."""
+    if row.tx_type != "Withdrawal" or row.from_id in BTC_ACCOUNTS:
+        return
+    ignored = [column for column in ("proceeds_usd", "fmv_usd") if getattr(row, column) is not None]
+    if normalized(row.purpose) in ("spent", *GIFT_LIKE_PURPOSES):
+        ignored.insert(0, "purpose")
+    for column in ignored:
+        warnings.append(dollar_withdrawal_warning(row.number, column))
+        setattr(row, column, None)
+
+
+def dollar_withdrawal_warning(row_number: int, column: str) -> CSVParseError:
+    """The warning for a value a dollar withdrawal can't hold, which the save drops (#449)."""
+    return _warning(row_number, column, f"{column} is ignored: {_DOLLAR_WITHDRAWAL_IGNORES[column]}.")
 
 
 def _check_original_date(row: _Row, tz) -> None:
@@ -424,7 +464,8 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     if amount is None:
         raise _Rejected(_error(
             row_number, "amount",
-            f"Invalid amount '{amount_str}'. Must be a positive number with up to {number_limits(BTC_PLACES)}.",
+            f"Invalid amount '{amount_str}'. Must be a positive number with up to {number_limits(BTC_PLACES)}."
+            + decimal_comma_note(amount_str),
         ))
     if amount <= 0:
         raise _Rejected(_error(row_number, "amount", "Amount must be positive."))
@@ -675,14 +716,15 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     """
     The number, or None when it's empty or breaks the rule of a column with
     `max_decimals` places: not a finite number, more decimal places, or more
-    digits before the point, as given or as stored. Places are counted on
-    the number, so "1E-9" doesn't pass as 0 decimals.
+    digits before the point, as given or as stored, or a comma that isn't a
+    thousands separator, or an underscore. Places are counted on the number,
+    so "1E-9" doesn't pass as 0 decimals.
     """
-    if not value:
+    if not value or not _separators_readable(value):
         return None
     rule, _digits = _NUMBER_RULES[max_decimals]
     try:
-        number = rule(Decimal(value.replace(",", "")))  # without thousands separators
+        number = rule(Decimal(value.replace(",", "")))
     except (InvalidOperation, ValueError):
         return None
     # A zero with an exponent past the column's places ("0E-999999999")
@@ -690,6 +732,31 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     if number == 0 and not -max_decimals <= number.as_tuple().exponent <= 0:
         return Decimal(0)
     return number
+
+
+# A comma separates thousands only between groups of three digits before the
+# point, the first group without a leading zero ("1,000", "12,345.67").
+# Dropped anywhere else, a decimal comma would make "0,5" BTC 5, "0,500" 500
+# and "21.000,00" dollars 21 (#452). An underscore, which Decimal drops too
+# ("0_5" is 5), is never a separator.
+_THOUSANDS = re.compile(r"[+-]?[1-9][0-9]{0,2}(,[0-9]{3})+(\.[0-9]*)?")
+# Only digits, points and commas: when such a number's commas aren't
+# thousands separators, they're why it's refused
+_DIGITS_AND_SEPARATORS = re.compile(r"[+-]?[0-9.,]+")
+_DECIMAL_COMMA = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+
+
+def _separators_readable(value: str) -> bool:
+    """True when the number has no underscore, and no comma but thousands separators."""
+    return "_" not in value and ("," not in value or _THOUSANDS.fullmatch(value) is not None)
+
+
+def decimal_comma_note(value: str) -> str:
+    """What a refusal adds when a comma is why: _DECIMAL_COMMA, after a
+    space. Not for "$1,000.00": its commas are fine, its "$" isn't."""
+    if "," in value and not _THOUSANDS.fullmatch(value) and _DIGITS_AND_SEPARATORS.fullmatch(value):
+        return f" {_DECIMAL_COMMA}"
+    return ""
 
 
 def number_limits(max_decimals: int) -> str:
@@ -722,7 +789,8 @@ def _optional_decimal(
     value = _parse_decimal(raw, max_decimals)
     if value is None:
         errors.append(_error(
-            row_number, column, f"Invalid {column} '{raw}': a number with at most {number_limits(max_decimals)}.",
+            row_number, column,
+            f"Invalid {column} '{raw}': a number with at most {number_limits(max_decimals)}." + decimal_comma_note(raw),
         ))
     elif value < 0:
         errors.append(_error(row_number, column, f"{column} can't be negative."))
