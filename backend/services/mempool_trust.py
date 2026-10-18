@@ -55,8 +55,15 @@ def private_address(url: str | None) -> bool:
     "0x08080808" are 8.8.8.8) is that address, not a one-word name.
     """
     host = _plain_host(url)
-    if host is None:
-        return False
+    return host is not None and home_host(host)
+
+
+def home_host(host: str, this_computer: bool = False) -> bool:
+    """
+    Whether a host (lower-case ASCII, as the connection uses it) is on the
+    home network; with `this_computer`, this computer's own addresses
+    (127.x, ::1) count too (outbound.this_computer_or_home, #474).
+    """
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
@@ -66,7 +73,7 @@ def private_address(url: str | None) -> bool:
             ip = ipaddress.ip_address(socket.inet_aton(host))
         except OSError:
             return True
-    return any(ip in network for network in PRIVATE_NETWORKS)
+    return any(ip in network for network in PRIVATE_NETWORKS) or (this_computer and ip.is_loopback)
 
 
 def _plain_host(url: str | None) -> str | None:

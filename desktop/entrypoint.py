@@ -17,7 +17,7 @@ from pathlib import Path
 
 from desktop_api import DesktopAPI
 from desktop_paths import DATA_DIR_ENV, app_name, data_dir, data_dir_override, log_dir
-from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running
+from desktop_ports import choose_socket, open_here, preferred_port, running_instance, tell_already_running
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
@@ -64,7 +64,6 @@ def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
     Wait for the backend to become ready.
     Uses exponential backoff from 0.1s to 1s.
     """
-    import urllib.request
     import urllib.error
 
     # Poll the SPA root: it serves index.html without auth. API routes are
@@ -77,7 +76,7 @@ def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
 
     while time.time() - start_time < timeout:
         try:
-            with urllib.request.urlopen(url, timeout=2) as response:
+            with open_here(url, timeout=2) as response:
                 if response.status == 200:
                     logger.info(f"Backend ready on port {port}")
                     return True

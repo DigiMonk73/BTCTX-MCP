@@ -31,6 +31,15 @@ logger = logging.getLogger("BitcoinTX")
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+# This computer's own address never goes through a proxy set for the whole
+# machine (HTTP_PROXY and co., the Mac's system proxy, #474): one elsewhere
+# can't reach this Mac's 127.0.0.1, and the app would quit or misjudge
+_NO_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def open_here(url: str, timeout: float):
+    """urlopen for this computer's own address: no proxy at all (#474)."""
+    return _NO_PROXY.open(url, timeout=timeout)
 
 
 def preferred_port() -> int:
@@ -93,7 +102,7 @@ def running_instance(port: int, timeout: float = 1.5) -> dict | None:
     """
     url = f"http://{HOST}:{port}/api/health"
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with open_here(url, timeout=timeout) as resp:
             body = resp.read()
     except urllib.error.HTTPError as exc:  # 503: BitcoinTX with a schema problem
         body = exc.read()
