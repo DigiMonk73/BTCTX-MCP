@@ -1543,7 +1543,9 @@ All notable changes to BitcoinTX are documented in this file.
   password: …" or "BitcoinTX could not recalculate the ledger: …" in all
   five languages, followed by BitcoinTX's own error message (in English, as
   everywhere in the app). The old alert went on to show the failed SQL
-  with its values, such as the new password's hash; the new one doesn't.
+  with its values, such as the new password's hash; the new one doesn't,
+  and neither does the service log when the update's check for an old
+  default login fails.
   The command also stopped after 10 minutes, though its time grows with
   the ledger (Recalculate Ledger replays every transaction and may
   download prices); it now runs as long as it needs. Nothing misbehaved

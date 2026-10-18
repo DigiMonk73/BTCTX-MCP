@@ -64,9 +64,9 @@ export function generatePassword(): string {
  * volume first when needed, since an action or init may run before the first
  * start after an update or a restore. Every command migrates the database
  * first, so this works on an empty volume. Throws the SDK's report on a
- * non-zero exit, a diagnostic (init logs it); an action shows
- * `alertOnFailure`'s instead. `prices`: pass the Price Source & Privacy
- * choice, for a command that may look up a price.
+ * non-zero exit: an action shows `alertOnFailure`'s alert instead, and init
+ * logs `lastWords`, a plain diagnostic. `prices`: pass the Price Source &
+ * Privacy choice, for a command that may look up a price.
  */
 export async function runAppCli(
   effects: T.Effects,
@@ -125,21 +125,31 @@ export async function alertOnFailure<T>(
 }
 
 /**
- * What a failed command said last: backend/cli.py ends with `error: <what
- * went wrong>`; else its last line on stderr (a Python traceback's names the
- * exception); else, with nothing on stderr, the SDK's own message. The SDK's
- * ExitError, which carries stderr, isn't exported: read as its fields.
+ * What a failed BitcoinTX command said, in one line without the SQL's
+ * values: backend/cli.py's last `error: <what went wrong>`; else the start-up
+ * script's refusal (`BitcoinTX: …`, before its advice for Docker); else the
+ * signal that stopped it, since its stderr then ends with log lines; else its
+ * last line on stderr that isn't a log line (a Python traceback's names the
+ * exception); else the SDK's own message. The SDK's ExitError, which carries
+ * stderr, isn't exported: read as its fields.
  */
-function lastWords(e: unknown): string {
-  const failed = e as { result?: { stderr?: string | Buffer } } | null
+export function lastWords(e: unknown): string {
+  const failed = e as {
+    result?: { stderr?: string | Buffer; exitSignal?: string | null }
+  } | null
   const lines = String(failed?.result?.stderr ?? '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .reverse()
-  const said = lines.find((line) => line.startsWith('error: '))
-  if (said) return said.slice('error: '.length)
-  return lines[0] ?? (e instanceof Error ? e.message : String(e))
+  const said = lines.find((line) => /^error:/.test(line))
+  if (said) return said.replace(/^error:\s*/, '') || said
+  const refused = lines.find((line) => line.startsWith('BitcoinTX: '))
+  if (refused) return refused.slice('BitcoinTX: '.length)
+  const signal = failed?.result?.exitSignal
+  if (signal) return `terminated with signal ${signal}`
+  const last = lines.find((line) => !/^(DEBUG|INFO|WARNING):/.test(line))
+  return last ?? (e instanceof Error ? e.message : String(e))
 }
 
 /** Set the app's login to admin / `password`, through the app's own hashing. */

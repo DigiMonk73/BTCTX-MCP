@@ -43,7 +43,8 @@ def test_set_login_credentials_stores_the_flag_and_shows_the_password_once():
     assert "adminPassword" not in ACTION
     assert "await storeJson.merge(effects, { loginSet: true })" in ACTION
     # The app gets the login first, so the flag never says one is set that isn't
-    # (awaited inside alertOnFailure since #465)
+    # (awaited through alertOnFailure since #465)
+    assert re.search(r"await alertOnFailure\(\s*setAppCredentials\(effects, password\)", ACTION)
     assert ACTION.index("setAppCredentials(effects, password)") < ACTION.index("loginSet: true")
     # Its warning before replacing a login reads the flag
     assert "warning: (await storeJson.read((s) => !!s.loginSet).const(effects))" in ACTION
