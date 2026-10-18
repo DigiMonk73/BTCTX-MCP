@@ -46,6 +46,14 @@ else ever goes around the proxy; FixedBlocksOnly refuses any other request
 on that route (a start that isn't one of those blocks' included) before
 it's sent.
 
+A proxy set for the whole machine (HTTPS_PROXY, HTTP_PROXY, ALL_PROXY, a
+Mac's system proxy: httpx reads them) carries only requests made without a
+proxy of BitcoinTX's to addresses beyond the home network (#474, the
+owner's rule): the public sites (a Docker owner may hide the server's
+address that way), your Mempool at an internet address. Never one to this
+computer or the home network (this_computer_or_home), nor the history
+without Tor, which goes directly (_client's machine_proxy).
+
 Every request ends in bounded time and size (BoundedClient): httpx's
 timeouts limit each wait, not the whole request, so the whole of it gets a
 deadline (WAITS times its timeout), and an answer over MAX_ANSWER_BYTES is
@@ -711,19 +719,26 @@ def history_client(timeout: float | None = None) -> BoundedClient | FixedBlocksO
     """
     if not history_without_tor():
         return async_client(timeout)
-    return FixedBlocksOnly(_client(timeout or TIMEOUT, None))
+    return FixedBlocksOnly(_client(timeout or TIMEOUT, None, machine_proxy=False))
 
 
 def _client(timeout: float, proxy: str | None, verify: bool | ssl.SSLContext = True,
-            allows: Callable[[str], bool] | None = None) -> BoundedClient:
+            allows: Callable[[str], bool] | None = None, machine_proxy: bool = True) -> BoundedClient:
     """Every client's one builder: through `proxy`, or directly with None;
-    `allows(url)`, checked before each request, refuses it (ChoiceChanged)."""
+    `allows(url)`, checked before each request, refuses it (ChoiceChanged).
+    With no `proxy`, a proxy set for the whole machine carries its requests
+    (httpx's way) unless `machine_proxy` is False: then none does (#474)."""
     if _transport is not None:
         # Tests: the fake sites answer, and each request carries the proxy it would take
         hooks = {"request": [functools.partial(_tag_proxy, proxy)]}
         client = httpx.AsyncClient(timeout=timeout, transport=_transport, event_hooks=hooks)
-    else:
+    elif proxy or machine_proxy:
         client = httpx.AsyncClient(timeout=timeout, proxy=proxy, verify=verify)
+    else:
+        # Given its own connection, a client takes no proxy from the machine;
+        # its certificates are checked as any client's (trust_env=False would
+        # also drop SSL_CERT_FILE): only the route changes
+        client = httpx.AsyncClient(timeout=timeout, transport=httpx.AsyncHTTPTransport(verify=verify))
     return BoundedClient(client, WAITS * timeout, allows)
 
 
@@ -813,8 +828,9 @@ def _first_price_midnight() -> int:
 def own_node_client(timeout: float | None = None) -> BoundedClient:
     """
     A client for the owner's mempool server: direct (it's on their network
-    or their StartOS), except an .onion, which needs the proxy. `timeout`:
-    each wait's limit, TIMEOUT unless given.
+    or their StartOS), except an .onion, which needs the proxy. At this
+    computer or a home address, never through a proxy set for the whole
+    machine either (#474). `timeout`: each wait's limit, TIMEOUT unless given.
     """
     timeout = timeout or TIMEOUT
     made = _current  # one reading of the settings (#437)
@@ -827,7 +843,28 @@ def own_node_client(timeout: float | None = None) -> BoundedClient:
         raise RuntimeError("an .onion mempool server needs the proxy, and none is set")
     # A home server's root the owner trusts for this address: it alone (#188)
     verify = trusting(made.mempool_root) if made.mempool_root and _transport is None else True
-    return _client(timeout, made.proxy_url if onion else None, verify, allows=lambda url: _own_node_as(made, url))
+    return _client(timeout, made.proxy_url if onion else None, verify, allows=lambda url: _own_node_as(made, url),
+                   machine_proxy=not this_computer_or_home(made.mempool_url))
+
+
+def this_computer_or_home(url: str | None) -> bool:
+    """
+    Whether an address is this computer (localhost, 127.x, ::1) or the home
+    network, as "Trust this server" judges it (mempool_trust.home_host: a
+    .local or .lan name, a one-word name, 10.x, 172.16–31.x, 192.168.x), on
+    the host httpx connects to. A proxy set for the whole machine never
+    carries a request there (#474): it usually can't reach it, and would
+    learn it.
+    """
+    from backend.services import mempool_trust  # it imports this module
+
+    host = (connection_host(url or "") or "").lower()
+    if not host.rstrip(".") or not host.isascii():
+        return False
+    if host.endswith("."):  # a name to the resolver, never an address: "umbrel.local." is umbrel.local
+        name = host[:-1]
+        return name == "localhost" or name.endswith(".localhost") or mempool_trust.home_name(name)
+    return host == "localhost" or host.endswith(".localhost") or mempool_trust.home_host(host, this_computer=True)
 
 
 def _own_node_as(made: NetworkSettings, url: str) -> bool:
