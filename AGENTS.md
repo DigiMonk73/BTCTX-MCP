@@ -415,8 +415,8 @@ from the Transaction row alone.
   while the restored account has the same id), never the backup's list;
   the restoring browser logs in again. A route that reads
   `request.session` itself relies on its router's `get_current_user`
-  having cleared an ended session
-  first; outside such a router, use `require_login`.
+  having cleared an ended session first; outside such a router, use
+  `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
   A browser that got one of them right gets a device cookie (`btc_device`,
@@ -460,8 +460,9 @@ from the Transaction row alone.
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
   `unexpected_error`); a save a restore's swap refused answers `REPLACED`
-  (503, `database.was_replaced`, Python 3.11+) and is logged as a warning. Two kinds still show an error in full, to the owner
-  only: a failure that stops BitcoinTX starting (`init_db`, a migration),
+  (503, `database.was_replaced`, Python 3.11+) and is logged as a
+  warning. Two kinds still show an error in full, to the owner only: a
+  failure that stops BitcoinTX starting (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot, its Recalculate Ledger action). The
   imports' `routers/csv_import.import_failure`
@@ -484,10 +485,10 @@ from the Transaction row alone.
   brings back a backup's password or its price source). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
   ordinary tables and indexes (no generated column, no index on an
-  expression or with a WHERE) is refused, and the database that goes live is made by
-  BitcoinTX's own migrations with only the rows of its own tables and
-  columns copied in, one login, and these settings written and read back
-  before it replaces the live one. The settings are read from the live
+  expression or with a WHERE) is refused, and the database that goes
+  live is made by BitcoinTX's own migrations with only the rows of its
+  own tables and columns copied in, one login, and these settings written
+  and read back before it replaces the live one. The settings are read from the live
   database at the swap, under its write lock held until the new one is in
   place (`backup._swap`), so a change saved before is kept and a save that
   waits for the lock is refused in plain words (SQLite does so in its

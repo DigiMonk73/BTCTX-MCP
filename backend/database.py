@@ -244,7 +244,7 @@ def init_db(bind=None):
     """
     from backend.migrate import upgrade_database
 
-    _rollback_journal(bind or engine)
+    _use_rollback_journal(bind or engine)
     result = upgrade_database(bind or engine)
     seed_defaults(bind)
     _make_owner_only(bind or engine)
@@ -252,7 +252,7 @@ def init_db(bind=None):
     return result
 
 
-def _rollback_journal(bind) -> None:
+def _use_rollback_journal(bind) -> None:
     """
     A database an earlier version's restore left in write-ahead-log mode
     goes back to SQLite's rollback journal, the mode BitcoinTX makes its
@@ -270,8 +270,10 @@ def _rollback_journal(bind) -> None:
             if conn.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal":
                 mode = conn.exec_driver_sql("PRAGMA journal_mode = DELETE").scalar()
                 logger.info("The database's journal mode is now %s (it was wal).", mode)
-    except OperationalError as e:  # SQLite's own words: "database is locked"
-        logger.warning("The database stays in write-ahead-log mode until the next start (%s).", e.orig)
+    except OperationalError as e:
+        if not is_busy(e):  # a database that can't be opened stops the start, as the migrations did
+            raise
+        logger.warning("The database stays in write-ahead-log mode until the next start: something else has it open.")
 
 
 def _make_owner_only(bind) -> None:

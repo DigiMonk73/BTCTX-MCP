@@ -209,7 +209,6 @@ def test_a_database_left_in_write_ahead_log_mode_starts_in_the_rollback_journal(
     assert path.read_bytes()[18:20] == b"\x01\x01"
 
 
-@pytest.mark.slow  # SQLite's 5 s wait for the other connection
 def test_a_database_another_connection_holds_open_starts_all_the_same(tmp_path, caplog):
     path = tmp_path / "btctx.db"
     engine = _left_in_write_ahead_log_mode(path)
