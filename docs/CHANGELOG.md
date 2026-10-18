@@ -1093,6 +1093,21 @@ All notable changes to BitcoinTX are documented in this file.
   yourself, `'-5% fee` reads as the export's and loses its `'`, and spaces
   at either end of a cell are trimmed, as before. Text only, no figure.
   Every version since 1.1.0 (the look-alikes since 1.2.8).
+- **The AI's guide and the CSV guide say how a dollar transfer's fee is
+  entered** (#477). Both said a transfer's amount is what left the
+  account, its fee included, which is true of bitcoin only: for dollars
+  (Bank ↔ Exchange USD) BitcoinTX takes the amount as what arrived and
+  the fee on top, as for a withdrawal. So "$1,000 sent, $990 arrived, a
+  $10 fee", entered as the guides said (amount 1,000, fee 10), lowered
+  the Bank by $1,010 and raised Exchange (USD) by $1,000, both wrong by
+  the fee. They now say amount 990, fee 10, with that example (the AI
+  connector's field descriptions too, and the CSV guide has an example
+  row of it). Dollar balances only, no tax figure; a dollar transfer with
+  no fee was right either way. The AI's guide since 0.8.0, the CSV guide
+  since 0.9.2. To check: open each dollar transfer with a fee that the AI
+  or a CSV file entered; if Amount (From) is more than really left the
+  account, set Amount (From) to what left and Amount (To) to what
+  arrived (#447), and save.
 - **The CSV guide says what the import takes** (#304). Its rules table said
   a deposit goes only to Wallet or Exchange BTC, and a withdrawal comes
   only from them, while its own troubleshooting table and the import take
