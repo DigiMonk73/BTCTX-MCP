@@ -8,9 +8,10 @@ Tor dependency's description (shown in the store before install) said
 action already said "unless you let BitcoinTX download Bitstamp's price
 history without Tor".
 
-The texts checked are every string the package shows in StartOS: the
-manifest's (`manifest/i18n.ts`) and the actions', tasks' and health checks'
-(`i18n/dictionaries/`, English and the four translations).
+The texts checked are every string of the manifest (`manifest/i18n.ts`) and
+of the dictionaries the actions, tasks, health checks and interfaces use
+(`i18n/dictionaries/`, English and the four translations), sentence by
+sentence: the exception belongs in the sentence that makes the promise.
 """
 
 import re
@@ -27,22 +28,34 @@ FILES = [
 ]
 
 # Per language: how it names the IP address (which also tells the text's
-# language), the words that deny something, and the exception's words.
+# language), the words that deny seeing it or say it's hidden, and the
+# exception's words.
 LANGUAGES = {
-    "en": (r"\bIP address", r"\b(never|not|don't|doesn't)\b", "without Tor"),
-    "es": (r"\bdirección IP\b", r"\b(nunca|no|jamás)\b", "sin Tor"),
-    "de": (r"\bIP-Adresse\b", r"\b(nie|niemals|nicht|keine?)\b", "ohne Tor"),
-    "pl": (r"\badres(u|em)? IP\b", r"\b(nigdy|nie)\b", "bez Tora"),
-    "fr": (r"\badresse IP\b", r"\b(jamais|pas)\b", "sans Tor"),
+    "en": (
+        r"\bIP address",
+        r"\b(never|not|no|(do|does|ca|wo)n['’]t|hides?|hidden)\b",
+        "without Tor",
+    ),
+    "es": (r"\bdirección IP\b", r"\b(nunca|no|jamás|ocult\w*)\b", "sin Tor"),
+    "de": (
+        r"\bIP-Adresse\b",
+        r"\b(nie|niemals|nicht|kein\w*|verb[io]rg\w*|versteck\w*)\b",
+        "ohne Tor",
+    ),
+    "pl": (r"\badres(u|em|y|ów)? IP\b", r"\b(nigdy|nie|ukry\w*)\b", "bez Tora"),
+    "fr": (r"\badresse IP\b", r"\b(jamais|pas|masqu\w*|cach\w*)\b", "sans Tor"),
 }
 
-# A clause ends at punctuation or a line break (`\n` written in the string).
+# A sentence ends at . ! or ? before a space, or at a line break (`\n`
+# written in the string); a clause also at a comma, colon and the like.
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\\n")
 CLAUSE_END = re.compile(r"[.,;:!?()]|\\n")
 STRING = re.compile(r"'((?:[^'\\\n]|\\.)*)'|\"((?:[^\"\\\n]|\\.)*)\"")
 
 
-def package_texts():
-    """Every string literal of the files the package's texts live in."""
+def package_sentences():
+    """Every sentence of every string literal of the files the package's
+    texts live in."""
     for path in FILES:
         source = "\n".join(
             line
@@ -50,13 +63,14 @@ def package_texts():
             if not line.lstrip().startswith(("//", "*", "/*"))
         )
         for match in STRING.finditer(source):
-            yield path.name, match.group(1) or match.group(2) or ""
+            for sentence in SENTENCE_END.split(match.group(1) or match.group(2) or ""):
+                yield path.name, sentence
 
 
 def promises_hidden_ip(text):
     """The languages in which `text` says the IP address isn't seen: a
-    clause naming it that also denies (so "they see your IP address ...,
-    never your transaction dates" is no such promise)."""
+    clause naming it that also denies or hides (so "they see your IP
+    address ..., never your transaction dates" is no such promise)."""
     found = set()
     for clause in CLAUSE_END.split(text):
         for lang, (ip, deny, _) in LANGUAGES.items():
@@ -70,9 +84,9 @@ def names_the_exception(text, lang):
 
 
 PROMISES = [
-    (name, lang, text)
-    for name, text in package_texts()
-    for lang in promises_hidden_ip(text)
+    (name, lang, sentence)
+    for name, sentence in package_sentences()
+    for lang in promises_hidden_ip(sentence)
 ]
 
 
