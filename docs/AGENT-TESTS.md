@@ -76,7 +76,7 @@ the published files are the ones you tested.
   times in the browser's timezone, and the expected figures assume New York.
   With Playwright use `timezoneId: "America/New_York"`; otherwise set the
   OS timezone. AUTH-3 checks it.
-- **Tools on your machine:** curl, Python 3.10+, [uv](https://docs.astral.sh/uv/),
+- **Tools on your machine:** curl, Python 3.11+, [uv](https://docs.astral.sh/uv/),
   Node 20+ (for the MCP Inspector) and a PDF text extractor such as
   `pdftotext` or pypdf.
 - **Shell variables:** `URL` is the Web UI's https address from the

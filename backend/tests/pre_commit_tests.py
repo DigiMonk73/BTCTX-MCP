@@ -212,9 +212,9 @@ def check_no_hardcoded_localhost_urls() -> bool:
 
 def check_python39_compatibility() -> bool:
     """
-    Every backend file must parse as Python 3.10, the oldest supported
-    version (fastapi >= 0.130 requires it; Docker ships 3.13). Uses the real
-    parser, so syntax newer than 3.10 is caught without regex false alarms.
+    Every backend file must parse as Python 3.11, the oldest supported
+    version (#546: newer Starlette requires it; Docker ships 3.13). Uses the
+    real parser, so syntax newer than 3.11 is caught without regex false alarms.
     (Name kept for callers; Python 3.9 support was dropped in 2026-09.)
     """
     project_root = Path(__file__).parent.parent.parent
@@ -225,13 +225,13 @@ def check_python39_compatibility() -> bool:
         if "__pycache__" in str(py_file):
             continue
         try:
-            ast.parse(py_file.read_text(), filename=str(py_file), feature_version=(3, 10))
+            ast.parse(py_file.read_text(), filename=str(py_file), feature_version=(3, 11))
         except SyntaxError as e:
             violations.append(f"{py_file.relative_to(project_root)}:{e.lineno}: {e.msg}")
 
     passed = len(violations) == 0
     details = "; ".join(violations[:2]) if violations else ""
-    record_result("Docker/StartOS Compatibility", "Python 3.10 compatibility", passed, details)
+    record_result("Docker/StartOS Compatibility", "Python 3.11 compatibility", passed, details)
     return passed
 
 

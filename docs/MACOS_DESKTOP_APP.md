@@ -138,7 +138,7 @@ quit the app and copy the whole `BitcoinTX` folder.
 
 ## Building
 
-Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 24).
+Requirements: macOS, Python 3.11+, Node.js with npm (CI builds with Node 24).
 
 ```bash
 ./desktop/build-mac.sh
@@ -146,9 +146,9 @@ Requirements: macOS, Python 3.10+, Node.js with npm (CI builds with Node 24).
 
 The script:
 
-1. Finds a Python 3.10+ interpreter: the one `BTCTX_BUILD_PYTHON` names
+1. Finds a Python 3.11+ interpreter: the one `BTCTX_BUILD_PYTHON` names
    (CI passes the Python 3.13 it sets up), else the newest of `python3.13`
-   … `python3.10`, `python3`. A `desktop/.venv` made earlier keeps its
+   … `python3.11`, `python3`. A `desktop/.venv` made earlier keeps its
    Python (the log says so): delete it to build with another
 2. Creates/reuses `desktop/.venv` and installs the locks
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,

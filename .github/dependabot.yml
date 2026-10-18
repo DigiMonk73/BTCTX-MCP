@@ -25,7 +25,7 @@ updates:
       backend:
         update-types: [minor, patch]
     ignore:
-      # Deferred: 2.1 needs Python 3.11; the app still supports 3.10 from source (MAINTENANCE.md)
+      # Deferred: 2.1 is a minor version with breaking changes, left for 2.0 (#425, #251; MAINTENANCE.md)
       - dependency-name: sqlalchemy
         versions: [">=2.1"]
 
@@ -86,10 +86,6 @@ updates:
       - dependency-name: ruff
       - dependency-name: pip-audit
       - dependency-name: uv
-    ignore:
-      # Deferred: 6.169 needs Python 3.11; CI still tests 3.10 (MAINTENANCE.md)
-      - dependency-name: hypothesis
-        versions: [">=6.169"]
     groups:
       dev-tools:
         update-types: [minor, patch]

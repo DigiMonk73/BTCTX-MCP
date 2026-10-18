@@ -192,7 +192,7 @@ release's file the same way. Package details: [startos/README.md](startos/README
 
 ### From source
 
-Requires Python 3.10+ and Node.js 22.13+ (Docker and CI use Node 24).
+Requires Python 3.11+ and Node.js 22.13+ (Docker and CI use Node 24).
 
 ```bash
 pip install --require-hashes -r backend/requirements.txt

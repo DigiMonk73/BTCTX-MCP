@@ -14,7 +14,7 @@ Branches).
 
 | Part | Where | Notes |
 |---|---|---|
-| Backend | `backend/` | FastAPI + SQLAlchemy + SQLite, Python ≥ 3.10 |
+| Backend | `backend/` | FastAPI + SQLAlchemy + SQLite, Python ≥ 3.11 |
 | Frontend | `frontend/` | React + TypeScript + Vite, served from `frontend/dist` by the backend |
 | MCP server | `mcp_server/` | package `btctx-mcp` (on PyPI from 1.2.0, published by `release.yml`); talks to the backend over HTTP with the AI key (bearer), never a password |
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
