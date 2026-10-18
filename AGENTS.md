@@ -521,7 +521,9 @@ from the Transaction row alone.
   `unexpected_error`). Two kinds still show an error in full, to the owner
   only: a failure that stops BitcoinTX starting (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
-  error (StartOS's migrate oneshot, its Recalculate Ledger action). The
+  error (StartOS's migrate oneshot; its Set Login Credentials and
+  Recalculate Ledger actions show only the `error:` line, never the SQL
+  values a database error carries below it, #465). The
   imports' `routers/csv_import.import_failure`
   (busy, 503, when the database was locked: `database.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,

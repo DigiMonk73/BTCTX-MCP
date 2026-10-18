@@ -1581,6 +1581,23 @@ All notable changes to BitcoinTX are documented in this file.
   languages. The instructions (in English) also say which of another
   server's addresses to use: the one on your home network (often
   192.168.x.x), not a 10.59.x.x address, which belongs to a VPN.
+- **Set Login Credentials and Recalculate Ledger say why they failed, in
+  your language, and have no time limit** (#465; Start9's `actions.md`,
+  "Wrap User-Facing Strings in `i18n()`", and `main.md`, "Commands That
+  Run Longer Than 30 Seconds"). When the BitcoinTX command behind either
+  action failed, its alert was the SDK's English report ("python failed
+  with exit code 1: …"); it now says "BitcoinTX could not set the
+  password: …" or "BitcoinTX could not recalculate the ledger: …" in all
+  five languages, followed by BitcoinTX's own error message (in English, as
+  everywhere in the app). The old alert went on to show the failed SQL
+  with its values, such as the new password's hash; the new one doesn't,
+  and neither does the service log when the update's check for an old
+  default login fails.
+  The command also stopped after 10 minutes, though its time grows with
+  the ledger (Recalculate Ledger replays every transaction and may
+  download prices); it now runs as long as it needs. Nothing misbehaved
+  in testing: both show only when a command fails, or on a ledger far
+  larger than one person's.
 - **The package checked against Start9's current guide** (#372; Start9's
   published guide at `698a56c`, everything since `5c7e52e`, the last check).
   The package's `LICENSE` is now an exact copy of BitcoinTX's
