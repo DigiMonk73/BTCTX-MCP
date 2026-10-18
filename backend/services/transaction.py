@@ -573,6 +573,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
+    _sell_proceeds_as_saved(merged, tx_data)
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -590,6 +591,22 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
                                   "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
+
+
+def _sell_proceeds_as_saved(merged: dict, tx_data: dict) -> None:
+    """
+    A Sell's proceeds in `merged` as the edit saves them, so its checks see
+    them (#458): proceeds sent, as gross_proceeds_usd or proceeds_usd, are
+    its new gross (_apply_edit), and the stored net, worked out from the
+    gross they replace, no longer stands in for one sent blank. Checked
+    against the stored gross, a blank sent saved a $0 sale, and proceeds
+    below the fee were kept.
+    """
+    if getattr(merged["type"], "value", merged["type"]) != "Sell":
+        return
+    if "gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data:
+        merged["gross_proceeds_usd"] = _sent_proceeds(tx_data)
+        merged["proceeds_usd"] = tx_data.get("proceeds_usd")
 
 
 # What an income, rebate or inherited deposit's value depends on: the price
