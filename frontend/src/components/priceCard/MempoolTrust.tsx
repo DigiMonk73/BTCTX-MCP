@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import api from "../../api";
 import { useToast } from "../../contexts/useToast";
+import { detailOr } from "../../utils/apiError";
 import type { NetworkSettingsData } from "../../utils/priceSource";
 import { mempoolProblem, type PriceStatus } from "../../utils/priceStatus";
 
@@ -17,11 +17,6 @@ interface Props {
   saved: NetworkSettingsData;
   status: PriceStatus | null;
   onChange: (settings: NetworkSettingsData) => void;
-}
-
-function why(err: unknown, fallback: string): string {
-  const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-  return typeof detail === "string" ? detail : fallback;
 }
 
 /**
@@ -56,7 +51,7 @@ const MempoolTrust: React.FC<Props> = ({ saved, status, onChange }) => {
     try {
       await work();
     } catch (err) {
-      toast.error(why(err, fallback));
+      toast.error(detailOr(err, fallback));
     } finally {
       setBusy(false);
     }

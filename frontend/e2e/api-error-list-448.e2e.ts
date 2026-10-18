@@ -1,7 +1,7 @@
 // A field-by-field refusal (FastAPI's 422, its `detail` a list) is said in
 // its words (#448): River's preview crashed to "Something went wrong" and
 // lost every edit; the transaction form said "[object Object]".
-import { test, expect, createTx, listTx, acceptDialogs, seedFunds } from "./fixtures";
+import { test, expect, createTx, listTx, acceptDialogs, openAddForm, seedFunds } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 const RIVER_CSV = [
@@ -62,9 +62,7 @@ async function depositOf(page: Page, amount: string) {
 }
 
 test("the form: a refused amount is said in words, on a new transaction and an edit (#448)", async ({ authedPage: page }) => {
-  await page.getByRole("link", { name: "Transactions" }).click();
-  await page.getByRole("button", { name: "Add Transaction" }).click();
-  await page.getByLabel("Transaction Type").selectOption("Deposit");
+  await openAddForm(page, "Deposit");
   await page.getByLabel("Date & Time").fill("2024-03-01T10:15:30");
   await depositOf(page, "12345678901");
   await page.getByRole("button", { name: "Save Transaction" }).click();
@@ -84,4 +82,16 @@ test("the form: a refused amount is said in words, on a new transaction and an e
   await expect(page.getByText("Failed to update transaction: Amount is too large.")).toBeVisible();
   await expect(page.getByText("[object Object]")).toHaveCount(0);
   expect((await listTx(page.request))[0]).toMatchObject({ amount: "0.01000000" });
+});
+
+test("the price card: a refused address is said in words, not a fixed sentence (#448)", async ({ authedPage: page }) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  const net = page.getByRole("region", { name: "Privacy & network" });
+  await net.getByLabel(/^My own Mempool/).check();
+  // Over the server's 300 characters: refused field by field
+  await net.getByLabel("Your Mempool's address").fill("http://" + "a".repeat(300) + ".local");
+  await net.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("String should have at most 300 characters")).toBeVisible();
+  await expect(page.getByText("Could not save the choice.")).toHaveCount(0);
+  expect((await (await page.request.get("/api/settings/network")).json()).price_source).not.toBe("mempool");
 });
