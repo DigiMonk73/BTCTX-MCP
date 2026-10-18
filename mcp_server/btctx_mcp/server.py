@@ -443,7 +443,7 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     """Dry run: validate transactions, auto-fill missing USD values from historical prices
     (each row's simulated.from_price says which of simulated's values and the price: its hour
     or day in UTC, source and USD per BTC; gross_proceeds_usd is before the fee),
-    flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
+    flag rows already in the ledger (duplicate: the same type, accounts, BTC amount, source or purpose,
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
     holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
