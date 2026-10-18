@@ -1,10 +1,11 @@
 #!/bin/sh
 # BitcoinTX runs as the image's own user, btctx (uid 10001), never as root
-# (#202). Docker starts this script as root: it gives the data folder to
-# btctx when something in it isn't btctx's (a volume an image before 1.2.9
-# made is root's, and so may be a host folder mounted there), then runs the
-# command as btctx. It keeps one right, to open port 80: inside its own
-# network a container lets any user open it, but not with --network host.
+# (#202). Docker, and the StartOS package for every step (#464), start this
+# script as root: it gives the data folder to btctx when something in it
+# isn't btctx's (a volume an image before 1.2.9 made is root's, and so may be
+# a host folder mounted there), then runs the command as btctx. It keeps one
+# right, to open port 80: inside its own network a Docker container lets any
+# user open it, but not with --network host, nor in StartOS's container.
 # Started with --user, the command runs as that user, unchanged: the data
 # folder must then be theirs.
 set -eu

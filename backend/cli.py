@@ -20,6 +20,10 @@ account still on the shipped admin / password login, and otherwise prints
 default logins this way at update). The database is the one DATABASE_FILE
 points at (see backend/database.py).
 
+recalculate and review look up a price only as the app would: run without
+the server's price variables the app last started with (on StartOS, by
+hand in the service's shell), they ask no one and say so on stderr (#461).
+
 install-draft-forms is for TEST installs only: it puts the IRS's current
 DRAFT Form 8949 and Schedule D (from irs.gov, or f8949.pdf and f1040sd.pdf
 in DIR) in the data folder, and Reports then offers their year, marked
@@ -39,7 +43,7 @@ from pathlib import Path
 PASSWORD_ENV = "BTCTX_NEW_PASSWORD"
 
 
-def _init_db():
+def _init_db(looks_up_prices: bool = False):
     from backend.database import SessionLocal, init_db
     from backend.services import outbound
 
@@ -48,11 +52,15 @@ def _init_db():
     # Never a reason to fail a command (Set Login Credentials runs here too),
     # nor to make a price choice: on StartOS a command may run without the
     # server's variables (#134), so only the app's start upgrades old installs.
+    # Without those the app started with, it asks no one (#461), and says so.
     try:
         with SessionLocal() as db:
             outbound.load(db, upgrade=False)
     except Exception as e:
         print(f"warning: couldn't read the price settings, no price lookups: {e}", file=sys.stderr)
+        return result
+    if looks_up_prices and outbound.current().server_settings_missing:
+        print(f"note: {outbound.no_server_settings()}", file=sys.stderr)
     return result
 
 
@@ -122,7 +130,7 @@ def cmd_set_password(args: argparse.Namespace) -> int:
 
 
 def cmd_recalculate(args: argparse.Namespace) -> int:
-    _init_db()
+    _init_db(looks_up_prices=True)
     from backend.database import SessionLocal
     from backend.services.transaction import get_all_transactions, recalculate_ledger
 
@@ -146,7 +154,7 @@ def cmd_review(args: argparse.Namespace) -> int:
     day are priced at their hour, after a backup copy, and the ledger is
     recalculated (services/hourly_review.py).
     """
-    _init_db()
+    _init_db(looks_up_prices=True)
     from backend.database import SessionLocal
     from backend.services.hourly_review import apply_hourly_prices
     from backend.services.review import build_review, format_text

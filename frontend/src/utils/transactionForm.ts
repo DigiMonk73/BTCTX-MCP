@@ -1,7 +1,9 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
-import { isNotSold, listedPurpose, listedSource } from "./purposes";
+import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
+import { dollarTransferFee, pastTheCent } from "./transferAmounts";
+import { proceedsSent, withdrawalProceeds } from "./withdrawalProceeds";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -36,34 +38,6 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
     return currency === "BTC" ? EXCHANGE_BTC_ID : EXCHANGE_USD_ID;
   }
   return 0;
-}
-
-/** A transfer's currency: Bank's is USD, Wallet's BTC; the Exchange's is chosen. */
-export function transferCurrency(account?: AccountType, currency?: Currency): Currency | undefined {
-  if (account === "Bank") return "USD";
-  if (account === "Wallet") return "BTC";
-  return account === "Exchange" ? currency : undefined;
-}
-
-/**
- * Where a Transfer from an account (in a currency) can go, the usual place
- * first: the other account of that currency, or for a BTC account itself too
- * (a consolidation, or a move between wallets BitcoinTX pools: only the fee
- * is recorded, #159).
- */
-export function transferDestinations(account?: AccountType, currency?: Currency): AccountType[] {
-  switch (`${account}/${transferCurrency(account, currency)}`) {
-    case "Bank/USD":
-      return ["Exchange"];
-    case "Wallet/BTC":
-      return ["Exchange", "Wallet"];
-    case "Exchange/USD":
-      return ["Bank"];
-    case "Exchange/BTC":
-      return ["Wallet", "Exchange"];
-    default:
-      return [];
-  }
 }
 
 /** The ledger's from and to accounts for what the form shows as one account. */
@@ -165,27 +139,35 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   },
   Withdrawal: (tx) => {
     const accountId = tx.from_account_id ?? 0;
+    const place = { account: accountIdToType(accountId), currency: accountCurrency(accountId) };
+    // A dollar withdrawal has none (#449)
+    const proceeds = inBtcAccount(place) ? withdrawalProceeds(tx) : undefined;
     return {
-      account: accountIdToType(accountId),
-      currency: accountCurrency(accountId),
+      ...place,
       amount: tx.amount,
       purpose: listedPurpose(tx.purpose),
-      // Stored proceeds_usd is net of the BTC fee; edit the user's gross
-      proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+      proceeds_usd: proceeds,
+      proceedsStored: proceeds,
     };
   },
   Transfer: (tx) => {
     const fromId = tx.from_account_id ?? 0;
     const toId = tx.to_account_id ?? 0;
     const fromCurrency = accountCurrency(fromId);
+    const fee = tx.fee_amount ?? 0;
+    // Dollars add up in cents (two amounts' float sum can carry a stray digit
+    // past the cent); one stored past the cent keeps 8 places, for the form to say so
+    const dollarPlaces = pastTheCent(tx.amount) || pastTheCent(fee) ? 8 : 2;
     return {
       fromAccount: accountIdToType(fromId),
       toAccount: accountIdToType(toId),
       fromCurrency,
       toCurrency: accountCurrency(toId),
-      amountFrom: tx.amount,
-      // A BTC transfer's fee comes out of the amount: what arrived is the rest, to the satoshi
-      amountTo: fromCurrency === "BTC" ? Number((tx.amount - (tx.fee_amount ?? 0)).toFixed(8)) : tx.amount,
+      // A BTC transfer's amount is what left, its fee included: what arrived
+      // is the rest, to the satoshi. A dollar transfer's is what arrived, its
+      // fee on top (#447)
+      amountFrom: fromCurrency === "BTC" ? tx.amount : Number((tx.amount + fee).toFixed(dollarPlaces)),
+      amountTo: fromCurrency === "BTC" ? Number((tx.amount - fee).toFixed(8)) : tx.amount,
     };
   },
   Buy: (tx) => ({
@@ -197,10 +179,24 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   Sell: (tx) => ({
     account: "Exchange",
     amountBTC: tx.amount,
-    // The user's figure: stored proceeds_usd is net of the fee
-    grossProceedsUSD: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+    grossProceedsUSD: sellGross(tx),
   }),
 };
+
+/**
+ * A Sell's gross proceeds, the user's figure (stored proceeds_usd is net of
+ * the USD fee). A row saved before the gross was kept has none (parsed as 0):
+ * its gross is the net plus that fee, as the server recovers it
+ * (`_sell_net_proceeds`), so saving it unchanged takes no fee off again (#476).
+ */
+function sellGross(tx: ITransaction): number {
+  if (tx.gross_proceeds_usd) return tx.gross_proceeds_usd;
+  const net = tx.proceeds_usd ?? 0;
+  if (net <= 0) return 0;
+  // A Sell's fee is in dollars unless saved otherwise (the server's fee_currency_used)
+  const usdFee = (tx.fee_currency || "USD").toUpperCase() === "USD" ? (tx.fee_amount ?? 0) : 0;
+  return Number((net + usdFee).toFixed(2));
+}
 
 /** A saved transaction as the form shows it for editing; a date originally
  * acquired as the date stored, YYYY-MM-DD (#185: a date, which no timezone
@@ -238,32 +234,67 @@ interface TypePayload {
   proceeds_usd?: number | null;
   fmv_usd?: number | null;
   gross_proceeds_usd?: number;
+  // A fee the type works out itself; else the Fee field's
+  fee?: number;
 }
 
+/** Whether a Deposit's or Withdrawal's account holds bitcoin: Wallet or Exchange BTC. */
+function inBtcAccount(data: Pick<TransactionFormData, "account" | "currency">): boolean {
+  return data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
+}
+
+/**
+ * A withdrawal's purpose. A dollar one has no bitcoin purpose (Spent, Gift,
+ * Donation, Lost): there it's one left from the hidden bitcoin fields
+ * (#449). It may have a label of its own ("Rent", from an import), which an
+ * edit sends back as it was.
+ */
+function withdrawalPurpose(data: TransactionFormData): string {
+  const purpose = data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A";
+  return inBtcAccount(data) || !isBtcPurpose(purpose) ? purpose : "N/A";
+}
+
+/**
+ * A deposit's source. A dollar one sends none of the listed ones: there
+ * it's one left from the hidden bitcoin fields (#449). Text a version
+ * before 1.1.0 saved goes back as it was, as the server keeps it.
+ */
+function depositSource(data: TransactionFormData): string {
+  const source = data.source && data.source !== "N/A" ? data.source : "N/A";
+  return inBtcAccount(data) || !isListedSource(source) ? source : "N/A";
+}
+
+// Only bitcoin received has a source and a basis, and only bitcoin leaving a
+// purpose and a value: the form shows those fields for a bitcoin account
+// alone, and one filled in before the account changed stays in the form
+// though hidden, so a dollar deposit or withdrawal sends none (#449)
 const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypePayload> = {
   Deposit: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    source: data.source && data.source !== "N/A" ? data.source : "N/A",
-    // Only BTC received has a basis
-    cost_basis_usd:
-      data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange")
-        ? optionalDecimal(data.costBasisUSD)
-        : null,
+    source: depositSource(data),
+    cost_basis_usd: inBtcAccount(data) ? optionalDecimal(data.costBasisUSD) : null,
   }),
   Withdrawal: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    purpose: data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A",
+    purpose: withdrawalPurpose(data),
     cost_basis_usd: null,
-    proceeds_usd: optionalDecimal(data.proceeds_usd),
-    fmv_usd: optionalDecimal(data.fmv_usd),
+    proceeds_usd: inBtcAccount(data) ? proceedsSent(data) : null,
+    fmv_usd: inBtcAccount(data) ? optionalDecimal(data.fmv_usd) : null,
   }),
-  Transfer: (data) => ({
-    amount: parseDecimal(data.amountFrom),
-    feeCurrency: data.fromCurrency === "BTC" ? "BTC" : "USD",
-    cost_basis_usd: null,
-  }),
+  // A BTC transfer's amount is what left, its fee in it (filled in by
+  // useFieldAutofill); a dollar transfer's is what arrived, the fee on top
+  // (#447), as the server keeps both
+  Transfer: (data) =>
+    data.fromCurrency === "BTC"
+      ? { amount: parseDecimal(data.amountFrom), feeCurrency: "BTC", cost_basis_usd: null }
+      : {
+          amount: parseDecimal(data.amountTo),
+          feeCurrency: "USD",
+          cost_basis_usd: null,
+          fee: dollarTransferFee(parseDecimal(data.amountFrom), parseDecimal(data.amountTo)),
+        },
   Buy: (data) => ({
     amount: parseDecimal(data.amountBTC),
     feeCurrency: "USD",
@@ -293,8 +324,7 @@ const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 /** Whether a deposit takes "Date originally acquired" (an inheritance's
  * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
 export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
-  const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
-  return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
+  return data.type === "Deposit" && inBtcAccount(data) && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
 }
 
 /** The date originally acquired, as a date alone (the server keeps it as
@@ -331,7 +361,7 @@ export function buildTransactionPayload(
     from_account_id,
     to_account_id,
     amount: values.amount,
-    fee_amount: parseDecimal(data.fee),
+    fee_amount: values.fee ?? parseDecimal(data.fee),
     fee_currency: values.feeCurrency,
     cost_basis_usd: values.cost_basis_usd,
     proceeds_usd: values.proceeds_usd,

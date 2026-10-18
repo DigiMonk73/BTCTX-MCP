@@ -60,13 +60,15 @@ unchanged, and the data folder must be theirs.
 `docker exec -u btctx <container> python -m backend.cli …`. A file a root
 command creates in `/data` stays root's until the next start gives it back.
 
-StartOS doesn't use the entrypoint: the package runs each step itself
-(`startos/startos/main.ts`, Start9's `main.md`, "Oneshots"): a `chown`
-oneshot as root at every start, then the migrate step as `btctx`, then the
-web server through the same `setpriv` drop (`asAppUser` in `utils.ts`). Every
-`backend.cli` command an action or init runs (`runAppCli`) gives the volume to
-`btctx` first, as root, then runs as `btctx`: an action may run before the
-first start after an update or a restore.
+StartOS runs every step through the same entrypoint, as root, the image's
+user (#464; `startos/startos/main.ts`, Start9's `main.md`, "Using Upstream
+Entrypoint"): the migrate step (`sdk.useEntrypoint` with `python -m
+backend.cli migrate`), then the web server (`sdk.useEntrypoint()`: the
+image's `CMD`). Every `backend.cli` command an action or init runs
+(`runAppCli` in `utils.ts`) goes through `docker-entrypoint.sh` too, so an
+action that runs before the first start after an update or a restore (when
+the volume is still root's) hands it over the same way. The package keeps no
+copy of the drop to `btctx`.
 
 ```
 /app/backend/          application code (ephemeral, replaced on update)
@@ -168,6 +170,17 @@ variable, so once it's gone the owner is asked, whatever prices were stored
 meanwhile (#134). A CLI command never makes a price choice (only the app's
 start upgrades a pre-1.1.0 install).
 
+A CLI command may run without the variables the app runs with (on StartOS,
+one run by hand in the service's shell), and would then ask by the stored
+settings they replace. So each start of the app notes which it has
+(`app_settings` `price_settings_from_server`: `source` with
+`BTCTX_PRICE_SOURCE`, `tor` with `BTCTX_TOR_PROXY_URL` alone, no row
+without them), and a command lacking them (`BTCTX_PRICE_SOURCE` for
+`source`; either for `tor`) asks no one for a price and says so on stderr
+(`note: …`; #461). A command never writes the note, and a restore keeps
+this install's. The package's own runs pass the variables (the migrate
+oneshot, Recalculate Ledger), and so does `docker exec`.
+
 | Variable | Values |
 |----------|--------|
 | `BTCTX_PRICE_SOURCE` | `off`, `public` or `mempool`; unset or empty: Settings decide |
@@ -202,14 +215,18 @@ checks the names agree). Docker users may set them the same way.
 
 Change these only together with the package (`startos/`):
 
-- **Entry point and port:** `backend.main:app`, plain HTTP on port 80.
-- **User:** the image has the user `btctx` (uid and gid 10001) and `setpriv`
-  (util-linux, in the base image); the package runs every step as `btctx`,
-  after giving it `/data` as root ("The app's user", above).
+- **Entry point and port:** `backend.main:app`, plain HTTP on port 80, as
+  the image's `CMD` starts it.
+- **User:** the image has the user `btctx` (uid and gid 10001), `setpriv`
+  (util-linux, in the base image), no `USER` line, and its `ENTRYPOINT`
+  `docker-entrypoint.sh`, which the package runs for every step: it gives
+  `/data` to `btctx` when needed and runs the command as `btctx` ("The app's
+  user", above). The web server is the image's `CMD`.
 - **Health:** `GET /api/health` (no login) answers 200 with
   `{"status": "ok", "version", "schema"}` when the database is reachable at
   the current schema, 503 otherwise. The package's health check requires 200.
-- **App location:** code at `/app` in the image, `VERSION` at `/app/VERSION`.
+- **App location:** code at `/app` in the image (its `WORKDIR`, where every
+  step runs), `VERSION` at `/app/VERSION`.
 - **Maintenance CLI** (`backend/cli.py`, run from `/app`):
   - `python -m backend.cli migrate`: schema upgrade + default user/accounts;
     the package runs it as a oneshot before the web server starts.
@@ -227,7 +244,9 @@ Change these only together with the package (`startos/`):
   - `python -m backend.cli review [--apply-hourly-prices YEAR]`: the
     Ledger Review, read-only unless `--apply-hourly-prices` (that tax
     year's values priced at the day, at their hour, after a backup copy);
-    not used by the package.
+    not used by the package. Run by hand without the price variables the
+    app has, it asks no one for a price ("Price settings set by the
+    server", above).
   Each command migrates first, so it works on an empty volume. Exit 0 on
   success, 1 with a message on stderr on failure.
 - **Price settings:** the `BTCTX_*` variables above.

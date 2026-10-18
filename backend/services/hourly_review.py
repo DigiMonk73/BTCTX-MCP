@@ -159,14 +159,17 @@ def _start(hour: int, moment: str) -> int:
 
 
 def _priced_values(t: Transaction):
-    """(field, stored value, BTC it values) for each value that came from a price."""
+    """(field, stored value, BTC it values) for each value that came from a
+    price. A withdrawal's only when bitcoin left: one an older save left on a
+    dollar withdrawal (its dollars priced as BTC) is never priced again (#449)."""
+    btc_leaving = t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
     if t.cost_basis_from_price and t.cost_basis_usd is not None and t.type == "Deposit" \
             and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in VALUED_AT_RECEIPT:
         yield "cost_basis_usd", t.cost_basis_usd, Decimal(t.amount)
-    if t.proceeds_from_price and t.gross_proceeds_usd is not None and t.type == "Withdrawal" \
+    if t.proceeds_from_price and t.gross_proceeds_usd is not None and btc_leaving \
             and normalized(t.purpose) == "spent":
         yield "gross_proceeds_usd", t.gross_proceeds_usd, Decimal(t.amount)
-    if t.fmv_from_price and t.fmv_usd is not None and t.type == "Withdrawal" \
+    if t.fmv_from_price and t.fmv_usd is not None and btc_leaving \
             and normalized(t.purpose) in GIFT_LIKE_PURPOSES:
         yield "fmv_usd", t.fmv_usd, Decimal(t.amount)
     if t.fee_usd is not None and not t.fee_usd_manual and (t.fee_currency or "").upper() == "BTC" \
