@@ -716,6 +716,17 @@ All notable changes to BitcoinTX are documented in this file.
   form, the API, the CSV preview, the AI connector's import and River's. A
   bitcoin fee keeps its 8. Every release from 0.8.0; a fee typed with more
   than 2 decimals was needed.
+- **A value the server refuses field by field is said in words** (#448).
+  When the server refused a value field by field (FastAPI's 422, a list),
+  two screens didn't put that list into words. The River import's preview
+  crashed to "Something went wrong" on Import, losing every edit made in
+  it, when a cell held a value such as `1,200` in a Cost Basis; the
+  transaction form said "Failed to create transaction: [object Object]"
+  (or "update") for an amount such as `12345678901`. Both now show the
+  server's reason ("Input should be a valid decimal", "Amount is too
+  large."), and River's preview stays as it was, so the cell can be
+  corrected and imported. Nothing was saved in either case: no figure
+  changed. Every release from 0.8.0.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
