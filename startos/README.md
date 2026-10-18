@@ -123,6 +123,8 @@ Installs from before generated passwords started with `admin` / `password`, whic
 
 Four actions. All run with the service running or stopped, except Set Login Credentials.
 
+Set Login Credentials and Recalculate Ledger run a `python -m backend.cli` command in a temporary subcontainer, through the image's entrypoint, with no time limit (the database's size sets how long it takes). When the command fails, the action's alert says "BitcoinTX could not set the password: …" or "BitcoinTX could not recalculate the ledger: …" in the user's language, followed by the command's own `error: …` line in English (else its last line on stderr). The rest of the command's output is neither shown nor logged: it can carry the SQL's values, such as a password's hash.
+
 ### Set Login Credentials
 
 Only while stopped. Sets the username to `admin` and a new random password through `set-password` (creating the database on a fresh install), records `loginSet` (never the password), and returns the password once; nothing shows it again. Transactions and settings are untouched. Run it at install (its task), or when the owner has lost the password; on a later run it replaces any login set in the app, and the old password stops working.

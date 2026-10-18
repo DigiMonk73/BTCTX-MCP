@@ -1,7 +1,12 @@
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { ADMIN_USERNAME, generatePassword, setAppCredentials } from '../utils'
+import {
+  ADMIN_USERNAME,
+  alertOnFailure,
+  generatePassword,
+  setAppCredentials,
+} from '../utils'
 
 export const setCredentials = sdk.Action.withoutInput(
   'set-credentials',
@@ -25,7 +30,9 @@ export const setCredentials = sdk.Action.withoutInput(
     const password = generatePassword()
     // The app first, so the store never says a login is set that isn't. Only
     // that is kept: the password is shown once, below (#212).
-    await setAppCredentials(effects, password)
+    await alertOnFailure(setAppCredentials(effects, password), (detail) =>
+      i18n('BitcoinTX could not set the password: ${detail}', { detail }),
+    )
     await storeJson.merge(effects, { loginSet: true })
 
     return {

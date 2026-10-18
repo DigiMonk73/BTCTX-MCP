@@ -63,9 +63,10 @@ export function generatePassword(): string {
  * every start (main.ts): it runs the command as the app's user, giving it the
  * volume first when needed, since an action or init may run before the first
  * start after an update or a restore. Every command migrates the database
- * first, so this works on an empty volume. Throws on a non-zero exit.
- * `prices`: pass the Price Source & Privacy choice, for a command that may
- * look up a price.
+ * first, so this works on an empty volume. Throws the SDK's report on a
+ * non-zero exit, a diagnostic (init logs it); an action shows
+ * `alertOnFailure`'s instead. `prices`: pass the Price Source & Privacy
+ * choice, for a command that may look up a price.
  */
 export async function runAppCli(
   effects: T.Effects,
@@ -89,14 +90,56 @@ export async function runAppCli(
     `cli-${args[0]}`,
     async (sub) => {
       // The image's ENTRYPOINT (the Dockerfile), as root, the image's user:
-      // execFail takes no sdk.useEntrypoint()
+      // execFail takes no sdk.useEntrypoint(). No time limit: the script may
+      // walk the whole volume, the migration copies the database before a
+      // schema change, and Recalculate Ledger replays every transaction and
+      // may download prices, so the data sets how long it takes (main.md,
+      // "Commands That Run Longer Than 30 Seconds").
       const res = await sub.execFail(
         ['docker-entrypoint.sh', 'python', '-m', 'backend.cli', ...args],
-        { env, input: opts.input, timeout: 10 * 60_000 },
+        { env, input: opts.input, timeout: null },
       )
       return res.stdout.toString()
     },
   )
+}
+
+/**
+ * For an action that runs a BitcoinTX command: the command's failure becomes
+ * `alert(detail)`, which the action translates, since StartOS shows what an
+ * action throws as its alert (actions.md, "Wrap User-Facing Strings in
+ * `i18n()`"); `detail` is the command's own words, in English as everywhere
+ * in BitcoinTX. The SDK's whole report is neither shown nor logged: below
+ * backend/cli.py's `error:` line it can carry the SQL's values, such as a
+ * password's hash or a transaction's figures.
+ */
+export async function alertOnFailure<T>(
+  step: Promise<T>,
+  alert: (detail: string) => string,
+): Promise<T> {
+  try {
+    return await step
+  } catch (e) {
+    throw new Error(alert(lastWords(e)))
+  }
+}
+
+/**
+ * What a failed command said last: backend/cli.py ends with `error: <what
+ * went wrong>`; else its last line on stderr (a Python traceback's names the
+ * exception); else, with nothing on stderr, the SDK's own message. The SDK's
+ * ExitError, which carries stderr, isn't exported: read as its fields.
+ */
+function lastWords(e: unknown): string {
+  const failed = e as { result?: { stderr?: string | Buffer } } | null
+  const lines = String(failed?.result?.stderr ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reverse()
+  const said = lines.find((line) => line.startsWith('error: '))
+  if (said) return said.slice('error: '.length)
+  return lines[0] ?? (e instanceof Error ? e.message : String(e))
 }
 
 /** Set the app's login to admin / `password`, through the app's own hashing. */
