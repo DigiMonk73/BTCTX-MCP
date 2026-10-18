@@ -1,6 +1,9 @@
 // The sidebar calculator's keys, worked as a pocket calculator works them
 // (#450): left to right, the running total kept through a chain of
-// operations, each result rounded to the digits its numbers can carry.
+// operations. The sums are worked out exactly in decimals, as BitcoinTX's
+// own figures are, never in a computer's binary numbers (0.1 + 0.2 =
+// 0.30000000000000004 there), and each result is rounded to what the
+// display holds.
 
 export type Operator = "+" | "-" | "*" | "/";
 
@@ -13,34 +16,45 @@ export interface CalculatorState {
   startsNew: boolean;
 }
 
-/** Shown for a result that isn't a number: a division by zero, an overflow. */
+/** Shown for a division by zero, or a result too long for the display. */
 export const ERROR = "Error";
 
 export const CLEARED: CalculatorState = { display: "0", pending: null, startsNew: false };
 
-export const OPERATORS: readonly string[] = ["+", "-", "*", "/"];
+const OPERATORS: readonly Operator[] = ["+", "-", "*", "/"];
 
-// A double carries 15 significant digits reliably; past them is rounding
-// noise (0.1 + 0.2 = 0.30000000000000004).
+// What the display holds, so that no number on it is longer than 17
+// characters ("-0.00000000000001", "-9999999999999999"): a number is typed
+// with 15 digits at most, as on a 15-digit pocket calculator; a result's
+// decimals are rounded to 15 significant digits, and to 14 decimals at most
+// (six past a sat's eight); a result of more than 16 whole digits is ERROR.
 const SIGNIFICANT_DIGITS = 15;
+const MAX_DECIMALS = 14;
+const MAX_WHOLE_DIGITS = 16;
 
-// Decimals a result is written with at most, twice a sat's eight: the
-// sidebar's display holds about 21 characters.
-const MAX_DECIMALS = 16;
+/** A decimal number exactly: units / 10^scale. */
+interface Decimal { units: bigint; scale: number }
+
+export function isOperator(key: string): key is Operator {
+  return (OPERATORS as readonly string[]).includes(key);
+}
 
 /** The calculator after one key: a digit, ".", an operator, "=" or "C". */
 export function pressKey(state: CalculatorState, key: string): CalculatorState {
   if (key === "C") return CLEARED;
   if (key === "=") return equals(state);
-  if (OPERATORS.includes(key)) return chain(state, key as Operator);
+  if (isOperator(key)) return chain(state, key);
   return typeKey(state, key);
 }
 
 function typeKey(state: CalculatorState, key: string): CalculatorState {
   const typed = state.startsNew ? "0" : state.display;
-  if (key === "." && typed.includes(".")) return state;
-  const display = typed === "0" && key !== "." ? key : typed + key;
-  return { ...state, display, startsNew: false };
+  if (key === ".") {
+    return typed.includes(".") ? state : { ...state, display: typed + ".", startsNew: false };
+  }
+  if (typed === "0") return { ...state, display: key, startsNew: false };
+  if (typed.replace(/\D/g, "").length >= SIGNIFICANT_DIGITS) return state;
+  return { ...state, display: typed + key, startsNew: false };
 }
 
 function chain(state: CalculatorState, operator: Operator): CalculatorState {
@@ -63,36 +77,57 @@ function equals(state: CalculatorState): CalculatorState {
   return { display, pending: null, startsNew: true };
 }
 
+// The exact result as a fraction (numerator, positive denominator), then
+// rounded for the display.
 function workedOut(pending: { left: string; operator: Operator }, right: string): string {
-  const a = Number(pending.left);
-  const b = Number(right);
-  const results = { "+": a + b, "-": a - b, "*": a * b, "/": a / b };
-  const result = results[pending.operator];
-  if (!Number.isFinite(result)) return ERROR;
-  return written(result, exactDecimals(pending.left, right, pending.operator));
+  const a = decimal(pending.left);
+  const b = decimal(right);
+  if (pending.operator === "/") {
+    if (b.units === 0n) return ERROR;
+    // (a.units / 10^a.scale) / (b.units / 10^b.scale)
+    const sign = b.units < 0n ? -1n : 1n;
+    return rounded(sign * a.units * 10n ** BigInt(b.scale), sign * b.units * 10n ** BigInt(a.scale));
+  }
+  if (pending.operator === "*") {
+    return rounded(a.units * b.units, 10n ** BigInt(a.scale + b.scale));
+  }
+  const scale = Math.max(a.scale, b.scale);
+  const x = a.units * 10n ** BigInt(scale - a.scale);
+  const y = b.units * 10n ** BigInt(scale - b.scale);
+  return rounded(pending.operator === "+" ? x + y : x - y, 10n ** BigInt(scale));
 }
 
-// How many decimals the exact result has: a sum or difference has as many
-// as its longer number, a product as many as both together, and a
-// quotient may have no end.
-function exactDecimals(left: string, right: string, operator: Operator): number {
-  if (operator === "/") return MAX_DECIMALS;
-  const decimals = [decimalsOf(left), decimalsOf(right)];
-  return operator === "*" ? decimals[0] + decimals[1] : Math.max(...decimals);
+function decimal(number: string): Decimal {
+  const [whole, fraction = ""] = number.split(".");
+  return { units: BigInt(whole + fraction), scale: fraction.length };
 }
 
-function decimalsOf(number: string): number {
-  return number.match(/\.(\d+)/)?.[1].length ?? 0;
+// numerator / denominator (above 0) rounded half away from zero to the
+// decimals that fit the display, written out in full (0.00000005, never
+// 5e-8, as #101 has it for the rest of BitcoinTX), or ERROR when its whole
+// number is too long.
+function rounded(numerator: bigint, denominator: bigint): string {
+  const size = numerator < 0n ? -numerator : numerator;
+  if (size === 0n) return "0";
+  const decimals = Math.max(0, Math.min(
+    MAX_DECIMALS, SIGNIFICANT_DIGITS - 1 - magnitude(size, denominator)));
+  const scaled = size * 10n ** BigInt(decimals);
+  let units = scaled / denominator;
+  if (2n * (scaled % denominator) >= denominator) units += 1n;
+  if (units === 0n) return "0";
+  const digits = units.toString().padStart(decimals + 1, "0");
+  const whole = digits.slice(0, digits.length - decimals);
+  if (whole.length > MAX_WHOLE_DIGITS) return ERROR;
+  const fraction = digits.slice(whole.length).replace(/0+$/, "");
+  return `${numerator < 0n ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
-// The result rounded to its exact decimals, at most SIGNIFICANT_DIGITS in
-// all, and written out in full (0.00000005, never 5e-8, as #101 has it for
-// the rest of BitcoinTX).
-function written(result: number, exact: number): string {
-  const significant = result === 0
-    ? 0 : SIGNIFICANT_DIGITS - 1 - Math.floor(Math.log10(Math.abs(result)));
-  const decimals = Math.max(0, Math.min(exact, significant, MAX_DECIMALS));
-  const text = result.toFixed(decimals);
-  const trimmed = text.includes(".") ? text.replace(/\.?0+$/, "") : text;
-  return Number(trimmed) === 0 ? "0" : trimmed;
+// The power of ten of a fraction's first significant digit: 2 for 123.4,
+// -3 for 0.0012.
+function magnitude(numerator: bigint, denominator: bigint): number {
+  const guess = numerator.toString().length - denominator.toString().length;
+  const reaches = guess >= 0
+    ? numerator >= denominator * 10n ** BigInt(guess)
+    : numerator * 10n ** BigInt(-guess) >= denominator;
+  return reaches ? guess : guess - 1;
 }

@@ -46,7 +46,14 @@ describe("the sidebar calculator (#450)", () => {
     expect(shows("5+007=")).toBe("12");
   });
 
-  it("rounds away a computer's binary noise", () => {
+  it("takes 15 digits at most, as a 15-digit pocket calculator does", () => {
+    expect(shows("1234567890123456")).toBe("123456789012345");
+    expect(shows("123456789012345.6")).toBe("123456789012345.");
+    expect(shows("0.123456789012345")).toBe("0.12345678901234");
+    expect(shows("1234567890123456+1=")).toBe("123456789012346");
+  });
+
+  it("works in decimals, never with a computer's binary noise", () => {
     expect(shows(".1+.2=")).toBe("0.3");
     expect(shows("1.1*1.1=")).toBe("1.21");
     expect(shows("1.005*1000=")).toBe("1005");
@@ -56,31 +63,53 @@ describe("the sidebar calculator (#450)", () => {
     expect(shows("100.1-100=")).toBe("0.1");
   });
 
-  it("keeps every digit a sum of bitcoin amounts or sats has", () => {
+  it("keeps every digit of sums of bitcoin amounts and of sats", () => {
     expect(shows("0.12345678+1.87654321=")).toBe("1.99999999");
-    expect(shows("2100000000000000+1=")).toBe("2100000000000001");
-    expect(shows("0.00000001*5=")).toBe("0.00000005"); // never 5e-8 (#101)
+    expect(shows("12345.12345678+0.00000001=")).toBe("12345.12345679");
     expect(shows("0.00000001-0.00000001=")).toBe("0");
+    expect(shows("210000000000000*10+1=")).toBe("2100000000000001");
   });
 
-  it("gives a division that doesn't end its first 15 digits", () => {
-    expect(shows("1/3=")).toBe("0.333333333333333");
-    expect(shows("2/3=")).toBe("0.666666666666667");
+  it("writes a few sats out in full, never as 5e-8 (#101)", () => {
+    expect(shows("0.00000001*5=")).toBe("0.00000005");
+    expect(shows("0.00000001*0.000001=")).toBe("0.00000000000001");
+  });
+
+  it("rounds a result past 15 significant digits correctly", () => {
+    expect(shows("1/3=")).toBe("0.33333333333333");
+    expect(shows("2/3=")).toBe("0.66666666666667");
     expect(shows("100/3=")).toBe("33.3333333333333");
     expect(shows("1/4=")).toBe("0.25");
+    // A computer's binary numbers land on the wrong side of these last digits
+    expect(shows("0.4/0.7=")).toBe("0.57142857142857");
+    expect(shows("226/0.54=")).toBe("418.518518518519");
+    expect(shows("8.9/0.49=")).toBe("18.1632653061224");
+    expect(shows("56785.2256965*123.21=")).toBe("6996507.65806577");
+    expect(shows("57400.88789/16=")).toBe("3587.555493125");
+    // Half away from zero
+    expect(shows("0.00000000000001*1.5=")).toBe("0.00000000000002");
+    expect(shows("0-0.00000000000001*1.5=")).toBe("-0.00000000000002");
   });
 
-  it("writes a result with at most 16 decimals, so it fits the display", () => {
-    expect(shows("0.00000001/3=")).toBe("0.0000000033333333");
-    expect(shows("0-0.00000001/3=")).toBe("-0.0000000033333333");
-    expect(shows("0.00000001*0.00000001=")).toBe("0.0000000000000001");
-    expect(shows("0.00000001*0.000000001=")).toBe("0");
+  it("writes a result with at most 14 decimals, 17 characters in all", () => {
+    expect(shows("0.00000001/3=")).toBe("0.00000000333333");
+    expect(shows("0-0.00000001/3=")).toBe("-0.00000000333333");
+    expect(shows("0.00000001*0.00000001=")).toBe("0");
+    expect(shows("0-999999999999999*10=")).toBe("-9999999999999990");
   });
 
   it("shows an error for a division by zero, never Infinity", () => {
     expect(shows("1/0=")).toBe(ERROR);
     expect(shows("0/0=")).toBe(ERROR);
     expect(shows("1/0+")).toBe(ERROR);
+  });
+
+  it("shows an error for a whole number too long for the display, never a wrong one", () => {
+    expect(shows("999999999999999*10+9=")).toBe("9999999999999999");
+    expect(shows("999999999999999*10+10=")).toBe(ERROR);
+    expect(shows("123456789*123456789=")).toBe(ERROR); // 17 digits
+    expect(shows("999999999999999*999999999999999=")).toBe(ERROR); // never 1e+30
+    expect(shows("0-999999999999999*999999999999999=")).toBe(ERROR);
   });
 
   it("starts again after an error with a digit, ignoring operators and =", () => {
@@ -104,7 +133,7 @@ describe("the sidebar calculator (#450)", () => {
     expect(shows("C")).toBe("0");
   });
 
-  it("works the old click-through test's sums as before", () => {
+  it("works the sums of the click-through test in widgets.e2e.ts", () => {
     expect(shows("12+30=")).toBe("42");
     expect(shows("7*6=")).toBe("42");
     expect(shows("9-12=")).toBe("-3");
