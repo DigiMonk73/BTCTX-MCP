@@ -79,7 +79,8 @@ def download_encrypted_backup(
 ):
     """
     Download an encrypted backup of the database. The temp file goes once
-    the answer is sent (or cut off), or at once if the backup failed (#462).
+    the answer is sent (or cut off), or at once if the download couldn't
+    start (#462).
     """
     _require_auth(request)
     _require_text_password(password)
@@ -89,13 +90,19 @@ def download_encrypted_backup(
         temp_path = Path(temp_file.name)
     try:
         make_backup(password, temp_path)
+        backup_file = open(temp_path, "rb")
     except BaseException:
         temp_path.unlink(missing_ok=True)
         raise
-    background_tasks.add_task(temp_path.unlink, missing_ok=True)
+
+    def cleanup():
+        backup_file.close()  # StreamingResponse never closes what it streams
+        temp_path.unlink(missing_ok=True)
+
+    background_tasks.add_task(cleanup)
 
     return StreamingResponse(
-        open(temp_path, "rb"),
+        backup_file,
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": "attachment; filename=bitcoin_backup.btx"

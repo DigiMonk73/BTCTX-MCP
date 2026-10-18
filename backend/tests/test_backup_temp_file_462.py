@@ -5,13 +5,16 @@ itself failed (no database file, a SQLite error, a full disk), the answer
 was the right 500 with its fixed sentence, but the file, empty or holding
 part of the backup, stayed in the system's temp folder for good: one more
 for each failed download. It now goes in every case: a backup that fails
-before writing or partway, a download that succeeds, one the client cuts off.
+before writing or partway, a finished one that can't be opened to send (the
+whole backup was left then), a download that succeeds, one the client cuts
+off; and the file sent is closed.
 
 Each test points the system's temp folder at a folder of its own and checks
 that the router's file was made there and is gone.
 """
 
 import asyncio
+import errno
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -52,6 +55,19 @@ def made(monkeypatch):
     return files
 
 
+@pytest.fixture
+def opened(monkeypatch):
+    """The files the route opens to send."""
+    files = []
+
+    def recording(*args, **kwargs):
+        files.append(open(*args, **kwargs))
+        return files[-1]
+
+    monkeypatch.setattr(backup_router, "open", recording, raising=False)
+    return files
+
+
 def _left(folder: Path) -> list:
     return sorted(p.name for p in folder.iterdir())
 
@@ -86,13 +102,29 @@ def test_a_backup_that_fails_partway_leaves_no_temp_file(auth_client, temp_folde
     assert _left(temp_folder) == []
 
 
-def test_a_download_that_succeeds_leaves_no_temp_file(auth_client, temp_folder, made):
+@pytest.mark.unexpected_error
+def test_a_backup_that_cant_be_opened_to_send_leaves_no_temp_file(auth_client, temp_folder, made,
+                                                                   monkeypatch):
+    def cant_open(*args, **kwargs):
+        raise OSError(errno.EMFILE, "Too many open files")
+
+    monkeypatch.setattr(backup_router, "open", cant_open, raising=False)
+
+    r = auth_client.post(URL, data={"password": PASSWORD})
+
+    assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})
+    assert [p.parent for p in made] == [temp_folder]
+    assert _left(temp_folder) == []
+
+
+def test_a_download_that_succeeds_leaves_no_temp_file(auth_client, temp_folder, made, opened):
     r = auth_client.post(URL, data={"password": PASSWORD})
 
     assert r.status_code == 200
     assert backup.decrypt_backup(r.content, PASSWORD).startswith(backup.SQLITE_HEADER)
     assert [p.parent for p in made] == [temp_folder]
     assert _left(temp_folder) == []
+    assert [f.closed for f in opened] == [True]
 
 
 def _cut_off_after_the_first_piece(cookies: dict) -> list:
@@ -136,10 +168,11 @@ def _cut_off_after_the_first_piece(cookies: dict) -> list:
     return sent
 
 
-def test_a_download_the_client_cuts_off_leaves_no_temp_file(auth_client, temp_folder, made):
+def test_a_download_the_client_cuts_off_leaves_no_temp_file(auth_client, temp_folder, made, opened):
     sent = _cut_off_after_the_first_piece(dict(auth_client.cookies))
 
     assert sent[0]["type"] == "http.response.start" and sent[0]["status"] == 200
     assert [m["more_body"] for m in sent[1:]] == [True]  # one piece, then the client was gone
     assert [p.parent for p in made] == [temp_folder]
     assert _left(temp_folder) == []
+    assert [f.closed for f in opened] == [True]

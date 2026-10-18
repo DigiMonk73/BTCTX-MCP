@@ -790,10 +790,12 @@ All notable changes to BitcoinTX are documented in this file.
   right, but the file, empty or holding part of the encrypted backup, stayed
   in the server's temporary folder for good (Docker and StartOS: the
   container's `/tmp`; the Mac app: your temporary folder): one more for each
-  failed download. Only BitcoinTX's own user could open it, and nothing in
-  it could be read without the backup's password. It is now removed as soon
-  as the backup fails. Every version since the encrypted download. Nothing
-  to do.
+  failed download. So did the whole encrypted backup when it was made but
+  couldn't be opened to send (too many files open at once). Only the account
+  BitcoinTX runs as could open it, and nothing in it could be read without
+  the backup's password. It is now removed as soon as the download can't
+  start, and the file sent is closed once it has been. **Affected:** every
+  version. Nothing to do.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
