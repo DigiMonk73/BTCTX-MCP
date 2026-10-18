@@ -170,7 +170,9 @@ from the Transaction row alone.
   (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
-  (never from the previous net, which would subtract the fee again).
+  (never from the previous net, which would subtract the fee again). A
+  Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
+  0.8.0) is worked out from its stored net, the USD fee added back (#471).
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,
@@ -260,16 +262,18 @@ from the Transaction row alone.
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits. The amount tests go in turn (the
   ledger amount, then River's), and within each a transaction of the row's
-  own type first. The AI's rows are matched so the most find a copy: a row
-  left without one takes a copy another row holds when that row can take
-  another (`match_by_moving`), so a date-alone row can't take a timed
-  row's only copy (#411). The user can override a duplicate: the AI's row
-  names the transaction the preview matched (`not_a_duplicate_of`), a
-  River row is ticked. That frees it only from that transaction: it's
-  checked against the rest, so a resent request doesn't save it twice (a
-  row that matched another copy is that copy, #378). A named row that
-  check leaves new takes a copy another row holds when that row can take
-  another of its own (`match_by_moving`), never one a row names.
+  own type first. The timed rows take their copies before the date-alone
+  rows (`_timed_first`, #472), so a date-alone row is the one saved when it
+  and a timed row share their only copy. The AI's rows are matched so the
+  most find a copy: a row left without one takes a copy another row holds
+  when that row can take another (`match_by_moving`, #411). The user can
+  override a duplicate: the AI's row names the transaction the preview
+  matched (`not_a_duplicate_of`), a River row is ticked. That frees it only
+  from that transaction: it's checked against the rest, so a resent request
+  doesn't save it twice (a row that matched another copy is that copy,
+  #378). A named row that check leaves new takes a copy another row holds
+  when that row can take another of its own (`match_by_moving`), never one a
+  row names.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a

@@ -534,6 +534,28 @@ All notable changes to BitcoinTX are documented in this file.
   lookup, as the new choice says. Only your own change of these settings
   while a lookup was under way could cause it (they're login only, never
   the AI key), and no figure is affected. Nothing to do.
+- **After you change your Mempool's address, its prices are the new
+  Mempool's** (#473). BitcoinTX keeps your own Mempool's answer for 10
+  minutes, so the day and hour lookups share it. If you changed the
+  address while a lookup was still waiting for the old Mempool, and another
+  lookup asked the new one before the old one answered, the old one's late
+  answer was kept as the new one's: for the rest of those 10 minutes, every
+  value priced from your Mempool had the old server's prices, and so did
+  the days and hours stored then (a day lookup stores every day of the
+  answer not stored yet). In 1.2.8 (the kept answer came with the hourly
+  prices, #144), for a price of any tax year. Now an answer is kept only
+  while it's the last one asked: the old Mempool's late answer is used, and
+  stored, only by the lookup that asked for it before the change, as the
+  answer to any request sent before a save is (#437). Two Mempools' prices
+  usually agree closely, so a figure was wrong only where the old one's
+  were off. Only your own change of that address could cause it (login
+  only, never the AI key), and nothing was sent to an address no longer in
+  use. Nothing to do, unless you changed your Mempool's address in 1.2.8
+  because its prices looked wrong. Then a stored price can still be the
+  old Mempool's (a stored price never changes): check the values priced
+  from your Mempool since that change (the Complete Tax Report lists the
+  price each used and where it came from) and type the right value into
+  any that differ.
 - **An .onion Mempool address however its dots are typed is reached
   through Tor** (found by the review of #443). Typed with a dot at its end
   (`http://….onion.`, the same address) or with a full stop that web
@@ -611,6 +633,18 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **A payout given to the AI as a date alone beside a timed copy of it
+  is the one saved, at noon** (tax figures, #472). When a request held the same
+  payout twice, once as a date alone and once with a time after noon, and
+  the ledger had it once, at that time, the duplicate check gave the
+  recorded payout to the date-alone row and saved the timed row: a second
+  payout at the recorded one's exact minute, valued (when its value came
+  from the price) at that hour's price instead of noon's. Now the timed
+  rows are matched before the date-alone rows: the timed row is the
+  recorded one, and the date-alone row is saved, at noon. For a request
+  with no row named as another transaction, how many rows are saved
+  doesn't change. **Affected:** no release: matching a date alone is new
+  in this version (#253). Nothing to do.
 - **A payout given to the AI as a date alone no longer takes a timed one's
   place** (tax figures, #411). The AI connector's duplicate check gave each
   row, in time order, the nearest recorded transaction it matched, and a
@@ -720,6 +754,24 @@ All notable changes to BitcoinTX are documented in this file.
   line moves.
 
   **What to do:** as above, Recalculate Ledger (Settings).
+- **A sale edited down to $0 proceeds is a $0 sale** (tax figures, #471).
+  Setting a Sell's Gross Proceeds (USD) to 0 in an edit was saved without
+  an error but didn't take: the sale kept its old proceeds and gain, and
+  its gross came back as the old proceeds ($5,000 with a $10 USD fee,
+  edited to $0 and no fee, came back as $4,990). BitcoinTX read a gross of
+  $0 as "none recorded", the case of a sale saved before 0.8.0, and took
+  the proceeds stored with the sale instead. The same sale created at $0
+  was right: a $0 sale, its whole cost a loss. Now a gross of $0 is a $0
+  sale however it's saved (an edit, or a request that also sends
+  `proceeds_usd`); only a sale saved before 0.8.0, with no gross, is still
+  worked out from its stored proceeds.
+  **Affected:** 0.8.0 to 1.2.8, for the tax year of any sale edited to $0
+  that way: its proceeds and gain on Form 8949, Schedule D, the Complete
+  Tax Report and the dashboard, and the Exchange USD balance. **What to
+  do:** if you once set a sale's Gross Proceeds to 0 and it came back with
+  its old figure, open it and set it to 0 again. Ledger Review and
+  Recalculate Ledger can't find such a sale: the old figure is what was
+  stored.
 - **Ledger Review sees a cent moved between a transaction's rows** (#296).
   Its check of the figures Recalculate Ledger would change compared each
   transaction's totals only. A recalculation that moved a cent between two
@@ -758,6 +810,23 @@ All notable changes to BitcoinTX are documented in this file.
   as Spent, enter what you got for it if none is recorded; a gift, a
   donation and lost coins have no gain. Then Recalculate Ledger (any save
   does it too). One listed as "none recorded": see the next entry.
+- **An old sale opens in the edit form with its gross proceeds** (tax
+  figures, #476). A Sell saved before 0.8.0 (an imported one, say) may hold
+  only its proceeds net of its dollar fee, with no gross. Until a
+  recalculation filled the gross in, the edit form showed such a sale's
+  Gross Proceeds (USD) as $0, in every release up to 1.2.8: saved unchanged,
+  it was refused when it had a fee, and typing the proceeds the transaction
+  list shows for it (the net) took the fee off a second time, lowering its
+  proceeds and gain by the fee. It now opens with the net plus the dollar
+  fee, the gross BitcoinTX itself works out for it at a recalculation, so
+  saving it unchanged changes nothing. **Affected:** ledgers started before
+  0.8.0 with a Sell that has a dollar fee, edited in the form with the net
+  typed as its gross before any recalculation (any edit or deletion, an
+  entry dated before the latest, or Recalculate Ledger) had filled the gross
+  in; the tax year of that sale. **What to do:** nothing for most ledgers.
+  If you edited such an old sale that way, open it: if Gross Proceeds (USD)
+  is less than what the sale really brought before the fee, enter that and
+  save.
 - **A recalculation keeps what an old withdrawal of unknown purpose
   received** (tax figures, #329). A bitcoin withdrawal saved before 0.8.0
   kept what was received in an older field. When its purpose isn't Spent,
@@ -789,6 +858,28 @@ All notable changes to BitcoinTX are documented in this file.
   row kept its old figures. Editing or deleting any transaction, or
   Recalculate Ledger, applies the newest rules to every row, as both now
   say.
+- **A dollar transfer's Amount (To) counts** (#447). On a dollar transfer
+  (Bank → Exchange, or Exchange USD → Bank) the form asked for Amount
+  (From), Amount (To) and Fee (USD) but saved only Amount (From) and the
+  fee: whatever Amount (To) said was dropped, the receiving account was
+  credited all of Amount (From), and the fee came out of the sending
+  account on top. So "$1,000 sent, $990 arrived, a $10 fee" showed Bank
+  $1,010 lower and Exchange (USD) $1,000 higher, both wrong by the fee.
+  Now a dollar transfer works as a bitcoin one does: you type what left
+  (Amount (From)) and what arrived (Amount (To)); Fee (USD) is filled in
+  as the difference and can't be typed. Amount (To) above Amount (From) is
+  refused in words (on a bitcoin transfer too, which saved it with no fee
+  and credited Amount (From)), and so is a dollar amount past the cent. It
+  is saved as dollar transfers always were (the amount that arrived, the
+  fee on top), so nothing stored changes, and one saved before opens with
+  Amount (From) as its amount plus its fee. Every release with this form
+  (1.2.8 and earlier). No tax figure was affected: dollar balances don't
+  enter gains, basis or income. **To check:** compare the Dashboard's Bank
+  (USD) and Exchange (USD) balances with your bank's and the exchange's.
+  If they differ, open each dollar transfer, with or without a fee (one
+  saved with a lower Amount (To) and no fee lost the difference too), and
+  set Amount (From) to what left the account and Amount (To) to what
+  arrived; the balances follow when you save.
 - **A fee in dollars is in cents** (#298). A fee's decimals were checked
   as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
   $0.005 was accepted and then lost from the lot's cost when stored in
