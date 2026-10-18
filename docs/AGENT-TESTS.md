@@ -874,7 +874,8 @@ Set `KEY` to the key from AI-3, and use
 ### EXP: exploratory (30 minutes)
 
 Use the app as a new owner would, looking for anything wrong: wording that
-contradicts itself or the docs (`startos/instructions.md`, `README.md`),
+contradicts itself or the docs (`startos/instructions.md`, `docs/USING.md`,
+`README.md`),
 layout broken at phone width (375 px) and at 1440 px, keyboard-only use,
 double-clicks on Save, very long or odd input (emoji, 21,000,000 BTC,
 negative numbers, far-future dates), and the back button mid-flow. Report
