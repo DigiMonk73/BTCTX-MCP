@@ -83,7 +83,7 @@ def saved(settings: outbound.NetworkSettings):
 
 
 @pytest.mark.parametrize("choice", [NOBODY, MEMPOOL_NO_BACKUP], ids=["nobody", "mempool, no backup"])
-def test_a_history_download_a_save_stopped_is_asked_again_as_the_new_choice_says(bitstamp, db, caplog, choice):
+def test_the_hours_after_the_files_a_save_stopped_are_asked_again_as_the_new_choice_says(bitstamp, db, caplog, choice):
     """The issue's probe: a choice without public sites is saved as the
     first of three blocks answers. The rest isn't asked, and nothing is
     logged as a failure. Public sites saved again at once: the next lookup
