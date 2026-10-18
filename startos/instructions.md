@@ -30,7 +30,7 @@ You can change the username and password inside BitcoinTX (**Settings > Reset Us
 
 ### Web interface
 
-Record deposits, withdrawals, transfers, buys and sells. Every change recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
+Record deposits, withdrawals, transfers, buys and sells. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
 
 BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 

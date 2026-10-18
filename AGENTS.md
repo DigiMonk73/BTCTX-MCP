@@ -86,14 +86,18 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required), on a branch that's up
+("Protect develop": every job except the macOS build, the macOS
+dependency audit and Python tests (py3.13), which run but aren't
+required), on a branch that's up
 to date with `develop` ("Require branches to be up to date before
 merging", on since 2026-10-17, the owner's choice), so a pull request's
 checks have run on everything already merged.
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
-new job isn't required until it's added there. If unsure, branch from
+new job isn't required until it's added there. A release tag (`v*`) can't
+be moved or deleted by anyone ("Protect release tags", since 2026-10-18,
+the owner's choice), so each release's code stays at its tag to roll back
+to; the release workflow still creates new ones. If unsure, branch from
 `develop` and ask.
 
 ## Before you change…
@@ -467,11 +471,12 @@ from the Transaction row alone.
   browsers stay logged in. Sessions also carry a stamp of the password hash:
   changing the password (Settings or `cli set-password`) or resetting the
   account empties the list and ends every other session. A restore keeps
-  the other browsers' sessions open before it (only while the restored
-  account has the same id), never the backup's list; the restoring browser
-  logs in again. A route that reads `request.session` itself
-  relies on its router's `get_current_user` having cleared an ended session
-  first; outside such a router, use `require_login`.
+  the other browsers' sessions open when it replaces the database (only
+  while the restored account has the same id), never the backup's list;
+  the restoring browser logs in again. A route that reads
+  `request.session` itself relies on its router's `get_current_user`
+  having cleared an ended session first; outside such a router, use
+  `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
   A try counts as a failure from when it arrives (`check()`) until it's
@@ -518,8 +523,10 @@ from the Transaction row alone.
   route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
-  `unexpected_error`). Two kinds still show an error in full, to the owner
-  only: a failure that stops BitcoinTX starting (`init_db`, a migration),
+  `unexpected_error`); a save a restore's swap refused answers `REPLACED`
+  (503, `database.was_replaced`, Python 3.11+) and is logged as a
+  warning. Two kinds still show an error in full, to the owner only: a
+  failure that stops BitcoinTX starting (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot; its Set Login Credentials and
   Recalculate Ledger actions show only the `error:` line, never the SQL
@@ -543,11 +550,18 @@ from the Transaction row alone.
   switch (and the login and price settings in use: an in-app restore never
   brings back a backup's password or its price source). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
-  ordinary tables and indexes is refused, and the database that goes live is
-  made by BitcoinTX's own migrations with only the rows of its own tables
-  and columns copied in, one login, and these settings written and read back
-  before it replaces the live one; any failure leaves the live database as
-  it was and answers in plain words, never SQL
+  ordinary tables and indexes (no generated column, no index on an
+  expression or with a WHERE) is refused, and the database that goes
+  live is made by BitcoinTX's own migrations with only the rows of its
+  own tables and columns copied in, one login, and these settings written
+  and read back before it replaces the live one. The settings are read from the live
+  database at the swap, under its write lock held until the new one is in
+  place (`backup._swap`), so a change saved before is kept and a save that
+  waits for the lock is refused in plain words (SQLite does so in its
+  rollback-journal mode: `database.init_db` puts back in it a database an
+  earlier restore left in write-ahead-log mode, a restore tries again, and
+  stops while something else keeps it in that mode); any failure leaves
+  the live database as it was and answers in plain words, never SQL
   (`services/backup.restore_backup`, `routers/backup._write_kept`).
   It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template
@@ -602,14 +616,14 @@ from the Transaction row alone.
   itself: the CSV and River files 5 MB, read at most to the limit and one
   byte; the restore 1 GiB, copied in 1 MiB pieces until past it. That
   larger allowance is for a logged-in owner's file: only a request whose
-  session cookie is validly signed, unexpired and holds a `user_id` gets
-  it. A new upload route goes in that list.
+  session cookie is validly signed, unexpired, holds a `user_id` and names
+  a session still open gets it. A new upload route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~1,700 hermetic tests (backend + MCP), ~3 min
+make test-fast   # ~3,100 hermetic tests (backend + MCP), ~8 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min

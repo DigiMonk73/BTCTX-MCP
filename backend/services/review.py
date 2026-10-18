@@ -241,8 +241,10 @@ KNOWN_PURPOSES = {"spent", *GIFT_LIKE_PURPOSES}
 EXPLANATIONS: dict[str, tuple[str, ...]] = {
     **REMINDERS,
     "day_priced_values": (
-        "Before this version, a value BitcoinTX filled in itself (income or a rebate left blank, a spend's "
-        "proceeds left blank, a network fee's value) used that day's midnight (UTC) price. IRS rules value "
+        "A value BitcoinTX filled in itself (income or a rebate left blank, a spend's proceeds left blank, a "
+        "gift's, donation's or lost coins' value, a network fee's value) used that day's midnight (UTC) price "
+        "before 1.2.8, and still does when the hour's price isn't available yet (while the hourly history "
+        "downloads, for example). IRS rules value "
         "bitcoin at the date and time of each transaction (Treas. Reg. §1.1001-7(b)(3)); the price when "
         "the transaction's hour began is closer. Nothing changes until you apply it.",
         "A year you haven't filed yet: using the hour is recommended. A year you've already filed: changing "

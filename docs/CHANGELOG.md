@@ -4,6 +4,82 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
+
+**About this release.** 1.2.9 is the stable version of BitcoinTX 1.x.
+From now on, 1.x gets maintenance updates: bug and security fixes, each
+year's IRS forms and the price history's updates, and the few small
+improvements already planned for it. New features go into BitcoinTX 2.0,
+now in the works, which adds several wallets, exchanges and bank accounts,
+each wallet and exchange with its own cost-basis lots (#251). Because 2.0
+changes how the ledger is stored, it will be tested as a beta first, on
+GitHub pre-releases, then on Start9's Community Beta once it's ready,
+before it replaces 1.x. We don't promise dates; until then, 1.2.9 is the
+version to use.
+
+**In short.** 1.2.9 fixes the bugs found in 1.2.8's testing and in the
+reviews since, several of which could make a tax figure wrong (each entry
+marked "tax figures" in this version's list of changes says who could be
+affected and what to do);
+lets an install that uses Tor download the price history once without it,
+if you agree; asks before Delete All wipes the ledger, and keeps a copy
+first; and runs BitcoinTX as its own user instead of root, in Docker and
+on StartOS.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself). A page still open from 1.2.8 can show a date originally
+   acquired or a date of death a day early, and save that day with an edit
+   (#185).
+2. **Open Settings → Ledger Review, then Recalculate Ledger.** "Figures
+   that Recalculate Ledger would change" lists each transaction a
+   recalculation moves, old and new: on most ledgers a cent or two of cost
+   basis (#100, #297), more on a ledger started before 0.9.2 (#61, #342).
+   Then run Settings → Recalculate Ledger; on StartOS a task asks once for
+   its action.
+3. **Check Settings → Tax Timezone** (#334): make sure it's where you
+   file.
+4. **Update the AI connector** to `btctx-mcp==1.2.9` in your AI app's
+   configuration, then restart the AI app.
+5. **Docker:** BitcoinTX now runs as its own user (uid 10001) and gives
+   `/data` to it at each start (#202). If you start the container with
+   `--cap-drop ALL`, with `--user`, with a read-only or network-storage
+   `/data`, or with `DATABASE_FILE` outside `/data`, read #202's entry
+   under Security before updating: in some of those cases it won't start
+   until you change that. Run a maintenance command as that user:
+   `docker exec -u btctx <container> python -m backend.cli …`.
+6. **Updating from 1.2.7 or earlier:** also do what 1.2.8's notes ask (log
+   in again; confirm where prices come from when the Dashboard asks).
+7. Then read the entries marked "tax figures" in this version's list of
+   changes: each says whether there's anything more to do. Most ledgers
+   need nothing more.
+
+**Known issues** (none can make a figure wrong; for the first maintenance
+update):
+- A save made while a long import holds the database answers "Something
+  unexpected went wrong", not that it's busy; nothing was saved, and
+  saving again works (#478).
+- The CSV import's preview counts a row with two errors as two rows
+  (#479).
+- When the River import refuses a typed cell, its message names no row or
+  column (#480).
+- An amount of 10^21 BTC or more, far beyond what exists, is written
+  wrongly (#489).
+- The AI connector's preview note on a dollar row that may already be
+  recorded calls the dollars "BTC" (#525).
+- The sidebar's Sats Converter can show one satoshi too few when a dollar
+  amount comes to exactly halfway between two satoshis; nothing it shows is
+  saved (#529).
+- Saving the tax timezone in Settings, when it fails, says only "Could not
+  save the timezone.", not why; nothing is saved (#533).
+- With your own Mempool, a second price lookup made while the first is still
+  downloading your Mempool's history finds no price; trying again a moment
+  later works (nothing is saved without a price, never at $0) (#535).
+- The browser's Back button leaves an unsaved transaction without asking
+  "Discard changes?", and what you typed is lost; Escape and a click
+  outside the panel do ask (#536).
+
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,
   if you agree** (#241, the owner's decision of 2026-10-16). Through Tor,
@@ -60,15 +136,15 @@ All notable changes to BitcoinTX are documented in this file.
   a release pass and one monthly area, with Claude checking each finding;
   `AGENTS.md` points to it ("Who does what", "Reviews").
 - **StartOS: the store's donation link** (#249): the package's
-  `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
-  with the next package release.
+  `donationUrl` is BitcoinTX's Lightning tipping page, from package
+  1.2.9:0.
 
 ### Changed
 - **The README says what comes after 1.2.9** (#369, #251; "Versions", also
-  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
-  version, with maintenance updates and small improvements after it, until
-  2.0 replaces it;
-  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is the stable version of
+  1.x, with maintenance updates and the few small improvements already
+  planned after it, until 2.0 replaces it;
+  2.0, with several wallets, exchanges and bank accounts, will be tested as
   a beta on GitHub pre-releases before it comes to Start9's Community Beta.
   No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×
@@ -520,9 +596,8 @@ All notable changes to BitcoinTX are documented in this file.
   once per such update, as 1.2.8 meant to, and again after restoring a backup
   on which the recalculation is still due: the task stays until the action
   runs or you dismiss it. If you dismissed it on 1.2.8 without running the
-  action, it comes back once, at the next update. Its text now says to run
-  the Recalculate Ledger action in StartOS once, after Ledger Review. It
-  reaches StartOS with the next package release.
+  action, it comes back once, at the update to 1.2.9. Its text now says to
+  run the Recalculate Ledger action in StartOS once, after Ledger Review.
 - **A transaction naming an account that doesn't exist is named when it
   stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
   naming any account number, even one with no account; and deleting an
@@ -621,7 +696,7 @@ All notable changes to BitcoinTX are documented in this file.
   while a lookup was under way could cause it (they're login only, never
   the AI key), and no figure is affected. Nothing to do.
 - **After you change your Mempool's address, its prices are the new
-  Mempool's** (#473). BitcoinTX keeps your own Mempool's answer for 10
+  Mempool's** (tax figures, #473). BitcoinTX keeps your own Mempool's answer for 10
   minutes, so the day and hour lookups share it. If you changed the
   address while a lookup was still waiting for the old Mempool, and another
   lookup asked the new one before the old one answered, the old one's late
@@ -702,7 +777,7 @@ All notable changes to BitcoinTX are documented in this file.
   **Affected:** no release: telling the AI a duplicate is another
   transaction is new in this version (#253). Nothing to do.
 - **A different transaction of the same amount is no longer skipped as
-  already recorded** (#253). The AI connector (`add_transactions`) and the
+  already recorded** (tax figures, #253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
   of the same kind and BTC amount was recorded within 48 hours, whatever
   its source or value, and skipped it: two Interest payouts of the same
@@ -813,7 +888,7 @@ All notable changes to BitcoinTX are documented in this file.
   yours edits sales through the API, compare each sale's proceeds on the
   Transactions page with your exchange's record (Ledger Review doesn't
   list a sale with $0 proceeds) and correct any that differ.
-- **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
+- **Cost basis is claimed to the cent** (tax figures, #100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
   own, and an exact half cent was rounded down. So a lot's pieces could add
@@ -836,7 +911,7 @@ All notable changes to BitcoinTX are documented in this file.
   lists the transactions it would change first. Any tax year with a lot
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
-- **A Buy is never saved without its cost basis** (#459). The transactions
+- **A Buy is never saved without its cost basis** (tax figures, #459). The transactions
   API saved a Buy sent without a cost basis (every release from 0.8.0, the
   oldest tagged, to 1.2.8). So did an edit that made a transfer, a dollar
   deposit or a dollar withdrawal a Buy without giving one (the same
@@ -863,7 +938,7 @@ All notable changes to BitcoinTX are documented in this file.
   missing basis. A ledger entered only with the form or the imports has
   none.
 - **A dollar deposit moved into Wallet or Exchange BTC asks for the
-  bitcoin's cost** (#517). An edit that moved a dollar deposit into Wallet
+  bitcoin's cost** (tax figures, #517). An edit that moved a dollar deposit into Wallet
   or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
   stored on the dollar deposit as the cost of that bitcoin, without
   asking: $0 on a dollar deposit entered with the form before 0.9.2, or
@@ -891,7 +966,7 @@ All notable changes to BitcoinTX are documented in this file.
   program, check its cost basis. Any tax year in which those coins were
   sold or spent can be affected, and for an income deposit the year it
   was received.
-- **No proceeds row below zero** (#297). When a sale, a spend or a network
+- **No proceeds row below zero** (tax figures, #297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot
   took what was left. The rounded shares could add up to more than the
@@ -1016,7 +1091,8 @@ All notable changes to BitcoinTX are documented in this file.
   does: one dated after the others adds only its own figures, so an older
   row kept its old figures. Editing or deleting any transaction, or
   Recalculate Ledger, applies the newest rules to every row, as both now
-  say.
+  say, and so does the StartOS package's `instructions.md` (it said every
+  change recalculates the whole ledger).
 - **A dollar transfer's Amount (To) counts** (#447). On a dollar transfer
   (Bank → Exchange, or Exchange USD → Bank) the form asked for Amount
   (From), Amount (To) and Fee (USD) but saved only Amount (From) and the
@@ -1088,7 +1164,7 @@ All notable changes to BitcoinTX are documented in this file.
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
 - **A number written with a decimal comma is refused, not read as another
-  number** (#452). The CSV import and the River import dropped every comma
+  number** (tax figures, #452). The CSV import and the River import dropped every comma
   in a number, to allow a thousands separator ("1,000.50"), so a decimal
   comma was dropped too, with no error and no warning: "0,5" BTC was saved
   as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Where a point
@@ -1124,7 +1200,7 @@ All notable changes to BitcoinTX are documented in this file.
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
 - **The CSV import refuses a row with more fields than the header**
-  (#453). A comma outside quotes starts a new field, so an amount written
+  (tax figures, #453). A comma outside quotes starts a new field, so an amount written
   `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
   note with a comma in it, or a doubled comma. Every column after it moved
   one place, and the import read the row so, with no error and no
@@ -1522,6 +1598,14 @@ All notable changes to BitcoinTX are documented in this file.
   package's version (`unknown` when the connector isn't installed).
   Nothing used it: the connector's version notice already read the
   package's version.
+- **The CSV guide and Ledger Review's note on day prices say what 1.2.9
+  does** (the release's docs check). The CSV guide (Data Management →
+  **Instructions**) names the **Template** button, where it said "Download
+  Template", and its Common Errors table quotes the import's own messages.
+  Ledger Review's note on values priced at the day no longer says "Before
+  this version" (it came in 1.2.8), names gifts', donations' and lost
+  coins' values, and says the day's price is still used while the hour's
+  isn't available yet. Wording only.
 
 ### Security
 - **What BitcoinTX sends directly no longer goes through a proxy set for
@@ -1651,6 +1735,13 @@ All notable changes to BitcoinTX are documented in this file.
   long as the others, and with no copy nothing is recalculated or added. An
   import of later entries only, and your own Recalculate Ledger or imports
   (Settings, or StartOS's action), are unchanged.
+- **A restore keeps this install's settings as they are when it replaces
+  the database**: the login, the AI key and its switch, the other
+  browsers' sessions and the price settings are read at that moment, while
+  other saves wait, so a change saved during a restore stays. A save made
+  at that very moment answers that the restore replaced the database, to
+  try again. A backup whose tables work out values with formulas of their
+  own (BitcoinTX's never do) is refused.
 - **The IRS forms and a restore that fail unexpectedly say so in plain
   words** (#422), as the imports now do: never the error's own text, which
   could hold a database query, a server path or a transaction's date; the
@@ -1773,8 +1864,24 @@ All notable changes to BitcoinTX are documented in this file.
   the page; the MCP server's page stays linked.
   `test_startos_docs_link_467.py` checks that each link is a page of this
   repository and that the page about the app has no other install's steps.
+- **Package 1.2.9:0** (Start9's `versions.md`). Its release notes, in five
+  languages, cover everything since 1.2.7:1, which the community registry
+  still serves, so they carry 1.2.8:0's: what to do after updating, each
+  tax-figure fix with who could be affected and what to do, the privacy
+  fixes, what's new, the known issues and what comes next. Its migration
+  raises **Recalculate Ledger** once (#100's and #297's cents, #61's and
+  #342's old withdrawals, #185's lot order within a day and #487's
+  leftover gain reach saved transactions only through a recalculation)
+  and drops the password the store kept (#212). 1.2.8:0's migration, which
+  raises the same task, moves to its own file (`versions/v1.2.8_0.ts`), so
+  an install on 1.2.7:1 or earlier still runs it on the way.
 
 ### Development
+- **Release tags can't be moved or deleted** (AGENTS.md, "Branches"; the
+  owner's choice, 2026-10-18). A GitHub ruleset, "Protect release tags",
+  covers every `v*` tag, and nobody can bypass it: each release's code,
+  1.2.8's included, stays where its tag points, to go back to if a later
+  release breaks something. The release workflow still creates new tags.
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",
   "Pull requests" and "Branches"; `docs/HOW-CHANGES-FLOW.md`; the owner's
   rule, 2026-10-17). Sessions report a pull request "ready" instead of
@@ -1924,6 +2031,22 @@ All notable changes to BitcoinTX are documented in this file.
   own and no longer runs the two removed scripts. `.gitignore` now ignores
   `setup-code.txt` and `*.orig` (a comment after the pattern made it match
   nothing).
+- **Dependencies:** fastapi 0.143.0, pydantic 2.14.1 and pypdf 6.20.0
+  (#225); lucide-react 1.55.0 and react-hook-form 7.90.0, with vite 6.4.4,
+  vitest 5.0.4 and typescript-eslint 8.71.1 for the build and tests
+  (#278); the GitHub Actions group (#223). Nothing BitcoinTX does changes.
+- **The README's screenshots are 1.2.8's** (#244), the same as the landing
+  page's.
+- **A release's notes fit GitHub** (the review of #528). GitHub refuses a
+  release body over 125,000 characters, and 1.2.9's section here is about
+  131,000, so `release.yml` would have failed at the release itself, after
+  PyPI already had `btctx-mcp==1.2.9`. `scripts/release-notes.sh` now builds
+  a release's notes: a section that opens with a summary (text before its
+  first `###` heading) gives that summary and a link to this file at the
+  tag; any other section is given whole, as before. `release.yml` runs it in
+  its first job, so notes still too long stop the run before anything is
+  published; the release job and `scripts/mirror-startos-release.sh` use it.
+  `test_release_workflow.py` checks every section.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 

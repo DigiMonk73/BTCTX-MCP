@@ -39,7 +39,7 @@ feeling.
 
 | Layer | Where | Covers |
 |---|---|---|
-| ~1,700 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
+| ~3,100 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
 | Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
@@ -706,8 +706,8 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
   `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment,fmv_typed`
-  and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
-  export downloaded." appears.
+  and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. Settings'
+  message line says "CSV export downloaded."
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
   password boxes (hidden as typed), then **Download**. Different entries
   in the two boxes say "The two passwords don't match." and download
@@ -753,8 +753,8 @@ Set `KEY` to the key from AI-3, and use
   priced again.
 - **BAK-3** Before restoring, click **New key** and keep the new key (the
   backup holds an older one). **Restore from Backup** with BAK-2's file and
-  the password `wrong-pass`. Expect "Failed to restore backup." with the
-  ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
+  the password `wrong-pass`. Expect "Restore failed: ❌ Failed to decrypt
+  backup. Wrong password?" with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
   successfully restored. Log in again with your current username and
   password.", then the login page. Log in with the login in use before the
   restore (a restore never brings back the backup's password).
@@ -928,8 +928,9 @@ Start from the `clean` snapshot.
   figures, and the output of `curl $API/health`.
 - **UPG-2** Sideload `btctx_x86_64.s9pk` over it. Expect: it updates in
   place, starts healthy, and `$API/health` shows `X.Y.Z` and its
-  schema. The same login works; from 1.2.8, the browser shows the login
-  page once first (every session from before the update ends, #221). Every UPG-1 figure is identical. The AI key
+  schema. The same login works, and a browser logged in before the
+  update stays logged in (updating from 1.2.7 or earlier, it shows the
+  login page once first: every session from before 1.2.8 ends, #221). Every UPG-1 figure is identical. The AI key
   still works. Any tasks raised are only the ones this release's CHANGELOG
   entry announces. INS-5's check that BitcoinTX isn't root passes too
   (from 1.2.9: the update hands the old release's root-owned files to
@@ -955,7 +956,8 @@ Start from the `clean` snapshot.
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.
 - **UPG-6** (#145, confirm once) A pass of its own, after UPG-5: restore
-  the VM's `clean` snapshot, sideload the previous release (1.2.7) and set
+  the VM's `clean` snapshot, sideload 1.2.7 (`btctx.s9pk` of the v1.2.7
+  GitHub release, the last before #145; not the previous release) and set
   its login as in UPG-1. Under 1.2.7: action **Choose in BitcoinTX**, then
   in the app Settings > Privacy & Network choose **Public price sites** and
   save. Sideload the candidate and log in. Expect on the Dashboard the card "Please confirm where
@@ -969,12 +971,13 @@ Start from the `clean` snapshot.
   "You chose this on … in the first-run question." Set the action back to
   **Public price sites**.
 - **UPG-7** (#145, the package asks once) A pass of its own: restore the
-  VM's `clean` snapshot, sideload the previous release (1.2.7), set its
+  VM's `clean` snapshot, sideload 1.2.7 (`btctx.s9pk` of the v1.2.7 GitHub
+  release, the last before #145; not the previous release), set its
   login as in UPG-1, start it, and never run **Price Source & Privacy**.
   Sideload the candidate. Expect the task **Price Source & Privacy**,
   important (not critical): "Prices are now hourly. Check who BitcoinTX
-  asks for newer ones.", and beside it 1.2.8's **Recalculate Ledger**
-  (important). The service keeps running. Dismiss both tasks (`start-cli
+  asks for newer ones.", and beside it **Recalculate Ledger** (important;
+  1.2.8's and this release's migrations both make it due: one task). The service keeps running. Dismiss both tasks (`start-cli
   package action clear-task btctx choose-price-source`, then
   `recalculate-after-0.8.0`), then restart the service and the server:
   neither comes back (#365).
@@ -984,7 +987,8 @@ Start from the `clean` snapshot.
   action may name the choices differently), then sideload the candidate.
   Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
   recorded figure is identical, the login and the AI key still work. UPG-3's
-  exceptions are the CHANGELOG entries of 1.2.6, 1.2.7 and this release.
+  exceptions are the CHANGELOG entries of every release after 1.2.5
+  (1.2.6, 1.2.7, 1.2.8) and of this release.
 
 ## Track C: the Mac app (only on a Mac)
 
@@ -1087,7 +1091,8 @@ page's pictures".
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "111 transactions loaded" (or the count in
+  --password-stdin`. Expect "✓ 118 transactions loaded into
+  http://127.0.0.1:8791 (2023-2026)" (or the count in
   `testdata/reference_ledger.json`). Stop the server. On a copy:
   `python scripts/reference_figures.py --db <copy> --compare
   testdata/reference_figures.json`. Expect "No figure moved.". Save its
@@ -1137,8 +1142,25 @@ old code (AGENTS.md), so the next run of this walk has less to catch.
 
 ## Known issues
 
-Found while this document was written (v1.2.0). Report these as KNOWN.
-Delete a line when its fix is merged into `develop`, since release
-candidates are built from it.
+Open bugs a run may meet (the release's CHANGELOG lists them under Known
+issues). Report these as KNOWN. Delete a line when its fix is merged into
+`develop`, since release candidates are built from it.
 
-None at present.
+- #478: a save made while a long import holds the database answers
+  "Something unexpected went wrong", not that it's busy; nothing was
+  saved, and saving again works.
+- #479: the CSV import's preview counts a row with two errors as two rows.
+- #480: when the River import refuses a typed cell, its message names no
+  row or column.
+- #489: an amount of 10^21 BTC or more is written wrongly.
+- #525: the AI connector's preview note on a dollar row that may already
+  be recorded calls the dollars "BTC".
+- #529: the sidebar's Sats Converter can show one satoshi too few when a
+  dollar amount comes to exactly halfway between two satoshis.
+- #533: saving the tax timezone in Settings, when it fails, says only
+  "Could not save the timezone.", not why.
+- #535: with your own Mempool, a second price lookup made while the first
+  is still downloading the Mempool's history answers "No BTC price is
+  available …" (422); a retry works.
+- #536: the browser's Back button leaves an unsaved transaction without
+  asking "Discard changes?".

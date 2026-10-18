@@ -2,7 +2,7 @@
 
 ## Every request BitcoinTX can make (1.2.8, re-checked for 1.2.9)
 
-The stable candidate's privacy audit (#151; develop 72ba76f, 2026-10-12,
+1.2.8's privacy audit, then planned as the stable version (#151; develop 72ba76f, 2026-10-12,
 re-checked on 16bf055, 2026-10-13; for 1.2.9 on b785a00b, 2026-10-16,
 below the table). It supersedes the 1.2.1 table below
 where they differ (Coinbase and CoinGecko are gone, hourly prices are
@@ -54,7 +54,7 @@ In every run: every Bitstamp `start` was one of the fixed block starts, no reque
 
 Re-checked on develop 16bf055 (2026-10-13): every test named above exists, and their files pass (252 backend + 13 connector tests).
 
-**Re-checked for 1.2.9** (#371; develop b785a00b, 2026-10-16, every change since v1.2.8): the table holds as it is. No new kind of request, and `outbound.py`, `hourly_prices.py` and `mempool_trust.py` are unchanged. What changed: more moments for the same lookups (rows 4 to 7), and new answers and screens that ask nobody:
+**Re-checked for 1.2.9** (#371; develop b785a00b, 2026-10-16, every change from v1.2.8 to then): the table held as it was. No new kind of request, and `outbound.py`, `hourly_prices.py` and `mempool_trust.py` were unchanged then. The later 1.2.9 changes that touch what leaves the machine are in the paragraphs above (#241; #437 with #475; #474) and under "Nothing before the owner chooses" (#461); rows 5 to 7 carry #241's. What changed up to b785a00b: more moments for the same lookups (rows 4 to 7), and new answers and screens that ask nobody:
 - A gift's, donation's or lost coins' value (#255): left blank, it's filled from the price when it's saved, as a blank income value is, and with no price it stays blank; the AI import fills one too (now lost coins as well), in its preview already; Ledger Review shows a blank or $0 one at its hour's price. Each asks as for an income value. A recalculation never prices it.
 - The AI connector's answers and the transactions API (`values_from_price` beside `price_used`) say which price a value came from (#208): read from this install's table and files, never asked.
 - The sidebar's new line (#208) says where the live price it already asks for (rows 1 and 2) came from, and reads the settings; the form's new hint reads only the settings and the price status. Neither asks anybody, and neither do the login's tax-timezone fill (#334) or Delete All (#256) (checked with every connection and DNS lookup blocked).

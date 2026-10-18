@@ -59,8 +59,9 @@ workflow keeps up to date by itself. We don't touch it.)
 4. GitHub runs the full set of tests. A fresh Claude reviewer reads the
    change; Claude fixes what it finds, or answers it on the pull request.
 5. Once the review has nothing open:
-   - **ordinary changes**: Claude turns on *auto-merge*, and GitHub merges
-     it when the tests pass;
+   - **ordinary changes**: Claude brings the branch up to date with
+     `develop` if it's behind, then turns on *auto-merge*, and GitHub
+     merges it when the tests pass;
    - **tax figures or what the app computes, the database, the StartOS
      package, anything that goes to Start9, and releases**: they wait for
      the owner to say **"merge"**.
@@ -71,7 +72,7 @@ A big job (a release, a redesign, research then build) is split up first.
 One main session talks it through with the owner and writes the plan on
 GitHub: an issue for the whole job, an issue for each numbered session
 with its checklist, and a ready-to-paste kickoff prompt on each. The
-owner starts each session from a card or its prompt. Each session
+main session (or the owner) starts each session from a card or its prompt. Each session
 begins from the latest `develop` (never `main`, which lacks what isn't
 released yet) and works through its own checklist, pull request by pull
 request, stopping where the owner decides. A bug found along the way
@@ -90,8 +91,9 @@ grows too long. Details: `AGENTS.md`, "Big work".
 
 ## 2. A release
 
-1. A pull request into `develop` raises the version number everywhere and
-   moves the CHANGELOG's "Unreleased" part under the new version.
+1. A pull request into `develop` raises the version number everywhere,
+   adds the newest hours to the price history (`make prices`), and moves
+   the CHANGELOG's "Unreleased" part under the new version.
 2. When it has merged and the tests pass on `develop`, an AI agent runs the
    release tests (`docs/AGENT-TESTS.md`) on a StartOS test machine. A
    blocker failure stops the release.

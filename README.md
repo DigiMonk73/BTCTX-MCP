@@ -22,7 +22,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 - **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
-  recalculates the whole ledger, so backdated entries come out right.
+  or deletion, and every entry dated before your latest one, recalculates
+  the whole ledger, so backdated entries come out right.
 - **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
   a consolidation (Wallet to Wallet, or between exchanges BitcoinTX counts as
   one) records only its network fee
@@ -43,7 +44,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   second look, including every figure a recalculation would change
 - **Your own node for prices**: point BitcoinTX at your own Mempool
   (Settings → Privacy & Network) and the live price, block height and newer
-  prices come from it; no public site is contacted. Your Mempool has hourly
+  prices come from it; no public site is contacted unless you tick **If it
+  can't answer, ask public price sites**. Your Mempool has hourly
   prices only from when it began recording. A home server's https address
   (a StartOS server's `.local` one from the Mac app, or its LAN IP address)
   works too: the card offers **Trust this server** for its own certificate,
@@ -97,18 +99,18 @@ see [Versions](#versions)).
 
 ## Versions
 
-1.2.9 is planned as BitcoinTX's stable version. After it, until 2.0
-replaces it, we expect 1.x to get maintenance updates: bug and security
-fixes, each year's IRS forms and the price history's update, and a few small
-improvements ([roadmap](docs/ROADMAP.md)).
+1.2.9 is the stable version of BitcoinTX 1.x. From now on, until 2.0
+replaces it, 1.x gets maintenance updates: bug and security fixes, each
+year's IRS forms and the price history's updates, and the few small
+improvements already planned for it ([roadmap](docs/ROADMAP.md)).
 
-The big new work goes into 2.0, planned to add several wallets, exchanges and
-banks, each wallet and exchange with its own cost-basis lots
-([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). Because 2.0
-changes how the ledger is stored, we plan to test it as a beta, on GitHub
-pre-releases, for as long as it needs before it replaces 1.x; on StartOS we
-plan to bring it to Start9's Community Beta only once it's ready. We can't
-promise dates.
+New features go into BitcoinTX 2.0, now in the works, which adds several
+wallets, exchanges and bank accounts, each wallet and exchange with its own
+cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
+Because 2.0 changes how the ledger is stored, it will be tested as a beta
+first, on GitHub pre-releases for as long as it needs, then on StartOS in
+Start9's Community Beta once it's ready, before it replaces 1.x. We don't
+promise dates; until then, 1.2.9 is the version to use.
 
 ## Install
 
@@ -267,7 +269,7 @@ cloud AI only with a test ledger. Setup for local models:
   Connect an AI Assistant → Let AI assistants use BitcoinTX**; turn it off to
   stop the AI.
 - **What the key can do:** read the ledger, add, change or delete single
-  entries, and make a backup copy on the server. It can't log in, change your
+  entries, recalculate the ledger, and make a backup copy on the server. It can't log in, change your
   password, restore a backup, import files or delete everything. In the Mac
   app it works only from that Mac; on Docker and StartOS you can revoke it or
   make a new one in Settings at any time.
@@ -305,7 +307,10 @@ to do.
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
 period are calculated differently; from before v0.9.2, withdrawal fees and
 Lost withdrawals are; from v0.9.2 to v1.2.7, a spend's network fee is (it now
-comes off the spend's proceeds). Either way, stored gains can change. The
+comes off the spend's proceeds); up to v1.2.8, each piece of a lot had its
+cost rounded to the cent on its own, and an old withdrawal of a purpose
+BitcoinTX doesn't list counted as a sale (a recalculation moves a cent or two
+on most ledgers, more on one started before 0.9.2). Either way, stored gains can change. The
 [CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
 release.
 
@@ -326,7 +331,7 @@ pip install -r requirements-dev.txt ./mcp_server
 make hooks        # pre-push gate: lint, static checks, fast tests, smoke test
 make test         # full hermetic suite (temp DB, stubbed prices, no network)
 make e2e          # click-through tests in real browsers (Playwright)
-make check        # everything CI runs except the Docker/macOS builds
+make check        # lint, full tests, smoke test, dependency audit (CI adds the click-through tests, StartOS, Docker and macOS)
 ```
 
 Testing guide: [docs/TESTING.md](docs/TESTING.md). Architecture and

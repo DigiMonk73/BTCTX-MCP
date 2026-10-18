@@ -40,6 +40,9 @@ cleanup commit, never inside a behaviour change.
    - A saved purpose or source: compared through `constants.normalized`
      (lowercase, trimmed, as the screens read it), never `.lower()` alone,
      and in Python rather than SQL (#342).
+   - SQLite's write lock: taken with `database.take_write_lock`, and "the
+     database is locked" recognised with `database.is_busy` (#402), never
+     a copy of their lines.
    - Logs: no amounts, dates or addresses at INFO or above
      (`test_privacy.py`); no DEBUG line that only echoes a function's input
      or every row.
