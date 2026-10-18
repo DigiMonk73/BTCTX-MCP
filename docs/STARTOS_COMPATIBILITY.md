@@ -60,13 +60,15 @@ unchanged, and the data folder must be theirs.
 `docker exec -u btctx <container> python -m backend.cli …`. A file a root
 command creates in `/data` stays root's until the next start gives it back.
 
-StartOS doesn't use the entrypoint: the package runs each step itself
-(`startos/startos/main.ts`, Start9's `main.md`, "Oneshots"): a `chown`
-oneshot as root at every start, then the migrate step as `btctx`, then the
-web server through the same `setpriv` drop (`asAppUser` in `utils.ts`). Every
-`backend.cli` command an action or init runs (`runAppCli`) gives the volume to
-`btctx` first, as root, then runs as `btctx`: an action may run before the
-first start after an update or a restore.
+StartOS runs every step through the same entrypoint, as root, the image's
+user (#464; `startos/startos/main.ts`, Start9's `main.md`, "Using Upstream
+Entrypoint"): the migrate step (`sdk.useEntrypoint` with `python -m
+backend.cli migrate`), then the web server (`sdk.useEntrypoint()`: the
+image's `CMD`). Every `backend.cli` command an action or init runs
+(`runAppCli` in `utils.ts`) goes through `docker-entrypoint.sh` too, so an
+action that runs before the first start after an update or a restore (when
+the volume is still root's) hands it over the same way. The package keeps no
+copy of the drop to `btctx`.
 
 ```
 /app/backend/          application code (ephemeral, replaced on update)
@@ -202,14 +204,18 @@ checks the names agree). Docker users may set them the same way.
 
 Change these only together with the package (`startos/`):
 
-- **Entry point and port:** `backend.main:app`, plain HTTP on port 80.
-- **User:** the image has the user `btctx` (uid and gid 10001) and `setpriv`
-  (util-linux, in the base image); the package runs every step as `btctx`,
-  after giving it `/data` as root ("The app's user", above).
+- **Entry point and port:** `backend.main:app`, plain HTTP on port 80, as
+  the image's `CMD` starts it.
+- **User:** the image has the user `btctx` (uid and gid 10001), `setpriv`
+  (util-linux, in the base image), no `USER` line, and its `ENTRYPOINT`
+  `docker-entrypoint.sh`, which the package runs for every step: it gives
+  `/data` to `btctx` when needed and runs the command as `btctx` ("The app's
+  user", above). The web server is the image's `CMD`.
 - **Health:** `GET /api/health` (no login) answers 200 with
   `{"status": "ok", "version", "schema"}` when the database is reachable at
   the current schema, 503 otherwise. The package's health check requires 200.
-- **App location:** code at `/app` in the image, `VERSION` at `/app/VERSION`.
+- **App location:** code at `/app` in the image (its `WORKDIR`, where every
+  step runs), `VERSION` at `/app/VERSION`.
 - **Maintenance CLI** (`backend/cli.py`, run from `/app`):
   - `python -m backend.cli migrate`: schema upgrade + default user/accounts;
     the package runs it as a oneshot before the web server starts.
