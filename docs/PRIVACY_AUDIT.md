@@ -104,7 +104,7 @@ minor, and some things that are only documented.
 | 3e | Deleted rows stay in the SQLite file | **fixed** (secure_delete) | no `secure_delete`, no VACUUM | |
 | 3f | File permissions | no leak | database, secret key, setup code, `mcp.json`: 0600 | VM (`/data` listing) |
 | 3g | Docker `/data` is `chmod 777` | **fixed** (700) | cosmetic in a root-only container | |
-| 3h | StartOS backup contents | documented only | the database, secret key, plain copies, and `store.json` with the generated password in clear (stale once changed) | |
+| 3h | StartOS backup contents | **fixed** (`store.json` keeps only whether a login was set, #212; a backup made before keeps its copy, encrypted by StartOS) | the database, secret key, plain copies, and `store.json` with the generated password in clear (stale once changed) | VM (#484) |
 | 4a | What the AI provider sees | documented only | the whole ledger through the tools, plus the tax timezone; warned in four places | VM (AI-1) |
 | 4b | Setup prompt contains the server address | documented only | a LAN or `.onion` address and the app version go to the provider when pasted | VM |
 | 4c | AI key over `http://` | **warned** (owner: connector warns once) | no scheme check in the connector; the README's own example is `http://192.168.1.50:8080` | |
