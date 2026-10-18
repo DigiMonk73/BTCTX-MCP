@@ -35,8 +35,8 @@ password.
 | `BTCTX_CA_BUNDLE` | Only for an `https://` address on their network (StartOS): full path to the server's root CA certificate file (section 1 says where to get it) |
 | Server command | `uvx btctx-mcp==X.Y.Z` (PyPI), with the version from their prompt (their BitcoinTX version), so the server matches their BitcoinTX |
 
-Never use their BitcoinTX password: the server refuses to run while
-`BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing
+Never use their BitcoinTX password: the server answers every tool with a
+refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
@@ -84,8 +84,8 @@ AI assistants use BitcoinTX** (off by default); ask them to.
 - **Any other MCP client:** command `uvx`, arguments
   `["btctx-mcp==X.Y.Z"]`, no environment variables.
 
-If the user had set it up with a password before (the server now refuses to
-run while `BTCTX_PASSWORD` is set): remove the
+If the user had set it up with a password before (the server answers every
+tool with a refusal, sending nothing, while `BTCTX_PASSWORD` is set): remove the
 `BTCTX_URL`/`BTCTX_USERNAME`/`BTCTX_PASSWORD` lines (or remove the server and
 add it again with the command above), check a read works (section 4), then
 suggest they change their BitcoinTX password, since the old one sat in a
@@ -196,7 +196,7 @@ BitcoinTX upgrade.
 | `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
 | `BitcoinTX no longer uses your password …` | The configuration still has `BTCTX_PASSWORD`: section 3 |
 | `AI access is turned off` | Off by default: the user turns on **Let AI assistants use BitcoinTX** in BitcoinTX **Settings → Connect an AI Assistant** |
-| `AI key not accepted …` | The placeholder is still there, the key was copied wrong, or it was replaced or revoked: the user makes a new one (**New key**) |
+| `AI key not accepted …` | The placeholder is still there, the key was copied wrong, or it was replaced or revoked: the user makes a new one (**New key**, or **Create AI key** after a revoke; in the Mac app, **Reset key**) |
 | `… the AI key can't do this …` | On purpose (logging in, passwords, restore, imports, delete-all, settings): the user does it in BitcoinTX itself |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | `… no /api/import/entries endpoint`, or a 404 from `review_ledger` or `backup_ledger` | BitcoinTX is older than the server: update BitcoinTX, or pin the server to its version |

@@ -71,6 +71,8 @@ update):
 - The sidebar's Sats Converter can show one satoshi too few when a dollar
   amount comes to exactly halfway between two satoshis; nothing it shows is
   saved (#529).
+- Saving the tax timezone in Settings, when it fails, says only "Could not
+  save the timezone.", not why; nothing is saved (#533).
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,
@@ -128,8 +130,8 @@ update):
   a release pass and one monthly area, with Claude checking each finding;
   `AGENTS.md` points to it ("Who does what", "Reviews").
 - **StartOS: the store's donation link** (#249): the package's
-  `donationUrl` is BitcoinTX's Lightning tipping page. It reaches StartOS
-  with the next package release.
+  `donationUrl` is BitcoinTX's Lightning tipping page, from package
+  1.2.9:0.
 
 ### Changed
 - **The README says what comes after 1.2.9** (#369, #251; "Versions", also
@@ -588,9 +590,8 @@ update):
   once per such update, as 1.2.8 meant to, and again after restoring a backup
   on which the recalculation is still due: the task stays until the action
   runs or you dismiss it. If you dismissed it on 1.2.8 without running the
-  action, it comes back once, at the next update. Its text now says to run
-  the Recalculate Ledger action in StartOS once, after Ledger Review. It
-  reaches StartOS with the next package release.
+  action, it comes back once, at the update to 1.2.9. Its text now says to
+  run the Recalculate Ledger action in StartOS once, after Ledger Review.
 - **A transaction naming an account that doesn't exist is named when it
   stops a save** (#337). Before 0.9.2, BitcoinTX saved a transaction
   naming any account number, even one with no account; and deleting an
@@ -689,7 +690,7 @@ update):
   while a lookup was under way could cause it (they're login only, never
   the AI key), and no figure is affected. Nothing to do.
 - **After you change your Mempool's address, its prices are the new
-  Mempool's** (#473). BitcoinTX keeps your own Mempool's answer for 10
+  Mempool's** (tax figures, #473). BitcoinTX keeps your own Mempool's answer for 10
   minutes, so the day and hour lookups share it. If you changed the
   address while a lookup was still waiting for the old Mempool, and another
   lookup asked the new one before the old one answered, the old one's late
@@ -770,7 +771,7 @@ update):
   **Affected:** no release: telling the AI a duplicate is another
   transaction is new in this version (#253). Nothing to do.
 - **A different transaction of the same amount is no longer skipped as
-  already recorded** (#253). The AI connector (`add_transactions`) and the
+  already recorded** (tax figures, #253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one
   of the same kind and BTC amount was recorded within 48 hours, whatever
   its source or value, and skipped it: two Interest payouts of the same
@@ -881,7 +882,7 @@ update):
   yours edits sales through the API, compare each sale's proceeds on the
   Transactions page with your exchange's record (Ledger Review doesn't
   list a sale with $0 proceeds) and correct any that differ.
-- **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
+- **Cost basis is claimed to the cent** (tax figures, #100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
   own, and an exact half cent was rounded down. So a lot's pieces could add
@@ -904,7 +905,7 @@ update):
   lists the transactions it would change first. Any tax year with a lot
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
-- **A Buy is never saved without its cost basis** (#459). The transactions
+- **A Buy is never saved without its cost basis** (tax figures, #459). The transactions
   API saved a Buy sent without a cost basis (every release from 0.8.0, the
   oldest tagged, to 1.2.8). So did an edit that made a transfer, a dollar
   deposit or a dollar withdrawal a Buy without giving one (the same
@@ -931,7 +932,7 @@ update):
   missing basis. A ledger entered only with the form or the imports has
   none.
 - **A dollar deposit moved into Wallet or Exchange BTC asks for the
-  bitcoin's cost** (#517). An edit that moved a dollar deposit into Wallet
+  bitcoin's cost** (tax figures, #517). An edit that moved a dollar deposit into Wallet
   or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
   stored on the dollar deposit as the cost of that bitcoin, without
   asking: $0 on a dollar deposit entered with the form before 0.9.2, or
@@ -959,7 +960,7 @@ update):
   program, check its cost basis. Any tax year in which those coins were
   sold or spent can be affected, and for an income deposit the year it
   was received.
-- **No proceeds row below zero** (#297). When a sale, a spend or a network
+- **No proceeds row below zero** (tax figures, #297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot
   took what was left. The rounded shares could add up to more than the
@@ -1157,7 +1158,7 @@ update):
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
 - **A number written with a decimal comma is refused, not read as another
-  number** (#452). The CSV import and the River import dropped every comma
+  number** (tax figures, #452). The CSV import and the River import dropped every comma
   in a number, to allow a thousands separator ("1,000.50"), so a decimal
   comma was dropped too, with no error and no warning: "0,5" BTC was saved
   as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Where a point
@@ -1193,7 +1194,7 @@ update):
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
 - **The CSV import refuses a row with more fields than the header**
-  (#453). A comma outside quotes starts a new field, so an amount written
+  (tax figures, #453). A comma outside quotes starts a new field, so an amount written
   `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
   note with a comma in it, or a doubled comma. Every column after it moved
   one place, and the import read the row so, with no error and no
@@ -1591,6 +1592,14 @@ update):
   package's version (`unknown` when the connector isn't installed).
   Nothing used it: the connector's version notice already read the
   package's version.
+- **The CSV guide and Ledger Review's note on day prices say what 1.2.9
+  does** (the release's docs check). The CSV guide (Data Management →
+  **Instructions**) names the **Template** button, where it said "Download
+  Template", and its Common Errors table quotes the import's own messages.
+  Ledger Review's note on values priced at the day no longer says "Before
+  this version" (it came in 1.2.8), names gifts', donations' and lost
+  coins' values, and says the day's price is still used while the hour's
+  isn't available yet. Wording only.
 
 ### Security
 - **What BitcoinTX sends directly no longer goes through a proxy set for
@@ -2016,6 +2025,12 @@ update):
   own and no longer runs the two removed scripts. `.gitignore` now ignores
   `setup-code.txt` and `*.orig` (a comment after the pattern made it match
   nothing).
+- **Dependencies:** fastapi 0.143.0, pydantic 2.14.1 and pypdf 6.20.0
+  (#225); lucide-react 1.55.0 and react-hook-form 7.90.0, with vite 6.4.4,
+  vitest 5.0.4 and typescript-eslint 8.71.1 for the build and tests
+  (#278); the GitHub Actions group (#223). Nothing BitcoinTX does changes.
+- **The README's screenshots are 1.2.8's** (#244), the same as the landing
+  page's.
 - **A release's notes fit GitHub** (the review of #528). GitHub refuses a
   release body over 125,000 characters, and 1.2.9's section here is about
   131,000, so `release.yml` would have failed at the release itself, after

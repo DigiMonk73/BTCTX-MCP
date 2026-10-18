@@ -186,7 +186,7 @@ oneshot, Recalculate Ledger), and so does `docker exec`.
 | `BTCTX_PRICE_SOURCE` | `off`, `public` or `mempool`; unset or empty: Settings decide |
 | `BTCTX_MEMPOOL_URL` | the mempool server, `http(s)://host:port`; may be empty with `mempool` (then nothing answers but the fallback, and the app says Mempool isn't available) |
 | `BTCTX_MEMPOOL_FALLBACK` | `on`/`off` (also true/false, 1/0, yes/no): ask public sites when the mempool server can't answer |
-| `BTCTX_PROXY_URL` | proxy for public sites, e.g. `socks5h://10.0.3.1:9050` |
+| `BTCTX_PROXY_URL` | proxy for public sites, e.g. `socks5h://10.0.3.1:9050` (except, after the owner's Yes to downloading the price history without Tor, Bitstamp's fixed-block history, #241) |
 
 An invalid value turns price lookups off (an error in the log says which;
 `GET /api/settings/network` says `"invalid": true`).
@@ -194,7 +194,9 @@ An invalid value turns price lookups off (an error in the log says which;
 `BTCTX_TOR_PROXY_URL` (new in 1.2.8, #145): Tor on the
 server for a choice made in the app (StartOS: the action's *Use Tor* with
 *Decide in BitcoinTX instead*). It carries every request that goes through a proxy
-(public sites, an .onion Mempool) and Settings shows it locked on, while
+(public sites, an .onion Mempool; except, after the owner's Yes to
+downloading the price history without Tor, Bitstamp's fixed-block history,
+#241) and Settings shows it locked on, while
 the rest of the choice stays the owner's; their own proxy setting is kept
 underneath. Ignored when `BTCTX_PRICE_SOURCE` is set (`BTCTX_PROXY_URL`
 decides then). An invalid one asks nobody (an error in the log, and the
@@ -240,7 +242,7 @@ Change these only together with the package (`startos/`):
     to 1.2.0 uses it to retire old default logins.
   - `python -m backend.cli recalculate`: rebuilds the ledger; the Recalculate
     Ledger action (run with the price variables above, as it may look up a
-    missing day's price).
+    missing value's price at its hour, else its day).
   - `python -m backend.cli review [--apply-hourly-prices YEAR]`: the
     Ledger Review, read-only unless `--apply-hourly-prices` (that tax
     year's values priced at the day, at their hour, after a backup copy);

@@ -11,7 +11,7 @@ The goal (owner, 2026-10-11): a stable release several months before the
 Registry, then maintenance only. The plan and its checklist are #143. The
 version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
 every bug found in 1.2.8's user test and in the reviews since, is the stable
-version of 1.x (#369; it ships with six minor known issues, none of which
+version of 1.x (#369; it ships with seven minor known issues, none of which
 can make a figure wrong, listed in its release notes); it gets the 14 days
 on Community Beta and the promotion request (1.2.8 isn't promoted).
 Nothing that changes the package goes to Start9 during that test, so what's
@@ -27,12 +27,6 @@ new features go into 2.0, below. No dates are promised.
       promotion request (the owner's OK).
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
-- [ ] **Price sources: one clear, simple choice everywhere** (#145): built:
-      one price card (your own Mempool, public sites, or nobody, optionally
-      through Tor), a status line, confirm once after the update, and each
-      value's source shown; StartOS asks at install; its six small pieces
-      shipped in 1.2.9 (#208). Waiting on the owner: the landing page's
-      words (#145).
 
 ## Soon
 
@@ -41,9 +35,10 @@ new features go into 2.0, below. No dates are promised.
       cost for that sale, and Form 8949 shows them with the IRS's code and
       correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
       report and the guide say when. Generic, not tied to one exchange.
-- [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
-      backup password), like the one for Delete All and Create account
-      (#256, in 1.2.9).
+- [ ] Styled dialogs instead of the browser's confirm boxes (deleting a
+      transaction, the CSV and River imports, Ledger Review's apply, Reset
+      Username & Password, logging out, the AI key), like the one for
+      Delete All and Create account (#256, in 1.2.9).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
@@ -63,8 +58,7 @@ new features go into 2.0, below. No dates are promised.
       CHANGELOG (`release.yml`'s version check and release notes,
       `scripts/mirror-startos-release.sh`), the pull request template, and
       the docs that say to edit it (AGENTS.md "Releasing", MAINTENANCE,
-      TESTING, `startos/UPDATING.md`), so it waits until the candidate is
-      out.
+      TESTING, `startos/UPDATING.md`), so it waits until 1.2.9 is out.
 
 ## Later
 

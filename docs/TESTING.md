@@ -19,7 +19,7 @@ make hooks          # installs the pre-push gate
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
 | Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
-| Unit + integration | `make test-fast` | ~1,700 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
+| Unit + integration | `make test-fast` | ~3,100 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~8 min |
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~5 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
@@ -44,9 +44,12 @@ make hooks          # installs the pre-push gate
 - **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
   start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
+  Monthly, `price-history-watch.yml` checks that Bitstamp still gives every
+  year of the hourly price history as fingerprinted, and opens an issue if not.
 - **On the same runs** (or manually from the Actions tab), not a required check: builds the macOS
   app, launches it, checks its API answers on `127.0.0.1:8765`, and attaches the
-  zipped `.app` to the run.
+  zipped `.app` and an unsigned `.dmg` to the run; `audit-macos` audits the
+  Mac app's dependency locks.
 
 ## Writing a new test
 

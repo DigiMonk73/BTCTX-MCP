@@ -159,7 +159,7 @@ deletes it).
 
 | Variable | Meaning |
 |----------|---------|
-| `BTCTX_URL` | Where BitcoinTX is reachable: Docker the host and port you published, e.g. `http://localhost:8080` (from another machine, an `https://` address: over plain `http://` the key and your ledger cross the network unencrypted, and the connector warns in its log); StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000` |
+| `BTCTX_URL` | Where BitcoinTX is reachable: Docker the host and port you published, e.g. `http://localhost:8080` (from another machine, an `https://` address: over plain `http://` the key and your ledger cross the network unencrypted, and the connector warns in its log); StartOS the **MCP API** address from the service's Interfaces (`https://….local/api`; the **Connect an AI Assistant** action shows it with a ready-made config); from source `http://localhost:8000`. A localhost or home-network address is reached directly, never through a proxy set for the whole machine (#474) |
 | `BTCTX_AI_KEY` | The AI key. Put it in the configuration file, not in a chat or a shell command (which stays in the history) |
 | `BTCTX_VERIFY_TLS` | `false` to accept a self-signed certificate (StartOS `.local` addresses) |
 | `BTCTX_CA_BUNDLE` | Or: path to the CA certificate that signed it (StartOS lets you download its root CA). Safer than disabling verification |

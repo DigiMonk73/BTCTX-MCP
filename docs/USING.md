@@ -36,8 +36,9 @@ for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
 
 ## Transactions
 
-There are five kinds. Every edit recalculates the whole ledger, so
-backdated entries come out right.
+There are five kinds. Every edit or deletion, and every entry dated
+before your latest one, recalculates the whole ledger, so backdated
+entries come out right.
 
 - **Deposit**: dollars into Bank or Exchange USD, or bitcoin into Wallet or
   Exchange BTC. A bitcoin deposit's **Source** decides its cost basis:
@@ -64,8 +65,8 @@ backdated entries come out right.
 - **Withdrawal**: money leaving to External. A bitcoin withdrawal's
   **Purpose** decides how it's taxed: **Spent** is a disposal at its
   proceeds (left blank, the value at the hour's price); **Gift**,
-  **Donation** and **Lost** aren't sales, so their value is recorded but is
-  never part of a gain. A bitcoin network fee is on top of the amount and
+  **Donation** and **Lost** aren't sales, so their value (left blank, the
+  value at the hour's price) is recorded but is never part of a gain. A bitcoin network fee is on top of the amount and
   is a disposal of its own (for a spend, it comes off the proceeds).
 - **Transfer**: a move between your own accounts, such as Exchange BTC to
   Wallet. A bitcoin transfer's amount is what left, network fee included;

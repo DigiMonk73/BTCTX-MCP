@@ -244,9 +244,10 @@ nothing.
   **When you add a backend module or a dependency, add it here** or the bundled
   app may fail at import time even though dev runs work.
 - **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
-- **Bundle:** `org.bitcointx.desktop`, version from `VERSION`
-  (`CFBundleVersion` / `CFBundleShortVersionString`; bump both on release,
-  `backend/tests/test_versions_agree.py` checks), minimum macOS 10.15,
+- **Bundle:** `org.bitcointx.desktop`, its version typed into
+  `BitcoinTX.spec` (`CFBundleVersion` / `CFBundleShortVersionString`; bump
+  both on release; `backend/tests/test_versions_agree.py` checks they match
+  `VERSION`), minimum macOS 10.15,
   dark mode supported.
 
 ## Using the MCP server with the Mac app
@@ -262,7 +263,7 @@ run of the app; an AI app left open across a restart carries on by itself,
 since the MCP server rereads the file when its key is refused. A restore
 keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
-tools use (`AI_KEY_ROUTES`; login, backup/restore, imports, delete-all, the
+tools use (`AI_KEY_ROUTES`; login, backup/restore, file imports (CSV, River), delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
 running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 
@@ -275,7 +276,7 @@ newest in the test matrix, which tests it; Docker and StartOS run 3.13 too. It
 never takes whichever Python the runner has. It launches the bundled binary,
 checks it answers on `http://127.0.0.1:8765/` and that
 `/api/import/entries/preview` returns 401 without a login, then uploads the
-zipped `.app` as a build artifact.
+zipped `.app` and an unsigned `.dmg` as a build artifact.
 
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
 the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,

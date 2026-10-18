@@ -86,8 +86,9 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required), on a branch that's up
+("Protect develop": every job except the macOS build, the macOS
+dependency audit and Python tests (py3.13), which run but aren't
+required), on a branch that's up
 to date with `develop` ("Require branches to be up to date before
 merging", on since 2026-10-17, the owner's choice), so a pull request's
 checks have run on everything already merged.
@@ -615,14 +616,14 @@ from the Transaction row alone.
   itself: the CSV and River files 5 MB, read at most to the limit and one
   byte; the restore 1 GiB, copied in 1 MiB pieces until past it. That
   larger allowance is for a logged-in owner's file: only a request whose
-  session cookie is validly signed, unexpired and holds a `user_id` gets
-  it. A new upload route goes in that list.
+  session cookie is validly signed, unexpired, holds a `user_id` and names
+  a session still open gets it. A new upload route goes in that list.
 
 ## Testing (see `docs/TESTING.md`)
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~1,700 hermetic tests (backend + MCP), ~3 min
+make test-fast   # ~3,100 hermetic tests (backend + MCP), ~8 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
