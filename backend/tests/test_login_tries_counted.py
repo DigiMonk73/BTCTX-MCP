@@ -87,8 +87,8 @@ def login_from(host: str, body: dict = WRONG, cookies: dict | None = None):
 
 def hold_logins(monkeypatch) -> HeldChecks:
     """Before a login's user is looked up: a held try then keeps no
-    connection to the database, which has fewer than there are tries (a
-    known browser's cookie was checked against it, briefly, before)."""
+    connection to the database, which has fewer than there are tries (one
+    with a device cookie keeps the one its check took; at most 5 are held)."""
     held = HeldChecks(main_module.get_user_by_username)
     monkeypatch.setattr(main_module, "get_user_by_username", held)
     return held

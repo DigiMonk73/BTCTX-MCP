@@ -87,7 +87,8 @@ moves these breaks or silently weakens a test):
   server).
 - **Private names tests import**: `csv_import._validate_row`, `csv_import._cell`,
   `form_8949._determine_box`, `routers.backup._copy_at_most`,
-  `transaction.holding_period`, `login_throttle._clients` (its bound).
+  `transaction.holding_period`, `login_throttle._clients` (its bound, and a
+  client's count) and `login_throttle._recent` (the count across clients).
 - **Text `pre_commit_tests.py` looks for**: in `transaction.py`
   (`def recalculate_all_transactions`, `order_by`, `timestamp`,
   `tx.proceeds_usd`, `backdated`), the CSV column names as literals in
