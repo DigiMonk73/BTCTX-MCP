@@ -140,14 +140,14 @@ TIMEZONE_KEPT = (
 )
 
 
-def _in_use(db: Session, request: Request) -> dict:
+def _in_use(db: Session, own: str | None) -> dict:
     """What a restore keeps from this install: the login, the AI key and
-    switch, the price settings, and the sessions open in other browsers
-    (this one logs in again: the restored database may have other user ids).
-    The backup's own list of sessions never comes back, so a session that
-    ended since it was made stays ended. The tax timezone is the backup's,
-    unless tzdata doesn't name it: then this install's (#407)."""
-    own = session_auth.session_hash(request)
+    switch, the price settings, and the sessions open in other browsers than
+    the restoring one, `own` (it logs in again: the restored database may
+    have other user ids). The backup's own list of sessions never comes
+    back, so a session that ended since it was made stays ended. The tax
+    timezone is the backup's, unless tzdata doesn't name it: then this
+    install's (#407)."""
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
             "sessions": sessions, "timezone": _stored_tax_timezone(db)}
@@ -158,16 +158,23 @@ def _login_in_use(db: Session) -> tuple | None:
     return (user.username, user.password_hash) if user else None
 
 
-def _write_kept(kept: dict, notices: list[str], restored: Session) -> None:
+def _write_kept(own: str | None, notices: list[str], live: Session | None, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
     the restored database before it replaces the live one, and its tax
     timezone in place of a backup's tzdata doesn't name (added to
     `notices`, #407), then read them back from the file, with its one
-    login. An error, or a value that doesn't read back as written, stops
+    login. They're read from the live database just before the swap, under
+    its write lock (services/backup.py), so a change saved while the restore
+    ran is kept. No live database to read them from (DATABASE_URL names
+    another), an error, or a value that doesn't read back as written, stops
     the restore with the live database untouched (#201).
     """
+    if live is None:
+        logger.error("Restore stopped: there's no database at DATABASE_FILE to keep this install's settings from")
+        raise ValueError(NOT_KEPT)
     try:
+        kept = _in_use(live, own)
         outbound.carry_over(restored, kept["prices"])
         ai_key.carry_over(restored, kept["ai"])
         _keep_login(restored, kept["login"])
@@ -284,7 +291,7 @@ def restore_encrypted_backup(
     if file.size is not None and file.size > MAX_RESTORE_BYTES:
         raise HTTPException(status_code=413, detail=RESTORE_TOO_LARGE)
     temp_path = None
-    kept = _in_use(db, request)
+    own = session_auth.session_hash(request)
     notices: list[str] = []
     db.close()  # this request holds no connection to the database being replaced
     try:
@@ -292,7 +299,7 @@ def restore_encrypted_backup(
             temp_path = Path(temp_file.name)
             _copy_at_most(file.file, temp_file, MAX_RESTORE_BYTES)
 
-        restore_backup(password, temp_path, carry_over=partial(_write_kept, kept, notices))
+        restore_backup(password, temp_path, carry_over=partial(_write_kept, own, notices))
         _refresh_after_restore(db)
 
         # Clear session - the restored database may have different user IDs

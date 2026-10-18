@@ -379,9 +379,8 @@ def test_the_answer_survives_a_restart_and_a_restore(world, auth_client, test_en
     assert (record["answer"], record["via"]) == ("yes", "settings")
 
     def restore_old_backup(password, path, carry_over):  # a backup from before the answer
-        with test_engine.begin() as conn:
+        with keep_in_use(test_engine, carry_over), test_engine.begin() as conn:
             conn.execute(text("DELETE FROM app_settings WHERE key LIKE 'history_without_tor%'"))
-        keep_in_use(test_engine, carry_over)
 
     monkeypatch.setattr(backup, "restore_backup", restore_old_backup)
     r = auth_client.post("/api/backup/restore", data={"password": "pw"}, files={"file": ("b.btx", b"x")})

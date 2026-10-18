@@ -11,13 +11,14 @@ import pytest
 import shutil
 import subprocess
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-from backend.database import get_db, seed_defaults
+from backend.database import get_db, scratch_copy, seed_defaults
 from backend.migrate import upgrade_database
 from backend.main import app
 
@@ -232,17 +233,22 @@ def init_test_db(engine):
     seed_defaults(engine)
 
 
+@contextmanager
 def keep_in_use(engine, carry_over):
     """
-    For a test's stand-in for services.backup.restore_backup that changes the
-    test database as a backup's would: write what the install keeps into it
-    through the carry-over the restore route passes, as restore_backup does
-    to the restored database before it goes live.
+    For a test's stand-in for services.backup.restore_backup: the block
+    changes the test database as a backup's would, then what the install
+    keeps is written into it through the carry-over the restore route
+    passes, read from the database as it was before the block, as
+    restore_backup reads it from the live database just before the
+    restored one replaces it.
     """
     from sqlalchemy.orm import Session
 
-    with Session(engine) as restored:
-        carry_over(restored)
+    with Session(engine) as db, scratch_copy(db) as live:
+        yield
+        with Session(engine) as restored:
+            carry_over(live, restored)
 
 
 def temp_db_file() -> str:

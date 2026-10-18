@@ -522,10 +522,13 @@ def test_files_a_restore_cut_short_left_are_removed_before_the_next(live, tmp_pa
 def test_no_write_ahead_log_stays_beside_the_live_database(live, tmp_path):
     """
     A backup in write-ahead-log mode restores into the migrations' own
-    rollback journal. And a live database left in that mode by an earlier
-    restore, with a connection still holding writes in its log, leaves no
-    -wal or -shm file beside the new one: opened with it, that log would be
-    read as the new database's.
+    rollback journal. A live database left in that mode by an earlier
+    restore, with a connection still holding writes in its log, isn't
+    replaced while that connection keeps it so (a save waiting at the swap
+    would go into the log, answered as saved); once it's closed, the
+    restore switches it to the rollback journal and goes through, leaving
+    no -wal or -shm file beside the new one: opened with it, that log would
+    be read as the new database's.
     """
     with live.engine.connect() as conn:
         conn.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -537,19 +540,24 @@ def test_no_write_ahead_log_stays_beside_the_live_database(live, tmp_path):
     con.execute("PRAGMA journal_mode=WAL")
     con.close()
     assert path.read_bytes()[18:20] == b"\x02\x02"
+    blob = _sealed(path.read_bytes())
     try:
-        r = _restore(live.client, _sealed(path.read_bytes()))
-
-        assert r.status_code == 200, r.text
-        assert _side_files(live) == [] and _temp_files(live) == []
-        assert live.path.read_bytes()[18:20] == b"\x01\x01"  # rollback journal
-        assert _logs_in(live.client, OWNER)
-        assert _amounts(live.engine) == [2.0]
-        with live.engine.connect() as conn:
-            assert conn.exec_driver_sql("PRAGMA integrity_check").scalar() == "ok"
-            assert conn.exec_driver_sql("SELECT count(*) FROM app_settings WHERE key = 'written_before'").scalar() == 0
+        r = _restore(live.client, blob)
+        assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.OLD_JOURNAL
+        assert _amounts(live.engine) == [1.0, 0.5]
     finally:
         held.close()
+
+    r = _restore(live.client, blob)
+
+    assert r.status_code == 200, r.text
+    assert _side_files(live) == [] and _temp_files(live) == []
+    assert live.path.read_bytes()[18:20] == b"\x01\x01"  # rollback journal
+    assert _logs_in(live.client, OWNER)
+    assert _amounts(live.engine) == [2.0]
+    with live.engine.connect() as conn:
+        assert conn.exec_driver_sql("PRAGMA integrity_check").scalar() == "ok"
+        assert conn.exec_driver_sql("SELECT count(*) FROM app_settings WHERE key = 'written_before'").scalar() == 0
     kept = next((live.path.parent / "backups").glob("btctx-before-restore-*.db"))
     with closing(sqlite3.connect(kept)) as copy:  # the pre-restore copy has what the log held
         assert copy.execute("SELECT value FROM app_settings WHERE key = 'written_before'").fetchone() == ("x",)

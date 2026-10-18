@@ -1651,6 +1651,13 @@ All notable changes to BitcoinTX are documented in this file.
   long as the others, and with no copy nothing is recalculated or added. An
   import of later entries only, and your own Recalculate Ledger or imports
   (Settings, or StartOS's action), are unchanged.
+- **A restore keeps this install's settings as they are when it replaces
+  the database**: the login, the AI key and its switch, the other
+  browsers' sessions and the price settings are read at that moment, while
+  other saves wait, so a change saved during a restore stays. A save made
+  at that very moment answers that the restore replaced the database, to
+  try again. A backup whose tables work out values with formulas of their
+  own (BitcoinTX's never do) is refused.
 - **The IRS forms and a restore that fail unexpectedly say so in plain
   words** (#422), as the imports now do: never the error's own text, which
   could hold a database query, a server path or a transaction's date; the
