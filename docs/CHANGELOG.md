@@ -1162,6 +1162,19 @@ All notable changes to BitcoinTX are documented in this file.
   after making one ledger's forms, burying real errors. The forms were
   always right. That one warning is now left out; pypdf's others still
   show. No new dependency.
+- **A backup download that fails leaves no file behind** (#462). Settings'
+  encrypted backup is written to a temporary file, which was removed only
+  once the download had been sent. When making the backup failed (the
+  database file missing, a database error, a full disk), the message was
+  right, but the file, empty or holding part of the encrypted backup, stayed
+  in the server's temporary folder for good (Docker and StartOS: the
+  container's `/tmp`; the Mac app: your temporary folder): one more for each
+  failed download. So did the whole encrypted backup when it was made but
+  couldn't be opened to send (too many files open at once). Only the account
+  BitcoinTX runs as could open it, and nothing in it could be read without
+  the backup's password. It is now removed as soon as the download can't
+  start, and the file sent is closed once it has been. **Affected:** every
+  version. Nothing to do.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
