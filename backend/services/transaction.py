@@ -573,6 +573,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
+    _complete_sell_proceeds(merged, tx_data)
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -591,6 +592,26 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
                                   "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
+
+
+def _complete_sell_proceeds(merged: dict, tx_data: dict) -> None:
+    """
+    The proceeds an edit of a Sell sends, completed as a create's are
+    (_record_gross_proceeds): its gross is the gross_proceeds_usd sent, else
+    the proceeds_usd sent. `merged` takes them as the edit saves them, so
+    the Sell's checks see them, and the stored net, worked out from the
+    gross they replace, never stands in for one sent blank (#458). Checked
+    against the stored gross, a blank sent saved a $0 sale, and proceeds
+    below the fee were kept; proceeds_usd beside a blank gross was saved as
+    the net, the fee added on top.
+    """
+    if getattr(merged["type"], "value", merged["type"]) != "Sell":
+        return
+    if "gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data:
+        gross = tx_data.get("gross_proceeds_usd")
+        tx_data["gross_proceeds_usd"] = gross if gross is not None else tx_data.get("proceeds_usd")
+        merged["gross_proceeds_usd"] = tx_data["gross_proceeds_usd"]
+        merged["proceeds_usd"] = tx_data.get("proceeds_usd")
 
 
 # What an income, rebate or inherited deposit's value depends on: the price
@@ -1218,10 +1239,11 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
     """
     A Sell's proceeds net of its USD fee, from the gross the user entered,
     stored in tx.proceeds_usd (and tx_data). Always from the gross: the net
-    again, less the fee, would shrink with every recalculation.
+    again, less the fee, would shrink with every recalculation. A gross of
+    $0 is a $0 sale (#471): read as none, an edit to $0 kept the old net.
     """
-    gross_usd = Decimal(tx_data.get("gross_proceeds_usd") or "0")
-    if gross_usd > 0:
+    if tx_data.get("gross_proceeds_usd") is not None:
+        gross_usd = Decimal(tx_data["gross_proceeds_usd"])
         if fee_currency == "USD":
             net_usd_in = gross_usd - fee_amount
             if net_usd_in < 0:
@@ -1234,10 +1256,12 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
         tx.gross_proceeds_usd = gross_usd
         return net_usd_in
 
-    # No gross recorded. create_transaction_record always records it, so only
+    # No gross recorded (NULL). create_transaction_record always records it,
+    # and an edit of a Sell can't blank it (_check_sell_proceeds), so only
     # rows saved before that reach here, and their stored proceeds_usd is
     # ALREADY net of the USD fee: keep it as the net and recover the gross
-    # once.
+    # once. (A withdrawal from such a ledger changed into a Sell keeps its
+    # blank gross too, and its proceeds aren't a net: #520.)
     proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
     net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
     if net_usd_in > 0:
