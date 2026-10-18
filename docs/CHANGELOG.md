@@ -597,6 +597,24 @@ All notable changes to BitcoinTX are documented in this file.
   to do:** nothing, unless you edited a transaction while applying the
   hour's prices: then open it and, if its value doesn't match its amount,
   clear the value to price it again at its hour.
+- **A transaction you told the AI is another one no longer depends on the
+  rows' order** (tax figures, #497, #510). Two cases in the AI connector's
+  duplicate check:
+  - **A row named as another transaction** (`not_a_duplicate_of`) **beside
+    an identical row without a name.** The same request can be a first
+    send naming a new payout, or a send of two payouts already recorded.
+    The check decided by the rows' order: one order saved an extra payout
+    (income) or purchase, the other saved none. Now it never guesses (the
+    owner's rule): the preview marks those rows unclear, saying which rows
+    and what to do. The AI's add refuses them until the AI names each row
+    or sends the named one in a request of its own.
+  - **Identical rows, each named as the transaction its preview matched.**
+    They were all saved in the preview's order and all left out in another,
+    so payouts went missing. Now every transaction a row names is set
+    aside for all the rows, so a name means the same in any order.
+
+  **Affected:** no release: telling the AI a duplicate is another
+  transaction is new in this version (#253). Nothing to do.
 - **A different transaction of the same amount is no longer skipped as
   already recorded** (#253). The AI connector (`add_transactions`) and the
   River import treated a new transaction as already in the ledger when one

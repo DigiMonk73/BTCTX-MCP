@@ -48,6 +48,7 @@ from backend.services.entry_import import (
     from_price,
     mark_duplicates,
     normalized_view,
+    refusal,
     simulate,
     validate_rows,
     writable_now,
@@ -216,11 +217,7 @@ async def execute_entries(
     prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
     invalid = [p.result for p in prepared if p.result.status == STATUS_INVALID]
     if invalid:
-        msgs = [f"Row {r.row}: {'; '.join(r.errors)}" for r in invalid]
-        detail = "Rows have errors: " + " | ".join(msgs[:5])
-        if len(msgs) > 5:
-            detail += f" ...and {len(msgs) - 5} more"
-        raise HTTPException(status_code=400, detail=detail.rstrip(".") + ". No transactions were saved.")
+        raise refusal(invalid)
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
 
