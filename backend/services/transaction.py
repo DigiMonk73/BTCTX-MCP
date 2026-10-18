@@ -459,7 +459,10 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
 
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
+    _drop_dollar_deposit_basis(tx, tx_data)
     type_changed = _drop_fields_of_old_type(tx, tx_data)
+    _drop_proceeds_it_never_had(tx, tx_data)
+    _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
@@ -508,6 +511,22 @@ def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None
         raise AccountMissing(edited, missing, local_date(edited.timestamp, get_tax_timezone(db)))
 
 
+def _drop_dollar_deposit_basis(tx: Transaction, tx_data: dict) -> None:
+    """
+    A dollar deposit's cost basis is no bitcoin's cost ($0 on every one the
+    form before 0.9.2 saved, or a figure an API client or a CSV file gave
+    one). An edit that makes it bring bitcoin into Wallet or Exchange BTC,
+    as a deposit or a Buy, drops it unless it sends one: kept, it would be
+    the coins' cost, so the save asks for that instead, or values an
+    income, rebate or inherited deposit at its price (#459, #517).
+    """
+    if tx.type != "Deposit" or tx.to_account_id in BTC_ACCOUNTS or "cost_basis_usd" in tx_data:
+        return
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type", tx.type))
+    if new_type in ("Deposit", "Buy") and tx_data.get("to_account_id", tx.to_account_id) in BTC_ACCOUNTS:
+        tx_data["cost_basis_usd"] = None
+
+
 def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     """
     A type change keeps only the fields the new type takes too (unless the
@@ -527,6 +546,53 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
                 continue  # a proceeds edit is the new gross (_apply_edit)
             tx_data[key] = None
     return type_changed
+
+
+def _drop_proceeds_it_never_had(tx: Transaction, tx_data: dict) -> None:
+    """
+    A withdrawal with no proceeds of its own carries none over: a gift's,
+    donation's or lost coins' $0 into a Spent or a Sell it becomes by an edit
+    that sends none (forms before 1.2.9 saved one with every gift, which
+    nobody typed, #457), and nothing a dollar withdrawal holds (it holds no
+    value, #449) into a bitcoin one or a Sell, whatever its purpose, so a
+    Spent made of it later can't take it up either; only a Spent or a Sell
+    it becomes keeps proceeds the edit sends. A Spent's left blank are then
+    priced as a new Spent's are (_withdrawal_gross_proceeds), and a Sell
+    needs them sent. Above $0, a gift's are a former spend's, kept as typed
+    (as a sale's value above $0 made a gift is, #255).
+    """
+    if tx.type != "Withdrawal" or counts_as_spent(tx):
+        return
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "from_account_id")}
+    edited["type"] = getattr(edited["type"], "value", edited["type"])
+    sold = edited["type"] == "Sell" or (_is_spent(edited) and edited["from_account_id"] in BTC_ACCOUNTS)
+    sent = "proceeds_usd" in tx_data or "gross_proceeds_usd" in tx_data
+    if tx.from_account_id in BTC_ACCOUNTS:
+        drop = sold and not sent and Decimal(tx.gross_proceeds_usd or 0) <= 0
+    else:
+        drop = (sold and not sent) or (not sold and edited["from_account_id"] in BTC_ACCOUNTS)
+    if drop:
+        tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = None
+
+
+def _send_gross_of_an_old_withdrawal_sold(tx: Transaction, tx_data: dict) -> None:
+    """
+    A withdrawal saved before 0.8.0 (no gross recorded) made a Sell by an
+    edit that sends no proceeds: the sale's gross is the one a recalculation
+    recovers from its stored proceeds, as the edit form shows it (#485),
+    sent as the edit's, so the Sell's check and its save read the same one,
+    and a USD fee comes off it. Left blank, the check read the proceeds as
+    the gross and the save as an old Sell's net, adding the fee on top
+    (#520). Run after _drop_proceeds_it_never_had: a gift's or a dollar
+    withdrawal's proceeds are none to carry.
+    """
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
+    if tx.type != "Withdrawal" or new_type != "Sell" or tx.gross_proceeds_usd is not None:
+        return
+    if "proceeds_usd" in tx_data or "gross_proceeds_usd" in tx_data or Decimal(tx.proceeds_usd or 0) <= 0:
+        return
+    fee_btc = Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal("0")
+    tx_data["gross_proceeds_usd"] = _gross_from_stored_proceeds(tx, Decimal(tx.amount or 0) + fee_btc)
 
 
 def _check_inherited_date_sent(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -573,6 +639,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
+    _complete_sell_proceeds(merged, tx_data)
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -591,6 +658,26 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
                                   "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
+
+
+def _complete_sell_proceeds(merged: dict, tx_data: dict) -> None:
+    """
+    The proceeds an edit of a Sell sends, completed as a create's are
+    (_record_gross_proceeds): its gross is the gross_proceeds_usd sent, else
+    the proceeds_usd sent. `merged` takes them as the edit saves them, so
+    the Sell's checks see them, and the stored net, worked out from the
+    gross they replace, never stands in for one sent blank (#458). Checked
+    against the stored gross, a blank sent saved a $0 sale, and proceeds
+    below the fee were kept; proceeds_usd beside a blank gross was saved as
+    the net, the fee added on top.
+    """
+    if getattr(merged["type"], "value", merged["type"]) != "Sell":
+        return
+    if "gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data:
+        gross = tx_data.get("gross_proceeds_usd")
+        tx_data["gross_proceeds_usd"] = gross if gross is not None else tx_data.get("proceeds_usd")
+        merged["gross_proceeds_usd"] = tx_data["gross_proceeds_usd"]
+        merged["proceeds_usd"] = tx_data.get("proceeds_usd")
 
 
 # What an income, rebate or inherited deposit's value depends on: the price
@@ -967,17 +1054,33 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
         tx.broker_reporting = tx_data["broker_reporting"]
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
-    for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd", "acquired_at",
+    for key in ("cost_basis_usd", "cost_basis_from_price", "fmv_usd", "acquired_at",
                 "price_moment", "proceeds_from_price", "fmv_from_price"):
         if key in tx_data:
             setattr(tx, key, tx_data[key])
-    if "gross_proceeds_usd" in tx_data:
-        tx.gross_proceeds_usd = tx_data["gross_proceeds_usd"]
-    elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
-        # A proceeds edit is user input, i.e. the new gross
-        tx.gross_proceeds_usd = tx_data["proceeds_usd"]
+    _apply_proceeds(tx, tx_data)
     if type_changed:  # the old type's gain; a Sell's or Withdrawal's is worked out again
         tx.realized_gain_usd = tx.holding_period = None
+
+
+def _apply_proceeds(tx: Transaction, tx_data: dict) -> None:
+    """
+    The proceeds an edit sends, on the edited row: a proceeds_usd sent
+    without a gross is user input, i.e. the new gross. A withdrawal that
+    doesn't count as spent (a gift, donation or lost coins; a dollar
+    withdrawal) has none: a value sent for it isn't kept, a blank clears
+    them (forms before 1.2.9 sent a $0 with every gift they saved, which
+    made a Spent of it later a $0 sale, #457).
+    """
+    sent = {k: tx_data[k] for k in ("proceeds_usd", "gross_proceeds_usd") if k in tx_data}
+    if tx.type == "Withdrawal" and not counts_as_spent(tx):
+        sent = {k: v for k, v in sent.items() if v is None}
+    if "proceeds_usd" in sent:
+        tx.proceeds_usd = sent["proceeds_usd"]
+    if "gross_proceeds_usd" in sent:
+        tx.gross_proceeds_usd = sent["gross_proceeds_usd"]
+    elif "proceeds_usd" in sent and tx.type in GROSS_PROCEEDS_TYPES:
+        tx.gross_proceeds_usd = sent["proceeds_usd"]
 
 
 def delete_transaction_record(transaction_id: int, db: Session):
@@ -1108,12 +1211,25 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
         tx.proceeds_from_price = True
         tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     else:
-        gross = Decimal(tx.proceeds_usd)
-        has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
-        if spent and has_btc_fee and gross > 0 and amount > 0:
-            gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
+        gross = _gross_from_stored_proceeds(tx, btc_outflow)
 
     tx.gross_proceeds_usd = gross
+    return gross
+
+
+def _gross_from_stored_proceeds(tx: Transaction, btc_outflow: Decimal) -> Decimal:
+    """
+    The gross of a withdrawal saved before the gross was recorded, from the
+    proceeds_usd it stored: a Spent's (in the spelling _spent_as_matched
+    reads) is net of the BTC fee offset versions before 0.9.2 applied,
+    undone over the amount and the fee (`btc_outflow`); another purpose's
+    had none (#61) and is its gross.
+    """
+    gross = Decimal(tx.proceeds_usd)
+    amount = Decimal(tx.amount or 0)
+    has_btc_fee = (tx.fee_currency or "").upper() == "BTC" and Decimal(tx.fee_amount or 0) > 0
+    if _spent_as_matched(tx) and has_btc_fee and gross > 0 and amount > 0:
+        gross = (gross * btc_outflow / amount).quantize(Decimal("0.01"))
     return gross
 
 
@@ -1218,10 +1334,11 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
     """
     A Sell's proceeds net of its USD fee, from the gross the user entered,
     stored in tx.proceeds_usd (and tx_data). Always from the gross: the net
-    again, less the fee, would shrink with every recalculation.
+    again, less the fee, would shrink with every recalculation. A gross of
+    $0 is a $0 sale (#471): read as none, an edit to $0 kept the old net.
     """
-    gross_usd = Decimal(tx_data.get("gross_proceeds_usd") or "0")
-    if gross_usd > 0:
+    if tx_data.get("gross_proceeds_usd") is not None:
+        gross_usd = Decimal(tx_data["gross_proceeds_usd"])
         if fee_currency == "USD":
             net_usd_in = gross_usd - fee_amount
             if net_usd_in < 0:
@@ -1234,10 +1351,14 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
         tx.gross_proceeds_usd = gross_usd
         return net_usd_in
 
-    # No gross recorded. create_transaction_record always records it, so only
+    # No gross recorded (NULL). create_transaction_record always records it,
+    # and an edit of a Sell can't blank it (_check_sell_proceeds), so only
     # rows saved before that reach here, and their stored proceeds_usd is
     # ALREADY net of the USD fee: keep it as the net and recover the gross
-    # once.
+    # once. (A withdrawal from such a ledger made a Sell is given its
+    # recovered gross by the edit, _send_gross_of_an_old_withdrawal_sold,
+    # #520: its proceeds aren't a net. Only one with none above $0 reaches
+    # here, at $0.)
     proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
     net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
     if net_usd_in > 0:
@@ -1504,6 +1625,14 @@ class _FifoDisposal:
         lot.remaining_btc -= qty
 
 
+def _leaves_dollars(tx: Transaction, db: Session) -> bool:
+    """A withdrawal from Bank or Exchange USD: no bitcoin leaves, so it has no
+    lots, and no cost basis, gain or holding period. (A row naming a missing
+    account has no lots either, and keeps its figures until it's fixed.)"""
+    from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
+    return tx.type == "Withdrawal" and from_acct is not None and from_acct.currency != "BTC"
+
+
 def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     """
     Summarize partial-lot disposals (Sell/Withdrawal). Overwrite
@@ -1512,7 +1641,7 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
     inherited coins, #154, which are long-term whatever their date).
     The figures are for the amount sold or spent; a network fee's disposal
     is left out, as for a transfer (its value is tx.fee_usd, its gain is on
-    Form 8949 and in the gain totals).
+    Form 8949 and in the gain totals). A dollar withdrawal has none.
     """
     disposals = (
         db.query(LotDisposal)
@@ -1521,6 +1650,11 @@ def compute_sell_summary_from_disposals(tx: Transaction, db: Session):
         .all()
     )
     if not disposals:
+        if _leaves_dollars(tx, db):
+            # One a bitcoin withdrawal was edited into kept that one's basis,
+            # gain and term, shown in the list and the Transaction History,
+            # through every recalculation (#487)
+            tx.cost_basis_usd = tx.realized_gain_usd = tx.holding_period = None
         return
 
     total_basis = Decimal("0.0")
@@ -2022,6 +2156,7 @@ GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+BUY_BASIS_REQUIRED = "A buy needs its cost basis (cost_basis_usd): what the BTC cost in USD, before the fee."
 INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
 FEE_CURRENCY_UNKNOWN = "fee_currency must be USD or BTC."
 TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or other control character."
@@ -2339,6 +2474,14 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
             and normalized(data.get("source")) not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
+
+    # A Buy's lot costs its basis: a blank one would be a $0 lot, its whole
+    # proceeds gain when sold (#459). Checked on the row an edit makes too,
+    # so a type change to a Buy (which drops the old type's figures,
+    # _drop_fields_of_old_type) needs one, as does any edit of a Buy saved
+    # without one.
+    if tx_type == "Buy" and data.get("cost_basis_usd") is None:
+        _bad(BUY_BASIS_REQUIRED)
 
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:

@@ -132,6 +132,10 @@ Withdrawal: any account -> External
         return, Form 709.
     fmv_usd omitted: that hour's price x amount, marked as from the price;
     with no price it stays blank, and Ledger Review lists it.
+    They have no proceeds: never send proceeds_usd with one (an edit
+    doesn't keep it). Made a Spent later, send proceeds_usd if known; left
+    out, they're valued from the price as a new Spent's are (one that was
+    a Spent before keeps its proceeds from then).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
   was received for amount, before the fee: BitcoinTX takes the fee's value
@@ -144,21 +148,26 @@ Withdrawal: any account -> External
   with one aren't kept: only bitcoin is spent, given or lost.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
-  amount = total that LEFT the source, network fee INCLUDED; the destination
-  receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
-  fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
+  Bitcoin: amount = total that LEFT the source, network fee INCLUDED; the
+  destination receives amount - fee. Example: 0.05 BTC arrived in cold
+  storage and the fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
+  Dollars (Bank <-> Exchange USD) are the other way round, as for a
+  Withdrawal: amount = what ARRIVED, and the fee (fee_currency USD) is ON
+  TOP, taken from the source with it. Example: $1,000 left the bank and
+  $990 arrived at the exchange (a $10 fee) -> amount 990, fee_amount 10,
+  fee_currency USD: Bank goes down $1,000, Exchange USD up $990.
   A BTC fee's USD value is stored as fee x that hour's price; pass fee_usd
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
   Wallet -> Wallet (or Exchange BTC -> Exchange BTC): a UTXO consolidation,
   or a move between two of the user's wallets (exchanges) that BitcoinTX
-  pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
-  required. Only the fee is recorded, as a small disposal of the oldest
-  coins; the rest keep their lots, dates and basis. After a move between
-  two exchanges, a sale at the other one usually has no basis on its
-  1099-DA: set that Sell's broker_reporting to "proceeds".
+  pools. amount = what left, fee INCLUDED, as for any bitcoin transfer; the
+  fee is required. Only the fee is recorded, as a small disposal of the
+  oldest coins; the rest keep their lots, dates and basis. After a move
+  between two exchanges, a sale at the other one usually has no basis on
+  its 1099-DA: set that Sell's broker_reporting to "proceeds".
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
@@ -206,13 +215,16 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    original cost basis of MyBTC/Gift deposits). Don't invent cost basis.
 2. Call preview_transactions. Nothing is saved. Show the user a compact
    table: date, type, amount, from -> to, USD values, simulated gain/loss.
-   Call out: duplicates (the same type, BTC amount, source or purpose, a
-   Buy's cost basis, and minute as a recorded transaction, or the same day
-   for a date alone - will be skipped), possible duplicates (the same amount within 48 hours with
-   something else different, or a transfer of a near amount; the warning
-   says what - saved unless dropped, so ask), auto-filled USD values, rejected rows (e.g. not
-   enough BTC - usually a missing earlier transaction), and affected_existing
-   (backdating changes gains on earlier-recorded sales). For a value BitcoinTX
+   Call out: duplicates (the same type, accounts, BTC amount, source or
+   purpose, a Buy's cost basis, and minute as a recorded transaction, or the
+   same day for a date alone - will be skipped), possible duplicates (the
+   same amount within 48 hours with something else different, or a
+   transfer of a near amount; the warning says what - saved unless dropped,
+   so ask: one that differs only in its account may be the same
+   transaction recorded in the other account), auto-filled USD values,
+   rejected rows (e.g. not enough BTC - usually a missing earlier
+   transaction), and affected_existing (backdating changes gains on
+   earlier-recorded sales). For a value BitcoinTX
    filled in from a price (a row's simulated.from_price, and the same in
    add_transactions' created rows and list_transactions), say which price:
    "cost basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
@@ -230,8 +242,14 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    the user says is another transaction (two payouts of the same amount at
    the same time, say) goes with not_a_duplicate_of: the
    matched_transaction_id the preview gave that row, and is saved. Never
-   set it without their word. It's saved once: sent again (a retry after a
-   timeout, say), it's found and left out.
+   set it without their word. Rows identical to it (the same type,
+   accounts, BTC amount, source or purpose, a Buy's cost basis, and minute
+   or day) need it too when the user says none of them is that
+   transaction; otherwise send the named row in a request of its own, and
+   the others in another.
+   A named row beside an identical one without it is refused as unclear:
+   the preview says which rows. It's saved once: sent again (a retry after
+   a timeout, say), it's found and left out.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its
