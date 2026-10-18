@@ -1,7 +1,7 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
-import { isNotSold, listedPurpose, listedSource } from "./purposes";
+import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
@@ -249,24 +249,50 @@ interface TypePayload {
   fee?: number;
 }
 
+/** Whether a Deposit's or Withdrawal's account holds bitcoin: Wallet or Exchange BTC. */
+function inBtcAccount(data: Pick<TransactionFormData, "account" | "currency">): boolean {
+  return data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
+}
+
+/**
+ * A withdrawal's purpose. A dollar one has no bitcoin purpose (Spent, Gift,
+ * Donation, Lost): there it's one left from the hidden bitcoin fields
+ * (#449). It may have a label of its own ("Rent", from an import), which an
+ * edit sends back as it was.
+ */
+function withdrawalPurpose(data: TransactionFormData): string {
+  const purpose = data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A";
+  return inBtcAccount(data) || !isBtcPurpose(purpose) ? purpose : "N/A";
+}
+
+/**
+ * A deposit's source. A dollar one sends none of the listed ones: there
+ * it's one left from the hidden bitcoin fields (#449). Text a version
+ * before 1.1.0 saved goes back as it was, as the server keeps it.
+ */
+function depositSource(data: TransactionFormData): string {
+  const source = data.source && data.source !== "N/A" ? data.source : "N/A";
+  return inBtcAccount(data) || !isListedSource(source) ? source : "N/A";
+}
+
+// Only bitcoin received has a source and a basis, and only bitcoin leaving a
+// purpose and a value: the form shows those fields for a bitcoin account
+// alone, and one filled in before the account changed stays in the form
+// though hidden, so a dollar deposit or withdrawal sends none (#449)
 const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypePayload> = {
   Deposit: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    source: data.source && data.source !== "N/A" ? data.source : "N/A",
-    // Only BTC received has a basis
-    cost_basis_usd:
-      data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange")
-        ? optionalDecimal(data.costBasisUSD)
-        : null,
+    source: depositSource(data),
+    cost_basis_usd: inBtcAccount(data) ? optionalDecimal(data.costBasisUSD) : null,
   }),
   Withdrawal: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    purpose: data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A",
+    purpose: withdrawalPurpose(data),
     cost_basis_usd: null,
-    proceeds_usd: optionalDecimal(data.proceeds_usd),
-    fmv_usd: optionalDecimal(data.fmv_usd),
+    proceeds_usd: inBtcAccount(data) ? optionalDecimal(data.proceeds_usd) : null,
+    fmv_usd: inBtcAccount(data) ? optionalDecimal(data.fmv_usd) : null,
   }),
   // A BTC transfer's amount is what left, its fee in it (filled in by
   // useFieldAutofill); a dollar transfer's is what arrived, the fee on top
@@ -309,8 +335,7 @@ const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 /** Whether a deposit takes "Date originally acquired" (an inheritance's
  * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
 export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
-  const intoBtc = data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
-  return data.type === "Deposit" && intoBtc && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
+  return data.type === "Deposit" && inBtcAccount(data) && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
 }
 
 /** The date originally acquired, as a date alone (the server keeps it as
