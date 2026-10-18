@@ -572,6 +572,17 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **A payout given to the AI both as a date alone and with a time is
+  recorded at its time** (tax figures, #472). When a request held the same
+  payout twice, once as a date alone and once with a time after noon, and
+  the ledger had it once, at that time, the duplicate check gave the
+  recorded payout to the date-alone row and saved the timed row: a second
+  payout at the recorded one's exact minute, valued (when its value came
+  from the price) at that hour's price instead of noon's. Now the timed
+  rows are matched before the date-alone rows: the timed row is the
+  recorded one, and the date-alone row is saved, at noon. How many rows
+  are saved doesn't change. **Affected:** no release: matching a date
+  alone is new in this version (#253). Nothing to do.
 - **A payout given to the AI as a date alone no longer takes a timed one's
   place** (tax figures, #411). The AI connector's duplicate check gave each
   row, in time order, the nearest recorded transaction it matched, and a
