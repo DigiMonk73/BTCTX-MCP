@@ -78,8 +78,8 @@ def download_encrypted_backup(
     db: Session = Depends(get_db),
 ):
     """
-    Download an encrypted backup of the database.
-    Uses BackgroundTasks to clean up temp file after streaming completes.
+    Download an encrypted backup of the database. The temp file goes once
+    the answer is sent (or cut off), or at once if the backup failed (#462).
     """
     _require_auth(request)
     _require_text_password(password)
@@ -87,13 +87,12 @@ def download_encrypted_backup(
         raise HTTPException(status_code=422, detail=BACKUP_PASSWORD_TOO_SHORT)
     with NamedTemporaryFile(delete=False, suffix=".btx") as temp_file:
         temp_path = Path(temp_file.name)
+    try:
         make_backup(password, temp_path)
-
-    def cleanup():
-        if temp_path.exists():
-            os.remove(temp_path)
-
-    background_tasks.add_task(cleanup)
+    except BaseException:
+        temp_path.unlink(missing_ok=True)
+        raise
+    background_tasks.add_task(temp_path.unlink, missing_ok=True)
 
     return StreamingResponse(
         open(temp_path, "rb"),
