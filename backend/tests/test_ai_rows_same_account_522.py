@@ -172,6 +172,21 @@ def test_a_spend_from_the_other_bitcoin_account_is_saved_flagged_with_the_accoun
     assert new["from_account_id"] == 4
 
 
+def test_a_gift_from_the_other_bitcoin_account_is_saved_flagged_with_the_account():
+    """Left out on develop, the gift's coins were still counted as held."""
+    known = own_btc_in_both_accounts()
+    gift = {"type": "Withdrawal", "amount": "0.002", "from_account": "Wallet", "to_account": "External",
+            "purpose": "Gift", "date": WHEN}
+    known.add(record(gift))
+    other = dict(gift, from_account="Exchange BTC")
+    [result] = preview([other])
+    assert result["status"] == "possible_duplicate", result
+    assert "recorded from Wallet, not Exchange BTC" in result["warnings"][0]
+    assert execute([other])["imported_count"] == 1
+    [new] = saved_after(known)
+    assert (new["from_account_id"], new["purpose"]) == (4, "Gift")
+
+
 def test_a_buy_paid_from_the_other_dollar_account_is_saved_flagged_with_the_account():
     buy = {"type": "Buy", "amount": "0.002", "from_account": "Bank", "to_account": "Exchange BTC",
            "cost_basis_usd": "200.00", "date": WHEN}
