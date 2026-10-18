@@ -2341,8 +2341,11 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
             and normalized(data.get("source")) not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
 
-    # A Buy's lot costs its basis: a blank one made it a $0 lot (#459), on a
-    # create or an edit that made a row a Buy (_drop_fields_of_old_type)
+    # A Buy's lot costs its basis: a blank one would be a $0 lot, its whole
+    # proceeds gain when sold (#459). Checked on the row an edit makes too,
+    # so a type change to a Buy (which drops the old type's figures,
+    # _drop_fields_of_old_type) needs one, as does any edit of a Buy saved
+    # without one.
     if tx_type == "Buy" and data.get("cost_basis_usd") is None:
         _bad(BUY_BASIS_REQUIRED)
 

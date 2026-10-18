@@ -617,18 +617,20 @@ All notable changes to BitcoinTX are documented in this file.
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
 - **A Buy is never saved without its cost basis** (#459). The transactions
-  API saved a Buy sent without a cost basis, and an edit that made a sale,
-  a withdrawal or a transfer a Buy without giving one (a type change drops
-  the old type's figures; the AI connector's `update_transaction` sends
-  exactly that edit when asked to make a transaction a Buy). Its bitcoin
-  then cost $0: selling or spending it later counted the whole proceeds as
-  gain, and the year-end holdings' cost and the dashboard's average cost
-  were low by the missing amount. The form, the CSV and River imports and
-  the AI connector's add never saved one without it. Every release from 0.8.0
-  (the oldest tagged) to 1.2.8. Now such a save is refused, saying the Buy
-  needs its cost basis; a basis of 0 you type is still kept. Ledger Review
-  lists every Buy with a $0 or blank cost basis ("Buys with a $0 or blank
-  cost basis"), and editing an old one asks for its basis.
+  API saved a Buy sent without a cost basis (every release from 0.8.0, the
+  oldest tagged, to 1.2.8), and an edit that made a sale, a withdrawal or a
+  transfer a Buy without giving one (from 1.2.2, when a type change began
+  to drop the old type's figures; the AI connector's `update_transaction`
+  can send that edit when it isn't given the cost). Its bitcoin then cost
+  $0: selling or spending it later counted the whole proceeds as gain, and
+  the year-end holdings' cost and the dashboard's average cost were low by
+  the missing amount. The form, the CSV and River imports and the AI
+  connector's add never saved one without it. Now such a save is refused,
+  saying the Buy needs its cost basis; a basis of 0 you type is still kept.
+  Ledger Review lists every Buy with a $0 or blank cost basis ("Buys with
+  a $0 or blank cost basis"). An edit of an old one through the API or the
+  AI connector asks for its basis; the form shows its Amount USD as 0 until
+  you enter what it cost.
 
   **What to do:** open Ledger Review (Settings). For each Buy it lists,
   edit it and enter what the bitcoin cost in USD, before the fee (Amount
