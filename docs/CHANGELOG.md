@@ -1357,10 +1357,10 @@ All notable changes to BitcoinTX are documented in this file.
   `btctx` (uid and gid 10001), keeping one right: to open port 80. A flaw
   in BitcoinTX or a library it uses can then change only BitcoinTX's own
   files, never the rest of the container. Nothing to do on StartOS or with
-  the README's Docker command: at a start the image, or StartOS's package,
-  first gives `/data` to that user, so a volume an earlier version made
-  (every file root's) keeps working, and so does a StartOS backup made
-  before. With Docker:
+  the README's Docker command: at a start the image's start-up script
+  (which StartOS's package runs too) first gives `/data` to that user, so
+  a volume an earlier version made (every file root's) keeps working, and
+  so does a StartOS backup made before. With Docker:
   - Run a maintenance command as that user:
     `docker exec -u btctx <container> python -m backend.cli …`. Run as
     root, a file it creates stays root's until the next start.
@@ -1467,6 +1467,16 @@ All notable changes to BitcoinTX are documented in this file.
   uninstall BitcoinTX, which deletes its data (its `backups/` copies too),
   then restore a backup made before the update; anything entered after
   that backup is lost.
+- **The package starts BitcoinTX with the image's own start-up script**
+  (#464), as Start9's guide recommends for a prebuilt image (`main.md`,
+  "Using Upstream Entrypoint"; `recipe-prebuilt-image.md`, step 4). The
+  migrate step, the web server and every action's command run through
+  `docker-entrypoint.sh`, the script Docker runs (#202), instead of
+  commands the package named itself: the web server is the image's own
+  command (`sdk.useEntrypoint()`), and an action hands its command to the
+  script. So StartOS and Docker share one copy of the step that gives
+  `/data` to `btctx` (only when something in it isn't `btctx`'s) and of
+  the switch to that user.
 - **Price Source & Privacy says where each Mempool goes** (#246). In
   testing, **My Mempool on this server** was read as "my Mempool, wherever
   it is", and no box for an address appeared, since that choice means the
