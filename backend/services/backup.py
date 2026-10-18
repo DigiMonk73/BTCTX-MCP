@@ -209,7 +209,7 @@ def restore_backup(
     encrypted_file: Path,
     db_path: Path | None = None,
     engine=None,
-    carry_over: Callable[[Session, Session], None] | None = None,
+    carry_over: Callable[[Session | None, Session], None] | None = None,
 ):
     """
     Replace the database with a backup's. The live database stays as it was
@@ -218,8 +218,9 @@ def restore_backup(
     new database is made by BitcoinTX's own migrations and only its own
     tables' and columns' rows are copied into it (_rebuild). Only then, under
     the live database's write lock (_swap), `carry_over`, given a session on
-    the live database and one on the new database, writes what this install
-    keeps, and the live database is copied to <db dir>/backups/ and replaced.
+    the live database (None when there's none) and one on the new database,
+    writes what this install keeps, and the live database is copied to
+    <db dir>/backups/ and replaced.
     Any error deletes the temporary files and leaves the live database as it
     was. Returns the backup's MigrationResult.
     """
@@ -282,12 +283,13 @@ def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite, carry_over) -> No
     reads it from the live database and writes it into the new one, a copy
     of the live database goes to backups/, then the swap. So a change saved
     before is kept, and one saved meanwhile waits for the lock, then is
-    refused (SQLite won't write a file that has been replaced): none is
-    undone. Another save holding the lock past 5 s stops the restore.
+    refused: in the rollback-journal mode BitcoinTX keeps its database in
+    (database.init_db), SQLite won't write a file that has been replaced.
+    Another save holding the lock past 5 s stops the restore.
     """
     with _write_locked(db_path) as live:
         if carry_over is not None:
-            _carry_over(carry_over, live, rebuilt)
+            _write_what_is_kept(carry_over, live, rebuilt)
         if live is not None:
             kept = backup_sqlite(db_path, "restore")
             logger.info(f"Database being replaced was saved to: {kept}")
@@ -323,7 +325,8 @@ def _write_locked(db_path: Path) -> Iterator[Session | None]:
         live.dispose()
 
 
-def _carry_over(carry_over: Callable[[Session, Session], None], live: Session | None, rebuilt: Path) -> None:
+def _write_what_is_kept(carry_over: Callable[[Session | None, Session], None], live: Session | None,
+                        rebuilt: Path) -> None:
     new = create_engine(f"sqlite:///{rebuilt}", poolclass=NullPool)
     try:
         with Session(new) as restored:
@@ -398,11 +401,14 @@ def _refuse_objects_not_ours(staged) -> None:
     indexes, the only objects its migrations make, with its core tables. A
     trigger or a view runs SQL that isn't BitcoinTX's whenever the app reads
     or writes; a virtual table runs a module's code on the backup's data; a
-    generated column, or an index on an expression, works out values with
-    the backup's own expression as its rows are read or written (the
-    backup's migrations do both), and a stored one keeps them. Read from the
-    schema alone (sqlite_master and the pragmas on it), so nothing in the
-    backup runs first.
+    generated column, or an index on an expression or with a WHERE, works
+    out values with the backup's own expression as its rows are read or
+    written (BitcoinTX's migrations do both, upgrading the backup's copy),
+    and a stored one keeps them. BitcoinTX's migrations make none of these.
+    A table's CHECK rules stay allowed (no pragma lists them, and a
+    backup's own table definitions never reach the live database): they
+    run only in the backup's copy. Read from the schema alone (sqlite_master
+    and the pragmas on it), so nothing in the backup runs first.
     """
     from backend.migrate import CORE_TABLES
 
@@ -411,7 +417,7 @@ def _refuse_objects_not_ours(staged) -> None:
         if any(kind not in ("table", "index") or _virtual(sql) for kind, _, sql in rows):
             raise ValueError(NOT_OURS)
         tables = [name for kind, name, _ in rows if kind == "table"]
-        if any(_generated_columns(conn, table) or _expression_indexes(conn, table) for table in tables):
+        if any(_generated_columns(conn, table) or _indexes_with_expressions(conn, table) for table in tables):
             raise ValueError(NOT_OURS)
     if not CORE_TABLES <= {name.lower() for name in tables}:
         raise ValueError(DAMAGED)
@@ -423,12 +429,12 @@ def _generated_columns(conn, table: str) -> bool:
     return any(row[6] in (2, 3) for row in conn.exec_driver_sql(f"PRAGMA table_xinfo({_quoted(table)})"))
 
 
-def _expression_indexes(conn, table: str) -> bool:
-    """Whether one of a table's indexes is on an expression (index_xinfo's
-    cid is -2 for one)."""
-    indexes = [row[1] for row in conn.exec_driver_sql(f"PRAGMA index_list({_quoted(table)})")]
-    return any(row[1] == -2 for index in indexes
-               for row in conn.exec_driver_sql(f"PRAGMA index_xinfo({_quoted(index)})"))
+def _indexes_with_expressions(conn, table: str) -> bool:
+    """Whether one of a table's indexes has a WHERE (index_list's partial
+    is 1) or is on an expression (index_xinfo's cid is -2 for one)."""
+    indexes = conn.exec_driver_sql(f"PRAGMA index_list({_quoted(table)})").all()
+    return any(partial for _, _, _, _, partial in indexes) or any(
+        row[1] == -2 for index in indexes for row in conn.exec_driver_sql(f"PRAGMA index_xinfo({_quoted(index[1])})"))
 
 
 def _virtual(sql: str | None) -> bool:

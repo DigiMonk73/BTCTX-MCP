@@ -152,7 +152,7 @@ def _login_in_use(db: Session) -> tuple | None:
     return (user.username, user.password_hash) if user else None
 
 
-def _write_kept(own: str | None, notices: list[str], live: Session, restored: Session) -> None:
+def _write_kept(own: str | None, notices: list[str], live: Session | None, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
     the restored database before it replaces the live one, and its tax
@@ -160,9 +160,13 @@ def _write_kept(own: str | None, notices: list[str], live: Session, restored: Se
     `notices`, #407), then read them back from the file, with its one
     login. They're read from the live database just before the swap, under
     its write lock (services/backup.py), so a change saved while the restore
-    ran is kept. An error, or a value that doesn't read back as written,
-    stops the restore with the live database untouched (#201).
+    ran is kept. No live database to read them from (DATABASE_URL names
+    another), an error, or a value that doesn't read back as written, stops
+    the restore with the live database untouched (#201).
     """
+    if live is None:
+        logger.error("Restore stopped: there's no database at DATABASE_FILE to keep this install's settings from")
+        raise ValueError(NOT_KEPT)
     try:
         kept = _in_use(live, own)
         outbound.carry_over(restored, kept["prices"])

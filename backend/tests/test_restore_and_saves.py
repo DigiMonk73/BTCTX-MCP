@@ -11,21 +11,29 @@ Real restores over a database of their own (test_restore_checks.py's
 `live`).
 """
 
+import sqlite3
 import sys
 import threading
+from contextlib import closing
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event
+from sqlalchemy import create_engine, event
+from sqlalchemy.exc import OperationalError
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.routing import Route
 
 import backend.database
 import backend.migrate
+from backend.database import init_db
 from backend.main import app
 from backend.services import ai_key, backup, outbound
+from backend.tests.conftest import init_test_db
 from backend.tests.test_restore_checks import (  # noqa: F401  (live: fixture)
-    OWNER, _assert_nothing_changed, _backup, _key_works, _logs_in, _restore, _stored, live,
+    OWNER, STOPPED, _assert_nothing_changed, _backup, _key_works, _logs_in, _restore, _stored, live,
 )
-from backend.unexpected_errors import REPLACED, UNEXPECTED
+from backend.unexpected_errors import REPLACED, UNEXPECTED, UnexpectedErrorMiddleware
 
 NEW_LOGIN = {**OWNER, "password": "owner-password-456"}
 NOBODY = {"price_source": "off", "mempool_url": None, "mempool_fallback": False, "proxy_url": None}
@@ -158,3 +166,87 @@ def test_a_restore_that_cant_have_the_lock_stops_and_changes_nothing(live, tmp_p
         r = _restore(live.client, blob)
     assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.SAVING
     _assert_nothing_changed(live, before, in_memory)
+
+
+def test_with_no_live_database_the_restore_stops_in_plain_words(live, tmp_path, monkeypatch):  # noqa: F811
+    """DATABASE_URL naming another database than DATABASE_FILE: there's
+    nothing to keep this install's login from, so the backup's would come
+    back."""
+    before, in_memory = _stored(live.engine), outbound.as_dict()
+    elsewhere = live.path.with_name("elsewhere.db")
+    blob, _ = _backup(tmp_path)
+    with monkeypatch.context() as m:
+        m.setattr(backup, "DB_PATH", elsewhere)
+        r = _restore(live.client, blob)
+    assert r.status_code == 400 and r.json()["detail"] == STOPPED
+    assert not list(live.path.parent.glob("elsewhere.db*"))
+    _assert_nothing_changed(live, before, in_memory)
+
+
+# The journal mode a restore's swap relies on
+def _journal_mode(path) -> str:
+    with closing(sqlite3.connect(path)) as con:
+        return con.execute("PRAGMA journal_mode").fetchone()[0]
+
+
+def _left_in_write_ahead_log_mode(path):
+    engine = create_engine(f"sqlite:///{path}")
+    init_test_db(engine)
+    with engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA journal_mode = WAL")
+    assert _journal_mode(path) == "wal"
+    return engine
+
+
+def test_a_database_left_in_write_ahead_log_mode_starts_in_the_rollback_journal(tmp_path):
+    path = tmp_path / "btctx.db"
+    engine = _left_in_write_ahead_log_mode(path)
+    try:
+        init_db(engine)
+    finally:
+        engine.dispose()
+    assert _journal_mode(path) == "delete"
+    assert path.read_bytes()[18:20] == b"\x01\x01"
+
+
+@pytest.mark.slow  # SQLite's 5 s wait for the other connection
+def test_a_database_another_connection_holds_open_starts_all_the_same(tmp_path, caplog):
+    path = tmp_path / "btctx.db"
+    engine = _left_in_write_ahead_log_mode(path)
+    with closing(sqlite3.connect(path)) as held:
+        held.execute("SELECT count(*) FROM users").fetchone()
+        try:
+            init_db(engine)
+        finally:
+            engine.dispose()
+    assert "stays in write-ahead-log mode until the next start" in caplog.text
+    assert _journal_mode(path) == "wal"
+
+
+# The answer to a save a restore's swap refused, on every Python version
+class _SQLiteError(Exception):
+    """sqlite3's error as Python 3.11+ gives it, its code named (3.10: none)."""
+
+    def __init__(self, name):
+        super().__init__("attempt to write a readonly database")  # the same words for each
+        self.sqlite_errorname = name
+
+
+@pytest.mark.parametrize("name, answer", [
+    ("SQLITE_READONLY_DBMOVED", (503, REPLACED)),
+    ("SQLITE_READONLY", (500, UNEXPECTED)),
+    (None, (500, UNEXPECTED)),
+], ids=["the file replaced by a restore", "a read-only database", "no name (Python 3.10)"])
+def test_only_a_save_the_swap_refused_says_so(name, answer, request, caplog):
+    if answer[0] == 500:
+        request.applymarker(pytest.mark.unexpected_error)
+
+    def save(_request):
+        raise OperationalError("UPDATE users SET password_hash=?", ("x",), _SQLiteError(name))
+
+    client = TestClient(Starlette(routes=[Route("/save", save, methods=["POST"])],
+                                  middleware=[Middleware(UnexpectedErrorMiddleware)]))
+    r = client.post("/save")
+
+    assert (r.status_code, r.json()["detail"]) == answer
+    assert ("not saved: a restore replaced the database" in caplog.text) == (answer[0] == 503)
