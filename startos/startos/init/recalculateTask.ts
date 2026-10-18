@@ -25,7 +25,7 @@ export const recalculateTask = sdk.setupOnInit(async (effects, kind) => {
   if (store.asked && kind !== 'restore') return // asked once for this update
   await sdk.action.createOwnTask(effects, recalculateLedger, 'important', {
     reason: i18n(
-      'This update corrects how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run the Recalculate Ledger action here once so the corrections reach your existing transactions.',
+      'An update corrected how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run the Recalculate Ledger action here once so the corrections reach your existing transactions.',
     ),
     replayId: RECALCULATE_TASK_ID,
   })
