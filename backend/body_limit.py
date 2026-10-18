@@ -33,6 +33,7 @@ BUSY = "BitcoinTX is busy: try again in a moment."
 # The multipart form around an uploaded file: its boundaries, headers and
 # the other fields (the restore's password).
 FORM_ROOM = 64 * 1024
+MAX_LENGTH_DIGITS = 18  # a Content-Length of more is over an exabyte
 
 
 def too_large(limit: int) -> str:
@@ -130,6 +131,15 @@ def _header(scope: Scope, name: bytes) -> str:
 
 
 def _content_length(scope: Scope) -> int:
-    """The Content-Length header's value, 0 without one (a body in chunks)."""
+    """
+    The Content-Length header's value, 0 without one (a body in chunks; the
+    bytes are counted as they come). Only ASCII digits are a length:
+    str.isdigit() also takes '²', which int() refuses. One of more digits
+    than any body has is past every limit, without asking int() for a number
+    longer than it reads (4,300 digits).
+    """
     length = _header(scope, b"content-length")
-    return int(length) if length.isdigit() else 0
+    if not (length.isascii() and length.isdigit()):
+        return 0
+    digits = length.lstrip("0") or "0"
+    return int(digits) if len(digits) <= MAX_LENGTH_DIGITS else 10**MAX_LENGTH_DIGITS

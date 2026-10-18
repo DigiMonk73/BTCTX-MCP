@@ -490,7 +490,8 @@ def login(
 ):
     """
     Start a session for a correct username and password.
-    Repeated failures are answered 429 for a while (login_throttle.py).
+    Each try counts as a failure until it's right, and repeated failures
+    are answered 429 for a while (login_throttle.py).
     The default admin/password login also needs the setup code (every
     install before it's claimed, the Mac app's too; first_run.py): anyone
     who can reach a fresh install knows that login.
@@ -499,11 +500,9 @@ def login(
     user = get_user_by_username(login_req.username, db)
     # For security, don't reveal which part is invalid, nor by the time taken
     if not password_matches(user, login_req.password):
-        login_throttle.failed(request)
         raise HTTPException(status_code=401, detail="Invalid username or password.")
 
     if first_run.is_default_account(user) and not first_run.check_code(login_req.setup_code):
-        login_throttle.failed(request)
         raise HTTPException(status_code=403, detail=first_run.default_login_refused())
 
     login_throttle.succeeded(request)

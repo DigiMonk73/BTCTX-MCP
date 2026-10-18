@@ -410,7 +410,7 @@ from the Transaction row alone.
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
-| `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
+| `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
@@ -474,6 +474,8 @@ from the Transaction row alone.
   first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
+  A try counts as a failure from when it arrives (`check()`) until it's
+  right (`succeeded()`).
   A browser that got one of them right gets a device cookie (`btc_device`,
   a year, signed with the secret key, bound to the current password) and is a
   client of its own: other clients' failures, its address's count (behind
@@ -496,10 +498,12 @@ from the Transaction row alone.
   else `Origin`) are refused (`security_headers.py`); no CORS unless
   `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
   to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
-  `security_headers.LocalAddressOnlyMiddleware`), and its server never takes
-  a client's address from `X-Forwarded-For` (`desktop/entrypoint.py`).
+  `security_headers.LocalAddressOnlyMiddleware`). No server of ours, the
+  Mac app's, the Docker image's or StartOS's (which runs the image's
+  command), takes a client's address from `X-Forwarded-For`
+  (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
-  ReportLab, which may fetch nothing remote); CSV text cells can't start a
+  ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.
