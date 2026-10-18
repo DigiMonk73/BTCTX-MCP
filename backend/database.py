@@ -280,14 +280,25 @@ def use_rollback_journal(bind) -> None:
 
 
 def _in_write_ahead_log_mode(path: str) -> bool:
-    """Whether a database file's header says write-ahead-log mode (its
-    format version bytes, 18 and 19, are 2 for it, 1 for the rollback
-    journal). A file that can't be read: no, and the migrations say why."""
+    """Whether SQLite opens a database file in write-ahead-log mode: its
+    header says so (its format version bytes, 18 and 19, are 2 for it, 1
+    for the rollback journal), or a log with writes in it lies beside it,
+    which SQLite opens whatever the header says (an earlier version's
+    restore could leave one). A file that can't be read: no, and the
+    migrations say why."""
     try:
         with open(path, "rb") as f:
-            return f.read(20)[18:20] == b"\x02\x02"
+            header = f.read(20)[18:20]
     except OSError:
         return False
+    return header == b"\x02\x02" or _log_size(path) > 0
+
+
+def _log_size(path: str) -> int:
+    try:
+        return os.path.getsize(path + "-wal")
+    except OSError:
+        return 0
 
 
 def _make_owner_only(bind) -> None:

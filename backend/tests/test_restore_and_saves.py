@@ -263,6 +263,32 @@ def test_a_database_left_in_write_ahead_log_mode_starts_in_the_rollback_journal(
     assert path.read_bytes()[18:20] == b"\x01\x01"
 
 
+def test_a_log_beside_a_rollback_journal_file_is_switched_at_start(tmp_path):
+    """A log with writes in it beside a file whose header says rollback
+    journal (an earlier version's restore could leave one): SQLite opens it
+    in write-ahead-log mode all the same, so it's switched too, the log's
+    writes kept."""
+    logged = tmp_path / "logged.db"
+    engine = _left_in_write_ahead_log_mode(logged)
+    engine.dispose()
+    with closing(sqlite3.connect(logged)) as con:
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        con.execute("INSERT INTO app_settings (key, value) VALUES ('in_the_log', 'x')")
+        con.commit()
+        path = tmp_path / "btctx.db"
+        path.write_bytes(logged.read_bytes()[:18] + b"\x01\x01" + logged.read_bytes()[20:])
+        path.with_name("btctx.db-wal").write_bytes(logged.with_name("logged.db-wal").read_bytes())
+    assert _journal_mode(path) == "wal"
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        init_db(engine)
+    finally:
+        engine.dispose()
+    assert _journal_mode(path) == "delete" and not path.with_name("btctx.db-wal").exists()
+    with closing(sqlite3.connect(path)) as con:
+        assert con.execute("SELECT value FROM app_settings WHERE key = 'in_the_log'").fetchone() == ("x",)
+
+
 def test_a_database_another_connection_holds_open_starts_all_the_same(tmp_path, caplog):
     path = tmp_path / "btctx.db"
     engine = _left_in_write_ahead_log_mode(path)
