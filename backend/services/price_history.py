@@ -38,6 +38,7 @@ import asyncio
 import concurrent.futures
 import contextvars
 import logging
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -72,6 +73,8 @@ HISTORY_FLAG = "price_history_complete"  # app_settings: the full download is do
 # When each download last ran (in memory: a restart may ask again, and every
 # public request is the same for every install anyway).
 _state: dict = {}
+# The kept mempool answer's keys change together: each lookup runs in a thread of its own (_run)
+_mempool_lock = threading.Lock()
 
 
 def try_again_now() -> None:
@@ -253,29 +256,45 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     The own mempool server's whole USD history, and whether it was just
     asked: one request at most every 10 minutes; its answer is kept that
     long, so the day and hour lookups (services/hourly_prices.py) share it.
+    An answer is kept only while it's the last asked (_asked_last, #473).
     """
-    base = outbound.current().own_node
-    if not base:
-        _state.update(mempool_base=None, mempool_rows=[])
-        return [], False
-    now = time.monotonic()
-    if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
-        return _state["mempool_rows"], False
-    refuse_if_held()
-    _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
+    with _mempool_lock:  # read under it: the last lookup to read the address is the last asked
+        base, now = outbound.current().own_node, time.monotonic()
+        if not base:
+            _state.update(mempool_base=None, mempool_rows=[])
+            return [], False
+        if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
+            return _state["mempool_rows"], False
+        refuse_if_held()
+        _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
     try:
         async with outbound.own_node_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
             resp.raise_for_status()
             rows = resp.json()["prices"]
     except outbound.ChoiceChanged:
-        _state["mempool_at"] = -1e9  # a save stopped it, no failure: asked again as the new choice says (#437)
+        with _mempool_lock:
+            if _asked_last(base, now):
+                _state["mempool_at"] = -1e9  # a save stopped it, no failure: asked again as the new choice says (#437)
         return [], False
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
         return [], False
-    _state["mempool_rows"] = rows
+    with _mempool_lock:
+        if _asked_last(base, now):
+            _state["mempool_rows"] = rows
     return rows, True
+
+
+def _asked_last(base: str, at: float) -> bool:
+    """
+    Whether the request to `base` made at `at` is still the last one asked
+    (call it holding _mempool_lock). Once a save has moved your Mempool to
+    another address and a lookup has asked that one, the answer from the
+    address left serves only the lookup that asked for it: kept, it would
+    be filed under the new address as its prices (#473).
+    """
+    return _state["mempool_base"] == base and _state["mempool_at"] == at
 
 
 async def own_node_history() -> dict[date, tuple]:
