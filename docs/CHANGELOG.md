@@ -784,9 +784,9 @@ All notable changes to BitcoinTX are documented in this file.
   and the gains were never affected: a dollar withdrawal has no lots.
   **Affected:** every version (the priced case 1.2.8), for any tax year
   with a dollar withdrawal saved this way. **What to do:** nothing: such a
-  row is left out of the figures from this version. Its old purpose and
-  value still show in the Transactions list and the Transaction History
-  report until you open the withdrawal and save it.
+  row is left out of the figures from this version. Its old purpose still
+  shows in the Transactions list, and its purpose and proceeds in the
+  Transaction History report, until you open the withdrawal and save it.
 - **No gain line for a gift, a donation or lost coins** (#257). The
   Transactions list showed one under these withdrawals ("Gain $0.00 ·
   +0.00% · Long-term"), as if they were sales with a holding period. They

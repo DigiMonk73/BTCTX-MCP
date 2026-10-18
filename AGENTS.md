@@ -200,10 +200,11 @@ from the Transaction row alone.
   purpose and no proceeds or FMV: the save drops them
   (`_drop_btc_withdrawal_fields`; other text stays, a label such as
   "Rent"), the import previews leave them out with a warning, and every
-  reader (the tax report and its values from the price, the dashboard,
-  Ledger Review and its hour check, `priced_values`, the AI's duplicate
-  check) reads them only on one from `BTC_ACCOUNTS`, so one an older save
-  left there counts for nothing.
+  figure and check (the tax report and its values from the price, the
+  dashboard, Ledger Review and its hour check, `priced_values`, the AI's
+  duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
+  older save left there counts for nothing. The Transactions list and the
+  Transaction History report show what's stored.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update
