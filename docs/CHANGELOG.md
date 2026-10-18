@@ -69,7 +69,8 @@ update):
 - The AI connector's preview note on a dollar row that may already be
   recorded calls the dollars "BTC" (#525).
 - The sidebar's Sats Converter can show one satoshi too few when a dollar
-  amount comes to exactly half a satoshi; nothing it shows is saved (#529).
+  amount comes to exactly halfway between two satoshis; nothing it shows is
+  saved (#529).
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,

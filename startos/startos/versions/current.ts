@@ -87,7 +87,7 @@ Each says who could be affected and what to do; most ledgers need only the steps
 - When the River import refuses a typed cell, it doesn't say which row or column.
 - An amount of 10^21 BTC or more, far beyond what exists, is shown wrongly.
 - The AI connector's note on a dollar row that may already be recorded calls the dollars BTC.
-- The sidebar's Sats Converter can show one satoshi too few when a dollar amount comes to exactly half a satoshi; nothing it shows is saved.
+- The sidebar's Sats Converter can show one satoshi too few when a dollar amount comes to exactly halfway between two satoshis; nothing it shows is saved.
 
 **About this release**
 
@@ -165,7 +165,7 @@ Cada una dice a quién pudo afectar y qué hacer; a la mayoría de los libros co
 - Cuando la importación de River rechaza una celda escrita, no dice qué fila ni qué columna.
 - Un importe de 10^21 BTC o más, muy por encima de lo que existe, se muestra mal.
 - La nota del conector de IA sobre una fila en dólares que quizá ya esté registrada llama BTC a los dólares.
-- El Sats Converter de la barra lateral puede mostrar un satoshi de menos cuando un importe en dólares equivale exactamente a medio satoshi; nada de lo que muestra se guarda.
+- El Sats Converter de la barra lateral puede mostrar un satoshi de menos cuando un importe en dólares cae justo a mitad de camino entre dos satoshis; nada de lo que muestra se guarda.
 
 **Sobre esta versión**
 
@@ -243,7 +243,7 @@ Jede sagt, wen sie betreffen konnte und was zu tun ist; den meisten Journalen ge
 - Lehnt der River-Import eine eingegebene Zelle ab, nennt er weder Zeile noch Spalte.
 - Ein Betrag von 10^21 BTC oder mehr, weit jenseits dessen, was es gibt, wird falsch angezeigt.
 - Der Hinweis des KI-Connectors zu einer Dollar-Zeile, die vielleicht schon erfasst ist, nennt die Dollar BTC.
-- Der Sats Converter in der Seitenleiste kann einen Satoshi zu wenig zeigen, wenn ein Dollarbetrag genau einen halben Satoshi ergibt; nichts, was er zeigt, wird gespeichert.
+- Der Sats Converter in der Seitenleiste kann einen Satoshi zu wenig zeigen, wenn ein Dollarbetrag genau in der Mitte zwischen zwei Satoshi liegt; nichts, was er zeigt, wird gespeichert.
 
 **Über diese Version**
 
@@ -321,7 +321,7 @@ Każda mówi, kogo mogła dotyczyć i co zrobić; większości ksiąg wystarczą
 - Gdy import River odrzuca wpisaną komórkę, nie podaje wiersza ani kolumny.
 - Kwota 10^21 BTC lub większa, daleko ponad to, co istnieje, jest pokazywana błędnie.
 - Uwaga łącznika AI o wierszu w dolarach, który może być już zapisany, nazywa dolary BTC.
-- Sats Converter na pasku bocznym może pokazać o jednego satoshi za mało, gdy kwota w dolarach daje dokładnie pół satoshi; nic z tego, co pokazuje, nie jest zapisywane.
+- Sats Converter na pasku bocznym może pokazać o jeden satoshi za mało, gdy kwota w dolarach wypada dokładnie w połowie między dwoma satoshi; nic z tego, co pokazuje, nie jest zapisywane.
 
 **O tym wydaniu**
 
@@ -399,7 +399,7 @@ Chacune dit qui a pu être touché et que faire ; pour la plupart des registres,
 - Quand l’import River refuse une cellule saisie, il ne dit ni la ligne ni la colonne.
 - Un montant de 10^21 BTC ou plus, bien au-delà de ce qui existe, s’affiche mal.
 - La note du connecteur IA sur une ligne en dollars peut-être déjà enregistrée appelle les dollars BTC.
-- Le Sats Converter de la barre latérale peut afficher un satoshi de moins quand un montant en dollars tombe exactement sur un demi-satoshi ; rien de ce qu’il affiche n’est enregistré.
+- Le Sats Converter de la barre latérale peut afficher un satoshi de moins quand un montant en dollars tombe exactement à mi-chemin entre deux satoshis ; rien de ce qu’il affiche n’est enregistré.
 
 **À propos de cette version**
 
