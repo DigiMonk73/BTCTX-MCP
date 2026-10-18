@@ -41,7 +41,8 @@ class EntryRow(BaseModel):
         default=None,
         description="Only when the user says this row is another transaction than the one the preview matched "
                     "as a duplicate: that transaction's id (the preview's matched_transaction_id). The row is "
-                    "then saved, once (sent again, it's left out) (#253, #378).",
+                    "then saved, once (sent again, it's left out) (#253, #378). Beside an identical row "
+                    "without it, both are refused as unclear (#497).",
     )
 
 

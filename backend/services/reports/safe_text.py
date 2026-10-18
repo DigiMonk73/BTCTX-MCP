@@ -5,10 +5,14 @@ Ledger text on its way into the PDF and CSV reports.
   <img src="..."/> or <a href="..."> makes ReportLab open a file or fetch a
   URL while it builds the PDF. Everything the ledger supplies (a deposit's
   source, a fee currency, dates, amounts) goes through pdf_text(), which
-  escapes it. As a second line, ReportLab is told to trust no URL scheme and
-  no host, so markup that slipped through still fetches nothing; the reports
-  use no images, links or font files of their own. This module must be
-  imported before ReportLab opens anything: it reads these settings once.
+  escapes it. As a second line, ReportLab opens no file and fetches
+  nothing: it is told to trust no URL scheme and no host, and its readers of
+  a file by name and of a URL (reportlab.lib.utils, which every image, font
+  and URL that Paragraph markup names goes through) are replaced by a
+  refusal, so markup that slipped through still reads nothing. The reports use no images,
+  links or font files of their own (the standard fonts are built in). This
+  module must be imported before ReportLab opens anything: it reads the
+  trust settings once.
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
   value, and of one that starts with ' before such a text (#380). Numbers
@@ -25,9 +29,20 @@ import unicodedata
 from xml.sax.saxutils import escape
 
 from reportlab import rl_config
+from reportlab.lib import utils as rl_utils
 
 rl_config.trustedSchemes = []
 rl_config.trustedHosts = []
+
+
+def _read_nothing(*_args, **_kwargs):
+    raise OSError("The reports open no file or URL.")
+
+
+# Looked up by name each time ReportLab opens something, whoever imported
+# its open_for_read: a file's path is opened before any trust setting is read.
+rl_utils.open_for_read_by_name = _read_nothing
+rl_utils.rlUrlRead = _read_nothing
 
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
 

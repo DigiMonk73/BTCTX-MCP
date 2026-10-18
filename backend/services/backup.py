@@ -14,9 +14,12 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from decimal import Decimal
 from pathlib import Path
+from typing import NamedTuple
 
-from sqlalchemy import create_engine
+from pydantic import ValidationError
+from sqlalchemy import Date, DateTime, Numeric, create_engine
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
@@ -512,7 +515,8 @@ def _quoted(name: str) -> str:
 def _read_as_the_app_does(new) -> None:
     """
     Every copied row read through BitcoinTX's models, as the app will read
-    it (its types turn stored text into dates and numbers): a value it can't
+    it (its types turn stored text into dates and numbers), and as the
+    screens and reports go on to use it (_require_usable): a value it can't
     read would fail every later read of that table, so it refuses the
     restore now.
     """
@@ -520,13 +524,104 @@ def _read_as_the_app_does(new) -> None:
 
     with Session(new) as session:
         for mapper in Base.registry.mappers:
+            checks = _checks(mapper)
             try:
-                for _ in session.query(mapper.class_).yield_per(1000):
-                    pass
+                for row in session.query(mapper.class_).yield_per(1000):
+                    _require_usable(row, checks)
             except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
                 logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
                 raise ValueError(DOESNT_FIT.format(table=mapper.local_table.name)) from e
             session.expunge_all()
+
+
+# How big a restored number may be, by what it holds (#460): no ledger with
+# real figures comes near these, and past them a page can fail.
+# - A transaction's amount and fee (whatever their account), and a lot's or
+#   a disposal's bitcoin, a part of one: below 10^10, the rule every save
+#   has checked since 0.9.2 (schemas.transaction.BTC_DIGITS).
+# - A stored price: below $10^15 a bitcoin, far above any a source has
+#   given, so a lot's bitcoin times its price stays below 10^25, which the
+#   reports round to cents within Decimal's 28 digits.
+# - Any other figure (a dollar value, a lot's cost, a ledger line): below
+#   10^17. A save takes 16 digits at most (a lot's cost adds its fee), and
+#   the dashboard's average cost divides a lot's cost by as little as a
+#   satoshi (10^-8), then rounds it to cents within those 28 digits.
+# - But a Sell's or Withdrawal's basis and gain, which add up its lots'
+#   (compute_sell_summary_from_disposals): below 10^22 (a sale of a
+#   million lots, each at a save's limit, would pass it).
+NUMBER_LIMITS = {
+    **dict.fromkeys([("transactions", "amount"), ("transactions", "fee_amount"), ("bitcoin_lots", "total_btc"),
+                     ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc")], Decimal(10) ** 10),
+    **dict.fromkeys([("btc_price_daily", "usd"), ("btc_price_hourly", "usd")], Decimal(10) ** 15),
+}
+FIGURES_BELOW = Decimal(10) ** 17
+SALES, SALE_TOTALS = ("Sell", "Withdrawal"), ("cost_basis_usd", "realized_gain_usd")
+SALE_TOTALS_BELOW = Decimal(10) ** 22
+# The years a restored date or moment may fall in (#460): a timezone moves
+# a moment by less than a day, so its local date stays within Python's
+# years (1 to 9999), where the reports work. Every save since 0.9.2 keeps
+# dates from Bitcoin's first block (2009-01-03) to the present.
+USABLE_YEARS = range(2, 9999)
+
+
+class _Checks(NamedTuple):
+    """What _require_usable checks in one table's rows."""
+    table: str
+    numbers: dict[str, Decimal]  # column -> the limit its values stay below
+    sale_numbers: dict[str, Decimal] | None  # a sale's (transactions only): its totals' limit raised
+    dates: list[str]  # columns holding a date or a moment
+    schema: type | None  # what the screens read its rows through (TransactionRead), if anything
+
+
+def _checks(mapper) -> _Checks:
+    """A table's checks, worked out once from its model's columns."""
+    from backend.database import PlainDate, UTCDateTime
+    from backend.models import Transaction
+    from backend.schemas.transaction import TransactionRead
+
+    table = mapper.local_table.name
+    numbers, dates = {}, []
+    for attr in mapper.column_attrs:
+        kind = attr.columns[0].type
+        if isinstance(kind, Numeric):
+            numbers[attr.key] = NUMBER_LIMITS.get((table, attr.key), FIGURES_BELOW)
+        elif isinstance(kind, (Date, DateTime, PlainDate, UTCDateTime)):
+            dates.append(attr.key)
+    if mapper.class_ is not Transaction:
+        return _Checks(table, numbers, None, dates, None)
+    return _Checks(table, numbers, {**numbers, **dict.fromkeys(SALE_TOTALS, SALE_TOTALS_BELOW)}, dates,
+                   TransactionRead)
+
+
+class _Unusable(ValueError):
+    """A value the screens or reports can't use. Its text names the column,
+    never the value, so the log may say it."""
+
+
+def _require_usable(row, checks: _Checks) -> None:
+    """
+    A row as the screens and reports use it, stricter than the models
+    (#460): its numbers finite and within their limits, its dates within
+    USABLE_YEARS, and a transaction read through the API's TransactionRead
+    as the list reads it (its type and broker reporting one of BitcoinTX's).
+    Sources and purposes aren't checked: the app reads any (one saved as
+    " gift ", #342; a withdrawal's of its own counts as Spent, #61).
+    """
+    numbers = checks.sale_numbers if checks.sale_numbers and row.type in SALES else checks.numbers
+    for name, below in numbers.items():
+        value = getattr(row, name)
+        if value is not None and not abs(value) < below:  # an infinity fails it too
+            raise _Unusable(f"{checks.table}.{name} is bigger than BitcoinTX's figures")
+    for name in checks.dates:
+        value = getattr(row, name)
+        if value is not None and value.year not in USABLE_YEARS:
+            raise _Unusable(f"{checks.table}.{name} is outside the years the reports use")
+    if checks.schema is not None:
+        try:
+            checks.schema.model_validate(row)
+        except ValidationError as e:
+            fields = ", ".join(".".join(map(str, error["loc"])) for error in e.errors(include_input=False))
+            raise _Unusable(f"{checks.table} can't be shown: {fields}") from e
 
 
 def _require_one_login(new) -> None:
@@ -539,7 +634,10 @@ def _require_one_login(new) -> None:
 
 def _reason(error: BaseException) -> str:
     """SQLite's own words for an error, for the log: never the statement or
-    its values, and on one line (they may hold the backup's names)."""
+    its values, and on one line (they may hold the backup's names). A value
+    the restore found unusable: which column it is in."""
+    if isinstance(error, _Unusable):
+        return str(error)
     words = str(error.orig) if isinstance(error, DBAPIError) else type(error).__name__
     return " ".join(words.split())[:200]
 

@@ -161,7 +161,9 @@ def test_many_logins_and_logouts_at_once_keep_the_list_whole(own_login):
     start = Barrier(count)
 
     def browser(i: int) -> TestClient:
-        client = TestClient(app)
+        # Each at an address of its own: a login in flight counts against its
+        # client's 5 free tries until it's right (login_throttle.py)
+        client = TestClient(app, client=(f"10.5.0.{i}", 50000))
         start.wait()
         assert client.post("/api/login", json=LOGIN).status_code == 200
         copy = copy_of(client)
