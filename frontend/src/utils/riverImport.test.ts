@@ -94,7 +94,7 @@ describe("importRow", () => {
   it("sends a BTC fee on a transfer, and no source or purpose", () => {
     const row = { ...toEditableRow(proposal()), feeAmount: "0.00000600" };
     expect(importRow(row)).toEqual({
-      date: "2026-02-15T10:00:00Z", type: "Transfer", amount: "0.00100000",
+      row_number: 2, date: "2026-02-15T10:00:00Z", type: "Transfer", amount: "0.00100000",
       from_account: "Exchange BTC", to_account: "Wallet",
       cost_basis_usd: null, proceeds_usd: null,
       fee_amount: "0.00000600", fee_currency: "BTC", source: null, purpose: null, cost_basis_typed: null,
