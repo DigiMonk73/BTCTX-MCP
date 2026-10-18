@@ -173,8 +173,9 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 ## Bumping the SDK
 
-`.github/workflows/startos-sdk-check.yml` opens an issue when npm has a newer
-`@start9labs/start-sdk`. To adopt it:
+BTCTX-MCP's `.github/workflows/startos-sdk-check.yml` opens an issue when npm
+has a newer `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt
+them:
 
 1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
    installing) for breaking changes and the minimum StartOS version.
@@ -188,16 +189,17 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    and anything under them, and run `npm install`: `npm update` does nothing for a git dependency. Then
    check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
    and no copy under another package (`overrides` keeps it so).
-3. `START_CLI_VERSION` in `.github/workflows/ci.yml` and
-   `.github/workflows/release.yml` is Start9's newest start-cli, with
-   `START_CLI_SHA256`, its `start-cli_x86_64-linux` SHA-256 from the release
-   notes: the mirror's workflows call Start9's shared ones, which install the
-   newest start-cli at each build, so Start9's package is packed with it.
-   When `startos-sdk-check.yml` reports a new start-cli, move both, with or
-   without an SDK bump: read its release notes, then check CI's pack and a
-   local pack installed on a test server. Once Start9 has forked the mirror,
-   they may bump the SDK there first: take it with `scripts/start9-pull.sh`
-   instead.
+3. `START_CLI_VERSION` in BTCTX-MCP's `.github/workflows/ci.yml` and
+   `release.yml` is Start9's newest start-cli, with `START_CLI_SHA256`, its
+   `start-cli_x86_64-linux` SHA-256 from the release notes: the mirror's
+   workflows call Start9's shared ones, which install the newest start-cli
+   at each build, so Start9's package is packed with it. When the check
+   reports a new start-cli, move both, with or without an SDK bump: read its
+   release notes, then check CI's pack and a local pack installed on a test
+   server. A start-cli bump alone changes only how BTCTX-MCP builds the
+   package: it needs no package revision, and the next release uses it.
+   Once Start9 has forked the mirror, they may bump the SDK there first:
+   take it with `scripts/start9-pull.sh` instead.
 4. Run the checks, bump the package revision, release. While the community
    registry doesn't serve the current version, the bump rides in the next
    app release instead (the end of "After Start9 forks the mirror").

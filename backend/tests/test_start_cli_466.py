@@ -14,12 +14,14 @@ from pathlib import Path
 WORKFLOWS = sorted((Path(__file__).resolve().parents[2] / ".github/workflows").glob("*.y*ml"))
 # The oldest start-cli that builds the image the way Start9's builds do.
 OLDEST = (2, 4, 0)
-PIN = re.compile(r"^\s*START_CLI_VERSION:\s*(\S+)\s*$", re.M)
-SHA256 = re.compile(r"^\s*START_CLI_SHA256:\s*(\S+)\s*$", re.M)
+PIN = re.compile(r"^\s*START_CLI_VERSION:\s*(\S+)\s*(?:#.*)?$", re.M)
+SHA256 = re.compile(r"^\s*START_CLI_SHA256:\s*(\S+)\s*(?:#.*)?$", re.M)
 # A start-cli release named in a URL or a `gh release` command, written any way
 # GitHub takes it.
 NAMED_RELEASE = re.compile(r"start-cli(?:%2f|/)v?\d", re.I)
-DOWNLOAD = "/start-cli_x86_64-linux\""
+# A line that downloads a start-cli build (named for its machine), whatever
+# the command; the comments and the weekly check's text only name one.
+DOWNLOAD = re.compile(r"(?:https?://|curl|wget|download).*start-cli_[a-z0-9_]+-(?:linux|macos)", re.I)
 CHECKED = 'echo "${START_CLI_SHA256}  /usr/local/bin/start-cli" | sha256sum -c -'
 
 
@@ -49,6 +51,6 @@ def test_every_start_cli_download_takes_the_pin_and_is_checked():
         for number, line in enumerate(lines):
             if not PIN.match(line):
                 assert not NAMED_RELEASE.search(line), f"{workflow.name}:{number + 1} names a start-cli"
-            if DOWNLOAD in line:
-                assert "start-cli%2F${START_CLI_VERSION}/" in line
+            if DOWNLOAD.search(line):
+                assert "start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux\"" in line
                 assert lines[number + 1].strip() == CHECKED, f"{workflow.name}:{number + 2}"
