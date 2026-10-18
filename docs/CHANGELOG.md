@@ -490,8 +490,8 @@ All notable changes to BitcoinTX are documented in this file.
   which of the server's price settings it has, and a command lacking them
   asks no one and says so (`note: …` on its error output). The package's
   own commands (the Recalculate Ledger action, and the migrate step at each
-  start) have them, and work as before; so do Docker's `docker exec` commands; the Mac app
-  has none, and nothing changes there.
+  start) have them, and work as before; so do Docker's `docker exec`
+  commands; the Mac app has none, and nothing changes there.
 - **A price lookup under way when you change the price settings follows
   your new choice** (#437). A lookup of a past price asked your own
   Mempool first, waiting for it up to a minute and a half when it was slow
