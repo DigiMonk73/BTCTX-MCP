@@ -320,9 +320,6 @@ declare global {
     transactionId?: number | null;
     onUpdateStatusChange?: (updating: boolean) => void;
   }
-
-  // The calculator's pending operation
-  type Operation = "+" | "-" | "*" | "/" | null;
 }
 
 export {}; // A module, so that `declare global` applies
