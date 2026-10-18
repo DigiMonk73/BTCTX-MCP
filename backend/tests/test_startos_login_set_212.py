@@ -27,8 +27,13 @@ def package_version(text: str) -> tuple[int, ...]:
     return tuple(int(n) for n in version[0])
 
 
+def migration_up(text: str) -> str:
+    """A version file's `up` body, without its comment lines."""
+    body = text.split("migrations: {")[1].split("up: async ({ effects }) => {")[1].split("down:")[0]
+    return "\n".join(line for line in body.splitlines() if not line.strip().startswith("//"))
+
+
 def test_the_store_keeps_only_whether_a_login_was_set():
-    assert STORE.startswith("import { FileHelper, z }")
     assert "const shape = z.looseObject({" in STORE
     assert "  loginSet: z.boolean().optional().catch(undefined),\n" in STORE
 
@@ -54,7 +59,7 @@ def test_the_set_a_login_task_reads_the_flag():
 def test_no_package_code_reads_or_writes_a_stored_password():
     """Only the store's model, the 0.9.0:0 migration (which moves an older
     install's password into the store on the way up, before 1.2.9:0 deletes
-    it), the legacy file's own model and the helper name it."""
+    it), the legacy file's own model and, in utils.ts, the helper name it."""
     allowed = {
         "fileModels/store.json.ts",
         "fileModels/legacyWrapperStore.ts",
@@ -67,6 +72,8 @@ def test_no_package_code_reads_or_writes_a_stored_password():
         if "adminPassword" in path.read_text()
     }
     assert naming <= allowed, naming - allowed
+    helper = UTILS.split("export async function forgetStoredPassword(")[1].split("\n}\n")[0]
+    assert UTILS.count("adminPassword") == helper.count("adminPassword")
 
 
 def test_the_helper_turns_a_stored_password_into_the_flag():
@@ -94,6 +101,6 @@ def test_the_release_after_1_2_8_drops_the_stored_password():
         for path in (PKG / "versions").glob("*.ts")
         if path.name != "index.ts"
         and package_version(path.read_text()) > LAST_WITH_PASSWORD
-        and "await forgetStoredPassword(effects)" in path.read_text().split("migrations: {")[1]
+        and "await forgetStoredPassword(effects)" in migration_up(path.read_text())
     ]
     assert callers, "a version after 1.2.8:0 must call forgetStoredPassword in its up"
