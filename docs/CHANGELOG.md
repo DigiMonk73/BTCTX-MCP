@@ -221,6 +221,24 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing to do.
 
 ### Fixed
+- **Turning public price sites off and on again doesn't hold back the
+  newest hours for 10 minutes** (#475). The hours newer than the
+  release's price files come from Bitstamp in blocks of 1,000 hours,
+  asked at most every 10 minutes. If you saved a choice without public
+  sites (Nobody, or your Mempool with no backup) while more than one such
+  block was being asked, the rest was rightly not asked, but the log
+  called it a failure ("Hourly BTC price lookup failed"), the hours
+  already received were dropped, and with public sites allowed again
+  those hours weren't asked until the 10 minutes had passed. A value
+  needing one of them meanwhile took its day's price, marked "day". Every
+  version from 1.2.8. Now the hours received before the save are kept,
+  nothing is logged as a failure, and the rest is asked at the next
+  lookup as the new choice says, as the daily history already was. Only
+  your own change of these settings during such a download could cause
+  it (they're login only, never the AI key), and nothing was asked that
+  your choice didn't allow. Nothing to do: Ledger Review's check of
+  values priced at the day lists any such value, and can price it at its
+  hour.
 - **Two different price-setting saves at the same moment: the later one is
   the one in use** (#435). Saving Settings → Privacy & network from two
   tabs or browsers at the same moment, with different choices, could leave
