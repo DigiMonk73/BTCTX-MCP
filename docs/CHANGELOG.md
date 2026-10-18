@@ -4,6 +4,63 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
+
+**In short.** 1.2.9 is planned as BitcoinTX's stable version. It fixes the
+bugs found in 1.2.8's testing and in the reviews since, several of which
+could make a tax figure wrong (each entry marked "tax figures" below says
+who could be affected and what to do); lets an install that uses Tor
+download the price history once without it, if you agree; asks before
+Delete All wipes the ledger, and keeps a copy first; and runs BitcoinTX as
+its own user instead of root, in Docker and on StartOS.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself). A page still open from 1.2.8 can show a date originally
+   acquired or a date of death a day early, and save that day with an edit
+   (#185).
+2. **Open Settings → Ledger Review, then Recalculate Ledger.** "Figures
+   that Recalculate Ledger would change" lists each transaction a
+   recalculation moves, old and new: on most ledgers a cent or two of cost
+   basis (#100, #297), more on a ledger started before 0.9.2 (#61, #342).
+   Then run Settings → Recalculate Ledger; on StartOS a task asks once for
+   its action.
+3. **Check Settings → Tax Timezone** (#334): make sure it's where you
+   file.
+4. **Update the AI connector** to `btctx-mcp==1.2.9` in your AI app's
+   configuration, then restart the AI app.
+5. **Docker:** run a maintenance command as the app's own user,
+   `docker exec -u btctx <container> python -m backend.cli …` (#202).
+6. **Updating from 1.2.7 or earlier:** also do what 1.2.8's notes ask (log
+   in again; confirm where prices come from when the Dashboard asks).
+7. Then read the entries marked "tax figures" below: each says whether
+   there's anything more to do. Most ledgers need nothing more.
+
+**Known issues** (none can make a figure wrong; for the first maintenance
+update):
+- A save made while a long import holds the database answers "Something
+  unexpected went wrong", not that it's busy; nothing was saved, and
+  saving again works (#478).
+- The CSV import's preview counts a row with two errors as two rows
+  (#479).
+- When the River import refuses a typed cell, its message names no row or
+  column (#480).
+- An amount of 10^21 BTC or more, far beyond what exists, is written
+  wrongly (#489).
+- The AI connector's preview note on a dollar row that may already be
+  recorded calls the dollars "BTC" (#525).
+
+**What's next.** 1.2.9 is planned as BitcoinTX's stable version. After it,
+until 2.0 replaces it, we expect 1.x to get maintenance updates: bug and
+security fixes, each year's IRS forms and the price history's update, and
+a few small improvements. The big new work goes into 2.0, planned to add
+several wallets, exchanges and banks, each wallet and exchange with its
+own cost-basis lots (#251). Because 2.0 changes how the ledger is stored,
+we plan to test it as a beta, on GitHub pre-releases, for as long as it
+needs before it replaces 1.x; on StartOS we plan to bring it to Start9's
+Community Beta only once it's ready. We can't promise dates.
+
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,
   if you agree** (#241, the owner's decision of 2026-10-16). Through Tor,
@@ -1719,6 +1776,17 @@ All notable changes to BitcoinTX are documented in this file.
   the page; the MCP server's page stays linked.
   `test_startos_docs_link_467.py` checks that each link is a page of this
   repository and that the page about the app has no other install's steps.
+- **Package 1.2.9:0** (Start9's `versions.md`). Its release notes, in five
+  languages, cover everything since 1.2.7:1, which the community registry
+  still serves, so they carry 1.2.8:0's: what to do after updating, each
+  tax-figure fix with who could be affected and what to do, the privacy
+  fixes, what's new, the known issues and what comes next. Its migration
+  raises **Recalculate Ledger** once (#100's and #297's cents, #61's and
+  #342's old withdrawals, #185's lot order within a day and #487's
+  leftover gain reach saved transactions only through a recalculation)
+  and drops the password the store kept (#212). 1.2.8:0's migration, which
+  raises the same task, moves to its own file (`versions/v1.2.8_0.ts`), so
+  an install on 1.2.7:1 or earlier still runs it on the way.
 
 ### Development
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",

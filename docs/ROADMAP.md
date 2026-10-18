@@ -29,48 +29,20 @@ the big new work goes into 2.0, below. No dates are promised.
 - [ ] **Price sources: one clear, simple choice everywhere** (#145): built:
       one price card (your own Mempool, public sites, or nobody, optionally
       through Tor), a status line, confirm once after the update, and each
-      value's source shown; StartOS asks at install. Waiting on the owner:
-      the landing page's words (#145). Six small pieces of the plan come
-      later (#208, under "Soon").
+      value's source shown; StartOS asks at install; its six small pieces
+      shipped in 1.2.9 (#208). Waiting on the owner: the landing page's
+      words (#145).
 
 ## Soon
 
-- [x] **The price redesign's six small pieces** (#208; the next release,
-      the owner's choice, 2026-10-13): "Recommended" beside "Chosen" in the
-      app when StartOS set your own Mempool; a blank value's hint and the
-      sidebar's Auto price say where the price comes from (the Gift form's
-      Refresh is gone with #255: a blank value fills when saved and says its
-      hour and source); the sidebar asks "Is Tor running?" when Tor fails;
-      and the AI connector says the hour and source of a value it filled.
-- [ ] **StartOS keeps only whether a login was set, not the password**
-      (#212; the next release, the owner's choice, 2026-10-13), with a
-      package migration that drops the stored value.
-- [x] **A gift, donation or lost value left blank is filled from the
-      price** (#255; 1.2.9, the owner's choice, 2026-10-14): when it's
-      saved, from the BTC price when that hour began (that day's where
-      there's no hourly price), shown as coming from the price, as income
-      and a spend's proceeds already are; a typed value always wins, and
-      with no price source, or no price found, it stays blank. Ledger
-      Review lists the gifts, donations and lost coins that have no value,
-      including ones saved blank before.
-- [x] **Delete All and Create account ask before wiping the ledger**
-      (#256; 1.2.9, the owner's choice, 2026-10-14): a dialog
-      that says what goes, offers to download a backup first and deletes
-      only once `DELETE` is typed, and a safety copy in the data folder's
-      `backups` before the wipe. An empty install isn't warned.
-- [x] **Times on screen in the device's own timezone** (#260; 1.2.9, the
-      owner's choice, 2026-10-14): the price card's and Settings' clock
-      times as the phone's or computer's clock shows them, like the
-      transaction list; the tax timezone keeps deciding the tax year, Form
-      8949's dates and the report.
 - [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
       forms are filed (early 2027): the user types the form's proceeds and
       cost for that sale, and Form 8949 shows them with the IRS's code and
       correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
       report and the guide say when. Generic, not tied to one exchange.
 - [ ] Styled dialogs instead of the browser's confirm/prompt (deletes,
-      backup password); the one for Delete All and Create account comes
-      first (#256, above).
+      backup password), like the one for Delete All and Create account
+      (#256, in 1.2.9).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the
       `irs-forms-watch` workflow opens an issue): `python scripts/irs_new_year.py 2026`.
       Expected around Dec 2026–Jan 2027.
