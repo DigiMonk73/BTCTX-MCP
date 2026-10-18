@@ -169,8 +169,10 @@ def execute_river_import(
     Every row is re-validated server-side with the same rules as the
     onboarding CSV import, then re-checked against the ledger for
     duplicates (double-submit guard), but for the rows the preview found
-    there, whose matches are kept for them (#253). All-or-nothing: any
-    failure rolls back the entire batch.
+    there, whose matches are kept for them (#253). The check and the writes
+    hold one write lock, so the same rows imported twice at once (two tabs)
+    are saved once (#454). All-or-nothing: any failure rolls back the
+    entire batch.
     """
     _require_auth(request)
 
@@ -183,28 +185,30 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    new_tx_datas = _rows_to_import(payload.rows, db)
-    skipped = len(kept) - len(new_tx_datas)
+    to_check = _rows_to_check(payload.rows)
+    reserved = {row.matched_tx_id for row in payload.rows if row.matched_tx_id is not None}
+    imported_count = 0
+    if to_check:
+        try:
+            imported_count = execute_import(
+                db, [tx_data for _number, tx_data, _row in to_check], lambda: _not_in_the_ledger(to_check, reserved, db))
+        except HTTPException as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Import failed: {exc.detail}. No transactions were saved.",
+            )
+        except Exception as exc:
+            raise import_failure("River import", exc) from exc
+    skipped = len(kept) - imported_count
 
-    if not new_tx_datas:
+    if not imported_count:
         return RiverImportResponse(
             success=True,
             imported_count=0,
             skipped_existing=skipped,
             message=f"Nothing to import — {skipped} row(s) already exist in the ledger.",
         )
-
-    try:
-        imported_count = execute_import(db, new_tx_datas)
-    except HTTPException as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Import failed: {exc.detail}. No transactions were saved.",
-        )
-    except Exception as exc:
-        raise import_failure("River import", exc) from exc
-
     message = f"Imported {imported_count} transaction(s)."
     if skipped:
         message += f" Skipped {skipped} already in the ledger."
@@ -216,22 +220,29 @@ def execute_river_import(
     )
 
 
-def _rows_to_import(rows: list[RiverExecuteRow], db: Session) -> list[dict]:
-    """The checked rows to import (#253). The transaction the preview matched
-    to each row it found in the ledger (matched_tx_id), ticked or left out,
-    is kept for that row, so the owner's edits can't move a match. A ticked
-    one (another transaction, not_a_duplicate) is then checked like every
-    other row against the rest of the ledger: the double-submit guard, so a
-    request sent again finds the copies the first one saved."""
-    tx_datas = iter(_validated_rows([row for row in rows if not row.left_out]))
-    kept = [(next(tx_datas), row) for row in rows if not row.left_out]
-    checked = {
-        i: _stub(i + 1, tx_data, row) for i, (tx_data, row) in enumerate(kept)
+def _rows_to_check(rows: list[RiverExecuteRow]) -> list[tuple[int, dict, RiverExecuteRow]]:
+    """The checked rows the import may save (#253), each with its number
+    among the rows kept and its row: those the preview didn't find in the
+    ledger, and those it found that the owner ticked (another transaction,
+    not_a_duplicate). The transaction the preview matched to each row it
+    found, ticked or left out, is kept for that row (_not_in_the_ledger), so
+    the owner's edits can't move a match."""
+    kept = [row for row in rows if not row.left_out]
+    return [
+        (i + 1, tx_data, row) for i, (tx_data, row) in enumerate(zip(_validated_rows(kept), kept))
         if row.matched_tx_id is None or row.not_a_duplicate
-    }
-    reserved = {row.matched_tx_id for row in rows if row.matched_tx_id is not None}
-    annotate_duplicates(list(checked.values()), db, exact_only=True, reserved_tx_ids=reserved)
-    return [tx_data for i, (tx_data, _row) in enumerate(kept) if i in checked and checked[i].status == STATUS_NEW]
+    ]
+
+
+def _not_in_the_ledger(to_check: list[tuple[int, dict, RiverExecuteRow]], reserved: set[int], db: Session) -> list[dict]:
+    """Those of the rows to check that the ledger doesn't hold, the
+    transactions the preview matched aside (reserved): the double-submit
+    guard, so a request sent again finds the copies the first one saved.
+    Run under the import's write lock (execute_import), from the rows'
+    values as given."""
+    stubs = [_stub(number, tx_data, row) for number, tx_data, row in to_check]
+    annotate_duplicates(stubs, db, exact_only=True, reserved_tx_ids=reserved)
+    return [tx_data for (_number, tx_data, _row), stub in zip(to_check, stubs) if stub.status == STATUS_NEW]
 
 
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:

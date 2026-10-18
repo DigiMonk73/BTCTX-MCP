@@ -582,6 +582,29 @@ All notable changes to BitcoinTX are documented in this file.
   purchase. Now the rows are matched so that each finds a copy when the
   ledger holds one for each. **Affected:** no release: matching a date
   alone is new in this version (#253). Nothing to do.
+- **The same rows sent twice at once are saved once** (tax figures,
+  #454). An add through the AI connector checked the ledger for its rows
+  and then saved them, as two steps, so a second request with the same
+  rows that checked before the first had saved found nothing and saved
+  them again. That happens when the connector gives up waiting (after
+  120 s, while BitcoinTX looks up prices, through Tor especially) and the
+  AI sends the add again, as the ledger guide says is safe; BitcoinTX
+  finished the first request all the same. It happens too when an AI app
+  sends two adds at once, or a River or CSV file is imported in two
+  browser tabs at once. The check and the save now hold the database's
+  lock together: the second request waits for the first, then finds its
+  rows and leaves them out (the CSV import says the ledger isn't empty);
+  one kept waiting past 5 s is refused as busy, nothing saved, to be sent
+  again. The prices are still found before, with the lock free.
+  **Affected:** every release (the AI connector's add since 0.8.0, the
+  River import since 0.7.0, the CSV import before them), any tax year.
+  **What to do:** if the AI connector ever told you an add failed or timed
+  out, an AI app sent the same add twice, or you imported a River file in
+  two tabs, look in Transactions for a transaction recorded twice (the
+  same type, amount and time, next to each other) and delete the extra
+  copy. A CSV file imported in two tabs at once saved every row twice:
+  delete the second copy of each row, or Delete All, import the file once
+  and add again anything you entered after it.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same
@@ -716,6 +739,17 @@ All notable changes to BitcoinTX are documented in this file.
   form, the API, the CSV preview, the AI connector's import and River's. A
   bitcoin fee keeps its 8. Every release from 0.8.0; a fee typed with more
   than 2 decimals was needed.
+- **A value the server refuses field by field is said in words** (#448).
+  When the server refused a value field by field (FastAPI's 422, a list),
+  two screens didn't put that list into words. The River import's preview
+  crashed to "Something went wrong" on Import, losing every edit made in
+  it, when a cell held a value such as `1,200` in a Cost Basis; the
+  transaction form said "Failed to create transaction: [object Object]"
+  (or "update") for an amount such as `12345678901`. Both now show the
+  server's reason ("Input should be a valid decimal", "Amount is too
+  large."), and River's preview stays as it was, so the cell can be
+  corrected and imported. Nothing was saved in either case: no figure
+  changed. Every release from 0.8.0.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
@@ -744,6 +778,29 @@ All notable changes to BitcoinTX are documented in this file.
   transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
+- **A number written with a decimal comma is refused, not read as another
+  number** (#452). The CSV import and the River import dropped every comma
+  in a number, to allow a thousands separator ("1,000.50"), so a decimal
+  comma was dropped too, with no error and no warning: "0,5" BTC was saved
+  as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Where a point
+  separated thousands, as the same spreadsheets write them, "21.000,00"
+  dollars was saved as $21. Now a comma counts only as a thousands
+  separator, between groups of three digits before the point (1,000 or
+  12,345.67). Any other comma is refused, naming its column, in the
+  preview and at Import: "A comma is read only as a thousands separator
+  (1,000.50): write decimals with a point (0.5, not 0,5)." A number with an
+  underscore ("0_5", which was read as 5) is refused too. **Affected:**
+  every release with the CSV or River import, 1.2.8 included, any tax
+  year, but only a file that wrote an amount, cost basis, proceeds, fee or
+  value with a comma as its decimal point (a spreadsheet set to a language
+  that writes one can save a CSV so, with the number in quotes). A file
+  with points, as BitcoinTX's template, its own export and River's files
+  have, was read right.
+  **What to do:** if you imported a file that wrote decimals with a comma,
+  look in Transactions for amounts and values ten or more times too large,
+  or about a thousand times too small where a point separated thousands
+  (21.000,00), and edit each to the right figure (an edit recalculates the
+  ledger).
 - **The CSV import's Preview says when a row needs a price BitcoinTX can't
   get** (#125). Preview called a row valid that Import then refused for want
   of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
@@ -757,6 +814,33 @@ All notable changes to BitcoinTX are documented in this file.
   version since 1.1.0 (where nothing is asked for prices until a source is
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
+- **The CSV import refuses a row with more fields than the header**
+  (#453). A comma outside quotes starts a new field, so an amount written
+  `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
+  note with a comma in it, or a doubled comma. Every column after it moved
+  one place, and the import read the row so, with no error and no
+  warning: a My BTC deposit with a $20,000.00 cost basis was saved with a
+  basis of $20.00, no source and "MyBTC" as its purpose, and its sale
+  later showed about $19,980 too much gain; an income deposit could lose
+  its source and not count as income. Preview and Import now refuse a row
+  left with more fields than the header, naming it: "This row has more
+  fields than the header: a stray comma, or an amount written with a
+  comma (write 1000.00, not 1,000.00)?", as the River import does. A row
+  ending in one comma too many is refused too, since it can't be told
+  from a shifted one: remove the comma. A value in quotes (`"20,000.00"`)
+  is one field and reads as before, and so does a row with fewer fields
+  than the header (its last cells blank). So a shifted row written
+  without its last empty cells still can't be caught: write every column,
+  as the template and the export do. **Affected:** every version with the
+  CSV import, 1.2.8 included, and any tax year with a transaction
+  imported from a file with one comma too many outside quotes in a row (a
+  row whose shift put a value in a column that can't take it was refused,
+  with a confusing error such as "Invalid fee currency '1'"). **What to
+  do:** if a file you imported had one (an amount like `1,000.00`, a
+  doubled comma, or a comma in a note, without quotes), compare its
+  transactions with the file (cost basis, proceeds, fee, source, purpose,
+  notes and the later columns) and edit any that differ: the edit
+  recalculates the ledger.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
@@ -774,6 +858,32 @@ All notable changes to BitcoinTX are documented in this file.
   what 1.2.8 shipped and was tested on, over 3.11, which GitHub offers for
   the Mac only as a release from April 2024. A build on your own Mac still
   takes the newest it finds, unless you name one.
+- **A dollar withdrawal is never listed as a gift of bitcoin** (tax
+  figures, #449). In the transaction form, a withdrawal's Purpose, FMV and
+  Proceeds show only for a bitcoin account, but a value chosen there stayed
+  in the form when the Account was then changed to Bank or Exchange USD,
+  and was saved with the dollar withdrawal. The Complete Tax Report then
+  listed it under "4. Gifts, donations and lost coins" as bitcoin given
+  away (its dollars shown as BTC, its typed value in the section's total),
+  a leftover Spent with proceeds was counted in the dashboard's spent
+  total, and Ledger Review could list a leftover Lost or $0 Spent. In
+  1.2.8, a Spent whose proceeds came from the price, edited into a dollar
+  withdrawal, was even priced again at the BTC price times its dollar
+  amount: the dashboard counted that as spent, the report's table of
+  values from the price listed it, and Ledger Review offered to price it
+  at the hour. A deposit's Source was kept the same way (shown in the list
+  only). Now the form sends a purpose, value or source only for a bitcoin
+  account; BitcoinTX keeps no Spent, Gift, Donation or Lost and no value on
+  a dollar withdrawal whoever sends one (a label of its own, such as
+  "Rent", stays), and the CSV import's and the AI connector's previews say
+  so; and the report, the dashboard, Ledger Review and the AI connector's
+  duplicate check read them only on bitcoin leaving. Form 8949, Schedule D
+  and the gains were never affected: a dollar withdrawal has no lots.
+  **Affected:** every version (the priced case 1.2.8), for any tax year
+  with a dollar withdrawal saved this way. **What to do:** nothing: such a
+  row is left out of the figures from this version. Its old purpose still
+  shows in the Transactions list, and its purpose and proceeds in the
+  Transaction History report, until you open the withdrawal and save it.
 - **No gain line for a gift, a donation or lost coins** (#257). The
   Transactions list showed one under these withdrawals ("Gain $0.00 ·
   +0.00% · Long-term"), as if they were sales with a holding period. They
@@ -1131,6 +1241,21 @@ All notable changes to BitcoinTX are documented in this file.
   registry serves it, so `UPDATING.md` now ships such a fix inside a small
   app release (a new version with a real app fix, the package back at `:0`)
   instead of a package revision.
+- **The instructions' Documentation link names a page with only what
+  applies on StartOS** (#467). Start9's support indexer crawls the links
+  under the instructions' `## Documentation`, and Start9's guide
+  (`writing-instructions.md`, "Choosing documentation URLs") says to leave
+  out install guides for a deployment the package doesn't use, or support
+  learns steps that break a StartOS install. The link was the whole README,
+  with the Mac app's, Docker's and source's install, first login and
+  upgrade steps. It now names a new page, `docs/USING.md`: what BitcoinTX
+  does, the same wherever it runs (the accounts, the five kinds of
+  transaction, lots, reports and tax forms, imports, Ledger Review, prices,
+  backups, one wallet and one exchange), made from the README's "Features"
+  and "One wallet, one exchange". The README keeps its text and points to
+  the page; the MCP server's page stays linked.
+  `test_startos_docs_link_467.py` checks that each link is a page of this
+  repository and that the page about the app has no other install's steps.
 
 ### Development
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",

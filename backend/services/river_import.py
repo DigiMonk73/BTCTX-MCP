@@ -42,7 +42,7 @@ from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal, number_limits, unreadable_csv
+from backend.services.csv_import import _parse_decimal, decimal_comma_note, number_limits, unreadable_csv
 from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
@@ -273,7 +273,8 @@ def _river_numbers(r: dict[str, str], row_number: int,
         if text and value is None:
             errors.append(CSVParseError(
                 row_number=row_number, column=column, severity="error",
-                message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}.",
+                message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}."
+                + decimal_comma_note(text),
             ))
             return None
         numbers.append(value)
