@@ -1071,7 +1071,8 @@ update):
   does: one dated after the others adds only its own figures, so an older
   row kept its old figures. Editing or deleting any transaction, or
   Recalculate Ledger, applies the newest rules to every row, as both now
-  say.
+  say, and so does the StartOS package's `instructions.md` (it said every
+  change recalculates the whole ledger).
 - **A dollar transfer's Amount (To) counts** (#447). On a dollar transfer
   (Bank → Exchange, or Exchange USD → Bank) the form asked for Amount
   (From), Amount (To) and Fee (USD) but saved only Amount (From) and the
