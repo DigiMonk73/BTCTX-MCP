@@ -132,6 +132,9 @@ Withdrawal: any account -> External
         return, Form 709.
     fmv_usd omitted: that hour's price x amount, marked as from the price;
     with no price it stays blank, and Ledger Review lists it.
+    They have no proceeds: proceeds_usd sent with one isn't kept. Made a
+    Spent later, send proceeds_usd if known; left out, that hour's price
+    is used (or, for one that was a Spent before, its proceeds then).
   amount = what the recipient got. Network fee: fee_amount in BTC,
   fee_currency = BTC, ON TOP of amount. proceeds_usd for a Spent is what
   was received for amount, before the fee: BitcoinTX takes the fee's value

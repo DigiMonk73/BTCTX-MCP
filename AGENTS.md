@@ -177,6 +177,14 @@ from the Transaction row alone.
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
+  A withdrawal that doesn't count as spent (a gift, donation or lost coins;
+  a dollar withdrawal) has no proceeds (#457): the form sends them only with
+  a Spent, an edit keeps no value sent for one (`_apply_proceeds`), and one
+  made a Spent or a Sell with none sent carries no $0 it holds, nor anything
+  a dollar withdrawal holds (`_drop_proceeds_it_never_had`): a Spent's are
+  priced at the hour, a Sell needs them sent; a gift's above $0 (a former
+  spend's) are kept, typed. The form opens an old row with no gross at the
+  gross the server recovers (`utils/withdrawalProceeds.ts`, #485).
   A BTC withdrawal whose purpose isn't Spent, Gift, Donation or Lost (only
   an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
   the owner's rule, #61): at its gross, or, saved before 0.8.0 with no

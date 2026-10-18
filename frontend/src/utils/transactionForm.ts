@@ -2,6 +2,7 @@
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
+import { proceedsSent, withdrawalProceeds } from "./withdrawalProceeds";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -165,13 +166,14 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   },
   Withdrawal: (tx) => {
     const accountId = tx.from_account_id ?? 0;
+    const proceeds = withdrawalProceeds(tx);
     return {
       account: accountIdToType(accountId),
       currency: accountCurrency(accountId),
       amount: tx.amount,
       purpose: listedPurpose(tx.purpose),
-      // Stored proceeds_usd is net of the BTC fee; edit the user's gross
-      proceeds_usd: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+      proceeds_usd: proceeds,
+      proceedsStored: proceeds,
     };
   },
   Transfer: (tx) => {
@@ -282,7 +284,7 @@ const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypeP
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
     purpose: withdrawalPurpose(data),
     cost_basis_usd: null,
-    proceeds_usd: inBtcAccount(data) ? optionalDecimal(data.proceeds_usd) : null,
+    proceeds_usd: inBtcAccount(data) ? proceedsSent(data) : null,
     fmv_usd: inBtcAccount(data) ? optionalDecimal(data.fmv_usd) : null,
   }),
   Transfer: (data) => ({

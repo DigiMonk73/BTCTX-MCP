@@ -23,9 +23,12 @@ describe("a withdrawal's purpose and values go only with bitcoin leaving", () =>
   it.each([
     ["Wallet", "BTC"],
     ["Exchange", "BTC"],
-  ] as const)("from %s (%s): all of them, as typed", (account, currency) => {
+  ] as const)("from %s (%s): its purpose and FMV, as typed", (account, currency) => {
     const body = buildTransactionPayload(form({ ...leftOver, account, currency, amount: 0.01 }));
-    expect(body).toMatchObject({ purpose: "Gift", proceeds_usd: 500, fmv_usd: 500 });
+    expect(body).toMatchObject({ purpose: "Gift", fmv_usd: 500 });
+    // A gift has no proceeds: the Spent's typed before goes no further (#457)
+    expect(body.proceeds_usd).toBeUndefined();
+    expect(buildTransactionPayload(form({ ...leftOver, account, currency, purpose: "Spent" })).proceeds_usd).toBe(500);
   });
 });
 

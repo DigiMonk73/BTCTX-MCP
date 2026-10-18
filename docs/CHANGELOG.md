@@ -319,6 +319,45 @@ All notable changes to BitcoinTX are documented in this file.
   of 6 emoji passed the form, then the server refused it with the
   12-character rule. They now count the way the server does. The server's
   rule itself is unchanged.
+- **A gift, donation or lost coins saved in the form is no longer a $0 sale
+  when it's made a Spent later** (tax figures, #457). Saving one in the
+  edit form, even unchanged, stored a hidden $0 as its proceeds. Made a
+  Spent afterwards through the AI connector or the API without proceeds
+  (the connector's `update_transaction` sends only the purpose), it kept
+  that $0: a sale at $0, its whole cost basis a loss on Form 8949, where
+  the same gift never saved in the form was priced at the hour. Changed
+  into a Sell the same way, it was saved as a $0 sale instead of being
+  refused. A dollar withdrawal saved in the form held the same $0, and
+  moved to a bitcoin account as a Spent it was a $0 sale too. Every version
+  from 0.8.0 to 1.2.8. Now the form sends proceeds only with a Spent, and
+  BitcoinTX keeps none sent for any other withdrawal. One made a Spent with
+  no proceeds given is priced at the hour, as a new Spent left blank is,
+  unless it holds proceeds above $0 from when it was a spend, which are
+  kept as typed. A Sell made of one needs its proceeds.
+  **Affected:** only a gift, donation, lost coins or dollar withdrawal
+  changed afterwards into a Spent or a Sell through the AI connector or the
+  API (in the form, the change showed Proceeds 0 and its warning).
+  **What to do:** open Ledger Review: it lists such a spend under "Spent
+  withdrawals saved with $0 proceeds". If it was really a sale, open it and
+  clear Proceeds (it's priced at the hour) or type what you received. A $0
+  Sell isn't listed there: look in Transactions for a Sell showing no
+  proceeds. If you filed a return from BitcoinTX's figures, such a sale
+  would be in that year.
+- **An old Spent withdrawal opens in the edit form with what it received**
+  (tax figures, #485). A spend saved before 0.8.0, when BitcoinTX didn't
+  yet keep a withdrawal's proceeds before fees, opened in the form with
+  Proceeds 0 and its warning, so a save, even unchanged, made it a $0 sale.
+  The form now shows the proceeds BitcoinTX recovers for it, as a
+  recalculation does: what was stored, with the fee deduction those
+  versions made undone. An old withdrawal of a purpose BitcoinTX doesn't
+  list shows what it recorded as received. Every version from 0.8.0 to
+  1.2.8.
+  **Affected:** only a ledger from before 0.8.0 with no recalculation since
+  (any edit or deletion, an add dated before the latest transaction, or
+  Recalculate Ledger fills those proceeds in for good).
+  **What to do:** only if you saved such a spend in the form: Ledger Review
+  lists it under "Spent withdrawals saved with $0 proceeds"; open it and
+  type what you received.
 - **An old gift, donation or lost coins saved with spaces in its purpose is
   no longer a sale** (tax figures, #342). Before 0.9.2 BitcoinTX saved a
   withdrawal's purpose and a deposit's source as typed (and a source it

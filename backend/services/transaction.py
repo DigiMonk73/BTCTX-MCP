@@ -460,6 +460,7 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
+    _drop_proceeds_it_never_had(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
@@ -527,6 +528,28 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
                 continue  # a proceeds edit is the new gross (_apply_edit)
             tx_data[key] = None
     return type_changed
+
+
+def _drop_proceeds_it_never_had(tx: Transaction, tx_data: dict) -> None:
+    """
+    A withdrawal with no proceeds of its own (a gift, donation or lost coins;
+    a dollar withdrawal, which holds no value, #449) made a Spent or a Sell
+    by an edit that sends none: a $0 it holds isn't carried over (forms
+    before 1.2.9 saved one with every gift, which nobody typed, #457), nor
+    anything a dollar withdrawal holds. A Spent's are then priced at the
+    hour, as a new Spent's left blank are (_withdrawal_gross_proceeds), and
+    a Sell needs them sent. Above $0, a gift's are a former spend's, kept as
+    typed (as a sale's value above $0 made a gift is, #255).
+    """
+    if tx.type != "Withdrawal" or counts_as_spent(tx) or "proceeds_usd" in tx_data \
+            or "gross_proceeds_usd" in tx_data:
+        return
+    edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "from_account_id")}
+    edited["type"] = getattr(edited["type"], "value", edited["type"])
+    spends = edited["type"] == "Sell" or (_is_spent(edited) and edited["from_account_id"] in BTC_ACCOUNTS)
+    held = tx.gross_proceeds_usd if tx.from_account_id in BTC_ACCOUNTS else None
+    if spends and Decimal(held or 0) <= 0:
+        tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = None
 
 
 def _check_inherited_date_sent(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -988,17 +1011,33 @@ def _apply_edit(tx: Transaction, tx_data: dict, type_changed: bool) -> None:
         tx.broker_reporting = tx_data["broker_reporting"]
     elif tx.type not in BROKER_REPORTING_TYPES:
         tx.broker_reporting = None  # type changed away from Sell/Withdrawal
-    for key in ("cost_basis_usd", "cost_basis_from_price", "proceeds_usd", "fmv_usd", "acquired_at",
+    for key in ("cost_basis_usd", "cost_basis_from_price", "fmv_usd", "acquired_at",
                 "price_moment", "proceeds_from_price", "fmv_from_price"):
         if key in tx_data:
             setattr(tx, key, tx_data[key])
-    if "gross_proceeds_usd" in tx_data:
-        tx.gross_proceeds_usd = tx_data["gross_proceeds_usd"]
-    elif "proceeds_usd" in tx_data and tx.type in GROSS_PROCEEDS_TYPES:
-        # A proceeds edit is user input, i.e. the new gross
-        tx.gross_proceeds_usd = tx_data["proceeds_usd"]
+    _apply_proceeds(tx, tx_data)
     if type_changed:  # the old type's gain; a Sell's or Withdrawal's is worked out again
         tx.realized_gain_usd = tx.holding_period = None
+
+
+def _apply_proceeds(tx: Transaction, tx_data: dict) -> None:
+    """
+    The proceeds an edit sends, on the edited row: a proceeds_usd sent
+    without a gross is user input, i.e. the new gross. A withdrawal that
+    doesn't count as spent (a gift, donation or lost coins; a dollar
+    withdrawal) has none: a value sent for it isn't kept, a blank clears
+    them (forms before 1.2.9 sent a $0 with every gift they saved, which
+    made a Spent of it later a $0 sale, #457).
+    """
+    sent = {k: tx_data[k] for k in ("proceeds_usd", "gross_proceeds_usd") if k in tx_data}
+    if tx.type == "Withdrawal" and not counts_as_spent(tx):
+        sent = {k: v for k, v in sent.items() if v is None}
+    if "proceeds_usd" in sent:
+        tx.proceeds_usd = sent["proceeds_usd"]
+    if "gross_proceeds_usd" in sent:
+        tx.gross_proceeds_usd = sent["gross_proceeds_usd"]
+    elif "proceeds_usd" in sent and tx.type in GROSS_PROCEEDS_TYPES:
+        tx.gross_proceeds_usd = sent["proceeds_usd"]
 
 
 def delete_transaction_record(transaction_id: int, db: Session):
