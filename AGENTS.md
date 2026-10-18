@@ -170,7 +170,9 @@ from the Transaction row alone.
   (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
-  (never from the previous net, which would subtract the fee again).
+  (never from the previous net, which would subtract the fee again). A
+  Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
+  0.8.0) is worked out from its stored net, the USD fee added back (#471).
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,

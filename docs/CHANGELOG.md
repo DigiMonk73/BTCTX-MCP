@@ -681,6 +681,23 @@ All notable changes to BitcoinTX are documented in this file.
   line moves.
 
   **What to do:** as above, Recalculate Ledger (Settings).
+- **A sale edited down to $0 proceeds is a $0 sale** (tax figures, #471).
+  Setting a Sell's Gross Proceeds (USD) to 0 in an edit was saved without
+  an error but didn't take: the sale kept its old proceeds and gain, and
+  its gross came back as the old proceeds ($5,000 with a $10 USD fee came
+  back as $4,990). BitcoinTX read a gross of $0 as "none recorded", the
+  case of a sale saved before 0.8.0, and took the proceeds stored with the
+  sale instead. The same sale created at $0 was right: a $0 sale, its whole
+  cost a loss. Now a gross of $0 is a $0 sale however it's saved (an edit,
+  or a request that also sends `proceeds_usd`); only a sale saved before
+  0.8.0, with no gross, is still worked out from its stored proceeds.
+  **Affected:** 0.8.0 to 1.2.8, for the tax year of any sale edited to $0
+  that way: its proceeds and gain on Form 8949, Schedule D, the Complete
+  Tax Report and the dashboard, and the Exchange USD balance. **What to
+  do:** if you once set a sale's Gross Proceeds to 0 and it came back with
+  its old figure, open it and set it to 0 again. Ledger Review and
+  Recalculate Ledger can't find such a sale: the old figure is what was
+  stored.
 - **Ledger Review sees a cent moved between a transaction's rows** (#296).
   Its check of the figures Recalculate Ledger would change compared each
   transaction's totals only. A recalculation that moved a cent between two
