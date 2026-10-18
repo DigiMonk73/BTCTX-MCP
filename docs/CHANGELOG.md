@@ -1085,6 +1085,16 @@ All notable changes to BitcoinTX are documented in this file.
   uninstall BitcoinTX, which deletes its data (its `backups/` copies too),
   then restore a backup made before the update; anything entered after
   that backup is lost.
+- **The package starts BitcoinTX with the image's own start-up script**
+  (#464), as Start9's guide recommends for a prebuilt image (`main.md`,
+  "Using Upstream Entrypoint"; `recipe-prebuilt-image.md`, step 4). The
+  migrate step, the web server and every action's command now run through
+  `docker-entrypoint.sh` (`sdk.useEntrypoint()`), the same script Docker
+  runs, instead of a copy of it in the package: the `chown` step at every
+  start and the package's own `setpriv` drop are gone. Nothing changes for
+  users: BitcoinTX still runs as `btctx`, keeping only the right to open
+  port 80, and a volume from before 1.2.9 is still handed over at the first
+  start; root no longer walks the data folder at the starts after that.
 - **Price Source & Privacy says where each Mempool goes** (#246). In
   testing, **My Mempool on this server** was read as "my Mempool, wherever
   it is", and no box for an address appeared, since that choice means the

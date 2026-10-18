@@ -41,14 +41,14 @@ The image is the app's own published image, pulled rather than built: the same o
 | ------------- | ---------------------------------------------------------------------- |
 | Image         | `ghcr.io/digimonk73/btctx-mcp`, pinned to the package's upstream version |
 | Architectures | x86_64, aarch64                                                        |
-| Command       | `uvicorn backend.main:app --host 0.0.0.0 --port 80 --no-access-log --no-server-header` (no request lines in the log: they carry client addresses and dates), after a `chown` oneshot and a `migrate` oneshot |
-| User          | `btctx` (uid and gid 10001), never root: the `chown` oneshot runs as root, `migrate` as `btctx`, and `webui` is started by root through `setpriv`, which drops to `btctx` keeping only the right to open port 80 (an ordinary user can't in StartOS's container: `net.ipv4.ip_unprivileged_port_start` is 1024 there) |
+| Command       | The image's own: its entrypoint `docker-entrypoint.sh` with its `CMD`, `uvicorn backend.main:app --host 0.0.0.0 --port 80 --no-access-log --no-server-header` (no request lines in the log: they carry client addresses and dates), after a `migrate` oneshot through the same entrypoint (`sdk.useEntrypoint`) |
+| User          | `btctx` (uid and gid 10001), never root: StartOS starts the entrypoint as root, the image's user; it gives `/data` to `btctx` only when something in it isn't `btctx`'s (a volume from a version where the app ran as root is root's), then runs the command through `setpriv` as `btctx`, keeping only the right to open port 80 (an ordinary user can't in StartOS's container: `net.ipv4.ip_unprivileged_port_start` is 1024 there) |
 | Environment   | `DATABASE_FILE=/data/btctx.db`, `LOG_LEVEL=INFO`, `BTCTX_HOST=startos` (the app's words name the action); the `BTCTX_*` price variables once chosen in Price Source & Privacy, or `BTCTX_TOR_PROXY_URL` with Decide in BitcoinTX and Use Tor |
 
 | Subcontainer    | Lifetime            | Purpose                                                                    |
 | --------------- | ------------------- | -------------------------------------------------------------------------- |
-| `btctx`         | the running service | The `chown` and `migrate` oneshots, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`) |
-| `cli-<command>` | one action or init  | Gives `/data` to `btctx` (as root), then runs `python -m backend.cli <command>` (set-password, recalculate) as `btctx` and exits; recalculate gets the price variables too |
+| `btctx`         | the running service | The `migrate` oneshot, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`) |
+| `cli-<command>` | one action or init  | Runs `python -m backend.cli <command>` (set-password, recalculate) through the entrypoint, which gives `/data` to `btctx` when needed and runs it as `btctx`, and exits; recalculate gets the price variables too |
 
 All package changes to the app's data go through the app's own maintenance CLI (`python -m backend.cli migrate | set-password | recalculate`, run from `/app`); the package never edits the database itself.
 
@@ -58,7 +58,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 
 | Volume    | Mount Point      | Purpose                                                              |
 | --------- | ---------------- | -------------------------------------------------------------------- |
-| `main`    | `/data`          | The app's data (below), given to `btctx` at every start, as Start9's `main.md` does ("Oneshots"): StartOS mounts volumes root-owned, and earlier versions of the app ran as root |
+| `main`    | `/data`          | The app's data (below), `btctx`'s: the image's entrypoint gives it to `btctx` at a start (or an action's command) when something in it isn't `btctx`'s, as on a volume from a version where the app ran as root |
 | `startos` | none (not mounted) | `store.json`, the package's state                                  |
 
 | Path on `main`          | What                                                                                       |
@@ -168,7 +168,7 @@ One check, on the `webui` daemon.
 Both volumes are copied whole (`sdk.Backups.ofVolumes('main', 'startos')`). StartOS stops the service first, so the SQLite file is copied at rest; there is no dump step.
 
 - **Included:** the database, the session key, the hourly price history in `btc-prices/`, the app's copies in `backups/`, and `store.json`.
-- **Restore:** complete, including the generated password. StartOS keeps the installed package in each backup, so a restore brings back the package version the backup was made with, and its data as that version left it. The next update migrates it like any update (including the Recalculate Ledger task when it predates the gain-calculation fixes); a backup from a version before the app had its own user holds root's files, which the `chown` step at the first start after that update (or an action's, before its command) gives to `btctx`. StartOS refuses a restore over an installed package, and an uninstall deletes both volumes, `backups/` included.
+- **Restore:** complete, including the generated password. StartOS keeps the installed package in each backup, so a restore brings back the package version the backup was made with, and its data as that version left it. The next update migrates it like any update (including the Recalculate Ledger task when it predates the gain-calculation fixes); a backup from a version before the app had its own user holds root's files, which the entrypoint gives to `btctx` at the first start after that update (or at an action's command, if one runs first). StartOS refuses a restore over an installed package, and an uninstall deletes both volumes, `backups/` included.
 - **Address after a restore:** a restore is a fresh install, so StartOS may assign the web UI and MCP API a new port (ports are kept across restarts and updates, released on uninstall). Rerun **Connect an AI Assistant** and update the AI client's `BTCTX_URL`.
 - The app also has its own password-encrypted database export (Settings in the web UI), independent of StartOS backups. Restoring one of those in the app brings back the ledger and its other settings but keeps the login, the AI key and the price settings in use.
 
@@ -197,8 +197,8 @@ architectures:
   - x86_64
   - aarch64
 subcontainers:
-  - btctx # chown oneshot (root) + migrate oneshot + webui daemon, as btctx
-  - cli-<command> # temporary, per action/init: chown (root), then the CLI as btctx
+  - btctx # migrate oneshot + webui daemon, each through the image's entrypoint
+  - cli-<command> # temporary, per action/init: the CLI through the entrypoint
 user: btctx # uid/gid 10001; never root (webui keeps only CAP_NET_BIND_SERVICE)
 volumes:
   main: /data
