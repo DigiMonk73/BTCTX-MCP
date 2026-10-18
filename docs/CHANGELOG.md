@@ -1122,6 +1122,19 @@ update):
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River import's preview shows every row it leaves out, and an
+  Import error names the right row** (#455). "N rows in file" counted only
+  the rows the import could read, and the Errors box listed the first ten
+  (Warnings the first five), so rows left out of the import could go
+  unseen. It now counts every row of the file and lists every error and
+  warning, scrolling when the list is long. And when Import refused an
+  edited row, its error numbered the rows by their place among the ticked
+  ones ("Row 3" for the preview's row 4): it now gives the file's row
+  number, as the preview does. 1.2.8 and earlier; nothing saved was wrong,
+  but a row left out of an import is a transaction missing from the
+  ledger: if a River import showed errors, preview the same file again:
+  every row it can't read is now listed, and the rows already imported
+  show as already in the ledger.
 - **The River and AI imports' duplicate check is fast again** (#379). This
   version's duplicate rule (#253) checks each row in up to seven passes,
   and each pass looked through the whole ledger for every row: a River
