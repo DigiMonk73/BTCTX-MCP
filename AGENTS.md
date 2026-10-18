@@ -159,6 +159,9 @@ from the Transaction row alone.
   date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
   (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
   between pooled wallets, #159) needs a fee and records only it: no lot moves.
+  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
+  #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
   taken from it (a sale's, a spend's, a fee's, a transfer's moved part)
   costs what the lot's BTC taken so far costs with it, in cents, less
@@ -170,13 +173,26 @@ from the Transaction row alone.
   (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
-  (never from the previous net, which would subtract the fee again).
+  (never from the previous net, which would subtract the fee again). A
+  Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
+  0.8.0) is worked out from its stored net, the USD fee added back (#471).
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
+  A withdrawal that doesn't count as spent (a gift, donation or lost coins;
+  a dollar withdrawal) has no proceeds (#457): the form sends them only with
+  a Spent, and an edit keeps no value sent for one (`_apply_proceeds`; a
+  create still keeps one, so a CSV round trip keeps a former spend's). An
+  edit that sends none carries over no $0 a gift holds into a Spent or a
+  Sell, nor anything a dollar withdrawal holds into a bitcoin one
+  (`_drop_proceeds_it_never_had`): a Spent's are then priced as a new blank
+  Spent's are (sharing its fee's price), a Sell needs them sent; a gift's
+  above $0 (a former spend's) are kept, typed. The form opens an old row
+  with no gross at the gross the server recovers, rounded as it rounds
+  (`utils/withdrawalProceeds.ts`, #485).
   A BTC withdrawal whose purpose isn't Spent, Gift, Donation or Lost (only
   an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
   the owner's rule, #61): at its gross, or, saved before 0.8.0 with no

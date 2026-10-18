@@ -73,7 +73,8 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     amount: parseDecimal(rawTx.amount),
     fee_amount: parseDecimal(rawTx.fee_amount),
     cost_basis_usd: parseDecimal(rawTx.cost_basis_usd),
-    proceeds_usd: parseDecimal(rawTx.proceeds_usd),
+    // Blank stays blank: a Spent with none at all is priced, one with $0 isn't (#485's review)
+    proceeds_usd: rawTx.proceeds_usd == null ? undefined : parseDecimal(rawTx.proceeds_usd),
     gross_proceeds_usd: parseDecimal(rawTx.gross_proceeds_usd),
     // Blank stays blank, never $0: the form would send $0 back as a typed value (#255)
     fmv_usd: rawTx.fmv_usd == null ? undefined : parseDecimal(rawTx.fmv_usd),
