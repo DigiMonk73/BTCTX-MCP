@@ -2,9 +2,6 @@ import React from "react";
 import { importableRows, type EditableRow } from "../../utils/riverImport";
 import RiverRow from "./RiverRow";
 
-const ERRORS_SHOWN = 10;
-const WARNINGS_SHOWN = 5;
-
 interface RiverPreviewProps {
   preview: RiverPreviewResponse;
   rows: EditableRow[];
@@ -44,11 +41,13 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
         <span className="river-summary-total">{preview.total_rows} rows in file</span>
       </div>
 
+      {/* Every error and warning, each list scrolling when long: a row
+          they name may be left out of the import, so none is hidden (#455) */}
       {preview.errors.length > 0 && (
-        <div className="note note-error import-list">
-          <strong>Errors:</strong>
-          <ul>
-            {preview.errors.slice(0, ERRORS_SHOWN).map((err, idx) => (
+        <div className="note note-error import-list river-problems">
+          <strong>Errors ({preview.errors.length}):</strong>
+          <ul tabIndex={0} aria-label="Errors">
+            {preview.errors.map((err, idx) => (
               <li key={idx} className="import-error-item">
                 Row {err.row_number}: {err.message}
               </li>
@@ -58,17 +57,14 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
       )}
 
       {preview.warnings.length > 0 && (
-        <div className="note note-warning import-list">
-          <strong>Warnings:</strong>
-          <ul>
-            {preview.warnings.slice(0, WARNINGS_SHOWN).map((warn, idx) => (
+        <div className="note note-warning import-list river-problems">
+          <strong>Warnings ({preview.warnings.length}):</strong>
+          <ul tabIndex={0} aria-label="Warnings">
+            {preview.warnings.map((warn, idx) => (
               <li key={idx} className="import-warning-item">
                 Row {warn.row_number}: {warn.message}
               </li>
             ))}
-            {preview.warnings.length > WARNINGS_SHOWN && (
-              <li>...and {preview.warnings.length - WARNINGS_SHOWN} more warnings</li>
-            )}
           </ul>
         </div>
       )}

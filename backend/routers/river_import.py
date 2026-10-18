@@ -37,6 +37,7 @@ from backend.services.river_import import (
     annotate_duplicates,
     ledger_amount,
     parse_river_csv,
+    rows_in_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ def preview_river_import(
 
     return RiverPreviewResponse(
         success=len(errors) == 0,
-        total_rows=len(rows),
+        total_rows=rows_in_file(rows, errors),
         new_count=new_count,
         matched_count=matched_count,
         discrepancy_count=discrepancy_count,
@@ -247,11 +248,12 @@ def _not_in_the_ledger(to_check: list[tuple[int, dict, RiverExecuteRow]], reserv
 def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     """Each row checked by the CSV import's row check, its Transfer's amount
     with its BTC fee in (_csv_row); 400 listing the first five errors when
-    any row has one."""
+    any row has one, each under the row number the preview showed (#455)."""
     tx_datas = []
     all_errors: list[str] = []
     for i, row in enumerate(rows, start=1):
-        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row), i)
+        number = row.row_number if row.row_number is not None else i
+        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row), number)
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:

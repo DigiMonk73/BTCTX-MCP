@@ -221,6 +221,24 @@ All notable changes to BitcoinTX are documented in this file.
   Nothing to do.
 
 ### Fixed
+- **Turning public price sites off and on again doesn't hold back the
+  newest hours for 10 minutes** (#475). The hours newer than the
+  release's price files come from Bitstamp in blocks of 1,000 hours,
+  asked at most every 10 minutes. If you saved a choice without public
+  sites (Nobody, or your Mempool with no backup) while more than one such
+  block was being asked, the rest was rightly not asked, but the log
+  called it a failure ("Hourly BTC price lookup failed"), the hours
+  already received were dropped, and with public sites allowed again
+  those hours weren't asked until the 10 minutes had passed. A value
+  needing one of them meanwhile took its day's price, marked "day". Every
+  version from 1.2.8. Now the hours received before the save are kept,
+  nothing is logged as a failure, and the rest is asked at the next
+  lookup as the new choice says, as the daily history already was. Only
+  your own change of these settings during such a download could cause
+  it (they're login only, never the AI key), and nothing was asked that
+  your choice didn't allow. Nothing to do: Ledger Review's check of
+  values priced at the day lists any such value, and can price it at its
+  hour.
 - **Two different price-setting saves at the same moment: the later one is
   the one in use** (#435). Saving Settings → Privacy & network from two
   tabs or browsers at the same moment, with different choices, could leave
@@ -471,6 +489,15 @@ All notable changes to BitcoinTX are documented in this file.
   where you file, today's report is the right one; if a return you filed
   differs from it, ask your tax preparer whether to amend it. If it isn't
   where you file, choose the right one there (saving recalculates).
+- **StartOS: the Tor dependency's description names the exception** (#470).
+  Shown under Tor on BitcoinTX's page in the store, before install, it said
+  in all five languages that public price sites "never see your IP address".
+  Since the price history may be downloaded once without Tor (#241, above),
+  that isn't so after a Yes: Bitstamp sees the server's address for those
+  downloads. It now says, in the Use Tor option's own words, that they don't
+  see it "unless you let BitcoinTX download Bitstamp's price history without
+  Tor". No release had the wrong text; a test keeps every package text that
+  says the address is hidden naming the exception.
 - **StartOS: a dismissed Recalculate Ledger task no longer comes back at
   every server restart** (#365). After an update that asks for Recalculate
   Ledger (1.2.8:0 does), StartOS raised the task again each time the server
@@ -1026,6 +1053,19 @@ All notable changes to BitcoinTX are documented in this file.
   columns do, and a deposit River tagged shows its source under its type
   ("Deposit" over "Interest"). Display only: the import always read them
   right.
+- **The River import's preview shows every row it leaves out, and an
+  Import error names the right row** (#455). "N rows in file" counted only
+  the rows the import could read, and the Errors box listed the first ten
+  (Warnings the first five), so rows left out of the import could go
+  unseen. It now counts every row of the file and lists every error and
+  warning, scrolling when the list is long. And when Import refused an
+  edited row, its error numbered the rows by their place among the ticked
+  ones ("Row 3" for the preview's row 4): it now gives the file's row
+  number, as the preview does. 1.2.8 and earlier; nothing saved was wrong,
+  but a row left out of an import is a transaction missing from the
+  ledger: if a River import showed errors, preview the same file again:
+  every row it can't read is now listed, and the rows already imported
+  show as already in the ledger.
 - **The River and AI imports' duplicate check is fast again** (#379). This
   version's duplicate rule (#253) checks each row in up to seven passes,
   and each pass looked through the whole ledger for every row: a River
@@ -1162,6 +1202,19 @@ All notable changes to BitcoinTX are documented in this file.
   after making one ledger's forms, burying real errors. The forms were
   always right. That one warning is now left out; pypdf's others still
   show. No new dependency.
+- **A backup download that fails leaves no file behind** (#462). Settings'
+  encrypted backup is written to a temporary file, which was removed only
+  once the download had been sent. When making the backup failed (the
+  database file missing, a database error, a full disk), the message was
+  right, but the file, empty or holding part of the encrypted backup, stayed
+  in the server's temporary folder for good (Docker and StartOS: the
+  container's `/tmp`; the Mac app: your temporary folder): one more for each
+  failed download. So did the whole encrypted backup when it was made but
+  couldn't be opened to send (too many files open at once). Only the account
+  BitcoinTX runs as could open it, and nothing in it could be read without
+  the backup's password. It is now removed as soon as the download can't
+  start, and the file sent is closed once it has been. **Affected:** every
+  version. Nothing to do.
 - **Nothing saved while Delete All runs is lost** (#276). Delete All (and
   Create account on an install with transactions) copied the database,
   then deleted every transaction: a transaction saved in between, by the AI
@@ -1331,6 +1384,16 @@ All notable changes to BitcoinTX are documented in this file.
   Deposit and Withdrawal example rows had a comma too few, so they didn't
   import as printed; they do now. And its tables' longer rows no longer
   run off the page.
+- **A deposit switched to or from Inherited saves in the Mac app and
+  Safari** (#456). Switching a deposit's Source to or from Inherited
+  clears its date (a date of death isn't a date originally acquired), and
+  in WebKit on macOS, the Mac app's window and Safari, **Save transaction**
+  or **Update transaction** then did nothing and said nothing: WebKit kept
+  judging the cleared date field invalid, so the form never ran. A
+  deposit made My BTC or Gift couldn't be saved without a date, and one
+  made Inherited never said "Enter the date of death." The date field is
+  now a new one each time it's cleared. Nothing was saved wrong. Every
+  version since 1.2.8.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
@@ -1401,6 +1464,24 @@ All notable changes to BitcoinTX are documented in this file.
     a 422 naming the year, as Form 8949 already refused one; and a CSV or
     River file with a field over 131,072 characters gets "The file can't
     be read as CSV" (#211).
+- **The sidebar's calculator adds up a chain of numbers right** (#450). It
+  dropped the running total at a second operator (`2 + 3 + 4 =` showed 7),
+  dropped the first number when an operator was pressed twice (`5 + + 1 =`
+  showed 1), added a digit typed after `=` to the result (`2 + 3 =` then `7`
+  showed 57), took a second decimal point (`1.2.3`), showed a computer's
+  rounding noise (`0.1 + 0.2` gave 0.30000000000000004) and showed `1 / 0`
+  as Infinity, in every version so far; in a window 1024 pixels wide or less
+  a long result also lost its first digits and its minus sign off the
+  display's left edge. It now works as a pocket calculator: left to right,
+  the running total kept, a second operator replacing the first, a digit
+  after `=` starting a new number, a second point ignored. It works in
+  decimals, as BitcoinTX's own figures do, so every result is exact or
+  rounded correctly to 15 significant digits (at most 14 decimals), and is
+  written out, never as 5e-8; a number is typed with 15 digits at most. A
+  division by zero, or a result with more than 16 whole digits, shows Error.
+  A long number is drawn smaller in a narrow sidebar, so it always shows
+  whole. Nothing the calculator shows is saved; a total worked out with it
+  and typed into a transaction is worth checking.
 - **A few sats are written out, never as 5E-8** (#101). The transactions
   API, and so the AI connector's `list_transactions`, gave an amount or a
   fee under 0.000001 BTC in exponent form (`"5E-8"` for 5 sats), and no fee
@@ -1412,6 +1493,17 @@ All notable changes to BitcoinTX are documented in this file.
   such an amount or fee as `5e-8` too, and so did a transfer's fee worked
   out from its amounts; they now show `0.00000005`. Nothing stored or
   computed changes.
+- **The sidebar's Sats Converter counts to the satoshi** (#451). Many
+  ordinary amounts typed in BTC showed a satoshi too few: 0.29 BTC as
+  28,999,999 sats (also 0.57, 1.15, 2.01 and others), since the amount was
+  multiplied as a computer's binary number and the result cut off. Sats
+  are now counted from the digits typed (0.29 BTC is 29,000,000 sats).
+  From dollars, the BTC and Sats fields could disagree by one ($1 at
+  $60,000 showed 0.00001667 BTC beside 1,666 sats); both now show one
+  count, rounded to the nearest satoshi (1,667). A BTC amount typed with
+  more than 8 decimals rounds to the nearest satoshi too, where it was cut
+  off (0.000000009 BTC is 1 sat). Only the converter's display changes:
+  nothing it shows is saved. Every release.
 - **The AI connector's `btctx_mcp.__version__` is its real version**
   (#133). It said 0.1.0 whatever the release; it now reads the installed
   package's version (`unknown` when the connector isn't installed).
@@ -1749,6 +1841,20 @@ All notable changes to BitcoinTX are documented in this file.
   it is. And `scripts/equivalence_check.py` no longer reports the
   `open_sessions` setting, whose login session hashes are new on every run,
   as a difference in every ledger.
+- **CI and the release pack the StartOS package with start-cli 2.4.1**
+  (#466), the version Start9's builds use (they take the newest start-cli
+  at each build). They packed with 2.3.0, and from 2.4 start-cli makes the
+  package's image itself (its SquashFS, from the image's layers), so the
+  package we tested wasn't built the way the one users install from
+  Start9's registries is. `START_CLI_VERSION` in `ci.yml` and
+  `release.yml` follows Start9's newest start-cli, with or without an SDK
+  bump (`startos/UPDATING.md`, "Bumping the SDK", step 3). The downloaded
+  start-cli, which signs the release's package, now runs only once its
+  SHA-256 matches the release notes' (`START_CLI_SHA256`). The jobs no
+  longer install `squashfs-tools`, which 2.4 doesn't use.
+  `test_start_cli_466.py` checks that every workflow pins the same
+  start-cli, 2.4 or later, and that every download takes the pin and is
+  checked. Nothing the app does changes.
 - **Node 24, ESLint 10 and eslint-plugin-react-hooks 7** (#425; the
   owner's choice for 1.2.9, 2026-10-17). Node builds the web pages (the
   Docker image's first stage, CI, the release) and gets security fixes on
@@ -1776,6 +1882,16 @@ All notable changes to BitcoinTX are documented in this file.
   of the reference, golden and 40 random test ledgers, and the CSV
   instructions. The parts 4.5 changed most (its own form fields, CSS
   colours) aren't used. No other package moves.
+- **A sibling package's refresh checks what BitcoinTX's StartOS bundle
+  took from it** (#469). The package takes four constants from Mempool's
+  and Tor's packages, but Mempool's imports Bitcoin Core's and LND's, so
+  the three packages' manifests and SDK setup (about 275 KB) are in
+  BitcoinTX's bundle and run when it loads: a sibling's new commit can
+  change what BitcoinTX ships. `startos/UPDATING.md` now has each refresh
+  ("Bumping the SDK", or a change taken back from Start9's fork) list
+  those modules before and after and read what changed in them, as
+  Start9's `maintaining-a-package.md` asks ("Read the lockfile diff as
+  code review"). Nothing that ships changes.
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
   (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
   and CI still tests 3.10; deferred in #294). Nothing that ships changes;

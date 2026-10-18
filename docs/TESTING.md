@@ -141,7 +141,9 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   in UTC+9. The `webkit` project (the Mac app's engine) runs only with
   `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
   `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
-  `npx playwright install webkit`).
+  `npx playwright install webkit`). CI's WebKit runs on Linux: what only
+  macOS's WebKit does (#456, a cleared date field that blocked Save) shows
+  only in that command run on a Mac.
 - **Playwright's WebKit crashes ("Page crashed") at the next navigation
   after any reload of a signed-in page** (a second reload, or a `goto`),
   with or without the price card. Real Safari and Chrome reload normally,
