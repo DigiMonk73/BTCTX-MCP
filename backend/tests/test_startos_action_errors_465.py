@@ -117,12 +117,21 @@ const cases = {
     '(Background on this error at: https://sqlalche.me/e/20/e3q8)\n')),
   lastError: await alertFor(exitError(Buffer.from(
     'note: no price lookups\nerror: first\nerror: database is locked\n\n'))),
-  emptyError: await alertFor(exitError(LOG + 'error: \n')),
+  emptyError: await alertFor(exitError(LOG + 'error: \n' +
+    '[SQL: UPDATE users SET password_hash=? WHERE users.id = ?]\n' +
+    "[parameters: ('$2b$12$hash', 1)]\n")),
   refused: await alertFor(exitError(
     'BitcoinTX: it could not switch to its user btctx (uid 10001).\n' +
     'Started as root, it needs the capabilities CHOWN, DAC_OVERRIDE, SETUID, SETGID and\n' +
     "NET_BIND_SERVICE (Docker's defaults); or give /data to uid 10001 and start with --user 10001:10001.\n")),
   killed: await alertFor(exitError(LOG, 'SIGKILL')),
+  // A failure that printed no `error:`: never the SQL's values, nor the logs
+  warningThenSql: await alertFor(exitError(LOG +
+    "warning: couldn't read the price settings, no price lookups: (sqlite3.OperationalError) disk I/O error\n" +
+    '[SQL: SELECT value FROM app_settings WHERE key = ?]\n' +
+    "[parameters: ('price_source',)]\n" +
+    '(Background on this error at: https://sqlalche.me/e/20/e3q8)\n')),
+  onlyLogs: await alertFor(exitError(LOG)),
   traceback: await alertFor(exitError(LOG +
     'Traceback (most recent call last):\n  File "x.py", line 1\n' +
     "ModuleNotFoundError: No module named 'backend'\n")),
@@ -151,6 +160,9 @@ def test_the_alert_says_what_the_command_said(tmp_path):
         "refused": "ALERT(it could not switch to its user btctx (uid 10001).)",
         # Never a log line: a killed command's stderr ends with them
         "killed": "ALERT(terminated with signal SIGKILL)",
+        "warningThenSql": "ALERT(warning: couldn't read the price settings, no price lookups: "
+        "(sqlite3.OperationalError) disk I/O error)",
+        "onlyLogs": "ALERT(exit code 1)",
         "traceback": "ALERT(ModuleNotFoundError: No module named 'backend')",
         "other": "ALERT(no such image)",
         "passes": "Recalculated 3 transaction(s).",

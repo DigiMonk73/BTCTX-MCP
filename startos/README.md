@@ -123,7 +123,7 @@ Installs from before generated passwords started with `admin` / `password`, whic
 
 Four actions. All run with the service running or stopped, except Set Login Credentials.
 
-Set Login Credentials and Recalculate Ledger run a `python -m backend.cli` command in a temporary subcontainer, through the image's entrypoint, with no time limit (the database's size sets how long it takes). When the command fails, the action's alert says "BitcoinTX could not set the password: …" or "BitcoinTX could not recalculate the ledger: …" in the user's language, followed by the command's own `error: …` line in English (else the start-up script's refusal, the signal that stopped the command, or its last line on stderr that isn't a log line). The rest of the command's output is neither shown nor logged: it can carry the SQL's values, such as a password's hash. The init step that replaces an old default login logs the same one line when its command fails.
+Set Login Credentials and Recalculate Ledger run a `python -m backend.cli` command in a temporary subcontainer, through the image's entrypoint, with no time limit (the database's size sets how long it takes). When the command fails, the action's alert says "BitcoinTX could not set the password: …" or "BitcoinTX could not recalculate the ledger: …" in the user's language, followed by the command's own `error: …` line in English (else the start-up script's refusal, the signal that stopped the command, its last line on stderr that is neither a log line nor SQL, or its exit code). The rest of the command's output is neither shown nor logged: it can carry the SQL's values, such as a password's hash. The init step that replaces an old default login logs the same one line when its command fails.
 
 ### Set Login Credentials
 

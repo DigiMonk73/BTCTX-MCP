@@ -129,13 +129,17 @@ export async function alertOnFailure<T>(
  * values: backend/cli.py's last `error: <what went wrong>`; else the start-up
  * script's refusal (`BitcoinTX: …`, before its advice for Docker); else the
  * signal that stopped it, since its stderr then ends with log lines; else its
- * last line on stderr that isn't a log line (a Python traceback's names the
- * exception); else the SDK's own message. The SDK's ExitError, which carries
- * stderr, isn't exported: read as its fields.
+ * last line on stderr that is neither a log line nor a database error's SQL
+ * (a Python traceback's names the exception); else its exit code. The SDK's
+ * ExitError, which carries stderr, isn't exported: read as its fields.
  */
 export function lastWords(e: unknown): string {
   const failed = e as {
-    result?: { stderr?: string | Buffer; exitSignal?: string | null }
+    result?: {
+      stderr?: string | Buffer
+      exitSignal?: string | null
+      exitCode?: number | null
+    }
   } | null
   const lines = String(failed?.result?.stderr ?? '')
     .split('\n')
@@ -148,8 +152,16 @@ export function lastWords(e: unknown): string {
   if (refused) return refused.slice('BitcoinTX: '.length)
   const signal = failed?.result?.exitSignal
   if (signal) return `terminated with signal ${signal}`
-  const last = lines.find((line) => !/^(DEBUG|INFO|WARNING):/.test(line))
-  return last ?? (e instanceof Error ? e.message : String(e))
+  const last = lines.find(
+    (line) =>
+      !/^(DEBUG|INFO|WARNING):|^\[(SQL|parameters): |^\(Background on this error/.test(
+        line,
+      ),
+  )
+  if (last) return last
+  const code = failed?.result?.exitCode
+  if (code != null) return `exit code ${code}`
+  return e instanceof Error ? e.message : String(e)
 }
 
 /** Set the app's login to admin / `password`, through the app's own hashing. */
