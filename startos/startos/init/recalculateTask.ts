@@ -8,8 +8,9 @@ import { sdk } from '../sdk'
 
 /**
  * Prompt for Recalculate Ledger once after an update whose migration makes it
- * due (from before 0.8.0, and to 1.2.8:0 for the spend fee fix, #157), and
- * again after restoring a backup on which it is still due: StartOS's tasks
+ * due (from before 0.8.0; to 1.2.8:0 for the spend fee fix, #157; to 1.2.9:0
+ * for its cents and old withdrawals, #100, #297, #61, #342), and again after
+ * restoring a backup on which it is still due: StartOS's tasks
  * are not in a backup. StartOS keeps the task until the action runs or the
  * user dismisses it. Never raised at a container rebuild (every server
  * restart) or a second time for one update: raising the same replay key
