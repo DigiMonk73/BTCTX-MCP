@@ -495,6 +495,28 @@ All notable changes to BitcoinTX are documented in this file.
   lookup, as the new choice says. Only your own change of these settings
   while a lookup was under way could cause it (they're login only, never
   the AI key), and no figure is affected. Nothing to do.
+- **After you change your Mempool's address, its prices are the new
+  Mempool's** (#473). BitcoinTX keeps your own Mempool's answer for 10
+  minutes, so the day and hour lookups share it. If you changed the
+  address while a lookup was still waiting for the old Mempool, and another
+  lookup asked the new one before the old one answered, the old one's late
+  answer was kept as the new one's: for the rest of those 10 minutes, every
+  value priced from your Mempool had the old server's prices, and so did
+  the days and hours stored then (a day lookup stores every day of the
+  answer not stored yet). In 1.2.8 (the kept answer came with the hourly
+  prices, #144), for a price of any tax year. Now an answer is kept only
+  while it's the last one asked: the old Mempool's late answer is used, and
+  stored, only by the lookup that asked for it before the change, as the
+  answer to any request sent before a save is (#437). Two Mempools' prices
+  usually agree closely, so a figure was wrong only where the old one's
+  were off. Only your own change of that address could cause it (login
+  only, never the AI key), and nothing was sent to an address no longer in
+  use. Nothing to do, unless you changed your Mempool's address in 1.2.8
+  because its prices looked wrong. Then a stored price can still be the
+  old Mempool's (a stored price never changes): check the values priced
+  from your Mempool since that change (the Complete Tax Report lists the
+  price each used and where it came from) and type the right value into
+  any that differ.
 - **An .onion Mempool address however its dots are typed is reached
   through Tor** (found by the review of #443). Typed with a dot at its end
   (`http://….onion.`, the same address) or with a full stop that web
@@ -572,6 +594,18 @@ All notable changes to BitcoinTX are documented in this file.
   ledger, against River's statement or your own records. Previewing a
   River file again shows a payout the old check skipped as New or Review.
   Any tax year with such imports can be affected.
+- **A payout given to the AI as a date alone beside a timed copy of it
+  is the one saved, at noon** (tax figures, #472). When a request held the same
+  payout twice, once as a date alone and once with a time after noon, and
+  the ledger had it once, at that time, the duplicate check gave the
+  recorded payout to the date-alone row and saved the timed row: a second
+  payout at the recorded one's exact minute, valued (when its value came
+  from the price) at that hour's price instead of noon's. Now the timed
+  rows are matched before the date-alone rows: the timed row is the
+  recorded one, and the date-alone row is saved, at noon. For a request
+  with no row named as another transaction, how many rows are saved
+  doesn't change. **Affected:** no release: matching a date alone is new
+  in this version (#253). Nothing to do.
 - **A payout given to the AI as a date alone no longer takes a timed one's
   place** (tax figures, #411). The AI connector's duplicate check gave each
   row, in time order, the nearest recorded transaction it matched, and a
@@ -582,6 +616,29 @@ All notable changes to BitcoinTX are documented in this file.
   purchase. Now the rows are matched so that each finds a copy when the
   ledger holds one for each. **Affected:** no release: matching a date
   alone is new in this version (#253). Nothing to do.
+- **The same rows sent twice at once are saved once** (tax figures,
+  #454). An add through the AI connector checked the ledger for its rows
+  and then saved them, as two steps, so a second request with the same
+  rows that checked before the first had saved found nothing and saved
+  them again. That happens when the connector gives up waiting (after
+  120 s, while BitcoinTX looks up prices, through Tor especially) and the
+  AI sends the add again, as the ledger guide says is safe; BitcoinTX
+  finished the first request all the same. It happens too when an AI app
+  sends two adds at once, or a River or CSV file is imported in two
+  browser tabs at once. The check and the save now hold the database's
+  lock together: the second request waits for the first, then finds its
+  rows and leaves them out (the CSV import says the ledger isn't empty);
+  one kept waiting past 5 s is refused as busy, nothing saved, to be sent
+  again. The prices are still found before, with the lock free.
+  **Affected:** every release (the AI connector's add since 0.8.0, the
+  River import since 0.7.0, the CSV import before them), any tax year.
+  **What to do:** if the AI connector ever told you an add failed or timed
+  out, an AI app sent the same add twice, or you imported a River file in
+  two tabs, look in Transactions for a transaction recorded twice (the
+  same type, amount and time, next to each other) and delete the extra
+  copy. A CSV file imported in two tabs at once saved every row twice:
+  delete the second copy of each row, or Delete All, import the file once
+  and add again anything you entered after it.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same
@@ -593,6 +650,26 @@ All notable changes to BitcoinTX are documented in this file.
   request sent again finds the copies the first one saved. **Affected:**
   no release: telling the AI a duplicate is another transaction is new in
   this version (#253). Nothing to do.
+- **A sale edited through the API is checked with the proceeds it sends**
+  (tax figures, #458). An edit of a Sell sent to BitcoinTX's API
+  (`PUT /api/transactions/{id}`) with its proceeds as `proceeds_usd` was
+  checked against the sale's old proceeds (before 0.9.2, not checked at
+  all), then saved with the new ones: blank proceeds (`null`) saved a $0
+  sale, its whole cost basis a loss on Form 8949, and proceeds below the
+  sale's USD fee were kept, its net proceeds $0. Blank proceeds sent as
+  `gross_proceeds_usd` were saved too, the proceeds made up again from the
+  old net and the fee; and `proceeds_usd` sent beside a blank
+  `gross_proceeds_usd` was saved as the net, the fee added on top, so the
+  sale's proceeds on Form 8949 were too high by the fee. Creating such a
+  sale is refused, and now so is the edit, with the same message ("A sell
+  needs its proceeds", "The sell's fee is more than its proceeds."); and
+  proceeds sent beside a blank gross are the gross, as when the sale is
+  created. **Affected:** every release to 1.2.8, any tax year, but
+  only edits a script or another program sent to the API: the app's form
+  and the AI connector never sent one. **What to do:** if a program of
+  yours edits sales through the API, compare each sale's proceeds on the
+  Transactions page with your exchange's record (Ledger Review doesn't
+  list a sale with $0 proceeds) and correct any that differ.
 - **Cost basis is claimed to the cent** (#100). When a lot of bitcoin was
   sold, spent, paid out as network fees or moved in pieces, each piece's
   cost basis was its share of the lot's cost rounded to the cent on its
@@ -676,6 +753,23 @@ All notable changes to BitcoinTX are documented in this file.
   as Spent, enter what you got for it if none is recorded; a gift, a
   donation and lost coins have no gain. Then Recalculate Ledger (any save
   does it too). One listed as "none recorded": see the next entry.
+- **An old sale opens in the edit form with its gross proceeds** (tax
+  figures, #476). A Sell saved before 0.8.0 (an imported one, say) may hold
+  only its proceeds net of its dollar fee, with no gross. Until a
+  recalculation filled the gross in, the edit form showed such a sale's
+  Gross Proceeds (USD) as $0, in every release up to 1.2.8: saved unchanged,
+  it was refused when it had a fee, and typing the proceeds the transaction
+  list shows for it (the net) took the fee off a second time, lowering its
+  proceeds and gain by the fee. It now opens with the net plus the dollar
+  fee, the gross BitcoinTX itself works out for it at a recalculation, so
+  saving it unchanged changes nothing. **Affected:** ledgers started before
+  0.8.0 with a Sell that has a dollar fee, edited in the form with the net
+  typed as its gross before any recalculation (any edit or deletion, an
+  entry dated before the latest, or Recalculate Ledger) had filled the gross
+  in; the tax year of that sale. **What to do:** nothing for most ledgers.
+  If you edited such an old sale that way, open it: if Gross Proceeds (USD)
+  is less than what the sale really brought before the fee, enter that and
+  save.
 - **A recalculation keeps what an old withdrawal of unknown purpose
   received** (tax figures, #329). A bitcoin withdrawal saved before 0.8.0
   kept what was received in an older field. When its purpose isn't Spent,

@@ -204,10 +204,24 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   Sell: (tx) => ({
     account: "Exchange",
     amountBTC: tx.amount,
-    // The user's figure: stored proceeds_usd is net of the fee
-    grossProceedsUSD: tx.gross_proceeds_usd ?? tx.proceeds_usd ?? 0,
+    grossProceedsUSD: sellGross(tx),
   }),
 };
+
+/**
+ * A Sell's gross proceeds, the user's figure (stored proceeds_usd is net of
+ * the USD fee). A row saved before the gross was kept has none (parsed as 0):
+ * its gross is the net plus that fee, as the server recovers it
+ * (`_sell_net_proceeds`), so saving it unchanged takes no fee off again (#476).
+ */
+function sellGross(tx: ITransaction): number {
+  if (tx.gross_proceeds_usd) return tx.gross_proceeds_usd;
+  const net = tx.proceeds_usd ?? 0;
+  if (net <= 0) return 0;
+  // A Sell's fee is in dollars unless saved otherwise (the server's fee_currency_used)
+  const usdFee = (tx.fee_currency || "USD").toUpperCase() === "USD" ? (tx.fee_amount ?? 0) : 0;
+  return Number((net + usdFee).toFixed(2));
+}
 
 /** A saved transaction as the form shows it for editing; a date originally
  * acquired as the date stored, YYYY-MM-DD (#185: a date, which no timezone
