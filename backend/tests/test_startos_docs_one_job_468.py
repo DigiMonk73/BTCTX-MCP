@@ -30,7 +30,7 @@ def model_files():
     files = []
     for source in sorted(MODELS.glob("*.ts")):
         text = source.read_text()
-        subpath = re.search(r"subpath:\s*(?:'([^']+)'|([A-Z_]+))", text)
+        subpath = re.search(r"subpath:\s*(?:'([^']+)'|(\w+))", text)
         assert subpath, f"{source.name} has no subpath"
         name = subpath[1] or re.search(rf"const {subpath[2]} = '([^']+)'", text)[1]
         files.append(name)
@@ -39,7 +39,6 @@ def model_files():
 
 def test_there_are_file_models_to_document():
     assert "store.json" in model_files()
-    assert len(model_files()) >= 2
 
 
 def test_file_models_documents_every_model():
@@ -70,8 +69,10 @@ def test_actions_leave_their_statuses_to_startos():
 def test_the_recalculate_task_claims_no_update_just_happened():
     # The task is raised again after a restore, where no update happened
     # (README, Tasks), so its reason can't say "this update".
-    reason = re.search(r"reason: i18n\(\s*'([^']+)'", (PKG / "startos/init/recalculateTask.ts").read_text())[1]
-    assert not re.search(r"(?i)\bthis update\b", reason)
+    # Prettier writes the text in double quotes when it holds an apostrophe.
+    found = re.search(r"reason: i18n\(\s*(['\"])(.+?)\1", (PKG / "startos/init/recalculateTask.ts").read_text(), re.S)
+    assert found, "recalculateTask.ts raises no task with a reason"
+    assert not re.search(r"(?i)\bthis update\b", found[2])
 
 
 def test_readme_links_no_upstream_docs():

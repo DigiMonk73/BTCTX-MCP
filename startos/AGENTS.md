@@ -22,8 +22,9 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
 - **The package version is `<VERSION>:<revision>`**, `<VERSION>` being BTCTX-MCP's
   root `VERSION` file and the image tag `v<VERSION>`. `down` stays `IMPOSSIBLE`: an
   older app refuses a newer database.
-- **Never translate the app's own screen names** (`Settings > Ledger Review`) in the
-  i18n dictionaries: the app is English-only, so a translated name points at a screen
+- **Never translate the app's own screen names** (`Settings > Ledger Review`) anywhere
+  the package is translated (the i18n dictionaries, the release notes in `versions/`,
+  the store listing): the app is English-only, so a translated name points at a screen
   that doesn't exist.
 - **Checks:** `rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
   (`make` type-checks, lints, format-checks and bundles).

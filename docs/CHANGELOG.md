@@ -87,9 +87,9 @@ All notable changes to BitcoinTX are documented in this file.
   run, its form) or what `instructions.md` tells the user (no downgrades,
   English and US forms, the address after a restore, the AI key's limits,
   how to answer the Tor question); it keeps the technical details a support
-  agent needs. Its File Models section names both files the package keeps
-  (it said "one model"), how `store.json` is created and what happens to a
-  hand edit. `AGENTS.md` drops a line the README already says and keeps
+  agent needs. Its File Models section names both of the package's files (it said
+  "one model"; the second, from old installs, is read once and deleted), how
+  `store.json` is created and what happens to a hand edit. `AGENTS.md` drops a line the README already says and keeps
   only rules found nowhere else. The Recalculate Ledger task, raised again
   after a restore, no longer says "this update": "An update corrected how
   some gains are calculated", in all five languages.
