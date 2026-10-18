@@ -70,8 +70,9 @@ class TransactionInput(BaseModel):
     amount: AmountValue = Field(
         gt=0,
         description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
-                    "Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
+                    "BTC Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
                     "a consolidation: only the fee is recorded). "
+                    "USD Transfer (Bank <-> Exchange USD): what arrived; the fee is on top. "
                     "Withdrawal: what the recipient got; the network fee is on top.",
     )
     from_account: AccountName
@@ -81,7 +82,9 @@ class TransactionInput(BaseModel):
                                   "and for Inherited from the date of death).")
     proceeds_usd: UsdValue | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
-    fee_amount: AmountValue | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
+    fee_amount: AmountValue | None = Field(
+        default=None, description="Fee amount; USD for Buy/Sell and moves out of Bank/Exchange USD, "
+                                  "BTC for on-chain moves.")
     fee_currency: Literal["BTC", "USD"] | None = None
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
     purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")
@@ -99,7 +102,8 @@ class TransactionInput(BaseModel):
     not_a_duplicate_of: int | None = Field(
         default=None, description="Only when the user says this row is another transaction than the one "
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "
-                                  "It's then saved, once (sent again, it's left out). Never set it on your own.")
+                                  "It's then saved, once (sent again, it's left out). Never set it on your own. "
+                                  "An identical row beside it needs it too, or the request is refused as unclear.")
 
 
 _client: BtctxClient | None = None
@@ -418,7 +422,7 @@ async def review_ledger() -> ToolResult:
     Spent, Gift, Donation or Lost (each counts as Spent until the owner chooses; only the owner knows which it was: ask, never
     guess; as Spent with none recorded, its proceeds are what the owner got for it); BTC
     deposits, not income or a rebate, with a $0 or
-    blank cost basis;
+    blank cost basis; Buys with a $0 or blank cost basis;
     values BitcoinTX priced at the day's price that the price of their hour would change,
     by tax year, which only the owner can apply, in Settings (they change figures, and a
     year already filed is a question for a tax professional); Inherited deposits without a
@@ -439,7 +443,7 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     """Dry run: validate transactions, auto-fill missing USD values from historical prices
     (each row's simulated.from_price says which of simulated's values and the price: its hour
     or day in UTC, source and USD per BTC; gross_proceeds_usd is before the fee),
-    flag rows already in the ledger (duplicate: the same type, BTC amount, source or purpose,
+    flag rows already in the ledger (duplicate: the same type, accounts, BTC amount, source or purpose,
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
     holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
@@ -458,7 +462,8 @@ async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     values came from a price and its hour, source and USD per BTC. Duplicates are skipped (keep them in the
     list: dropping one can leave an identical row beside it skipped instead), unless the user
     says one is another transaction: then send that row with not_a_duplicate_of set to the
-    matched_transaction_id the preview gave it. Rows
+    matched_transaction_id the preview gave it (and each identical row beside it too, or send
+    that row in a call of its own: a named row beside an identical one without it is refused). Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
     The same row limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
@@ -490,6 +495,8 @@ async def update_transaction(
     date is read as add_transactions reads it: without a timezone, in the user's tax
     timezone (a bare date is midday there).
     Changing type or accounts requires passing type, from_account and to_account together.
+    A type change keeps only the figures the new type takes too, so pass the new type's own:
+    making a transaction a Buy needs cost_basis_usd (the USD it cost, before the fee).
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
@@ -501,6 +508,8 @@ async def update_transaction(
     its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed);
     a Gift/Donation/Lost withdrawal's, when you change its amount or the time's hour, and a blank
     one (or a Spent's $0 made a gift without fmv_usd) is filled from the price by any change.
+    A Gift/Donation/Lost withdrawal has no proceeds: made a Spent without proceeds_usd, it is
+    valued from the price as a new Spent is (one that was a Spent before keeps its proceeds).
     A value the user typed is kept, $0 included: send fmv_usd 0 only when they mean $0.
     An Inherited deposit's is priced at its date of death (acquired_at), and again when that
     changes.

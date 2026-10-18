@@ -41,14 +41,14 @@ The image is the app's own published image, pulled rather than built: the same o
 | ------------- | ---------------------------------------------------------------------- |
 | Image         | `ghcr.io/digimonk73/btctx-mcp`, pinned to the package's upstream version |
 | Architectures | x86_64, aarch64                                                        |
-| Command       | `uvicorn backend.main:app --host 0.0.0.0 --port 80 --no-access-log --no-server-header` (no request lines in the log: they carry client addresses and dates), after a `chown` oneshot and a `migrate` oneshot |
-| User          | `btctx` (uid and gid 10001), never root: the `chown` oneshot runs as root, `migrate` as `btctx`, and `webui` is started by root through `setpriv`, which drops to `btctx` keeping only the right to open port 80 (an ordinary user can't in StartOS's container: `net.ipv4.ip_unprivileged_port_start` is 1024 there) |
+| Command       | The image's own: its entrypoint `docker-entrypoint.sh` with its `CMD`, `uvicorn backend.main:app --host 0.0.0.0 --port 80 --no-access-log --no-server-header --no-proxy-headers` (no request lines in the log: they carry client addresses and dates; a client's address is its connection's, never an `X-Forwarded-For` header's), after a `migrate` oneshot through the same entrypoint (`sdk.useEntrypoint`) |
+| User          | `btctx` (uid and gid 10001), never root: StartOS starts the entrypoint as root, the image's user; it gives `/data` to `btctx` only when something in it isn't `btctx`'s (a volume from a version where the app ran as root is root's), then runs the command through `setpriv` as `btctx`, keeping only the right to open port 80 (an ordinary user can't in StartOS's container: `net.ipv4.ip_unprivileged_port_start` is 1024 there) |
 | Environment   | `DATABASE_FILE=/data/btctx.db`, `LOG_LEVEL=INFO`, `BTCTX_HOST=startos` (the app's words name the action); the `BTCTX_*` price variables once chosen in Price Source & Privacy, or `BTCTX_TOR_PROXY_URL` with Decide in BitcoinTX and Use Tor |
 
 | Subcontainer    | Lifetime            | Purpose                                                                    |
 | --------------- | ------------------- | -------------------------------------------------------------------------- |
-| `btctx`         | the running service | The `chown` and `migrate` oneshots, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`) |
-| `cli-<command>` | one action or init  | Gives `/data` to `btctx` (as root), then runs `python -m backend.cli <command>` (set-password, recalculate) as `btctx` and exits; recalculate gets the price variables too |
+| `btctx`         | the running service | The `migrate` oneshot, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`). A `backend.cli` command run there by hand without the price variables asks no one for a price while Price Source & Privacy sets the choice or Tor, and says so |
+| `cli-<command>` | one action or init  | Runs `python -m backend.cli <command>` (set-password, recalculate) through the entrypoint, which gives `/data` to `btctx` when needed and runs it as `btctx`, and exits; recalculate gets the price variables too |
 
 All package changes to the app's data go through the app's own maintenance CLI (`python -m backend.cli migrate | set-password | recalculate`, run from `/app`); the package never edits the database itself.
 
@@ -58,7 +58,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 
 | Volume    | Mount Point      | Purpose                                                              |
 | --------- | ---------------- | -------------------------------------------------------------------- |
-| `main`    | `/data`          | The app's data (below), given to `btctx` at every start, as Start9's `main.md` does ("Oneshots"): StartOS mounts volumes root-owned, and earlier versions of the app ran as root |
+| `main`    | `/data`          | The app's data (below), `btctx`'s: the image's entrypoint gives it to `btctx` at a start (or an action's command) when something in it isn't `btctx`'s, as on a volume from a version where the app ran as root |
 | `startos` | none (not mounted) | `store.json`, the package's state                                  |
 
 | Path on `main`          | What                                                                                       |
@@ -68,7 +68,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 | `btc-prices/`           | The hourly BTC price history (one `YYYY.csv` per year, about 3 MB), downloaded once from Bitstamp when the choice allows public price sites, each year checked against the fingerprint the release ships; deleting it only means it's downloaded again |
 | `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-…`, newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
-Installs from before the separate `startos` volume also had `.startos-wrapper.json` on `main`; the update moves its password into `store.json` and deletes it.
+Installs from before the separate `startos` volume also had `.startos-wrapper.json` on `main`; the update moves its password into `store.json` and deletes it, and a later update keeps only `loginSet` in its place (below).
 
 ## File Models
 
@@ -76,7 +76,8 @@ One model, `store.json` on the `startos` volume. The package writes no app confi
 
 | Key                 | Meaning                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `adminPassword`     | The password Set Login Credentials last generated. Not updated when the user changes the password inside BitcoinTX. While it is unset, the critical Set Login Credentials task stays raised. |
+| `loginSet`          | `true` once Set Login Credentials has given the app a login. Only that is kept, never the password, whose hash the app keeps in its own database (Start9's `recipe-web-ui.md`, "Authentication"). Not changed when the user changes the password inside BitcoinTX. While it is unset, the critical Set Login Credentials task stays raised. |
+| `adminPassword`     | The password Set Login Credentials generated, kept by earlier versions of the package. The update that introduced `loginSet` sets it when it finds one, then deletes the password. |
 | `recalculateLedger` | `true` after an update from a version with old gain calculations (transfer fees, sale proceeds and the holding period; a spend's network fee counted twice), until Recalculate Ledger runs. |
 | `recalculateAsked`  | Set once init has raised the Recalculate Ledger task for that update, so it asks once (see [Tasks](#tasks)); the update that sets `recalculateLedger` resets it. |
 | `priceSource`       | Absent: never chosen (the action preselects nothing). `unset`: Decide in BitcoinTX, the app's own card decides. `off` (Nobody), `public` or `mempool`: set by Price Source & Privacy and passed as `BTCTX_PRICE_SOURCE`. |
@@ -113,18 +114,20 @@ Both are on the `ui-multi` host, so a domain added to one is available to both. 
 The package, not the app's first-run page, creates the login: the service cannot start until it exists.
 
 1. Install creates nothing in the app. A **critical** task points at Set Login Credentials, then a second **critical** one at Price Source & Privacy: the service starts once both have run — see [Tasks](#tasks).
-2. Set Login Credentials runs `set-password` in a temporary subcontainer, which creates and migrates the database and sets `admin` / a random 24-character password, stores the password in `store.json` and shows it once.
+2. Set Login Credentials runs `set-password` in a temporary subcontainer, which creates and migrates the database and sets `admin` / a random 24-character password, records `loginSet` in `store.json` (never the password) and shows the password once.
 3. Because the login is no longer the app's shipped default (`admin` / `password`), the app's first-run registration page never appears.
 
-Installs from before generated passwords started with `admin` / `password`, which BitcoinTX now accepts only with the setup code from the service log. Updating from before generated passwords runs `set-password --if-default` once with a random password nobody is shown (a backup from before then is restored as its own version, and does this at its next update): if the login was still the default, it is now locked and the critical Set Login Credentials task is raised. A login the owner set in the app is kept, but with no password stored the critical task is raised as well, and running it replaces that login. The update clears any outstanding task for the removed Show Credentials action.
+Installs from before generated passwords started with `admin` / `password`, which BitcoinTX now accepts only with the setup code from the service log. Updating from before generated passwords runs `set-password --if-default` once with a random password nobody is shown (a backup from before then is restored as its own version, and does this at its next update): if the login was still the default, it is now locked and the critical Set Login Credentials task is raised. A login the owner set in the app is kept, but with no `loginSet` the critical task is raised as well, and running it replaces that login. The update clears any outstanding task for the removed Show Credentials action.
 
 ## Actions
 
 Four actions. All run with the service running or stopped, except Set Login Credentials.
 
+Set Login Credentials and Recalculate Ledger run a `python -m backend.cli` command in a temporary subcontainer, through the image's entrypoint, with no time limit (the database's size sets how long it takes). When the command fails, the action's alert says "BitcoinTX could not set the password: …" or "BitcoinTX could not recalculate the ledger: …" in the user's language, followed by the command's own `error: …` line in English (else the start-up script's refusal, the signal that stopped the command, its last line on stderr that is neither a log line nor SQL, or its exit code). The rest of the command's output is neither shown nor logged: it can carry the SQL's values, such as a password's hash. The init step that replaces an old default login logs the same one line when its command fails.
+
 ### Set Login Credentials
 
-Only while stopped. Sets the username to `admin` and a new random password through `set-password` (creating the database on a fresh install), stores it, and returns it once; nothing shows it again. Transactions and settings are untouched. Run it at install (its task), or when the owner has lost the password; on a later run it replaces any login set in the app, and the old password stops working.
+Only while stopped. Sets the username to `admin` and a new random password through `set-password` (creating the database on a fresh install), records `loginSet` (never the password), and returns the password once; nothing shows it again. Transactions and settings are untouched. Run it at install (its task), or when the owner has lost the password; on a later run it replaces any login set in the app, and the old password stops working.
 
 ### Price Source & Privacy
 
@@ -132,7 +135,7 @@ A form (prefilled from `store.json`; nothing preselected until a choice was made
 
 ### Connect an AI Assistant
 
-Returns the MCP API's https addresses (`.local` first), the StartOS root CA (from `sdk.getSslCertificate`, last certificate in the chain; shown as multi-line text and offered as a download named `btctx-root-ca.crt`), and a Claude Desktop config (multi-line text) and `claude mcp add --scope user` command (every folder, not only the current one) that run the MCP server with `uvx btctx-mcp==<this release>` (from PyPI, pinned to the package's version), with `YOUR_BITCOINTX_AI_KEY` where the key goes. It reads no credentials: the key is created and shown (once) only in the app. Changes nothing; safe to repeat. If the root CA can't be read, the message points to System > About this Server to download it. Resolves "the AI can't connect" (wrong URL, TLS verification failures).
+Returns the MCP API's https addresses (`.local` first), the StartOS root CA (from `sdk.getRootCa`; shown as multi-line text and offered as a download named `btctx-root-ca.crt`), and a Claude Desktop config (multi-line text) and `claude mcp add --scope user` command (every folder, not only the current one) that run the MCP server with `uvx btctx-mcp==<this release>` (from PyPI, pinned to the package's version), with `YOUR_BITCOINTX_AI_KEY` where the key goes. It reads no credentials: the key is created and shown (once) only in the app. Changes nothing; safe to repeat. If the root CA can't be read, the message points to System > About this Server to download it. Resolves "the AI can't connect" (wrong URL, TLS verification failures).
 
 ### Recalculate Ledger
 
@@ -144,7 +147,7 @@ Three actions raise tasks.
 
 | Task                   | Severity    | Raised when                                        | Cleared when                     |
 | ---------------------- | ----------- | -------------------------------------------------- | -------------------------------- |
-| Set Login Credentials  | `critical`  | While no password is stored (at install, and after an update from an install whose login was set in the app); after an update locked a default login | The action runs |
+| Set Login Credentials  | `critical`  | While `loginSet` is unset (at install, and after an update from an install whose login was set in the app); after an update locked a default login | The action runs |
 | Price Source & Privacy | `critical`  | At install, after Set Login Credentials (init order) | The action runs: any choice, Nobody and Decide in BitcoinTX included |
 | Price Source & Privacy | `important` | Once, after an update of an install that was never asked and has no choice made here (never critical: a running service never stops) | The action runs, or dismissed |
 | Recalculate Ledger     | `important` | Once, after updating from a version with the old gain calculations; again after restoring a backup on which `recalculateLedger` is still set | The action runs, or dismissed |
@@ -168,7 +171,7 @@ One check, on the `webui` daemon.
 Both volumes are copied whole (`sdk.Backups.ofVolumes('main', 'startos')`). StartOS stops the service first, so the SQLite file is copied at rest; there is no dump step.
 
 - **Included:** the database, the session key, the hourly price history in `btc-prices/`, the app's copies in `backups/`, and `store.json`.
-- **Restore:** complete, including the generated password. StartOS keeps the installed package in each backup, so a restore brings back the package version the backup was made with, and its data as that version left it. The next update migrates it like any update (including the Recalculate Ledger task when it predates the gain-calculation fixes); a backup from a version before the app had its own user holds root's files, which the `chown` step at the first start after that update (or an action's, before its command) gives to `btctx`. StartOS refuses a restore over an installed package, and an uninstall deletes both volumes, `backups/` included.
+- **Restore:** complete: the login is in the app's database (as its hash), and `store.json` says whether it was set. StartOS keeps the installed package in each backup, so a restore brings back the package version the backup was made with, and its data as that version left it. The next update migrates it like any update (including the Recalculate Ledger task when it predates the gain-calculation fixes); a backup from a version before the app had its own user holds root's files, which the entrypoint gives to `btctx` at the first start after that update (or at an action's command, if one runs first). StartOS refuses a restore over an installed package, and an uninstall deletes both volumes, `backups/` included.
 - **Address after a restore:** a restore is a fresh install, so StartOS may assign the web UI and MCP API a new port (ports are kept across restarts and updates, released on uninstall). Rerun **Connect an AI Assistant** and update the AI client's `BTCTX_URL`.
 - The app also has its own password-encrypted database export (Settings in the web UI), independent of StartOS backups. Restoring one of those in the app brings back the ledger and its other settings but keeps the login, the AI key and the price settings in use.
 
@@ -197,9 +200,9 @@ architectures:
   - x86_64
   - aarch64
 subcontainers:
-  - btctx # chown oneshot (root) + migrate oneshot + webui daemon, as btctx
-  - cli-<command> # temporary, per action/init: chown (root), then the CLI as btctx
-user: btctx # uid/gid 10001; never root (webui keeps only CAP_NET_BIND_SERVICE)
+  - btctx # migrate oneshot + webui daemon, each through the image's entrypoint
+  - cli-<command> # temporary, per action/init: the CLI through the entrypoint
+user: btctx # uid/gid 10001; never root (every step keeps only CAP_NET_BIND_SERVICE)
 volumes:
   main: /data
   startos: null # store.json, not mounted
