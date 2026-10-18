@@ -742,6 +742,29 @@ All notable changes to BitcoinTX are documented in this file.
   transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
+- **A number written with a decimal comma is refused, not read as another
+  number** (#452). The CSV import and the River import dropped every comma
+  in a number, to allow a thousands separator ("1,000.50"), so a decimal
+  comma was dropped too, with no error and no warning: "0,5" BTC was saved
+  as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Where a point
+  separated thousands, as the same spreadsheets write them, "21.000,00"
+  dollars was saved as $21. Now a comma counts only as a thousands
+  separator, between groups of three digits before the point (1,000 or
+  12,345.67). Any other comma is refused, naming its column, in the
+  preview and at Import: "A comma is read only as a thousands separator
+  (1,000.50): write decimals with a point (0.5, not 0,5)." A number with an
+  underscore ("0_5", which was read as 5) is refused too. **Affected:**
+  every release with the CSV or River import, 1.2.8 included, any tax
+  year, but only a file that wrote an amount, cost basis, proceeds, fee or
+  value with a comma as its decimal point (a spreadsheet set to a language
+  that writes one can save a CSV so, with the number in quotes). A file
+  with points, as BitcoinTX's template, its own export and River's files
+  have, was read right.
+  **What to do:** if you imported a file that wrote decimals with a comma,
+  look in Transactions for amounts and values ten or more times too large,
+  or about a thousand times too small where a point separated thousands
+  (21.000,00), and edit each to the right figure (an edit recalculates the
+  ledger).
 - **The CSV import's Preview says when a row needs a price BitcoinTX can't
   get** (#125). Preview called a row valid that Import then refused for want
   of a BTC price: a BTC fee without `fee_usd`, an income, rebate or
@@ -755,6 +778,33 @@ All notable changes to BitcoinTX are documented in this file.
   version since 1.1.0 (where nothing is asked for prices until a source is
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
+- **The CSV import refuses a row with more fields than the header**
+  (#453). A comma outside quotes starts a new field, so an amount written
+  `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
+  note with a comma in it, or a doubled comma. Every column after it moved
+  one place, and the import read the row so, with no error and no
+  warning: a My BTC deposit with a $20,000.00 cost basis was saved with a
+  basis of $20.00, no source and "MyBTC" as its purpose, and its sale
+  later showed about $19,980 too much gain; an income deposit could lose
+  its source and not count as income. Preview and Import now refuse a row
+  left with more fields than the header, naming it: "This row has more
+  fields than the header: a stray comma, or an amount written with a
+  comma (write 1000.00, not 1,000.00)?", as the River import does. A row
+  ending in one comma too many is refused too, since it can't be told
+  from a shifted one: remove the comma. A value in quotes (`"20,000.00"`)
+  is one field and reads as before, and so does a row with fewer fields
+  than the header (its last cells blank). So a shifted row written
+  without its last empty cells still can't be caught: write every column,
+  as the template and the export do. **Affected:** every version with the
+  CSV import, 1.2.8 included, and any tax year with a transaction
+  imported from a file with one comma too many outside quotes in a row (a
+  row whose shift put a value in a column that can't take it was refused,
+  with a confusing error such as "Invalid fee currency '1'"). **What to
+  do:** if a file you imported had one (an amount like `1,000.00`, a
+  doubled comma, or a comma in a note, without quotes), compare its
+  transactions with the file (cost basis, proceeds, fee, source, purpose,
+  notes and the later columns) and edit any that differ: the edit
+  recalculates the ledger.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
