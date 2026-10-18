@@ -512,11 +512,11 @@ def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None
 def _drop_dollar_deposit_basis(tx: Transaction, tx_data: dict) -> None:
     """
     A dollar deposit's cost basis is no bitcoin's cost ($0 on every one the
-    form before 0.9.2 saved, or a figure an API client sent with one). An
-    edit that makes it bring bitcoin into Wallet or Exchange BTC, as a
-    deposit or a Buy, drops it unless it sends one: kept, it would be the
-    coins' cost, so the save asks for that instead, or prices an income
-    deposit (#459, #517).
+    form before 0.9.2 saved, or a figure an API client or a CSV file gave
+    one). An edit that makes it bring bitcoin into Wallet or Exchange BTC,
+    as a deposit or a Buy, drops it unless it sends one: kept, it would be
+    the coins' cost, so the save asks for that instead, or values an
+    income, rebate or inherited deposit at its price (#459, #517).
     """
     if tx.type != "Deposit" or tx.to_account_id in BTC_ACCOUNTS or "cost_basis_usd" in tx_data:
         return

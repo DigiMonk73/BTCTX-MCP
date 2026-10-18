@@ -690,22 +690,27 @@ All notable changes to BitcoinTX are documented in this file.
   or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
   stored on the dollar deposit as the cost of that bitcoin, without
   asking: $0 on a dollar deposit entered with the form before 0.9.2, or
-  whatever figure a program sent with it. Selling those coins later then
+  whatever figure a program or a CSV file gave it. Selling those coins later then
   counted the whole proceeds as gain (or a gain off by the difference),
   and an income deposit moved that way reported that figure as its income
   instead of the coins' value. Every release from 0.8.0 (the oldest
-  tagged) to 1.2.8, through the API and the AI connector; the form shows
-  the stored figure in the Cost Basis field and saves what it shows. Now
-  such an edit asks for the coins' cost (a My BTC, Gift or N/A deposit),
-  or values an income, interest, reward or rebate deposit at that hour's
-  price, unless it gives one.
+  tagged) to 1.2.8, through the API and the AI connector. Now such an
+  edit asks for the coins' cost (a My BTC, Gift or N/A deposit), or values
+  an income, interest, reward or rebate deposit at that hour's price (an
+  inherited one at its date of death's), unless it gives one. The form
+  isn't changed: there the Cost Basis field shows the figure the deposit
+  had (a blank one as 0), and saving keeps what it shows.
 
   **What to do:** Ledger Review lists a bitcoin deposit with a $0 cost
   basis ("BTC deposits (not income or a rebate) with a $0 or blank cost
-  basis"): edit it and enter what the coins cost. One with another figure
-  isn't listed: if you moved a dollar deposit into Wallet or Exchange BTC
-  through the AI connector or another program, check that deposit's cost
-  basis.
+  basis"): edit it and enter what the coins cost. An income or rebate
+  deposit moved that way with another figure is listed under "Income and
+  rebate values you typed, far from that hour's price". Others with
+  another figure aren't listed: if you moved a dollar deposit into Wallet
+  or Exchange BTC, or made one a Buy, through the AI connector or another
+  program, check its cost basis. Any tax year in which those coins were
+  sold or spent can be affected, and for an income deposit the year it
+  was received.
 - **No proceeds row below zero** (#297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot

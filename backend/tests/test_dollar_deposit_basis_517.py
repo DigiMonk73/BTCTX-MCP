@@ -2,8 +2,8 @@
 A dollar deposit's cost basis is no bitcoin's cost (#517): the form before
 0.9.2 saved $0 on every dollar deposit, and the API keeps a figure sent
 with one. An edit moving such a deposit into Wallet or Exchange BTC kept
-it as the cost of the bitcoin it then brought in: a $0 or made-up lot. Now
-the edit asks for the coins' cost (or prices an income deposit) unless it
+it as the cost of the bitcoin it then brought in: a $0 or made-up lot. The
+edit asks for the coins' cost (or prices an income deposit) unless it
 sends one; a bitcoin deposit moved between bitcoin accounts keeps its own.
 """
 
@@ -62,10 +62,13 @@ def test_a_dollar_deposit_moved_into_bitcoin_asks_for_the_coins_cost(auth_client
     assert lot_costs(test_engine) == [Decimal("17500")]
 
 
-def test_a_dollar_income_deposit_moved_into_bitcoin_is_valued_at_the_price(auth_client, test_engine):
-    """Its stored figure isn't the coins' value at receipt: the price gives it."""
-    tx = deposit(auth_client, BANK, source="Income", cost_basis_usd="250")
-    r = auth_client.put(f"/api/transactions/{tx['id']}", json=into_bitcoin(WALLET))
+@pytest.mark.parametrize("source, sent", [("Income", {}), ("Rebate", {}), ("Inherited", {"acquired_at": "2024-02-01"})])
+def test_a_dollar_deposit_valued_at_receipt_moved_into_bitcoin_is_valued_at_the_price(auth_client, test_engine,
+                                                                                      source, sent):
+    """Its stored figure isn't the coins' value when received (an
+    inheritance's: on the date of death): the price gives it."""
+    tx = deposit(auth_client, BANK, source=source, cost_basis_usd="250")
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json=into_bitcoin(WALLET, **sent))
     assert r.status_code == 200, r.text
     value = (Decimal("0.5") * Decimal(str(STUB_HISTORICAL_USD))).quantize(Decimal("0.01"))
     assert Decimal(str(r.json()["cost_basis_usd"])) == value and r.json()["cost_basis_from_price"] is True
@@ -78,4 +81,3 @@ def test_a_bitcoin_deposit_moved_to_the_other_bitcoin_account_keeps_its_basis(au
     assert r.status_code == 200, r.text
     assert Decimal(str(r.json()["cost_basis_usd"])) == Decimal("12000")
     assert lot_costs(test_engine) == [Decimal("12000")]
-
