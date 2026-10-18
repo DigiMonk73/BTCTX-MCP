@@ -1,8 +1,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
-import { parseDecimal } from "../../utils/format";
-import { transferDestinations } from "../../utils/transactionForm";
+import { transferAmountProblem, transferDestinations } from "../../utils/transactionForm";
 import FeeValueField from "./FeeValueField";
 
 // A BTC account sent to itself (#159): how the choice reads, and what it records
@@ -56,7 +55,8 @@ const ToAccountField: React.FC = () => {
 /**
  * A transfer between the user's accounts: the destination follows from the
  * source (useFieldAutofill; a BTC one can also be the same account, a
- * consolidation), and a BTC transfer's fee is what was sent less what arrived.
+ * consolidation), and the fee is what was sent less what arrived, in bitcoin
+ * or in dollars (#447).
  */
 const TransferFields: React.FC = () => {
   const { register, watch, setValue, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
@@ -127,12 +127,14 @@ const TransferFields: React.FC = () => {
           step="0.00000001"
           className="input"
           {...register("amountFrom", {
-            required: true,
+            required: "Amount (From) is required",
             valueAsNumber: true,
+            deps: "amountTo",
+            validate: (_v, values) => transferAmountProblem(values, "amountFrom") ?? true,
           })}
         />
         {errors.amountFrom && (
-          <span className="field-error">Amount (From) is required</span>
+          <span className="field-error">{errors.amountFrom.message || "Amount (From) is required"}</span>
         )}
       </div>
 
@@ -159,11 +161,7 @@ const TransferFields: React.FC = () => {
           {...register("amountTo", {
             required: "Amount (To) is required",
             valueAsNumber: true,
-            // Within one account only the fee is recorded, so there must be one
-            validate: (v, values) =>
-              !(values.fromCurrency === "BTC" && values.toAccount === values.fromAccount) ||
-              parseDecimal(v) < parseDecimal(values.amountFrom) ||
-              "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).",
+            validate: (_v, values) => transferAmountProblem(values, "amountTo") ?? true,
           })}
         />
         {errors.amountTo && (
@@ -196,7 +194,9 @@ const TransferFields: React.FC = () => {
             className="input"
             defaultValue={0}
             {...register("fee", { valueAsNumber: true })}
+            readOnly
           />
+          <small className="field-hint">Amount (From) less Amount (To): what the transfer cost.</small>
         </div>
       )}
     </>

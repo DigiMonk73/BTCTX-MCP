@@ -707,6 +707,26 @@ All notable changes to BitcoinTX are documented in this file.
   row kept its old figures. Editing or deleting any transaction, or
   Recalculate Ledger, applies the newest rules to every row, as both now
   say.
+- **A dollar transfer's Amount (To) counts** (#447). On a dollar transfer
+  (Bank → Exchange, or Exchange USD → Bank) the form asked for Amount
+  (From), Amount (To) and Fee (USD) but saved only Amount (From) and the
+  fee: whatever Amount (To) said was dropped, the receiving account was
+  credited all of Amount (From), and the fee came out of the sending
+  account on top. So "$1,000 sent, $990 arrived, a $10 fee" showed Bank
+  $1,010 lower and Exchange (USD) $1,000 higher, both wrong by the fee.
+  Now a dollar transfer works as a bitcoin one does: you type what left
+  (Amount (From)) and what arrived (Amount (To)); Fee (USD) is filled in
+  as the difference and can't be typed. Amount (To) above Amount (From) is
+  refused in words (on a bitcoin transfer too, which saved it with no fee
+  and credited Amount (From)), and so is a dollar amount past the cent. It
+  is saved as dollar transfers always were (the amount that arrived, the
+  fee on top), so nothing stored changes, and one saved before opens with
+  Amount (From) as its amount plus its fee. Every release with this form
+  (1.2.8 and earlier). No tax figure was affected: dollar balances don't
+  enter gains, basis or income. **To check:** open each dollar transfer
+  that has a fee; if Amount (From) isn't what left the account, or Amount
+  (To) isn't what arrived, correct them and save, and the Bank and
+  Exchange (USD) balances follow.
 - **A fee in dollars is in cents** (#298). A fee's decimals were checked
   as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
   $0.005 was accepted and then lost from the lot's cost when stored in
