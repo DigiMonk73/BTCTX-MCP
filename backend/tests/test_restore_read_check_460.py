@@ -50,19 +50,36 @@ def test_a_value_the_screens_cant_show_is_refused(live, tmp_path, sql):  # noqa:
     _assert_refused(live, [sql], DOESNT_FIT.format(table="transactions"), tmp_path)
 
 
+PRICE = "INSERT OR REPLACE INTO btc_price_daily (day, usd, source) VALUES ('{day}', {usd}, 'bitstamp')"
+
+
 @pytest.mark.parametrize("table, sql", [
     ("transactions", "UPDATE transactions SET amount = 9e999"),  # stored as infinity
     ("transactions", "UPDATE transactions SET cost_basis_usd = -1e300"),
-    ("transactions", "UPDATE transactions SET fee_usd = 1e18"),  # 19 digits before the point
-    # The lots, disposals and ledger lines: the reports read them too
+    ("transactions", "UPDATE transactions SET fee_usd = 1e22"),  # 23 digits before the point
+    ("transactions", "UPDATE transactions SET fee_amount = 1e10"),  # 11: past the save's BTC rule
+    # The lots, disposals, ledger lines and prices: the reports read them too
     ("bitcoin_lots", "UPDATE bitcoin_lots SET cost_basis_usd = 1e300"),
+    ("bitcoin_lots", "UPDATE bitcoin_lots SET remaining_btc = 1e10"),
     ("lot_disposals", "INSERT INTO lot_disposals (lot_id, transaction_id, disposed_btc, realized_gain_usd, "
                       "disposal_basis_usd, proceeds_usd_for_that_portion, holding_period) "
                       "SELECT id, created_txn_id, 0.1, 1e300, 0, 0, 'SHORT' FROM bitcoin_lots"),
     ("ledger_entries", "UPDATE ledger_entries SET amount = 9e999"),
+    ("btc_price_daily", PRICE.format(day="2024-01-01", usd="1e15")),  # times a lot, past what the reports round
 ])
 def test_a_number_the_reports_cant_use_is_refused(live, tmp_path, table, sql):  # noqa: F811
-    """Finite, with at most 18 digits before the point (backup.NUMBERS_BELOW)."""
+    """Finite, and within its kind's limit (backup.NUMBER_LIMITS)."""
+    _assert_refused(live, [sql], DOESNT_FIT.format(table=table), tmp_path)
+
+
+@pytest.mark.parametrize("table, sql", [
+    # Year 1 in UTC is the year before in America/Chicago: the tax report failed (OverflowError)
+    ("transactions", "UPDATE transactions SET timestamp = '0001-01-01T00:30:00Z'"),
+    ("transactions", "UPDATE transactions SET acquired_at = '0001-01-01'"),
+    ("bitcoin_lots", "UPDATE bitcoin_lots SET acquired_date = '9999-12-31T23:00:00Z'"),  # Ledger Review: 422
+])
+def test_a_date_outside_the_reports_years_is_refused(live, tmp_path, table, sql):  # noqa: F811
+    """Years 2 to 9998 (backup.USABLE_YEARS): a timezone can't move them past Python's."""
     _assert_refused(live, [sql], DOESNT_FIT.format(table=table), tmp_path)
 
 
@@ -81,16 +98,38 @@ def test_a_number_the_reports_cant_use_is_refused(live, tmp_path, table, sql):  
     "'2024-06-01 12:00:00', 99, 2, 0.1, 'Mined', 3000)",
     # A tax timezone name saved before #407 (the restore keeps this install's)
     "INSERT INTO app_settings (key, value) VALUES ('tax_timezone', 'america/chicago')",
-    # The biggest figures BitcoinTX writes: a 10-digit BTC amount, a 16-digit
-    # USD basis, which its ledger line also holds; and 18 digits, the most
+    # The biggest figures a save takes: a 10-digit BTC amount, a 16-digit USD
+    # basis, which its ledger line also holds
     "UPDATE transactions SET amount = 9999999999.99999, cost_basis_usd = 9999999999999999.99",
     "UPDATE ledger_entries SET amount = -9999999999999999.99 WHERE account_id = 1",
-    "UPDATE transactions SET fee_usd = 1e17",
+    # A sale's basis over many lots at that limit, past 16 digits (#483's review: 120
+    # lots gave 1.08e18); 22 digits, the most
+    "UPDATE transactions SET cost_basis_usd = 9e21, realized_gain_usd = -9e21",
+    # A buy at the BTC rule's limit, held when 2024 begins and ends, times a price
+    # just below its own (the tax report rebuilds the lots from the buy; at $9.9e17
+    # it failed, InvalidOperation)
+    ("UPDATE transactions SET amount = 9999999999",
+     PRICE.format(day="2024-01-01", usd="9.99e14"), PRICE.format(day="2025-01-01", usd="9.99e14")),
 ])
 def test_values_bitcointx_reads_still_restore_and_every_page_answers(live, tmp_path, sql):  # noqa: F811
-    blob, _ = _backup(tmp_path, sql)
+    blob, _ = _backup(tmp_path, *((sql,) if isinstance(sql, str) else sql))
 
     r = _restore(live.client, blob)
 
     assert r.status_code == 200, r.text
     assert _pages_answer(live.client) == dict.fromkeys(PAGES, 200)
+
+
+@pytest.mark.parametrize("sql, said", [
+    ("UPDATE transactions SET broker_reporting = 'whatever'", "transactions can't be shown: broker_reporting"),
+    ("UPDATE transactions SET fee_usd = 123456789012345678901234", "transactions.fee_usd is bigger than "
+                                                                    "BitcoinTX's figures"),
+])
+def test_the_log_says_which_column_never_its_value(live, tmp_path, caplog, sql, said):  # noqa: F811
+    """A column's name is words the code chose; the backup's value stays out of the log."""
+    blob, _ = _backup(tmp_path, sql)
+
+    assert _restore(live.client, blob).status_code == 400
+    refused = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Restore refused")]
+    assert refused == [f"Restore refused: a transactions row can't be read ({said})"]
+    assert "whatever" not in caplog.text and "123456789" not in caplog.text
