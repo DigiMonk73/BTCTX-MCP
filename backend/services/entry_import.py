@@ -319,12 +319,14 @@ def _compared(item: RiverProposal | Transaction, name: str) -> str:
 
 def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     """What else a row the AI sends must share with a transaction to be it
-    (D1, #253): its type, its source or purpose, and a Buy's cost basis (a
-    Buy at another price can be another purchase). A Sell's proceeds aren't
-    compared: the stored ones are recomputed net of fees."""
+    (D1, #253): its type, its accounts (#522), its source or purpose, and a
+    Buy's cost basis (a Buy at another price can be another purchase). A
+    Sell's proceeds aren't compared: the stored ones are recomputed net of
+    fees."""
     if tx.type != row.type:
         return [f"recorded as a {tx.type}, not a {row.type}"]
-    out = [
+    out = _account_differences(row, tx)
+    out += [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
         if _compared(tx, name) != _compared(row, name)
@@ -334,19 +336,33 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     return out
 
 
+def _account_differences(row: RiverProposal, tx: Transaction) -> list[str]:
+    """The accounts the transaction left or went into that aren't the row's
+    (the owner's rule, #522): a payout into Exchange BTC beside one recorded
+    into Wallet isn't that payout, only similar, though it goes the same way
+    (river_import._compatible: the same source account or the same
+    destination, all River's rule asks)."""
+    sides = (("from", tx.from_account_id, row.from_account_id), ("into", tx.to_account_id, row.to_account_id))
+    return [
+        f"recorded {way} {ACCOUNT_ID_TO_NAME.get(recorded, 'no account')}, not {ACCOUNT_ID_TO_NAME[sent]}"
+        for way, recorded, sent in sides
+        if recorded != sent
+    ]
+
+
 ENTRY_RULE = DuplicateRule(amounts=(same_ledger_amount,), differences=_entry_differences)
 
 
 def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool = False) -> None:
     """
-    The duplicate rule (D1, #253). The same type, BTC amount, source or
-    purpose and minute as a transaction in the ledger (a row given as a date
-    alone: the same day), and for a Buy the same cost basis => duplicate,
-    left out. The timed rows take their duplicates before the rows given as
-    a date alone, so a date-alone row is the one saved when it and a timed
-    row share their only copy (#472). The most rows are matched: a row left
-    without one takes a duplicate another row holds when that row can take
-    another of its own (#411).
+    The duplicate rule (D1, #253). The same type, accounts (#522), BTC
+    amount, source or purpose and minute as a transaction in the ledger (a
+    row given as a date alone: the same day), and for a Buy the same cost
+    basis => duplicate, left out. The timed rows take their duplicates
+    before the rows given as a date alone, so a date-alone row is the one
+    saved when it and a timed row share their only copy (#472). The most
+    rows are matched: a row left without one takes a duplicate another row
+    holds when that row can take another of its own (#411).
     A row the user says is another transaction names the one the preview
     matched (not_a_duplicate_of). Each transaction a row names, when it's a
     duplicate of that row, is set aside for every row, whatever their order
@@ -421,12 +437,13 @@ def _unclear(
 ) -> dict[int, list[int]]:
     """
     Each named row beside rows without a name that the transaction it names
-    is a duplicate of too. Which of them is a recorded transaction and
-    which another can't be told: the same request is a first send naming a
-    new payout or a send of two the ledger already holds, and only the
-    rows' order would decide (the owner's rule: refuse to guess). Those rows
-    by each named row; a row whose name counts for nothing (_named) is a
-    row without a name.
+    is a duplicate of too (ENTRY_RULE: a row into or out of another account
+    isn't that transaction, so never unclear beside it, #522). Which of
+    them is a recorded transaction and which another can't be told: the
+    same request is a first send naming a new payout or a send of two the
+    ledger already holds, and only the rows' order would decide (the
+    owner's rule: refuse to guess). Those rows by each named row; a row whose name counts
+    for nothing (_named) is a row without a name.
     """
     if not named or len(named) == len(valid):
         return {}
@@ -509,8 +526,8 @@ def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool) -> str:
     if again:
         return (f"Already recorded as tx #{tx_id}, besides tx #{p.not_a_duplicate_of} the user said it isn't: left "
                 f"out (the same request sent twice, or another copy of this payout in the ledger).")
-    warning = (f"Already recorded as tx #{tx_id} (the same type, BTC amount, source or purpose, a Buy's cost "
-               f"basis, and time): left out. If the user says it's another transaction, send it with "
+    warning = (f"Already recorded as tx #{tx_id} (the same type, accounts, BTC amount, source or purpose, a "
+               f"Buy's cost basis, and time): left out. If the user says it's another transaction, send it with "
                f"not_a_duplicate_of: {tx_id}.")
     if p.not_a_duplicate_of is not None:
         warning += f" (not_a_duplicate_of names tx #{p.not_a_duplicate_of}, which isn't a duplicate of this row.)"
