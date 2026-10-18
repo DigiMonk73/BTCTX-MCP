@@ -442,12 +442,13 @@ def _build_rebates(txns: list[Transaction]) -> list[dict[str, Any]]:
 
 def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]:
     """
-    Gathers any withdrawals with purpose in ("Gift","Donation","Lost").
-    Shown separately for tax/record-keeping.
+    Gathers any withdrawals of bitcoin with purpose in ("Gift","Donation","Lost").
+    Shown separately for tax/record-keeping. A dollar withdrawal isn't one,
+    whatever purpose an older save left on it (#449).
     """
     results = []
     for tx in txns:
-        if tx.type != "Withdrawal":
+        if tx.type != "Withdrawal" or tx.from_account_id not in BTC_ACCOUNTS:
             continue
         if not tx.purpose:
             continue

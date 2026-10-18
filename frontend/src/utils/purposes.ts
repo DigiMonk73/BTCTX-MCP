@@ -11,6 +11,12 @@ export function isNotSold(purpose?: string | null): boolean {
   return NOT_SOLD.includes((purpose ?? "").trim().toLowerCase());
 }
 
+/** Spent, Gift, Donation or Lost, in any case and spacing: what only
+ * bitcoin leaving can be (#449). */
+export function isBtcPurpose(purpose?: string | null): boolean {
+  return isNotSold(purpose) || (purpose ?? "").trim().toLowerCase() === "spent";
+}
+
 // The form's choices, "N/A" (none) included. The River import offers its
 // own lists (utils/riverImport.ts), without "N/A".
 const FORM_SOURCES: DepositSource[] = ["N/A", "MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"];

@@ -761,6 +761,27 @@ All notable changes to BitcoinTX are documented in this file.
   what 1.2.8 shipped and was tested on, over 3.11, which GitHub offers for
   the Mac only as a release from April 2024. A build on your own Mac still
   takes the newest it finds, unless you name one.
+- **A dollar withdrawal is never listed as a gift of bitcoin** (tax
+  figures, #449). In the transaction form, a withdrawal's Purpose, FMV and
+  Proceeds show only for a bitcoin account, but a value chosen there stayed
+  in the form when the Account was then changed to Bank or Exchange USD,
+  and was saved with the dollar withdrawal. The Complete Tax Report then
+  listed it under "4. Gifts, donations and lost coins" as bitcoin given
+  away (its dollars shown as BTC, its typed value in the section's total),
+  a leftover Spent with proceeds was counted in the dashboard's spent
+  total, and Ledger Review could list a leftover Lost or $0 Spent. A
+  deposit's Source was kept the same way (shown in the list only). Now the
+  form sends a purpose, value or source only for a bitcoin account,
+  BitcoinTX keeps no Spent, Gift, Donation or Lost and no value on a
+  dollar withdrawal whoever sends one (the AI connector, a CSV file: the
+  CSV guide says so; a label of its own, such as "Rent", stays), and the
+  report, the dashboard, Ledger Review and the AI connector's duplicate
+  check read them only on bitcoin leaving. Form 8949, Schedule D and
+  the gains were never affected: a dollar withdrawal has no lots.
+  **Affected:** every version, for any tax year with a dollar withdrawal
+  saved this way. **What to do:** nothing: such a row is left out from
+  this version. Its old purpose still shows in the Transactions list until
+  you open it and save it.
 - **No gain line for a gift, a donation or lost coins** (#257). The
   Transactions list showed one under these withdrawals ("Gain $0.00 ·
   +0.00% · Long-term"), as if they were sales with a holding period. They

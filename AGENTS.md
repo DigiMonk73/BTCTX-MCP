@@ -195,6 +195,13 @@ from the Transaction row alone.
   marked); with no price it stays blank (never a 422: it's on no form
   BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
   Never part of a gain.
+- **Dollar withdrawals** (#449): only bitcoin leaving is spent, given,
+  donated or lost. A withdrawal from Bank or Exchange USD keeps no such
+  purpose and no proceeds or FMV: the save drops them
+  (`_drop_btc_withdrawal_fields`; other text stays, a label such as
+  "Rent"), and the tax report, the dashboard, Ledger Review and the AI's
+  duplicate check read them only on one from `BTC_ACCOUNTS`, so one an
+  older save left there counts for nothing.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update

@@ -301,6 +301,18 @@ def _label(value: str | None) -> str:
     return "" if text == "n/a" else text
 
 
+def _compared(item: RiverProposal | Transaction, name: str) -> str:
+    """A row's or a transaction's source or purpose as the duplicate check
+    compares it (_label): a dollar withdrawal's bitcoin purpose (Spent,
+    Gift, Donation, Lost) as none, since the save keeps none (#449) and an
+    older save may have left one."""
+    label = _label(getattr(item, name))
+    if name == "purpose" and item.type == "Withdrawal" and item.from_account_id not in BTC_ACCOUNTS \
+            and label in ("spent", *GIFT_LIKE_PURPOSES):
+        return ""
+    return label
+
+
 def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     """What else a row the AI sends must share with a transaction to be it
     (D1, #253): its type, its source or purpose, and a Buy's cost basis (a
@@ -311,7 +323,7 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     out = [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
-        if _label(getattr(tx, name)) != _label(getattr(row, name))
+        if _compared(tx, name) != _compared(row, name)
     ]
     if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
         out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
