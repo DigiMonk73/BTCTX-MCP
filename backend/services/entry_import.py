@@ -606,7 +606,7 @@ def write_rows(
     """
     if not any(p.result.status in WRITABLE_STATUSES for p in prepared if p.tx_data is not None):
         return []
-    ensure_fee_account_exists(db)  # it commits: before the lock
+    ensure_fee_account_exists(db)  # it may commit: before the lock
     unchecked = [p.result.model_copy(deep=True) for p in prepared]
 
     def check_and_write() -> list[tuple[PreparedRow, Transaction]]:

@@ -226,12 +226,12 @@ def execute_csv_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import."
         )
 
-    def still_empty() -> list:
+    def rows_if_empty() -> list:
         _refuse_unless_empty(db)
         return result.transactions
 
     try:
-        imported_count = execute_import(db, result.transactions, still_empty)
+        imported_count = execute_import(db, result.transactions, rows_if_empty)
         return CSVImportResponse(
             success=True,
             imported_count=imported_count,

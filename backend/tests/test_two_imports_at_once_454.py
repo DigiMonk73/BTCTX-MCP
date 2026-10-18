@@ -8,8 +8,9 @@ committed and saved them again. The check and the writes now hold one write
 lock; the prices are found before it, as before (#426).
 
 A barrier stands for what both requests wait for before they save (the
-price download): it only makes them leave it together, and nothing after it
-is forced.
+price download): it only makes them leave it together. For the AI's add,
+whose check came before its writes' price step, each request's first write
+also waits a moment for the other's check (checked_then_written).
 """
 
 import threading
@@ -60,6 +61,36 @@ def both_wait(monkeypatch, target: str) -> None:
     monkeypatch.setattr(target, wait_then_async if name == "autofill_fmv" else wait_then)
 
 
+def checked_then_written(monkeypatch) -> None:
+    """Each request's first write waits (1 s at most) until both requests
+    have checked the ledger for duplicates. Before, both checked with the
+    lock free, so both wrote; now the other's check waits behind this
+    request's lock, so the wait runs out and this one commits first."""
+    checks, done = threading.Condition(), [0]
+    for target in ("backend.services.entry_import.mark_duplicates", "backend.routers.entry_import.mark_duplicates"):
+        module, name = target.rsplit(".", 1)
+        real = getattr(__import__(module, fromlist=[name]), name)
+
+        def counted(*args, real=real, **kwargs):
+            out = real(*args, **kwargs)
+            with checks:
+                done[0] += 1
+                checks.notify_all()
+            return out
+
+        monkeypatch.setattr(target, counted)
+    real_create, wrote = entry_import.create_transaction_record, threading.local()
+
+    def create(*args, **kwargs):
+        if not getattr(wrote, "done", False):
+            wrote.done = True
+            with checks:
+                checks.wait_for(lambda: done[0] >= 2, timeout=1)
+        return real_create(*args, **kwargs)
+
+    monkeypatch.setattr(entry_import, "create_transaction_record", create)
+
+
 def at_once(send) -> list:
     """send() from two threads at once; their answers."""
     out = []
@@ -79,6 +110,7 @@ def ledger_size(client) -> int:
 def test_two_adds_of_the_same_rows_at_once_save_them_once(clean, ai_key_headers, monkeypatch, who):
     client = clean if who == "owner" else TestClient(app, headers=ai_key_headers)
     both_wait(monkeypatch, "backend.routers.entry_import.autofill_fmv")
+    checked_then_written(monkeypatch)
     out = at_once(lambda: client.post("/api/import/entries/execute", json={"rows": [ROW]}))
     assert [r.status_code for r in out] == [200, 200], [r.text for r in out]
     assert sorted(r.json()["imported_count"] for r in out) == [0, 1]

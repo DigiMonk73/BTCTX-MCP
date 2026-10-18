@@ -593,14 +593,16 @@ All notable changes to BitcoinTX are documented in this file.
   sends two adds at once, or a River or CSV file is imported in two
   browser tabs at once. The check and the save now hold the database's
   lock together: the second request waits for the first, then finds its
-  rows and leaves them out (the CSV import says the ledger isn't empty).
-  The prices are still found before, with the lock free. **Affected:**
-  every release (the AI connector's add since 0.8.0, the River import
-  since 0.7.0, the CSV import before them), any tax year. **What to do:**
-  if the AI connector ever told you an add timed out, or you imported a
-  file in two tabs, look in Transactions for a transaction recorded twice
-  (the same type, amount and time, saved moments apart) and delete the
-  extra copy.
+  rows and leaves them out (the CSV import says the ledger isn't empty);
+  one kept waiting past 5 s is refused as busy, nothing saved, to be sent
+  again. The prices are still found before, with the lock free.
+  **Affected:** every release (the AI connector's add since 0.8.0, the
+  River import since 0.7.0, the CSV import before them), any tax year.
+  **What to do:** if the AI connector ever told you an add failed or timed
+  out, or you imported a River file in two tabs, look in Transactions for
+  a transaction recorded twice (the same type, amount and time, next to
+  each other) and delete the extra copy. A CSV file imported in two tabs
+  at once saved every row twice: Delete All, then import the file once.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same
