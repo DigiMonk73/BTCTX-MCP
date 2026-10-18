@@ -81,6 +81,10 @@ it changes only by pull request:
 - Docker base images: tag and digest (`python:3.13-slim@sha256:…`).
 - GitHub Actions: a full commit SHA with the release as a comment
   (`actions/checkout@<sha> # v7.0.1`): a tag can be moved, a commit can't.
+- start-cli, which packs the StartOS package in CI and the release: a
+  release and its SHA-256 from the release notes (`START_CLI_VERSION`,
+  `START_CLI_SHA256` in `ci.yml` and `release.yml`), checked before it runs.
+  It follows Start9's newest (`startos/UPDATING.md`, "Bumping the SDK").
 - The exception is the AI connector (`mcp_server/pyproject.toml`): it is
   installed next to other software, so its dependencies take ranges, each
   capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,

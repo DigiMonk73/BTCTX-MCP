@@ -4,9 +4,9 @@ import {
   localDatetimeToIso,
   mapTransactionToFormData,
   plainBtcText,
-  transferDestinations,
 } from "./transactionForm";
 import { btcText } from "./format";
+import { transferDestinations } from "./transferAccounts";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
 const base = {

@@ -2,8 +2,15 @@ import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
 const shape = z.looseObject({
-  // The password Set Login Credentials generated. BitcoinTX owns the live
-  // credential: a password changed in the app is not reflected here.
+  // Set by Set Login Credentials once it has given the app a login: only
+  // whether one was set, never the password, whose hash only the app keeps
+  // (Start9's recipe-web-ui.md, "Authentication", #212). A password changed
+  // in the app is not reflected here.
+  loginSet: z.boolean().optional().catch(undefined),
+  // Where releases before 1.2.9 kept the generated password (the 0.9.0:0
+  // migration still moves an older one here on the way up). Nothing else
+  // reads or writes it: 1.2.9:0's migration turns it into loginSet and
+  // deletes it (forgetStoredPassword in utils.ts).
   adminPassword: z.string().optional().catch(undefined),
   // Set by an update whose calculation fixes only reach existing transactions
   // after a recalculation (from before 0.8.0, and to 1.2.8:0); cleared by
