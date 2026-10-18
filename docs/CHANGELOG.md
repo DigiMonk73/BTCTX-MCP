@@ -733,8 +733,9 @@ All notable changes to BitcoinTX are documented in this file.
   ones ("Row 3" for the preview's row 4): it now gives the file's row
   number, as the preview does. 1.2.8 and earlier; nothing saved was wrong,
   but a row left out of an import is a transaction missing from the
-  ledger: if a River import showed errors, check that each of its rows is
-  there.
+  ledger: if a River import showed errors, preview the same file again:
+  every row it can't read is now listed, and the rows already imported
+  show as already in the ledger.
 - **The River and AI imports' duplicate check is fast again** (#379). This
   version's duplicate rule (#253) checks each row in up to seven passes,
   and each pass looked through the whole ledger for every row: a River
