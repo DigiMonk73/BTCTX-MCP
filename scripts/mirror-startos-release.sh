@@ -36,12 +36,7 @@ MIRROR_VERSION="$(gh api "repos/$REPO/contents/startos/versions/current.ts?ref=$
 
 NOTES="$(mktemp)"
 trap 'rm -f "$NOTES"' EXIT
-awk -v tag="$SOURCE_TAG" '
-  $0 ~ "^## \\[" tag "\\]" {on=1; next}
-  on && /^## \[/ {exit}
-  on {print}
-' "$ROOT/docs/CHANGELOG.md" > "$NOTES"
-[ -s "$NOTES" ] || { echo "no CHANGELOG section for $SOURCE_TAG" >&2; exit 1; }
+"$ROOT/scripts/release-notes.sh" "$SOURCE_TAG" > "$NOTES"
 cat >> "$NOTES" <<EOF
 
 ## Install

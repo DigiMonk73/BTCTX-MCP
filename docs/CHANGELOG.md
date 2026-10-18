@@ -19,7 +19,8 @@ version to use.
 
 **In short.** 1.2.9 fixes the bugs found in 1.2.8's testing and in the
 reviews since, several of which could make a tax figure wrong (each entry
-marked "tax figures" below says who could be affected and what to do);
+marked "tax figures" in this version's list of changes says who could be
+affected and what to do);
 lets an install that uses Tor download the price history once without it,
 if you agree; asks before Delete All wipes the ledger, and keeps a copy
 first; and runs BitcoinTX as its own user instead of root, in Docker and
@@ -41,12 +42,18 @@ on StartOS.
    file.
 4. **Update the AI connector** to `btctx-mcp==1.2.9` in your AI app's
    configuration, then restart the AI app.
-5. **Docker:** run a maintenance command as the app's own user,
-   `docker exec -u btctx <container> python -m backend.cli …` (#202).
+5. **Docker:** BitcoinTX now runs as its own user (uid 10001) and gives
+   `/data` to it at each start (#202). If you start the container with
+   `--cap-drop ALL`, with `--user`, with a read-only or network-storage
+   `/data`, or with `DATABASE_FILE` outside `/data`, read #202's entry
+   under Security before updating: in some of those cases it won't start
+   until you change that. Run a maintenance command as that user:
+   `docker exec -u btctx <container> python -m backend.cli …`.
 6. **Updating from 1.2.7 or earlier:** also do what 1.2.8's notes ask (log
    in again; confirm where prices come from when the Dashboard asks).
-7. Then read the entries marked "tax figures" below: each says whether
-   there's anything more to do. Most ledgers need nothing more.
+7. Then read the entries marked "tax figures" in this version's list of
+   changes: each says whether there's anything more to do. Most ledgers
+   need nothing more.
 
 **Known issues** (none can make a figure wrong; for the first maintenance
 update):
@@ -123,10 +130,10 @@ update):
 
 ### Changed
 - **The README says what comes after 1.2.9** (#369, #251; "Versions", also
-  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is planned as the stable
-  version, with maintenance updates and small improvements after it, until
-  2.0 replaces it;
-  2.0, with several wallets, exchanges and banks, is planned to be tested as
+  `docs/ROADMAP.md` and `SECURITY.md`). 1.2.9 is the stable version of
+  1.x, with maintenance updates and the few small improvements already
+  planned after it, until 2.0 replaces it;
+  2.0, with several wallets, exchanges and bank accounts, will be tested as
   a beta on GitHub pre-releases before it comes to Start9's Community Beta.
   No dates are promised.
 - **The River import's preview fits a 1440-wide window** (#259). At 1440 ×

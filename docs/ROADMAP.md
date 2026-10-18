@@ -11,15 +11,16 @@ The goal (owner, 2026-10-11): a stable release several months before the
 Registry, then maintenance only. The plan and its checklist are #143. The
 version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
 every bug found in 1.2.8's user test and in the reviews since, is the stable
-candidate, released with no known bugs if possible (#369); it gets the 14
-days on Community Beta and the promotion request (1.2.8 isn't promoted).
+version of 1.x (#369; it ships with five minor known issues, none of which
+can make a figure wrong, listed in its release notes); it gets the 14 days
+on Community Beta and the promotion request (1.2.8 isn't promoted).
 Nothing that changes the package goes to Start9 during that test, so what's
 under "Soon" waits for the maintenance releases after promotion.
 
-After 1.2.9, until 2.0 replaces it, we expect 1.x to get maintenance
-updates (bug and security fixes, each year's IRS forms, the price history's
-update) and the small improvements under "Soon" (the owner, 2026-10-17);
-the big new work goes into 2.0, below. No dates are promised.
+After 1.2.9, until 2.0 replaces it, 1.x gets maintenance updates (bug and
+security fixes, each year's IRS forms, the price history's updates) and the
+few small improvements under "Soon" (the owner, 2026-10-17 and 2026-10-18);
+new features go into 2.0, below. No dates are promised.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
       blocking item, then 14 days on Community Beta (1.2.9), then the
