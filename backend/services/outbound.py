@@ -346,8 +346,8 @@ def from_env() -> NetworkSettings | None:
 
 
 def snapshot(db: Session) -> dict:
-    """The owner's own price settings (not the server's), to keep across a
-    restore: one save's, read at once (#435)."""
+    """This install's price settings (the owner's, and the note of the
+    server's, #461), to keep across a restore: one save's, read at once (#435)."""
     stored = _stored(db)
     kept = {key: stored.get(key) for key in STORED_KEYS}
     # Not chosen yet stays "unset": a restored database's stored prices must
@@ -451,7 +451,7 @@ def _lacking_server_settings(noted: str | None, managed: NetworkSettings | None,
     it ("tor", which the server's own choice also satisfies). Any other
     note counts as "source", so a damaged row never lets a command ask.
     """
-    if not noted or managed:
+    if noted is None or managed:
         return None
     if noted == "tor":
         return None if tor is not None else ENV_TOR
@@ -462,7 +462,8 @@ def no_server_settings() -> str:
     """Why a command asks no one for a price (#461), naming what it lacks."""
     return (f"BitcoinTX last started with the server's price settings ({_current.server_settings_missing}), "
             "and this command runs without them, so it asks no one for a price. "
-            "Run it with the same variables to allow price lookups.")
+            "Run it with the same variables to allow price lookups; on StartOS, use the "
+            "Recalculate Ledger action, or Ledger Review in the app.")
 
 
 def _load_direct_answer(stored: dict[str, str]) -> bool:

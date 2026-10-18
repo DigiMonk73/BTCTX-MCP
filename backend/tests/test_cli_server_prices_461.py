@@ -124,6 +124,18 @@ def test_without_the_servers_choice_a_command_asks_no_one(server, monkeypatch, c
     assert "server's price settings (BTCTX_PRICE_SOURCE)" in err
 
 
+@pytest.mark.parametrize("note", ["", "garbage", "TOR"])
+def test_a_damaged_note_never_lets_a_command_ask(server, monkeypatch, capsys, note):
+    """Only the app writes the note, but a row edited by hand counts as the
+    server's choice: never a reason to ask."""
+    with database.SessionLocal() as db:
+        outbound._set(db, outbound.SERVER_SET_KEY, note)
+        db.commit()
+    err = run_by_hand(monkeypatch, capsys, "review", BTCTX_TOR_PROXY_URL=TOR)
+    assert server == []
+    assert "server's price settings (BTCTX_PRICE_SOURCE)" in err
+
+
 def test_recalculate_says_so_too(server, monkeypatch, capsys):
     with database.SessionLocal() as db:  # a gift with nothing to give: no ledger to rebuild
         db.execute(text("DELETE FROM transactions"))
@@ -196,6 +208,8 @@ def test_a_restore_keeps_this_installs_note(auth_client, test_engine, monkeypatc
 
     for name in SERVER_VARIABLES:
         monkeypatch.delenv(name, raising=False)
+    for name in ("_record", "_direct_record"):  # put back after the test
+        monkeypatch.setattr(outbound, name, dict(getattr(outbound, name)))
     monkeypatch.setenv(outbound.ENV_TOR, TOR)
     with sessionmaker(bind=test_engine)() as db:
         outbound.load(db)
