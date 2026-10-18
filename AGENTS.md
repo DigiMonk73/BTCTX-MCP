@@ -90,7 +90,10 @@ squash-merged, once the 10 required checks of `ci.yml` have passed
 dependency audit, which run but aren't required), on a branch that's up
 to date with `develop` ("Require branches to be up to date before
 merging", on since 2026-10-17, the owner's choice), so a pull request's
-checks have run on everything already merged.
+checks have run on everything already merged. A release tag (`v*`) can't
+be moved or deleted, by anyone ("Protect release tags", since 2026-10-18,
+the owner's choice), so each release's code stays at its tag to roll back
+to; the release workflow still creates new ones.
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
 new job isn't required until it's added there. If unsure, branch from

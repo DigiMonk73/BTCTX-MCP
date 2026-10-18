@@ -1775,6 +1775,11 @@ All notable changes to BitcoinTX are documented in this file.
   repository and that the page about the app has no other install's steps.
 
 ### Development
+- **Release tags can't be moved or deleted** (AGENTS.md, "Branches"; the
+  owner's choice, 2026-10-18). A GitHub ruleset, "Protect release tags",
+  covers every `v*` tag, and nobody can bypass it: each release's code,
+  1.2.8's included, stays where its tag points, to go back to if a later
+  release breaks something. The release workflow still creates new tags.
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",
   "Pull requests" and "Branches"; `docs/HOW-CHANGES-FLOW.md`; the owner's
   rule, 2026-10-17). Sessions report a pull request "ready" instead of
