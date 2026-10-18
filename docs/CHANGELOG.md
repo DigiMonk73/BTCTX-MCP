@@ -617,22 +617,24 @@ All notable changes to BitcoinTX are documented in this file.
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
 - **A Buy is never saved without its cost basis** (#459). The transactions
-  API saved a Buy sent without a cost basis, and an edit that made a
-  transfer, a dollar deposit or a dollar withdrawal a Buy without giving
-  one (every release from 0.8.0, the oldest tagged, to 1.2.8), or a sale or
-  a bitcoin withdrawal (from 1.2.2, when a type change began to drop the
-  old type's figures; before, it kept the cost basis stored on it). The AI
-  connector's `update_transaction` can send that edit when it isn't given
-  the cost. The Buy's bitcoin then cost $0: selling or spending it later
-  counted the whole proceeds as gain, and the year-end holdings' cost and
-  the dashboard's average cost were low by the missing amount. The form,
-  the CSV and River imports and the AI connector's add never saved one
-  without it. Now such a save is refused, saying the Buy needs its cost
-  basis; a basis of 0 you type is still kept. Ledger Review lists every
-  Buy with a $0 or blank cost basis ("Buys with a $0 or blank cost
-  basis"). An edit of an old Buy with a blank basis, through the API or
-  the AI connector, asks for it; the form shows its Amount USD as 0 until
-  you enter what it cost.
+  API saved a Buy sent without a cost basis (every release from 0.8.0, the
+  oldest tagged, to 1.2.8). So did an edit that made a transfer, a dollar
+  deposit or a dollar withdrawal a Buy without giving one (the same
+  releases; a dollar deposit's own cost basis, $0 on every one saved by a
+  version before 0.9.2, became the Buy's), or a sale or a bitcoin
+  withdrawal (from 1.2.2, when a type change began to drop the old type's
+  figures; before, the Buy kept the cost basis stored on the sale or
+  withdrawal). The AI connector's `update_transaction` can send that edit
+  when it isn't given the cost. The Buy's bitcoin then cost $0: selling
+  or spending it later counted the whole proceeds as gain, and the
+  year-end holdings' cost and the dashboard's average cost were low by the
+  missing amount. The form, the CSV and River imports and the AI
+  connector's add never saved one without it. Now such a save is refused,
+  saying the Buy needs its cost basis; a basis of 0 you type is still
+  kept. Ledger Review lists every Buy with a $0 or blank cost basis ("Buys
+  with a $0 or blank cost basis"). An edit of an old Buy with a blank
+  basis, through the API or the AI connector, asks for it; the form shows
+  its Amount USD as 0 until you enter what it cost.
 
   **What to do:** open Ledger Review (Settings). For each Buy it lists,
   edit it and enter what the bitcoin cost in USD, before the fee (Amount

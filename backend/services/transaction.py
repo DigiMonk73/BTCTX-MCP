@@ -514,12 +514,16 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     edit sends them): a Gift changed into a Sell kept purpose "Gift" and was
     left off Form 8949; a withdrawal changed into an income deposit kept its
     FIFO cost basis as the income. The figures are then worked out afresh.
-    Whether the type changes.
+    A dollar deposit's cost basis is no bitcoin's cost, so it isn't kept
+    either: made a Buy, it was its lot's cost, $0 on every dollar deposit
+    the forms before 0.9.2 saved (#459). Whether the type changes.
     """
     new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
     type_changed = "type" in tx_data and new_type != tx.type
     if type_changed:
         kept = set(_TYPE_INPUTS.get(tx.type, ())) & set(_TYPE_INPUTS.get(new_type, ()))
+        if tx.type == "Deposit" and tx.to_account_id not in BTC_ACCOUNTS:
+            kept.discard("cost_basis_usd")
         for key in _TYPE_FIELDS:
             if key in tx_data or key in kept:
                 continue

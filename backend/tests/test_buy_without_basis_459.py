@@ -108,6 +108,27 @@ def test_a_deposit_retyped_as_a_buy_keeps_its_basis(auth_client, test_engine):
     assert lot_costs(test_engine) == [Decimal("12000")]
 
 
+@pytest.mark.parametrize("stored", ["0", "250"])
+def test_a_dollar_deposit_retyped_as_a_buy_needs_its_cost_basis(auth_client, test_engine, stored):
+    """A dollar deposit's cost basis is no bitcoin's cost: the forms before
+    0.9.2 saved 0 on every one, and the API keeps a figure sent with one.
+    Kept by the type change, it was the Buy's lot's cost: $0, or made up."""
+    fund_the_bank(auth_client)
+    r = post(auth_client, type="Deposit", timestamp="2024-03-01T12:00:00Z", from_account_id=EXTERNAL,
+             to_account_id=BANK, amount="500", fee_amount="0", fee_currency="USD", source="N/A",
+             cost_basis_usd=stored)
+    assert r.status_code == 200 and Decimal(str(r.json()["cost_basis_usd"])) == Decimal(stored), r.text
+    deposit_id = r.json()["id"]
+    retype = {"type": "Buy", "from_account_id": BANK, "to_account_id": EXCHANGE_BTC, "amount": "0.5"}
+    r = auth_client.put(f"/api/transactions/{deposit_id}", json=retype)
+    assert r.status_code == 422 and BUY_BASIS_REQUIRED in r.text, r.text
+    assert lot_costs(test_engine) == []
+
+    r = auth_client.put(f"/api/transactions/{deposit_id}", json={**retype, "cost_basis_usd": "17500"})
+    assert r.status_code == 200, r.text
+    assert lot_costs(test_engine) == [Decimal("17500")]
+
+
 def _insert_old_buys(test_engine):
     """Buys as the API saved them before this fix: inserted directly, since
     the save now refuses a blank one."""
