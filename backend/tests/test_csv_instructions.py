@@ -64,4 +64,6 @@ def test_a_deposit_or_withdrawal_isnt_bitcoin_only_anywhere():
     guide = text(SHIPPED)
     assert "Deposit Money or BTC coming in from outside" in guide
     assert "Withdrawal Money or BTC leaving" in guide
-    assert "From Bank or Exchange USD: any short text on one line, or blank" in guide
+    # A dollar withdrawal keeps no bitcoin purpose (#449)
+    assert ("From Bank or Exchange USD: any short text on one line, or blank; Spent, Gift, Donation or Lost "
+            "isn't kept there") in guide

@@ -456,7 +456,8 @@ def build_review(db: Session) -> dict[str, Any]:
 def _row_issues(t: Transaction, tz):
     """(check, item) for each check a withdrawal or deposit fails on its own."""
     yield from _purpose_issues(t, tz)
-    purpose = normalized(t.purpose)
+    # Only bitcoin leaving has a bitcoin purpose: a dollar withdrawal's is one an older save left there (#449)
+    purpose = normalized(t.purpose) if t.from_account_id in BTC_ACCOUNTS else ""
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0 and received_known(t):  # else listed as an unknown purpose
         yield "zero_proceeds_spend", _item(
