@@ -14,6 +14,7 @@ import logging
 from urllib.parse import urlsplit
 
 logger = logging.getLogger("BitcoinTX")
+NOT_THE_APP = "Only BitcoinTX's own pages can save a file."
 
 
 class DesktopAPI:
@@ -64,7 +65,13 @@ class DesktopAPI:
                 - success: bool
                 - path: str (if success)
                 - error: str (if not success)
+
+        Only for the app's own pages, as setup_code(): pywebview gives this
+        API to whatever page the window shows.
         """
+        if not self._shows_app_page():
+            return {"success": False, "error": NOT_THE_APP}
+
         import webview
 
         try:

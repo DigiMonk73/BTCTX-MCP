@@ -64,7 +64,10 @@ BitcoinTX.app
   and answers only requests addressed to `127.0.0.1`, `localhost` or `[::1]`
   (421 for any other `Host`: `backend/security_headers.py`,
   `LocalAddressOnlyMiddleware`). Uvicorn runs with `proxy_headers=False`, so
-  a client's own `X-Forwarded-For` never passes for its address.
+  a client's own `X-Forwarded-For` never passes for its address. The app's
+  own checks of that address (`/api/health` at launch, the start-up poll)
+  take no proxy, even one set for the whole Mac (`HTTP_PROXY`, the system
+  proxy, #474: `desktop_ports.open_here`).
 - **The window's API:** `entrypoint.py` gives the window `DesktopAPI`
   (`desktop/desktop_api.py`) through pywebview's `js_api`, as
   `window.pywebview.api`. Only the app's own window has it: a browser or
@@ -73,9 +76,10 @@ BitcoinTX.app
     (`frontend/src/utils/desktopDownload.ts`) uses it for PDF, CSV and `.btx`
     backup downloads, because WebKit in pywebview doesn't handle browser
     downloads.
-  - `setup_code()`: the first-run setup code ("First start" below), only
-    while the window shows one of the app's own pages (pywebview gives the
-    API to whatever page its window shows).
+  - `setup_code()`: the first-run setup code ("First start" below).
+
+  Both answer only while the window shows one of the app's own pages
+  (pywebview gives the API to whatever page its window shows).
 
 ## First start
 
