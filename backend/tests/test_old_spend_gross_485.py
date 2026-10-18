@@ -79,6 +79,23 @@ def test_1_2_8s_body_was_a_typed_0(auth_client, test_engine):
     assert after["gross_proceeds_usd"] == "0.00" and D(after["realized_gain_usd"]) == D("-200.00")
 
 
+@pytest.mark.parametrize("net, amount, fee, gross", [
+    ("1.50", "0.01", "0.0001", "1.52"), ("12.50", "0.01", "0.0001", "12.62"), ("0.05", "0.02", "0.01", "0.08"),
+])
+def test_the_gross_recovered_rounds_a_half_cent_to_even(auth_client, test_engine, net, amount, fee, gross):
+    """What the form's helper mirrors (oldSpendGross485.test.ts, "rounds ... as the server does")."""
+    tx = post(auth_client, **{**SPENT, "amount": amount, "fee_amount": fee})
+    db = sessionmaker(bind=test_engine)()
+    try:
+        db.query(Transaction).filter(Transaction.id == tx["id"]).update(
+            {Transaction.gross_proceeds_usd: None, Transaction.proceeds_usd: D(net)})
+        db.commit()
+    finally:
+        db.close()
+    assert auth_client.post("/api/transactions/recalculate").status_code == 200
+    assert auth_client.get(f"/api/transactions/{tx['id']}").json()["gross_proceeds_usd"] == gross
+
+
 def test_an_unlisted_purposes_stored_proceeds_made_spent_are_kept(auth_client, test_engine):
     """#61: what such a row received is its stored proceeds, no offset undone; the form shows them,
     and saving it as a Spent keeps them."""

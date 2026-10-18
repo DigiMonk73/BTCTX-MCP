@@ -55,6 +55,21 @@ describe("a Spent saved before its gross was kept (#485)", () => {
   it("a typed $0 stays $0", () => {
     expect(formFor({ gross_proceeds_usd: "0.00", proceeds_usd: "0.00" }).proceeds_usd).toBe(0);
   });
+
+  it("with no proceeds stored at all opens blank: the save prices it, as a recalculation would", () => {
+    const form = formFor({ proceeds_usd: null });
+    expect(form.proceeds_usd).toBeUndefined();
+    expect(buildTransactionPayload(form).proceeds_usd).toBeNull();
+  });
+
+  it.each([
+    // [stored net, amount, fee, the server's gross (test_old_spend_gross_485.py)]: an exact half cent to even
+    ["1.50", "0.01000000", "0.00010000", 1.52],
+    ["12.50", "0.01000000", "0.00010000", 12.62],
+    ["0.05", "0.02000000", "0.01000000", 0.08],
+  ])("rounds %s as the server does", (net, amount, fee, gross) => {
+    expect(formFor({ proceeds_usd: net, amount, fee_amount: fee }).proceeds_usd).toBe(gross);
+  });
 });
 
 describe("an old withdrawal of another purpose with no gross", () => {
@@ -74,6 +89,11 @@ describe("an old withdrawal of another purpose with no gross", () => {
     const form = formFor({ purpose: " spent " });
     expect(form.purpose).toBe("Spent");
     expect(form.proceeds_usd).toBe(990.1);
+  });
+
+  it('an old " spent " with none stored opens at $0, as the server keeps it: shown as Spent, a save keeps it', () => {
+    expect(formFor({ purpose: " spent ", proceeds_usd: "0.00" }).proceeds_usd).toBe(0);
+    expect(formFor({ purpose: " spent ", proceeds_usd: null }).proceeds_usd).toBe(0);
   });
 
   it("a gift's stored proceeds were its fee's, never a gross: blank", () => {

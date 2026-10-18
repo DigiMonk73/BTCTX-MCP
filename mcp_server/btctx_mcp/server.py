@@ -501,6 +501,8 @@ async def update_transaction(
     its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed);
     a Gift/Donation/Lost withdrawal's, when you change its amount or the time's hour, and a blank
     one (or a Spent's $0 made a gift without fmv_usd) is filled from the price by any change.
+    A Gift/Donation/Lost withdrawal has no proceeds: made a Spent without proceeds_usd, it is
+    valued from the price as a new Spent is (one that was a Spent before keeps its proceeds).
     A value the user typed is kept, $0 included: send fmv_usd 0 only when they mean $0.
     An Inherited deposit's is priced at its date of death (acquired_at), and again when that
     changes.

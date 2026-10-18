@@ -133,13 +133,12 @@ def test_a_gifts_0_isnt_carried_into_a_sell(auth_client):
     assert r.status_code == 422 and "needs its proceeds" in r.text
 
 
-@pytest.mark.parametrize("held", ["0.00", "250.00"])
-def test_what_a_dollar_withdrawal_held_is_never_carried_into_a_bitcoin_spend(auth_client, test_engine, held):
-    """Saved before 1.2.9 a dollar withdrawal could hold proceeds (the form's $0, or a value left from the
-    bitcoin fields, #449); none is a bitcoin spend's."""
-    post(auth_client, type="Deposit", timestamp="2024-01-10T12:00:00Z", from_account_id=EXTERNAL,
+def dollar_withdrawal_holding(client, test_engine, held: str) -> dict:
+    """A dollar withdrawal as one saved before 1.2.9 could be: holding proceeds (the form's $0, or a value
+    left from the bitcoin fields, #449)."""
+    post(client, type="Deposit", timestamp="2024-01-10T12:00:00Z", from_account_id=EXTERNAL,
          to_account_id=BANK, amount="500", fee_amount="0", fee_currency="USD", source="N/A")
-    dollars = post(auth_client, type="Withdrawal", timestamp=WHEN, from_account_id=BANK, to_account_id=EXTERNAL,
+    dollars = post(client, type="Withdrawal", timestamp=WHEN, from_account_id=BANK, to_account_id=EXTERNAL,
                    amount="0.1", fee_amount="0", fee_currency="USD", purpose="N/A")
     db = sessionmaker(bind=test_engine)()
     try:
@@ -148,7 +147,21 @@ def test_what_a_dollar_withdrawal_held_is_never_carried_into_a_bitcoin_spend(aut
         db.commit()
     finally:
         db.close()
+    return dollars
+
+
+@pytest.mark.parametrize("held", ["0.00", "250.00"])
+def test_what_a_dollar_withdrawal_held_is_never_carried_into_a_bitcoin_spend(auth_client, test_engine, held):
+    dollars = dollar_withdrawal_holding(auth_client, test_engine, held)
     assert_priced(put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Spent"))
+
+
+def test_nor_through_a_gift_first(auth_client, test_engine):
+    """Moved to the Wallet as a gift, it holds nothing; made a Spent later, it's priced (#519's review)."""
+    dollars = dollar_withdrawal_holding(auth_client, test_engine, "250.00")
+    made_gift = put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Gift")
+    assert made_gift["gross_proceeds_usd"] is None
+    assert_priced(put(auth_client, made_gift, purpose="Spent"))
 
 
 def test_a_recalculation_never_prices_it_again(auth_client, monkeypatch):

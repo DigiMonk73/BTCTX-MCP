@@ -166,10 +166,11 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
   },
   Withdrawal: (tx) => {
     const accountId = tx.from_account_id ?? 0;
-    const proceeds = withdrawalProceeds(tx);
+    const place = { account: accountIdToType(accountId), currency: accountCurrency(accountId) };
+    // A dollar withdrawal has none (#449)
+    const proceeds = inBtcAccount(place) ? withdrawalProceeds(tx) : undefined;
     return {
-      account: accountIdToType(accountId),
-      currency: accountCurrency(accountId),
+      ...place,
       amount: tx.amount,
       purpose: listedPurpose(tx.purpose),
       proceeds_usd: proceeds,

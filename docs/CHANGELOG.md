@@ -330,19 +330,19 @@ All notable changes to BitcoinTX are documented in this file.
   refused. A dollar withdrawal saved in the form held the same $0, and
   moved to a bitcoin account as a Spent it was a $0 sale too. Every version
   from 0.8.0 to 1.2.8. Now the form sends proceeds only with a Spent, and
-  BitcoinTX keeps none sent for any other withdrawal. One made a Spent with
-  no proceeds given is priced at the hour, as a new Spent left blank is,
-  unless it holds proceeds above $0 from when it was a spend, which are
+  an edit keeps none sent for any other withdrawal. One made a Spent with
+  no proceeds given is valued from the BTC price, as a new Spent left blank
+  is, unless it holds proceeds above $0 from when it was a spend, which are
   kept as typed. A Sell made of one needs its proceeds.
   **Affected:** only a gift, donation, lost coins or dollar withdrawal
   changed afterwards into a Spent or a Sell through the AI connector or the
   API (in the form, the change showed Proceeds 0 and its warning).
   **What to do:** open Ledger Review: it lists such a spend under "Spent
   withdrawals saved with $0 proceeds". If it was really a sale, open it and
-  clear Proceeds (it's priced at the hour) or type what you received. A $0
-  Sell isn't listed there: look in Transactions for a Sell showing no
-  proceeds. If you filed a return from BitcoinTX's figures, such a sale
-  would be in that year.
+  clear Proceeds (it's valued from the BTC price) or type what you
+  received. A $0 Sell isn't listed there: look in Transactions for a Sell
+  showing no proceeds. If you filed a return from BitcoinTX's figures, such
+  a sale would be in that year.
 - **An old Spent withdrawal opens in the edit form with what it received**
   (tax figures, #485). A spend saved before 0.8.0, when BitcoinTX didn't
   yet keep a withdrawal's proceeds before fees, opened in the form with

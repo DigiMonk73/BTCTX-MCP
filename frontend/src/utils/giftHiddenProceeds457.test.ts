@@ -48,7 +48,8 @@ describe("a gift's proceeds (#457)", () => {
 
   it("a Spent's proceeds are sent as before, a typed $0 included", () => {
     expect(buildTransactionPayload(form({ purpose: "Spent", gross_proceeds_usd: 3600 })).proceeds_usd).toBe(3600);
-    expect(buildTransactionPayload(form({ purpose: "Spent", gross_proceeds_usd: 0 })).proceeds_usd).toBe(0);
+    // As one is saved: a $0 gross, so $0 proceeds
+    expect(buildTransactionPayload(form({ purpose: "Spent", gross_proceeds_usd: 0, proceeds_usd: 0 })).proceeds_usd).toBe(0);
   });
 
   it("a dollar withdrawal shows none and sends none (#449)", () => {
