@@ -96,11 +96,12 @@ const DepositFields: React.FC = () => {
   const isValued = VALUED_SOURCES.includes(source ?? "");
   // Coins already owned, a gift or an inheritance: dated from when they were first acquired (or the death)
   const showOriginalDate = takesOriginalDate({ type: "Deposit", account, currency, source });
+  const inherited = source === "Inherited";
   // A date of death isn't a date originally acquired, nor a value at death a
   // giver's cost (#154): switching to or from Inherited asks for both again
   // (`source` is still the one before the change)
   const clearIfInheritance = (next: string) => {
-    if ((source === "Inherited") !== (next === "Inherited")) {
+    if (inherited !== (next === "Inherited")) {
       setValue("acquiredDate", "");
       setValue("costBasisUSD", undefined);
     }
@@ -131,7 +132,10 @@ const DepositFields: React.FC = () => {
         </div>
       )}
 
-      {showOriginalDate && <OriginalDateField inherited={source === "Inherited"} />}
+      {/* A new input each time the clearing above runs: WebKit on macOS keeps
+          judging a date input invalid once a script clears it, which blocks
+          Save without a word (#456) */}
+      {showOriginalDate && <OriginalDateField key={inherited ? "death" : "acquired"} inherited={inherited} />}
 
       {intoBtc && (
         <div className="field">

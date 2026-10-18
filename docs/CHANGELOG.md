@@ -882,6 +882,16 @@ All notable changes to BitcoinTX are documented in this file.
   Deposit and Withdrawal example rows had a comma too few, so they didn't
   import as printed; they do now. And its tables' longer rows no longer
   run off the page.
+- **A deposit switched to or from Inherited saves in the Mac app and
+  Safari** (#456). Switching a deposit's Source to or from Inherited
+  clears its date (a date of death isn't a date originally acquired), and
+  in WebKit on macOS, the Mac app's window and Safari, **Save transaction**
+  or **Update transaction** then did nothing and said nothing: WebKit kept
+  judging the cleared date field invalid, so the form never ran. A
+  deposit made My BTC or Gift couldn't be saved without a date, and one
+  made Inherited never said "Enter the date of death." The date field is
+  now a new one each time it's cleared. Nothing was saved wrong. Every
+  version since 1.2.8.
 - **A date originally acquired, or a date of death, stays the date you
   entered** (tax figures, #185). These dates were stored as noon of that day
   in the tax timezone, and used as that moment's date in whatever the tax
