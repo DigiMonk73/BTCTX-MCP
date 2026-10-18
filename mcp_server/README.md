@@ -55,8 +55,10 @@ There is deliberately no bulk delete.
   `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`.
   When the server and your BitcoinTX are different versions, every tool
   reply starts with a line saying so and what to change.
-- Python 3.11+ for the connector: `uvx` downloads one by itself when the
-  machine has none (unless uv's Python downloads are turned off)
+- Python 3.11+ for the connector. `uvx` downloads one by itself only when the
+  machine has no Python at all; if its only Python is 3.10, `uvx` stops with
+  "current Python version (3.10…) does not satisfy Python>=3.11": run
+  `uv python install 3.13` once, then restart your AI app
 
 ## Quick setup: let your AI do it
 

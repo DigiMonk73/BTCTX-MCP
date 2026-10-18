@@ -275,7 +275,7 @@ take the upgrade.
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
 | `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
-| `sqlalchemy` | 2.1.x | A minor version with breaking changes, left out of 1.2.9's upgrades (#425) for 2.0 (#251). Python is no longer in the way: 3.11 is the minimum since #546 | 2.0's database work (#346), or the owner opts in for 1.x. Then run the FIFO/lot and migration tests |
+| `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
 
 ---
 

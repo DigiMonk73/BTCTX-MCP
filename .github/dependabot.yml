@@ -25,7 +25,7 @@ updates:
       backend:
         update-types: [minor, patch]
     ignore:
-      # Deferred: 2.1 is a minor version with breaking changes, left for 2.0 (#425, #251; MAINTENANCE.md)
+      # Deferred: 2.1 is a minor version with breaking changes, not taken in 1.2.9 (#425; MAINTENANCE.md)
       - dependency-name: sqlalchemy
         versions: [">=2.1"]
 

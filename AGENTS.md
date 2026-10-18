@@ -86,9 +86,9 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build, the macOS
-dependency audit and Python tests (py3.13), which run but aren't
-required), on a branch that's up
+("Protect develop": every job except the macOS build and the macOS
+dependency audit, which run but aren't required; Python tests run on
+3.11 and 3.13, both required, since #546), on a branch that's up
 to date with `develop` ("Require branches to be up to date before
 merging", on since 2026-10-17, the owner's choice), so a pull request's
 checks have run on everything already merged.

@@ -3,11 +3,13 @@
 # app code modern syntax (pyupgrade: list[str], X | None) and a size limit on
 # each function (docs/CODE_STYLE.md). Pure-style rules (line length, import
 # order) stay off.
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["desktop/build", "desktop/dist", "desktop/.venv", "frontend"]
 
 [lint]
 select = ["E9", "E722", "F", "UP", "C901", "PLR0911", "PLR0912", "PLR0915"]
+# Python 3.11's upgrades (datetime.UTC, TimeoutError, StrEnum) wait for #548.
+ignore = ["UP017", "UP041", "UP042"]
 
 [lint.mccabe]
 max-complexity = 10

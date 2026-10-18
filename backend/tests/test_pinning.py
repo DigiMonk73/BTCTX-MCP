@@ -10,6 +10,7 @@ template files as they are and is not checked here.
 """
 
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -160,7 +161,6 @@ def test_connector_release_builds_inside_its_setuptools_range():
 
 
 def test_connector_ranges_are_capped():
-    tomllib = pytest.importorskip("tomllib")  # Python 3.11+; CI runs it there
     project = tomllib.loads((ROOT / "mcp_server/pyproject.toml").read_text())["project"]
     # tzdata is timezone data numbered by year (2026.4): it is meant to float.
     uncapped = [

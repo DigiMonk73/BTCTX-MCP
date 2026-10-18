@@ -11,9 +11,12 @@ All notable changes to BitcoinTX are documented in this file.
   (Dependabot couldn't fit them into a lock that also had to work on 3.10).
   Nothing changes for the Docker image, StartOS or the Mac app: they already
   run Python 3.13. Running from source needs 3.11 or newer. The AI connector
-  (`btctx-mcp`) needs 3.11 too from its next version: `uvx` downloads a
-  Python by itself when the machine has none (unless uv's Python downloads
-  are turned off). CI tests 3.11 and 3.13.
+  (`btctx-mcp`) needs 3.11 too from its next version. `uvx` downloads a
+  Python by itself only when the machine has none at all: if the machine
+  running your AI app has only Python 3.10, the new connector stops with
+  "current Python version (3.10…) does not satisfy Python>=3.11"; run
+  `uv python install 3.13` once and restart the AI app. CI tests 3.11 and
+  3.13.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
