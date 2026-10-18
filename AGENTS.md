@@ -195,6 +195,16 @@ from the Transaction row alone.
   marked); with no price it stays blank (never a 422: it's on no form
   BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
   Never part of a gain.
+- **Dollar withdrawals** (#449): only bitcoin leaving is spent, given,
+  donated or lost. A withdrawal from Bank or Exchange USD keeps no such
+  purpose and no proceeds or FMV: the save drops them
+  (`_drop_btc_withdrawal_fields`; other text stays, a label such as
+  "Rent"), the import previews leave them out with a warning, and every
+  figure and check (the tax report and its values from the price, the
+  dashboard, Ledger Review and its hour check, `priced_values`, the AI's
+  duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
+  older save left there counts for nothing. The Transactions list and the
+  Transaction History report show what's stored.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update
@@ -239,16 +249,18 @@ from the Transaction row alone.
   amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
   the preview's or the owner's edits. The amount tests go in turn (the
   ledger amount, then River's), and within each a transaction of the row's
-  own type first. The AI's rows are matched so the most find a copy: a row
-  left without one takes a copy another row holds when that row can take
-  another (`match_by_moving`), so a date-alone row can't take a timed
-  row's only copy (#411). The user can override a duplicate: the AI's row
-  names the transaction the preview matched (`not_a_duplicate_of`), a
-  River row is ticked. That frees it only from that transaction: it's
-  checked against the rest, so a resent request doesn't save it twice (a
-  row that matched another copy is that copy, #378). A named row that
-  check leaves new takes a copy another row holds when that row can take
-  another of its own (`match_by_moving`), never one a row names.
+  own type first. The timed rows take their copies before the date-alone
+  rows (`_timed_first`, #472), so a date-alone row is the one saved when it
+  and a timed row share their only copy. The AI's rows are matched so the
+  most find a copy: a row left without one takes a copy another row holds
+  when that row can take another (`match_by_moving`, #411). The user can
+  override a duplicate: the AI's row names the transaction the preview
+  matched (`not_a_duplicate_of`), a River row is ticked. That frees it only
+  from that transaction: it's checked against the rest, so a resent request
+  doesn't save it twice (a row that matched another copy is that copy,
+  #378). A named row that check leaves new takes a copy another row holds
+  when that row can take another of its own (`match_by_moving`), never one a
+  row names.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
@@ -509,9 +521,13 @@ from the Transaction row alone.
   copy of each day made before the AI changed anything that day
   (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
-  lock while it works, and the owner's saves wait only 5 s for it. With the
-  key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
-  before the ledger's latest entry, each replaying the whole ledger, at most
+  lock while it works, and the owner's saves wait only 5 s for it. An add's
+  duplicate check and its writes hold it as one (`entry_import.write_rows`;
+  River's and the CSV import's check too, `csv_import.execute_import`'s
+  `check`), so the same rows sent twice at once are saved once (#454);
+  their prices are found first, with the lock free. With the key a
+  request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated before
+  the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
   The preview reads the price year files its rows may need before its dry
   run (`hourly_prices.read_year_files`), so finding which price filled each
@@ -675,9 +691,11 @@ The whole flow, in plain steps for the owner and every session:
     mirror;
   - which pages the `## Documentation` links in `instructions.md` name
     (Start9's support indexer crawls them: `writing-instructions.md`,
-    "Choosing documentation URLs"). The pages themselves, the root README
-    and `mcp_server/README.md`, stay the app's own, but what they say
-    about StartOS must agree with the package;
+    "Choosing documentation URLs"). The pages themselves,
+    `docs/USING.md` and `mcp_server/README.md`, stay the app's own (as
+    does the root README), but what they say about StartOS must agree
+    with the package, and `docs/USING.md` stays free of install steps
+    (`test_startos_docs_link_467.py`);
   - everything we send to Start9's fork: pull requests, comments,
     promotion requests.
 

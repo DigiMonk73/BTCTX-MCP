@@ -64,9 +64,15 @@ export function extractErrorMessage(err: unknown): string {
   return 'An unexpected error occurred';
 }
 
-/** The server's reason for a failed request (FastAPI's `detail`), or the
- * fallback when it gave none. */
+/** The server's reason for a failed request, in words (FastAPI's `detail`,
+ * a 422's list of input errors included, #448), or null when it gave none. */
+export function serverReason(err: unknown): string | null {
+  const data: unknown = (err as { response?: { data?: unknown } } | null)?.response?.data;
+  return data !== null && typeof data === 'object' ? bodyMessage(data as ApiErrorResponse) : null;
+}
+
+/** The server's reason for a failed request, or the fallback when it gave
+ * none. Always text: a React child or a template string can take it. */
 export function detailOr(err: unknown, fallback: string): string {
-  const axiosErr = err as { response?: { data?: { detail?: string } } };
-  return axiosErr.response?.data?.detail || fallback;
+  return serverReason(err) || fallback;
 }

@@ -70,6 +70,9 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
 
+How each part works, the same wherever BitcoinTX runs:
+[docs/USING.md](docs/USING.md).
+
 ## One wallet, one exchange
 
 > [!IMPORTANT]

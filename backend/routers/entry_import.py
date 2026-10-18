@@ -50,6 +50,7 @@ from backend.services.entry_import import (
     normalized_view,
     simulate,
     validate_rows,
+    writable_now,
     write_rows,
 )
 
@@ -96,6 +97,13 @@ def _recalculates(prepared: list[PreparedRow], db: Session) -> bool:
     return latest is not None and any(
         p.tx_data["timestamp"] < latest.timestamp
         for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES)
+
+
+def _copy_if_it_recalculates(rows: list[PreparedRow], db: Session) -> None:
+    """The hour's AI copy before rows that recalculate the ledger (#414); a
+    copy made this hour already is enough (_copy_before_ai_changes)."""
+    if _recalculates(rows, db):
+        _copy_before_ai_changes(db, "Not added")
 
 
 def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
@@ -196,9 +204,11 @@ async def execute_entries(
     (not_a_duplicate_of);
     possible duplicates ARE written: the caller is expected to have removed
     any the user rejected after preview.
-    Any invalid row or ledger rejection aborts the whole batch. With the AI
-    key, rows that recalculate the ledger come after the hour's AI copy of
-    the database (#414), as an edit, a deletion or Recalculate Ledger do.
+    Any invalid row or ledger rejection aborts the whole batch. The
+    duplicate check and the writes hold one write lock, so a request sent
+    again while this one runs finds its rows (#454). With the AI key, rows
+    that recalculate the ledger come after the hour's AI copy of the
+    database (#414), as an edit, a deletion or Recalculate Ledger do.
     """
     ai = _with_ai_key(request)
     _check_size(payload, ai)
@@ -215,12 +225,15 @@ async def execute_entries(
         await run_in_threadpool(_check_ai_request, prepared, db)
 
     await autofill_fmv(prepared, db)
-    await run_in_threadpool(mark_duplicates, prepared, db, exact_only=True)
-    skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
-    if ai and await run_in_threadpool(_recalculates, prepared, db):
-        await run_in_threadpool(_copy_before_ai_changes, db, "Not added")
+    if ai:  # with the lock free, as the copy can take a while
+        await run_in_threadpool(lambda: _copy_if_it_recalculates(writable_now(prepared, db), db))
 
-    created = await run_in_threadpool(write_rows, prepared, db)
+    # The duplicate check and the writes hold one write lock (#454); with the
+    # key, a save made before it, of a later row, can make the rows
+    # recalculate: their copy is then made under the lock
+    copy = (lambda: _copy_if_it_recalculates(prepared, db)) if ai else (lambda: None)
+    created = await run_in_threadpool(write_rows, prepared, db, copy)
+    skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
     out = await run_in_threadpool(_created_answers, created, db)
 
     message = f"Imported {len(out)} transaction(s)."
