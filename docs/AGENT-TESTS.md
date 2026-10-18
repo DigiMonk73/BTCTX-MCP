@@ -706,8 +706,8 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-1** Settings > Backup & Restore > **Export CSV**. Expect: the file
   `btctx_transactions_<date>.csv`, the header
   `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment,fmv_typed`
-  and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. The toast "CSV
-  export downloaded." appears.
+  and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. Settings'
+  message line says "CSV export downloaded."
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
   password boxes (hidden as typed), then **Download**. Different entries
   in the two boxes say "The two passwords don't match." and download
@@ -753,8 +753,8 @@ Set `KEY` to the key from AI-3, and use
   priced again.
 - **BAK-3** Before restoring, click **New key** and keep the new key (the
   backup holds an older one). **Restore from Backup** with BAK-2's file and
-  the password `wrong-pass`. Expect "Failed to restore backup." with the
-  ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
+  the password `wrong-pass`. Expect "Restore failed: ❌ Failed to decrypt
+  backup. Wrong password?" with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
   successfully restored. Log in again with your current username and
   password.", then the login page. Log in with the login in use before the
   restore (a restore never brings back the backup's password).
@@ -1162,3 +1162,5 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
 - #535: with your own Mempool, a second price lookup made while the first
   is still downloading the Mempool's history answers "No BTC price is
   available …" (422); a retry works.
+- #536: the browser's Back button leaves an unsaved transaction without
+  asking "Discard changes?".

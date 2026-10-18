@@ -91,6 +91,7 @@ Each says who could be affected and what to do. Unless it says otherwise, any ta
 - The sidebar's Sats Converter can show one satoshi too few when a dollar amount comes to exactly halfway between two satoshis; nothing it shows is saved.
 - Saving the tax timezone in Settings, when it fails, says only "Could not save the timezone.", not why; nothing is saved.
 - With your own Mempool, a second price lookup made while the first is still downloading your Mempool's history finds no price; trying again a moment later works (nothing is saved without a price, never at $0).
+- The browser's Back button leaves an unsaved transaction without asking "Discard changes?", and what you typed is lost; Escape and a click outside the panel do ask.
 
 **About this release**
 
@@ -172,6 +173,7 @@ Cada una dice a quién pudo afectar y qué hacer. Salvo que diga otra cosa, pued
 - El Sats Converter de la barra lateral puede mostrar un satoshi de menos cuando un importe en dólares cae justo a mitad de camino entre dos satoshis; nada de lo que muestra se guarda.
 - Si guardar la zona horaria fiscal en Settings falla, solo dice "Could not save the timezone.", sin el motivo; no se guarda nada.
 - Con tu propio Mempool, una segunda consulta de precio hecha mientras la primera aún descarga el historial de tu Mempool no encuentra precio; volver a intentarlo un momento después funciona (sin precio no se guarda nada, nunca a 0 $).
+- El botón Atrás del navegador sale de una transacción sin guardar sin preguntar "Discard changes?", y se pierde lo escrito; Escape y un clic fuera del panel sí preguntan.
 
 **Sobre esta versión**
 
@@ -253,6 +255,7 @@ Jede sagt, wen sie betreffen konnte und was zu tun ist. Sofern nicht anders ange
 - Der Sats Converter in der Seitenleiste kann einen Satoshi zu wenig zeigen, wenn ein Dollarbetrag genau in der Mitte zwischen zwei Satoshi liegt; nichts, was er zeigt, wird gespeichert.
 - Schlägt das Speichern der Steuer-Zeitzone in Settings fehl, steht dort nur "Could not save the timezone.", ohne den Grund; es wird nichts gespeichert.
 - Mit deinem eigenen Mempool findet eine zweite Kursabfrage, während die erste noch den Verlauf deines Mempool herunterlädt, keinen Kurs; ein neuer Versuch einen Moment später funktioniert (ohne Kurs wird nichts gespeichert, nie zu 0 $).
+- Die Zurück-Taste des Browsers verlässt eine ungespeicherte Transaktion ohne die Frage "Discard changes?", und das Eingegebene geht verloren; Escape und ein Klick außerhalb des Felds fragen nach.
 
 **Über diese Version**
 
@@ -334,6 +337,7 @@ Każda mówi, kogo mogła dotyczyć i co zrobić. Jeśli nie podano inaczej, mo�
 - Sats Converter na pasku bocznym może pokazać o jeden satoshi za mało, gdy kwota w dolarach wypada dokładnie w połowie między dwoma satoshi; nic z tego, co pokazuje, nie jest zapisywane.
 - Gdy zapis podatkowej strefy czasowej w Settings się nie powiedzie, pojawia się tylko "Could not save the timezone.", bez przyczyny; nic nie zostaje zapisane.
 - Przy własnym Mempoolu drugie zapytanie o cenę wysłane, gdy pierwsze wciąż pobiera historię z Twojego Mempoola, nie znajduje ceny; ponowna próba chwilę później działa (bez ceny nic nie jest zapisywane, nigdy po 0 $).
+- Przycisk Wstecz w przeglądarce opuszcza niezapisaną transakcję bez pytania "Discard changes?", a wpisane dane przepadają; Escape i kliknięcie poza panelem pytają.
 
 **O tym wydaniu**
 
@@ -415,6 +419,7 @@ Chacune dit qui a pu être touché et que faire. Sauf mention contraire, toute a
 - Le Sats Converter de la barre latérale peut afficher un satoshi de moins quand un montant en dollars tombe exactement à mi-chemin entre deux satoshis ; rien de ce qu’il affiche n’est enregistré.
 - Quand l’enregistrement du fuseau horaire fiscal dans Settings échoue, il n’affiche que "Could not save the timezone.", sans la raison ; rien n’est enregistré.
 - Avec votre propre Mempool, une deuxième recherche de prix faite pendant que la première télécharge encore l’historique de votre Mempool ne trouve aucun prix ; réessayer un instant plus tard fonctionne (sans prix rien n’est enregistré, jamais à 0 $).
+- Le bouton Précédent du navigateur quitte une transaction non enregistrée sans demander "Discard changes?", et la saisie est perdue ; Échap et un clic hors du panneau le demandent bien.
 
 **À propos de cette version**
 

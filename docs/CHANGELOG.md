@@ -76,6 +76,9 @@ update):
 - With your own Mempool, a second price lookup made while the first is still
   downloading your Mempool's history finds no price; trying again a moment
   later works (nothing is saved without a price, never at $0) (#535).
+- The browser's Back button leaves an unsaved transaction without asking
+  "Discard changes?", and what you typed is lost; Escape and a click
+  outside the panel do ask (#536).
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,
