@@ -162,8 +162,9 @@ def _realized_gains(disposals: list[LotDisposal]) -> dict[str, Decimal]:
 
 
 def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
-    """What Sells and Spent withdrawals brought in, after their fees (a BTC
-    withdrawal of unknown purpose counts as Spent, #61)."""
+    """What Sells and Spent withdrawals of bitcoin brought in, after their
+    fees (a BTC withdrawal of unknown purpose counts as Spent, #61; a dollar
+    withdrawal is none, whatever purpose an older save left on it, #449)."""
     totals = {"sell": Decimal("0.0"), "spent": Decimal("0.0")}
     for tx in transactions:
         if tx.proceeds_usd is None:
@@ -171,7 +172,7 @@ def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
         tx_type = tx.type.lower()
         if tx_type == "sell":
             totals["sell"] += Decimal(str(tx.proceeds_usd))
-        elif tx_type == "withdrawal" and (normalized(tx.purpose) == "spent" or counts_as_spent(tx)):
+        elif tx_type == "withdrawal" and counts_as_spent(tx):
             totals["spent"] += Decimal(str(tx.proceeds_usd))
     return totals
 

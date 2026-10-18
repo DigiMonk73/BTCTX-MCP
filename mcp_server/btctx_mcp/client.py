@@ -15,9 +15,11 @@ before any request, so the password never leaves the computer again.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import os
+import socket
 import sys
 from pathlib import Path
 from typing import Any
@@ -68,6 +70,47 @@ def _plain_http_to_another_machine(url: str) -> bool:
     return u.scheme == "http" and not local
 
 
+# The home network, as BitcoinTX judges it (backend/services/mempool_trust.py;
+# a test checks the two agree): a .local or .lan name, a one-word name, 10.x,
+# 172.16–31.x, 192.168.x
+HOME_SUFFIXES = (".local", ".lan")
+HOME_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+
+
+def this_computer_or_home(url: str) -> bool:
+    """
+    Whether BitcoinTX's address is this computer (localhost, 127.x, ::1) or
+    the home network, on the host httpx connects to: never reached through a
+    proxy set for the whole machine (HTTPS_PROXY and co., a Mac's system
+    proxy; #474). What the resolver reads as an IPv4 address ("2130706433",
+    "127.1": 127.0.0.1) is that address, never a name.
+    """
+    try:
+        host = (httpx.URL(url).host or "").lower()
+    except (httpx.InvalidURL, ValueError):
+        return False
+    if not host.rstrip(".") or not host.isascii():
+        return False
+    if host.endswith("."):  # a name to the resolver, never an address: "umbrel.local." is umbrel.local
+        return _home_name(host[:-1])
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            ip = ipaddress.ip_address(socket.inet_aton(host))
+        except OSError:
+            return _home_name(host)
+    return ip.is_loopback or any(ip in network for network in HOME_NETWORKS)
+
+
+def _home_name(name: str) -> bool:
+    """Whether a name (never an address) is this computer's or a home
+    server's: a .local or .lan name, or a one-word name."""
+    if name == "localhost" or name.endswith(".localhost"):
+        return True
+    return name.endswith(HOME_SUFFIXES) if "." in name else True
+
+
 def default_key_file() -> Path:
     if os.environ.get("BTCTX_MCP_FILE"):
         return Path(os.environ["BTCTX_MCP_FILE"]).expanduser()
@@ -107,6 +150,13 @@ class BtctxClient:
         if self._configured_url and not _warned_plain_http and _plain_http_to_another_machine(self._configured_url):
             _warned_plain_http = True  # once: it goes to the AI app's log
             logger.warning(PLAIN_HTTP_WARNING)
+        if transport is None and (key_file is not None or this_computer_or_home(self._configured_url or "")):
+            # The Mac app (its key file names this computer, and BTCTX_URL
+            # beside it the address the app answers at) or a BitcoinTX at
+            # this computer or a home address: given its own connection, the
+            # client takes no proxy from the machine (#474); its certificates
+            # are checked as any client's
+            transport = httpx.AsyncHTTPTransport(verify=verify)
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",
             verify=verify,
