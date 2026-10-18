@@ -4,7 +4,7 @@ import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
-import { historyPriceUrl, satsFromBtc, satsFromUsd } from "../utils/converter";
+import { historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
@@ -181,7 +181,7 @@ const BtcConverter: React.FC = () => {
       // One count, and the BTC field written from it, so the two agree (#451)
       const sats = satsFromUsd(parseFloat(value) || 0, btcPrice);
 
-      setBtcValue(sats === null ? "" : btcText(sats / 100_000_000));
+      setBtcValue(sats === null ? "" : btcText(sats / SATS_PER_BTC));
       setSatsValue(sats === null ? "" : sats.toString());
 
       if (updateLastField) {
@@ -212,7 +212,7 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setSatsValue(value);
       const satsNum = parseFloat(value) || 0;
-      const btcNum = satsNum / 100_000_000;
+      const btcNum = satsNum / SATS_PER_BTC;
       const usdNum = btcNum * btcPrice;
 
       setBtcValue(btcNum ? btcText(btcNum) : "");
