@@ -233,7 +233,7 @@ def test_after_the_issues_steps_each_row_named_saves_one_and_the_named_row_alone
     x, y = issue_steps_one_and_two()
     [alone] = preview([row(not_a_duplicate_of=x)])
     assert (alone["status"], alone["matched_transaction_id"]) == ("duplicate", y)
-    assert any("Recorded again" in w for w in alone["warnings"])
+    assert any(f"Already recorded as tx #{y}, besides tx #{x} the user said it isn't" in w for w in alone["warnings"])
     assert [execute([row(not_a_duplicate_of=x)]), execute([row()])] == [0, 0]
     assert tx_count() == 2
 

@@ -507,8 +507,8 @@ def refusal(results: list[EntryResult]) -> HTTPException:
 
 def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool) -> str:
     if again:
-        return (f"Recorded again as tx #{tx_id}, besides tx #{p.not_a_duplicate_of} the user said it isn't (the "
-                f"same request sent twice?): left out.")
+        return (f"Already recorded as tx #{tx_id}, besides tx #{p.not_a_duplicate_of} the user said it isn't: left "
+                f"out (the same request sent twice, or another copy of this payout in the ledger).")
     warning = (f"Already recorded as tx #{tx_id} (the same type, BTC amount, source or purpose, a Buy's cost "
                f"basis, and time): left out. If the user says it's another transaction, send it with "
                f"not_a_duplicate_of: {tx_id}.")

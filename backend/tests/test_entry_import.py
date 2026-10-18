@@ -198,8 +198,8 @@ def as_the_refusal_says(rows):
     """A named row beside a row without a name that could be the same
     transaction (#497): the preview says so, and an add, sent three times,
     saves nothing. Then the rows as the refusal's way out sends them, when
-    none of them is the transaction named: each with that name. None when
-    that is refused too (a row the name can't be a duplicate of)."""
+    none of them is the transaction named: each with that name, which the
+    preview never refuses."""
     results = preview(rows)["results"]
     if not any(r["status"] == "invalid" for r in results):
         return rows
@@ -210,7 +210,8 @@ def as_the_refusal_says(rows):
         seen = re.match(r"Unclear: identical to rows? (\d+)", res["errors"][0]) if res["errors"] else None
         if seen:
             row["not_a_duplicate_of"] = rows[int(seen.group(1)) - 1]["not_a_duplicate_of"]
-    return None if any(r["status"] == "invalid" for r in preview(named)["results"]) else named
+    assert not any(r["status"] == "invalid" for r in preview(named)["results"]), named
+    return named
 
 
 class TestDedup:
@@ -363,8 +364,6 @@ class TestDedup:
                 if res["status"] == "duplicate" and rng.random() < 0.6:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
             rows = as_the_refusal_says(rows)
-            if rows is None:
-                continue
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
 
@@ -425,8 +424,6 @@ class TestDedup:
                 if res["status"] == "duplicate" and rng.random() < 0.5:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
             rows = as_the_refusal_says(rows)
-            if rows is None:
-                continue
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
 
