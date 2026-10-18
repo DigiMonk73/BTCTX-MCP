@@ -342,9 +342,11 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     The duplicate rule (D1, #253). The same type, BTC amount, source or
     purpose and minute as a transaction in the ledger (a row given as a date
     alone: the same day), and for a Buy the same cost basis => duplicate,
-    left out. The most rows are matched: a row left without one takes a
-    duplicate another row holds when that row can take another of its own,
-    so a row given as a date alone can't take a timed row's only copy (#411).
+    left out. The timed rows take their duplicates before the rows given as
+    a date alone, so a date-alone row is the one saved when it and a timed
+    row share their only copy (#472). The most rows are matched: a row left
+    without one takes a duplicate another row holds when that row can take
+    another of its own (#411).
     A row the user says is another transaction names the one the preview
     matched (not_a_duplicate_of) and is freed only from that one: it still
     takes it, so an identical row beside it is checked as in the preview,
@@ -381,10 +383,9 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
 
 def _match_the_most(stubs: list[RiverProposal], db: Session) -> None:
     """Each row the duplicates pass left new matched after all when a
-    duplicate of it can be freed (match_by_moving): the pass gives each row,
-    in time order, its nearest duplicate, and a row given as a date alone
-    (noon, matching the whole day) could take a timed row's only copy,
-    leaving the timed row to be saved again, or once more on a first send
+    duplicate of it can be freed (match_by_moving): the pass gives each row
+    its nearest duplicate, the timed rows first (#472), and a row matching
+    more copies than another can still have taken that one's only copy
     (#411). The names rows give (not_a_duplicate_of) count for nothing here,
     so the answer is the one the AI's preview without them gave."""
     stuck = [stub for stub in stubs if stub.status == STATUS_NEW]
