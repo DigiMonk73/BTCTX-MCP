@@ -2,12 +2,13 @@
 #
 # make hooks        install the pre-push hook (runs `make check-fast` before every push)
 # make test         full hermetic Python suite (temp DB, no server, no internet)
-# make test-fast    the same without the slow stress tests (~3 min)
+# make test-fast    the same without the slow stress tests (~8 min)
 # make smoke        the real server on a temp DB, driven end to end
 # make e2e          Playwright click-through tests of every UI flow (Chromium)
 # make preview      this checkout in a browser at 127.0.0.1:8777 (throwaway data)
 # make site-shots   the README's and landing page's four pictures, into docs/images/
 # make reference-figures  accept new figures for the reference test ledger (testdata/)
+# make prices       the hourly price history's new hours (each release's bump; online)
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
 # make audit-deps   known-vulnerability scan of Python + npm dependencies

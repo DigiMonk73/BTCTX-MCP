@@ -307,9 +307,10 @@ to do.
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
 period are calculated differently; from before v0.9.2, withdrawal fees and
 Lost withdrawals are; from v0.9.2 to v1.2.7, a spend's network fee is (it now
-comes off the spend's proceeds); up to v1.2.8, a lot's cost basis was split
-cent by cent (a recalculation moves a cent or two on most ledgers, more on
-one started before 0.9.2). Either way, stored gains can change. The
+comes off the spend's proceeds); up to v1.2.8, each piece of a lot had its
+cost rounded to the cent on its own, and an old withdrawal of a purpose
+BitcoinTX doesn't list counted as a sale (a recalculation moves a cent or two
+on most ledgers, more on one started before 0.9.2). Either way, stored gains can change. The
 [CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
 release.
 
