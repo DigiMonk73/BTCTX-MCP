@@ -745,25 +745,29 @@ All notable changes to BitcoinTX are documented in this file.
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
 - **The CSV import refuses a row with more fields than the header**
-  (#453). An amount written with a thousands comma and no quotes
-  (`20,000.00`) is two fields in a CSV file, `20` and `000.00`, so every
-  column after it moved one place, and the import read the row so, with
-  no error and no warning: a My BTC deposit with a $20,000.00 cost basis
-  was saved with a basis of $20.00, no source and "MyBTC" as its purpose,
-  and its sale later showed about $19,980 too much gain. Preview and Import
-  now refuse such a row, naming it: "This row has more fields than the
-  header: a stray comma, or an amount written with a comma (write 1000.00,
-  not 1,000.00)?", as the River import does. An amount in quotes
-  (`"20,000.00"`) is one field and reads as before, and so does a row with
-  fewer fields than the header (its last cells blank). **Affected:** every
-  version with the CSV import, 1.2.8 included, and any tax year with a
-  transaction imported from a file that had such an amount (a row whose
-  shift put a value in a column that can't take it was refused, with a
-  confusing error such as "Invalid fee currency '1'"). **What to do:**
-  if a file you imported wrote amounts like `1,000.00` without quotes,
-  compare its transactions with the file (cost basis, proceeds, fee,
-  source, purpose and notes) and edit any that differ: the edit
-  recalculates the ledger.
+  (#453). A comma outside quotes starts a new field, so an amount written
+  `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
+  note with a comma in it, or a doubled comma. Every column after it moved
+  one place, and the import read the row so, with no error and no
+  warning: a My BTC deposit with a $20,000.00 cost basis was saved with a
+  basis of $20.00, no source and "MyBTC" as its purpose, and its sale
+  later showed about $19,980 too much gain; an income deposit could lose
+  its source and not count as income. Preview and Import now refuse such
+  a row, naming it: "This row has more fields than the header: a stray
+  comma, or an amount written with a comma (write 1000.00, not
+  1,000.00)?", as the River import does. A row ending in one comma too
+  many is refused too, since it can't be told from a shifted one: remove
+  the comma. A value in quotes (`"20,000.00"`) is one field and reads as
+  before, and so does a row with fewer fields than the header (its last
+  cells blank). **Affected:** every version with the CSV import, 1.2.8
+  included, and any tax year with a transaction imported from a file that
+  had a comma outside quotes in a row (a row whose shift put a value in a
+  column that can't take it was refused, with a confusing error such as
+  "Invalid fee currency '1'"). **What to do:** if a file you imported had
+  one (an amount like `1,000.00`, a doubled comma, or a comma in a note,
+  without quotes), compare its transactions with the file (cost basis,
+  proceeds, fee, source, purpose, notes and the later columns) and edit
+  any that differ: the edit recalculates the ledger.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the

@@ -9,13 +9,26 @@ can't be told from one whose last cells are blank), and the CSV export
 still imports as it was (#230).
 """
 
+import importlib.util
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.services import first_run, outbound
 from backend.services.csv_import import parse_csv_file
-from backend.tests.test_seed_ledger import PASSWORD, USER, reference_figures, seed_ledger
+
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+seed_ledger = _script("seed_ledger")
+reference_figures = _script("reference_figures")
 
 HEADER = ("date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,"
           "source,purpose,notes")
@@ -105,7 +118,7 @@ def reference_ledger(fresh_app, monkeypatch):
     price source Off; yields (client, Session)."""
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
     c = TestClient(app)
-    seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
+    seed_ledger.log_in(c, "seed-user", "seed-password-123", first_run.ensure_code())
     assert seed_ledger.seed(c) == len(seed_ledger.ledger_rows())
     yield c, fresh_app
 
