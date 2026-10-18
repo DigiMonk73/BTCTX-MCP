@@ -716,6 +716,17 @@ All notable changes to BitcoinTX are documented in this file.
   form, the API, the CSV preview, the AI connector's import and River's. A
   bitcoin fee keeps its 8. Every release from 0.8.0; a fee typed with more
   than 2 decimals was needed.
+- **A value the server refuses field by field is said in words** (#448).
+  When the server refused a value field by field (FastAPI's 422, a list),
+  two screens didn't put that list into words. The River import's preview
+  crashed to "Something went wrong" on Import, losing every edit made in
+  it, when a cell held a value such as `1,200` in a Cost Basis; the
+  transaction form said "Failed to create transaction: [object Object]"
+  (or "update") for an amount such as `12345678901`. Both now show the
+  server's reason ("Input should be a valid decimal", "Amount is too
+  large."), and River's preview stays as it was, so the cell can be
+  corrected and imported. Nothing was saved in either case: no figure
+  changed. Every release from 0.8.0.
 - **The River import's preview says what its fees and tags are** (#269).
   The Fee column wrote a dollar fee as "1.50" and a bitcoin fee as
   "0.00000200", with no unit, and an Interest payout showed only as
@@ -1141,6 +1152,21 @@ All notable changes to BitcoinTX are documented in this file.
   registry serves it, so `UPDATING.md` now ships such a fix inside a small
   app release (a new version with a real app fix, the package back at `:0`)
   instead of a package revision.
+- **The instructions' Documentation link names a page with only what
+  applies on StartOS** (#467). Start9's support indexer crawls the links
+  under the instructions' `## Documentation`, and Start9's guide
+  (`writing-instructions.md`, "Choosing documentation URLs") says to leave
+  out install guides for a deployment the package doesn't use, or support
+  learns steps that break a StartOS install. The link was the whole README,
+  with the Mac app's, Docker's and source's install, first login and
+  upgrade steps. It now names a new page, `docs/USING.md`: what BitcoinTX
+  does, the same wherever it runs (the accounts, the five kinds of
+  transaction, lots, reports and tax forms, imports, Ledger Review, prices,
+  backups, one wallet and one exchange), made from the README's "Features"
+  and "One wallet, one exchange". The README keeps its text and points to
+  the page; the MCP server's page stays linked.
+  `test_startos_docs_link_467.py` checks that each link is a page of this
+  repository and that the page about the app has no other install's steps.
 
 ### Development
 - **During big work the lead runs every merge** (AGENTS.md, "Big work",
