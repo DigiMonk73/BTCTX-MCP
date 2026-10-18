@@ -273,7 +273,11 @@ from the Transaction row alone.
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
   Source & Privacy action), which Settings then shows read-only. From
   1.2.8, prices stored while the server sets it never count as a choice
-  (it stores `unset`), and a CLI command never makes one (#134).
+  (it stores `unset`), and a CLI command never makes one (#134). Each
+  start of the app notes which of the server's settings it has (its
+  choice, or only its Tor: `outbound.SERVER_SET_KEY`); a CLI command
+  lacking them (StartOS, run by hand) asks no one and says so on stderr
+  (#461).
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.

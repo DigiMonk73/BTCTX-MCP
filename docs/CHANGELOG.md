@@ -474,6 +474,24 @@ All notable changes to BitcoinTX are documented in this file.
   technical text, and `cli review` shows that line too. A transaction
   deleted while the check runs, or while you apply the hour's prices, is
   left out instead of causing a server error.
+- **A maintenance command run by hand on StartOS asks no one for a
+  price unless it has the server's price settings** (#461, the owner's
+  design "Ask no one", 2026-10-17). On StartOS the Price Source & Privacy
+  action gives its choice, or its Tor (Use Tor with Decide in BitcoinTX
+  instead), to the app as settings of the server. A command run by hand
+  without them (`python -m backend.cli review` or `recalculate` in the
+  service's shell) read only the choice stored in the app instead: with
+  Use Tor, it asked public price sites directly, not through Tor; with the
+  action's Nobody, or its other choices, over a choice once made in
+  BitcoinTX's Settings, it asked by that old choice. What it could show
+  them is this server's address and the fact of a lookup: no request
+  names a date. With Use Tor since 1.2.8; with the action's choices since
+  1.2.0, which brought them. Now the app notes, each time it starts,
+  which of the server's price settings it has, and a command lacking them
+  asks no one and says so (`note: …` on its error output). The package's
+  own commands (Recalculate Ledger, the update's migrate step) have them,
+  and work as before; so do Docker's `docker exec` commands; the Mac app
+  has none, and nothing changes there.
 - **A price lookup under way when you change the price settings follows
   your new choice** (#437). A lookup of a past price asked your own
   Mempool first, waiting for it up to a minute and a half when it was slow
