@@ -573,6 +573,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
+    _complete_sell_proceeds(merged, tx_data)
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -581,7 +582,8 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     _validate_transaction(merged, db, check_source=check_source, kept_text=kept_text, stored=tx)
     if _fill_fee_currency(merged, db):  # e.g. a fee_amount sent on its own
         tx_data["fee_currency"] = merged["fee_currency"]
-    for key in ("type", "purpose", "source", "timestamp", "acquired_at"):  # canonical spellings, whole seconds
+    # Canonical spellings, whole seconds, and what a dollar withdrawal can't hold dropped
+    for key in ("type", "purpose", "source", "timestamp", "acquired_at", *_BTC_WITHDRAWAL_VALUES):
         if merged.get(key) != getattr(tx, key) or key in tx_data:
             tx_data[key] = merged.get(key)
     if any(k in tx_data for k in ("type", "from_account_id", "to_account_id")):
@@ -590,6 +592,26 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
                                   "to_account_id")):
         _enforce_fee_rules(merged, db)
     _revalue_income_deposit(tx, tx_data, db)
+
+
+def _complete_sell_proceeds(merged: dict, tx_data: dict) -> None:
+    """
+    The proceeds an edit of a Sell sends, completed as a create's are
+    (_record_gross_proceeds): its gross is the gross_proceeds_usd sent, else
+    the proceeds_usd sent. `merged` takes them as the edit saves them, so
+    the Sell's checks see them, and the stored net, worked out from the
+    gross they replace, never stands in for one sent blank (#458). Checked
+    against the stored gross, a blank sent saved a $0 sale, and proceeds
+    below the fee were kept; proceeds_usd beside a blank gross was saved as
+    the net, the fee added on top.
+    """
+    if getattr(merged["type"], "value", merged["type"]) != "Sell":
+        return
+    if "gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data:
+        gross = tx_data.get("gross_proceeds_usd")
+        tx_data["gross_proceeds_usd"] = gross if gross is not None else tx_data.get("proceeds_usd")
+        merged["gross_proceeds_usd"] = tx_data["gross_proceeds_usd"]
+        merged["proceeds_usd"] = tx_data.get("proceeds_usd")
 
 
 # What an income, rebate or inherited deposit's value depends on: the price
@@ -695,15 +717,17 @@ def priced_values(tx: Transaction) -> list[tuple[str, Decimal, Decimal]]:
     it values): an income, rebate or inheritance value, a Spent's proceeds
     before its fee, a gift's, donation's or lost coins' value, and a BTC
     fee's value unless typed. A mark without its value (a deposit moved to
-    Bank) isn't one. For price_used, and for which values the API and the AI
-    connector say came from a price (#208).
+    Bank) isn't one, nor a withdrawal's from a dollar account (one an older
+    save left there, #449). For price_used, and for which values the API and
+    the AI connector say came from a price (#208).
     """
     out = []
+    btc_leaving = tx.from_account_id in BTC_ACCOUNTS
     if tx.cost_basis_from_price and tx.cost_basis_usd is not None:
         out.append(("cost_basis_usd", Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
-    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and btc_leaving:
         out.append(("gross_proceeds_usd", Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
-    if tx.fmv_from_price and tx.fmv_usd is not None:
+    if tx.fmv_from_price and tx.fmv_usd is not None and btc_leaving:
         out.append(("fmv_usd", Decimal(tx.fmv_usd), Decimal(tx.amount or 0)))
     if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
         out.append(("fee_usd", Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
@@ -2065,7 +2089,8 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True,
                           kept_text: frozenset = frozenset(), stored: Transaction | None = None) -> None:
     """
     Reject input the ledger would record wrongly, with a clear message; set
-    canonical spellings in `data`. Used on create, and on update with the
+    canonical spellings in `data`, and drop what a dollar withdrawal can't
+    hold (_drop_btc_withdrawal_fields). Used on create, and on update with the
     stored row merged with the change, so a partial edit is checked as a
     whole transaction. check_source=False keeps a deposit's stored source
     unchecked (an edit that doesn't change it); `stored` is the row an edit
@@ -2083,6 +2108,7 @@ def _validate_transaction(data: dict, db: Session, check_source: bool = True,
     if tx_type == "Sell":
         _check_sell_proceeds(data, fee)
     _set_canonical_spellings(data, kept_text)
+    _drop_btc_withdrawal_fields(data, tx_type, from_acct)
     _check_type_requirements(data, tx_type, check_source, from_acct, to_acct)
     _check_original_date(data, tx_type, to_acct, db, stored)
 
@@ -2283,6 +2309,29 @@ def has_control_character(value) -> bool:
     """Whether the text holds a control character (a line break, a tab, any
     other C0 or C1 control) or a line or paragraph separator."""
     return any(unicodedata.category(char) in ("Cc", "Zl", "Zp") for char in str(value))
+
+
+# What only a withdrawal of bitcoin holds besides its purpose: its proceeds
+# or fair market value (#449)
+_BTC_WITHDRAWAL_VALUES = ("proceeds_usd", "gross_proceeds_usd", "fmv_usd")
+
+
+def _drop_btc_withdrawal_fields(data: dict, tx_type: str, from_acct: Account | None) -> None:
+    """
+    A dollar withdrawal (from Bank or Exchange USD) keeps no value and no
+    bitcoin purpose: only bitcoin leaving is spent, given, donated or lost
+    (#449). One sent all the same (left from the form's bitcoin fields after
+    the account changed, or by the AI connector or an older file) is
+    dropped, not refused, as an edit drops a dollar deposit's basis
+    (_revalue_income_deposit): kept, the tax report would list it as a gift
+    of bitcoin and the dashboard count it as spent. Other text stays: a
+    dollar withdrawal's purpose may be a label ("Rent"). Run after
+    _set_canonical_spellings, so " gift " is Gift.
+    """
+    if tx_type == "Withdrawal" and from_acct is not None and from_acct.currency != "BTC":
+        data.update(dict.fromkeys(_BTC_WITHDRAWAL_VALUES))
+        if data.get("purpose") in WITHDRAWAL_PURPOSES:
+            data["purpose"] = None
 
 
 def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_acct: Account | None,

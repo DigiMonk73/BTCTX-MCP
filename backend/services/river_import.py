@@ -42,7 +42,7 @@ from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal, number_limits, unreadable_csv
+from backend.services.csv_import import _parse_decimal, decimal_comma_note, number_limits, unreadable_csv
 from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
@@ -267,7 +267,8 @@ def _river_numbers(r: dict[str, str], row_number: int,
         if text and value is None:
             errors.append(CSVParseError(
                 row_number=row_number, column=column, severity="error",
-                message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}.",
+                message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}."
+                + decimal_comma_note(text),
             ))
             return None
         numbers.append(value)
@@ -536,8 +537,9 @@ def annotate_duplicates(
     Pass 1 (a duplicate, STATUS_MATCHED): a compatible type, the same amount
     and minute (a row given as a date alone: the same day in the tax
     timezone), and no difference, as `rule` says; greedy nearest-timestamp,
-    one existing tx matches at most one proposal. Within each amount test,
-    a transaction of the row's own type is tried before one of another
+    one existing tx matches at most one proposal, the timed rows before the
+    rows given as a date alone (_timed_first). Within each amount test, a
+    transaction of the row's own type is tried before one of another
     compatible type.
 
     Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
@@ -557,21 +559,32 @@ def annotate_duplicates(
     by_time = sorted(proposals, key=lambda p: p.timestamp)
     nearby = _nearby(proposals, existing)
 
-    def each_new(match, types=None) -> None:
-        """One pass: `match` for every row still new (of `types`), in time order."""
-        for proposal in by_time:
+    def each_new(match, types=None, order=by_time) -> None:
+        """One pass: `match` for every row still new (of `types`), in `order` (time, unless given)."""
+        for proposal in order:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
                 match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids), used_tx_ids)
 
+    timed_first = sorted(proposals, key=_timed_first)
     for same_amount in rule.amounts:
         for same_type in (True, False):
             each_new(partial(_match_exactly, same_amount=same_amount, differences=rule.differences, tz=tz,
-                             same_type=same_type))
+                             same_type=same_type), order=timed_first)
     if exact_only:
         return
     for same_amount in rule.amounts:
         each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz))
     each_new(_match_roughly, types=("Transfer", "Withdrawal"))
+
+
+def _timed_first(proposal: RiverProposal) -> tuple[bool, datetime]:
+    """The order rows take their duplicates in: the timed rows, then the rows
+    given as a date alone, each in time order. A timed row's minute is a
+    surer match than a date alone's whole day (its noon is no time at all),
+    so a date-alone row takes a copy only after the timed rows have theirs,
+    and is the row saved when one of them is that copy (#472). River's rows
+    are all timed: in time order."""
+    return proposal.day is not None, proposal.timestamp
 
 
 def _nearby(proposals: list[RiverProposal], existing: list[Transaction]) -> dict[int, list[Transaction]]:
@@ -641,10 +654,10 @@ def match_by_moving(
     of it can be freed: one a proposal in `holders` matched, when that one
     can take another duplicate of its own instead, and so on down (an
     augmenting path: the most proposals matched). Never a transaction in
-    `kept_tx_ids`. For the AI's rows: a looser row (a date alone, nearer to
-    a timed row's copy) can have taken the one copy another row has (#411),
-    and sent again, a copy the first send saved for a row the user says is
-    another transaction (#388's review).
+    `kept_tx_ids`. For the AI's rows: a looser row (one matching more
+    copies) can have taken the one copy another row has (#411), and sent
+    again, a copy the first send saved for a row the user says is another
+    transaction (#388's review). The timed rows go first (_timed_first).
     """
     if not stuck:
         return
@@ -667,7 +680,7 @@ def match_by_moving(
         return duplicates[id(proposal)]
 
     seen: set = set()  # no path through these until a row is placed (then the matches change)
-    for proposal in sorted(stuck, key=lambda p: p.timestamp):
+    for proposal in sorted(stuck, key=_timed_first):
         if _place(proposal, duplicates_of, holder, seen):
             seen = set()
 

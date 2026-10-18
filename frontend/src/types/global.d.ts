@@ -229,7 +229,9 @@ declare global {
   }
 
   interface ApiErrorResponse {
-    detail?: string;
+    // A reason, or FastAPI's list of input errors (422): read it with
+    // apiError.ts's helpers, never as text (#448)
+    detail?: string | { loc?: (string | number)[]; msg?: string }[];
     errors?: Record<string, string[]>;
   }
 
