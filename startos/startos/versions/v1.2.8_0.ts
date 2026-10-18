@@ -12,7 +12,7 @@ const CHANGELOG =
  * migration raises Recalculate Ledger once (init/recalculateTask.ts): #157's
  * corrected figures reach existing transactions only through a recalculation.
  */
-export const current = VersionInfo.of({
+export const v_1_2_8_0 = VersionInfo.of({
   version: '1.2.8:0',
   releaseNotes: {
     en_US: `BitcoinTX 1.2.8 values bitcoin at the hour of each transaction, makes where prices come from one clear choice, adds inherited bitcoin and consolidation fees, stops a spend's network fee from counting twice, and brings the fixes of a security review.
