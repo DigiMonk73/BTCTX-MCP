@@ -169,7 +169,7 @@ declare global {
     amount: number;
     fee_amount: number;
     cost_basis_usd: number;
-    proceeds_usd: number;
+    proceeds_usd?: number;
     fmv_usd?: number;
     realized_gain_usd: number;
     timestamp: string;   // ISO8601
