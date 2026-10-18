@@ -599,10 +599,12 @@ All notable changes to BitcoinTX are documented in this file.
   **Affected:** every release (the AI connector's add since 0.8.0, the
   River import since 0.7.0, the CSV import before them), any tax year.
   **What to do:** if the AI connector ever told you an add failed or timed
-  out, or you imported a River file in two tabs, look in Transactions for
-  a transaction recorded twice (the same type, amount and time, next to
-  each other) and delete the extra copy. A CSV file imported in two tabs
-  at once saved every row twice: Delete All, then import the file once.
+  out, an AI app sent the same add twice, or you imported a River file in
+  two tabs, look in Transactions for a transaction recorded twice (the
+  same type, amount and time, next to each other) and delete the extra
+  copy. A CSV file imported in two tabs at once saved every row twice:
+  delete the second copy of each row, or Delete All, import the file once
+  and add again anything you entered after it.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same

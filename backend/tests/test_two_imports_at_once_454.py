@@ -62,10 +62,12 @@ def both_wait(monkeypatch, target: str) -> None:
 
 
 def checked_then_written(monkeypatch) -> None:
-    """Each request's first write waits (1 s at most) until both requests
-    have checked the ledger for duplicates. Before, both checked with the
-    lock free, so both wrote; now the other's check waits behind this
-    request's lock, so the wait runs out and this one commits first."""
+    """Each request's first write waits (1 s at most) until two duplicate
+    checks are done: before, each request checked once, with the lock free,
+    so both checked and both wrote; now the other's check waits behind this
+    request's lock, so the wait runs out and this one commits first. (With
+    the key a request checks twice itself, writable_now then write_rows, so
+    nothing waits: the lock alone keeps the two apart.)"""
     checks, done = threading.Condition(), [0]
     for target in ("backend.services.entry_import.mark_duplicates", "backend.routers.entry_import.mark_duplicates"):
         module, name = target.rsplit(".", 1)
