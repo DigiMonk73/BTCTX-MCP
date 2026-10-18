@@ -5,6 +5,7 @@ Tests for the JSON entry import (/api/import/entries) used by the MCP server:
 validation, FMV autofill, dedup, dry-run simulation, atomic execute.
 """
 
+import re
 import sqlite3
 from decimal import Decimal
 
@@ -193,14 +194,23 @@ def api_payout(when: str, amount: str = "0.002") -> dict:
             "source": "Interest", "cost_basis_usd": "210.00", "fee_amount": "0", "fee_currency": "BTC"}
 
 
-def refused_as_unclear(rows) -> bool:
-    """A named row beside an identical row without a name (#497): the
-    preview says so, and an add, sent three times, saves nothing."""
-    if not any(r["status"] == "invalid" for r in preview(rows)["results"]):
-        return False
+def as_the_refusal_says(rows):
+    """A named row beside a row without a name that could be the same
+    transaction (#497): the preview says so, and an add, sent three times,
+    saves nothing. Then the rows as the refusal's way out sends them, when
+    none of them is the transaction named: each with that name. None when
+    that is refused too (a row the name can't be a duplicate of)."""
+    results = preview(rows)["results"]
+    if not any(r["status"] == "invalid" for r in results):
+        return rows
     before = tx_count()
     assert all("Unclear" in execute(rows, expect=400)["detail"] for _ in range(3)) and tx_count() == before
-    return True
+    named = [dict(row) for row in rows]
+    for row, res in zip(named, results):
+        seen = re.match(r"Unclear: identical to rows? (\d+)", res["errors"][0]) if res["errors"] else None
+        if seen:
+            row["not_a_duplicate_of"] = rows[int(seen.group(1)) - 1]["not_a_duplicate_of"]
+    return None if any(r["status"] == "invalid" for r in preview(named)["results"]) else named
 
 
 class TestDedup:
@@ -352,7 +362,8 @@ class TestDedup:
             for row, res in zip(rows, preview(rows)["results"]):
                 if res["status"] == "duplicate" and rng.random() < 0.6:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
-            if refused_as_unclear(rows):
+            rows = as_the_refusal_says(rows)
+            if rows is None:
                 continue
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
@@ -384,15 +395,12 @@ class TestDedup:
         """#411 with a row named (the re-check of #388): payouts at 10:00:30
         and 10:00 recorded; a date-alone row named as its preview's match,
         beside a payout at 13:00:45. Sent again, the date-alone row would
-        take the 13:00:45 copy and the timed row would be saved again. The
-        13:00:45 row isn't the named one either, and is named so: beside
-        the named row without a name, it's unclear (#497)."""
+        take the 13:00:45 copy and the timed row would be saved again."""
         execute([dict(INTEREST, date="2025-03-20T10:00:30Z")])
         CLIENT.post("/api/transactions", json=api_payout("2025-03-20T10:00:00Z"))
         day, later = dict(INTEREST, date="2025-03-20"), dict(INTEREST, date="2025-03-20T13:00:45Z")
-        match = preview([day, later])["results"][0]["matched_transaction_id"]
-        rows = [dict(day, not_a_duplicate_of=match), dict(later, not_a_duplicate_of=match)]
-        assert [execute(rows)["imported_count"] for _ in range(3)] == [1, 0, 0]
+        named = dict(day, not_a_duplicate_of=preview([day, later])["results"][0]["matched_transaction_id"])
+        assert [execute([named, later])["imported_count"] for _ in range(3)] == [1, 0, 0]
 
     @pytest.mark.parametrize("seed", range(3))
     def test_any_request_sent_again_saves_nothing_more(self, seed):
@@ -416,7 +424,8 @@ class TestDedup:
             for row, res in zip(rows, preview(rows)["results"]):
                 if res["status"] == "duplicate" and rng.random() < 0.5:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
-            if refused_as_unclear(rows):
+            rows = as_the_refusal_says(rows)
+            if rows is None:
                 continue
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)

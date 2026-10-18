@@ -94,7 +94,8 @@ def assert_unclear(rows: list[dict], named: int, plain: list[int], tx_id: int) -
     assert said.startswith(f"Unclear: row {named} says it isn't tx #{tx_id} (not_a_duplicate_of)")
     assert f"send each with not_a_duplicate_of: {tx_id}" in said and f"send row {named} in a request of its own" in said
     for n in plain:
-        assert results[n - 1]["errors"] == [f"Unclear: identical to row {named}, which says it isn't tx #{tx_id}: see row {named}."]
+        assert results[n - 1]["errors"] == [
+            f"Unclear: identical to row {named}, named as another transaction (not_a_duplicate_of): see it."]
     for _ in range(3):
         refused = execute(rows)
         assert isinstance(refused, str) and "Unclear" in refused and refused.endswith("No transactions were saved.")
@@ -149,7 +150,7 @@ def test_a_timed_row_named_beside_a_date_alone_row_of_its_day_is_refused(reverse
     assert_unclear(rows, 1 if reverse else 2, [2 if reverse else 1], first)
 
 
-def test_every_row_identical_to_the_named_one_is_said():
+def test_every_row_identical_to_the_named_one_is_said_and_an_add_keeps_its_instructions():
     """Two plain rows beside the named one, and a row of another amount,
     which isn't identical: it's checked as usual, but nothing is saved."""
     x = record("15:00:00")
@@ -159,16 +160,50 @@ def test_every_row_identical_to_the_named_one_is_said():
     assert [r["status"] for r in results] == ["invalid", "invalid", "invalid", "ready"]
     assert results[1]["errors"][0].startswith(f"Unclear: row 2 says it isn't tx #{x} (not_a_duplicate_of), but rows 1 and 3")
     assert isinstance(execute(rows), str) and tx_count() == 1
+    # The fresh review: six plain rows before the named one; the add's 400
+    # names the named row first, so its instructions aren't cut
+    many = [row()] * 6 + [row(not_a_duplicate_of=x)]
+    refused = execute(many)
+    assert refused.startswith(f"Rows have errors: Row 7: Unclear: row 7 says it isn't tx #{x}")
+    assert "rows 1, 2, 3, 4, 5 and 1 more" in refused and "send row 7 in a request of its own" in refused
 
 
-def test_any_id_counts_as_a_name():
-    """The check reads the request alone: a row naming a transaction that
-    isn't its duplicate beside an identical row is refused too."""
+def test_a_name_that_isnt_a_duplicate_of_its_row_counts_for_nothing():
+    """A row naming a transaction that isn't its duplicate (a wrong or
+    stale id) names it in error: beside an identical row it's checked as
+    if neither were named, and isn't refused."""
     buy = CLIENT.post("/api/transactions", json={
         "type": "Buy", "timestamp": "2025-03-01T10:00:00Z", "from_account_id": 1, "to_account_id": 4,
         "amount": "0.5", "cost_basis_usd": "10000", "fee_amount": "0", "fee_currency": "USD"}).json()["id"]
-    record("15:00:00")
-    assert_unclear([row(), row(not_a_duplicate_of=buy)], 2, [1], buy)
+    x = record("15:00:00")
+    results = preview([row(), row(not_a_duplicate_of=buy)])
+    assert [(r["status"], r["matched_transaction_id"]) for r in results] == [("duplicate", x), ("ready", None)]
+    assert execute([row(), row(not_a_duplicate_of=buy)]) == 1 and tx_count() == 3
+
+
+@ORDERS
+def test_a_row_whose_name_counts_for_nothing_beside_a_named_one_is_refused(reverse):
+    """The fresh review's case: two identical payouts recorded (x, y), one
+    row naming x and an identical one naming an id that isn't its
+    duplicate. The second has no name that counts, so this is #497's mix."""
+    x, _y = record("10:00:00"), record("14:00:00")
+    rows = in_order([row(not_a_duplicate_of=99999), row(not_a_duplicate_of=x)], reverse)
+    assert_unclear(rows, 1 if reverse else 2, [2 if reverse else 1], x)
+
+
+def test_a_row_that_cant_be_the_named_transaction_or_its_copy_isnt_unclear():
+    """A payout at 13:00:45 beside a date-alone row named as the 10:00:30
+    copy: it can't be that copy, so nothing is guessed. The date-alone row
+    is the 10:00 copy, the 13:00:45 row is new; sent again, nothing more.
+    (Before #510's fix the preview called the 13:00:45 row a possible
+    duplicate of the 10:00 copy, which the date-alone row is: a row is
+    never flagged as similar to a transaction another row is.)"""
+    thirty, ten = record("10:00:30"), record("10:00:00")
+    rows = [row(not_a_duplicate_of=thirty), row("13:00:45")]
+    results = preview(rows)
+    assert [(r["status"], r["matched_transaction_id"]) for r in results] == [("duplicate", ten), ("ready", None)]
+    assert [execute(rows) for _ in range(3)] == [1, 0, 0]
+
 
 
 @ORDERS

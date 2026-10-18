@@ -255,18 +255,17 @@ from the Transaction row alone.
   most find a copy: a row left without one takes a copy another row holds
   when that row can take another (`match_by_moving`, #411). The user can
   override a duplicate: the AI's row names the transaction the preview
-  matched (`not_a_duplicate_of`), a River row is ticked. A named row takes
-  that transaction first, in any row order (`_take_names_first`, #510), and
-  keeps it. That frees it only from that transaction: it's checked against
-  the rest, so a resent request doesn't save it twice (a row that matched
-  another copy is that copy, #378). A named row that check leaves new takes
-  a copy another row holds when that row can take another of its own
-  (`match_by_moving`), never one a row names. A named row beside an
-  identical row without a name (either one, recorded, the other's
-  duplicate; any id counts as a name) is unclear, and never guessed at (the
-  owner's rule, #497): the preview marks both invalid, saying which rows
-  and what to do, and an add refuses them (`_refuse_unclear_names`) until
-  the AI names each or sends the named one alone.
+  matched (`not_a_duplicate_of`), a River row is ticked. Each transaction
+  an AI row names, when it's a duplicate of that row (else the name counts
+  for nothing), is set aside for every row of the request, in any row
+  order (#510), and the rows are matched to the rest: a named row that
+  finds another copy is that copy, so a resent request doesn't save it
+  twice (#378). A named row beside a row without a name that the named
+  transaction is a duplicate of too is unclear, never guessed at (the
+  owner's rule, #497): the preview marks each such row invalid, saying
+  which rows and what to do, and an add refuses the request
+  (`entry_import._unclear`) until the AI names each or sends the named
+  one alone.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a

@@ -4,8 +4,9 @@ backend/tests/test_named_rows_any_order_510.py
 #510: identical rows, each named as the transaction its preview matched
 (not_a_duplicate_of), were all saved in the preview's order and all left
 out ("recorded again") in another: the duplicate check gave each row its
-nearest copy whatever it names. Each named row now takes the transaction
-it names first, so a name means the same in any order.
+nearest copy whatever it names, and freed a row only when that was its
+name. Every transaction a row names is now set aside for all the rows,
+so a name means the same in any order.
 """
 
 import random
@@ -105,6 +106,79 @@ def test_a_timed_and_a_date_alone_row_each_named_are_saved_in_any_order(reverse)
     rows = rows[::-1] if reverse else rows
     assert [execute(rows) for _ in range(3)] == [2, 0, 0]
     assert tx_count() == 4
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["date alone first", "date alone last"])
+def test_rows_naming_the_same_transaction_keep_the_timed_rows_copy(reverse):
+    """The fresh review (finding 1): two 15:00 copies; the refusal's way
+    out names both rows as the second. That copy set aside, the 15:00 row
+    is the first copy (its exact minute, #472) and the date-alone row is
+    saved at noon, as without the names."""
+    record("15:00:00")
+    second = record("15:00:00")
+    rows = [row(not_a_duplicate_of=second), row("15:00:00", not_a_duplicate_of=second)]
+    rows = rows[::-1] if reverse else rows
+    before = {tx["id"] for tx in CLIENT.get("/api/transactions").json()}
+    assert [execute(rows) for _ in range(3)] == [1, 0, 0]
+    [new] = [tx for tx in CLIENT.get("/api/transactions").json() if tx["id"] not in before]
+    assert new["timestamp"].startswith(f"{DAY}T12:00:00")
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["preview's order", "the other order"])
+def test_transfers_naming_the_same_transaction_keep_their_own_fees(reverse):
+    """The fresh review (finding 1) with Transfers of one amount and other
+    fees: copies at 10:00:00 (fee 0.0002) and 10:00:30 (fee 0.0001), and
+    rows at 10:00:00 (fee 0.0001) and 10:00:30 (fee 0.0002), both named
+    as the 10:00:30 copy. The 10:00:00 row is the 10:00:00 copy, nearest
+    in time; the 10:00:30 row, with its fee, is saved."""
+    def transfer(time: str, fee: str) -> dict:
+        return {"type": "Transfer", "timestamp": f"{DAY}T{time}Z", "from_account_id": 4, "to_account_id": 2,
+                "amount": "0.1", "fee_amount": fee, "fee_currency": "BTC"}
+    buy = {"type": "Buy", "timestamp": f"{DAY}T09:00:00Z", "from_account_id": 1, "to_account_id": 4,
+           "amount": "1", "cost_basis_usd": "10000", "fee_amount": "0", "fee_currency": "USD"}
+    ids = [CLIENT.post("/api/transactions", json=tx).json()["id"]
+           for tx in (buy, transfer("10:00:00", "0.0002"), transfer("10:00:30", "0.0001"))]
+    move = {"type": "Transfer", "amount": "0.1", "from_account": "Exchange BTC", "to_account": "Wallet",
+            "fee_currency": "BTC", "not_a_duplicate_of": ids[2]}
+    rows = [dict(move, date=f"{DAY}T10:00:00Z", fee_amount="0.0001"), dict(move, date=f"{DAY}T10:00:30Z", fee_amount="0.0002")]
+    rows = rows[::-1] if reverse else rows
+    assert [execute(rows) for _ in range(3)] == [1, 0, 0]
+    [new] = [tx for tx in CLIENT.get("/api/transactions").json() if tx["id"] not in ids]
+    assert new["timestamp"].startswith(f"{DAY}T10:00:30") and float(new["fee_amount"]) == 0.0002
+
+
+@pytest.mark.parametrize("reverse", [False, True], ids=["preview's order", "the other order"])
+def test_a_transaction_a_row_names_is_set_aside_for_every_row(reverse):
+    """The fresh review (finding 2): payouts a and b at 09:00 and c at
+    13:00, and the user said, of an earlier preview (09:00 row: a,
+    date-alone row: b), that both rows are other payouts. a and b are set
+    aside for both rows: the date-alone row is c, the 09:00 row is saved."""
+    a, b, _c = record("09:00:00"), record("09:00:00"), record("13:00:00")
+    rows = [row("09:00:00", not_a_duplicate_of=a), row(not_a_duplicate_of=b)]
+    rows = rows[::-1] if reverse else rows
+    assert [execute(rows) for _ in range(3)] == [1, 0, 0]
+    assert sorted(tx["timestamp"][11:19] for tx in CLIENT.get("/api/transactions").json()) == [
+        "09:00:00", "09:00:00", "09:00:00", "13:00:00"]
+
+
+def test_a_name_that_isnt_a_duplicate_of_its_row_sets_nothing_aside():
+    """The fresh review (finding 4): a 2 BTC payout recorded at 15:00, and
+    a 1 BTC row at 15:00 naming it beside a 2 BTC row. The name counts for
+    nothing: the 2 BTC row is still that payout, never saved twice."""
+    two = record("15:00:00", amount="2")
+    rows = [row("15:00:00", not_a_duplicate_of=two), row("15:00:00", amount="2")]
+    assert [(r["status"], r["matched_transaction_id"]) for r in preview(rows)] == [("ready", None), ("duplicate", two)]
+    assert [execute(rows) for _ in range(3)] == [1, 0, 0]
+    assert tx_count() == 2
+
+
+def test_a_named_row_is_never_flagged_as_similar():
+    """A named row the ledger holds no other copy of is ready, never a
+    possible duplicate of another payout of its amount nearby: the user
+    has said what it is (as before #510)."""
+    x = record("15:00:00")
+    record("16:00:00")
+    assert [r["status"] for r in preview([row("15:00:00", not_a_duplicate_of=x)])] == ["ready"]
 
 
 TIMES = ["09:00:00", "10:00:00", "10:00:30", "13:00:00", "15:00:00"]

@@ -549,8 +549,8 @@ All notable changes to BitcoinTX are documented in this file.
     or sends the named one in a request of its own.
   - **Identical rows, each named as the transaction its preview matched.**
     They were all saved in the preview's order and all left out in another,
-    so payouts went missing. Now each named row takes the transaction it
-    names first, so a name means the same in any order.
+    so payouts went missing. Now every transaction a row names is set
+    aside for all the rows, so a name means the same in any order.
 
   **Affected:** no release: telling the AI a duplicate is another
   transaction is new in this version (#253). Nothing to do.
