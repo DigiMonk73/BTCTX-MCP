@@ -199,7 +199,7 @@ architectures:
 subcontainers:
   - btctx # migrate oneshot + webui daemon, each through the image's entrypoint
   - cli-<command> # temporary, per action/init: the CLI through the entrypoint
-user: btctx # uid/gid 10001; never root (webui keeps only CAP_NET_BIND_SERVICE)
+user: btctx # uid/gid 10001; never root (every step keeps only CAP_NET_BIND_SERVICE)
 volumes:
   main: /data
   startos: null # store.json, not mounted
