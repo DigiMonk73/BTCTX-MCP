@@ -29,7 +29,8 @@ def package_version(text: str) -> tuple[int, ...]:
 
 def migration_up(text: str) -> str:
     """A version file's `up` body, without its comment lines."""
-    body = text.split("migrations: {")[1].split("up: async ({ effects }) => {")[1].split("down:")[0]
+    after = text.split("migrations: {")[1]
+    body = re.split(r"up: async \(\{[^}]*\}\) => \{", after, maxsplit=1)[1].split("down:")[0]
     return "\n".join(line for line in body.splitlines() if not line.strip().startswith("//"))
 
 
