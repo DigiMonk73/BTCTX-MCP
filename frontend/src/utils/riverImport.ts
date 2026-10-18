@@ -90,6 +90,8 @@ export function feeText(r: EditableRow): string {
  * Deposit has a source and only a Withdrawal a purpose. */
 export function importRow(r: EditableRow) {
   return {
+    // The file's row number, which the import's errors name, as the preview did (#455)
+    row_number: r.proposal.row_number,
     date: r.proposal.date,
     type: r.type,
     amount: r.proposal.amount,
