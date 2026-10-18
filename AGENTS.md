@@ -93,7 +93,10 @@ merging", on since 2026-10-17, the owner's choice), so a pull request's
 checks have run on everything already merged.
 Renaming or removing a CI job (changing a Python version in the test matrix
 renames one) blocks every pull request until the owner updates that list; a
-new job isn't required until it's added there. If unsure, branch from
+new job isn't required until it's added there. A release tag (`v*`) can't
+be moved or deleted by anyone ("Protect release tags", since 2026-10-18,
+the owner's choice), so each release's code stays at its tag to roll back
+to; the release workflow still creates new ones. If unsure, branch from
 `develop` and ask.
 
 ## Before you change…
