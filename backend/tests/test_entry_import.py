@@ -5,6 +5,7 @@ Tests for the JSON entry import (/api/import/entries) used by the MCP server:
 validation, FMV autofill, dedup, dry-run simulation, atomic execute.
 """
 
+import re
 import sqlite3
 from decimal import Decimal
 
@@ -193,6 +194,26 @@ def api_payout(when: str, amount: str = "0.002") -> dict:
             "source": "Interest", "cost_basis_usd": "210.00", "fee_amount": "0", "fee_currency": "BTC"}
 
 
+def as_the_refusal_says(rows):
+    """A named row beside a row without a name that could be the same
+    transaction (#497): the preview says so, and an add, sent three times,
+    saves nothing. Then the rows as the refusal's way out sends them, when
+    none of them is the transaction named: each with that name, which the
+    preview never refuses."""
+    results = preview(rows)["results"]
+    if not any(r["status"] == "invalid" for r in results):
+        return rows
+    before = tx_count()
+    assert all("Unclear" in execute(rows, expect=400)["detail"] for _ in range(3)) and tx_count() == before
+    named = [dict(row) for row in rows]
+    for row, res in zip(named, results):
+        seen = re.match(r"Unclear: identical to rows? (\d+)", res["errors"][0]) if res["errors"] else None
+        if seen:
+            row["not_a_duplicate_of"] = rows[int(seen.group(1)) - 1]["not_a_duplicate_of"]
+    assert not any(r["status"] == "invalid" for r in preview(named)["results"]), named
+    return named
+
+
 class TestDedup:
     def test_exact_duplicate_flagged_and_skipped_on_execute(self):
         first = execute([BUY, TO_COLD])
@@ -260,12 +281,17 @@ class TestDedup:
         res = preview([another])["results"][0]
         assert res["status"] == "duplicate" and any("sent twice" in w for w in res["warnings"])
 
-    def test_a_flagged_row_keeps_its_match_so_an_identical_one_beside_it_is_saved(self):
-        """The review of #277: the same payout twice, once recorded. The
-        preview's duplicate, flagged, takes the match; the other stays ready."""
+    def test_a_flagged_row_beside_an_identical_one_is_saved_once_both_are_named(self):
+        """The review of #277: the same payout twice, once recorded, and the
+        user says the preview's duplicate is another payout. Named beside
+        the identical row without a name, it's unclear (#497) and refused;
+        each named, both are saved."""
         recorded = execute([INTEREST])["created"][0]["id"]
         assert [r["status"] for r in preview([INTEREST, INTEREST])["results"]] == ["duplicate", "ready"]
-        rows = [dict(INTEREST, not_a_duplicate_of=recorded), INTEREST]
+        mixed = [dict(INTEREST, not_a_duplicate_of=recorded), INTEREST]
+        assert [r["status"] for r in preview(mixed)["results"]] == ["invalid", "invalid"]
+        assert "Unclear" in execute(mixed, expect=400)["detail"] and tx_count() == 1
+        rows = [dict(INTEREST, not_a_duplicate_of=recorded)] * 2
         assert [r["status"] for r in preview(rows)["results"]] == ["ready", "ready"]
         out = execute(rows)
         assert out["imported_count"] == 2 and out["skipped_duplicates"] == 0 and tx_count() == 3
@@ -275,18 +301,21 @@ class TestDedup:
         ([True], 1),
         ([True, True], 2),
         ([True, True, True], 3),
-        ([True, False], 2),
-        ([False, True], 1),
+        ([True, False], None),
+        ([False, True], None),
     ], ids=["one named", "two named", "three named", "named, then plain", "plain, then named"])
     def test_a_request_sent_again_saves_nothing_more(self, named, saved):
         """#378: identical rows, some naming the recorded Buy as the one
         they aren't, sent three times (a retry after a timeout, say): only
         the first send saves anything. A row naming it that matched
         another copy is that copy (an identical row beside it took the
-        named one), so no extra named row, and no named row after a plain
-        one, saves another copy."""
+        named one), so no extra named row saves another copy. A named row
+        beside a plain one is unclear (#497): refused each time."""
         recorded = execute([BUY])["created"][0]["id"]
         rows = [dict(BUY, not_a_duplicate_of=recorded) if n else BUY for n in named]
+        if saved is None:
+            assert all("Unclear" in execute(rows, expect=400)["detail"] for _ in range(3)) and tx_count() == 1
+            return
         assert [execute(rows)["imported_count"] for _ in range(3)] == [saved, 0, 0]
         assert tx_count() == 1 + saved
         results = preview(rows)["results"]
@@ -299,13 +328,15 @@ class TestDedup:
         10:00 one, beside the 15:00 one given as a date alone. Sent again,
         the date-alone row would take the copy the first send saved at
         10:00 (nearer noon than 15:00), leaving the named row none: the
-        named row takes that copy, and the date-alone row the 15:00 one."""
+        named row takes that copy, and the date-alone row the 15:00 one.
+        The date-alone row isn't the 10:00 one either, and is named so:
+        beside the named row without a name, it's unclear (#497)."""
         at_ten = dict(INTEREST, date="2025-03-20T10:00:00Z")
         ten, three = (execute([row])["created"][0]["id"] for row in (at_ten, dict(INTEREST, date="2025-03-20T15:00:00Z")))
         day = dict(INTEREST, date="2025-03-20")
         assert [(r["status"], r["matched_transaction_id"]) for r in preview([at_ten, day])["results"]] == [
             ("duplicate", ten), ("duplicate", three)]
-        rows = [dict(at_ten, not_a_duplicate_of=ten), day]
+        rows = [dict(at_ten, not_a_duplicate_of=ten), dict(day, not_a_duplicate_of=ten)]
         assert [execute(rows)["imported_count"] for _ in range(3)] == [1, 0, 0]
         assert tx_count() == 3
         results = preview(rows)["results"]
@@ -332,6 +363,7 @@ class TestDedup:
             for row, res in zip(rows, preview(rows)["results"]):
                 if res["status"] == "duplicate" and rng.random() < 0.6:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
+            rows = as_the_refusal_says(rows)
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
 
@@ -391,6 +423,7 @@ class TestDedup:
             for row, res in zip(rows, preview(rows)["results"]):
                 if res["status"] == "duplicate" and rng.random() < 0.5:
                     row["not_a_duplicate_of"] = res["matched_transaction_id"]
+            rows = as_the_refusal_says(rows)
             saved = [execute(rows)["imported_count"] for _ in range(3)]
             assert saved[1:] == [0, 0], (rows, saved)
 

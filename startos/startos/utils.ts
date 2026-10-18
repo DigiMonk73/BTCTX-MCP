@@ -6,42 +6,6 @@ import { sdk } from './sdk'
 export const uiPort = 80
 export const ADMIN_USERNAME = 'admin'
 
-/**
- * The image's own user (the Dockerfile's `btctx`, uid 10001): BitcoinTX
- * never runs as root (#202). Volumes from before 1.2.9 are root's.
- */
-export const APP_USER = 'btctx'
-
-/** Gives the `main` volume to the app's user; run as root (main.md, "Oneshots"). */
-export const OWN_DATA: [string, ...string[]] = [
-  'chown',
-  '-R',
-  `${APP_USER}:${APP_USER}`,
-  '/data',
-]
-
-/**
- * Runs `command` as the app's user from root, keeping one right: to open
- * port 80, which an ordinary user may not in StartOS's container
- * (net.ipv4.ip_unprivileged_port_start is 1024 there). The image's
- * docker-entrypoint.sh drops to it the same way.
- */
-export function asAppUser(
-  command: [string, ...string[]],
-): [string, ...string[]] {
-  return [
-    'setpriv',
-    `--reuid=${APP_USER}`,
-    `--regid=${APP_USER}`,
-    '--init-groups',
-    '--inh-caps=-all,+net_bind_service',
-    '--ambient-caps=-all,+net_bind_service',
-    '--no-new-privs',
-    '--',
-    ...command,
-  ]
-}
-
 /** Environment for every process that runs BitcoinTX code. */
 export const appEnv = {
   DATABASE_FILE: '/data/btctx.db',
@@ -72,16 +36,34 @@ export async function makeRecalculationDue(effects: T.Effects) {
   })
 }
 
+/**
+ * For 1.2.9:0's migration (#212): releases before it kept the password Set
+ * Login Credentials generated in store.json, though only whether a login was
+ * set is ever needed (Start9's recipe-web-ui.md, "Authentication": persist
+ * only the hash, which the app keeps). Records that as `loginSet` and deletes
+ * the password: store.json is a z.looseObject, so a key goes only when it is
+ * merged as undefined (file-models.md, "Unknown Key Preservation"). Safe to
+ * repeat.
+ */
+export async function forgetStoredPassword(effects: T.Effects) {
+  const hadPassword = await storeJson.read((s) => !!s.adminPassword).once()
+  await storeJson.merge(effects, {
+    adminPassword: undefined,
+    ...(hadPassword ? { loginSet: true } : {}),
+  })
+}
+
 export function generatePassword(): string {
   return utils.getDefaultString({ charset: 'a-z,A-Z,0-9', len: 24 })
 }
 
 /**
  * Run `python -m backend.cli <args>` (backend/cli.py) in a temporary
- * subcontainer on the app's volume, as the app's user: the volume is given to
- * it first, as at every start, since an action or init may run before the
- * first start after an update or a restore. Every command migrates the
- * database first, so this works on an empty volume. Throws on a non-zero exit.
+ * subcontainer on the app's volume, through the image's start-up script as at
+ * every start (main.ts): it runs the command as the app's user, giving it the
+ * volume first when needed, since an action or init may run before the first
+ * start after an update or a restore. Every command migrates the database
+ * first, so this works on an empty volume. Throws on a non-zero exit.
  * `prices`: pass the Price Source & Privacy choice, for a command that may
  * look up a price.
  */
@@ -106,14 +88,12 @@ export async function runAppCli(
     mainMounts(),
     `cli-${args[0]}`,
     async (sub) => {
-      await sub.execFail(OWN_DATA, { user: 'root', timeout: 10 * 60_000 })
-      const res = await sub.execFail(['python', '-m', 'backend.cli', ...args], {
-        cwd: '/app',
-        env,
-        user: APP_USER,
-        input: opts.input,
-        timeout: 10 * 60_000,
-      })
+      // The image's ENTRYPOINT (the Dockerfile), as root, the image's user:
+      // execFail takes no sdk.useEntrypoint()
+      const res = await sub.execFail(
+        ['docker-entrypoint.sh', 'python', '-m', 'backend.cli', ...args],
+        { env, input: opts.input, timeout: 10 * 60_000 },
+      )
       return res.stdout.toString()
     },
   )
