@@ -54,4 +54,8 @@
 @media (max-width: 1024px) {
   .buttons button,
   .buttons .calc-clear { height: 34px; }
+  /* The narrow sidebar's display holds 14 characters with room to spare; a
+     longer number (up to 17) is drawn smaller, never cut off on the left
+     (#450). */
+  .calculator .display-long { font-size: var(--text-sm); }
 }
