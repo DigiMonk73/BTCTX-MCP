@@ -71,9 +71,11 @@ export function dollarTransferFee(amountFrom: number, amountTo: number): number 
   return (Math.round(amountFrom * 100) - Math.round(amountTo * 100)) / 100;
 }
 
-/** More than 2 decimal places: a dollar amount the server refuses. */
+/** More than 2 decimal places: a dollar amount the server refuses. Compared
+ * as written to the cent, not as amount × 100, whose float error passes any
+ * fixed tolerance in the hundreds of millions. */
 function pastTheCent(amount: number): boolean {
-  return Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6;
+  return Number.isFinite(amount) && Number(amount.toFixed(2)) !== amount;
 }
 
 /**
@@ -81,7 +83,8 @@ function pastTheCent(amount: number): boolean {
  * if nothing. What arrived is never more than what left (the difference is
  * the fee, #447), a move within one BTC account records only its fee, so
  * there must be one (#159), and dollars are in cents: Amount (From) isn't
- * sent, so the server can't say so for it.
+ * sent, so the server can't say so for it. A dollar transfer's Amount (To)
+ * is the amount saved, so it must be more than 0.
  */
 export function transferAmountProblem(
   data: Pick<TransactionFormData, "fromAccount" | "fromCurrency" | "toAccount" | "amountFrom" | "amountTo">,
@@ -96,6 +99,7 @@ export function transferAmountProblem(
   if (to > from) {
     return "Amount (To) can't be more than Amount (From): it's what arrived, Amount (From) less the fee.";
   }
+  if (data.fromCurrency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
   if (data.fromCurrency === "BTC" && data.toAccount === data.fromAccount && !(to < from)) {
     return "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).";
   }

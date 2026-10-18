@@ -723,10 +723,12 @@ All notable changes to BitcoinTX are documented in this file.
   fee on top), so nothing stored changes, and one saved before opens with
   Amount (From) as its amount plus its fee. Every release with this form
   (1.2.8 and earlier). No tax figure was affected: dollar balances don't
-  enter gains, basis or income. **To check:** open each dollar transfer
-  that has a fee; if Amount (From) isn't what left the account, or Amount
-  (To) isn't what arrived, correct them and save, and the Bank and
-  Exchange (USD) balances follow.
+  enter gains, basis or income. **To check:** compare the Dashboard's Bank
+  (USD) and Exchange (USD) balances with your bank's and the exchange's.
+  If they differ, open each dollar transfer, with or without a fee (one
+  saved with a lower Amount (To) and no fee lost the difference too), and
+  set Amount (From) to what left the account and Amount (To) to what
+  arrived; the balances follow when you save.
 - **A fee in dollars is in cents** (#298). A fee's decimals were checked
   as bitcoin's (up to 8 places) whatever its currency, so a Buy's fee of
   $0.005 was accepted and then lost from the lot's cost when stored in

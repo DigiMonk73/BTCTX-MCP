@@ -67,7 +67,7 @@ const TransferFields: React.FC = () => {
   // takes its first option in the form's values without a re-render, and
   // the form would show a destination it didn't know about
   const newSource = {
-    deps: "amountTo" as const,  // a message about the old destination goes
+    deps: ["amountFrom", "amountTo"] as Array<"amountFrom" | "amountTo">,  // messages about the old source go
     onChange: () => {
       const { fromAccount: account, fromCurrency: currency } = getValues();
       setValue("toAccount", transferDestinations(account, currency)[0]);

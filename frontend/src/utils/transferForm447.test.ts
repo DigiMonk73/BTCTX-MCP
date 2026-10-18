@@ -105,6 +105,20 @@ describe("the form's checks, in words", () => {
       .toBeNull();
   });
 
+  it("cents are cents however large the amount (a float's error isn't a decimal place)", () => {
+    for (const amount of [134217728.02, 134217728.05, 987654321.99, 9999999999.99]) {
+      expect(transferAmountProblem({ ...bankToExchange, amountFrom: amount, amountTo: 1 }, "amountFrom")).toBeNull();
+    }
+    expect(transferAmountProblem({ ...bankToExchange, amountFrom: 134217728.005, amountTo: 1 }, "amountFrom"))
+      .toBe("A USD amount can have at most 2 decimal places.");
+  });
+
+  it("a dollar transfer's Amount (To) is the amount saved, so it must be more than 0", () => {
+    expect(transferAmountProblem({ ...bankToExchange, amountFrom: 10, amountTo: 0 }, "amountTo"))
+      .toBe("Amount (To) must be more than 0.");
+    expect(transferAmountProblem({ ...bankToExchange, amountFrom: 10, amountTo: 0.01 }, "amountTo")).toBeNull();
+  });
+
   it("a move within one bitcoin account still needs its fee (#159)", () => {
     expect(transferAmountProblem({ fromAccount: "Wallet", fromCurrency: "BTC", toAccount: "Wallet",
       amountFrom: 0.8, amountTo: 0.8 }, "amountTo")).toMatch(/records only its network fee/);
