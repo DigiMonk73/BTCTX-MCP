@@ -159,6 +159,9 @@ from the Transaction row alone.
   date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
   (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
   between pooled wallets, #159) needs a fee and records only it: no lot moves.
+  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
+  #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
   taken from it (a sale's, a spend's, a fee's, a transfer's moved part)
   costs what the lot's BTC taken so far costs with it, in cents, less
@@ -170,13 +173,29 @@ from the Transaction row alone.
   (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
-  (never from the previous net, which would subtract the fee again).
+  (never from the previous net, which would subtract the fee again). A
+  Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
+  0.8.0) is worked out from its stored net, the USD fee added back (#471).
+  A withdrawal with a blank gross made a Sell by an edit that sends no
+  proceeds takes the gross a recalculation recovers for it
+  (`_send_gross_of_an_old_withdrawal_sold`, #520): its proceeds aren't a net.
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
+  A withdrawal that doesn't count as spent (a gift, donation or lost coins;
+  a dollar withdrawal) has no proceeds (#457): the form sends them only with
+  a Spent, and an edit keeps no value sent for one (`_apply_proceeds`; a
+  create still keeps one, so a CSV round trip keeps a former spend's). An
+  edit that sends none carries over no $0 a gift holds into a Spent or a
+  Sell, nor anything a dollar withdrawal holds into a bitcoin one
+  (`_drop_proceeds_it_never_had`): a Spent's are then priced as a new blank
+  Spent's are (sharing its fee's price), a Sell needs them sent; a gift's
+  above $0 (a former spend's) are kept, typed. The form opens an old row
+  with no gross at the gross the server recovers, rounded as it rounds
+  (`utils/withdrawalProceeds.ts`, #485).
   A BTC withdrawal whose purpose isn't Spent, Gift, Donation or Lost (only
   an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
   the owner's rule, #61): at its gross, or, saved before 0.8.0 with no
@@ -195,6 +214,19 @@ from the Transaction row alone.
   marked); with no price it stays blank (never a 422: it's on no form
   BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
   Never part of a gain.
+- **Dollar withdrawals** (#449): only bitcoin leaving is spent, given,
+  donated or lost. A withdrawal from Bank or Exchange USD keeps no such
+  purpose and no proceeds or FMV: the save drops them
+  (`_drop_btc_withdrawal_fields`; other text stays, a label such as
+  "Rent"), the import previews leave them out with a warning, and every
+  figure and check (the tax report and its values from the price, the
+  dashboard, Ledger Review and its hour check, `priced_values`, the AI's
+  duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
+  older save left there counts for nothing. The Transactions list and the
+  Transaction History report show what's stored. It has no cost basis,
+  gain or holding period either (no lots): every save and recalculation
+  clears any it holds, such as a bitcoin withdrawal's an edit made it from
+  (`compute_sell_summary_from_disposals`, #487).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update
@@ -234,21 +266,34 @@ from the Transaction row alone.
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). The AI's rows
-  also need the same type, source or purpose and a Buy's basis
-  (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
-  amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
-  the preview's or the owner's edits. The amount tests go in turn (the
-  ledger amount, then River's), and within each a transaction of the row's
-  own type first. The AI's rows are matched so the most find a copy: a row
-  left without one takes a copy another row holds when that row can take
-  another (`match_by_moving`), so a date-alone row can't take a timed
-  row's only copy (#411). The user can override a duplicate: the AI's row
-  names the transaction the preview matched (`not_a_duplicate_of`), a
-  River row is ticked. That frees it only from that transaction: it's
-  checked against the rest, so a resent request doesn't save it twice (a
-  row that matched another copy is that copy, #378). A named row that
-  check leaves new takes a copy another row holds when that row can take
-  another of its own (`match_by_moving`), never one a row names.
+  also need the same type, accounts (from and to: a payout into Exchange
+  BTC beside one recorded into Wallet isn't that payout, only similar,
+  #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`);
+  a River row nothing else, and River's own amount counts (`RIVER_RULE`),
+  since its source, purpose, fee and type are the preview's or the
+  owner's edits;
+  of the accounts, a River row needs only to go the same way
+  (`_compatible`: the same source account or the same destination). The
+  amount tests go in turn (the ledger amount, then River's), and within
+  each a transaction of the row's own type first. The timed rows take
+  their copies before the date-alone rows (`_timed_first`, #472), so a
+  date-alone row is the one saved when it and a timed row share their only
+  copy. The AI's rows are matched so the
+  most find a copy: a row left without one takes a copy another row holds
+  when that row can take another (`match_by_moving`, #411). The user can
+  override a duplicate: the AI's row names the transaction the preview
+  matched (`not_a_duplicate_of`), a River row is ticked. Each transaction
+  an AI row names, when it's a duplicate of that row (else the name counts
+  for nothing), is set aside for every row of the request, in any row
+  order (#510), and the rows are matched to the rest: a named row that
+  finds another copy is that copy, so a resent request doesn't save it
+  twice (#378). A named row beside a row without a name that the named
+  transaction is a duplicate of too is unclear, never guessed at (the
+  owner's rule, #497; a row into or out of another account than that
+  transaction never is): the preview marks each such row invalid, saying
+  which rows and what to do, and an add refuses the request
+  (`entry_import._unclear`) until the AI names each or sends the named
+  one alone.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
@@ -273,7 +318,11 @@ from the Transaction row alone.
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
   Source & Privacy action), which Settings then shows read-only. From
   1.2.8, prices stored while the server sets it never count as a choice
-  (it stores `unset`), and a CLI command never makes one (#134).
+  (it stores `unset`), and a CLI command never makes one (#134). Each
+  start of the app notes which of the server's settings it has (its
+  choice, or only its Tor: `outbound.SERVER_SET_KEY`); a CLI command
+  lacking them (StartOS, run by hand) asks no one and says so on stderr
+  (#461).
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
@@ -292,6 +341,13 @@ from the Transaction row alone.
   hours after them, the daily history) go directly
   (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
   that route, a `start` off those blocks' grid included. The live price, block height and latest days stay on Tor.
+  A proxy set for the whole machine (`HTTPS_PROXY` and co., a Mac's
+  system proxy) carries only requests made without a proxy of
+  BitcoinTX's to addresses beyond the home network (the public sites):
+  never one to this computer or the home network (your Mempool there:
+  `outbound.this_computer_or_home`; the Mac app's checks:
+  `desktop_ports.open_here`; the AI connector: its own copy of the rule),
+  nor that direct route (#474).
   A lookup can outlast a save (#437): each request is checked just
   before it's sent against the settings in use then, and one they no
   longer allow (or not through that client's proxy) is refused unsent
@@ -354,7 +410,7 @@ from the Transaction row alone.
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
-| `backend/services/reports/safe_text.py` | ReportLab text escaping, no remote fetches |
+| `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
@@ -418,6 +474,8 @@ from the Transaction row alone.
   first; outside such a router, use `require_login`.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
+  A try counts as a failure from when it arrives (`check()`) until it's
+  right (`succeeded()`).
   A browser that got one of them right gets a device cookie (`btc_device`,
   a year, signed with the secret key, bound to the current password) and is a
   client of its own: other clients' failures, its address's count (behind
@@ -440,10 +498,12 @@ from the Transaction row alone.
   else `Origin`) are refused (`security_headers.py`); no CORS unless
   `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
   to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
-  `security_headers.LocalAddressOnlyMiddleware`), and its server never takes
-  a client's address from `X-Forwarded-For` (`desktop/entrypoint.py`).
+  `security_headers.LocalAddressOnlyMiddleware`). No server of ours, the
+  Mac app's, the Docker image's or StartOS's (which runs the image's
+  command), takes a client's address from `X-Forwarded-For`
+  (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
-  ReportLab, which may fetch nothing remote); CSV text cells can't start a
+  ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.
@@ -461,7 +521,9 @@ from the Transaction row alone.
   `unexpected_error`). Two kinds still show an error in full, to the owner
   only: a failure that stops BitcoinTX starting (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
-  error (StartOS's migrate oneshot, its Recalculate Ledger action). The
+  error (StartOS's migrate oneshot; its Set Login Credentials and
+  Recalculate Ledger actions show only the `error:` line, never the SQL
+  values a database error carries below it, #465). The
   imports' `routers/csv_import.import_failure`
   (busy, 503, when the database was locked: `database.is_busy`; else
   `IMPORT_FAILED`), `reports.IRS_FORMS_FAILED`, `backup.RESTORE_FAILED`,
@@ -509,9 +571,13 @@ from the Transaction row alone.
   copy of each day made before the AI changed anything that day
   (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
-  lock while it works, and the owner's saves wait only 5 s for it. With the
-  key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
-  before the ledger's latest entry, each replaying the whole ledger, at most
+  lock while it works, and the owner's saves wait only 5 s for it. An add's
+  duplicate check and its writes hold it as one (`entry_import.write_rows`;
+  River's and the CSV import's check too, `csv_import.execute_import`'s
+  `check`), so the same rows sent twice at once are saved once (#454);
+  their prices are found first, with the lock free. With the key a
+  request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated before
+  the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
   The preview reads the price year files its rows may need before its dry
   run (`hourly_prices.read_year_files`), so finding which price filled each

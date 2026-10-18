@@ -50,4 +50,6 @@ EXPOSE 80
 
 # No access log: request lines carry client addresses and dates (?date=...).
 # No "server: uvicorn" header on the responses.
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80", "--no-access-log", "--no-server-header"]
+# No proxy headers: a client's address is its connection's, never an
+# X-Forwarded-For header's (the login throttle counts by address).
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "80", "--no-access-log", "--no-server-header", "--no-proxy-headers"]

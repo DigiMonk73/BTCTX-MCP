@@ -169,7 +169,7 @@ declare global {
     amount: number;
     fee_amount: number;
     cost_basis_usd: number;
-    proceeds_usd: number;
+    proceeds_usd?: number;
     fmv_usd?: number;
     realized_gain_usd: number;
     timestamp: string;   // ISO8601
@@ -229,7 +229,9 @@ declare global {
   }
 
   interface ApiErrorResponse {
-    detail?: string;
+    // A reason, or FastAPI's list of input errors (422): read it with
+    // apiError.ts's helpers, never as text (#448)
+    detail?: string | { loc?: (string | number)[]; msg?: string }[];
     errors?: Record<string, string[]>;
   }
 

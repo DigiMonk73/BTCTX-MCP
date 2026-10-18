@@ -74,7 +74,8 @@ def test_no_access_log_on_any_edition():
     """uvicorn's access log records client addresses and request paths,
     which carry transaction dates (?date=...). The Mac app had it off."""
     assert '"--no-access-log"' in (REPO / "Dockerfile").read_text()
-    assert "'--no-access-log'" in (REPO / "startos" / "startos" / "main.ts").read_text()
+    # StartOS runs the image's CMD (#464)
+    assert "exec: { command: sdk.useEntrypoint(), env }" in (REPO / "startos" / "startos" / "main.ts").read_text()
     assert "access_log=False" in (REPO / "desktop" / "entrypoint.py").read_text()
 
 
@@ -410,5 +411,6 @@ def test_no_server_header_and_an_owner_only_docker_data_folder():
     root = Path(__file__).resolve().parents[2]
     dockerfile = (root / "Dockerfile").read_text()
     assert '"--no-server-header"' in dockerfile and "chmod 700 /data" in dockerfile and "777" not in dockerfile
-    assert "'--no-server-header'" in (root / "startos/startos/main.ts").read_text()
+    # StartOS runs the image's CMD (#464)
+    assert "exec: { command: sdk.useEntrypoint(), env }" in (root / "startos/startos/main.ts").read_text()
     assert "server_header=False" in (root / "desktop/entrypoint.py").read_text()
