@@ -72,7 +72,9 @@ backdated entries come out right.
   the destination gets the rest and keeps each lot's acquisition date and
   its share of the basis, and the fee is a disposal. A consolidation
   (Wallet to Wallet, or between exchanges BitcoinTX counts as one) records
-  only its network fee.
+  only its network fee. A dollar transfer (between Bank and Exchange USD)
+  is kept the other way round, like a withdrawal: its amount is what
+  arrived, and its fee comes out of the sending account on top.
 - **Buy**: dollars from Bank or Exchange USD for bitcoin into Exchange BTC.
   Enter the dollars spent without the fee as **Amount USD** and the fee as
   **Fee (USD)**: the lot's cost basis is the two together.

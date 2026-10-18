@@ -159,6 +159,9 @@ from the Transaction row alone.
   date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
   (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
   between pooled wallets, #159) needs a fee and records only it: no lot moves.
+  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
+  #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
   taken from it (a sale's, a spend's, a fee's, a transfer's moved part)
   costs what the lot's BTC taken so far costs with it, in cents, less
@@ -170,13 +173,26 @@ from the Transaction row alone.
   (`SHARE_ROUNDING`).
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
-  (never from the previous net, which would subtract the fee again).
+  (never from the previous net, which would subtract the fee again). A
+  Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
+  0.8.0) is worked out from its stored net, the USD fee added back (#471).
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,
   or a typed value (never the form's echo), makes them typed. A spend's
   proceeds and fee value share one price: one priced again while the other
   keeps the day's price takes the day's too (`_keeps_a_day_price`).
+  A withdrawal that doesn't count as spent (a gift, donation or lost coins;
+  a dollar withdrawal) has no proceeds (#457): the form sends them only with
+  a Spent, and an edit keeps no value sent for one (`_apply_proceeds`; a
+  create still keeps one, so a CSV round trip keeps a former spend's). An
+  edit that sends none carries over no $0 a gift holds into a Spent or a
+  Sell, nor anything a dollar withdrawal holds into a bitcoin one
+  (`_drop_proceeds_it_never_had`): a Spent's are then priced as a new blank
+  Spent's are (sharing its fee's price), a Sell needs them sent; a gift's
+  above $0 (a former spend's) are kept, typed. The form opens an old row
+  with no gross at the gross the server recovers, rounded as it rounds
+  (`utils/withdrawalProceeds.ts`, #485).
   A BTC withdrawal whose purpose isn't Spent, Gift, Donation or Lost (only
   an old ledger holds one) counts as Spent (`transaction.counts_as_spent`,
   the owner's rule, #61): at its gross, or, saved before 0.8.0 with no
@@ -255,12 +271,17 @@ from the Transaction row alone.
   most find a copy: a row left without one takes a copy another row holds
   when that row can take another (`match_by_moving`, #411). The user can
   override a duplicate: the AI's row names the transaction the preview
-  matched (`not_a_duplicate_of`), a River row is ticked. That frees it only
-  from that transaction: it's checked against the rest, so a resent request
-  doesn't save it twice (a row that matched another copy is that copy,
-  #378). A named row that check leaves new takes a copy another row holds
-  when that row can take another of its own (`match_by_moving`), never one a
-  row names.
+  matched (`not_a_duplicate_of`), a River row is ticked. Each transaction
+  an AI row names, when it's a duplicate of that row (else the name counts
+  for nothing), is set aside for every row of the request, in any row
+  order (#510), and the rows are matched to the rest: a named row that
+  finds another copy is that copy, so a resent request doesn't save it
+  twice (#378). A named row beside a row without a name that the named
+  transaction is a duplicate of too is unclear, never guessed at (the
+  owner's rule, #497): the preview marks each such row invalid, saying
+  which rows and what to do, and an add refuses the request
+  (`entry_import._unclear`) until the AI names each or sends the named
+  one alone.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a

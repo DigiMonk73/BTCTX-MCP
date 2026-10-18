@@ -156,11 +156,17 @@ def test_a_value_left_blank_is_noons_price(recorded, reverse):
 @ORDERS
 def test_the_timed_row_named_as_another_is_saved_beside_the_date_alone_row_once(reverse):
     """The user says the 15:00 row, its preview's duplicate, is another
-    payout (not_a_duplicate_of): both rows are saved, the date-alone row
-    at noon and the named row at 15:00, and sent again, nothing more."""
+    payout (not_a_duplicate_of). Beside the date-alone row without a name
+    it's unclear (#497): refused. The date-alone row isn't that payout
+    either: both named, both are saved, the date-alone row at noon and
+    the 15:00 row at 15:00, and sent again, nothing more."""
     three = record("15:00:00")
     named = row("15:00:00", not_a_duplicate_of=three)
-    rows = in_order([row(), named], reverse)
+    mixed = in_order([row(), named], reverse)
+    assert preview(mixed) == [("invalid", None), ("invalid", None)]
+    refused = CLIENT.post("/api/import/entries/execute", json={"rows": mixed})
+    assert refused.status_code == 400 and "Unclear" in refused.json()["detail"]
+    rows = in_order([row(not_a_duplicate_of=three), named], reverse)
     assert preview(rows) == [("ready", None), ("ready", None)]
     assert [execute(rows)["imported_count"] for _ in range(3)] == [2, 0, 0]
     assert sorted(utc_time(tx) for tx in saved_after({three})) == ["12:00:00", "15:00:00"]
