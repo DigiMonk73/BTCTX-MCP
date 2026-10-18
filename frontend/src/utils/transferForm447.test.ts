@@ -2,12 +2,8 @@
 // as the server keeps dollar transfers (amount = what arrived, the fee on
 // top), the fee being From − To; a bitcoin transfer is unchanged.
 import { describe, expect, it } from "vitest";
-import {
-  buildTransactionPayload,
-  dollarTransferFee,
-  mapTransactionToFormData,
-  transferAmountProblem,
-} from "./transactionForm";
+import { buildTransactionPayload, mapTransactionToFormData } from "./transactionForm";
+import { dollarTransferFee, transferAmountProblem } from "./transferAmounts";
 
 function form(fields: Partial<TransactionFormData>): TransactionFormData {
   return { type: "Transfer", timestamp: "2025-03-01T12:00", fee: 0, ...fields } as TransactionFormData;
@@ -62,6 +58,21 @@ describe("a dollar transfer (#447)", () => {
       fee_currency: "USD" }));
     expect([shown.amountFrom, shown.amountTo]).toEqual([0.3, 0.1]);
     expect(buildTransactionPayload(shown)).toMatchObject({ amount: 0.1, fee_amount: 0.2 });
+  });
+
+  it("a large one opens in cents too, so it saves as it was", () => {
+    const shown = mapTransactionToFormData(saved({ from_account_id: 1, to_account_id: 3, amount: 46856753.87,
+      fee_amount: 99.05, fee_currency: "USD" }));
+    expect(shown.amountFrom).toBe(46856852.92);
+    expect(transferAmountProblem(shown, "amountFrom")).toBeNull();
+    expect(buildTransactionPayload(shown)).toMatchObject({ amount: 46856753.87, fee_amount: 99.05 });
+  });
+
+  it("one stored past the cent (before #298) opens to 8 places, and the form says so", () => {
+    const shown = mapTransactionToFormData(saved({ from_account_id: 1, to_account_id: 3, amount: 100,
+      fee_amount: 0.005, fee_currency: "USD" }));
+    expect(shown.amountFrom).toBe(100.005);
+    expect(transferAmountProblem(shown, "amountFrom")).toBe("A USD amount can have at most 2 decimal places.");
   });
 });
 

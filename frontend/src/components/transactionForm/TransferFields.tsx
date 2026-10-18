@@ -1,7 +1,8 @@
 import React from "react";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, type RegisterOptions } from "react-hook-form";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
-import { transferAmountProblem, transferDestinations } from "../../utils/transactionForm";
+import { transferDestinations } from "../../utils/transactionForm";
+import { transferAmountProblem } from "../../utils/transferAmounts";
 import FeeValueField from "./FeeValueField";
 
 // A BTC account sent to itself (#159): how the choice reads, and what it records
@@ -67,12 +68,12 @@ const TransferFields: React.FC = () => {
   // takes its first option in the form's values without a re-render, and
   // the form would show a destination it didn't know about
   const newSource = {
-    deps: ["amountFrom", "amountTo"] as Array<"amountFrom" | "amountTo">,  // messages about the old source go
+    deps: ["amountFrom", "amountTo"],  // messages about the old source go
     onChange: () => {
       const { fromAccount: account, fromCurrency: currency } = getValues();
       setValue("toAccount", transferDestinations(account, currency)[0]);
     },
-  };
+  } satisfies Pick<RegisterOptions<TransactionFormData>, "deps" | "onChange">;
   return (
     <>
       <div className="field">

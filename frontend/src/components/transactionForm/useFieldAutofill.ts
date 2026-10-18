@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { btcText, parseDecimal } from "../../utils/format";
-import { dollarTransferFee, transferCurrency, transferDestinations } from "../../utils/transactionForm";
+import { transferCurrency, transferDestinations } from "../../utils/transactionForm";
+import { dollarTransferFee } from "../../utils/transferAmounts";
 
 /**
  * The values the form fills in itself: a Deposit's or Withdrawal's currency

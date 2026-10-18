@@ -2,6 +2,7 @@
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isNotSold, listedPurpose, listedSource } from "./purposes";
+import { dollarTransferFee, pastTheCent } from "./transferAmounts";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -64,46 +65,6 @@ export function transferDestinations(account?: AccountType, currency?: Currency)
     default:
       return [];
   }
-}
-
-/** A dollar transfer's fee: what left less what arrived, in cents (#447). */
-export function dollarTransferFee(amountFrom: number, amountTo: number): number {
-  return (Math.round(amountFrom * 100) - Math.round(amountTo * 100)) / 100;
-}
-
-/** More than 2 decimal places: a dollar amount the server refuses. Compared
- * as written to the cent, not as amount × 100, whose float error passes any
- * fixed tolerance in the hundreds of millions. */
-function pastTheCent(amount: number): boolean {
-  return Number.isFinite(amount) && Number(amount.toFixed(2)) !== amount;
-}
-
-/**
- * What's wrong with a transfer's Amount (From) or Amount (To), in words; null
- * if nothing. What arrived is never more than what left (the difference is
- * the fee, #447), a move within one BTC account records only its fee, so
- * there must be one (#159), and dollars are in cents: Amount (From) isn't
- * sent, so the server can't say so for it. A dollar transfer's Amount (To)
- * is the amount saved, so it must be more than 0.
- */
-export function transferAmountProblem(
-  data: Pick<TransactionFormData, "fromAccount" | "fromCurrency" | "toAccount" | "amountFrom" | "amountTo">,
-  field: "amountFrom" | "amountTo",
-): string | null {
-  const from = parseDecimal(data.amountFrom);
-  const to = parseDecimal(data.amountTo);
-  if (data.fromCurrency === "USD" && pastTheCent(parseDecimal(data[field]))) {
-    return "A USD amount can have at most 2 decimal places.";
-  }
-  if (field === "amountFrom") return null;
-  if (to > from) {
-    return "Amount (To) can't be more than Amount (From): it's what arrived, Amount (From) less the fee.";
-  }
-  if (data.fromCurrency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
-  if (data.fromCurrency === "BTC" && data.toAccount === data.fromAccount && !(to < from)) {
-    return "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).";
-  }
-  return null;
 }
 
 /** The ledger's from and to accounts for what the form shows as one account. */
@@ -219,6 +180,9 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
     const toId = tx.to_account_id ?? 0;
     const fromCurrency = accountCurrency(fromId);
     const fee = tx.fee_amount ?? 0;
+    // Dollars add up in cents (two amounts' float sum can carry a stray digit
+    // past the cent); one stored past the cent keeps 8 places, for the form to say so
+    const dollarPlaces = pastTheCent(tx.amount) || pastTheCent(fee) ? 8 : 2;
     return {
       fromAccount: accountIdToType(fromId),
       toAccount: accountIdToType(toId),
@@ -227,7 +191,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       // A BTC transfer's amount is what left, its fee included: what arrived
       // is the rest, to the satoshi. A dollar transfer's is what arrived, its
       // fee on top (#447)
-      amountFrom: fromCurrency === "BTC" ? tx.amount : Number((tx.amount + fee).toFixed(8)),
+      amountFrom: fromCurrency === "BTC" ? tx.amount : Number((tx.amount + fee).toFixed(dollarPlaces)),
       amountTo: fromCurrency === "BTC" ? Number((tx.amount - fee).toFixed(8)) : tx.amount,
     };
   },
