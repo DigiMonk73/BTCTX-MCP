@@ -51,8 +51,10 @@ describe("a Sell saved before its gross was kept (#476)", () => {
     expect(formFor({ fee_currency: null }).grossProceedsUSD).toBe(5000);
   });
 
-  it("adds no BTC fee: it never came out of the dollars", () => {
+  it("adds a fee only in dollars: a BTC fee never came out of them", () => {
     expect(formFor({ fee_amount: "0.00010000", fee_currency: "BTC" }).grossProceedsUSD).toBe(4990);
+    expect(formFor({ fee_currency: "usd" }).grossProceedsUSD).toBe(5000);
+    expect(formFor({ fee_currency: "EUR" }).grossProceedsUSD).toBe(4990);
   });
 
   it("with no fee, the net is the gross", () => {
@@ -75,5 +77,10 @@ describe("a Sell whose gross is kept", () => {
       gross_proceeds_usd: 5000,
       fee_amount: 10,
     });
+  });
+
+  it("a $0 sale opens as $0", () => {
+    const zero = { gross_proceeds_usd: "0.00", proceeds_usd: "0.00", fee_amount: "0.00000000" };
+    expect(formFor(zero).grossProceedsUSD).toBe(0);
   });
 });

@@ -3,7 +3,7 @@ backend/tests/test_old_sell_gross_476.py
 
 #476: a Sell saved before BitcoinTX kept a sale's gross (gross_proceeds_usd
 blank, proceeds_usd already net of its USD fee), edited in the form and saved
-unchanged, must keep its figures. The form now opens it with the gross the
+unchanged, must keep its figures. The form opens it with the gross the
 server recovers for it, the net plus the USD fee
 (frontend/src/utils/transactionForm.ts, `sellGross`; its unit tests:
 oldSellGross476.test.ts; the click-through: e2e/old-sell-gross-476.e2e.ts).

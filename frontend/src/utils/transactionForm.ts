@@ -211,7 +211,8 @@ function sellGross(tx: ITransaction): number {
   if (tx.gross_proceeds_usd) return tx.gross_proceeds_usd;
   const net = tx.proceeds_usd ?? 0;
   if (net <= 0) return 0;
-  const usdFee = tx.fee_currency?.toUpperCase() === "BTC" ? 0 : (tx.fee_amount ?? 0);
+  // A Sell's fee is in dollars unless saved otherwise (the server's fee_currency_used)
+  const usdFee = (tx.fee_currency || "USD").toUpperCase() === "USD" ? (tx.fee_amount ?? 0) : 0;
   return Number((net + usdFee).toFixed(2));
 }
 

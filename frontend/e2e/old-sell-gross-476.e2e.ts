@@ -1,8 +1,7 @@
 // #476: a Sell saved before BitcoinTX kept a sale's gross (gross_proceeds_usd
 // blank, proceeds_usd already net of its USD fee) opens in the edit form with
 // the net plus that fee as Gross Proceeds, and saved unchanged keeps every
-// figure. It used to open with $0, and the save was refused; typing the net
-// it showed elsewhere took the fee off again.
+// figure (a blank gross is read as 0, so the stored net alone isn't shown).
 import { test, expect, createTx, listTx, python } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
