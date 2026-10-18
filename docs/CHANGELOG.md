@@ -731,26 +731,29 @@ All notable changes to BitcoinTX are documented in this file.
   transactions within two days are now found once, by time: about a tenth
   of a second for either. The answers are the same. **Affected:** no
   release: the rule is new in this version. Nothing to do.
-- **A number written with a decimal comma is refused, not read as a far
-  larger one** (#452). The CSV import and the River import dropped every
-  comma in a number, to allow a thousands separator ("1,000.50"), so a
-  decimal comma was dropped too, with no error and no warning: "0,5" BTC
-  was saved as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Now a
-  comma counts only as a thousands separator, between groups of three
-  digits before the point (1,000 or 12,345.67). Any other comma is refused,
-  naming its column, in the preview and at Import: "A comma is read only
-  as a thousands separator (1,000.50): write decimals with a point (0.5,
-  not 0,5)." **Affected:** every release with the CSV or River import,
-  1.2.8 included, any tax year, but only a file that wrote an amount, cost
-  basis, proceeds, fee or value with a comma as its decimal point (a
-  spreadsheet set to a language that writes one can save a CSV so, with
-  the number in quotes). A file with points, as BitcoinTX's template, its
-  own export and River's files have, was read right.
+- **A number written with a decimal comma is refused, not read as another
+  number** (#452). The CSV import and the River import dropped every comma
+  in a number, to allow a thousands separator ("1,000.50"), so a decimal
+  comma was dropped too, with no error and no warning: "0,5" BTC was saved
+  as 5 BTC, "1234,56" dollars as $123,456 and "0,01" as 1. Where a point
+  separated thousands, as the same spreadsheets write them, "21.000,00"
+  dollars was saved as $21. Now a comma counts only as a thousands
+  separator, between groups of three digits before the point (1,000 or
+  12,345.67). Any other comma is refused, naming its column, in the
+  preview and at Import: "A comma is read only as a thousands separator
+  (1,000.50): write decimals with a point (0.5, not 0,5)." A number with an
+  underscore ("0_5", which was read as 5) is refused too. **Affected:**
+  every release with the CSV or River import, 1.2.8 included, any tax
+  year, but only a file that wrote an amount, cost basis, proceeds, fee or
+  value with a comma as its decimal point (a spreadsheet set to a language
+  that writes one can save a CSV so, with the number in quotes). A file
+  with points, as BitcoinTX's template, its own export and River's files
+  have, was read right.
   **What to do:** if you imported a file that wrote decimals with a comma,
   look in Transactions for amounts and values ten or more times too large,
-  and edit each to the right figure (an edit recalculates the ledger). Or,
-  for a CSV import, write the file's decimals with a point, delete every
-  transaction and import it again.
+  or about a thousand times too small where a point separated thousands
+  (21.000,00), and edit each to the right figure (an edit recalculates the
+  ledger).
 - **The CSV import's Preview says when a row needs a price BitcoinTX can't
   get** (#125). Preview called a row valid that Import then refused for want
   of a BTC price: a BTC fee without `fee_usd`, an income, rebate or

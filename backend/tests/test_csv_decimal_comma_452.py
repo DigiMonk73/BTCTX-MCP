@@ -2,8 +2,9 @@
 A comma in a number is read only as a thousands separator: between groups
 of three digits before the point ("1,000", "12,345.67"). The CSV and River
 imports dropped every comma, so "0,5" BTC (half a bitcoin written with a
-decimal comma) was saved as 5 BTC, and "1234,56" dollars as 123456, with
-no error (#452). Any other comma is refused now, naming its column.
+decimal comma) was saved as 5 BTC, "1234,56" dollars as 123456 and
+"21.000,00" as 21, with no error (#452). Any other comma is refused now,
+naming its column, and so is an underscore, which Decimal drops too.
 """
 
 import csv
@@ -16,12 +17,15 @@ from backend.services.csv_import import parse_csv_file
 from backend.services.river_import import RIVER_NUMBER_COLUMNS, parse_river_csv
 from backend.tests.conftest import stub_daily_prices
 
-# Each was read as another number: 5, 123456, 1, 150, 100, 500, 10000, 1234,
-# 100000, 1000.50, 0.5, 5, 1000, 1000, 1000000
+# Each was read as another number, without its commas: "0,5" as 5,
+# "1.000,50" as 1.0005. The refusal says why.
 NOT_THOUSANDS = [
     "0,5", "1234,56", "0,01", "1,5,0", "1,00", "0,500", "1,0000", "12,34",
-    "1,000,00", "1,000.5,0", ",5", "5,", "1,,000", "01,000", "1,000E3",
+    "1,000,00", "1,000.5,0", ",5", "5,", "1,,000", "01,000", "1.000,50",
 ]
+# Refused for something else, so the refusal doesn't speak of the comma:
+# "0_5" and "1_000" were read as 5 and 1000, "1,000E3" as 1000000
+REFUSED_WITHOUT_NOTE = ["$1,000.00", "1,000.00 USD", "1,000E3", "1,000.123456789", "0_5", "1_000"]
 THOUSANDS = [
     ("1,000", "1000"), ("12,345.67", "12345.67"), ("1,000,000", "1000000"),
     ("999,999.99", "999999.99"), ("1,000.", "1000"),
@@ -62,6 +66,16 @@ def test_a_comma_that_isnt_a_thousands_separator_is_refused(column, row, cell):
     assert len(errors) == 1, result.errors
     assert f"'{cell}'" in errors[0].message and errors[0].message.endswith(COMMA_NOTE)
     assert errors[0].row_number == 2 and errors[0].severity == "error"
+    assert result.transactions == []
+
+
+@pytest.mark.parametrize("column, row", COLUMNS)
+@pytest.mark.parametrize("cell", REFUSED_WITHOUT_NOTE)
+def test_a_number_refused_for_something_else_says_nothing_of_the_comma(column, row, cell):
+    result = parse_csv_file(csv_file({**row, column: cell}))
+    errors = [e for e in result.errors if e.column == column]
+    assert len(errors) == 1, result.errors
+    assert f"'{cell}'" in errors[0].message and "comma" not in errors[0].message
     assert result.transactions == []
 
 
@@ -148,6 +162,15 @@ def test_a_river_amount_with_a_decimal_comma_is_refused(column, cell):
     assert rows == []
     assert [(e.row_number, e.column) for e in errors] == [(2, column)]
     assert errors[0].message.startswith(f"{column} '{cell}' isn't a number") and errors[0].message.endswith(COMMA_NOTE)
+
+
+@pytest.mark.parametrize("column", RIVER_NUMBER_COLUMNS)
+@pytest.mark.parametrize("cell", REFUSED_WITHOUT_NOTE)
+def test_a_river_amount_refused_for_something_else_says_nothing_of_the_comma(column, cell):
+    rows, errors = parse_river_csv(river_file(river_row(column, cell)))
+    assert rows == []
+    assert [(e.row_number, e.column) for e in errors] == [(2, column)]
+    assert errors[0].message.startswith(f"{column} '{cell}' isn't a number") and "comma" not in errors[0].message
 
 
 @pytest.mark.parametrize("column", RIVER_NUMBER_COLUMNS)
