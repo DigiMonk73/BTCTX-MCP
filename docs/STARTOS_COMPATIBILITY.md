@@ -170,6 +170,17 @@ variable, so once it's gone the owner is asked, whatever prices were stored
 meanwhile (#134). A CLI command never makes a price choice (only the app's
 start upgrades a pre-1.1.0 install).
 
+A CLI command may run without the variables the app runs with (on StartOS,
+one run by hand in the service's shell), and would then ask by the stored
+settings they replace. So each start of the app notes which it has
+(`app_settings` `price_settings_from_server`: `source` with
+`BTCTX_PRICE_SOURCE`, `tor` with `BTCTX_TOR_PROXY_URL` alone, no row
+without them), and a command lacking them (`BTCTX_PRICE_SOURCE` for
+`source`; either for `tor`) asks no one for a price and says so on stderr
+(`note: …`; #461). A command never writes the note, and a restore keeps
+this install's. The package's own runs pass the variables (the migrate
+oneshot, Recalculate Ledger), and so does `docker exec`.
+
 | Variable | Values |
 |----------|--------|
 | `BTCTX_PRICE_SOURCE` | `off`, `public` or `mempool`; unset or empty: Settings decide |
@@ -233,7 +244,9 @@ Change these only together with the package (`startos/`):
   - `python -m backend.cli review [--apply-hourly-prices YEAR]`: the
     Ledger Review, read-only unless `--apply-hourly-prices` (that tax
     year's values priced at the day, at their hour, after a backup copy);
-    not used by the package.
+    not used by the package. Run by hand without the price variables the
+    app has, it asks no one for a price ("Price settings set by the
+    server", above).
   Each command migrates first, so it works on an empty volume. Exit 0 on
   success, 1 with a message on stderr on failure.
 - **Price settings:** the `BTCTX_*` variables above.

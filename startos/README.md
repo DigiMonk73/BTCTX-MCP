@@ -47,7 +47,7 @@ The image is the app's own published image, pulled rather than built: the same o
 
 | Subcontainer    | Lifetime            | Purpose                                                                    |
 | --------------- | ------------------- | -------------------------------------------------------------------------- |
-| `btctx`         | the running service | The `migrate` oneshot, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`) |
+| `btctx`         | the running service | The `migrate` oneshot, then the `webui` daemon — this is the one to attach to (as root by default; `-u btctx` for a command that writes in `/data`). A `backend.cli` command run there by hand without the price variables asks no one for a price while Price Source & Privacy sets the choice or Tor, and says so |
 | `cli-<command>` | one action or init  | Runs `python -m backend.cli <command>` (set-password, recalculate) through the entrypoint, which gives `/data` to `btctx` when needed and runs it as `btctx`, and exits; recalculate gets the price variables too |
 
 All package changes to the app's data go through the app's own maintenance CLI (`python -m backend.cli migrate | set-password | recalculate`, run from `/app`); the package never edits the database itself.
