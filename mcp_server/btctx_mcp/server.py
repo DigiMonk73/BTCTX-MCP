@@ -99,7 +99,8 @@ class TransactionInput(BaseModel):
     not_a_duplicate_of: int | None = Field(
         default=None, description="Only when the user says this row is another transaction than the one "
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "
-                                  "It's then saved, once (sent again, it's left out). Never set it on your own.")
+                                  "It's then saved, once (sent again, it's left out). Never set it on your own. "
+                                  "An identical row beside it needs it too, or the request is refused as unclear.")
 
 
 _client: BtctxClient | None = None
@@ -458,7 +459,8 @@ async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     values came from a price and its hour, source and USD per BTC. Duplicates are skipped (keep them in the
     list: dropping one can leave an identical row beside it skipped instead), unless the user
     says one is another transaction: then send that row with not_a_duplicate_of set to the
-    matched_transaction_id the preview gave it. Rows
+    matched_transaction_id the preview gave it (and each identical row beside it too, or that
+    row in a call of its own: a named row beside an identical one without it is refused). Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
     The same row limits as preview_transactions."""
     return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})

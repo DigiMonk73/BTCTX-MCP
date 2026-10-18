@@ -52,6 +52,7 @@ from backend.services.river_import import (
     STATUS_NEW,
     DuplicateRule,
     RiverProposal,
+    _timed_first,
     annotate_duplicates,
     is_duplicate,
     match_by_moving,
@@ -156,7 +157,9 @@ def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
 
 
 def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
-    """Validate every row with the CSV importer's rules (dates in tax timezone `tz`)."""
+    """Validate every row with the CSV importer's rules (dates in tax
+    timezone `tz`), and refuse a named row beside an identical one without
+    a name (#497)."""
     prepared: list[PreparedRow] = []
     for i, row in enumerate(rows, start=1):
         str_row = {
@@ -208,7 +211,70 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             day=local_date(tx_data["timestamp"], tz) if tx_data and _date_only(row.date) else None,
             not_a_duplicate_of=row.not_a_duplicate_of,
         ))
+    _refuse_unclear_names(prepared, tz)
     return prepared
+
+
+def _refuse_unclear_names(prepared: list[PreparedRow], tz) -> None:
+    """
+    A row named as another transaction (not_a_duplicate_of) beside an
+    identical row without a name is unclear (#497, the owner's rule: refuse
+    to guess). Which of them is a recorded transaction and which another
+    one can't be told: the same request is a first send naming a new
+    payout, or a send of two the ledger already holds, and the duplicate
+    check would decide by the rows' order. Each such row is invalid, the
+    named one saying what to do, so the preview shows it and an add refuses
+    it. Identical: _identical. Any id counts as a name: the request alone
+    is read.
+    """
+    rows = [p for p in prepared if p.tx_data is not None]
+    stubs = {p.row: _stub(p) for p in rows}
+    plain: dict[tuple, list[PreparedRow]] = {}  # only rows of one type, amount and day can be identical
+    for p in rows:
+        if p.not_a_duplicate_of is None:
+            plain.setdefault(_kind_and_day(stubs[p.row], tz), []).append(p)
+    for named in (p for p in rows if p.not_a_duplicate_of is not None):
+        twins = [p for p in plain.get(_kind_and_day(stubs[named.row], tz), [])
+                 if _identical(stubs[named.row], stubs[p.row], tz)]
+        if twins:
+            _say_unclear(named, twins)
+    for p in rows:
+        if p.result.errors:
+            p.result.status, p.tx_data = STATUS_INVALID, None
+
+
+def _kind_and_day(stub: RiverProposal, tz) -> tuple:
+    return stub.type, stub.amount, stub.day or local_date(stub.timestamp, tz)
+
+
+def _identical(a: RiverProposal, b: RiverProposal, tz) -> bool:
+    """Either row, recorded, would be the other's duplicate (ENTRY_RULE):
+    the same type going the same way, BTC amount, source or purpose, a
+    Buy's cost basis, and minute (a row given as a date alone: the day)."""
+    return is_duplicate(a, _as_recorded(b), ENTRY_RULE, tz) or is_duplicate(b, _as_recorded(a), ENTRY_RULE, tz)
+
+
+def _as_recorded(stub: RiverProposal) -> Transaction:
+    """A row as it would be recorded, to compare with another row: never
+    added to the database."""
+    return Transaction(
+        type=stub.type, timestamp=stub.timestamp, from_account_id=stub.from_account_id,
+        to_account_id=stub.to_account_id, amount=stub.amount, cost_basis_usd=stub.cost_basis_usd,
+        source=stub.source, purpose=stub.purpose,
+    )
+
+
+def _say_unclear(named: PreparedRow, twins: list[PreparedRow]) -> None:
+    n, tx_id = named.row, named.not_a_duplicate_of
+    numbers = [str(p.row) for p in twins]
+    which = f"row {numbers[0]}" if len(numbers) == 1 else f"rows {', '.join(numbers[:-1])} and {numbers[-1]}"
+    named.result.errors.append(
+        f"Unclear: row {n} says it isn't tx #{tx_id} (not_a_duplicate_of), but {which}, identical to it, "
+        f"{'says' if len(twins) == 1 else 'say'} nothing, so BitcoinTX can't tell which row is which recorded "
+        f"transaction. Ask the user: if none of these rows is tx #{tx_id}, send each with not_a_duplicate_of: "
+        f"{tx_id}; if one of them is, send row {n} in a request of its own.")
+    for p in twins:
+        p.result.errors.append(f"Unclear: identical to row {n}, which says it isn't tx #{tx_id}: see row {n}.")
 
 
 # FMV autofill
@@ -348,10 +414,12 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     without one takes a duplicate another row holds when that row can take
     another of its own (#411).
     A row the user says is another transaction names the one the preview
-    matched (not_a_duplicate_of) and is freed only from that one: it still
-    takes it, so an identical row beside it is checked as in the preview,
-    and is checked again against the rest of the ledger, so a repeated
-    add_transactions doesn't save it twice. The same amount within 48 hours
+    matched (not_a_duplicate_of) and is freed only from that one: it takes
+    it first, whatever the rows' order (#510), so an identical row beside
+    it is checked as in the preview, and is checked again against the rest
+    of the ledger, so a repeated add_transactions doesn't save it twice. (A
+    named row beside an identical row without a name never comes here:
+    validate_rows refuses it, #497.) The same amount within 48 hours
     with anything else different, or a BTC move of a near amount =>
     possible_duplicate: written unless removed, the warning naming the
     match and what differs. exact_only (execute's double-submit guard)
@@ -361,8 +429,9 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
     if not valid:
         return
     stubs = [_stub(p) for p in valid]
-    annotate_duplicates(stubs, db, exact_only=True, rule=ENTRY_RULE)
-    _match_the_most(stubs, db)
+    names = _take_names_first(valid, stubs, db)
+    annotate_duplicates(stubs, db, exact_only=True, rule=ENTRY_RULE, reserved_tx_ids=names)
+    _match_the_most(stubs, db, names)
     if not exact_only:
         matched = {stub.matched_tx_id for stub in stubs if stub.status == STATUS_MATCHED}
         unmatched = [stub for stub in stubs if stub.status == STATUS_NEW]
@@ -381,16 +450,38 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
             p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
 
 
-def _match_the_most(stubs: list[RiverProposal], db: Session) -> None:
+def _take_names_first(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> set[int]:
+    """Each named row (not_a_duplicate_of) matched first to the transaction
+    it names, when that is a duplicate of it and no named row before it
+    took it (the timed rows first, as the duplicates pass goes, #472). The
+    pass gives each row its nearest duplicate whatever it names: in another
+    order than the preview's, an identical row named otherwise took it, and
+    neither row was freed (#510). Returns the transactions taken."""
+    named = [(p, stub) for p, stub in zip(valid, stubs) if p.not_a_duplicate_of is not None]
+    if not named:
+        return set()
+    txs = {tx.id: tx for tx in db.query(Transaction).filter(Transaction.id.in_({p.not_a_duplicate_of for p, _ in named}))}
+    tz = get_tax_timezone(db) if any(p.day for p, _ in named) else timezone.utc
+    taken: set[int] = set()
+    for p, stub in sorted(named, key=lambda pair: _timed_first(pair[1])):
+        tx = txs.get(p.not_a_duplicate_of)
+        if tx is not None and tx.id not in taken and is_duplicate(stub, tx, ENTRY_RULE, tz):
+            stub.matched_tx_id, stub.status = tx.id, STATUS_MATCHED
+            taken.add(tx.id)
+    return taken
+
+
+def _match_the_most(stubs: list[RiverProposal], db: Session, names: set[int]) -> None:
     """Each row the duplicates pass left new matched after all when a
     duplicate of it can be freed (match_by_moving): the pass gives each row
     its nearest duplicate, the timed rows first (#472), and a row matching
     more copies than another can still have taken that one's only copy
-    (#411). The names rows give (not_a_duplicate_of) count for nothing here,
-    so the answer is the one the AI's preview without them gave."""
+    (#411). A named row keeps the transaction it names (`names`, taken
+    first: #510); the other rows are matched as the AI's preview without
+    names matched them."""
     stuck = [stub for stub in stubs if stub.status == STATUS_NEW]
     holders = [stub for stub in stubs if stub.status == STATUS_MATCHED]
-    match_by_moving(stuck, holders, db, ENTRY_RULE, kept_tx_ids=())
+    match_by_moving(stuck, holders, db, ENTRY_RULE, kept_tx_ids=names)
 
 
 def _check_overrides_again(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) -> None:

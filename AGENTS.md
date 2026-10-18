@@ -255,12 +255,18 @@ from the Transaction row alone.
   most find a copy: a row left without one takes a copy another row holds
   when that row can take another (`match_by_moving`, #411). The user can
   override a duplicate: the AI's row names the transaction the preview
-  matched (`not_a_duplicate_of`), a River row is ticked. That frees it only
-  from that transaction: it's checked against the rest, so a resent request
-  doesn't save it twice (a row that matched another copy is that copy,
-  #378). A named row that check leaves new takes a copy another row holds
-  when that row can take another of its own (`match_by_moving`), never one a
-  row names.
+  matched (`not_a_duplicate_of`), a River row is ticked. A named row takes
+  that transaction first, in any row order (`_take_names_first`, #510), and
+  keeps it. That frees it only from that transaction: it's checked against
+  the rest, so a resent request doesn't save it twice (a row that matched
+  another copy is that copy, #378). A named row that check leaves new takes
+  a copy another row holds when that row can take another of its own
+  (`match_by_moving`), never one a row names. A named row beside an
+  identical row without a name (either one, recorded, the other's
+  duplicate; any id counts as a name) is unclear, and never guessed at (the
+  owner's rule, #497): the preview marks both invalid, saying which rows
+  and what to do, and an add refuses them (`_refuse_unclear_names`) until
+  the AI names each or sends the named one alone.
   At River's save, each row the preview found in the ledger, ticked or
   left unticked (`left_out`), comes with the transaction the preview
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
