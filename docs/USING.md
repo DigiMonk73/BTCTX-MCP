@@ -47,6 +47,8 @@ backdated entries come out right.
     the giver did), if you give it, starts the holding period, sets their
     place in FIFO and is Form 8949's date acquired; left blank, the
     deposit's date is used.
+  - **N/A** (no particular source) takes the basis you enter; its
+    holding period starts on the deposit's date.
   - **Income**, **Interest** and **Reward** (mining, staking, a sign-up or
     referral bonus) are income: their basis is their value when received
     (left blank, the price at that hour), and that value is the income on
