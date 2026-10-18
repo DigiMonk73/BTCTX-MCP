@@ -1,7 +1,7 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
-import { isBtcPurpose, isNotSold, listedPurpose, listedSource } from "./purposes";
+import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -256,6 +256,16 @@ function withdrawalPurpose(data: TransactionFormData): string {
   return inBtcAccount(data) || !isBtcPurpose(purpose) ? purpose : "N/A";
 }
 
+/**
+ * A deposit's source. A dollar one sends none of the listed ones: there
+ * it's one left from the hidden bitcoin fields (#449). Text a version
+ * before 1.1.0 saved goes back as it was, as the server keeps it.
+ */
+function depositSource(data: TransactionFormData): string {
+  const source = data.source && data.source !== "N/A" ? data.source : "N/A";
+  return inBtcAccount(data) || !isListedSource(source) ? source : "N/A";
+}
+
 // Only bitcoin received has a source and a basis, and only bitcoin leaving a
 // purpose and a value: the form shows those fields for a bitcoin account
 // alone, and one filled in before the account changed stays in the form
@@ -264,7 +274,7 @@ const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypeP
   Deposit: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    source: inBtcAccount(data) && data.source && data.source !== "N/A" ? data.source : "N/A",
+    source: depositSource(data),
     cost_basis_usd: inBtcAccount(data) ? optionalDecimal(data.costBasisUSD) : null,
   }),
   Withdrawal: (data) => ({

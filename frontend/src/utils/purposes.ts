@@ -31,6 +31,12 @@ function listed<T extends string>(choices: T[], saved: string | null | undefined
   return choices.find((c) => c.toLowerCase() === wanted) ?? (saved as T);
 }
 
+/** One of the form's sources, N/A included, in any case and spacing. */
+export function isListedSource(source?: string | null): boolean {
+  const wanted = (source ?? "").trim().toLowerCase();
+  return FORM_SOURCES.some((c) => c.toLowerCase() === wanted);
+}
+
 /** A deposit's saved source in its listed spelling ("income" is Income). */
 export function listedSource(saved: string | null | undefined): DepositSource {
   return listed(FORM_SOURCES, saved);

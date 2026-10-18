@@ -327,6 +327,7 @@ def _validate_row(
     warnings: list[CSVParseError] = []
     try:
         checked = _check_row(row, row_number, tz, warnings)
+        _leave_out_btc_withdrawal_fields(checked, warnings)
         errors, type_warnings = _validate_type_specific(checked)
         warnings.extend(type_warnings)
         if errors:
@@ -355,6 +356,35 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     acquired_at = _optional_acquired_at(row, row_number, tz)
     return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
                 acquired_at=acquired_at)
+
+
+# What the save drops from a withdrawal from Bank or Exchange USD (#449),
+# with why each is ignored
+_DOLLAR_WITHDRAWAL_IGNORES = {
+    "purpose": "Spent, Gift, Donation and Lost are for bitcoin, and this withdrawal is in dollars",
+    "proceeds_usd": "it is for Sells and bitcoin spends, and this withdrawal is in dollars",
+    "fmv_usd": "it is for Gift, Donation and Lost withdrawals of bitcoin",
+}
+
+
+def _leave_out_btc_withdrawal_fields(row: _Row, warnings: list[CSVParseError]) -> None:
+    """A dollar withdrawal's bitcoin purpose, proceeds_usd and fmv_usd left
+    out with a warning: the save drops them (#449), so the preview (the
+    AI's too) shows what will be saved. Other text in purpose is a label,
+    kept."""
+    if row.tx_type != "Withdrawal" or row.from_id in BTC_ACCOUNTS:
+        return
+    ignored = [column for column in ("proceeds_usd", "fmv_usd") if getattr(row, column) is not None]
+    if normalized(row.purpose) in ("spent", *GIFT_LIKE_PURPOSES):
+        ignored.insert(0, "purpose")
+    for column in ignored:
+        warnings.append(dollar_withdrawal_warning(row.number, column))
+        setattr(row, column, None)
+
+
+def dollar_withdrawal_warning(row_number: int, column: str) -> CSVParseError:
+    """The warning for a value a dollar withdrawal can't hold, which the save drops (#449)."""
+    return _warning(row_number, column, f"{column} is ignored: {_DOLLAR_WITHDRAWAL_IGNORES[column]}.")
 
 
 def _check_original_date(row: _Row, tz) -> None:

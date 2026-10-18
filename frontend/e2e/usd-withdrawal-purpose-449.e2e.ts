@@ -29,8 +29,9 @@ test("a withdrawal moved from the Wallet to Bank is saved without its purpose or
   expect(tx.purpose ?? "N/A").toBe("N/A");
   expect(tx.fmv_usd).toBeNull();
   expect(tx.proceeds_usd).toBeNull();
-  // The list shows no purpose for it
-  await expect(page.getByText("Gift", { exact: true })).toHaveCount(0);
+  // The list shows no purpose for it (the row's subtitle read "10:15 AM · Gift")
+  await expect(page.getByRole("listitem")).toHaveCount(3);
+  await expect(page.getByRole("listitem").filter({ hasText: "Gift" })).toHaveCount(0);
 });
 
 test("a deposit moved from the Wallet to Bank is saved without its source", async ({ authedPage: page }) => {

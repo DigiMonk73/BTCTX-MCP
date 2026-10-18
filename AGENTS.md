@@ -199,9 +199,11 @@ from the Transaction row alone.
   donated or lost. A withdrawal from Bank or Exchange USD keeps no such
   purpose and no proceeds or FMV: the save drops them
   (`_drop_btc_withdrawal_fields`; other text stays, a label such as
-  "Rent"), and the tax report, the dashboard, Ledger Review and the AI's
-  duplicate check read them only on one from `BTC_ACCOUNTS`, so one an
-  older save left there counts for nothing.
+  "Rent"), the import previews leave them out with a warning, and every
+  reader (the tax report and its values from the price, the dashboard,
+  Ledger Review and its hour check, `priced_values`, the AI's duplicate
+  check) reads them only on one from `BTC_ACCOUNTS`, so one an older save
+  left there counts for nothing.
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update

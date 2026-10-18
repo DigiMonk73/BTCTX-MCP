@@ -64,3 +64,12 @@ describe("a dollar withdrawal's own label", () => {
     expect(body.purpose).toBe("N/A");
   });
 });
+
+describe("a dollar deposit's old free-text source", () => {
+  it("is sent back as it was (text a version before 1.1.0 saved)", () => {
+    const body = buildTransactionPayload(
+      form({ type: "Deposit", account: "Bank", currency: "USD", amount: 100, source: "Salary" as DepositSource }),
+    );
+    expect(body.source).toBe("Salary");
+  });
+});

@@ -529,10 +529,12 @@ def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
         else:
             name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
             yield name, tx.cost_basis_usd, _price_used(tx)
-    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and tx.type == "Withdrawal" \
+    # A withdrawal's only when bitcoin left: none an older save left on a dollar one (#449)
+    btc_leaving = tx.type == "Withdrawal" and tx.from_account_id in BTC_ACCOUNTS
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and btc_leaving \
             and normalized(tx.purpose) == "spent":
         yield "Proceeds (before fees)", tx.gross_proceeds_usd, _price_used(tx)
-    if tx.fmv_from_price and tx.fmv_usd is not None and tx.type == "Withdrawal" \
+    if tx.fmv_from_price and tx.fmv_usd is not None and btc_leaving \
             and normalized(tx.purpose) in GIFT_LIKE_PURPOSES:
         yield "Value (fair market value)", tx.fmv_usd, _price_used(tx)
     if tx.fee_usd is not None and not tx.fee_usd_manual and (tx.fee_currency or "").upper() == "BTC" \

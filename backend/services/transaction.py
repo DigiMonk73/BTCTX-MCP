@@ -696,15 +696,17 @@ def priced_values(tx: Transaction) -> list[tuple[str, Decimal, Decimal]]:
     it values): an income, rebate or inheritance value, a Spent's proceeds
     before its fee, a gift's, donation's or lost coins' value, and a BTC
     fee's value unless typed. A mark without its value (a deposit moved to
-    Bank) isn't one. For price_used, and for which values the API and the AI
-    connector say came from a price (#208).
+    Bank) isn't one, nor a withdrawal's from a dollar account (one an older
+    save left there, #449). For price_used, and for which values the API and
+    the AI connector say came from a price (#208).
     """
     out = []
+    btc_leaving = tx.from_account_id in BTC_ACCOUNTS
     if tx.cost_basis_from_price and tx.cost_basis_usd is not None:
         out.append(("cost_basis_usd", Decimal(tx.cost_basis_usd), Decimal(tx.amount or 0)))
-    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
+    if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and btc_leaving:
         out.append(("gross_proceeds_usd", Decimal(tx.gross_proceeds_usd), Decimal(tx.amount or 0)))
-    if tx.fmv_from_price and tx.fmv_usd is not None:
+    if tx.fmv_from_price and tx.fmv_usd is not None and btc_leaving:
         out.append(("fmv_usd", Decimal(tx.fmv_usd), Decimal(tx.amount or 0)))
     if tx.fee_usd is not None and not tx.fee_usd_manual and Decimal(tx.fee_amount or 0) > 0:
         out.append(("fee_usd", Decimal(tx.fee_usd), Decimal(tx.fee_amount)))
@@ -2299,10 +2301,11 @@ def _drop_btc_withdrawal_fields(data: dict, tx_type: str, from_acct: Account | N
     bitcoin purpose: only bitcoin leaving is spent, given, donated or lost
     (#449). One sent all the same (left from the form's bitcoin fields after
     the account changed, or by the AI connector or an older file) is
-    dropped, not refused, as a dollar deposit's basis is: kept, the tax
-    report listed it as a gift of bitcoin and the dashboard counted it as
-    spent. Other text stays: a dollar withdrawal's purpose may be a label
-    ("Rent"). Run after _set_canonical_spellings, so " gift " is Gift.
+    dropped, not refused, as an edit drops a dollar deposit's basis
+    (_revalue_income_deposit): kept, the tax report would list it as a gift
+    of bitcoin and the dashboard count it as spent. Other text stays: a
+    dollar withdrawal's purpose may be a label ("Rent"). Run after
+    _set_canonical_spellings, so " gift " is Gift.
     """
     if tx_type == "Withdrawal" and from_acct is not None and from_acct.currency != "BTC":
         data.update(dict.fromkeys(_BTC_WITHDRAWAL_VALUES))

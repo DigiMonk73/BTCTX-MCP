@@ -43,7 +43,7 @@ from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, 
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import (
-    _parse_date, _parse_decimal, _validate_row, number_limits, number_text,
+    _parse_date, _parse_decimal, _validate_row, dollar_withdrawal_warning, number_limits, number_text,
 )
 from backend.unexpected_errors import log_unexpected
 from backend.services.river_import import (
@@ -188,6 +188,8 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             fmv = _parse_decimal(number_text(row.fmv_usd), USD_PLACES)
             if fmv is None:
                 error_msgs.append(f"fmv_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
+            elif tx_data["type"] == "Withdrawal" and tx_data["from_account_id"] not in BTC_ACCOUNTS:
+                warnings.append(dollar_withdrawal_warning(i, "fmv_usd"))  # the save drops it (#449)
             else:
                 tx_data["fmv_usd"] = fmv
 

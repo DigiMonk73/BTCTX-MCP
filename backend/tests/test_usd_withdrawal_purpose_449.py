@@ -14,11 +14,13 @@ rows saved before the fix are left out too.
 
 import csv
 import io
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 
+from backend.services import hourly_prices
 from backend.services.reports.reporting_core import generate_report_data
 
 BANK, WALLET, EXCHANGE_USD, EXTERNAL = 1, 2, 3, 99
@@ -45,16 +47,19 @@ def ledger(auth_client, test_engine):
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
 
 
-def _insert_old_row(engine, tx_id, account, purpose, *, fmv=None, proceeds=None):
+def _insert_old_row(engine, tx_id, account, purpose, *, fmv=None, proceeds=None, priced=False):
     """A dollar withdrawal as versions up to 1.2.8 saved it from the form: a
-    purpose (and its value) left from the bitcoin fields the form hid."""
+    purpose (and its value) left from the bitcoin fields the form hid.
+    priced: its proceeds marked as from the day's price, as 1.2.8 priced a
+    priced Spent edited into a dollar withdrawal (BTC price x the dollars)."""
     with engine.begin() as con:
         con.execute(text(
             "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
-            " fee_currency, purpose, fmv_usd, proceeds_usd, gross_proceeds_usd)"
+            " fee_currency, purpose, fmv_usd, proceeds_usd, gross_proceeds_usd, proceeds_from_price, price_moment)"
             " VALUES (:id, 'Withdrawal', '2026-03-01T12:00:00Z', :account, 99, '100', '0', 'USD', :purpose,"
-            " :fmv, :proceeds, :proceeds)"),
-            dict(id=tx_id, account=account, purpose=purpose, fmv=fmv, proceeds=proceeds))
+            " :fmv, :proceeds, :proceeds, :priced, :moment)"),
+            dict(id=tx_id, account=account, purpose=purpose, fmv=fmv, proceeds=proceeds, priced=priced,
+                 moment="day" if priced else None))
 
 
 def _stored(engine, tx_id):
@@ -107,6 +112,7 @@ def old_rows(auth_client, test_engine, ledger):
     _insert_old_row(test_engine, 903, BANK, "Lost")
     _insert_old_row(test_engine, 904, BANK, "Spent", proceeds="500")
     _insert_old_row(test_engine, 905, EXCHANGE_USD, "Spent", proceeds="0")
+    _insert_old_row(test_engine, 907, BANK, "Spent", proceeds="5000000", priced=True)
     assert auth_client.post("/api/transactions/recalculate").status_code == 200
     _post(auth_client, type="Withdrawal", timestamp="2026-04-01T12:00:00Z", from_account_id=WALLET,
           to_account_id=EXTERNAL, amount="0.01", fee_currency="BTC", purpose="Gift", fmv_usd="600")
@@ -125,10 +131,33 @@ def test_the_dashboard_counts_only_the_bitcoin_spend(auth_client, old_rows):
     assert auth_client.get("/api/calculations/gains-and-losses").json()["withdrawals_spent"] == 450
 
 
-def test_ledger_review_lists_none_of_the_dollar_withdrawals(auth_client, old_rows):
+OLD_IDS = {901, 902, 903, 904, 905, 907}
+
+
+@pytest.fixture
+def hour_price(monkeypatch):
+    """Every hour's price $60,000: Ledger Review's check of values priced at the day would price them again."""
+    monkeypatch.setattr(hourly_prices, "hourly_price", lambda db, when, wait=True: (Decimal(60000), "bitstamp"))
+
+
+def test_ledger_review_lists_none_of_the_dollar_withdrawals(auth_client, old_rows, hour_price):
     review = auth_client.get("/api/review").json()
     listed = {item["id"] for check in review["checks"] for item in check["items"]}
-    assert listed.isdisjoint({901, 902, 903, 904, 905}), review["checks"]
+    assert listed.isdisjoint(OLD_IDS), review["checks"]
+
+
+def test_ledger_reviews_apply_prices_no_dollar_withdrawal_again(auth_client, test_engine, old_rows, hour_price):
+    before = _stored(test_engine, 907)
+    auth_client.post("/api/review/hourly-prices", json={"ids": [907]})
+    assert _stored(test_engine, 907) == before
+
+
+def test_no_value_of_a_dollar_withdrawal_is_from_a_price(auth_client, old_rows):
+    """Not in the tax report's table of priced values, nor in what the API and the AI read as priced."""
+    with old_rows() as db:
+        assert generate_report_data(db, 2026)["priced_values"] == []
+    old = next(t for t in auth_client.get("/api/transactions").json() if t["id"] == 907)
+    assert (old["values_from_price"], old["price_used"]) == ([], None)
 
 
 def test_an_edit_of_an_old_row_drops_them(auth_client, test_engine, old_rows):
@@ -163,7 +192,7 @@ def test_the_csv_export_of_an_old_row_still_imports(auth_client, test_engine, ol
     assert r.json()["imported_count"] == len(rows)
     dollars = [t for t in auth_client.get("/api/transactions").json()
                if t["type"] == "Withdrawal" and t["from_account_id"] in DOLLAR_ACCOUNTS]
-    assert len(dollars) == 5
+    assert len(dollars) == len(OLD_IDS)
     assert all({key: t[key] for key in BTC_ONLY} == dict.fromkeys(BTC_ONLY) for t in dollars), dollars
     with old_rows() as db:
         assert [g["amount"] for g in generate_report_data(db, 2026)["gifts_donations_lost"]] == [0.01]
@@ -208,3 +237,26 @@ def test_an_old_spaced_bitcoin_purpose_is_dropped_too(auth_client, test_engine, 
     r = auth_client.put("/api/transactions/906", json={"amount": "90"})
     assert r.status_code == 200, r.text
     assert _stored(test_engine, 906) == (None, None, None, None, False, False)
+
+
+def test_the_import_previews_show_what_the_save_keeps(auth_client, ledger):
+    """The CSV preview and the AI's preview leave a dollar withdrawal's
+    bitcoin purpose and values out, each with a warning; a label stays."""
+    header = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd"
+    rows = ["2026-03-02T12:00:00Z,Withdrawal,100,Bank,External,,,0,USD,,Gift,,,500",
+            "2026-03-03T12:00:00Z,Withdrawal,100,Bank,External,,,0,USD,,Rent,,,500",
+            "2026-03-04T12:00:00Z,Withdrawal,100,Exchange USD,External,,500,0,USD,,Spent,,,"]
+    files = {"file": ("rows.csv", "\n".join([header, *rows]).encode(), "text/csv")}
+    preview = auth_client.post("/api/import/preview", files=files).json()
+    assert preview["can_import"] and preview["errors"] == [], preview
+    shown = [(t["purpose"], t["proceeds_usd"]) for t in preview["transactions"]]
+    assert shown == [(None, None), ("Rent", None), (None, None)]
+    assert sorted((w["row_number"], w["column"]) for w in preview["warnings"]) == [
+        (2, "fmv_usd"), (2, "purpose"), (3, "fmv_usd"), (4, "proceeds_usd"), (4, "purpose")]
+
+    ai = auth_client.post("/api/import/entries/preview", json={"rows": [
+        dict(AI_ROW, purpose="Gift", fmv_usd="500", proceeds_usd="500")]}).json()
+    [result] = ai["results"]
+    assert result["status"] == "ready", result
+    assert not {"purpose", "fmv_usd", "proceeds_usd"} & set(result["normalized"]), result
+    assert any("purpose is ignored" in w for w in result["warnings"]), result
