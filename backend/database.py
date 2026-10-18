@@ -259,22 +259,35 @@ def use_rollback_journal(bind) -> None:
     databases in: in it, SQLite refuses a save that waited while a restore
     replaced the file (services/backup._swap), where the log would take the
     save into the file replaced. It needs the database to itself, as at the
-    start; if something else has it open, it stays as it is until the next
-    (a restore tries again, and stops while it stays so).
+    start; if something else has it open, it stays as it is for now (a
+    restore tries again, and stops while it stays so). The file's header
+    says which mode it's in, read without waiting for any lock.
     """
     path = getattr(getattr(bind, "url", None), "database", None)
     if not isinstance(bind, Engine) or bind.dialect.name != "sqlite" or not path or path == ":memory:":
         return
+    if not _in_write_ahead_log_mode(path):
+        return
     bind.dispose()  # its own idle connections would keep the log open
     try:
         with bind.connect() as conn:
-            if conn.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal":
-                mode = conn.exec_driver_sql("PRAGMA journal_mode = DELETE").scalar()
-                logger.info("The database's journal mode is now %s (it was wal).", mode)
+            mode = conn.exec_driver_sql("PRAGMA journal_mode = DELETE").scalar()
+        logger.info("The database's journal mode is now %s (it was wal).", mode)
     except OperationalError as e:
         if not is_busy(e):  # a database that can't be opened stops the start, as the migrations did
             raise
-        logger.warning("The database stays in write-ahead-log mode until the next start: something else has it open.")
+        logger.warning("The database stays in write-ahead-log mode for now: something else has it open.")
+
+
+def _in_write_ahead_log_mode(path: str) -> bool:
+    """Whether a database file's header says write-ahead-log mode (its
+    format version bytes, 18 and 19, are 2 for it, 1 for the rollback
+    journal). A file that can't be read: no, and the migrations say why."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(20)[18:20] == b"\x02\x02"
+    except OSError:
+        return False
 
 
 def _make_owner_only(bind) -> None:

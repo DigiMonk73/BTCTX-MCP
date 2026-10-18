@@ -191,8 +191,8 @@ def test_the_restore_switches_a_live_database_out_of_write_ahead_log_mode(live, 
 
 def test_a_live_database_kept_in_write_ahead_log_mode_stops_the_restore(live, tmp_path, monkeypatch):  # noqa: F811
     """Something else has it open, so it can't be switched: the restore
-    stops before its swap, the database as it was, and a save meanwhile is
-    kept. Once nothing else has it open, the restore goes through."""
+    stops before it copies or replaces anything, the database as it was.
+    Once nothing else has it open, the restore goes through."""
     with live.engine.connect() as conn:
         conn.exec_driver_sql("PRAGMA journal_mode = WAL")
     changer = _browser()
@@ -204,7 +204,7 @@ def test_a_live_database_kept_in_write_ahead_log_mode_stops_the_restore(live, tm
             r = _restore(live.client, blob)
 
         assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.OLD_JOURNAL
-        assert "r" not in answer or answer["r"].status_code != 200 or _logs_in(TestClient(app), NEW_LOGIN)
+        assert "thread" not in answer  # stopped before its copy and swap: no save waited at them
         _assert_nothing_changed(live, before, in_memory)
         assert _journal_mode(live.path) == "wal"
     assert _restore(live.client, blob).status_code == 200
@@ -272,7 +272,7 @@ def test_a_database_another_connection_holds_open_starts_all_the_same(tmp_path, 
             init_db(engine)
         finally:
             engine.dispose()
-    assert "stays in write-ahead-log mode until the next start" in caplog.text
+    assert "stays in write-ahead-log mode for now: something else has it open" in caplog.text
     assert _journal_mode(path) == "wal"
 
 

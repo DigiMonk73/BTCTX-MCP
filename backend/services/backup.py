@@ -77,7 +77,7 @@ NEWER = ("This backup can't be restored: it was made by a newer version of Bitco
 BUSY = "Another restore is running: wait for it to finish, then try again."
 SAVING = ("BitcoinTX was busy saving something else, so the restore stopped. Your database is unchanged: "
           "try again in a moment.")
-OLD_JOURNAL = ("BitcoinTX's database is still in the mode an older version's restore left it in, and something "
+OLD_JOURNAL = ("BitcoinTX's database is still set up the way an older version's restore left it, and something "
                "else has it open, so the restore stopped. Your database is unchanged: restart BitcoinTX, then "
                "restore again.")
 NOT_WRITTEN = ("This backup couldn't be restored: BitcoinTX couldn't write to its data folder. "
