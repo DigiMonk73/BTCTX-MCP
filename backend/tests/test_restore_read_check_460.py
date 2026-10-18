@@ -51,16 +51,24 @@ def test_a_value_the_screens_cant_show_is_refused(live, tmp_path, sql):  # noqa:
 
 
 PRICE = "INSERT OR REPLACE INTO btc_price_daily (day, usd, source) VALUES ('{day}', {usd}, 'bitstamp')"
+SALE = ("INSERT INTO transactions (type, timestamp, created_at, updated_at, from_account_id, to_account_id, amount, "
+        "proceeds_usd, gross_proceeds_usd, cost_basis_usd, realized_gain_usd) VALUES ('Sell', '2024-06-01 12:00:00', "
+        "'2024-06-01 12:00:00', '2024-06-01 12:00:00', 4, 3, 1, 1000, 1000, {basis}, -{basis})")
 
 
 @pytest.mark.parametrize("table, sql", [
     ("transactions", "UPDATE transactions SET amount = 9e999"),  # stored as infinity
     ("transactions", "UPDATE transactions SET cost_basis_usd = -1e300"),
-    ("transactions", "UPDATE transactions SET fee_usd = 1e22"),  # 23 digits before the point
+    ("transactions", "UPDATE transactions SET fee_usd = 1e17"),  # 18 digits before the point
+    # A buy of a satoshi: the dashboard's average cost (its basis over its bitcoin)
+    # failed once a recalculation had made its lot (#483's re-check)
+    ("transactions", "UPDATE transactions SET amount = 0.00000001, cost_basis_usd = 9e21"),
+    ("transactions", SALE.format(basis="1e22")),  # a sale's totals: 23 digits
     ("transactions", "UPDATE transactions SET fee_amount = 1e10"),  # 11: past the save's BTC rule
     # The lots, disposals, ledger lines and prices: the reports read them too
     ("bitcoin_lots", "UPDATE bitcoin_lots SET cost_basis_usd = 1e300"),
     ("bitcoin_lots", "UPDATE bitcoin_lots SET remaining_btc = 1e10"),
+    ("bitcoin_lots", "UPDATE bitcoin_lots SET remaining_btc = 0.00000001, cost_basis_usd = 1e17"),
     ("lot_disposals", "INSERT INTO lot_disposals (lot_id, transaction_id, disposed_btc, realized_gain_usd, "
                       "disposal_basis_usd, proceeds_usd_for_that_portion, holding_period) "
                       "SELECT id, created_txn_id, 0.1, 1e300, 0, 0, 'SHORT' FROM bitcoin_lots"),
@@ -102,9 +110,11 @@ def test_a_date_outside_the_reports_years_is_refused(live, tmp_path, table, sql)
     # basis, which its ledger line also holds
     "UPDATE transactions SET amount = 9999999999.99999, cost_basis_usd = 9999999999999999.99",
     "UPDATE ledger_entries SET amount = -9999999999999999.99 WHERE account_id = 1",
-    # A sale's basis over many lots at that limit, past 16 digits (#483's review: 120
-    # lots gave 1.08e18); 22 digits, the most
-    "UPDATE transactions SET cost_basis_usd = 9e21, realized_gain_usd = -9e21",
+    # A buy of a satoshi at 17 digits, the most a dollar figure may have
+    "UPDATE transactions SET amount = 0.00000001, cost_basis_usd = 99999999999999984",
+    # A sale's basis over many lots at a save's limit, past 16 digits (#483's review:
+    # 120 lots gave 1.08e18); 22 digits, the most a sale's totals may have
+    SALE.format(basis="9e21"),
     # A buy at the BTC rule's limit, held when 2024 begins and ends, times a price
     # just below its own (the tax report rebuilds the lots from the buy; at $9.9e17
     # it failed, InvalidOperation)
@@ -112,12 +122,15 @@ def test_a_date_outside_the_reports_years_is_refused(live, tmp_path, table, sql)
      PRICE.format(day="2024-01-01", usd="9.99e14"), PRICE.format(day="2025-01-01", usd="9.99e14")),
 ])
 def test_values_bitcointx_reads_still_restore_and_every_page_answers(live, tmp_path, sql):  # noqa: F811
+    """And again once Recalculate Ledger has rebuilt the lots from the transactions."""
     blob, _ = _backup(tmp_path, *((sql,) if isinstance(sql, str) else sql))
 
     r = _restore(live.client, blob)
 
     assert r.status_code == 200, r.text
     assert _pages_answer(live.client) == dict.fromkeys(PAGES, 200)
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+    assert {page: live.client.get(page).status_code for page in PAGES} == dict.fromkeys(PAGES, 200)
 
 
 @pytest.mark.parametrize("sql, said", [

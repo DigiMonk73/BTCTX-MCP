@@ -463,23 +463,28 @@ def _read_as_the_app_does(new) -> None:
 
 
 # How big a restored number may be, by what it holds (#460): no ledger with
-# real figures comes near these, and past them a page fails.
+# real figures comes near these, and past them a page can fail.
 # - A transaction's amount and fee (whatever their account), and a lot's or
 #   a disposal's bitcoin, a part of one: below 10^10, the rule every save
-#   has kept since 0.9.2 (schemas.transaction.BTC_DIGITS).
+#   has checked since 0.9.2 (schemas.transaction.BTC_DIGITS).
 # - A stored price: below $10^15 a bitcoin, far above any a source has
 #   given, so a lot's bitcoin times its price stays below 10^25, which the
 #   reports round to cents within Decimal's 28 digits.
-# - Any other figure (a dollar value, a ledger line): below 10^22. A save
-#   takes 16 digits at most, a sale's basis adds up its lots' (a sale of a
-#   million lots, each at that limit, would pass it), and the reports round
-#   it to cents within those 28 digits.
+# - Any other figure (a dollar value, a lot's cost, a ledger line): below
+#   10^17. A save takes 16 digits at most (a lot's cost adds its fee), and
+#   the dashboard's average cost divides a lot's cost by as little as a
+#   satoshi (10^-8), then rounds it to cents within those 28 digits.
+# - But a Sell's or Withdrawal's basis and gain, which add up its lots'
+#   (compute_sell_summary_from_disposals): below 10^22 (a sale of a
+#   million lots, each at a save's limit, would pass it).
 NUMBER_LIMITS = {
     **dict.fromkeys([("transactions", "amount"), ("transactions", "fee_amount"), ("bitcoin_lots", "total_btc"),
                      ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc")], Decimal(10) ** 10),
     **dict.fromkeys([("btc_price_daily", "usd"), ("btc_price_hourly", "usd")], Decimal(10) ** 15),
 }
-FIGURES_BELOW = Decimal(10) ** 22
+FIGURES_BELOW = Decimal(10) ** 17
+SALES, SALE_TOTALS = ("Sell", "Withdrawal"), ("cost_basis_usd", "realized_gain_usd")
+SALE_TOTALS_BELOW = Decimal(10) ** 22
 # The years a restored date or moment may fall in (#460): a timezone moves
 # a moment by less than a day, so its local date stays within Python's
 # years (1 to 9999), where the reports work. Every save since 0.9.2 keeps
@@ -491,6 +496,7 @@ class _Checks(NamedTuple):
     """What _require_usable checks in one table's rows."""
     table: str
     numbers: dict[str, Decimal]  # column -> the limit its values stay below
+    sale_numbers: dict[str, Decimal] | None  # a sale's (transactions only): its totals' limit raised
     dates: list[str]  # columns holding a date or a moment
     schema: type | None  # what the screens read its rows through (TransactionRead), if anything
 
@@ -509,7 +515,10 @@ def _checks(mapper) -> _Checks:
             numbers[attr.key] = NUMBER_LIMITS.get((table, attr.key), FIGURES_BELOW)
         elif isinstance(kind, (Date, DateTime, PlainDate, UTCDateTime)):
             dates.append(attr.key)
-    return _Checks(table, numbers, dates, TransactionRead if mapper.class_ is Transaction else None)
+    if mapper.class_ is not Transaction:
+        return _Checks(table, numbers, None, dates, None)
+    return _Checks(table, numbers, {**numbers, **dict.fromkeys(SALE_TOTALS, SALE_TOTALS_BELOW)}, dates,
+                   TransactionRead)
 
 
 class _Unusable(ValueError):
@@ -520,13 +529,14 @@ class _Unusable(ValueError):
 def _require_usable(row, checks: _Checks) -> None:
     """
     A row as the screens and reports use it, stricter than the models
-    (#460): its numbers finite and within NUMBER_LIMITS, its dates within
+    (#460): its numbers finite and within their limits, its dates within
     USABLE_YEARS, and a transaction read through the API's TransactionRead
     as the list reads it (its type and broker reporting one of BitcoinTX's).
     Sources and purposes aren't checked: the app reads any (one saved as
     " gift ", #342; a withdrawal's of its own counts as Spent, #61).
     """
-    for name, below in checks.numbers.items():
+    numbers = checks.sale_numbers if checks.sale_numbers and row.type in SALES else checks.numbers
+    for name, below in numbers.items():
         value = getattr(row, name)
         if value is not None and not abs(value) < below:  # an infinity fails it too
             raise _Unusable(f"{checks.table}.{name} is bigger than BitcoinTX's figures")

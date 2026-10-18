@@ -804,26 +804,27 @@ All notable changes to BitcoinTX are documented in this file.
   another within those years, still goes ahead; the copy made first keeps
   it.) **Affected:** no release: the dialog is new in this version (#256).
   Nothing to do.
-- **A restore refuses a backup with a value the app can't show** (#460).
-  A restore checked each row it brought back by reading it through the
+- **A restore refuses a backup with a value the app can't show** (#460). A
+  restore checked each row it brought back by reading it through the
   database's models, but the screens and reports read transactions more
-  strictly. A backup holding a type or a broker reporting that isn't one of
-  BitcoinTX's, a number far too big (such as 1e300) or a date in year 1
+  strictly. A backup holding a type or a broker reporting that isn't one
+  of BitcoinTX's, a number far too big (such as 1e300) or a date in year 1
   was restored with "✅ Database successfully restored", and then the
   transaction list or the Complete Tax Report failed with an error. The
   restore now also reads each transaction as the list does, and checks
   every number and date in the ledger's tables: a bitcoin amount (and any
   transaction's amount or fee) below 10 billion, the limit every save has
-  kept since 0.9.2; a stored price below $10^15 a bitcoin; any other figure
-  below 10^22; dates from year 2 to 9998. Otherwise it says the backup's
-  rows "don't fit BitcoinTX's database" and nothing changes. No ledger with
-  real figures comes near these limits (a sale would have to add up a
-  million lots of $10 quadrillion each): such values come from a backup
-  made or edited by hand, and every backup of a real ledger still
-  restores, old ones included. **Affected:** 1.2.8 (earlier versions took a backup's
-  database as it was, with the same result). Nothing to do: the copy made
-  before the restore (in the data folder's `backups/`) and restoring a
-  good backup always put it right.
+  checked since 0.9.2; a stored price below $10^15 a bitcoin; any other
+  dollar figure below 10^17, but a sale's total basis and gain, which add
+  up its lots, below 10^22; dates from year 2 to 9998. Otherwise it says
+  the backup's rows "don't fit BitcoinTX's database" and nothing changes.
+  No ledger with real figures comes near these limits (a sale would have
+  to add up a million lots of $10 quadrillion each): such values come from
+  a backup made or edited by hand, and every backup of a real ledger still
+  restores, old ones included. **Affected:** 1.2.8 (earlier versions took
+  a backup's database as it was, with the same result). Nothing to do: the
+  copy made before the restore (in the data folder's `backups/`) and
+  restoring a good backup always put it right.
 - **The newest database copies are the ones kept** (#308). BitcoinTX keeps
   the newest few copies of each kind in its data folder's `backups/` (before
   an update or a restore, before Delete All, before Ledger Review's hourly
