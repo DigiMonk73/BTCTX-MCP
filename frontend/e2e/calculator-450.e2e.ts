@@ -64,7 +64,7 @@ test("calculator: its longest numbers fit the display, in the narrow sidebar too
     ["0-0.00000001/3=", "-0.00000000333333"],
     ["123456789012345.", "123456789012345."],
     ["999999999999999", "999999999999999"],
-    ["0-99999999999999=", "-99999999999999"],
+    ["0-9999999999999=", "-9999999999999"],
   ];
   // The wide sidebar, the narrow one (1024 px or less), and the Mac app's
   // smallest window

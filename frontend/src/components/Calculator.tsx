@@ -4,10 +4,11 @@ import { CLEARED, isOperator, pressKey } from '../utils/calculator';
 
 const KEYS = ['7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0', '.', '=', '+'];
 
-// The characters a narrow sidebar's display holds; a longer number is drawn
-// smaller there (calculator.css), so its sign and first digits never fall
-// off its left edge.
-const FITS_NARROW = 15;
+// The characters a narrow sidebar's display holds with room to spare (15
+// fill it to the pixel); a longer number is drawn smaller there
+// (calculator.css), so its sign and first digits never fall off its left
+// edge.
+const FITS_NARROW = 14;
 
 const Calculator: React.FC = () => {
   const [state, press] = useReducer(pressKey, CLEARED);
