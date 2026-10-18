@@ -176,6 +176,9 @@ from the Transaction row alone.
   (never from the previous net, which would subtract the fee again). A
   Sell's gross of $0 is a $0 sale; only a blank one (a row saved before
   0.8.0) is worked out from its stored net, the USD fee added back (#471).
+  A withdrawal with a blank gross made a Sell by an edit that sends no
+  proceeds takes the gross a recalculation recovers for it
+  (`_send_gross_of_an_old_withdrawal_sold`, #520): its proceeds aren't a net.
   Unpriced "Spent" withdrawals get FMV proceeds at the hour's price, marked
   (`proceeds_from_price`) like an income value: an edit of the amount or
   hour (or a blank sent) prices them again; a change of purpose or type,
@@ -220,7 +223,10 @@ from the Transaction row alone.
   dashboard, Ledger Review and its hour check, `priced_values`, the AI's
   duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
   older save left there counts for nothing. The Transactions list and the
-  Transaction History report show what's stored.
+  Transaction History report show what's stored. It has no cost basis,
+  gain or holding period either (no lots): every save and recalculation
+  clears any it holds, such as a bitcoin withdrawal's an edit made it from
+  (`compute_sell_summary_from_disposals`, #487).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
   basis = market value at receipt, which is also the reported income. A blank
   or 0 basis is filled from the hour's price on create/update
