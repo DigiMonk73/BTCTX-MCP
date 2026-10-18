@@ -156,12 +156,21 @@ def test_what_a_dollar_withdrawal_held_is_never_carried_into_a_bitcoin_spend(aut
     assert_priced(put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Spent"))
 
 
-def test_nor_through_a_gift_first(auth_client, test_engine):
-    """Moved to the Wallet as a gift, it holds nothing; made a Spent later, it's priced (#519's review)."""
+@pytest.mark.parametrize("sent", [{}, {"proceeds_usd": "300"}])
+def test_nor_through_a_gift_first(auth_client, test_engine, sent):
+    """Moved to the Wallet as a gift, proceeds sent or not, it holds nothing; made a Spent later, it's
+    priced (#519's review and re-check)."""
     dollars = dollar_withdrawal_holding(auth_client, test_engine, "250.00")
-    made_gift = put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Gift")
+    made_gift = put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Gift", **sent)
     assert made_gift["gross_proceeds_usd"] is None
     assert_priced(put(auth_client, made_gift, purpose="Spent"))
+
+
+def test_a_dollar_withdrawal_made_a_spend_keeps_the_proceeds_sent(auth_client, test_engine):
+    dollars = dollar_withdrawal_holding(auth_client, test_engine, "250.00")
+    spent = put(auth_client, dollars, from_account_id=WALLET, fee_currency="BTC", purpose="Spent",
+                proceeds_usd="3500")
+    assert spent["gross_proceeds_usd"] == "3500.00" and spent["proceeds_from_price"] is False
 
 
 def test_a_recalculation_never_prices_it_again(auth_client, monkeypatch):

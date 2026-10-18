@@ -532,28 +532,27 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
 
 def _drop_proceeds_it_never_had(tx: Transaction, tx_data: dict) -> None:
     """
-    A withdrawal with no proceeds of its own, changed by an edit that sends
-    none, carries none over: a gift's, donation's or lost coins' $0 into a
-    Spent or a Sell it becomes (forms before 1.2.9 saved one with every
-    gift, which nobody typed, #457), and nothing a dollar withdrawal holds
-    (it holds no value, #449) into a bitcoin one or a Sell, whatever its
-    purpose, so a Spent made of it later can't take it up either. A Spent's
-    are then priced as a new Spent's left blank are
-    (_withdrawal_gross_proceeds), and a Sell needs them sent. Above $0, a
-    gift's are a former spend's, kept as typed (as a sale's value above $0
-    made a gift is, #255).
+    A withdrawal with no proceeds of its own carries none over: a gift's,
+    donation's or lost coins' $0 into a Spent or a Sell it becomes by an edit
+    that sends none (forms before 1.2.9 saved one with every gift, which
+    nobody typed, #457), and nothing a dollar withdrawal holds (it holds no
+    value, #449) into a bitcoin one or a Sell, whatever its purpose, so a
+    Spent made of it later can't take it up either; only a Spent or a Sell
+    it becomes keeps proceeds the edit sends. A Spent's left blank are then
+    priced as a new Spent's are (_withdrawal_gross_proceeds), and a Sell
+    needs them sent. Above $0, a gift's are a former spend's, kept as typed
+    (as a sale's value above $0 made a gift is, #255).
     """
-    if tx.type != "Withdrawal" or counts_as_spent(tx) or "proceeds_usd" in tx_data \
-            or "gross_proceeds_usd" in tx_data:
+    if tx.type != "Withdrawal" or counts_as_spent(tx):
         return
     edited = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "purpose", "from_account_id")}
     edited["type"] = getattr(edited["type"], "value", edited["type"])
-    to_a_sell = edited["type"] == "Sell"
+    sold = edited["type"] == "Sell" or (_is_spent(edited) and edited["from_account_id"] in BTC_ACCOUNTS)
+    sent = "proceeds_usd" in tx_data or "gross_proceeds_usd" in tx_data
     if tx.from_account_id in BTC_ACCOUNTS:
-        spent = _is_spent(edited) and edited["from_account_id"] in BTC_ACCOUNTS
-        drop = (to_a_sell or spent) and Decimal(tx.gross_proceeds_usd or 0) <= 0
+        drop = sold and not sent and Decimal(tx.gross_proceeds_usd or 0) <= 0
     else:
-        drop = to_a_sell or edited["from_account_id"] in BTC_ACCOUNTS
+        drop = (sold and not sent) or (not sold and edited["from_account_id"] in BTC_ACCOUNTS)
     if drop:
         tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = None
 
