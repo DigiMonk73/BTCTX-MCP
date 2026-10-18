@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -424,7 +425,8 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     if amount is None:
         raise _Rejected(_error(
             row_number, "amount",
-            f"Invalid amount '{amount_str}'. Must be a positive number with up to {number_limits(BTC_PLACES)}.",
+            f"Invalid amount '{amount_str}'. Must be a positive number with up to {number_limits(BTC_PLACES)}."
+            + decimal_comma_note(amount_str),
         ))
     if amount <= 0:
         raise _Rejected(_error(row_number, "amount", "Amount must be positive."))
@@ -675,14 +677,15 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     """
     The number, or None when it's empty or breaks the rule of a column with
     `max_decimals` places: not a finite number, more decimal places, or more
-    digits before the point, as given or as stored. Places are counted on
-    the number, so "1E-9" doesn't pass as 0 decimals.
+    digits before the point, as given or as stored, or a comma that isn't a
+    thousands separator, or an underscore. Places are counted on the number,
+    so "1E-9" doesn't pass as 0 decimals.
     """
-    if not value:
+    if not value or not _separators_readable(value):
         return None
     rule, _digits = _NUMBER_RULES[max_decimals]
     try:
-        number = rule(Decimal(value.replace(",", "")))  # without thousands separators
+        number = rule(Decimal(value.replace(",", "")))
     except (InvalidOperation, ValueError):
         return None
     # A zero with an exponent past the column's places ("0E-999999999")
@@ -690,6 +693,31 @@ def _parse_decimal(value: str, max_decimals: int) -> Decimal | None:
     if number == 0 and not -max_decimals <= number.as_tuple().exponent <= 0:
         return Decimal(0)
     return number
+
+
+# A comma separates thousands only between groups of three digits before the
+# point, the first group without a leading zero ("1,000", "12,345.67").
+# Dropped anywhere else, a decimal comma would make "0,5" BTC 5, "0,500" 500
+# and "21.000,00" dollars 21 (#452). An underscore, which Decimal drops too
+# ("0_5" is 5), is never a separator.
+_THOUSANDS = re.compile(r"[+-]?[1-9][0-9]{0,2}(,[0-9]{3})+(\.[0-9]*)?")
+# Only digits, points and commas: when such a number's commas aren't
+# thousands separators, they're why it's refused
+_DIGITS_AND_SEPARATORS = re.compile(r"[+-]?[0-9.,]+")
+_DECIMAL_COMMA = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+
+
+def _separators_readable(value: str) -> bool:
+    """True when the number has no underscore, and no comma but thousands separators."""
+    return "_" not in value and ("," not in value or _THOUSANDS.fullmatch(value) is not None)
+
+
+def decimal_comma_note(value: str) -> str:
+    """What a refusal adds when a comma is why: _DECIMAL_COMMA, after a
+    space. Not for "$1,000.00": its commas are fine, its "$" isn't."""
+    if "," in value and not _THOUSANDS.fullmatch(value) and _DIGITS_AND_SEPARATORS.fullmatch(value):
+        return f" {_DECIMAL_COMMA}"
+    return ""
 
 
 def number_limits(max_decimals: int) -> str:
@@ -722,7 +750,8 @@ def _optional_decimal(
     value = _parse_decimal(raw, max_decimals)
     if value is None:
         errors.append(_error(
-            row_number, column, f"Invalid {column} '{raw}': a number with at most {number_limits(max_decimals)}.",
+            row_number, column,
+            f"Invalid {column} '{raw}': a number with at most {number_limits(max_decimals)}." + decimal_comma_note(raw),
         ))
     elif value < 0:
         errors.append(_error(row_number, column, f"{column} can't be negative."))
