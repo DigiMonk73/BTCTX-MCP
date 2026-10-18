@@ -1503,6 +1503,15 @@ All notable changes to BitcoinTX are documented in this file.
   - **The AI preview reads the price history files before its dry run**,
     so the time it holds the database's lock, while your own saves wait,
     no longer includes reading them to say which price filled each value.
+- **Login tries are counted as they arrive**: at the login, Create account
+  and a password change, each try counts as a failed one until it's right.
+  With it, the Docker image's server, which StartOS runs too, takes a
+  client's address only from its connection, never from an
+  `X-Forwarded-For` header, as the Mac app's does (behind a proxy of your
+  own, the device cookie keeps your browser apart from others' tries); the
+  reports' PDF builder opens no file; the Mac app's Save dialog answers
+  only the app's own pages; and a request whose length isn't written in
+  plain digits is measured as it arrives.
 - **The AI connector's Recalculate Ledger, and its import of an entry dated
   before your latest entry, come after a copy of the database** (#336, #414,
   the owner's choices). Before the AI key's first edit or deletion in an

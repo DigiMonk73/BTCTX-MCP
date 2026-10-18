@@ -77,7 +77,9 @@ moves these breaks or silently weakens a test):
   price: `conftest.stub_daily_prices`), the routers' `parse_csv_file`,
   `execute_import` and `annotate_duplicates`, `river_import._nearby` (the
   whole ledger instead, the duplicate check's reference),
-  `login_throttle._now` (the throttle's clock),
+  `login_throttle._now` (the throttle's clock), the login route's
+  `get_user_by_username` (in `main`), `User.verify_password` and
+  `first_run.check_code` (tries held there, in flight together),
   `secret_key.app_secret_key` (another install's key, for the device
   cookie) and `migrate._second` (the second a copy is named for). Callers keep calling the module names
   (`hourly_prices.price_at(...)`, never a name imported from it), and
@@ -85,7 +87,8 @@ moves these breaks or silently weakens a test):
   server).
 - **Private names tests import**: `csv_import._validate_row`, `csv_import._cell`,
   `form_8949._determine_box`, `routers.backup._copy_at_most`,
-  `transaction.holding_period`, `login_throttle._clients` (its bound).
+  `transaction.holding_period`, `login_throttle._clients` (its bound, and a
+  client's count) and `login_throttle._recent` (the count across clients).
 - **Text `pre_commit_tests.py` looks for**: in `transaction.py`
   (`def recalculate_all_transactions`, `order_by`, `timestamp`,
   `tx.proceeds_usd`, `backdated`), the CSV column names as literals in

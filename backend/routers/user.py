@@ -69,17 +69,16 @@ def _authorize_change(user: User, request: Request, db: Session, current_passwor
     May the login of `user` be changed? With its current password, or, while
     it still has the default login and default_login_ok, by knowing that;
     while it has the default login, also with the setup code (first_run.py).
-    Failures count towards the login throttle (login_throttle.py).
+    Each try counts towards the login throttle until it's right
+    (login_throttle.py).
     """
     login_throttle.check(request, db)
     is_default = first_run.is_default_account(user)
     if is_default and not first_run.check_code(setup_code):
-        login_throttle.failed(request)
         raise HTTPException(status_code=403, detail=first_run.code_refused(setup_code))
     if not (is_default and default_login_ok) and (
         current_password is None or not user.verify_password(current_password)
     ):
-        login_throttle.failed(request)
         raise HTTPException(status_code=403, detail=WRONG_PASSWORD)
     login_throttle.succeeded(request)
 
