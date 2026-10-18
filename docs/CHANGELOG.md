@@ -1075,6 +1075,40 @@ All notable changes to BitcoinTX are documented in this file.
   in their names too, and a new copy never takes a deleted one's name.
   Copies made seconds apart, as in use, were always right; no figure is
   involved.
+- **A bitcoin withdrawal moved to a dollar account no longer shows a
+  gain** (#487). A withdrawal edited from Wallet or Exchange BTC to Bank or
+  Exchange USD kept the cost basis, gain and holding period it had as a
+  bitcoin withdrawal, even after Recalculate Ledger. The Transactions list
+  showed a gain line under it, the Transaction History report (PDF and
+  CSV) showed the gain and called the row a "CapitalGainsTransaction", and
+  the AI connector's list of transactions returned it. A dollar withdrawal
+  disposes of no bitcoin, so it now has none, from the edit on. Form 8949,
+  Schedule D, the Complete Tax Report's gains and the dashboard were always
+  right: they count the bitcoin that left, which the edit gave back.
+  **Affected:** every release from 0.8.0 to 1.2.8, the Transaction History
+  of such a withdrawal's tax year. **What to do:** nothing for the tax
+  forms. Ledger Review lists such a row among the figures Recalculate
+  Ledger would change, and Recalculate Ledger clears them.
+- **An old withdrawal made a sale keeps its proceeds before the fee** (tax
+  figures, #520). A withdrawal saved before 0.8.0, when BitcoinTX didn't
+  yet keep proceeds before fees, changed into a Sell with a dollar fee
+  through the API (the AI connector, say: the edit form sends the sale's
+  gross itself), before any recalculation had filled its proceeds in, was
+  saved with proceeds too high by the fee:
+  $700 received, with a $10 fee, came out as $710 gross and $700 net,
+  instead of $700 and $690. The check read the $700 as the sale's gross,
+  but the save read it as an old sale's net and added the fee on top. Now
+  the sale's gross is what the withdrawal received, as a recalculation
+  recovers it and the edit form shows it (#485), and the fee comes off it.
+  **Affected:** every release from 0.8.0 to 1.2.8, only for a ledger from
+  before 0.8.0 with no recalculation since (any edit or deletion, an add
+  dated before the latest transaction, or Recalculate Ledger fills those
+  proceeds in for good), and only for such a withdrawal changed into a Sell
+  with a dollar fee: that sale's proceeds and gain, on Form 8949, Schedule
+  D, the Complete Tax Report and the dashboard, and the Exchange USD
+  balance, by the fee. **What to do:** if you changed such an old
+  withdrawal into a sale, open it: if its Gross Proceeds (USD) is more than
+  the sale brought before the fee, enter what it brought and save.
 - **Edit reads a purpose saved in another case** (#273). A withdrawal an
   older version saved as "spent" (or "gift", "donation", "lost") opened in
   Edit with **Purpose** blank, and **Update transaction** did nothing until
