@@ -471,6 +471,15 @@ All notable changes to BitcoinTX are documented in this file.
   where you file, today's report is the right one; if a return you filed
   differs from it, ask your tax preparer whether to amend it. If it isn't
   where you file, choose the right one there (saving recalculates).
+- **StartOS: the Tor dependency's description names the exception** (#470).
+  Shown under Tor on BitcoinTX's page in the store, before install, it said
+  in all five languages that public price sites "never see your IP address".
+  Since the price history may be downloaded once without Tor (#241, above),
+  that isn't so after a Yes: Bitstamp sees the server's address for those
+  downloads. It now says, in the Use Tor option's own words, that they don't
+  see it "unless you let BitcoinTX download Bitstamp's price history without
+  Tor". No release had the wrong text; a test keeps every package text that
+  says the address is hidden naming the exception.
 - **StartOS: a dismissed Recalculate Ledger task no longer comes back at
   every server restart** (#365). After an update that asks for Recalculate
   Ledger (1.2.8:0 does), StartOS raised the task again each time the server
