@@ -1257,10 +1257,11 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
         return net_usd_in
 
     # No gross recorded (NULL). create_transaction_record always records it,
-    # and an edit can't blank it (_complete_sell_proceeds), so only rows
-    # saved before that reach here, and their stored proceeds_usd is
+    # and an edit of a Sell can't blank it (_check_sell_proceeds), so only
+    # rows saved before that reach here, and their stored proceeds_usd is
     # ALREADY net of the USD fee: keep it as the net and recover the gross
-    # once.
+    # once. (A withdrawal from such a ledger changed into a Sell keeps its
+    # blank gross too, and its proceeds aren't a net: #520.)
     proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
     net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
     if net_usd_in > 0:

@@ -684,10 +684,10 @@ All notable changes to BitcoinTX are documented in this file.
 - **A sale edited down to $0 proceeds is a $0 sale** (tax figures, #471).
   Setting a Sell's Gross Proceeds (USD) to 0 in an edit was saved without
   an error but didn't take: the sale kept its old proceeds and gain, and
-  its gross came back as the old proceeds ($5,000 with a $10 USD fee came
-  back as $4,990). BitcoinTX read a gross of $0 as "none recorded", the
-  case of a sale saved before 0.8.0, and took the proceeds stored with the
-  sale instead. The same sale created at $0 was right: a $0 sale, its whole
+  its gross came back as the old proceeds ($5,000 with a $10 USD fee,
+  edited to $0 and no fee, came back as $4,990). BitcoinTX read a gross of
+  $0 as "none recorded", the case of a sale saved before 0.8.0, and took
+  the proceeds stored with the sale instead. The same sale created at $0 was right: a $0 sale, its whole
   cost a loss. Now a gross of $0 is a $0 sale however it's saved (an edit,
   or a request that also sends `proceeds_usd`); only a sale saved before
   0.8.0, with no gross, is still worked out from its stored proceeds.
