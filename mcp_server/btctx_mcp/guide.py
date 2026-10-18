@@ -139,6 +139,9 @@ Withdrawal: any account -> External
   own small disposal at that value. That fee disposal is taxable for every
   purpose, Gift, Donation and Lost included, even though the withdrawal
   itself isn't.
+  USD withdrawals from Bank / Exchange USD: amount is USD, no purpose
+  needed. Spent, Gift, Donation or Lost, proceeds_usd and fmv_usd sent
+  with one aren't kept: only bitcoin is spent, given or lost.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
   amount = total that LEFT the source, network fee INCLUDED; the destination

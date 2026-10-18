@@ -801,6 +801,33 @@ All notable changes to BitcoinTX are documented in this file.
   version since 1.1.0 (where nothing is asked for prices until a source is
   chosen, nor with Nobody), and every version for a day before any price or
   after today. Nothing to do.
+- **The CSV import refuses a row with more fields than the header**
+  (#453). A comma outside quotes starts a new field, so an amount written
+  `20,000.00` without quotes is two fields, `20` and `000.00`, and so is a
+  note with a comma in it, or a doubled comma. Every column after it moved
+  one place, and the import read the row so, with no error and no
+  warning: a My BTC deposit with a $20,000.00 cost basis was saved with a
+  basis of $20.00, no source and "MyBTC" as its purpose, and its sale
+  later showed about $19,980 too much gain; an income deposit could lose
+  its source and not count as income. Preview and Import now refuse a row
+  left with more fields than the header, naming it: "This row has more
+  fields than the header: a stray comma, or an amount written with a
+  comma (write 1000.00, not 1,000.00)?", as the River import does. A row
+  ending in one comma too many is refused too, since it can't be told
+  from a shifted one: remove the comma. A value in quotes (`"20,000.00"`)
+  is one field and reads as before, and so does a row with fewer fields
+  than the header (its last cells blank). So a shifted row written
+  without its last empty cells still can't be caught: write every column,
+  as the template and the export do. **Affected:** every version with the
+  CSV import, 1.2.8 included, and any tax year with a transaction
+  imported from a file with one comma too many outside quotes in a row (a
+  row whose shift put a value in a column that can't take it was refused,
+  with a confusing error such as "Invalid fee currency '1'"). **What to
+  do:** if a file you imported had one (an amount like `1,000.00`, a
+  doubled comma, or a comma in a note, without quotes), compare its
+  transactions with the file (cost basis, proceeds, fee, source, purpose,
+  notes and the later columns) and edit any that differ: the edit
+  recalculates the ledger.
 - **The CSV import's preview shows dollars as dollars** (#254). Settings →
   Import Transactions (CSV) → Preview wrote "BTC" after every amount, so a
   $50,000 deposit to Bank read "50000.00000000 BTC", and named the
@@ -818,6 +845,32 @@ All notable changes to BitcoinTX are documented in this file.
   what 1.2.8 shipped and was tested on, over 3.11, which GitHub offers for
   the Mac only as a release from April 2024. A build on your own Mac still
   takes the newest it finds, unless you name one.
+- **A dollar withdrawal is never listed as a gift of bitcoin** (tax
+  figures, #449). In the transaction form, a withdrawal's Purpose, FMV and
+  Proceeds show only for a bitcoin account, but a value chosen there stayed
+  in the form when the Account was then changed to Bank or Exchange USD,
+  and was saved with the dollar withdrawal. The Complete Tax Report then
+  listed it under "4. Gifts, donations and lost coins" as bitcoin given
+  away (its dollars shown as BTC, its typed value in the section's total),
+  a leftover Spent with proceeds was counted in the dashboard's spent
+  total, and Ledger Review could list a leftover Lost or $0 Spent. In
+  1.2.8, a Spent whose proceeds came from the price, edited into a dollar
+  withdrawal, was even priced again at the BTC price times its dollar
+  amount: the dashboard counted that as spent, the report's table of
+  values from the price listed it, and Ledger Review offered to price it
+  at the hour. A deposit's Source was kept the same way (shown in the list
+  only). Now the form sends a purpose, value or source only for a bitcoin
+  account; BitcoinTX keeps no Spent, Gift, Donation or Lost and no value on
+  a dollar withdrawal whoever sends one (a label of its own, such as
+  "Rent", stays), and the CSV import's and the AI connector's previews say
+  so; and the report, the dashboard, Ledger Review and the AI connector's
+  duplicate check read them only on bitcoin leaving. Form 8949, Schedule D
+  and the gains were never affected: a dollar withdrawal has no lots.
+  **Affected:** every version (the priced case 1.2.8), for any tax year
+  with a dollar withdrawal saved this way. **What to do:** nothing: such a
+  row is left out of the figures from this version. Its old purpose still
+  shows in the Transactions list, and its purpose and proceeds in the
+  Transaction History report, until you open the withdrawal and save it.
 - **No gain line for a gift, a donation or lost coins** (#257). The
   Transactions list showed one under these withdrawals ("Gain $0.00 ·
   +0.00% · Long-term"), as if they were sales with a holding period. They

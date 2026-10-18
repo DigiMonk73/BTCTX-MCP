@@ -99,6 +99,12 @@ CSV_COLUMNS = [
 
 ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
 
+# A row with more fields than the header (the reader lists the extras under
+# None): every column after a stray comma has moved one place, so an unquoted
+# 20,000.00 would be read as a basis of 20 (#453). River's import says the same.
+TOO_MANY_FIELDS = ("This row has more fields than the header: a stray comma, or an amount "
+                   "written with a comma (write 1000.00, not 1,000.00)?")
+
 
 @dataclass
 class ParseResult:
@@ -209,6 +215,9 @@ def _parse_rows(content: bytes, tz) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
+        if None in row:
+            result.errors.append(_error(row_number, None, TOO_MANY_FIELDS))
+            continue
         names = ((k.lower().strip(), v) for k, v in row.items() if k)
         normalized = {name: _cell(name, v) for name, v in names}
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
@@ -272,7 +281,7 @@ def _file_error(message: str) -> CSVParseError:
     return CSVParseError(row_number=0, column=None, message=message, severity="error")
 
 
-def _error(row_number: int, column: str, message: str) -> CSVParseError:
+def _error(row_number: int, column: str | None, message: str) -> CSVParseError:
     return CSVParseError(row_number=row_number, column=column, message=message, severity="error")
 
 
@@ -330,6 +339,7 @@ def _validate_row(
     warnings: list[CSVParseError] = []
     try:
         checked = _check_row(row, row_number, tz, warnings)
+        _leave_out_btc_withdrawal_fields(checked, warnings)
         errors, type_warnings = _validate_type_specific(checked)
         warnings.extend(type_warnings)
         if errors:
@@ -358,6 +368,35 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     acquired_at = _optional_acquired_at(row, row_number, tz)
     return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
                 acquired_at=acquired_at)
+
+
+# What the save drops from a withdrawal from Bank or Exchange USD (#449),
+# with why each is ignored
+_DOLLAR_WITHDRAWAL_IGNORES = {
+    "purpose": "Spent, Gift, Donation and Lost are for bitcoin, and this withdrawal is in dollars",
+    "proceeds_usd": "it is for Sells and bitcoin spends, and this withdrawal is in dollars",
+    "fmv_usd": "it is for Gift, Donation and Lost withdrawals of bitcoin",
+}
+
+
+def _leave_out_btc_withdrawal_fields(row: _Row, warnings: list[CSVParseError]) -> None:
+    """A dollar withdrawal's bitcoin purpose, proceeds_usd and fmv_usd left
+    out with a warning: the save drops them (#449), so the preview (the
+    AI's too) shows what will be saved. Other text in purpose is a label,
+    kept."""
+    if row.tx_type != "Withdrawal" or row.from_id in BTC_ACCOUNTS:
+        return
+    ignored = [column for column in ("proceeds_usd", "fmv_usd") if getattr(row, column) is not None]
+    if normalized(row.purpose) in ("spent", *GIFT_LIKE_PURPOSES):
+        ignored.insert(0, "purpose")
+    for column in ignored:
+        warnings.append(dollar_withdrawal_warning(row.number, column))
+        setattr(row, column, None)
+
+
+def dollar_withdrawal_warning(row_number: int, column: str) -> CSVParseError:
+    """The warning for a value a dollar withdrawal can't hold, which the save drops (#449)."""
+    return _warning(row_number, column, f"{column} is ignored: {_DOLLAR_WITHDRAWAL_IGNORES[column]}.")
 
 
 def _check_original_date(row: _Row, tz) -> None:
