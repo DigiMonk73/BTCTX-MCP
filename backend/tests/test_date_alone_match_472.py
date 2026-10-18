@@ -98,6 +98,22 @@ def test_the_afternoon_row_is_the_recorded_one_and_the_date_alone_row_is_saved_a
 
 
 @ORDERS
+def test_the_afternoon_row_is_the_recorded_one_in_the_tax_timezone_too(reverse):
+    """In Chicago a date alone is noon there (17:00 UTC in March), and a
+    payout recorded at 15:00 there (20:00 UTC) is the 15:00 row's."""
+    assert CLIENT.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}).status_code == 200
+    try:
+        three = record("20:00:00")
+        rows = in_order([row(), row("20:00:00")], reverse)
+        assert preview(rows) == in_order([("ready", None), ("duplicate", three)], reverse)
+        assert execute(rows)["imported_count"] == 1
+        [new] = saved_after({three})
+        assert utc_time(new) == "17:00:00"
+    finally:
+        CLIENT.put("/api/settings/tax-timezone", json={"timezone": "UTC", "chosen": True})
+
+
+@ORDERS
 def test_the_morning_row_is_the_recorded_one_and_the_date_alone_row_is_saved_at_noon(reverse):
     """#472, step 3 (the mirror, right before the fix too): recorded at 09:00."""
     nine = record("09:00:00")
