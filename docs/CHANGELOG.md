@@ -1078,7 +1078,7 @@ All notable changes to BitcoinTX are documented in this file.
   Start9's guide says** (#463). The action found the certificate your AI
   app must trust by asking StartOS for a certificate for `127.0.0.1` and
   taking the third one of its chain, which worked only while that chain
-  had exactly three. It now asks StartOS for the root directly
+  had exactly three. It now takes it with the SDK's call for it
   (`sdk.getRootCa`, Start9's "Trusting this server's certificates"). What
   the action shows is unchanged.
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
