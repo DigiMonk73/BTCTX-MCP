@@ -519,9 +519,13 @@ from the Transaction row alone.
   copy of each day made before the AI changed anything that day
   (`migrate._ai_copies_held`): at most 11.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
-  lock while it works, and the owner's saves wait only 5 s for it. With the
-  key a request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated
-  before the ledger's latest entry, each replaying the whole ledger, at most
+  lock while it works, and the owner's saves wait only 5 s for it. An add's
+  duplicate check and its writes hold it as one (`entry_import.write_rows`;
+  River's and the CSV import's check too, `csv_import.execute_import`'s
+  `check`), so the same rows sent twice at once are saved once (#454);
+  their prices are found first, with the lock free. With the key a
+  request takes at most `AI_MAX_ROWS` (500) rows, and its rows dated before
+  the ledger's latest entry, each replaying the whole ledger, at most
   `AI_MAX_REPLAYED` (1,000) entries in all (one such row always), about 1 s.
   The preview reads the price year files its rows may need before its dry
   run (`hourly_prices.read_year_files`), so finding which price filled each
