@@ -244,7 +244,7 @@ def init_db(bind=None):
     """
     from backend.migrate import upgrade_database
 
-    _use_rollback_journal(bind or engine)
+    use_rollback_journal(bind or engine)
     result = upgrade_database(bind or engine)
     seed_defaults(bind)
     _make_owner_only(bind or engine)
@@ -252,14 +252,15 @@ def init_db(bind=None):
     return result
 
 
-def _use_rollback_journal(bind) -> None:
+def use_rollback_journal(bind) -> None:
     """
     A database an earlier version's restore left in write-ahead-log mode
     goes back to SQLite's rollback journal, the mode BitcoinTX makes its
     databases in: in it, SQLite refuses a save that waited while a restore
     replaced the file (services/backup._swap), where the log would take the
     save into the file replaced. It needs the database to itself, as at the
-    start; if something else has it open, it stays as it is until the next.
+    start; if something else has it open, it stays as it is until the next
+    (a restore tries again, and stops while it stays so).
     """
     path = getattr(getattr(bind, "url", None), "database", None)
     if not isinstance(bind, Engine) or bind.dialect.name != "sqlite" or not path or path == ":memory:":

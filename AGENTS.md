@@ -555,8 +555,9 @@ from the Transaction row alone.
   place (`backup._swap`), so a change saved before is kept and a save that
   waits for the lock is refused in plain words (SQLite does so in its
   rollback-journal mode: `database.init_db` puts back in it a database an
-  earlier restore left in write-ahead-log mode); any failure leaves the
-  live database as it was and answers in plain words, never SQL
+  earlier restore left in write-ahead-log mode, a restore tries again, and
+  stops while something else keeps it in that mode); any failure leaves
+  the live database as it was and answers in plain words, never SQL
   (`services/backup.restore_backup`, `routers/backup._write_kept`).
   It works only while AI access is on (off by default) and only on
   `AI_KEY_ROUTES`, the routes the MCP tools call, compared with the template

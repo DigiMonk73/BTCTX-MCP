@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from pydantic import ValidationError
-from sqlalchemy import Date, DateTime, Numeric, create_engine
+from sqlalchemy import Date, DateTime, Numeric, create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
@@ -77,6 +77,9 @@ NEWER = ("This backup can't be restored: it was made by a newer version of Bitco
 BUSY = "Another restore is running: wait for it to finish, then try again."
 SAVING = ("BitcoinTX was busy saving something else, so the restore stopped. Your database is unchanged: "
           "try again in a moment.")
+OLD_JOURNAL = ("BitcoinTX's database is still in the mode an older version's restore left it in, and something "
+               "else has it open, so the restore stopped. Your database is unchanged: restart BitcoinTX, then "
+               "restore again.")
 NOT_WRITTEN = ("This backup couldn't be restored: BitcoinTX couldn't write to its data folder. "
                "Your database is unchanged.")
 # One restore at a time (one process serves the app): two at once would share
@@ -287,10 +290,11 @@ def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite, carry_over) -> No
     of the live database goes to backups/, then the swap. So a change saved
     before is kept, and one saved meanwhile waits for the lock, then is
     refused: in the rollback-journal mode BitcoinTX keeps its database in
-    (database.init_db), SQLite won't write a file that has been replaced.
-    Another save holding the lock past 5 s stops the restore.
+    (database.init_db, and _write_locked), SQLite won't write a file that
+    has been replaced. Another save holding the lock past 5 s stops the
+    restore.
     """
-    with _write_locked(db_path) as live:
+    with _write_locked(db_path, engine) as live:
         if carry_over is not None:
             _write_what_is_kept(carry_over, live, rebuilt)
         if live is not None:
@@ -305,15 +309,23 @@ def _swap(rebuilt: Path, db_path: Path, engine, backup_sqlite, carry_over) -> No
 
 
 @contextmanager
-def _write_locked(db_path: Path) -> Iterator[Session | None]:
-    """A session on the live database holding its write lock until the
-    block ends (None when there's no live database yet). ValueError when
-    another save held the lock longer than 5 s: nothing was changed."""
-    from backend.database import take_write_lock
+def _write_locked(db_path: Path, engine) -> Iterator[Session | None]:
+    """
+    A session on the live database holding its write lock until the block
+    ends (None when there's no live database yet), in SQLite's rollback
+    journal. A live database still in write-ahead-log mode (an older
+    version's restore left it so, and something had it open at the start)
+    is switched first, as init_db does; while something else keeps it so,
+    the restore stops: there a save that waited for the lock would go into
+    the replaced file's log, answered as saved. ValueError for that, or when
+    another save held the lock longer than 5 s: nothing was changed.
+    """
+    from backend.database import take_write_lock, use_rollback_journal
 
     if not db_path.exists():
         yield None
         return
+    use_rollback_journal(engine)
     live = create_engine(f"sqlite:///{db_path}", poolclass=NullPool)
     try:
         with Session(live) as session:
@@ -321,6 +333,9 @@ def _write_locked(db_path: Path) -> Iterator[Session | None]:
                 logger.warning("Restore stopped: another save held the database's lock")
                 raise ValueError(SAVING)
             try:
+                if session.execute(text("PRAGMA journal_mode")).scalar() == "wal":
+                    logger.warning("Restore stopped: the database is still in write-ahead-log mode")
+                    raise ValueError(OLD_JOURNAL)
                 yield session
             finally:
                 session.rollback()

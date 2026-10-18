@@ -14,7 +14,7 @@ Real restores over a database of their own (test_restore_checks.py's
 import sqlite3
 import sys
 import threading
-from contextlib import closing
+from contextlib import closing, contextmanager
 
 import pytest
 from fastapi.testclient import TestClient
@@ -116,14 +116,11 @@ def test_changes_saved_while_a_restore_runs_are_kept(live, tmp_path, monkeypatch
     assert _logs_in(TestClient(app), NEW_LOGIN)
 
 
-def test_a_change_at_the_swap_waits_then_is_refused_in_plain_words(live, tmp_path, monkeypatch, request):  # noqa: F811
-    """The swap holds the live database's write lock: a save then waits for
-    it, and once the database is replaced SQLite refuses the write. Its
-    answer says so, and nothing of it is kept."""
-    if sys.version_info < (3, 11):  # SQLite's code isn't named there: the answer is the plain 500
-        request.applymarker(pytest.mark.unexpected_error)
-    changer = _browser()
-    blob, _ = _backup(tmp_path)
+@contextmanager
+def _a_new_password_at_the_swap(install, changer, monkeypatch):
+    """`changer` changes the password once the restore holds the live
+    database's lock (as it copies it, just before the swap): the save waits
+    for the lock. Gives the answer ("r"), once the restore has answered."""
     writing, answer = threading.Event(), {}
 
     def note_the_write(conn, cursor, statement, *args):
@@ -139,22 +136,79 @@ def test_a_change_at_the_swap_waits_then_is_refused_in_plain_words(live, tmp_pat
         assert answer["thread"].is_alive()  # waiting for the lock
         return copy_live_database(db_path, label, **kwargs)
 
-    event.listen(live.engine, "before_cursor_execute", note_the_write)
-    monkeypatch.setattr(backend.migrate, "backup_sqlite", copy_while_a_change_waits)
+    event.listen(install.engine, "before_cursor_execute", note_the_write)
     try:
-        r = _restore(live.client, blob)
-        answer["thread"].join(30)
+        with monkeypatch.context() as m:
+            m.setattr(backend.migrate, "backup_sqlite", copy_while_a_change_waits)
+            yield answer
+        if "thread" in answer:
+            answer["thread"].join(30)
     finally:
-        event.remove(live.engine, "before_cursor_execute", note_the_write)
+        event.remove(install.engine, "before_cursor_execute", note_the_write)
 
-    assert r.status_code == 200, r.text
-    refused = answer["r"]
+
+def _refused_in_plain_words(answer, request) -> None:
+    """The save the swap refused said so, and nothing of it is kept."""
     if sys.version_info >= (3, 11):
-        assert (refused.status_code, refused.json()) == (503, {"detail": REPLACED})
-    else:
-        assert (refused.status_code, refused.json()) == (500, {"detail": UNEXPECTED})
+        assert (answer.status_code, answer.json()) == (503, {"detail": REPLACED})
+    else:  # SQLite's code isn't named there: the plain 500
+        request.applymarker(pytest.mark.unexpected_error)
+        assert (answer.status_code, answer.json()) == (500, {"detail": UNEXPECTED})
     assert _logs_in(TestClient(app), OWNER)
     assert not _logs_in(TestClient(app), NEW_LOGIN)
+
+
+def test_a_change_at_the_swap_waits_then_is_refused_in_plain_words(live, tmp_path, monkeypatch, request):  # noqa: F811
+    """The swap holds the live database's write lock: a save then waits for
+    it, and once the database is replaced SQLite refuses the write. Its
+    answer says so, and nothing of it is kept."""
+    changer = _browser()
+    blob, _ = _backup(tmp_path)
+    with _a_new_password_at_the_swap(live, changer, monkeypatch) as answer:
+        r = _restore(live.client, blob)
+
+    assert r.status_code == 200, r.text
+    _refused_in_plain_words(answer["r"], request)
+
+
+# A live database an older version's restore left in write-ahead-log mode
+def test_the_restore_switches_a_live_database_out_of_write_ahead_log_mode(live, tmp_path, monkeypatch,  # noqa: F811
+                                                                          request):
+    """With nothing else holding it, the restore switches it to the
+    rollback journal before its lock, so a save at the swap is refused in
+    plain words there too (in the log, it was answered as saved, and lost)."""
+    with live.engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA journal_mode = WAL")
+    changer = _browser()
+    blob, _ = _backup(tmp_path)
+    with _a_new_password_at_the_swap(live, changer, monkeypatch) as answer:
+        r = _restore(live.client, blob)
+
+    assert r.status_code == 200, r.text
+    _refused_in_plain_words(answer["r"], request)
+    assert _journal_mode(live.path) == "delete"
+
+
+def test_a_live_database_kept_in_write_ahead_log_mode_stops_the_restore(live, tmp_path, monkeypatch):  # noqa: F811
+    """Something else has it open, so it can't be switched: the restore
+    stops before its swap, the database as it was, and a save meanwhile is
+    kept. Once nothing else has it open, the restore goes through."""
+    with live.engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA journal_mode = WAL")
+    changer = _browser()
+    blob, _ = _backup(tmp_path)
+    with closing(sqlite3.connect(live.path)) as held:
+        held.execute("SELECT count(*) FROM users").fetchone()
+        before, in_memory = _stored(live.engine), outbound.as_dict()
+        with _a_new_password_at_the_swap(live, changer, monkeypatch) as answer:
+            r = _restore(live.client, blob)
+
+        assert r.status_code == 400 and r.json()["detail"] == "Restore failed: " + backup.OLD_JOURNAL
+        assert "r" not in answer or answer["r"].status_code != 200 or _logs_in(TestClient(app), NEW_LOGIN)
+        _assert_nothing_changed(live, before, in_memory)
+        assert _journal_mode(live.path) == "wal"
+    assert _restore(live.client, blob).status_code == 200
+    assert _journal_mode(live.path) == "delete"
 
 
 def test_a_restore_that_cant_have_the_lock_stops_and_changes_nothing(live, tmp_path, monkeypatch):  # noqa: F811
