@@ -2,6 +2,7 @@
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
+import { dollarTransferFee, pastTheCent } from "./transferAmounts";
 
 /** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
 export function localDatetimeToIso(localDatetime: string): string {
@@ -36,34 +37,6 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
     return currency === "BTC" ? EXCHANGE_BTC_ID : EXCHANGE_USD_ID;
   }
   return 0;
-}
-
-/** A transfer's currency: Bank's is USD, Wallet's BTC; the Exchange's is chosen. */
-export function transferCurrency(account?: AccountType, currency?: Currency): Currency | undefined {
-  if (account === "Bank") return "USD";
-  if (account === "Wallet") return "BTC";
-  return account === "Exchange" ? currency : undefined;
-}
-
-/**
- * Where a Transfer from an account (in a currency) can go, the usual place
- * first: the other account of that currency, or for a BTC account itself too
- * (a consolidation, or a move between wallets BitcoinTX pools: only the fee
- * is recorded, #159).
- */
-export function transferDestinations(account?: AccountType, currency?: Currency): AccountType[] {
-  switch (`${account}/${transferCurrency(account, currency)}`) {
-    case "Bank/USD":
-      return ["Exchange"];
-    case "Wallet/BTC":
-      return ["Exchange", "Wallet"];
-    case "Exchange/USD":
-      return ["Bank"];
-    case "Exchange/BTC":
-      return ["Wallet", "Exchange"];
-    default:
-      return [];
-  }
 }
 
 /** The ledger's from and to accounts for what the form shows as one account. */
@@ -178,14 +151,20 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
     const fromId = tx.from_account_id ?? 0;
     const toId = tx.to_account_id ?? 0;
     const fromCurrency = accountCurrency(fromId);
+    const fee = tx.fee_amount ?? 0;
+    // Dollars add up in cents (two amounts' float sum can carry a stray digit
+    // past the cent); one stored past the cent keeps 8 places, for the form to say so
+    const dollarPlaces = pastTheCent(tx.amount) || pastTheCent(fee) ? 8 : 2;
     return {
       fromAccount: accountIdToType(fromId),
       toAccount: accountIdToType(toId),
       fromCurrency,
       toCurrency: accountCurrency(toId),
-      amountFrom: tx.amount,
-      // A BTC transfer's fee comes out of the amount: what arrived is the rest, to the satoshi
-      amountTo: fromCurrency === "BTC" ? Number((tx.amount - (tx.fee_amount ?? 0)).toFixed(8)) : tx.amount,
+      // A BTC transfer's amount is what left, its fee included: what arrived
+      // is the rest, to the satoshi. A dollar transfer's is what arrived, its
+      // fee on top (#447)
+      amountFrom: fromCurrency === "BTC" ? tx.amount : Number((tx.amount + fee).toFixed(dollarPlaces)),
+      amountTo: fromCurrency === "BTC" ? Number((tx.amount - fee).toFixed(8)) : tx.amount,
     };
   },
   Buy: (tx) => ({
@@ -252,6 +231,8 @@ interface TypePayload {
   proceeds_usd?: number | null;
   fmv_usd?: number | null;
   gross_proceeds_usd?: number;
+  // A fee the type works out itself; else the Fee field's
+  fee?: number;
 }
 
 /** Whether a Deposit's or Withdrawal's account holds bitcoin: Wallet or Exchange BTC. */
@@ -299,11 +280,18 @@ const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypeP
     proceeds_usd: inBtcAccount(data) ? optionalDecimal(data.proceeds_usd) : null,
     fmv_usd: inBtcAccount(data) ? optionalDecimal(data.fmv_usd) : null,
   }),
-  Transfer: (data) => ({
-    amount: parseDecimal(data.amountFrom),
-    feeCurrency: data.fromCurrency === "BTC" ? "BTC" : "USD",
-    cost_basis_usd: null,
-  }),
+  // A BTC transfer's amount is what left, its fee in it (filled in by
+  // useFieldAutofill); a dollar transfer's is what arrived, the fee on top
+  // (#447), as the server keeps both
+  Transfer: (data) =>
+    data.fromCurrency === "BTC"
+      ? { amount: parseDecimal(data.amountFrom), feeCurrency: "BTC", cost_basis_usd: null }
+      : {
+          amount: parseDecimal(data.amountTo),
+          feeCurrency: "USD",
+          cost_basis_usd: null,
+          fee: dollarTransferFee(parseDecimal(data.amountFrom), parseDecimal(data.amountTo)),
+        },
   Buy: (data) => ({
     amount: parseDecimal(data.amountBTC),
     feeCurrency: "USD",
@@ -370,7 +358,7 @@ export function buildTransactionPayload(
     from_account_id,
     to_account_id,
     amount: values.amount,
-    fee_amount: parseDecimal(data.fee),
+    fee_amount: values.fee ?? parseDecimal(data.fee),
     fee_currency: values.feeCurrency,
     cost_basis_usd: values.cost_basis_usd,
     proceeds_usd: values.proceeds_usd,
