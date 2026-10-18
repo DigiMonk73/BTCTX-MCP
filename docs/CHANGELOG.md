@@ -620,12 +620,12 @@ All notable changes to BitcoinTX are documented in this file.
   API saved a Buy sent without a cost basis (every release from 0.8.0, the
   oldest tagged, to 1.2.8). So did an edit that made a transfer, a dollar
   deposit or a dollar withdrawal a Buy without giving one (the same
-  releases; a dollar deposit's own cost basis, $0 on every one saved by a
-  version before 0.9.2, became the Buy's), or a sale or a bitcoin
-  withdrawal (from 1.2.2, when a type change began to drop the old type's
-  figures; before, the Buy kept the cost basis stored on the sale or
-  withdrawal). The AI connector's `update_transaction` can send that edit
-  when it isn't given the cost. The Buy's bitcoin then cost $0: selling
+  releases), or a sale or a bitcoin withdrawal (from 1.2.2, when a type
+  change began to drop the old type's figures; before, the Buy kept the
+  cost basis stored on the sale or withdrawal). A dollar deposit made a
+  Buy that way gave the Buy its own cost basis: $0 on one entered with the
+  form before 0.9.2. The AI connector's `update_transaction` can send that
+  edit when it isn't given the cost. The Buy's bitcoin then cost $0: selling
   or spending it later counted the whole proceeds as gain, and the
   year-end holdings' cost and the dashboard's average cost were low by the
   missing amount. The form, the CSV and River imports and the AI

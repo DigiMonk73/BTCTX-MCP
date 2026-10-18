@@ -112,7 +112,8 @@ def test_a_deposit_retyped_as_a_buy_keeps_its_basis(auth_client, test_engine):
 def test_a_dollar_deposit_retyped_as_a_buy_needs_its_cost_basis(auth_client, test_engine, stored):
     """A dollar deposit's cost basis is no bitcoin's cost: the forms before
     0.9.2 saved 0 on every one, and the API keeps a figure sent with one.
-    Kept by the type change, it was the Buy's lot's cost: $0, or made up."""
+    Kept by the type change, it would be the Buy's lot's cost: $0, or made
+    up."""
     fund_the_bank(auth_client)
     r = post(auth_client, type="Deposit", timestamp="2024-03-01T12:00:00Z", from_account_id=EXTERNAL,
              to_account_id=BANK, amount="500", fee_amount="0", fee_currency="USD", source="N/A",

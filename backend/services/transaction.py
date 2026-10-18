@@ -515,8 +515,8 @@ def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     left off Form 8949; a withdrawal changed into an income deposit kept its
     FIFO cost basis as the income. The figures are then worked out afresh.
     A dollar deposit's cost basis is no bitcoin's cost, so it isn't kept
-    either: made a Buy, it was its lot's cost, $0 on every dollar deposit
-    the forms before 0.9.2 saved (#459). Whether the type changes.
+    either: made a Buy, it would be its lot's cost, $0 on every dollar
+    deposit the forms before 0.9.2 saved (#459). Whether the type changes.
     """
     new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
     type_changed = "type" in tx_data and new_type != tx.type
