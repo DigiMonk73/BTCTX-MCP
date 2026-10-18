@@ -459,6 +459,7 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
 
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
+    _drop_dollar_deposit_basis(tx, tx_data)
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
@@ -508,22 +509,34 @@ def _refuse_if_still_missing(edited: Transaction, past: list[Transaction] | None
         raise AccountMissing(edited, missing, local_date(edited.timestamp, get_tax_timezone(db)))
 
 
+def _drop_dollar_deposit_basis(tx: Transaction, tx_data: dict) -> None:
+    """
+    A dollar deposit's cost basis is no bitcoin's cost ($0 on every one the
+    form before 0.9.2 saved, or a figure an API client sent with one). An
+    edit that makes it bring bitcoin into Wallet or Exchange BTC, as a
+    deposit or a Buy, drops it unless it sends one: kept, it would be the
+    coins' cost, so the save asks for that instead, or prices an income
+    deposit (#459, #517).
+    """
+    if tx.type != "Deposit" or tx.to_account_id in BTC_ACCOUNTS or "cost_basis_usd" in tx_data:
+        return
+    new_type = getattr(tx_data.get("type"), "value", tx_data.get("type", tx.type))
+    if new_type in ("Deposit", "Buy") and tx_data.get("to_account_id", tx.to_account_id) in BTC_ACCOUNTS:
+        tx_data["cost_basis_usd"] = None
+
+
 def _drop_fields_of_old_type(tx: Transaction, tx_data: dict) -> bool:
     """
     A type change keeps only the fields the new type takes too (unless the
     edit sends them): a Gift changed into a Sell kept purpose "Gift" and was
     left off Form 8949; a withdrawal changed into an income deposit kept its
     FIFO cost basis as the income. The figures are then worked out afresh.
-    A dollar deposit's cost basis is no bitcoin's cost, so it isn't kept
-    either: made a Buy, it would be its lot's cost, $0 on every dollar
-    deposit the forms before 0.9.2 saved (#459). Whether the type changes.
+    Whether the type changes.
     """
     new_type = getattr(tx_data.get("type"), "value", tx_data.get("type"))
     type_changed = "type" in tx_data and new_type != tx.type
     if type_changed:
         kept = set(_TYPE_INPUTS.get(tx.type, ())) & set(_TYPE_INPUTS.get(new_type, ()))
-        if tx.type == "Deposit" and tx.to_account_id not in BTC_ACCOUNTS:
-            kept.discard("cost_basis_usd")
         for key in _TYPE_FIELDS:
             if key in tx_data or key in kept:
                 continue

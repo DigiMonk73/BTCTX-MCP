@@ -685,6 +685,27 @@ All notable changes to BitcoinTX are documented in this file.
   such a Buy were sold or spent can be affected, its gain too high by the
   missing basis. A ledger entered only with the form or the imports has
   none.
+- **A dollar deposit moved into Wallet or Exchange BTC asks for the
+  bitcoin's cost** (#517). An edit that moved a dollar deposit into Wallet
+  or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
+  stored on the dollar deposit as the cost of that bitcoin, without
+  asking: $0 on a dollar deposit entered with the form before 0.9.2, or
+  whatever figure a program sent with it. Selling those coins later then
+  counted the whole proceeds as gain (or a gain off by the difference),
+  and an income deposit moved that way reported that figure as its income
+  instead of the coins' value. Every release from 0.8.0 (the oldest
+  tagged) to 1.2.8, through the API and the AI connector; the form shows
+  the stored figure in the Cost Basis field and saves what it shows. Now
+  such an edit asks for the coins' cost (a My BTC, Gift or N/A deposit),
+  or values an income, interest, reward or rebate deposit at that hour's
+  price, unless it gives one.
+
+  **What to do:** Ledger Review lists a bitcoin deposit with a $0 cost
+  basis ("BTC deposits (not income or a rebate) with a $0 or blank cost
+  basis"): edit it and enter what the coins cost. One with another figure
+  isn't listed: if you moved a dollar deposit into Wallet or Exchange BTC
+  through the AI connector or another program, check that deposit's cost
+  basis.
 - **No proceeds row below zero** (#297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot
