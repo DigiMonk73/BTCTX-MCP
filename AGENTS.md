@@ -159,6 +159,9 @@ from the Transaction row alone.
   date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
   (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
   between pooled wallets, #159) needs a fee and records only it: no lot moves.
+  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
+  #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
   taken from it (a sale's, a spend's, a fee's, a transfer's moved part)
   costs what the lot's BTC taken so far costs with it, in cents, less

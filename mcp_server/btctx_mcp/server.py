@@ -70,8 +70,9 @@ class TransactionInput(BaseModel):
     amount: AmountValue = Field(
         gt=0,
         description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
-                    "Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
+                    "BTC Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
                     "a consolidation: only the fee is recorded). "
+                    "USD Transfer (Bank <-> Exchange USD): what arrived; the fee is on top. "
                     "Withdrawal: what the recipient got; the network fee is on top.",
     )
     from_account: AccountName
@@ -81,7 +82,9 @@ class TransactionInput(BaseModel):
                                   "and for Inherited from the date of death).")
     proceeds_usd: UsdValue | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
-    fee_amount: AmountValue | None = Field(default=None, description="Fee amount; USD for Buy/Sell, BTC for on-chain moves.")
+    fee_amount: AmountValue | None = Field(
+        default=None, description="Fee amount; USD for Buy/Sell and moves out of Bank/Exchange USD, "
+                                  "BTC for on-chain moves.")
     fee_currency: Literal["BTC", "USD"] | None = None
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
     purpose: WithdrawalPurpose | None = Field(default=None, description="Required for BTC withdrawals.")

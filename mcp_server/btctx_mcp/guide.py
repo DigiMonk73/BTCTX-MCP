@@ -148,21 +148,26 @@ Withdrawal: any account -> External
   with one aren't kept: only bitcoin is spent, given or lost.
 Transfer: between the user's own accounts, same currency
   Exchange BTC <-> Wallet, Bank <-> Exchange USD.
-  amount = total that LEFT the source, network fee INCLUDED; the destination
-  receives amount - fee. Example: 0.05 BTC arrived in cold storage and the
-  fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
+  Bitcoin: amount = total that LEFT the source, network fee INCLUDED; the
+  destination receives amount - fee. Example: 0.05 BTC arrived in cold
+  storage and the fee was 2,000 sats -> amount 0.05002, fee_amount 0.00002.
   (Note the difference from Withdrawal, where the fee is on top.)
+  Dollars (Bank <-> Exchange USD) are the other way round, as for a
+  Withdrawal: amount = what ARRIVED, and the fee (fee_currency USD) is ON
+  TOP, taken from the source with it. Example: $1,000 left the bank and
+  $990 arrived at the exchange (a $10 fee) -> amount 990, fee_amount 10,
+  fee_currency USD: Bank goes down $1,000, Exchange USD up $990.
   A BTC fee's USD value is stored as fee x that hour's price; pass fee_usd
   only if the user knows what it was worth.
   Withdrawing from the exchange to cold storage is a Transfer, NOT a
   Withdrawal - it is not a sale. Only the fee is a (tiny) disposal.
   Wallet -> Wallet (or Exchange BTC -> Exchange BTC): a UTXO consolidation,
   or a move between two of the user's wallets (exchanges) that BitcoinTX
-  pools. amount = what left, fee INCLUDED, as for any transfer; the fee is
-  required. Only the fee is recorded, as a small disposal of the oldest
-  coins; the rest keep their lots, dates and basis. After a move between
-  two exchanges, a sale at the other one usually has no basis on its
-  1099-DA: set that Sell's broker_reporting to "proceeds".
+  pools. amount = what left, fee INCLUDED, as for any bitcoin transfer; the
+  fee is required. Only the fee is recorded, as a small disposal of the
+  oldest coins; the rest keep their lots, dates and basis. After a move
+  between two exchanges, a sale at the other one usually has no basis on
+  its 1099-DA: set that Sell's broker_reporting to "proceeds".
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
