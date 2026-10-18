@@ -1,7 +1,7 @@
 import React from "react";
 import { useFormContext, type RegisterOptions } from "react-hook-form";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
-import { transferDestinations } from "../../utils/transactionForm";
+import { transferDestinations } from "../../utils/transferAccounts";
 import { transferAmountProblem } from "../../utils/transferAmounts";
 import FeeValueField from "./FeeValueField";
 

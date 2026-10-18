@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { btcText, parseDecimal } from "../../utils/format";
-import { transferCurrency, transferDestinations } from "../../utils/transactionForm";
+import { transferCurrency, transferDestinations } from "../../utils/transferAccounts";
 import { dollarTransferFee } from "../../utils/transferAmounts";
 
 /**
