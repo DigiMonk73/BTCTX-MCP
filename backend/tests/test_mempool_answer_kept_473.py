@@ -91,7 +91,7 @@ async def across_the_change(servers: Servers):
     servers.old_asked, servers.release = asyncio.Event(), asyncio.Event()
     use(OLD)
     first = asyncio.create_task(price_history.own_node_rows())
-    await servers.old_asked.wait()
+    await asyncio.wait_for(servers.old_asked.wait(), 10)
     use(NEW)
     second = await price_history.own_node_rows()
     servers.release.set()
@@ -139,7 +139,7 @@ def test_the_old_mempools_answer_is_kept_under_its_own_address_when_nothing_aske
         servers.old_asked, servers.release = asyncio.Event(), asyncio.Event()
         use(OLD)
         first = asyncio.create_task(price_history.own_node_rows())
-        await servers.old_asked.wait()
+        await asyncio.wait_for(servers.old_asked.wait(), 10)
         use(NEW)
         servers.release.set()
         return await first
@@ -158,6 +158,7 @@ def test_a_lookup_a_save_stopped_leaves_the_new_mempools_kept_answer(servers, mo
     real_client = outbound.own_node_client
 
     def saved_before_the_request(timeout=None):
+        monkeypatch.setattr(outbound, "own_node_client", real_client)  # lookup 2's client is an ordinary one
         use(NEW)
         lookup_2 = threading.Thread(target=lambda: asyncio.run(price_history.own_node_rows()))
         lookup_2.start()
@@ -167,6 +168,5 @@ def test_a_lookup_a_save_stopped_leaves_the_new_mempools_kept_answer(servers, mo
     use(OLD)
     monkeypatch.setattr(outbound, "own_node_client", saved_before_the_request)
     assert asyncio.run(price_history.own_node_rows()) == ([], False)
-    monkeypatch.setattr(outbound, "own_node_client", real_client)
     assert asyncio.run(price_history.own_node_rows()) == (rows("mempool-b.local"), False)
     assert servers.asked == ["mempool-b.local"]  # the old server never, the new one once

@@ -258,9 +258,8 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     long, so the day and hour lookups (services/hourly_prices.py) share it.
     An answer is kept only while it's the last asked (_asked_last, #473).
     """
-    base = outbound.current().own_node
-    now = time.monotonic()
-    with _mempool_lock:
+    with _mempool_lock:  # read under it: the last lookup to read the address is the last asked
+        base, now = outbound.current().own_node, time.monotonic()
         if not base:
             _state.update(mempool_base=None, mempool_rows=[])
             return [], False
@@ -275,8 +274,8 @@ async def own_node_rows() -> tuple[list[dict], bool]:
             rows = resp.json()["prices"]
     except outbound.ChoiceChanged:
         with _mempool_lock:
-            if _asked_last(base, now):  # a save stopped it, no failure: asked again as the new choice says (#437)
-                _state["mempool_at"] = -1e9
+            if _asked_last(base, now):
+                _state["mempool_at"] = -1e9  # a save stopped it, no failure: asked again as the new choice says (#437)
         return [], False
     except Exception as exc:
         logger.warning("Price history from your mempool server failed: %s", exc)
