@@ -1,5 +1,8 @@
 # StartOS packaging capabilities with start-sdk 2.0.9: research report
 
+> Historical (2026-09-23, start-sdk 2.0.9): the package now uses start-sdk
+> 3.0.6, and its "Gap?" rows describe the package as it was then.
+
 Research date: 2026-09-23. Read-only; nothing in any repository was modified.
 
 ## 0. Sources and version landscape (read this first)

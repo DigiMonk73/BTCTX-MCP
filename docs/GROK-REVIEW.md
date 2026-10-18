@@ -7,7 +7,7 @@ at live in `AGENTS.md` ("Who does what," "Reviews," "Bugs and security,"
 names what to check against them.
 
 `docs/HARDENING_FINDINGS.md` is a record of past findings, not this
-routine. `docs/PRIVACY_AUDIT.md`'s 1.2.8 table is the checklist for area 3.
+routine. `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it, is the checklist for area 3.
 
 ## Who does what
 
@@ -101,7 +101,7 @@ names the area (the latest pass on #41 says which is next); if not, ask.
    No request names a day or an hour. Nothing is asked until a price
    source is chosen. A stored day or hour never changes. A sub-cent or
    non-numeric price is not stored. Every outside request is in
-   `docs/PRIVACY_AUDIT.md`'s 1.2.8 table.
+   `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it.
 4. **StartOS.** `startos/`, including `instructions.md` and the release
    notes in `startos/startos/versions/current.ts`. Check them against
    Start9's published guide (`start-technologies` on `live-docs`, or

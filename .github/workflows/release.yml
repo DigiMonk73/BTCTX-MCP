@@ -3,7 +3,8 @@ name: Release
 # Push a branch named release/vX.Y.Z (matching VERSION; vX.Y.Z-N for a
 # package-only revision N, see startos/UPDATING.md) from main to publish that release:
 # one GitHub release, tag created on that commit, notes from the
-# "## [<tag>]" section of docs/CHANGELOG.md, with
+# "## [<tag>]" section of docs/CHANGELOG.md (its summary and a link, when it
+# has one: scripts/release-notes.sh), with
 #   btctx.s9pk              StartOS package (signed with DEV_KEY if that secret exists)
 #   BitcoinTX-macOS.dmg     macOS app, unsigned
 #   BitcoinTX-macOS.zip     the same app, zipped
@@ -63,6 +64,9 @@ jobs:
           if [ "$REVISION" = 0 ]; then EXPECTED="$VERSION"; else EXPECTED="$VERSION-$REVISION"; fi
           [ "$TAG" = "$EXPECTED" ] || { echo "branch release/$TAG: VERSION and current.ts say $EXPECTED"; exit 1; }
           grep -q "^## \[$TAG\]" docs/CHANGELOG.md || { echo "no CHANGELOG section for $TAG"; exit 1; }
+          # The release job's notes, built now: too long for GitHub, the run
+          # stops here, before PyPI has the version.
+          scripts/release-notes.sh "$TAG" > /dev/null
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -268,12 +272,7 @@ jobs:
           PACKAGE: ${{ needs.s9pk.outputs.package }}
         run: |
           [ -n "$PACKAGE" ] || { echo "no package version from the s9pk job"; exit 1; }
-          awk -v tag="$TAG" '
-            $0 ~ "^## \\[" tag "\\]" {on=1; next}
-            on && /^## \[/ {exit}
-            on {print}
-          ' docs/CHANGELOG.md > notes.md
-          [ -s notes.md ] || { echo "no CHANGELOG section for $TAG"; exit 1; }
+          scripts/release-notes.sh "$TAG" > notes.md
           cat >> notes.md <<EOF
 
           ## Downloads

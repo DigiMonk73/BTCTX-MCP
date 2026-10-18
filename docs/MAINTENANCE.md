@@ -4,7 +4,7 @@ Routine upkeep: dependency updates, security advisories, deprecations, and
 the yearly IRS form update. For how the test suite works, see
 [TESTING.md](TESTING.md).
 
-**Last reviewed:** 2026-09-23
+**Last reviewed:** 2026-10-18
 
 ---
 
@@ -297,7 +297,7 @@ more for restores.
 2. Generate the migration against a scratch database at the current head:
    ```bash
    DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
-   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0011 -m "add foo to transactions"
+   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0013 -m "add foo to transactions"
    ```
    Use the next number as `--rev-id` (sequential ids keep the history readable).
 3. Read the generated file. Autogenerate misses renames (it emits drop + add,

@@ -114,14 +114,14 @@ EXAMPLES = [
 COMMON_ERRORS = [
     ["Error", "Solution"],
     ["\"Database has X existing transactions\"", "Delete all transactions from Settings before importing"],
-    ["\"Invalid transaction type\"", "Use exactly: Deposit, Withdrawal, Transfer, Buy, or Sell"],
-    ["\"Invalid account name\"", "Use exactly: Bank, Wallet, Exchange USD, Exchange BTC, or External"],
-    ["\"cost_basis_usd required for Buy\"", "Add the USD paid for the BTC, before the fee"],
-    ["\"proceeds_usd required for Sell\"", "Add the gross USD, before the fee"],
+    ["\"Invalid type '...'\"", "Use exactly: Deposit, Withdrawal, Transfer, Buy, or Sell"],
+    ["\"Invalid account '...'\"", "Use exactly: Bank, Wallet, Exchange USD, Exchange BTC, or External"],
+    ["\"cost_basis_usd is required for Buy transactions\"", "Add the USD paid for the BTC, before the fee"],
+    ["\"proceeds_usd is required for Sell transactions\"", "Add the gross USD, before the fee"],
     ["\"A BTC withdrawal needs a purpose\"", "From Wallet or Exchange BTC, add purpose: Spent, Gift, Donation, or Lost"],
-    ["\"Invalid accounts for Buy\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
-    ["\"Invalid accounts for Sell\"", "Sell must be: from Exchange BTC, to Exchange USD"],
-    ["\"Invalid accounts for Deposit\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
+    ["\"Buy must have from_account = 'Bank' or 'Exchange USD'\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
+    ["\"Sell must have from_account = 'Exchange BTC'\"", "Sell must be: from Exchange BTC, to Exchange USD"],
+    ["\"Deposit must have from_account = 'External'\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
     ["\"Transfer must have different from_account and to_account\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
     ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
 ]
@@ -233,7 +233,7 @@ class _Guide:
     def quick_start(self) -> list:
         steps = [
             ("Step 1: Download the Template",
-             "Go to Settings → Data Management and click \"Download Template\". "
+             "Go to Settings → Data Management and click \"Template\" under Import Transactions (CSV). "
              "This gives you a CSV file with the correct column headers and sample rows."),
             ("Step 2: Fill in Your Data",
              "Open the template in a spreadsheet application (Excel, Google Sheets, etc.) "
