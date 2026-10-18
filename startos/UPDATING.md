@@ -188,11 +188,14 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
    and anything under them, and run `npm install`: `npm update` does nothing for a git dependency. Then
    check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
    and no copy under another package (`overrides` keeps it so).
-3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and
-   `.github/workflows/release.yml` to the start-cli release that matches the
-   SDK. The mirror's workflows call Start9's shared ones, which install the
-   newest start-cli at each build: Start9's package is packed with it, so
-   test a release with that version too. Once Start9 has forked the mirror,
+3. `START_CLI_VERSION` in `.github/workflows/ci.yml` and
+   `.github/workflows/release.yml` is Start9's newest start-cli, with
+   `START_CLI_SHA256`, its `start-cli_x86_64-linux` SHA-256 from the release
+   notes: the mirror's workflows call Start9's shared ones, which install the
+   newest start-cli at each build, so Start9's package is packed with it.
+   When `startos-sdk-check.yml` reports a new start-cli, move both, with or
+   without an SDK bump: read its release notes, then check CI's pack and a
+   local pack installed on a test server. Once Start9 has forked the mirror,
    they may bump the SDK there first: take it with `scripts/start9-pull.sh`
    instead.
 4. Run the checks, bump the package revision, release. While the community
@@ -201,15 +204,15 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 ## Building locally
 
-Needs Docker 28.1 or later (start-cli takes the image with Docker's
-`image save --platform`), with the containerd image store for multi-arch
-images, `jq`, Node 24 and
+Needs Docker 28.1 or later (Start9's guide, `environment-setup.md`; start-cli
+takes the image with Docker's `image save --platform`), with the containerd
+image store for multi-arch images, `jq`, Node 24 and
 [start-cli](https://docs.start9.com/packaging/environment-setup.html): the
-release `START_CLI_VERSION` names in BTCTX-MCP's `.github/workflows/ci.yml`
-(Start9's builds take the newest). From 2.4, start-cli makes the SquashFS
-images itself, without `squashfs-tools`. start-cli packs only inside a
-*packaging workspace*: a directory above the package that
-holds `.startos/build.key.pem`. Create it above the repository, not inside it:
+release `START_CLI_VERSION` names in BTCTX-MCP's `.github/workflows/ci.yml`.
+From 2.4, start-cli makes the SquashFS images itself, so the guide's
+`squashfs-tools` aren't needed. start-cli packs only inside a *packaging
+workspace*: a directory above the package that holds `.startos/build.key.pem`.
+Create it above the repository, not inside it:
 
 ```sh
 cd startos

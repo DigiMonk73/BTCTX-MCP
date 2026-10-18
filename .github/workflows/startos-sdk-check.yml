@@ -51,4 +51,4 @@ jobs:
             --jq '[.[].tagName | select(startswith("start-cli/"))][0] // "" | ltrimstr("start-cli/")')
           report start-cli "$PINNED" "$LATEST" CI "$(printf '%s\n\n%s' \
             "Start9 released start-cli $LATEST; CI and the release pack btctx.s9pk with $PINNED (\`START_CLI_VERSION\` in \`.github/workflows/ci.yml\` and \`release.yml\`)." \
-            "Read its release notes ($NOTES/start-cli/$LATEST) and bump it together with the SDK it goes with (startos/UPDATING.md, \"Bumping the SDK\", step 3).")"
+            "Read its release notes ($NOTES/start-cli/$LATEST), then bump \`START_CLI_VERSION\` and \`START_CLI_SHA256\` (its \`start-cli_x86_64-linux\` SHA-256) in both, with or without an SDK bump: Start9's builds pack with the newest (startos/UPDATING.md, \"Bumping the SDK\", step 3).")"
