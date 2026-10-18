@@ -81,6 +81,18 @@ All notable changes to BitcoinTX are documented in this file.
   USD choice included). Every column now shows in a 1440-wide window; in a
   narrower one (the Mac app opens at 1280) and on a phone the table still
   scrolls sideways, less than before.
+- **The StartOS package's documents each do one job** (#468, Start9's
+  "Writing READMEs", "Project Structure" and "Writing Instructions"). Its
+  README no longer repeats what StartOS shows for each action (when it can
+  run, its form) or what `instructions.md` tells the user (no downgrades,
+  English and US forms, the address after a restore, the AI key's limits,
+  how to answer the Tor question); it keeps the technical details a support
+  agent needs. Its File Models section names both files the package keeps
+  (it said "one model"), how `store.json` is created and what happens to a
+  hand edit. `AGENTS.md` drops a line the README already says and keeps
+  only rules found nowhere else. The Recalculate Ledger task, raised again
+  after a restore, no longer says "this update": "An update corrected how
+  some gains are calculated", in all five languages.
 - **Times on screen are this device's clock** (#260, the owner's choice).
   With a tax timezone other than the computer's, the screen showed times in
   two zones: the Transactions list and the form in the computer's, but the
