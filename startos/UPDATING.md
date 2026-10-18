@@ -199,7 +199,7 @@ them:
    server. A start-cli bump alone changes only how BTCTX-MCP builds the
    package: it needs no package revision, and the next release uses it.
    Once Start9 has forked the mirror, they may bump the SDK there first:
-   take it with `scripts/start9-pull.sh` instead.
+   take it with `scripts/start9-pull.sh` instead of steps 1 and 2.
 4. Run the checks, bump the package revision, release. While the community
    registry doesn't serve the current version, the bump rides in the next
    app release instead (the end of "After Start9 forks the mirror").

@@ -19,9 +19,10 @@ SHA256 = re.compile(r"^\s*START_CLI_SHA256:\s*(\S+)\s*(?:#.*)?$", re.M)
 # A start-cli release named in a URL or a `gh release` command, written any way
 # GitHub takes it.
 NAMED_RELEASE = re.compile(r"start-cli(?:%2f|/)v?\d", re.I)
-# A line that downloads a start-cli build (named for its machine), whatever
-# the command; the comments and the weekly check's text only name one.
-DOWNLOAD = re.compile(r"(?:https?://|curl|wget|download).*start-cli_[a-z0-9_]+-(?:linux|macos)", re.I)
+# A line that downloads a start-cli build, whatever the command, or takes
+# Start9's install-start-cli action (the newest, unchecked); the comments and
+# the weekly check's text only name a build.
+DOWNLOAD = re.compile(r"(?:https?://|curl|wget|download).*start-cli_|install-start-cli", re.I)
 CHECKED = 'echo "${START_CLI_SHA256}  /usr/local/bin/start-cli" | sha256sum -c -'
 
 
