@@ -1805,6 +1805,16 @@ All notable changes to BitcoinTX are documented in this file.
   of the reference, golden and 40 random test ledgers, and the CSV
   instructions. The parts 4.5 changed most (its own form fields, CSS
   colours) aren't used. No other package moves.
+- **A sibling package's refresh checks what BitcoinTX's StartOS bundle
+  took from it** (#469). The package takes four constants from Mempool's
+  and Tor's packages, but Mempool's imports Bitcoin Core's and LND's, so
+  the three packages' manifests and SDK setup (about 275 KB) are in
+  BitcoinTX's bundle and run when it loads: a sibling's new commit can
+  change what BitcoinTX ships. `startos/UPDATING.md` now has each refresh
+  ("Bumping the SDK", or a change taken back from Start9's fork) list
+  those modules before and after and read what changed in them, as
+  Start9's `maintaining-a-package.md` asks ("Read the lockfile diff as
+  code review"). Nothing that ships changes.
 - **Test and build tools:** ruff 0.17.0, uv 0.13.0 and hypothesis 6.168.5
   (#293, which takes #224 except hypothesis 6.169: it needs Python 3.11,
   and CI still tests 3.10; deferred in #294). Nothing that ships changes;
