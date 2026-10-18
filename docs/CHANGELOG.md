@@ -596,14 +596,18 @@ All notable changes to BitcoinTX are documented in this file.
 - **A sale edited through the API is checked with the proceeds it sends**
   (tax figures, #458). An edit of a Sell sent to BitcoinTX's API
   (`PUT /api/transactions/{id}`) with its proceeds as `proceeds_usd` was
-  checked against the sale's old proceeds, then saved with the new ones:
-  blank proceeds (`null`) saved a $0 sale, its whole cost basis a loss on
-  Form 8949, and proceeds below the sale's USD fee were kept, its net
-  proceeds $0. Blank proceeds sent as `gross_proceeds_usd` were saved
-  too, the proceeds made up again from the old net and the fee. Creating
-  such a sale is refused, and now so is the edit, with the same message
-  ("A sell needs its proceeds", "The sell's fee is more than its
-  proceeds."). **Affected:** every release to 1.2.8, any tax year, but
+  checked against the sale's old proceeds (before 0.9.2, not checked at
+  all), then saved with the new ones: blank proceeds (`null`) saved a $0
+  sale, its whole cost basis a loss on Form 8949, and proceeds below the
+  sale's USD fee were kept, its net proceeds $0. Blank proceeds sent as
+  `gross_proceeds_usd` were saved too, the proceeds made up again from the
+  old net and the fee; and `proceeds_usd` sent beside a blank
+  `gross_proceeds_usd` was saved as the net, the fee added on top, so the
+  sale's proceeds on Form 8949 were too high by the fee. Creating such a
+  sale is refused, and now so is the edit, with the same message ("A sell
+  needs its proceeds", "The sell's fee is more than its proceeds."); and
+  proceeds sent beside a blank gross are the gross, as when the sale is
+  created. **Affected:** every release to 1.2.8, any tax year, but
   only edits a script or another program sent to the API: the app's form
   and the AI connector never sent one. **What to do:** if a program of
   yours edits sales through the API, compare each sale's proceeds on the

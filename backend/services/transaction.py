@@ -573,7 +573,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     """
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
-    _sell_proceeds_as_saved(merged, tx_data)
+    _complete_sell_proceeds(merged, tx_data)
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -593,19 +593,23 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     _revalue_income_deposit(tx, tx_data, db)
 
 
-def _sell_proceeds_as_saved(merged: dict, tx_data: dict) -> None:
+def _complete_sell_proceeds(merged: dict, tx_data: dict) -> None:
     """
-    A Sell's proceeds in `merged` as the edit saves them, so its checks see
-    them (#458): proceeds sent, as gross_proceeds_usd or proceeds_usd, are
-    its new gross (_apply_edit), and the stored net, worked out from the
-    gross they replace, no longer stands in for one sent blank. Checked
+    The proceeds an edit of a Sell sends, completed as a create's are
+    (_record_gross_proceeds): its gross is the gross_proceeds_usd sent, else
+    the proceeds_usd sent. `merged` takes them as the edit saves them, so
+    the Sell's checks see them, and the stored net, worked out from the
+    gross they replace, never stands in for one sent blank (#458). Checked
     against the stored gross, a blank sent saved a $0 sale, and proceeds
-    below the fee were kept.
+    below the fee were kept; proceeds_usd beside a blank gross was saved as
+    the net, the fee added on top.
     """
     if getattr(merged["type"], "value", merged["type"]) != "Sell":
         return
     if "gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data:
-        merged["gross_proceeds_usd"] = _sent_proceeds(tx_data)
+        gross = tx_data.get("gross_proceeds_usd")
+        tx_data["gross_proceeds_usd"] = gross if gross is not None else tx_data.get("proceeds_usd")
+        merged["gross_proceeds_usd"] = tx_data["gross_proceeds_usd"]
         merged["proceeds_usd"] = tx_data.get("proceeds_usd")
 
 
