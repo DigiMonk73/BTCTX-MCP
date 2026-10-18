@@ -616,6 +616,26 @@ All notable changes to BitcoinTX are documented in this file.
   lists the transactions it would change first. Any tax year with a lot
   sold, spent or moved in pieces can be affected, by a few cents either
   way.
+- **A Buy is never saved without its cost basis** (#459). The transactions
+  API saved a Buy sent without a cost basis, and an edit that made a sale,
+  a withdrawal or a transfer a Buy without giving one (a type change drops
+  the old type's figures; the AI connector's `update_transaction` sends
+  exactly that edit when asked to make a transaction a Buy). Its bitcoin
+  then cost $0: selling or spending it later counted the whole proceeds as
+  gain, and the year-end holdings' cost and the dashboard's average cost
+  were low by the missing amount. The form, the CSV and River imports and
+  the AI connector's add never saved one without it. Every release from 0.8.0
+  (the oldest tagged) to 1.2.8. Now such a save is refused, saying the Buy
+  needs its cost basis; a basis of 0 you type is still kept. Ledger Review
+  lists every Buy with a $0 or blank cost basis ("Buys with a $0 or blank
+  cost basis"), and editing an old one asks for its basis.
+
+  **What to do:** open Ledger Review (Settings). For each Buy it lists,
+  edit it and enter what the bitcoin cost in USD, before the fee (Amount
+  USD); the save recalculates the ledger. Any tax year in which coins from
+  such a Buy were sold or spent can be affected, its gain too high by the
+  missing basis. A ledger entered only with the form or the imports has
+  none.
 - **No proceeds row below zero** (#297). When a sale, a spend or a network
   fee took bitcoin from several lots, each lot's share of the proceeds (or
   of the fee's value) was rounded to the cent on its own, and the last lot

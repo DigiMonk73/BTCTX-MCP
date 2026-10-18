@@ -2022,6 +2022,7 @@ GENESIS = datetime(2009, 1, 3, tzinfo=timezone.utc)
 MAX_TEXT = 64
 MAX_BTC = Decimal("21000000")
 DEPOSIT_BASIS_REQUIRED = "Enter this deposit's cost basis (0 if it's unknown)."
+BUY_BASIS_REQUIRED = "A buy needs its cost basis (cost_basis_usd): what the BTC cost in USD, before the fee."
 INHERITED_NEEDS_DATE = "An Inherited deposit needs the date of death (acquired_at)."
 FEE_CURRENCY_UNKNOWN = "fee_currency must be USD or BTC."
 TEXT_ON_ONE_LINE = "{} must be one line of text, without a line break, tab or other control character."
@@ -2339,6 +2340,11 @@ def _check_type_requirements(data: dict, tx_type: str, check_source: bool, from_
     if tx_type == "Deposit" and to_acct is not None and to_acct.currency == "BTC" \
             and normalized(data.get("source")) not in VALUED_AT_RECEIPT and data.get("cost_basis_usd") is None:
         _bad(DEPOSIT_BASIS_REQUIRED)
+
+    # A Buy's lot costs its basis: a blank one made it a $0 lot (#459), on a
+    # create or an edit that made a row a Buy (_drop_fields_of_old_type)
+    if tx_type == "Buy" and data.get("cost_basis_usd") is None:
+        _bad(BUY_BASIS_REQUIRED)
 
 
 def _takes_original_date(tx_type: str | None, source: str | None, to_acct: Account | None) -> bool:
