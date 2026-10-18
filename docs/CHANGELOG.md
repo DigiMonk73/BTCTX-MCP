@@ -73,6 +73,9 @@ update):
   saved (#529).
 - Saving the tax timezone in Settings, when it fails, says only "Could not
   save the timezone.", not why; nothing is saved (#533).
+- With your own Mempool, a second price lookup made while the first is still
+  downloading your Mempool's history finds no price; trying again a moment
+  later works (nothing is saved without a price, never at $0) (#535).
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,

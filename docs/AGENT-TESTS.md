@@ -1159,3 +1159,6 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   dollar amount comes to exactly halfway between two satoshis.
 - #533: saving the tax timezone in Settings, when it fails, says only
   "Could not save the timezone.", not why.
+- #535: with your own Mempool, a second price lookup made while the first
+  is still downloading the Mempool's history answers "No BTC price is
+  available …" (422); a retry works.
