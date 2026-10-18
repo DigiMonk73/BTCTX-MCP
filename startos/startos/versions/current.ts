@@ -76,6 +76,7 @@ Each says who could be affected and what to do; most ledgers need only the steps
 - Set Login Credentials and Recalculate Ledger say why they failed, in your language, with no time limit; a dismissed Recalculate Ledger task no longer comes back at every restart.
 - A dollar transfer's Amount (To) now counts: with a fee, both dollar balances were off by it (no tax figure). If your Bank or Exchange (USD) balance differs from your statements, open each dollar transfer and set what left and what arrived.
 - From 1.2.8's security review: logging out ends that session for every copy of its cookie; a restore keeps this install's login, AI key and price settings; every request has limits on size and time.
+- In Safari, a deposit switched to or from Inherited saves again (in 1.2.8, Save did nothing).
 - The sidebar's calculator now works as a pocket calculator, and its Sats Converter counts to the satoshi; nothing either shows is saved.
 - BitcoinTX runs on Python 3.13. Many more small fixes are in the changelog.
 
@@ -152,6 +153,7 @@ Cada una dice a quién pudo afectar y qué hacer; a la mayoría de los libros co
 - Establecer credenciales de acceso y Recalcular el libro contable dicen por qué fallaron, en tu idioma, sin límite de tiempo; una tarea Recalcular el libro contable descartada ya no vuelve en cada reinicio.
 - El Amount (To) de una transferencia en dólares ahora cuenta: con una comisión, los dos saldos en dólares quedaban desviados en ella (ninguna cifra fiscal). Si tu saldo de Bank o de Exchange (USD) difiere de tus extractos, abre cada transferencia en dólares e indica lo que salió y lo que llegó.
 - De la revisión de seguridad de la 1.2.8: cerrar sesión termina esa sesión para toda copia de su cookie; una restauración conserva el acceso, la clave de IA y los ajustes de precios de esta instalación; cada petición tiene límites de tamaño y de tiempo.
+- En Safari, un depósito cambiado a Inherited o desde Inherited vuelve a guardarse (en la 1.2.8, guardar no hacía nada).
 - La calculadora de la barra lateral funciona ahora como una calculadora de bolsillo, y su Sats Converter cuenta hasta el satoshi; nada de lo que muestran se guarda.
 - BitcoinTX usa Python 3.13. Muchas más correcciones pequeñas están en el registro de cambios.
 
@@ -228,6 +230,7 @@ Jede sagt, wen sie betreffen konnte und was zu tun ist; den meisten Journalen ge
 - Zugangsdaten festlegen und Journal neu berechnen sagen, warum sie fehlgeschlagen sind, in deiner Sprache, ohne Zeitlimit; eine verworfene Aufgabe Journal neu berechnen kommt nicht mehr bei jedem Neustart zurück.
 - Amount (To) eines Dollar-Transfers zählt jetzt: Mit einer Gebühr lagen beide Dollar-Salden um sie daneben (keine Steuerzahl). Weicht dein Saldo bei Bank oder Exchange (USD) von deinen Auszügen ab, öffne jeden Dollar-Transfer und gib an, was abging und was ankam.
 - Aus der Sicherheitsprüfung von 1.2.8: Abmelden beendet diese Sitzung für jede Kopie ihres Cookies; eine Wiederherstellung behält Anmeldung, KI-Schlüssel und Kurseinstellungen dieser Installation; jede Anfrage hat Grenzen für Größe und Zeit.
+- In Safari lässt sich eine Einzahlung, deren Quelle zu Inherited oder von Inherited wechselt, wieder speichern (in 1.2.8 geschah beim Speichern nichts).
 - Der Rechner in der Seitenleiste arbeitet jetzt wie ein Taschenrechner, und sein Sats Converter rechnet auf den Satoshi genau; nichts, was beide zeigen, wird gespeichert.
 - BitcoinTX läuft mit Python 3.13. Viele weitere kleine Korrekturen stehen im Änderungsprotokoll.
 
@@ -304,6 +307,7 @@ Każda mówi, kogo mogła dotyczyć i co zrobić; większości ksiąg wystarczą
 - Ustaw dane logowania i Przelicz księgę mówią, dlaczego się nie powiodły, w Twoim języku, bez limitu czasu; odrzucone zadanie Przelicz księgę nie wraca już przy każdym ponownym uruchomieniu.
 - Amount (To) transferu w dolarach jest teraz liczony: przy opłacie oba salda w dolarach różniły się o nią (żadna wartość podatkowa). Jeśli saldo Bank lub Exchange (USD) różni się od wyciągów, otwórz każdy transfer w dolarach i podaj, ile wyszło, a ile dotarło.
 - Z przeglądu bezpieczeństwa 1.2.8: wylogowanie kończy tę sesję dla każdej kopii jej ciasteczka; przywracanie zachowuje logowanie, klucz AI i ustawienia cen tej instalacji; każde zapytanie ma limity rozmiaru i czasu.
+- W Safari wpłata zmieniona na Inherited lub z Inherited znów się zapisuje (w 1.2.8 zapis nic nie robił).
 - Kalkulator na pasku bocznym działa teraz jak kalkulator kieszonkowy, a jego Sats Converter liczy co do satoshi; nic z tego, co pokazują, nie jest zapisywane.
 - BitcoinTX działa na Pythonie 3.13. Wiele innych drobnych poprawek jest w dzienniku zmian.
 
@@ -380,6 +384,7 @@ Chacune dit qui a pu être touché et que faire ; pour la plupart des registres,
 - Définir les identifiants et Recalculer le registre disent pourquoi ils ont échoué, dans votre langue, sans limite de temps ; une tâche Recalculer le registre écartée ne revient plus à chaque redémarrage.
 - L’Amount (To) d’un transfert en dollars compte désormais : avec des frais, les deux soldes en dollars étaient faussés de leur montant (aucun chiffre fiscal). Si votre solde Bank ou Exchange (USD) diffère de vos relevés, ouvrez chaque transfert en dollars et indiquez ce qui est parti et ce qui est arrivé.
 - De l’audit de sécurité de la 1.2.8 : se déconnecter met fin à cette session pour toute copie de son cookie ; une restauration garde l’identifiant, la clé IA et les réglages de prix de cette installation ; chaque requête a des limites de taille et de durée.
+- Dans Safari, un dépôt passé à Inherited ou depuis Inherited s’enregistre de nouveau (en 1.2.8, l’enregistrement ne faisait rien).
 - La calculatrice de la barre latérale fonctionne désormais comme une calculatrice de poche, et son Sats Converter compte au satoshi près ; rien de ce qu’ils affichent n’est enregistré.
 - BitcoinTX tourne sous Python 3.13. Bien d’autres petites corrections figurent dans le journal des modifications.
 
