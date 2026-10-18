@@ -11,7 +11,7 @@ The goal (owner, 2026-10-11): a stable release several months before the
 Registry, then maintenance only. The plan and its checklist are #143. The
 version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
 every bug found in 1.2.8's user test and in the reviews since, is the stable
-version of 1.x (#369; it ships with five minor known issues, none of which
+version of 1.x (#369; it ships with six minor known issues, none of which
 can make a figure wrong, listed in its release notes); it gets the 14 days
 on Community Beta and the promotion request (1.2.8 isn't promoted).
 Nothing that changes the package goes to Start9 during that test, so what's

@@ -68,6 +68,8 @@ update):
   wrongly (#489).
 - The AI connector's preview note on a dollar row that may already be
   recorded calls the dollars "BTC" (#525).
+- The sidebar's Sats Converter can show one satoshi too few when a dollar
+  amount comes to exactly half a satoshi; nothing it shows is saved (#529).
 
 ### Added
 - **Through Tor, the price history can be downloaded once without Tor,
@@ -1974,6 +1976,16 @@ update):
   own and no longer runs the two removed scripts. `.gitignore` now ignores
   `setup-code.txt` and `*.orig` (a comment after the pattern made it match
   nothing).
+- **A release's notes fit GitHub** (the review of #528). GitHub refuses a
+  release body over 125,000 characters, and 1.2.9's section here is about
+  131,000, so `release.yml` would have failed at the release itself, after
+  PyPI already had `btctx-mcp==1.2.9`. `scripts/release-notes.sh` now builds
+  a release's notes: a section that opens with a summary (text before its
+  first `###` heading) gives that summary and a link to this file at the
+  tag; any other section is given whole, as before. `release.yml` runs it in
+  its first job, so notes still too long stop the run before anything is
+  published; the release job and `scripts/mirror-startos-release.sh` use it.
+  `test_release_workflow.py` checks every section.
 
 ## [v1.2.8] - 2026-10-13 - Prices at the hour, one price choice, inherited bitcoin and consolidation fees, a security review's fixes
 
