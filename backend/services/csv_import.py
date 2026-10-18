@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -15,6 +16,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from backend.database import take_write_lock
 from backend.models.account import Account
 from backend.models.transaction import Transaction
 from backend.schemas.transaction import (
@@ -901,13 +903,27 @@ def check_database_empty(db: Session) -> tuple[bool, int]:
     return count == 0, count
 
 
-def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
+class ImportBusy(Exception):
+    """SQLite's write lock wasn't free within its 5 s wait, before the
+    import's first write: nothing saved (routers/csv_import.import_failure
+    answers it as busy)."""
+
+
+def execute_import(
+    db: Session, transactions: list[dict[str, Any]], check: Callable[[], list[dict[str, Any]]] | None = None,
+) -> int:
     """
     Save every transaction (parse_csv_file's) and commit once: if one is
-    refused, none is saved. Returns how many were saved. A price a row needs
-    once earlier rows are written is looked for with the lock free, and the
-    rows saved again from the file's values (hourly_prices.
-    with_prices_found, #426).
+    refused, none is saved. Returns how many were saved. check(), when
+    given, runs once SQLite's write lock is held, before the first write,
+    and returns those of `transactions` to save (River's duplicate check)
+    or refuses them (the CSV import's empty ledger): the check and the
+    writes hold one lock, so two imports at once can't both find the ledger
+    without the other's rows (#454). The rows' prices are found before the
+    lock (#426); a price a row needs once earlier rows are written is looked
+    for with the lock free, and the check and the rows run again from the
+    file's values (hourly_prices.with_prices_found). ImportBusy when the
+    lock wasn't free.
     """
     # By timestamp only; rows at the same time keep the file's order (a
     # stable sort). The ledger replays same-time transactions in the order
@@ -917,14 +933,15 @@ def execute_import(db: Session, transactions: list[dict[str, Any]]) -> int:
     sorted_txns = sorted(transactions, key=lambda x: x["timestamp"])
 
     def save() -> int:
-        imported_count = 0
-        find_prices_first(db, sorted_txns)  # before the first row is written (#426)
+        find_prices_first(db, sorted_txns)  # before the lock (#426)
+        if not take_write_lock(db):
+            raise ImportBusy
         try:
-            for tx_data in sorted_txns:
+            to_save = sorted_txns if check is None else sorted(check(), key=lambda x: x["timestamp"])
+            for tx_data in to_save:
                 create_transaction_record(tx_data, db, auto_commit=False)
-                imported_count += 1
             db.commit()
-            return imported_count
+            return len(to_save)
         except Exception:
             db.rollback()
             raise

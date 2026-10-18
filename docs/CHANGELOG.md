@@ -582,6 +582,25 @@ All notable changes to BitcoinTX are documented in this file.
   purchase. Now the rows are matched so that each finds a copy when the
   ledger holds one for each. **Affected:** no release: matching a date
   alone is new in this version (#253). Nothing to do.
+- **The same rows sent twice at once are saved once** (tax figures,
+  #454). An add through the AI connector checked the ledger for its rows
+  and then saved them, as two steps, so a second request with the same
+  rows that checked before the first had saved found nothing and saved
+  them again. That happens when the connector gives up waiting (after
+  120 s, while BitcoinTX looks up prices, through Tor especially) and the
+  AI sends the add again, as the ledger guide says is safe; BitcoinTX
+  finished the first request all the same. It happens too when an AI app
+  sends two adds at once, or a River or CSV file is imported in two
+  browser tabs at once. The check and the save now hold the database's
+  lock together: the second request waits for the first, then finds its
+  rows and leaves them out (the CSV import says the ledger isn't empty).
+  The prices are still found before, with the lock free. **Affected:**
+  every release (the AI connector's add since 0.8.0, the River import
+  since 0.7.0, the CSV import before them), any tax year. **What to do:**
+  if the AI connector ever told you an add timed out, or you imported a
+  file in two tabs, look in Transactions for a transaction recorded twice
+  (the same type, amount and time, saved moments apart) and delete the
+  extra copy.
 - **A transaction you told the AI is another one is saved once, even if
   the request is sent again** (tax figures, #378). When you told the AI
   that a duplicate was another transaction, a second send of the same

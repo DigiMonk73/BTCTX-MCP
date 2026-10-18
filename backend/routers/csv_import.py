@@ -20,6 +20,7 @@ from backend.schemas.csv_import import (
     DatabaseStatusResponse,
 )
 from backend.services.csv_import import (
+    ImportBusy,
     parse_csv_file,
     flag_unpriced_rows,
     check_database_empty,
@@ -48,7 +49,7 @@ def import_failure(what: str, error: Exception) -> HTTPException:
     """The answer to an import that `error` stopped (not a row the ledger
     refused): busy (503) when SQLite's write lock was held past its 5 s
     wait, as other saves answer it, else the fixed sentence (500)."""
-    if is_busy(error):
+    if is_busy(error) or isinstance(error, ImportBusy):
         return HTTPException(status_code=503, detail=IMPORT_BUSY)
     log_unexpected(what, error, logger)
     return HTTPException(status_code=500, detail=IMPORT_FAILED)
@@ -186,21 +187,27 @@ def preview_import(
     )
 
 
-@router.post("/execute", response_model=CSVImportResponse)
-def execute_csv_import(
-    request: Request,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
-    """Import every row, or none: the ledger must be empty."""
-    _require_auth(request)
-
+def _refuse_unless_empty(db: Session) -> None:
     is_empty, count = check_database_empty(db)
     if not is_empty:
         raise HTTPException(
             status_code=400,
             detail=f"Database has {count} existing transaction(s). Please delete all transactions before importing."
         )
+
+
+@router.post("/execute", response_model=CSVImportResponse)
+def execute_csv_import(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Import every row, or none: the ledger must be empty, checked first
+    and again under the import's write lock, so two imports at once (two
+    tabs) can't both find it empty (#454)."""
+    _require_auth(request)
+
+    _refuse_unless_empty(db)
 
     content = _read_validated_csv(file)
 
@@ -219,8 +226,12 @@ def execute_csv_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import."
         )
 
+    def still_empty() -> list:
+        _refuse_unless_empty(db)
+        return result.transactions
+
     try:
-        imported_count = execute_import(db, result.transactions)
+        imported_count = execute_import(db, result.transactions, still_empty)
         return CSVImportResponse(
             success=True,
             imported_count=imported_count,
