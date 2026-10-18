@@ -266,14 +266,19 @@ from the Transaction row alone.
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). The AI's rows
-  also need the same type, source or purpose and a Buy's basis
-  (`entry_import.ENTRY_RULE`); a River row nothing else, and River's own
-  amount counts (`RIVER_RULE`), since its source, purpose, fee and type are
-  the preview's or the owner's edits. The amount tests go in turn (the
-  ledger amount, then River's), and within each a transaction of the row's
-  own type first. The timed rows take their copies before the date-alone
-  rows (`_timed_first`, #472), so a date-alone row is the one saved when it
-  and a timed row share their only copy. The AI's rows are matched so the
+  also need the same type, accounts (from and to: a payout into Exchange
+  BTC beside one recorded into Wallet isn't that payout, only similar,
+  #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`);
+  a River row nothing else, and River's own amount counts (`RIVER_RULE`),
+  since its source, purpose, fee and type are the preview's or the
+  owner's edits;
+  of the accounts, a River row needs only to go the same way
+  (`_compatible`: the same source account or the same destination). The
+  amount tests go in turn (the ledger amount, then River's), and within
+  each a transaction of the row's own type first. The timed rows take
+  their copies before the date-alone rows (`_timed_first`, #472), so a
+  date-alone row is the one saved when it and a timed row share their only
+  copy. The AI's rows are matched so the
   most find a copy: a row left without one takes a copy another row holds
   when that row can take another (`match_by_moving`, #411). The user can
   override a duplicate: the AI's row names the transaction the preview
@@ -284,7 +289,8 @@ from the Transaction row alone.
   finds another copy is that copy, so a resent request doesn't save it
   twice (#378). A named row beside a row without a name that the named
   transaction is a duplicate of too is unclear, never guessed at (the
-  owner's rule, #497): the preview marks each such row invalid, saying
+  owner's rule, #497; a row into or out of another account than that
+  transaction never is): the preview marks each such row invalid, saying
   which rows and what to do, and an add refuses the request
   (`entry_import._unclear`) until the AI names each or sends the named
   one alone.
@@ -312,7 +318,11 @@ from the Transaction row alone.
   or the server sets it (`BTCTX_PRICE_SOURCE` and co.; StartOS's Price
   Source & Privacy action), which Settings then shows read-only. From
   1.2.8, prices stored while the server sets it never count as a choice
-  (it stores `unset`), and a CLI command never makes one (#134).
+  (it stores `unset`), and a CLI command never makes one (#134). Each
+  start of the app notes which of the server's settings it has (its
+  choice, or only its Tor: `outbound.SERVER_SET_KEY`); a CLI command
+  lacking them (StartOS, run by hand) asks no one and says so on stderr
+  (#461).
   **No request may name the day**: the own mempool server is asked for its
   whole history (hourly 00:00 rows kept), public sites for the whole history
   in fixed blocks once, then only the latest days; the tests check the URLs.
@@ -331,6 +341,13 @@ from the Transaction row alone.
   hours after them, the daily history) go directly
   (`outbound.history_client`); `FixedBlocksOnly` refuses anything else on
   that route, a `start` off those blocks' grid included. The live price, block height and latest days stay on Tor.
+  A proxy set for the whole machine (`HTTPS_PROXY` and co., a Mac's
+  system proxy) carries only requests made without a proxy of
+  BitcoinTX's to addresses beyond the home network (the public sites):
+  never one to this computer or the home network (your Mempool there:
+  `outbound.this_computer_or_home`; the Mac app's checks:
+  `desktop_ports.open_here`; the AI connector: its own copy of the rule),
+  nor that direct route (#474).
   A lookup can outlast a save (#437): each request is checked just
   before it's sent against the settings in use then, and one they no
   longer allow (or not through that client's proxy) is refused unsent

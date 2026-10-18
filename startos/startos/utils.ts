@@ -36,6 +36,23 @@ export async function makeRecalculationDue(effects: T.Effects) {
   })
 }
 
+/**
+ * For 1.2.9:0's migration (#212): releases before it kept the password Set
+ * Login Credentials generated in store.json, though only whether a login was
+ * set is ever needed (Start9's recipe-web-ui.md, "Authentication": persist
+ * only the hash, which the app keeps). Records that as `loginSet` and deletes
+ * the password: store.json is a z.looseObject, so a key goes only when it is
+ * merged as undefined (file-models.md, "Unknown Key Preservation"). Safe to
+ * repeat.
+ */
+export async function forgetStoredPassword(effects: T.Effects) {
+  const hadPassword = await storeJson.read((s) => !!s.adminPassword).once()
+  await storeJson.merge(effects, {
+    adminPassword: undefined,
+    ...(hadPassword ? { loginSet: true } : {}),
+  })
+}
+
 export function generatePassword(): string {
   return utils.getDefaultString({ charset: 'a-z,A-Z,0-9', len: 24 })
 }

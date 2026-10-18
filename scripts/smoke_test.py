@@ -164,7 +164,8 @@ def fake_internet(log_path: str) -> None:
     sent through.
     """
     class FakeInternetClient(httpx.AsyncClient):
-        def __init__(self, *, proxy: str | None = None, **kwargs):
+        # transport: a direct client's own connection (#474), replaced by the fake one
+        def __init__(self, *, proxy: str | None = None, transport=None, **kwargs):
             def answer(request: httpx.Request) -> httpx.Response:
                 with open(log_path, "a") as log:
                     log.write(json.dumps({"url": str(request.url), "proxy": proxy}) + "\n")

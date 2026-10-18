@@ -282,6 +282,34 @@ All notable changes to BitcoinTX are documented in this file.
   place of the verb; it now reads "Not enough BTC to withdraw …", in the
   app, the AI connector and the command line. A sale's ("to sell") was
   right already. The wording only: no figure changes.
+- **The AI connector no longer leaves out a payout into one bitcoin
+  account as already recorded in the other** (tax figures, #522). Its
+  duplicate check took a recorded transaction for a row when the two went
+  the same way: out of the same account, or into the same one. Every
+  deposit comes from outside, so a deposit's destination was never
+  compared: an Interest payout into Exchange BTC beside an identical one
+  recorded into Wallet (the same amount, source and minute) was called
+  already recorded and left out, and its income and cost basis were
+  missing. The same went for a spend from the other bitcoin account (its
+  gain or loss missing) or a gift from it (the coins still counted as
+  held), a Buy paid from the other dollar account (its cost basis
+  missing), a move to the exchange beside a consolidation in the wallet,
+  and a dollar deposit into the other dollar account. Now (the owner's
+  rule) the AI's rows need the same accounts too: a row into or out of
+  another account is a possible duplicate, saved unless you remove it, its
+  note naming the account ("recorded into Wallet, not Exchange BTC").
+  The River import is unchanged: of the accounts, a River row needs only
+  to go the same way, so a River payout you recorded into your wallet
+  isn't imported twice (#253).
+
+  **Affected:** every release with the AI connector (0.8.0 to 1.2.8), any
+  tax year, in a wider form: their check compared no accounts and matched
+  within 48 hours (#253's entry below). **What to do:** if you added
+  transactions through the AI connector, check that its payouts, spends,
+  gifts, donations, purchases and moves are all in your ledger where two
+  of them have the same amount within two days of each other, in either
+  account, against your exchange's statement or your own records, and add
+  any that's missing.
 - **A River auto-withdrawal is imported as a move to your wallet, and a
   River mining payout as income** (tax figures, #397, #399). River's
   activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River
@@ -513,6 +541,24 @@ All notable changes to BitcoinTX are documented in this file.
   technical text, and `cli review` shows that line too. A transaction
   deleted while the check runs, or while you apply the hour's prices, is
   left out instead of causing a server error.
+- **A maintenance command run by hand on StartOS asks no one for a
+  price unless it has the server's price settings** (#461, the owner's
+  design "Ask no one", 2026-10-17). On StartOS the Price Source & Privacy
+  action gives its choice, or its Tor (Use Tor with Decide in BitcoinTX
+  instead), to the app as settings of the server. A command run by hand
+  without them (`python -m backend.cli review` or `recalculate` in the
+  service's shell) read only the choice stored in the app instead: with
+  Use Tor, it asked public price sites directly, not through Tor; with the
+  action's Nobody, or its other choices, over a choice once made in
+  BitcoinTX's Settings, it asked by that old choice. What it could show
+  them is this server's address and the fact of a lookup: no request
+  names a date. With Use Tor since 1.2.8; with the action's choices since
+  1.2.0, which brought them. Now the app notes, each time it starts,
+  which of the server's price settings it has, and a command lacking them
+  asks no one and says so (`note: …` on its error output). The package's
+  own commands (the Recalculate Ledger action, and the migrate step at each
+  start) have them, and work as before; so do Docker's `docker exec`
+  commands; the Mac app has none, and nothing changes there.
 - **A price lookup under way when you change the price settings follows
   your new choice** (#437). A lookup of a past price asked your own
   Mempool first, waiting for it up to a minute and a half when it was slow
@@ -1352,6 +1398,37 @@ All notable changes to BitcoinTX are documented in this file.
   package's version.
 
 ### Security
+- **What BitcoinTX sends directly no longer goes through a proxy set for
+  the whole machine** (#474). A proxy in BitcoinTX's environment
+  (`HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`) or a Mac's system proxy got
+  requests the privacy audit calls direct:
+  - your Mempool at a home address (`http://umbrel.local:3006`): the proxy
+    learned its name and when prices were asked (over plain http, the
+    prices too), and usually couldn't reach it ("Your Mempool didn't
+    answer"); on a Mac, even when the proxy's exceptions named it;
+  - the price history without Tor (#241, new in 1.2.9): it went through
+    that proxy, so Bitstamp didn't see this server's address as the card
+    says, and a Tor set that way kept Bitstamp refusing;
+  - the Mac app's checks of its own address at start, under a system
+    proxy whose exceptions don't name 127.0.0.1 (or `HTTP_PROXY`, for an
+    app started from a shell that sets it): a proxy elsewhere can't reach
+    this Mac's 127.0.0.1, so the app quit after 30 seconds ("Failed to
+    start backend").
+
+  Now this computer's own addresses (`localhost`, 127.x, `::1`) never go
+  through a machine-wide proxy, nor does the home network (a `.local` or
+  `.lan` name, a one-word name, 10.x, 172.16–31.x, 192.168.x), for the
+  app, the Mac app and the AI connector alike, and the history without
+  Tor goes directly. The public price sites still follow such a proxy
+  when BitcoinTX sets none of its own (on Docker, a way to hide the
+  server's address); your Mempool at an internet address follows it
+  always, Tor set or not (BitcoinTX's own proxy carries only an .onion).
+  Certificates are checked as before. Only an install whose own
+  environment or Mac sets such a proxy was affected; StartOS's package
+  sets none. Nothing to do, unless you reached your home Mempool, or
+  BitcoinTX from the AI connector, only through such a proxy (an SSH
+  tunnel, say): that no longer works, so reach them another way (a VPN).
+  `docs/PRIVACY_AUDIT.md` writes the rule down.
 - **BitcoinTX no longer runs as root in its container** (#202), in Docker
   and on StartOS, which runs the same image. It runs as its own user,
   `btctx` (uid and gid 10001), keeping one right: to open port 80. A flaw
@@ -1465,6 +1542,13 @@ All notable changes to BitcoinTX are documented in this file.
   no longer shows a recalculation error's own text.
 
 ### StartOS package
+- **Connect an AI Assistant takes the server's root certificate the way
+  Start9's guide says** (#463). The action found the certificate your AI
+  app must trust by asking StartOS for a certificate for `127.0.0.1` and
+  taking the third one of its chain, which worked only while that chain
+  had exactly three. It now takes it with the SDK's call for it
+  (`sdk.getRootCa`, Start9's "Trusting this server's certificates"). What
+  the action shows is unchanged.
 - **Restoring a StartOS backup, as StartOS does it** (#323). The package's
   README said a backup made on an older version is migrated forward when
   it's restored, and its README and instructions said to go back by
@@ -1514,6 +1598,18 @@ All notable changes to BitcoinTX are documented in this file.
   the license, how Start9's release workflow reads the id and version, the
   instructions' wording, and one exact SDK. Everything else already
   conformed; nothing the package does changes.
+- **The package keeps only whether a login was set, never its password**
+  (#212). Set Login Credentials saved the password it generated in the
+  package's `store.json` as plain text (so StartOS backups, which StartOS
+  encrypts, held it too), though the package only ever asked whether a
+  login was set. It now keeps `loginSet`, as Start9's "Expose a Web UI"
+  recipe says for an app with its own login (`recipe-web-ui.md`,
+  "Authentication": persist only the hash, which BitcoinTX keeps in its own
+  database), and still shows the password once. The update to 1.2.9
+  replaces a stored password with `loginSet` and deletes it. Nothing to do:
+  your login and the Set Login Credentials action work as before. A backup
+  made before the update still holds that password, which stops working
+  once you change it (in BitcoinTX, or with Set Login Credentials).
 - **A package fix while a version is only on Community Beta** (#376, the
   owner's rule): Start9 keeps the version number until the community
   registry serves it, so `UPDATING.md` now ships such a fix inside a small
