@@ -678,9 +678,11 @@ The whole flow, in plain steps for the owner and every session:
     mirror;
   - which pages the `## Documentation` links in `instructions.md` name
     (Start9's support indexer crawls them: `writing-instructions.md`,
-    "Choosing documentation URLs"). The pages themselves, the root README
-    and `mcp_server/README.md`, stay the app's own, but what they say
-    about StartOS must agree with the package;
+    "Choosing documentation URLs"). The pages themselves,
+    `docs/USING.md` and `mcp_server/README.md`, stay the app's own (as
+    does the root README), but what they say about StartOS must agree
+    with the package, and `docs/USING.md` stays free of install steps
+    (`test_startos_docs_link_467.py`);
   - everything we send to Start9's fork: pull requests, comments,
     promotion requests.
 
