@@ -678,8 +678,8 @@ All notable changes to BitcoinTX are documented in this file.
   releases), or a sale or a bitcoin withdrawal (from 1.2.2, when a type
   change began to drop the old type's figures; before, the Buy kept the
   cost basis stored on the sale or withdrawal). A dollar deposit made a
-  Buy that way gave the Buy its own cost basis: $0 on one entered with the
-  form before 0.9.2. The AI connector's `update_transaction` can send that
+  Buy that way kept its own cost basis as the Buy's: $0 on one entered
+  with the form before 0.9.2. The AI connector's `update_transaction` can send that
   edit when it isn't given the cost. The Buy's bitcoin then cost $0: selling
   or spending it later counted the whole proceeds as gain, and the
   year-end holdings' cost and the dashboard's average cost were low by the
@@ -702,16 +702,19 @@ All notable changes to BitcoinTX are documented in this file.
   or Exchange BTC (making it a deposit of bitcoin) kept the cost basis
   stored on the dollar deposit as the cost of that bitcoin, without
   asking: $0 on a dollar deposit entered with the form before 0.9.2, or
-  whatever figure a program or a CSV file gave it. Selling those coins later then
-  counted the whole proceeds as gain (or a gain off by the difference),
-  and an income deposit moved that way reported that figure as its income
+  whatever figure a program or a CSV file gave it. (A dollar deposit made
+  a Buy instead: the entry above.) Selling those coins later then counted
+  the whole proceeds as gain (or a gain off by the difference), and an
+  income deposit moved that way reported that figure as its income
   instead of the coins' value. Every release from 0.8.0 (the oldest
   tagged) to 1.2.8, through the API and the AI connector. Now such an
   edit asks for the coins' cost (a My BTC, Gift or N/A deposit), or values
   an income, interest, reward or rebate deposit at that hour's price (an
-  inherited one at its date of death's), unless it gives one. The form
-  isn't changed: there the Cost Basis field shows the figure the deposit
-  had (a blank one as 0), and saving keeps what it shows.
+  inherited one at the price on its date of death, which the edit must
+  give), unless it gives one. The form isn't changed: there the Cost Basis
+  field shows the figure the deposit had (a blank one as 0), and saving
+  keeps what it shows (a 0 on an income, rebate or inherited deposit is
+  valued at the price).
 
   **What to do:** Ledger Review lists a bitcoin deposit with a $0 cost
   basis ("BTC deposits (not income or a rebate) with a $0 or blank cost
