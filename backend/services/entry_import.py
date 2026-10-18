@@ -438,11 +438,11 @@ def _unclear(
     """
     Each named row beside rows without a name that the transaction it names
     is a duplicate of too (ENTRY_RULE: a row into or out of another account
-    is another transaction, never unclear beside it, #522). Which of them
-    is a recorded transaction and which another can't be told: the same
-    request is a first send naming a new payout or a send of two the ledger
-    already holds, and only the rows' order would decide (the owner's rule:
-    refuse to guess). Those rows by each named row; a row whose name counts
+    isn't that transaction, so never unclear beside it, #522). Which of
+    them is a recorded transaction and which another can't be told: the
+    same request is a first send naming a new payout or a send of two the
+    ledger already holds, and only the rows' order would decide (the
+    owner's rule: refuse to guess). Those rows by each named row; a row whose name counts
     for nothing (_named) is a row without a name.
     """
     if not named or len(named) == len(valid):
