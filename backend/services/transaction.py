@@ -461,7 +461,7 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
     old_timestamp = tx.timestamp
     type_changed = _drop_fields_of_old_type(tx, tx_data)
     _drop_proceeds_it_never_had(tx, tx_data)
-    _gross_of_an_old_withdrawal_sold(tx, tx_data)
+    _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data)):
@@ -558,7 +558,7 @@ def _drop_proceeds_it_never_had(tx: Transaction, tx_data: dict) -> None:
         tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = None
 
 
-def _gross_of_an_old_withdrawal_sold(tx: Transaction, tx_data: dict) -> None:
+def _send_gross_of_an_old_withdrawal_sold(tx: Transaction, tx_data: dict) -> None:
     """
     A withdrawal saved before 0.8.0 (no gross recorded) made a Sell by an
     edit that sends no proceeds: the sale's gross is the one a recalculation
@@ -1203,8 +1203,8 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
 def _gross_from_stored_proceeds(tx: Transaction, btc_outflow: Decimal) -> Decimal:
     """
     The gross of a withdrawal saved before the gross was recorded, from the
-    proceeds_usd it stored: a Spent's (as versions 0.8.0 to 0.9.1 spelled
-    it, _spent_as_matched) is net of the BTC fee offset they took off,
+    proceeds_usd it stored: a Spent's (in the spelling _spent_as_matched
+    reads) is net of the BTC fee offset versions before 0.9.2 applied,
     undone over the amount and the fee (`btc_outflow`); another purpose's
     had none (#61) and is its gross.
     """
@@ -1338,8 +1338,10 @@ def _sell_net_proceeds(tx: Transaction, tx_data: dict, fee_amount: Decimal, fee_
     # and an edit of a Sell can't blank it (_check_sell_proceeds), so only
     # rows saved before that reach here, and their stored proceeds_usd is
     # ALREADY net of the USD fee: keep it as the net and recover the gross
-    # once. (A withdrawal from such a ledger changed into a Sell keeps its
-    # blank gross too, and its proceeds aren't a net: #520.)
+    # once. (A withdrawal from such a ledger made a Sell is given its
+    # recovered gross by the edit, _send_gross_of_an_old_withdrawal_sold,
+    # #520: its proceeds aren't a net. Only one with none above $0 reaches
+    # here, at $0.)
     proceeds_usd = Decimal(tx_data.get("proceeds_usd") or "0")
     net_usd_in = proceeds_usd if proceeds_usd > 0 else Decimal("0")
     if net_usd_in > 0:
