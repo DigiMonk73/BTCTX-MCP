@@ -85,13 +85,16 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
 - **Before each sync, take their changes:** on a branch cut from `develop`,
   run `scripts/start9-pull.sh` to see what they changed since they last took
   ours, then `scripts/start9-pull.sh --apply`, review, run the checks,
-  commit and open a pull request into `develop`. `--apply` also records
-  their commit in BTCTX-MCP's `scripts/start9-taken`; commit it with the
-  change, so later checks count only what they changed since. The mirror sync replaces
-  the mirror's contents with `startos/`, so anything not brought back here
-  would be undone. The sync runs `scripts/start9-pull.sh --check` first and
-  stops if their changes aren't in `startos/`, and so does the release
-  workflow, before publishing anything.
+  commit and open a pull request into `develop`. If what they changed moves
+  a sibling in `package-lock.json`, save the bundle's list of sibling
+  modules before `--apply` and compare it after ("Bumping the SDK", step 2).
+  `--apply` also records their commit in BTCTX-MCP's `scripts/start9-taken`;
+  commit it with the change, so later checks count only what they changed
+  since. The mirror sync replaces the mirror's contents with `startos/`, so
+  anything not brought back here would be undone. The sync runs
+  `scripts/start9-pull.sh --check` first and stops if their changes aren't
+  in `startos/`, and so does the release workflow, before publishing
+  anything.
 - **Contribute each release, only by a pull request:** from
   DigiMonk73/BTCTX-StartOS `main` to the fork's default branch. The sync
   first fast-forwards the mirror's `main` to the fork's branch, so the pull
@@ -173,40 +176,71 @@ Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-man
 
 ## Bumping the SDK
 
-`.github/workflows/startos-sdk-check.yml` opens an issue when npm has a newer
-`@start9labs/start-sdk`. To adopt it:
+BTCTX-MCP's `.github/workflows/startos-sdk-check.yml` opens an issue when npm
+has a newer `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt
+them:
 
 1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
    installing) for breaking changes and the minimum StartOS version.
-2. `npm install --save-exact @start9labs/start-sdk@<version>`, then run
-   `npm install` again until `package-lock.json` stops changing (Start9's
-   `maintaining-a-package.md`: the first install's lockfile isn't final).
-   To move `mempool-startos` and `tor-startos` (the packages the dependency
-   constants come from, pinned at `#next`) to their newest commits, delete
-   every git-resolved entry from `package-lock.json` (`"resolved": "git+…"`:
-   those two and the packages they bring, such as `bitcoin-core-startos`),
-   and anything under them, and run `npm install`: `npm update` does nothing for a git dependency. Then
-   check the lockfile holds one SDK, `node_modules/@start9labs/start-sdk`
-   and no copy under another package (`overrides` keeps it so).
-3. Update `START_CLI_VERSION` in `.github/workflows/ci.yml` and
-   `.github/workflows/release.yml` to the start-cli release that matches the
-   SDK. The mirror's workflows call Start9's shared ones, which install the
-   newest start-cli at each build: Start9's package is packed with it, so
-   test a release with that version too. Once Start9 has forked the mirror,
-   they may bump the SDK there first: take it with `scripts/start9-pull.sh`
-   instead.
+2. First save the bundle's list of sibling modules, on the tree as it is
+   (below). Then `npm install --save-exact @start9labs/start-sdk@<version>`,
+   and run `npm install` again until `package-lock.json` stops changing
+   (Start9's `maintaining-a-package.md`: the first install's lockfile isn't
+   final). To move `mempool-startos` and `tor-startos` (the packages the
+   dependency constants come from, pinned at `#next`) to their newest
+   commits, delete every git-resolved entry from `package-lock.json`
+   (`"resolved": "git+…"`: those two and the packages they bring, such as
+   `bitcoin-core-startos`), and anything under them, and run `npm install`:
+   `npm update` does nothing for a git dependency. Then check the lockfile
+   holds one SDK, `node_modules/@start9labs/start-sdk` and no copy under
+   another package (`overrides` keeps it so).
+
+   A sibling's new commit can change what BitcoinTX ships (Start9's
+   `maintaining-a-package.md`, "Read the lockfile diff as code review"):
+   Mempool's `utils`, where two of the constants come from, imports
+   Bitcoin Core's and LND's packages, so their manifests and SDK setup are
+   in BitcoinTX's bundle and run when it loads. So whenever the lockfile
+   moves a sibling (here, or in a change taken back from Start9's fork),
+   list the bundle's sibling modules before the refresh and after it:
+
+   ```sh
+   rm -rf javascript && make javascript/index.js
+   grep 'CONCATENATED MODULE: ./node_modules/[a-z-]*-startos' javascript/index.js | sort > /tmp/siblings-before
+   # refresh, then the same two lines into /tmp/siblings-after
+   diff /tmp/siblings-before /tmp/siblings-after
+   ```
+
+   Read what changed in the files of the second list between the
+   lockfile's old and new commits
+   (`https://github.com/Start9Labs/<package>/compare/<old>...<new>`). A
+   file only the second list has is code BitcoinTX didn't ship before:
+   name it in the pull request.
+3. `START_CLI_VERSION` in BTCTX-MCP's `.github/workflows/ci.yml` and
+   `release.yml` is Start9's newest start-cli, with `START_CLI_SHA256`, its
+   `start-cli_x86_64-linux` SHA-256 from the release notes: the mirror's
+   workflows call Start9's shared ones, which install the newest start-cli
+   at each build, so Start9's package is packed with it. When the check
+   reports a new start-cli, move both, with or without an SDK bump: read its
+   release notes, then check CI's pack and a local pack installed on a test
+   server. A start-cli bump alone changes only how BTCTX-MCP builds the
+   package: it needs no package revision, and the next release uses it.
+   Once Start9 has forked the mirror, they may bump the SDK there first:
+   take it with `scripts/start9-pull.sh` instead of steps 1 and 2.
 4. Run the checks, bump the package revision, release. While the community
    registry doesn't serve the current version, the bump rides in the next
    app release instead (the end of "After Start9 forks the mirror").
 
 ## Building locally
 
-Needs Docker 28.1 or later (start-cli 2.3 packs using Docker's `--platform`),
-with the containerd image store for multi-arch images, `squashfs-tools`
-(start-cli 2.4 and later make SquashFS images themselves), `jq`, Node 24 and
-[start-cli](https://docs.start9.com/packaging/environment-setup.html). start-cli
-packs only inside a *packaging workspace*: a directory above the package that
-holds `.startos/build.key.pem`. Create it above the repository, not inside it:
+Needs Docker 28.1 or later (Start9's guide, `environment-setup.md`; start-cli
+takes the image with Docker's `image save --platform`), with the containerd
+image store for multi-arch images, `jq`, Node 24 and
+[start-cli](https://docs.start9.com/packaging/environment-setup.html): the
+release `START_CLI_VERSION` names in BTCTX-MCP's `.github/workflows/ci.yml`.
+From 2.4, start-cli makes the SquashFS images itself, so the guide's
+`squashfs-tools` aren't needed. start-cli packs only inside a *packaging
+workspace*: a directory above the package that holds `.startos/build.key.pem`.
+Create it above the repository, not inside it:
 
 ```sh
 cd startos

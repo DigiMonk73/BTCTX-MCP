@@ -160,6 +160,12 @@ def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]
         return [], [unreadable_csv(exc)]
 
 
+def rows_in_file(rows: list[RiverRow], errors: list[CSVParseError]) -> int:
+    """The file's data rows, read or refused (#455): a refused row's error
+    carries its row number; an error about the whole file is row 0."""
+    return len({row.row_number for row in rows} | {e.row_number for e in errors if e.row_number > 0})
+
+
 def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
     errors: list[CSVParseError] = []
     rows: list[RiverRow] = []

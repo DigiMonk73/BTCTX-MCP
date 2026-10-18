@@ -632,7 +632,9 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     Bitstamp's hours after the year files, in fixed blocks from the hour
     after them, skipping blocks whose every hour is kept already, at most
     every 10 minutes. The current hour only once it has a trade: until
-    then its open can change.
+    then its open can change. A save that stops them (ChoiceChanged) is no
+    failure (#475): the hours the blocks before it gave are kept, and the
+    rest is asked again as the new choice says, not 10 minutes later.
     """
     if time.monotonic() - _state["public_at"] < RETRY_SECONDS:
         return {}
@@ -645,11 +647,15 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     if starts:
         _log_without_tor("the hours after the year files")
     client, out = ChoiceClient(), {}
-    for start in starts:
-        for row in await pf.bitstamp_candles(client, start):
-            kept = _kept_open(row, current)
-            if kept:
-                out[kept[0]] = kept[1]
+    try:
+        for start in starts:
+            for row in await pf.bitstamp_candles(client, start):
+                kept = _kept_open(row, current)
+                if kept:
+                    out[kept[0]] = kept[1]
+    except outbound.ChoiceChanged:
+        _state["public_at"] = -1e9
+        logger.info("Hourly BTC prices after the year files: stopped (the price settings changed)")
     return out
 
 

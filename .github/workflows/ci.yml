@@ -24,9 +24,12 @@ permissions:
   contents: read
 
 env:
-  # start-cli for the StartOS jobs: the release that goes with the SDK in
-  # startos/package.json (startos/UPDATING.md, "Bumping the SDK")
-  START_CLI_VERSION: v2.3.0
+  # start-cli for the StartOS jobs: Start9's newest release, the one their
+  # builds pack with (startos/UPDATING.md, "Bumping the SDK", step 3), and
+  # its start-cli_x86_64-linux SHA-256 from the release notes, checked before
+  # it runs. release.yml repeats both
+  START_CLI_VERSION: v2.4.1
+  START_CLI_SHA256: 93cc32cd37976f597ef90d59ff64261d996fddf08e283559aa28578585847668
 
 jobs:
   python:
@@ -247,6 +250,7 @@ jobs:
         run: |
           sudo curl -sSL -o /usr/local/bin/start-cli \
             "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
+          echo "${START_CLI_SHA256}  /usr/local/bin/start-cli" | sha256sum -c -
           sudo chmod +x /usr/local/bin/start-cli && start-cli --version
       - run: npm ci
       - name: Type check, SDK lint, format check, bundle
@@ -266,17 +270,19 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: startos/package-lock.json
-      # start-cli 2.3.0 packs with `docker ... --platform`, which needs Docker
-      # 28.1 or later; the runner's is older (Start9's own builds do the same)
+      # Start9's guide asks for Docker 28.1 or later (environment-setup.md);
+      # the runner's is older (Start9's own builds do the same). start-cli
+      # takes the image with `docker image save --platform`, and from 2.4
+      # makes the SquashFS image itself: no squashfs-tools
       - name: Docker (current release, containerd image store for multi-arch)
         uses: docker/setup-docker-action@2bf61fb9464cc67f0cbdeabed6aa0380accd1c70 # v5.5.0
         with:
           daemon-config: '{"features":{"containerd-snapshotter":true}}'
-      - name: Tools (squashfs, start-cli)
+      - name: start-cli
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q squashfs-tools squashfs-tools-ng
           sudo curl -sSL -o /usr/local/bin/start-cli \
             "https://github.com/Start9Labs/start-technologies/releases/download/start-cli%2F${START_CLI_VERSION}/start-cli_x86_64-linux"
+          echo "${START_CLI_SHA256}  /usr/local/bin/start-cli" | sha256sum -c -
           sudo chmod +x /usr/local/bin/start-cli && start-cli --version
           docker version --format "Docker {{.Server.Version}}"
       - name: Build the image under the tag the manifest pins
