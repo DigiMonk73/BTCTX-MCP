@@ -261,8 +261,8 @@ from the Transaction row alone.
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). The AI's rows
   also need the same type, accounts (from and to: a payout into Exchange
-  BTC beside one recorded into Wallet is another payout, #522), source or
-  purpose and a Buy's basis (`entry_import.ENTRY_RULE`); a River row
+  BTC beside one recorded into Wallet isn't that payout, only similar,
+  #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`); a River row
   nothing else, and River's own amount counts (`RIVER_RULE`), since its
   source, purpose, fee and type are the preview's or the owner's edits;
   of the accounts, a River row needs only to go the same way

@@ -12,10 +12,14 @@ removed, its note naming the account. River's rule (#253) stays.
 """
 
 import io
+from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 
-from backend.services.river_import import STATUS_MATCHED
+from backend.models.transaction import Transaction
+from backend.services.entry_import import ENTRY_RULE
+from backend.services.river_import import STATUS_MATCHED, RiverProposal
 from backend.tests.conftest import stub_prices_at
 
 CLIENT = None
@@ -179,6 +183,49 @@ def test_a_buy_paid_from_the_other_dollar_account_is_saved_flagged_with_the_acco
     assert execute([other])["imported_count"] == 1
     [new] = saved_after({recorded})
     assert new["from_account_id"] == 3
+
+
+def test_a_move_to_the_exchange_beside_a_consolidation_in_the_wallet_is_saved_flagged():
+    """Both leave Wallet, so they went the same way: a move to Exchange BTC
+    and a consolidation (Wallet to Wallet) of the same amount, fee and
+    minute were one transaction on develop."""
+    known = own_btc_in_both_accounts()
+    consolidation = {"type": "Transfer", "amount": "0.002", "from_account": "Wallet", "to_account": "Wallet",
+                     "fee_amount": "0.00001", "fee_currency": "BTC", "date": WHEN}
+    known.add(record(consolidation))
+    move = dict(consolidation, to_account="Exchange BTC")
+    [result] = preview([move])
+    assert result["status"] == "possible_duplicate", result
+    assert "recorded into Wallet, not Exchange BTC" in result["warnings"][0]
+    assert execute([move])["imported_count"] == 1
+    [new] = saved_after(known)
+    assert (new["from_account_id"], new["to_account_id"]) == (2, 4)
+    assert execute([move])["imported_count"] == 0
+
+
+def test_a_dollar_deposit_into_the_other_dollar_account_is_saved_flagged():
+    pay = {"type": "Deposit", "amount": "500", "from_account": "External", "to_account": "Bank",
+           "source": "Income", "date": WHEN}
+    recorded = record(pay)
+    other = dict(pay, to_account="Exchange USD")
+    [result] = preview([other])
+    assert (result["status"], result["matched_transaction_id"]) == ("possible_duplicate", recorded), result
+    assert "recorded into Bank, not Exchange USD" in result["warnings"][0]
+    assert execute([other])["imported_count"] == 1
+    [new] = saved_after({recorded})
+    assert new["to_account_id"] == 3
+
+
+def test_a_stored_transaction_without_an_account_is_named_so():
+    """A transaction's accounts may be blank in the database (the columns
+    allow it): the note says so rather than failing the preview."""
+    row = RiverProposal(
+        row_number=1, timestamp=datetime(2025, 3, 20, 15, tzinfo=timezone.utc), river_tag=None, type="Deposit",
+        from_account_id=99, to_account_id=4, amount=Decimal("0.002"), source="Interest",
+    )
+    tx = Transaction(type="Deposit", from_account_id=99, to_account_id=None, amount=Decimal("0.002"),
+                     source="Interest")
+    assert ENTRY_RULE.differences(row, tx) == ["recorded into no account, not Exchange BTC"]
 
 
 def test_a_row_into_the_other_account_beside_a_named_row_is_not_unclear():

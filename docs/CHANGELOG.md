@@ -290,23 +290,25 @@ All notable changes to BitcoinTX are documented in this file.
   compared: an Interest payout into Exchange BTC beside an identical one
   recorded into Wallet (the same amount, source and minute) was called
   already recorded and left out, and its income and cost basis were
-  missing. The same went for a spend from the other bitcoin account and a
-  Buy paid from the other dollar account. Now (the owner's rule) the AI's
-  rows need the same accounts too: a row into or out of another account is
-  a possible duplicate, saved unless you remove it, its note naming the
-  account ("recorded into Wallet, not Exchange BTC"). The River import is
-  unchanged: of the accounts, a River row needs only to go the same way,
-  so a River payout you recorded into your wallet isn't imported twice
-  (#253).
+  missing. The same went for a spend from the other bitcoin account (its
+  gain or loss missing), a Buy paid from the other dollar account (its
+  cost basis missing), a move to the exchange beside a consolidation in
+  the wallet, and a dollar deposit into the other dollar account. Now (the
+  owner's rule) the AI's rows need the same accounts too: a row into or out
+  of another account is a possible duplicate, saved unless you remove it,
+  its note naming the account ("recorded into Wallet, not Exchange BTC").
+  The River import is unchanged: of the accounts, a River row needs only
+  to go the same way, so a River payout you recorded into your wallet
+  isn't imported twice (#253).
 
   **Affected:** every release with the AI connector (0.8.0 to 1.2.8), any
   tax year, in a wider form: their check compared no accounts and matched
   within 48 hours (#253's entry below). **What to do:** if you added
-  transactions through the AI connector, check that payouts of the same
-  amount at the same time into your wallet and your exchange, and
-  purchases of the same amount and price at the same time paid from your
-  bank and from your exchange's cash, are all in your ledger, against your
-  exchange's statement or your own records, and add any that's missing.
+  transactions through the AI connector, check that its payouts, spends,
+  purchases and moves are all in your ledger where two of them have the
+  same amount within two days of each other, in either account, against
+  your exchange's statement or your own records, and add any that's
+  missing.
 - **A River auto-withdrawal is imported as a move to your wallet, and a
   River mining payout as income** (tax figures, #397, #399). River's
   activity file tags bitcoin sent by an auto-withdrawal `Withdrawal`: River

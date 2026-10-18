@@ -339,7 +339,7 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
 def _account_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     """The accounts the transaction left or went into that aren't the row's
     (the owner's rule, #522): a payout into Exchange BTC beside one recorded
-    into Wallet is another payout, though it goes the same way
+    into Wallet isn't that payout, only similar, though it goes the same way
     (river_import._compatible: the same source account or the same
     destination, all River's rule asks)."""
     sides = (("from", tx.from_account_id, row.from_account_id), ("into", tx.to_account_id, row.to_account_id))

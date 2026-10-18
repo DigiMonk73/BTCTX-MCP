@@ -218,11 +218,13 @@ transaction with update_transaction ("none", "proceeds", "basis", or
    Call out: duplicates (the same type, accounts, BTC amount, source or
    purpose, a Buy's cost basis, and minute as a recorded transaction, or the
    same day for a date alone - will be skipped), possible duplicates (the
-   same amount within 48 hours with something else different, such as
-   another account, or a transfer of a near amount; the warning says what -
-   saved unless dropped, so ask), auto-filled USD values, rejected rows
-   (e.g. not enough BTC - usually a missing earlier transaction), and affected_existing
-   (backdating changes gains on earlier-recorded sales). For a value BitcoinTX
+   same amount within 48 hours with something else different, or a
+   transfer of a near amount; the warning says what - saved unless dropped,
+   so ask: one that differs only in its account may be the same
+   transaction recorded in the other account), auto-filled USD values,
+   rejected rows (e.g. not enough BTC - usually a missing earlier
+   transaction), and affected_existing (backdating changes gains on
+   earlier-recorded sales). For a value BitcoinTX
    filled in from a price (a row's simulated.from_price, and the same in
    add_transactions' created rows and list_transactions), say which price:
    "cost basis $5,008.30: 0.1 BTC at $50,083.00, the price at 14:00 UTC on
