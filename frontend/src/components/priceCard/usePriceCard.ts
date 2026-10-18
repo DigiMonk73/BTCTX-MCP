@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
 import api from "../../api";
+import { detailOr } from "../../utils/apiError";
 import {
   formFromSettings,
   payloadFromForm,
@@ -78,8 +78,7 @@ export function usePriceCard() {
       window.dispatchEvent(new Event(PRICE_CHOICE_SAVED));
       return { ok: true };
     } catch (err) {
-      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-      const message = typeof detail === "string" ? detail : "Could not save the choice.";
+      const message = detailOr(err, "Could not save the choice.");
       const field = fieldOf(message);
       if (field) setErrors({ [field]: message });
       return { ok: false, message };

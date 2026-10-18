@@ -11,7 +11,7 @@ export const setCredentials = sdk.Action.withoutInput(
     description: i18n(
       'Generate a random password for logging in to BitcoinTX, with the username "admin". Run it again if you lose the password.',
     ),
-    warning: (await storeJson.read((s) => !!s.adminPassword).const(effects))
+    warning: (await storeJson.read((s) => !!s.loginSet).const(effects))
       ? i18n(
           'This replaces your current username and password. Your transactions are not touched.',
         )
@@ -23,9 +23,10 @@ export const setCredentials = sdk.Action.withoutInput(
 
   async ({ effects }) => {
     const password = generatePassword()
-    // The app first, so the store never holds a password that doesn't work.
+    // The app first, so the store never says a login is set that isn't. Only
+    // that is kept: the password is shown once, below (#212).
     await setAppCredentials(effects, password)
-    await storeJson.merge(effects, { adminPassword: password })
+    await storeJson.merge(effects, { loginSet: true })
 
     return {
       version: '1',
