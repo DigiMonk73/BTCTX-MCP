@@ -175,6 +175,15 @@ def is_busy(error: Exception) -> bool:
     return isinstance(error, OperationalError) and "locked" in str(error.orig)
 
 
+def was_replaced(error: Exception) -> bool:
+    """Whether a save was refused because a restore replaced the database
+    file it was writing to (it waited for the restore's lock): SQLite writes
+    nothing to a file that has been replaced. Python 3.11+ names SQLite's
+    code; on 3.10 it's an error like any other."""
+    return (isinstance(error, OperationalError)
+            and getattr(error.orig, "sqlite_errorname", None) == "SQLITE_READONLY_DBMOVED")
+
+
 FIXED_ACCOUNTS = [
     {"id": 1, "name": "Bank", "currency": "USD"},
     {"id": 2, "name": "Wallet", "currency": "BTC"},
@@ -227,18 +236,69 @@ def seed_defaults(bind=None) -> None:
 
 def init_db(bind=None):
     """
-    Startup: bring the schema up to date with migrations (backing the file up
-    first when there is something to migrate), then seed defaults.
+    Startup: the rollback journal, then bring the schema up to date with
+    migrations (backing the file up first when there is something to
+    migrate), then seed defaults.
     Never uses create_all(): the migrations in backend/migrations/ are the
     only thing that creates or changes tables.
     """
     from backend.migrate import upgrade_database
 
+    use_rollback_journal(bind or engine)
     result = upgrade_database(bind or engine)
     seed_defaults(bind)
     _make_owner_only(bind or engine)
     logger.info("Database ready (schema %s).", result.to_revision)
     return result
+
+
+def use_rollback_journal(bind) -> None:
+    """
+    A database an earlier version's restore left in write-ahead-log mode
+    goes back to SQLite's rollback journal, the mode BitcoinTX makes its
+    databases in: in it, SQLite refuses a save that waited while a restore
+    replaced the file (services/backup._swap), where the log would take the
+    save into the file replaced. It needs the database to itself, as at the
+    start; if something else has it open, it stays as it is for now (a
+    restore tries again, and stops while it stays so). The file's header
+    says which mode it's in, read without waiting for any lock.
+    """
+    path = getattr(getattr(bind, "url", None), "database", None)
+    if not isinstance(bind, Engine) or bind.dialect.name != "sqlite" or not path or path == ":memory:":
+        return
+    if not _in_write_ahead_log_mode(path):
+        return
+    bind.dispose()  # its own idle connections would keep the log open
+    try:
+        with bind.connect() as conn:
+            mode = conn.exec_driver_sql("PRAGMA journal_mode = DELETE").scalar()
+        logger.info("The database's journal mode is now %s (it was wal).", mode)
+    except OperationalError as e:
+        if not is_busy(e):  # a database that can't be opened stops the start, as the migrations did
+            raise
+        logger.warning("The database stays in write-ahead-log mode for now: something else has it open.")
+
+
+def _in_write_ahead_log_mode(path: str) -> bool:
+    """Whether SQLite opens a database file in write-ahead-log mode: its
+    header says so (its format version bytes, 18 and 19, are 2 for it, 1
+    for the rollback journal), or a log with writes in it lies beside it,
+    which SQLite opens whatever the header says (an earlier version's
+    restore could leave one). A file that can't be read: no, and the
+    migrations say why."""
+    try:
+        with open(path, "rb") as f:
+            header = f.read(20)[18:20]
+    except OSError:
+        return False
+    return header == b"\x02\x02" or _log_size(path) > 0
+
+
+def _log_size(path: str) -> int:
+    try:
+        return os.path.getsize(path + "-wal")
+    except OSError:
+        return 0
 
 
 def _make_owner_only(bind) -> None:

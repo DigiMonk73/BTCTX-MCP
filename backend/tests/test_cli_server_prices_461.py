@@ -216,9 +216,8 @@ def test_a_restore_keeps_this_installs_note(auth_client, test_engine, monkeypatc
     seen_in_restore = []
 
     def restore_old_backup(password, path, carry_over):  # a backup with no note
-        with test_engine.begin() as conn:
+        with keep_in_use(test_engine, carry_over), test_engine.begin() as conn:
             conn.exec_driver_sql("DELETE FROM app_settings WHERE key = ?", (outbound.SERVER_SET_KEY,))
-        keep_in_use(test_engine, carry_over)
         with test_engine.connect() as conn:
             seen_in_restore.append(conn.exec_driver_sql(
                 "SELECT value FROM app_settings WHERE key = ?", (outbound.SERVER_SET_KEY,)).scalar())
