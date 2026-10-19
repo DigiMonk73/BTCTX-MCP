@@ -7,6 +7,7 @@ accountant. (The AI guide's line: mcp_server/tests/test_server.py.)
 
 import io
 import re
+import subprocess
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -14,18 +15,16 @@ from pypdf import PdfReader
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 from backend.services.reports.pdf_layout import DISCLAIMER, FOOTER_NOTE
 from backend.tests.test_report_builders import REPORT
+from backend.tests.test_test_files import needs_a_checkout
 
 ROOT = Path(__file__).parents[2]
 
 # More than one wallet, exchange, bank or account is "multiple", never
-# "several" (the owner, 2026-10-19). What's already released keeps its
-# words: the CHANGELOG, the published release notes, the archive.
-SEVERAL_ACCOUNTS = re.compile(
-    r"\bseveral\s+(?:[\w-]+\s+)?(?:wallets|exchanges|exchange accounts|bank accounts|banks|accounts|brokers)\b", re.I)
-SEARCHED = ("README.md", "SECURITY.md", "CONTRIBUTING.md", "AGENTS.md", "docs", "backend", "frontend/src",
-            "frontend/e2e", "mcp_server", "scripts", "testdata", "startos/instructions.md", "startos/README.md",
-            "startos/AGENTS.md", "startos/startos")
-RELEASED = ("docs/CHANGELOG.md", "docs/archive/", "startos/startos/versions/")
+# "several" (the owner, 2026-10-18), wherever the phrase is split: across
+# lines, a quote's "> ", a comment's "#" or "//", joined strings or bold.
+SEVERAL_ACCOUNTS = re.compile(r"\bseveral (?:[\w-]+ ){0,2}(?:wallets|exchanges|accounts|banks|brokers)\b", re.I)
+BETWEEN_WORDS = re.compile(r"[\s>#/*\"'+]+")
+TEXT = (".md", ".py", ".ts", ".tsx", ".json", ".yml", ".yaml", ".html", ".txt")
 
 
 def flat(text: str) -> str:
@@ -53,17 +52,6 @@ def test_the_disclaimer_is_worded_the_same_everywhere():
         assert DISCLAIMER in flat((ROOT / doc).read_text()), doc
 
 
-def test_more_than_one_account_is_multiple_never_several():
-    found = []
-    for name in SEARCHED:
-        path = ROOT / name
-        for file in [path] if path.is_file() else path.rglob("*"):
-            relative = file.relative_to(ROOT).as_posix()
-            if file.suffix in (".md", ".py", ".ts", ".tsx", ".json") and not relative.startswith(RELEASED):
-                found += [f"{relative}: {hit.group(0)}" for hit in SEVERAL_ACCOUNTS.finditer(file.read_text())]
-    assert not found, found
-
-
 def test_the_pdfs_carry_it(auth_client):
     auth_client.post("/api/transactions", json={
         "type": "Deposit", "timestamp": "2024-03-01T12:00:00Z", "from_account_id": 99, "to_account_id": 1,
@@ -77,3 +65,22 @@ def test_the_pdfs_carry_it(auth_client):
     for text in (history_text, report_text):
         assert FOOTER_NOTE in text
         assert not re.search(r"advisor|accountant", text)
+
+
+def unreleased(path: str, text: str) -> str:
+    """What of a tracked file isn't released yet: released text keeps its
+    words (the CHANGELOG's versions, and 1.2.9's release notes until the
+    next bump rewrites them)."""
+    if path == "docs/CHANGELOG.md":
+        return text.split("\n## [v", 1)[0]
+    if path == "startos/startos/versions/current.ts" and "version: '1.2.9:0'" in text:
+        return ""
+    return text
+
+
+@needs_a_checkout
+def test_more_than_one_account_is_multiple_never_several():
+    tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    found = [f"{path}: {hit.group(0)}" for path in tracked.splitlines() if path.endswith(TEXT)
+             for hit in SEVERAL_ACCOUNTS.finditer(BETWEEN_WORDS.sub(" ", unreleased(path, (ROOT / path).read_text())))]
+    assert not found, found
