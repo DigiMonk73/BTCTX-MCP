@@ -79,5 +79,5 @@ The connector's version, after `btctx-mcp==` in your AI app's configuration, sho
 
 BitcoinTX is in English and produces US (IRS) tax forms. Beyond that:
 
-- **One wallet and one exchange.** BitcoinTX tracks one self-custody Wallet and one Exchange. Since 2025, IRS rules require cost basis to be figured wallet by wallet and account by account, so if you use several wallets or exchange accounts, BitcoinTX's gains can differ from what the rules give. Keep separate records for each, or ask your tax preparer.
+- **One wallet and one exchange.** BitcoinTX tracks one self-custody Wallet and one Exchange. Since 2025, IRS rules require cost basis to be figured wallet by wallet and account by account, so if you use multiple wallets or exchange accounts, BitcoinTX's gains can differ from what the rules give. Keep separate records for each, or ask your tax preparer.
 - **BitcoinTX cannot be downgraded.** Each update may upgrade the database, and older versions refuse a newer database. BitcoinTX keeps copies of the database from before its last few upgrades in its `backups` folder. To go back, uninstall BitcoinTX, which deletes its data (those copies too), then restore a StartOS backup made before the update. Anything you entered after that backup is lost.

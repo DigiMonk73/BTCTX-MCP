@@ -14,7 +14,7 @@ boxes that start with tax year 2025.
 > [!IMPORTANT]
 > BitcoinTX tracks one self-custody wallet and one exchange account. Since
 > 2025, IRS rules require cost basis to be figured wallet by wallet and
-> account by account, so if you use several wallets or exchange accounts,
+> account by account, so if you use multiple wallets or exchange accounts,
 > BitcoinTX's gains can differ from what the rules give: keep separate
 > records for each, or ask your tax preparer.
 
@@ -27,11 +27,11 @@ bank account you don't track. The two bitcoin accounts, Wallet and Exchange
 BTC, each keep their own FIFO lots. That fits someone who keeps their
 bitcoin in one wallet and buys and sells through one exchange.
 
-Several wallets or exchanges all go into those two accounts. The rule is
+Multiple wallets or exchanges all go into those two accounts. The rule is
 Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
-coins held on that date. With several wallets, BitcoinTX may figure a sale
+coins held on that date. With multiple wallets, BitcoinTX may figure a sale
 from one wallet with the cost and purchase date of coins that were in
-another. Several wallets and exchanges, each with its own lots, are planned
+another. Multiple wallets and exchanges, each with its own lots, are planned
 for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86)).
 
 ## Transactions

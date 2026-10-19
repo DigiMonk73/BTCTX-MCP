@@ -5,6 +5,14 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
+  BitcoinTX speaks of more than one wallet, exchange or bank account, it
+  now says "multiple": the one-wallet notice (Settings → About, the
+  README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
+  the StartOS instructions and store description, the roadmap and the 2.0
+  plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
+  released (this CHANGELOG's past entries, 1.2.9's release notes) keeps
+  its words.
 - **BitcoinTX needs Python 3.11 or newer** (#546). Python 3.10 reaches its
   end of life this month, and Starlette's new versions (the web toolkit
   FastAPI is built on) need 3.11, so the 3.10 promise held back their updates
