@@ -69,11 +69,11 @@ def test_the_pdfs_carry_it(auth_client):
 
 def unreleased(path: str, text: str) -> str:
     """What of a tracked file isn't released yet: released text keeps its
-    words (the CHANGELOG's versions, and 1.2.9's release notes until the
-    next bump rewrites them)."""
+    words (the CHANGELOG's versions, and 1.2.9's release notes, written
+    before the rule, in current.ts or the file the next bump moves them to)."""
     if path == "docs/CHANGELOG.md":
         return text.split("\n## [v", 1)[0]
-    if path == "startos/startos/versions/current.ts" and "version: '1.2.9:0'" in text:
+    if path.startswith("startos/startos/versions/") and "version: '1.2.9:0'" in text:
         return ""
     return text
 
