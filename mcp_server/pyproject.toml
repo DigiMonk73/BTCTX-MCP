@@ -7,7 +7,7 @@ name = "btctx-mcp"
 version = "1.2.9"
 description = "MCP server that lets an AI assistant add and correct transactions in a BitcoinTX ledger"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "BitcoinTX contributors" }]
 keywords = ["bitcoin", "tax", "mcp", "self-hosted", "form-8949"]

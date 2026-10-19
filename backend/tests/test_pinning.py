@@ -10,6 +10,7 @@ template files as they are and is not checked here.
 """
 
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -22,10 +23,10 @@ WORKFLOWS = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
 LOCKED = ["backend", "desktop", ".github/release-tools"]
 REQUIREMENTS = [ROOT / d / "requirements.in" for d in LOCKED] + [ROOT / "requirements-dev.txt"]
 # The command `make lock` runs, as the lock's header records it: Dependabot
-# re-runs it from there, so every platform (--universal) and Python >= 3.10
+# re-runs it from there, so every platform (--universal) and Python >= 3.11
 # stays covered when it updates a lock.
 LOCK_COMMAND = (
-    "uv pip compile --universal --python-version 3.10 --generate-hashes "
+    "uv pip compile --universal --python-version 3.11 --generate-hashes "
     "requirements.in --output-file requirements.txt"
 )
 INSTALLERS = [ROOT / "Dockerfile", ROOT / "desktop/build-mac.sh", *WORKFLOWS]
@@ -160,7 +161,6 @@ def test_connector_release_builds_inside_its_setuptools_range():
 
 
 def test_connector_ranges_are_capped():
-    tomllib = pytest.importorskip("tomllib")  # Python 3.11+; CI runs it there
     project = tomllib.loads((ROOT / "mcp_server/pyproject.toml").read_text())["project"]
     # tzdata is timezone data numbered by year (2026.4): it is meant to float.
     uncapped = [

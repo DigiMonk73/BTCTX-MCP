@@ -48,4 +48,4 @@ def test_build_mac_tries_btctx_build_python_alone():
                      r"else\n\s+CANDIDATES=\(python3\.13 .*\)\nfi\nfor py in \"\$\{CANDIDATES\[@\]\}\"; do",
                      BUILD_MAC)
     assert 'if [ -z "$PYTHON_CMD" ] && [ -n "${BTCTX_BUILD_PYTHON+set}" ]; then' in BUILD_MAC
-    assert "isn't a Python 3.10+" in BUILD_MAC
+    assert "isn't a Python 3.11+" in BUILD_MAC

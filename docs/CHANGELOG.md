@@ -4,6 +4,20 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **BitcoinTX needs Python 3.11 or newer** (#546). Python 3.10 reaches its
+  end of life this month, and Starlette's new versions (the web toolkit
+  FastAPI is built on) need 3.11, so the 3.10 promise held back their updates
+  (Dependabot couldn't fit them into a lock that also had to work on 3.10).
+  Nothing changes for the Docker image, StartOS or the Mac app: they already
+  run Python 3.13. Running from source needs 3.11 or newer. The AI connector
+  (`btctx-mcp`) needs 3.11 too from its next version. `uvx` downloads a
+  Python by itself only when the machine has none at all: if the machine
+  running your AI app has only Python 3.10, the new connector stops with
+  "current Python version (3.10…) does not satisfy Python>=3.11"; run
+  `uv python install 3.13` once and restart the AI app. CI tests 3.11 and
+  3.13.
+
 ### Fixed
 - **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
