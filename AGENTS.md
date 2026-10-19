@@ -366,10 +366,13 @@ from the Transaction row alone.
   longer allow (or not through that client's proxy) is refused unsent
   (`outbound.ChoiceChanged`).
   Stored days and hours never change. Never today's live price, never $0: no price is
-  a 422. A value worked out from a price (an income's, a gift's, a
-  Spent's proceeds, a fee's `fee_usd`) rounds an exact half cent to the
-  even cent (`Decimal.quantize`'s default; the owner's choice, #556),
-  unlike a lot's share (half up, "Lot cost"). A BTC fee's USD value is stored in `transactions.fee_usd`
+  a 422. A value a save, an import or Ledger Review works out from a
+  price (a deposit's value at receipt: income, rebate or inheritance; a
+  gift's `fmv_usd`; a Spent's proceeds; a fee's `fee_usd`) rounds an
+  exact half cent to the even cent (`Decimal.quantize`'s default; the
+  owner's choice, #556), unlike a lot's share (half up, "Lot cost") and
+  the report's holdings value at a tax year's bounds (half down).
+  A BTC fee's USD value is stored in `transactions.fee_usd`
   at save (`fee_usd_manual` when typed) and recalculation only reads it.
   A save that has written never waits for a year's download (#421); an
   import and the AI's preview and add find their rows' prices before
