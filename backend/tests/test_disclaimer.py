@@ -17,6 +17,16 @@ from backend.tests.test_report_builders import REPORT
 
 ROOT = Path(__file__).parents[2]
 
+# More than one wallet, exchange, bank or account is "multiple", never
+# "several" (the owner, 2026-10-19). What's already released keeps its
+# words: the CHANGELOG, the published release notes, the archive.
+SEVERAL_ACCOUNTS = re.compile(
+    r"\bseveral\s+(?:[\w-]+\s+)?(?:wallets|exchanges|exchange accounts|bank accounts|banks|accounts|brokers)\b", re.I)
+SEARCHED = ("README.md", "SECURITY.md", "CONTRIBUTING.md", "AGENTS.md", "docs", "backend", "frontend/src",
+            "frontend/e2e", "mcp_server", "scripts", "testdata", "startos/instructions.md", "startos/README.md",
+            "startos/AGENTS.md", "startos/startos")
+RELEASED = ("docs/CHANGELOG.md", "docs/archive/", "startos/startos/versions/")
+
 
 def flat(text: str) -> str:
     return " ".join(text.split())
@@ -41,6 +51,17 @@ def test_the_disclaimer_is_worded_the_same_everywhere():
     assert ts_constant("ONE_WALLET_NOTICE") == flat(re.sub(r"^> ?", "", box, flags=re.M))
     for doc in ("README.md", "mcp_server/README.md"):
         assert DISCLAIMER in flat((ROOT / doc).read_text()), doc
+
+
+def test_more_than_one_account_is_multiple_never_several():
+    found = []
+    for name in SEARCHED:
+        path = ROOT / name
+        for file in [path] if path.is_file() else path.rglob("*"):
+            relative = file.relative_to(ROOT).as_posix()
+            if file.suffix in (".md", ".py", ".ts", ".tsx", ".json") and not relative.startswith(RELEASED):
+                found += [f"{relative}: {hit.group(0)}" for hit in SEVERAL_ACCOUNTS.finditer(file.read_text())]
+    assert not found, found
 
 
 def test_the_pdfs_carry_it(auth_client):

@@ -87,7 +87,7 @@ promotion request).
 - [ ] **Multiple wallets and exchange accounts**, each tracked as its own
       account with its own cost-basis lots, as the IRS's wallet-by-wallet
       basis rules require from 2025 (Treas. Reg. §1.1012-1(j); Rev. Proc.
-      2024-28), and several bank accounts, with transfers between them and
+      2024-28), and multiple bank accounts, with transfers between them and
       reports by account. BitcoinTX 1.x is deliberately limited to one
       self-custody wallet and one exchange account (#86). No dates
       promised; meanwhile 1.x stays in maintenance.

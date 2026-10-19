@@ -104,6 +104,8 @@ to; the release workflow still creates new ones. If unsure, branch from
 
 - **Any code**: follow `docs/CODE_STYLE.md` (one job per function, comments
   say why, the same idioms everywhere).
+- **Any text**: say "multiple wallets, exchanges or accounts", never
+  "several" (the owner, 2026-10-19; `test_disclaimer.py` checks it).
 - **Database paths, file storage, env vars, Docker**: read `docs/STARTOS_COMPATIBILITY.md`.
   Everything persistent lives in the directory of `DATABASE_FILE`.
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,

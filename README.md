@@ -80,7 +80,7 @@ How each part works, the same wherever BitcoinTX runs:
 > [!IMPORTANT]
 > BitcoinTX tracks one self-custody wallet and one exchange account. Since
 > 2025, IRS rules require cost basis to be figured wallet by wallet and
-> account by account, so if you use several wallets or exchange accounts,
+> account by account, so if you use multiple wallets or exchange accounts,
 > BitcoinTX's gains can differ from what the rules give: keep separate
 > records for each, or ask your tax preparer.
 
@@ -89,11 +89,11 @@ BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
 and Exchange, each keep their own FIFO lots. That fits someone who keeps their
 bitcoin in one wallet and buys and sells through one exchange.
 
-Several wallets or exchanges all go into those two accounts. The rule is
+Multiple wallets or exchanges all go into those two accounts. The rule is
 Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
-coins held on that date. With several wallets, BitcoinTX may figure a sale
+coins held on that date. With multiple wallets, BitcoinTX may figure a sale
 from one wallet with the cost and purchase date of coins that were in
-another. Several wallets and exchanges, each with its own lots, are planned
+another. Multiple wallets and exchanges, each with its own lots, are planned
 for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
 see [Versions](#versions)).
 
@@ -104,7 +104,7 @@ replaces it, 1.x gets maintenance updates: bug and security fixes, each
 year's IRS forms and the price history's updates, and the few small
 improvements already planned for it ([roadmap](docs/ROADMAP.md)).
 
-New features go into BitcoinTX 2.0, now in the works, which adds several
+New features go into BitcoinTX 2.0, now in the works, which adds multiple
 wallets, exchanges and bank accounts, each wallet and exchange with its own
 cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
 Because 2.0 changes how the ledger is stored, it will be tested as a beta

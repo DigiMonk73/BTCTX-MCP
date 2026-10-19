@@ -46,6 +46,7 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     assert "Write the name and social security number on every Form 8949 page and on Schedule D" in text
     assert "Print single-sided" in text
     assert "one self-custody wallet and one exchange account" in text and "Rev. Proc. 2024-28" in text
+    assert "multiple wallets or exchange accounts are pooled here" in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text
 

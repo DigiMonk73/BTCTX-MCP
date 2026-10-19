@@ -4,6 +4,16 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **"Multiple wallets", never "several"** (the owner, 2026-10-19). Where
+  BitcoinTX speaks of more than one wallet, exchange or bank account, it
+  now says "multiple": the one-wallet notice (Settings → About, the
+  README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
+  the StartOS instructions and store description, the roadmap and the 2.0
+  plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
+  released (this CHANGELOG's past entries, 1.2.9's release notes) keeps
+  its words.
+
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
 **About this release.** 1.2.9 is the stable version of BitcoinTX 1.x.

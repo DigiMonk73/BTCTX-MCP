@@ -9,7 +9,7 @@ export const DISCLAIMER =
 /** The one-wallet notice, after its bold "Important: one wallet, one exchange." */
 export const ONE_WALLET_NOTICE =
   "BitcoinTX tracks one self-custody wallet and one exchange account. Since 2025, IRS rules require cost " +
-  "basis to be figured wallet by wallet and account by account, so if you use several wallets or exchange " +
+  "basis to be figured wallet by wallet and account by account, so if you use multiple wallets or exchange " +
   "accounts, BitcoinTX's gains can differ from what the rules give: keep separate records for each, or ask " +
   "your tax preparer.";
 
