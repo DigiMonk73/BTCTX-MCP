@@ -977,7 +977,8 @@ Start from the `clean` snapshot.
   Sideload the candidate. Expect the task **Price Source & Privacy**,
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones.", and beside it **Recalculate Ledger** (important;
-  1.2.8's and this release's migrations both make it due: one task). The service keeps running. Dismiss both tasks (`start-cli
+  1.2.8's migration makes it due, and so do 1.2.9's and any later one
+  that asks for it: one task). The service keeps running. Dismiss both tasks (`start-cli
   package action clear-task btctx choose-price-source`, then
   `recalculate-after-0.8.0`), then restart the service and the server:
   neither comes back (#365).
@@ -988,9 +989,11 @@ Start from the `clean` snapshot.
   Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
   recorded figure is identical, the login and the AI key still work. UPG-3's
   exceptions are the CHANGELOG entries of every release after 1.2.5
-  (1.2.6, 1.2.7, 1.2.8) and of this release.
+  (1.2.6 to the previous release) and of this release.
 
-## Track C: the Mac app (only on a Mac)
+## Track C: the Mac app (only on a Mac with Apple silicon)
+
+The release's and CI's builds are arm64 only (built on `macos-latest`).
 
 **On a Mac where BitcoinTX is already installed, its data folder is a real
 ledger: never install, `open` or run the build's binary by itself there.**
@@ -1091,7 +1094,7 @@ page's pictures".
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "✓ 118 transactions loaded into
+  --password-stdin`. Expect "✓ 119 transactions loaded into
   http://127.0.0.1:8791 (2023-2026)" (or the count in
   `testdata/reference_ledger.json`). Stop the server. On a copy:
   `python scripts/reference_figures.py --db <copy> --compare

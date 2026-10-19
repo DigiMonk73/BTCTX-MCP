@@ -7,7 +7,8 @@ Schedule D are filled in pure Python (pypdf), so there are no extra system
 tools to install either.
 
 Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
-(unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
+(unsigned; see Troubleshooting), for Macs with Apple silicon (see CI). Build
+it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
 ## Checking a download
@@ -279,7 +280,9 @@ checks it answers on `http://127.0.0.1:8765/` and that
 zipped `.app` and an unsigned `.dmg` as a build artifact.
 
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
-the app the same way and attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
+the app the same way, on `macos-latest`'s Apple silicon, so the app is arm64
+only (`lipo -info` on 1.2.9's binary): it runs on Macs with Apple silicon,
+not on Intel Macs. They attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
 drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
 are unsigned and not notarized. Before it creates the release, the release
 job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with

@@ -1277,6 +1277,20 @@
    "why": "An auto-buy straight from the bank (Bank to Exchange BTC), after the year's last sale."
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2026-09-13T12:00:00Z",
+   "from_account_id": 4,
+   "to_account_id": 99,
+   "amount": "0.005",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.48",
+   "purpose": "Spent",
+   "gross_proceeds_usd": "740.00",
+   "broker_reporting": "proceeds",
+   "why": "Spent straight from the exchange, and its 1099-DA listed the spend and its network fee without basis: broker_reporting \"proceeds\" puts both rows in Box K (#549; without it, both would be Box L). FIFO takes the 2023 coins moved in on 2026-09-10 first. After the year's last sale, so the boxes above stay as they are."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2026-09-14T12:00:00Z",
    "from_account_id": 3,

@@ -3,7 +3,8 @@
 Build configuration for the macOS app (PyInstaller + pywebview). Full details:
 [docs/MACOS_DESKTOP_APP.md](../docs/MACOS_DESKTOP_APP.md).
 
-Prebuilt `BitcoinTX-macOS.dmg` and `.zip` downloads are on the
+Prebuilt `BitcoinTX-macOS.dmg` and `.zip` downloads, for Macs with Apple
+silicon, are on the
 [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest);
 this folder is for building it yourself.
 

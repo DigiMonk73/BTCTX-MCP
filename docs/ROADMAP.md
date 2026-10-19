@@ -4,18 +4,22 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Now: the stable version, 1.2.9
+## Now: the stable version, 1.2.9, on Community Beta
 
 The goal (owner, 2026-10-11): a stable release several months before the
 2026 filing season, promoted from Start9's Community Beta to the Community
 Registry, then maintenance only. The plan and its checklist are #143. The
 version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
 every bug found in 1.2.8's user test and in the reviews since, is the stable
-version of 1.x (#369; it ships with nine minor known issues, none of which
-can make a figure wrong, listed in its release notes); it gets the 14 days
-on Community Beta and the promotion request (1.2.8 isn't promoted).
-Nothing that changes the package goes to Start9 during that test, so what's
-under "Soon" waits for the maintenance releases after promotion.
+version of 1.x (#369; it shipped with nine minor known issues, none of which
+can make a figure wrong, listed in its release notes). 1.2.9 was released
+on 2026-10-18 and has been on Community Beta since that day; its 14 days
+there end on 2026-11-01 if nothing resets the clock, then comes the
+promotion request (1.2.8 isn't
+promoted; the Community Registry still serves 1.2.7). Meanwhile it's
+tested again on the Mac, Docker and StartOS (#552). Nothing that changes
+the package goes to Start9 during those 14 days, so what's under "Soon"
+waits for the maintenance releases after promotion.
 
 After 1.2.9, until 2.0 replaces it, 1.x gets maintenance updates (bug and
 security fixes, each year's IRS forms, the price history's updates) and the
@@ -58,7 +62,9 @@ new features go into 2.0, below. No dates are promised.
       CHANGELOG (`release.yml`'s version check and release notes,
       `scripts/mirror-startos-release.sh`), the pull request template, and
       the docs that say to edit it (AGENTS.md "Releasing", MAINTENANCE,
-      TESTING, `startos/UPDATING.md`), so it waits until 1.2.9 is out.
+      TESTING, `startos/UPDATING.md`), so it waited until 1.2.9 was out.
+      Like the rest of "Soon", it now waits for promotion: its
+      `startos/UPDATING.md` edit would go to Start9's fork.
 
 ## Later
 

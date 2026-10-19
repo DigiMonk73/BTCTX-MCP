@@ -100,9 +100,10 @@ turns long-term.
 complete tax report, and transaction history (PDF or CSV). For 2025 and
 later, sales go into the Form 1099-DA boxes; when your broker's 1099-DA (or
 1099-B) says something different for a sale, set **Broker form** on that
-transaction and the right Form 8949 box follows. Each year's final IRS
-forms come in an update once the IRS publishes them; until then, the IRS's
-draft of that year is a preview, marked DRAFT — DO NOT FILE.
+transaction and the right Form 8949 box follows (for a spend, its network
+fee's box too: set it when the 1099-DA lists the spend and its fee). Each
+year's final IRS forms come in an update once the IRS publishes them; until
+then, the IRS's draft of that year is a preview, marked DRAFT — DO NOT FILE.
 
 ## Imports
 
