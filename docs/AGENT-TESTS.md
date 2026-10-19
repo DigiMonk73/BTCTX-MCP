@@ -977,7 +977,8 @@ Start from the `clean` snapshot.
   Sideload the candidate. Expect the task **Price Source & Privacy**,
   important (not critical): "Prices are now hourly. Check who BitcoinTX
   asks for newer ones.", and beside it **Recalculate Ledger** (important;
-  1.2.8's and this release's migrations both make it due: one task). The service keeps running. Dismiss both tasks (`start-cli
+  1.2.8's migration makes it due, and so do 1.2.9's and any later one
+  that asks for it: one task). The service keeps running. Dismiss both tasks (`start-cli
   package action clear-task btctx choose-price-source`, then
   `recalculate-after-0.8.0`), then restart the service and the server:
   neither comes back (#365).
@@ -988,7 +989,7 @@ Start from the `clean` snapshot.
   Expect UPG-2 and UPG-3 to hold from 1.2.5:0: it updates in place, every
   recorded figure is identical, the login and the AI key still work. UPG-3's
   exceptions are the CHANGELOG entries of every release after 1.2.5
-  (1.2.6, 1.2.7, 1.2.8) and of this release.
+  (1.2.6 to the previous release) and of this release.
 
 ## Track C: the Mac app (only on a Mac)
 

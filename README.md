@@ -128,7 +128,8 @@ also checks that this repository's release workflow built it.
 ### macOS app
 
 Download `BitcoinTX-macOS.dmg` from the latest release and drag BitcoinTX to
-Applications. The app is not signed by Apple: the first time, Control-click
+Applications. It runs on Macs with Apple silicon (M1 or later), not on Intel
+Macs (use Docker there). The app is not signed by Apple: the first time, Control-click
 it and choose **Open**; on macOS 15 or later, open it once, then go to
 **System Settings → Privacy & Security** and click **Open Anyway**. To build
 it yourself: `./desktop/build-mac.sh`.

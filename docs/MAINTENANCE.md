@@ -190,6 +190,11 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
   (`scripts/equivalence_check.py`) and waits for the owner's "merge".
 
+A Dependabot branch behind `develop` is brought up to date by commenting
+"@dependabot rebase" on it, never with `gh pr update-branch` (Dependabot
+stops maintaining a branch once anyone else commits to it), and merges only
+once its checks have passed again (AGENTS.md, "Pull requests").
+
 ### When an update breaks something
 
 A failing check stops the merge; find out why before anything else.
