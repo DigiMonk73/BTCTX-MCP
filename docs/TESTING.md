@@ -190,7 +190,7 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (118 transactions, 2023 to 2026). Every
+`testdata/reference_ledger.json` (119 transactions, 2023 to 2026). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the

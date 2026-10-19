@@ -206,15 +206,18 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bo
 
     Only exchange Sells are broker-reported: that's what River (a US broker)
     puts on Form 1099-DA. Network-fee disposals and spends/withdrawals from
-    self-custody aren't on any broker form. A Sell's basis is reported only
-    for covered lots: bought on the exchange (a Buy into Exchange BTC) on or
-    after 2026-01-01. BTC transferred in from elsewhere is noncovered — its
-    lot is created by a Transfer, and transfers break the broker's basis chain.
-    The acquisition date is taken in the tax timezone, matching column (b).
+    self-custody aren't on any broker form, unless the user recorded what the
+    broker reported: a spend's override places its fee too (#549), so a
+    1099-DA that lists the spend and its fee can be matched. A Sell's basis
+    is reported only for covered lots: bought on the exchange (a Buy into
+    Exchange BTC) on or after 2026-01-01. BTC transferred in from elsewhere
+    is noncovered — its lot is created by a Transfer, and transfers break the
+    broker's basis chain. The acquisition date is taken in the tax timezone,
+    matching column (b).
     """
     tx = disp.transaction
-    if disp.is_fee:
-        return False, False  # a network fee is never on a broker form
+    if disp.is_fee and not _fee_follows_override(tx):
+        return False, False  # a network fee is on no broker form by itself
     if tx is not None and tx.broker_reporting:
         # The user recorded what the broker actually reported: that wins.
         return tx.broker_reporting != "none", tx.broker_reporting == "basis"
@@ -233,6 +236,16 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bo
     return True, covered
 
 
+def _fee_follows_override(tx: Transaction | None) -> bool:
+    """
+    A spend's network fee goes where the spend's override puts the spend
+    (#549, the owner's rule). Only a withdrawal with rows of its own: a
+    gift, donation or loss has none (and the form offers no override for
+    one), a transfer takes no override.
+    """
+    return tx is not None and tx.type == "Withdrawal" and bool(tx.broker_reporting) and not _not_a_sale(tx)
+
+
 def _determine_box(holding_period: str, basis_reported: bool, year: int,
                    broker_reported: bool = False) -> str:
     """
@@ -243,7 +256,8 @@ def _determine_box(holding_period: str, basis_reported: bool, year: int,
     From 2025 the form has digital-asset boxes and Box C/F exclude them:
       G / J  on a 1099-DA, basis reported
       H / K  on a 1099-DA, basis NOT reported (every 2025 exchange sale)
-      I / L  not on a 1099-DA or 1099-B (self-custody spends, network fees)
+      I / L  not on a 1099-DA or 1099-B (self-custody spends, network fees
+             unless their spend's override says otherwise)
     """
     long_term = holding_period.upper() == "LONG"
     if year >= 2025:
