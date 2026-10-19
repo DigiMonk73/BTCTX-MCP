@@ -14,8 +14,8 @@ const BrokerReportingField: React.FC = () => {
         <option value="basis">Proceeds and basis</option>
       </select>
       <small className="field-hint">
-        Picks the Form 8949 box. Leave on Automatic unless the form your broker
-        sent says otherwise.
+        Picks the Form 8949 box (a spend's network fee follows it). Leave on
+        Automatic unless the form your broker sent says otherwise.
       </small>
     </div>
   );

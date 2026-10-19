@@ -44,7 +44,8 @@ ACCOUNT_NAME_TO_ID = {
 }
 
 # What a broker reported for a disposal on Form 1099-DA / 1099-B, set per
-# transaction to override the default rules in form_8949._broker_reporting:
+# transaction to override the default rules in form_8949._broker_reporting
+# (a Spent withdrawal's network-fee disposals follow it too, #549):
 #   none      not on any broker form        -> Form 8949 box C/F (2024-), I/L (2025+)
 #   proceeds  proceeds only, basis not reported -> B/E, H/K
 #   basis     proceeds and basis reported   -> A/D, G/J
