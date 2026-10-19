@@ -7,7 +7,8 @@ Schedule D are filled in pure Python (pypdf), so there are no extra system
 tools to install either.
 
 Each GitHub release has a ready-made `BitcoinTX-macOS.dmg` and `.zip`
-(unsigned; see Troubleshooting). Build it yourself only to run unreleased code.
+(unsigned; see Troubleshooting), for Macs with Apple silicon (see CI). Build
+it yourself only to run unreleased code.
 Quick start for building: [desktop/README.md](../desktop/README.md).
 
 ## Checking a download

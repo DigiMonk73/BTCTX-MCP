@@ -191,8 +191,9 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   (`scripts/equivalence_check.py`) and waits for the owner's "merge".
 
 A Dependabot branch behind `develop` is brought up to date by commenting
-"@dependabot rebase" on it, never with `gh pr update-branch` (Dependabot
-stops maintaining a branch once anyone else commits to it), and merges only
+"@dependabot rebase" on it, never by merging `develop` into it
+(`gh pr update-branch`, or `git merge origin/develop` and a push): Dependabot
+stops maintaining a branch once anyone else commits to it. It merges only
 once its checks have passed again (AGENTS.md, "Pull requests").
 
 ### When an update breaks something

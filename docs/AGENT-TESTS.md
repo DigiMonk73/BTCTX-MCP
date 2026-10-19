@@ -991,7 +991,9 @@ Start from the `clean` snapshot.
   exceptions are the CHANGELOG entries of every release after 1.2.5
   (1.2.6 to the previous release) and of this release.
 
-## Track C: the Mac app (only on a Mac)
+## Track C: the Mac app (only on a Mac with Apple silicon)
+
+The release's and CI's builds are arm64 only (built on `macos-latest`).
 
 **On a Mac where BitcoinTX is already installed, its data folder is a real
 ledger: never install, `open` or run the build's binary by itself there.**
