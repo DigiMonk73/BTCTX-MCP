@@ -82,12 +82,12 @@ audit-deps:
 	cd frontend && npm audit --audit-level=high
 
 # Each requirements.in → requirements.txt: every indirect package, with its
-# hashes, for every platform and Python ≥ 3.10. Run in the file's directory, so
+# hashes, for every platform and Python ≥ 3.11 (#546). Run in the file's directory, so
 # the command in the lock's header is the one Dependabot re-runs there.
 # backend/ first: desktop/ is held to its versions. `make lock LOCK_ARGS=--upgrade`
 # also moves the indirect packages to their latest versions.
 # A PY given as a relative path (.venv/bin/python) still works after the cd.
-LOCK = $(if $(findstring /,$(PY)),$(abspath $(PY)),$(PY)) -m uv pip compile --quiet --universal --python-version 3.10 --generate-hashes \
+LOCK = $(if $(findstring /,$(PY)),$(abspath $(PY)),$(PY)) -m uv pip compile --quiet --universal --python-version 3.11 --generate-hashes \
 	requirements.in --output-file requirements.txt $(LOCK_ARGS)
 lock:
 	cd backend && $(LOCK)

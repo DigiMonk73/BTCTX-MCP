@@ -394,7 +394,7 @@ def test_csv_import_flags_an_unknown_deposit_source():
 
 def test_a_lone_carriage_return_stays_in_its_cell_too(test_engine):
     """Python 3.10's csv writer quoted only for its own line ending's
-    characters, so a lone CR split a row there (#229's review; CI runs 3.10)."""
+    characters, so a lone CR split a row there (#229's review)."""
     cash_out = usd_withdrawal()
     store(test_engine, cash_out["id"], purpose="rent\r=1+1")
     r = CLIENT.get("/api/reports/simple_transaction_history", params={"year": 2024, "format": "csv"})

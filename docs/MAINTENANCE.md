@@ -69,7 +69,7 @@ it changes only by pull request:
   connector with) and `requirements-dev.txt` (test and CI tools).
 - Each `requirements.in` has a lock beside it, `requirements.txt`, compiled
   by `make lock` (`uv pip compile`): every package, indirect ones too, at a
-  fixed version with its hashes, for Linux and macOS and Python 3.10 and up
+  fixed version with its hashes, for Linux and macOS and Python 3.11 and up
   (`--universal`). What ships installs only from a lock, with
   `--require-hashes`: the Docker image (wheels only, `--only-binary :all:`),
   the Mac app (`desktop/build-mac.sh` installs both locks; `desktop/`'s is
@@ -261,7 +261,7 @@ From `backend/requirements.in`:
 | `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.5 | Low | Test only: property tests. 6.168.5 is the last for Python 3.10 (see below) |
+| `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
 
 Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
@@ -281,8 +281,7 @@ take the upgrade.
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
 | `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
-| `sqlalchemy` | 2.1.x | Requires Python ≥ 3.11; the app still supports 3.10 when run from source (CI tests it) | The app drops Python 3.10, a choice of its own: 3.10's end of life (October 2026) sets no deadline, since the app's builds already run 3.13 (Docker, StartOS and the Mac app, pinned and tested, #284, #425) and the AI connector, which doesn't use SQLAlchemy, can keep 3.10 (`mcp_server/pyproject.toml`; its tests load the backend, so CI would then need a 3.10 job for the connector alone). Then run the FIFO/lot and migration tests |
-| `hypothesis` | 6.169+ | Requires Python ≥ 3.11; CI's test job still runs 3.10 (test only: nothing that ships uses it). #294 | No CI job installs `requirements-dev.txt` on Python 3.10: not before SQLAlchemy 2.1, and not while a 3.10 job for the connector alone remains |
+| `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
 
 ---
 
