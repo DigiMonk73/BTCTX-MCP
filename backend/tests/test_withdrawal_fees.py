@@ -2,7 +2,7 @@
 F24 (owner decision 2026-09-26): a withdrawal's BTC network fee is its own
 disposal at the fee's stored USD value, like a transfer's. A gift's,
 donation's or lost withdrawal's fee is taxable even though the gift itself
-isn't; a fee is on no broker form unless its withdrawal's override says so
+isn't; a fee is on no broker form unless its spend's override says so
 (#549). #157 (owner decision 2026-10-11): a spend's fee is a cost of the
 spend, so it comes off what the spend brought in, and the two together
 realize what was received.

@@ -1,9 +1,10 @@
 """
-#549 (owner decision 2026-10-18): a withdrawal's own broker_reporting
-override places its network fee's disposal on Form 8949 too, in the same
-box as the withdrawal's own row, so a user whose 1099-DA lists the fee can
+#549 (owner decision 2026-10-18): a spend's own broker_reporting override
+places its network fee's disposal on Form 8949 too, in the same box as the
+spend's own row, so a user whose 1099-DA lists the spend and its fee can
 match it. With no override a fee is on no broker form (I/L from 2025, C/F
-before), as before. Only the box moves: the fee's value and gain don't.
+before), as before, and so is a gift's or a transfer's (no row of its own,
+no override). Only the box moves: the fee's value and gain don't.
 """
 
 from decimal import Decimal
@@ -49,6 +50,7 @@ def withdraw(client, year, override, purpose="Spent"):
               to_account_id=EXTERNAL, amount="0.01", fee_amount="0.0001", fee_currency="BTC",
               fee_usd="5.00", purpose=purpose, broker_reporting=override, **values)
     assert tx["broker_reporting"] == override
+    return tx
 
 
 def rows(test_engine, year):
@@ -63,7 +65,7 @@ def rows(test_engine, year):
 @pytest.mark.parametrize("year", [2024, 2025, 2026])
 @pytest.mark.parametrize("term", ["short", "long"])
 @pytest.mark.parametrize("override", OVERRIDES)
-def test_a_withdrawals_fee_goes_in_the_box_its_override_names(auth_client, test_engine, year, term, override):
+def test_a_spends_fee_goes_in_the_box_its_override_names(auth_client, test_engine, year, term, override):
     buy(auth_client, f"{year}-01-03" if term == "short" else f"{year - 2}-01-03")
     withdraw(auth_client, year, override)
     boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
@@ -84,12 +86,25 @@ def test_the_override_moves_only_the_fees_box(auth_client, test_engine, override
     assert found[SPEND][1:] == (Decimal("995.00"), Decimal("200.00"), Decimal("795.00"))
 
 
-@pytest.mark.parametrize("override, box", [(None, "I"), ("none", "I"), ("proceeds", "H"), ("basis", "G")])
-def test_a_gifts_fee_follows_the_gifts_override(auth_client, test_engine, override, box):
-    """A gift has no row of its own; its fee is its only row, placed by its override."""
+@pytest.mark.parametrize("purpose", ["Gift", "Donation", "Lost"])
+@pytest.mark.parametrize("override", OVERRIDES)
+def test_a_gifts_fee_stays_on_no_broker_form(auth_client, test_engine, purpose, override):
+    """A gift has no row of its own, and the form offers it no override: one
+    left from when it was a spend (an edit of its purpose keeps it) moves
+    nothing, as before #549."""
     buy(auth_client, "2025-01-03")
-    withdraw(auth_client, 2025, override, purpose="Gift")
-    assert rows(test_engine, 2025) == {FEE: (box, Decimal("5.00"), Decimal("2.00"), Decimal("3.00"))}
+    withdraw(auth_client, 2025, override, purpose=purpose)
+    assert rows(test_engine, 2025) == {FEE: ("I", Decimal("5.00"), Decimal("2.00"), Decimal("3.00"))}
+
+
+def test_a_spend_made_a_gift_puts_its_fee_back_on_no_broker_form(auth_client, test_engine):
+    buy(auth_client, "2025-01-03")
+    tx = withdraw(auth_client, 2025, "proceeds")
+    assert rows(test_engine, 2025)[FEE][0] == "H"
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"purpose": "Gift", "fmv_usd": "500"})
+    assert r.status_code == 200, r.text
+    assert r.json()["broker_reporting"] == "proceeds"  # kept by the edit, but it places nothing now
+    assert rows(test_engine, 2025) == {FEE: ("I", Decimal("5.00"), Decimal("2.00"), Decimal("3.00"))}
 
 
 def test_a_transfers_fee_stays_on_no_broker_form(auth_client, test_engine):

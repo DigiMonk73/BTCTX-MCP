@@ -5,31 +5,33 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Fixed
-- **A withdrawal's network fee goes in the Form 8949 box its Broker form
+- **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
-  bitcoin withdrawal (the transaction form shows it for a Spent one: what
-  your exchange's Form 1099-DA, or before 2025 its 1099-B, showed for
-  it), only the withdrawal's own rows followed it: its bitcoin network
-  fee, a row of its own on Form 8949, always went in the boxes for what
-  no broker reported (I or L from 2025, C or F before). So a 1099-DA that
-  lists the bitcoin a withdrawal's fee used couldn't be matched. Now (the owner's rule) the fee's rows go in the boxes the
-  withdrawal's setting gives, with its own: Proceeds only puts them in H
-  or K (B or E before 2025), Proceeds and basis in G or J (A or D). Only
-  the box moves, and the Schedule D line its totals go on with it: the
-  fee's value, its gain and your total gain stay the same. A withdrawal
-  left on Automatic, and every transfer's fee (a move to your own wallet
-  takes no Broker form), stay where they were, so nothing changes for
-  anyone who doesn't set it. The AI connector's guide and its
-  `update_transaction` tool say so.
+  Spent bitcoin withdrawal (what your exchange's Form 1099-DA, or before
+  2025 its 1099-B, showed for it), only the spend's own rows followed it:
+  its bitcoin network fee, a row of its own on Form 8949, always went in
+  the boxes for what no broker reported (I or L from 2025, C or F
+  before). So a 1099-DA that lists a spend and the bitcoin its fee used
+  couldn't be matched. Now (the owner's rule) the fee's rows go in the
+  boxes the spend's setting gives, with its own: Proceeds only puts them
+  in H or K (B or E before 2025), Proceeds and basis in G or J (A or D).
+  Only the box moves, and the Schedule D line its totals go on with it:
+  the fee's value, its gain and your total gain stay the same. A spend
+  left on Automatic, a gift's, donation's or loss's fee, and every
+  transfer's fee (a move to your own wallet takes no Broker form) stay
+  where they were, so nothing changes for anyone who doesn't set it. The
+  AI connector's guide and its `update_transaction` tool say so. A
+  1099-DA that lists a withdrawal's fee but not the withdrawal itself, or
+  a transfer's fee, can't be matched yet (#551).
 
   **Affected:** 0.9.2 to 1.2.9 (since a withdrawal's fee is a row of its
-  own), any tax year, only for a bitcoin withdrawal with a network fee and
-  its Broker form set. **What to do:** if your exchange's 1099-DA lists
-  the network fee of a spend from the exchange, set **Broker form** on
-  that spend to what the form shows, then make that year's Form 8949 and
-  Schedule D again. If you had already set it on a spend with a fee, make
-  that year's forms again: its fee's row moves to the box you chose. No
-  recalculation is needed.
+  own), any tax year, only for a Spent bitcoin withdrawal with a network
+  fee and its Broker form set. **What to do:** if your exchange's 1099-DA
+  lists a spend from the exchange and its network fee, set **Broker form**
+  on that spend to what the form shows, then make that year's Form 8949
+  and Schedule D again. If you had already set it on a spend with a fee,
+  make that year's forms again: its fee's row moves to the box you chose.
+  No recalculation is needed.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

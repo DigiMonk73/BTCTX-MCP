@@ -428,7 +428,7 @@ class LotDisposal(Base):
         doc=(
             "A BTC network fee's disposal (a transfer's or a withdrawal's): taxable "
             "at the fee's value even when the withdrawal itself is a gift, and on "
-            "no broker form unless its withdrawal's broker_reporting says so (#549)."
+            "no broker form unless its spend's broker_reporting says so (#549)."
         ),
     )
 

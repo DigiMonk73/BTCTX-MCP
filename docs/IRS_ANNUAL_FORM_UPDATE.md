@@ -257,7 +257,7 @@ rules:
   transferred out ("covered", `COVERED_DIGITAL_ASSET_START`) → G / J. Lots
   transferred in from elsewhere stay H / K.
 - Self-custody spends and network-fee disposals (no 1099) → I / L. A
-  withdrawal's `broker_reporting` places its fee disposals too (#549).
+  spend's `broker_reporting` places its fee disposals too (#549).
 
 These rules only change when the form or the rules change, not every year.
 Revisit them if any of these happens:

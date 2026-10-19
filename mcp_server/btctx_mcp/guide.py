@@ -207,9 +207,9 @@ moved off it; spends
 from self-custody and network fees are on no broker form. When the user has
 the actual 1099-DA and it differs for a sale, set broker_reporting on that
 transaction with update_transaction ("none", "proceeds", "basis", or
-"automatic" to undo). On a withdrawal it places the withdrawal's network fee
-too, so set it when the 1099-DA lists that fee. It only changes which Form
-8949 box the sale (or the withdrawal and its fee) lands in, never a gain.
+"automatic" to undo). On a Spent withdrawal it places that spend's network
+fee too: set it when the 1099-DA lists the spend and its fee. It only changes
+which Form 8949 box the sale (or the spend and its fee) lands in, never a gain.
 
 ## Workflow (always)
 1. Parse the input into rows. Ask about anything tax-relevant you cannot

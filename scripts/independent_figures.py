@@ -284,9 +284,9 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     account = tx["from_account_id"]
     if account not in BTC_ACCOUNTS:
         return
-    purpose, reporting = tx["purpose"], tx.get("broker_reporting")
+    purpose = tx["purpose"]
     if purpose in NOT_SALES:
-        _pay_network_fee(ledger, tx, account, when, reporting=reporting)
+        _pay_network_fee(ledger, tx, account, when)
         amount = _money(tx["amount"])
         terms = _by_term(ledger.take(account, amount), when, ledger.rounding)
         ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd"), terms))
@@ -296,6 +296,8 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
     fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
+    # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
+    reporting = tx.get("broker_reporting")
     _pay_network_fee(ledger, tx, account, when, fee_value, reporting)
     pieces = ledger.take(account, _money(tx["amount"]))
     _dispose(ledger, "spend", pieces, received - fee_value, when, reporting)
@@ -342,8 +344,8 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
                      value: Fraction | None = None, reporting: str | None = None) -> Fraction:
     """A fee paid in BTC disposes of that BTC, at its value (`fee_usd`
     unless given), oldest first. Returns the BTC it took. `reporting`: what
-    the withdrawal's 1099-DA showed for it, when the user recorded that
-    (#549); a transfer has none."""
+    a spend's 1099-DA showed for it, when the user recorded that (#549); a
+    gift's or a transfer's fee has none."""
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
     if fee:
         pieces = ledger.take(account, fee)
@@ -398,7 +400,7 @@ def _is_long_term(acquired: date, sold: date) -> bool:
 def _box(row: Row, year: int, long_term: bool) -> str:
     boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
     if row.broker_reporting:
-        reported = row.broker_reporting  # what the user's 1099 showed (a fee's: its withdrawal's, #549)
+        reported = row.broker_reporting  # what the user's 1099 showed (a fee's: its spend's, #549)
     elif row.kind == "sale" and year >= 2025:
         reported = "basis" if row.covered else "proceeds"  # the exchange's 1099-DA
     else:
