@@ -151,7 +151,11 @@ from the Transaction row alone.
 
 - **Withdrawal fee**: a BTC network fee on a withdrawal is on top of `amount`
   and is its own disposal (`lot_disposals.is_fee`, oldest BTC first) at
-  `fee_usd`, taxable even for Gift/Donation/Lost and never broker-reported.
+  `fee_usd`, taxable even for Gift/Donation/Lost. It's on no broker form
+  unless the withdrawal's own `broker_reporting` says otherwise: then its
+  rows go in the boxes that override gives (#549, the owner's rule; only
+  the box moves, never the fee's value or gain). A transfer's fee takes no
+  override.
   A Spent's fee (and that of a withdrawal `counts_as_spent`, under
   "Proceeds") is a cost of the spend (Treas. Reg. §1.1001-7(b)(2)(ii)(A),
   #157, all years): its proceeds are the gross for `amount` less `fee_usd`,
@@ -394,8 +398,9 @@ from the Transaction row alone.
   (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
   2026-01-01 and never moved G/J; self-custody spends and fees I/L. A
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
-  rules for that transaction. One sheet per box, line 2 totals that sheet's
-  rows, Schedule D line per box, column (f) blank.
+  rules for that transaction, a withdrawal's fee disposals included (#549).
+  One sheet per box, line 2 totals that sheet's rows, Schedule D line per
+  box, column (f) blank.
 
 ## Key files
 

@@ -2,9 +2,10 @@
 F24 (owner decision 2026-09-26): a withdrawal's BTC network fee is its own
 disposal at the fee's stored USD value, like a transfer's. A gift's,
 donation's or lost withdrawal's fee is taxable even though the gift itself
-isn't; a fee is never on a broker form. #157 (owner decision 2026-10-11): a
-spend's fee is a cost of the spend, so it comes off what the spend brought
-in, and the two together realize what was received.
+isn't; a fee is on no broker form unless its withdrawal's override says so
+(#549). #157 (owner decision 2026-10-11): a spend's fee is a cost of the
+spend, so it comes off what the spend brought in, and the two together
+realize what was received.
 """
 
 from decimal import Decimal
@@ -109,10 +110,10 @@ def test_one_satoshi_more_than_held_is_refused(auth_client, ledger):
     assert r.status_code == 200, r.text  # everything held, fee included
 
 
-def test_a_spends_fee_is_its_own_row_and_never_broker_reported(auth_client, test_engine, ledger):
+def test_a_spends_fee_is_its_own_row_in_the_box_of_its_override(auth_client, test_engine, ledger):
     withdraw(auth_client, purpose="Spent", proceeds_usd="1000", broker_reporting="basis")
     assert rows(test_engine) == [
-        ("0.00010000 BTC", "5.00", "2.00", "3.00", "I"),        # the fee: not on the 1099-DA
+        ("0.00010000 BTC", "5.00", "2.00", "3.00", "G"),        # the fee, as the broker reported it (#549)
         ("0.01000000 BTC", "995.00", "200.00", "795.00", "G"),  # the spend, as the broker reported it
     ]
 

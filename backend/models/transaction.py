@@ -427,8 +427,8 @@ class LotDisposal(Base):
         server_default=sa_false(),
         doc=(
             "A BTC network fee's disposal (a transfer's or a withdrawal's): taxable "
-            "at the fee's value even when the withdrawal itself is a gift, and "
-            "never on a broker form."
+            "at the fee's value even when the withdrawal itself is a gift, and on "
+            "no broker form unless its withdrawal's broker_reporting says so (#549)."
         ),
     )
 

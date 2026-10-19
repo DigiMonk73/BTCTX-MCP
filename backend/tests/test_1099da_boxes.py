@@ -5,7 +5,8 @@ Form 8949 box selection under the Form 1099-DA rules, from real ledger data:
   2025: exchange (River) Sells are on a 1099-DA without basis -> H / K
   2026+: Sells of lots bought on the exchange on/after 2026-01-01 -> G / J
          (covered); lots transferred in from elsewhere stay H / K
-  Self-custody spends and network-fee disposals: no 1099 -> I / L
+  Self-custody spends and network-fee disposals: no 1099 -> I / L (a
+  withdrawal's override places its fee too: test_fee_broker_override_549.py)
   Through 2024: C / F
 Plus: each box gets its own 8949 page and its own Schedule D line.
 """

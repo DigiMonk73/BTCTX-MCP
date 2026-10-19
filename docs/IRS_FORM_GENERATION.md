@@ -174,7 +174,7 @@ Each disposal gets one checkbox letter, from `_broker_reporting()` (is it on a
 |---|---|---|---|
 | Exchange **Sell** of a lot bought on the exchange on/after 2026-01-01 and never transferred out ("covered") | — | — | **G** / **J** (1099-DA, basis reported) |
 | Any other exchange Sell: lot bought before 2026, or BTC transferred in from elsewhere | C / F | **H** / **K** (1099-DA, proceeds only) | **H** / **K** |
-| Self-custody spends, network-fee disposals (no 1099) | C / F | **I** / **L** | **I** / **L** |
+| Self-custody spends, network-fee disposals (no 1099; a withdrawal's override can place its fee, below) | C / F | **I** / **L** | **I** / **L** |
 
 (short / long). Details:
 - "Exchange Sell" means `type == "Sell"` from the Exchange BTC account. That is
@@ -198,7 +198,13 @@ MCP `update_transaction` tool, or via the API. It replaces
 | `basis` (proceeds and basis) | A / D | G / J |
 | NULL (default) | rules above | rules above |
 
-Network-fee disposals (`is_fee`, from transfers and withdrawals) are never on a broker form and can't be overridden.
+A withdrawal's override places its network-fee disposals (`is_fee`) too, by
+the same table (#549, the owner's rule, 2026-10-18), so a 1099-DA that lists
+the coins a withdrawal's fee used can be matched. Without an override a fee
+is on no broker form. A transfer's fee
+takes no override (only a Sell or Withdrawal can carry one), so it stays
+C / F or I / L. Only the box moves: the fee's value and gain are the same
+either way.
 
 **One box per sheet.** Each Part of a Form 8949 page can have only one box
 checked. `_chunks_by_box()` groups rows by box before cutting pages, so (for

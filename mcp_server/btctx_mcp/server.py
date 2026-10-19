@@ -500,6 +500,7 @@ async def update_transaction(
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
+    A withdrawal's network fee goes in the box it picks too.
     fee_usd sets a BTC fee's USD value (kept as given); without it a stored value is kept.
     An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
     (at the hour) when you change its amount, the time's hour or the account, or move it there

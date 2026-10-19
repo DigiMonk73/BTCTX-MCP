@@ -284,9 +284,9 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     account = tx["from_account_id"]
     if account not in BTC_ACCOUNTS:
         return
-    purpose = tx["purpose"]
+    purpose, reporting = tx["purpose"], tx.get("broker_reporting")
     if purpose in NOT_SALES:
-        _pay_network_fee(ledger, tx, account, when)
+        _pay_network_fee(ledger, tx, account, when, reporting=reporting)
         amount = _money(tx["amount"])
         terms = _by_term(ledger.take(account, amount), when, ledger.rounding)
         ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd"), terms))
@@ -296,9 +296,9 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
     fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
-    _pay_network_fee(ledger, tx, account, when, fee_value)
+    _pay_network_fee(ledger, tx, account, when, fee_value, reporting)
     pieces = ledger.take(account, _money(tx["amount"]))
-    _dispose(ledger, "spend", pieces, received - fee_value, when, tx.get("broker_reporting"))
+    _dispose(ledger, "spend", pieces, received - fee_value, when, reporting)
 
 
 def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -339,13 +339,15 @@ def _gross_proceeds(tx: dict) -> Fraction:
 
 
 def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
-                     value: Fraction | None = None) -> Fraction:
+                     value: Fraction | None = None, reporting: str | None = None) -> Fraction:
     """A fee paid in BTC disposes of that BTC, at its value (`fee_usd`
-    unless given), oldest first. Returns the BTC it took."""
+    unless given), oldest first. Returns the BTC it took. `reporting`: what
+    the withdrawal's 1099-DA showed for it, when the user recorded that
+    (#549); a transfer has none."""
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
     if fee:
         pieces = ledger.take(account, fee)
-        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, None)
+        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, reporting)
     return fee
 
 
@@ -395,14 +397,12 @@ def _is_long_term(acquired: date, sold: date) -> bool:
 
 def _box(row: Row, year: int, long_term: bool) -> str:
     boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
-    if row.kind == "fee":
-        reported = "none"  # no broker reports a network fee
-    elif row.broker_reporting:
-        reported = row.broker_reporting  # what the user's 1099 showed
+    if row.broker_reporting:
+        reported = row.broker_reporting  # what the user's 1099 showed (a fee's: its withdrawal's, #549)
     elif row.kind == "sale" and year >= 2025:
         reported = "basis" if row.covered else "proceeds"  # the exchange's 1099-DA
     else:
-        reported = "none"
+        reported = "none"  # a spend, or a network fee: on no broker form by default
     return boxes[reported][long_term]
 
 
