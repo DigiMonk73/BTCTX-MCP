@@ -138,7 +138,8 @@ grows too long. Details: `AGENTS.md`, "Big work".
 3. Start9 reviews and merges it, then publishes it to **Community Beta**
    (`https://community-beta-registry.start9.com`).
 4. The owner tests the beta on their own server, using a checklist
-   Claude writes in `docs/temp/` for that release (deleted when done).
+   Claude writes for that release on the issue that plans its promotion
+   (1.2.9's: #143, section 5).
 5. When satisfied, the owner asks Start9, in an issue on their copy, to
    **promote** it to the main store (`https://community-registry.start9.com`).
    Claude drafts that request. Promotion is the owner's call.
