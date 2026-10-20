@@ -28,10 +28,16 @@ Branches).
   forms: a wrong number is a real-world problem. So a change to tax figures
   gets the full review, the before-and-after comparison and the owner's
   "merge" ("Reviews").
-- The owner's real ledger is the installed Mac app's data. Never test on it,
-  run a script against it or point the AI connector at it; use temp
-  databases, `make preview` or the StartOS test VM, and run a Mac build
-  only with `desktop/run-test-build.sh` (its own data folder and port).
+- The owner's real ledger is the installed Mac app's data, on the owner's
+  own Mac only. Never test on it, run a script against it or point the AI
+  connector at it; use temp databases, `make preview` or the StartOS test
+  VM, and run a Mac build only with `desktop/run-test-build.sh` (its own
+  data folder and port).
+- **Development happens on a separate computer, the Mac mini** (the
+  owner, 2026-10-19), which never holds a real ledger, the installed app
+  with one, or a connector to one. Every repo, the test VM's lab
+  (`~/code/btctx-vm-lab`), the Mac app's test builds and the Monday report
+  are there; the owner's Mac keeps the real ledger.
 - Other people install BitcoinTX from Start9's community registry: a
   release that breaks an update or loses data hurts users who trust it.
 - Start9's reviewers and users care about privacy: no price is asked of
@@ -45,7 +51,7 @@ Branches).
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
-  attention (a scheduled task on the owner's Mac).
+  attention (a scheduled task on the development computer).
 - **Grok** is a second set of eyes, never the developer (its
   roles and passes: `docs/GROK-REVIEW.md`):
   - Grok Bot on the web brainstorms from links the owner gives it
@@ -726,8 +732,11 @@ Full steps, the package version and the signing/mirror secrets:
    run opens an issue here, "Send vX.Y.Z to Start9", with the one-click link
    and steps for the owner; or open it yourself with the owner's OK
    (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
-   `scripts/start9-pull.sh --fork`). While a pull request of ours is still
-   open there, it carries the new release too, and no issue is opened.
+   `scripts/start9-pull.sh --fork`). A token that can't post there (a
+   fine-grained one can't, on a repository the owner isn't a member of)
+   leaves it to the owner's click in the browser. While a pull request of
+   ours is still open there, it carries the new release too, and no issue
+   is opened.
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
