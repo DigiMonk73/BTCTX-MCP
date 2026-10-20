@@ -59,6 +59,16 @@ FIGURES = ROOT / "testdata" / "reference_figures.json"
 
 WALLET, EXCHANGE_BTC = 2, 4
 BTC_ACCOUNTS = {WALLET: "Wallet", EXCHANGE_BTC: "Exchange BTC"}
+# Copied, not imported: this script shares no code with the app.
+FIXED_ACCOUNTS = {
+    1: {"name": "Bank", "currency": "USD"},
+    2: {"name": "Wallet", "currency": "BTC"},
+    3: {"name": "Exchange USD", "currency": "USD"},
+    4: {"name": "Exchange BTC", "currency": "BTC"},
+    5: {"name": "BTC Fees", "currency": "BTC"},
+    6: {"name": "USD Fees", "currency": "USD"},
+    99: {"name": "External", "currency": None},
+}
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
 CENT = Decimal("0.01")
@@ -150,6 +160,13 @@ class Ledger:
     def cost_of(self, lot: Lot, btc: Fraction) -> Fraction:
         """What a lot's first `btc` BTC cost, in cents (all of it: exactly its cost)."""
         return _share_so_far(lot.cost, btc, lot.total, self)
+
+
+def read_accounts(data: dict) -> dict[int, dict]:
+    """The ledger's accounts by id, else the six fixed accounts and External."""
+    if "accounts" in data:
+        return {account["id"]: account for account in data["accounts"]}
+    return {i: dict(account) for i, account in FIXED_ACCOUNTS.items()}
 
 
 def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:
