@@ -57,7 +57,6 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 
-EXCHANGE_BTC = 4
 # Copied, not imported: this script shares no code with the app.
 FIXED_ACCOUNTS = {
     1: {"name": "Bank", "currency": "USD", "kind": "bank"},
@@ -308,7 +307,7 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
 def _buy(ledger: Ledger, tx: dict, when: datetime) -> None:
     # The dollar fee is part of what the BTC cost (IRC §1012).
     basis = _money(tx["cost_basis_usd"]) + _money(tx["fee_amount"])
-    ledger.add_lot(EXCHANGE_BTC, _money(tx["amount"]), basis, when, covered=when.date() >= COVERED_FROM)
+    ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=when.date() >= COVERED_FROM)
 
 
 def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
