@@ -57,17 +57,16 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 
-WALLET, EXCHANGE_BTC = 2, 4
-BTC_ACCOUNTS = {WALLET: "Wallet", EXCHANGE_BTC: "Exchange BTC"}
+EXCHANGE_BTC = 4
 # Copied, not imported: this script shares no code with the app.
 FIXED_ACCOUNTS = {
-    1: {"name": "Bank", "currency": "USD"},
-    2: {"name": "Wallet", "currency": "BTC"},
-    3: {"name": "Exchange USD", "currency": "USD"},
-    4: {"name": "Exchange BTC", "currency": "BTC"},
-    5: {"name": "BTC Fees", "currency": "BTC"},
-    6: {"name": "USD Fees", "currency": "USD"},
-    99: {"name": "External", "currency": None},
+    1: {"name": "Bank", "currency": "USD", "kind": "bank"},
+    2: {"name": "Wallet", "currency": "BTC", "kind": "wallet"},
+    3: {"name": "Exchange USD", "currency": "USD", "kind": "exchange"},
+    4: {"name": "Exchange BTC", "currency": "BTC", "kind": "exchange"},
+    5: {"name": "BTC Fees", "currency": "BTC", "kind": "fee"},
+    6: {"name": "USD Fees", "currency": "USD", "kind": "fee"},
+    99: {"name": "External", "currency": None, "kind": "external"},
 }
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
@@ -125,7 +124,8 @@ class Row:
 @dataclass
 class Ledger:
     rounding: str
-    lots: dict[int, list[Lot]] = field(default_factory=lambda: {a: [] for a in BTC_ACCOUNTS})
+    lots: dict[int, list[Lot]] = field(default_factory=dict)
+    names: dict[int, str] = field(default_factory=dict)
     rows: list[Row] = field(default_factory=list)
     income: list[tuple[datetime, str, Fraction]] = field(default_factory=list)
     rebates: list[tuple[datetime, Fraction, Fraction]] = field(default_factory=list)
@@ -173,7 +173,8 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
            accounts: dict[int, dict] | None = None) -> Ledger:
     """Every transaction in time order (the file's order on a tie). An account
     id absent from the ledger's accounts list stops the calculation before any
-    transaction is handled."""
+    transaction is handled. Each bitcoin account gets its own pile, and a run
+    with no transactions returns that ledger unclosed."""
     if accounts is None:
         accounts = read_accounts({})
     for position, tx in enumerate(transactions, start=1):
@@ -183,14 +184,22 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
                 raise ValueError(
                     f"Transaction {number} names account {account_id}, "
                     "which the ledger's accounts list doesn't have.")
-    ledger = Ledger(rounding)
+    # A fee account holds fee lines and is not a bitcoin account, so it has no pile.
+    bitcoin = [i for i, account in accounts.items()
+               if account["currency"] == "BTC" and account.get("kind") != "fee"]
+    ledger = Ledger(
+        rounding,
+        lots={i: [] for i in bitcoin},
+        names={i: account["name"] for i, account in accounts.items()},
+    )
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
     for _, tx in ordered:
         when = _moment(tx["timestamp"])
         _close_years_before(ledger, when.year)
         handlers[tx["type"]](ledger, tx, when)
-    _close_years_before(ledger, ledger.year + 1)
+    if ledger.year is not None:
+        _close_years_before(ledger, ledger.year + 1)
     return ledger
 
 
@@ -271,13 +280,13 @@ def _noon_of(text: str) -> datetime:
 def _close_years_before(ledger: Ledger, year: int) -> None:
     """Keep each year's closing lots, once the ledger has moved past it."""
     for closed in range(ledger.year or year, year):
-        ledger.holdings[closed] = [(BTC_ACCOUNTS[account], copy(lot))
+        ledger.holdings[closed] = [(ledger.names[account], copy(lot))
                                    for account, lots in ledger.lots.items() for lot in lots]
     ledger.year = max(ledger.year or year, year)
 
 
 def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
-    if tx["to_account_id"] not in BTC_ACCOUNTS:
+    if tx["to_account_id"] not in ledger.lots:
         return
     amount, value = _money(tx["amount"]), _money(tx.get("cost_basis_usd"))
     # A My BTC or Gift deposit's holding period runs from when it was first
@@ -311,7 +320,7 @@ def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     account = tx["from_account_id"]
-    if account not in BTC_ACCOUNTS:
+    if account not in ledger.lots:
         return
     purpose = tx["purpose"]
     if purpose in NOT_SALES:
@@ -334,7 +343,7 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
 
 def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
     source, destination = tx["from_account_id"], tx["to_account_id"]
-    if source not in BTC_ACCOUNTS:
+    if source not in ledger.lots:
         return
     fee = _pay_network_fee(ledger, tx, source, when)
     if destination == source:
