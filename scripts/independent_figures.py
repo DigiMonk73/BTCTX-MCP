@@ -169,8 +169,20 @@ def read_accounts(data: dict) -> dict[int, dict]:
     return {i: dict(account) for i, account in FIXED_ACCOUNTS.items()}
 
 
-def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP) -> Ledger:
-    """Every transaction in time order (the file's order on a tie)."""
+def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
+           accounts: dict[int, dict] | None = None) -> Ledger:
+    """Every transaction in time order (the file's order on a tie). An account
+    id absent from the ledger's accounts list stops the calculation before any
+    transaction is handled."""
+    if accounts is None:
+        accounts = read_accounts({})
+    for position, tx in enumerate(transactions, start=1):
+        number = tx["id"] if "id" in tx else position
+        for account_id in (tx["from_account_id"], tx["to_account_id"]):
+            if account_id not in accounts:
+                raise ValueError(
+                    f"Transaction {number} names account {account_id}, "
+                    "which the ledger's accounts list doesn't have.")
     ledger = Ledger(rounding)
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
