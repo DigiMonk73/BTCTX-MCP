@@ -52,6 +52,7 @@ from datetime import date, datetime, time, timezone
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
@@ -61,8 +62,8 @@ FIGURES = ROOT / "testdata" / "reference_figures.json"
 FIXED_ACCOUNTS = {
     1: {"name": "Bank", "currency": "USD", "kind": "bank"},
     2: {"name": "Wallet", "currency": "BTC", "kind": "wallet"},
-    3: {"name": "Exchange USD", "currency": "USD", "kind": "exchange"},
-    4: {"name": "Exchange BTC", "currency": "BTC", "kind": "exchange"},
+    3: {"name": "Exchange USD", "currency": "USD", "kind": "exchange", "exchange_id": 1, "sends_1099da": True},
+    4: {"name": "Exchange BTC", "currency": "BTC", "kind": "exchange", "exchange_id": 1, "sends_1099da": True},
     5: {"name": "BTC Fees", "currency": "BTC", "kind": "fee"},
     6: {"name": "USD Fees", "currency": "USD", "kind": "fee"},
     99: {"name": "External", "currency": None, "kind": "external"},
@@ -118,6 +119,7 @@ class Row:
     covered: bool
     broker_reporting: str | None
     inherited: bool = False
+    broker_reported: bool = False
 
 
 @dataclass
@@ -132,6 +134,8 @@ class Ledger:
     holdings: dict[int, list[tuple[str, Lot]]] = field(default_factory=dict)
     year: int | None = None
     next_order: int = 0
+    accounts: dict[int, dict] = field(default_factory=dict)
+    tax_zone: ZoneInfo = field(default_factory=lambda: ZoneInfo("UTC"))
 
     def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool,
                 inherited: bool = False) -> None:
@@ -169,11 +173,12 @@ def read_accounts(data: dict) -> dict[int, dict]:
 
 
 def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
-           accounts: dict[int, dict] | None = None) -> Ledger:
+           accounts: dict[int, dict] | None = None, tax_timezone: str = "UTC") -> Ledger:
     """Every transaction in time order (the file's order on a tie). An account
     id absent from the ledger's accounts list stops the calculation before any
     transaction is handled. Each bitcoin account gets its own pile, and a run
-    with no transactions returns that ledger unclosed."""
+    with no transactions returns that ledger unclosed. `tax_timezone` decides
+    only whether a Buy's lot is covered."""
     if accounts is None:
         accounts = read_accounts({})
     for position, tx in enumerate(transactions, start=1):
@@ -183,6 +188,8 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
                 raise ValueError(
                     f"Transaction {number} names account {account_id}, "
                     "which the ledger's accounts list doesn't have.")
+    # A bad IANA name raises before any transaction is handled.
+    tax_zone = ZoneInfo(tax_timezone)
     # A fee account holds fee lines and is not a bitcoin account, so it has no pile.
     bitcoin = [i for i, account in accounts.items()
                if account["currency"] == "BTC" and account.get("kind") != "fee"]
@@ -190,6 +197,8 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
         rounding,
         lots={i: [] for i in bitcoin},
         names={i: account["name"] for i, account in accounts.items()},
+        accounts=accounts,
+        tax_zone=tax_zone,
     )
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
@@ -307,14 +316,25 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
 def _buy(ledger: Ledger, tx: dict, when: datetime) -> None:
     # The dollar fee is part of what the BTC cost (IRC §1012).
     basis = _money(tx["cost_basis_usd"]) + _money(tx["fee_amount"])
-    ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=when.date() >= COVERED_FROM)
+    # Treas. Reg. §1.6045-1(a)(15)(i)(J): covered from 2026-01-01 in the tax
+    # timezone, so 2026-01-01 03:00 UTC is still 2025-12-31 in America/Chicago.
+    covered = when.astimezone(ledger.tax_zone).date() >= COVERED_FROM
+    ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=covered)
+
+
+def _broker_reports(account: dict) -> bool:
+    """A sale from an exchange BTC account is on a 1099-DA when its switch is on.
+    Kind or currency left out is not that account. A missing switch is on (§5.2)."""
+    return bool(account.get("kind") == "exchange" and account.get("currency") == "BTC"
+                and account.get("sends_1099da", True))
 
 
 def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
     # The fee comes off the gross proceeds (amount realized, IRC §1001).
     proceeds = _gross_proceeds(tx) - _money(tx["fee_amount"])
     pieces = ledger.take(tx["from_account_id"], _money(tx["amount"]))
-    _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"))
+    _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"),
+             _broker_reports(ledger.accounts[tx["from_account_id"]]))
 
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -391,7 +411,7 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
 
 
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
-             when: datetime, reporting: str | None) -> None:
+             when: datetime, reporting: str | None, broker_reported: bool = False) -> None:
     """One row per lot, each with its share of the proceeds as a running
     total in cents: the proceeds for the BTC so far with this lot, less
     without it. So the rows report all of the proceeds (the amount realized)
@@ -400,7 +420,8 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
     for lot, quantity, basis in pieces:
         share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
         before += quantity
-        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting, lot.inherited))
+        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting,
+                               lot.inherited, broker_reported))
 
 
 def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
@@ -438,10 +459,10 @@ def _box(row: Row, year: int, long_term: bool) -> str:
     boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
     if row.broker_reporting:
         reported = row.broker_reporting  # what the user's 1099 showed (a fee's: its spend's, #549)
-    elif row.kind == "sale" and year >= 2025:
+    elif row.kind == "sale" and row.broker_reported and year >= 2025:
         reported = "basis" if row.covered else "proceeds"  # the exchange's 1099-DA
     else:
-        reported = "none"  # a spend, or a network fee: on no broker form by default
+        reported = "none"  # a spend, a network fee, or a sale no broker reports
     return boxes[reported][long_term]
 
 
