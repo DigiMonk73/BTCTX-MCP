@@ -39,7 +39,9 @@ Branches).
   the test VM's lab (`~/code/btctx-vm-lab`) and the Mac app's test builds
   are there, and the Monday report moves there once the owner's Mac's copy
   is removed (it runs on one computer only); the owner's Mac keeps the
-  real ledger.
+  real ledger. It keeps its checkouts too, for work there now and then
+  and as a backup: pull first, push before leaving (`make sync-check` on
+  both), and the rule above holds there.
 - Other people install BitcoinTX from Start9's community registry: a
   release that breaks an update or loses data hurts users who trust it.
 - Start9's reviewers and users care about privacy: no price is asked of
