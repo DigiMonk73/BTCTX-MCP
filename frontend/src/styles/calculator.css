@@ -31,9 +31,10 @@
 }
 /* Keys taller than the other controls (owner's request 2026-09-29): the
    calculator ends level with the Dashboard's second row of cards, so a new
-   line in the Income & Fees card (Rebates, #129) makes them taller. */
+   line in the Income & Fees card (Rebates, #129) makes them taller, and the
+   exchange's one row in the Portfolio Overview (2.0, 5.13) shorter. */
 .buttons button {
-  height: 49px;
+  height: 48px;
   border: none;
   border-radius: var(--radius-control);
   background: var(--color-raised);
