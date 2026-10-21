@@ -6,7 +6,6 @@ import {
   plainBtcText,
 } from "./transactionForm";
 import { btcText } from "./format";
-import { transferDestinations } from "./transferAccounts";
 import { ONE_OF_EACH } from "../test/accountBooks";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
@@ -145,17 +144,6 @@ describe("Withdrawal", () => {
   });
 });
 
-describe("transferDestinations", () => {
-  it("offers the other account of the currency first, and a BTC account itself (#159)", () => {
-    expect(transferDestinations("Bank")).toEqual(["Exchange"]);
-    expect(transferDestinations("Exchange", "USD")).toEqual(["Bank"]);
-    expect(transferDestinations("Wallet")).toEqual(["Exchange", "Wallet"]);
-    expect(transferDestinations("Exchange", "BTC")).toEqual(["Wallet", "Exchange"]);
-    expect(transferDestinations("Exchange", undefined)).toEqual([]);
-    expect(transferDestinations(undefined)).toEqual([]);
-  });
-});
-
 describe("Transfer", () => {
   it("amount is what left the source; the form shows amount minus fee as received", () => {
     const transfer = {
@@ -167,7 +155,7 @@ describe("Transfer", () => {
       fee_currency: "BTC",
     };
     const form = mapTransactionToFormData(tx(transfer), ONE_OF_EACH);
-    expect(form).toMatchObject({ fromAccount: "Exchange", toAccount: "Wallet", amountFrom: 0.5 });
+    expect(form).toMatchObject({ fromAccountId: 4, toAccountId: 2, amountFrom: 0.5 });
     expect(form.amountTo).toBeCloseTo(0.4999, 8);
     expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 4,
@@ -189,7 +177,7 @@ describe("Transfer", () => {
       fee_currency: "BTC",
     };
     const form = mapTransactionToFormData(tx(consolidation), ONE_OF_EACH);
-    expect(form).toMatchObject({ fromAccount: "Wallet", toAccount: "Wallet", amountFrom: 0.8 });
+    expect(form).toMatchObject({ fromAccountId: 2, toAccountId: 2, amountFrom: 0.8 });
     expect(form.amountTo).toBeCloseTo(0.7999, 8);
     expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 2,
@@ -285,7 +273,7 @@ describe("blank means not given (F1)", () => {
 
   it("types that don't take a basis send none", () => {
     const body = buildTransactionPayload(
-      form({ type: "Transfer", fromAccount: "Wallet", fromCurrency: "BTC", toAccount: "Exchange", toCurrency: "BTC", amountFrom: 0.5 }),
+      form({ type: "Transfer", fromAccountId: 2, toAccountId: 4, amountFrom: 0.5 }),
       ONE_OF_EACH,
     );
     expect(body.cost_basis_usd).toBeNull();
