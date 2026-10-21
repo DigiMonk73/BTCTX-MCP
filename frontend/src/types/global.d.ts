@@ -49,6 +49,7 @@ declare global {
     currency: Currency;
     exchange_id: number | null; // an exchange's two accounts share it
     exchange: string | null;    // that exchange's nickname
+    sends_1099da: boolean | null; // the exchange's "sends me a Form 1099-DA" switch (5.9); null on any other account
     hidden: boolean;
     in_use: boolean;            // a transaction names it
   }
