@@ -1,25 +1,44 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { accountKind, accountName, buyExchanges, buyPayers, exchangeName } from "../../utils/accounts";
+import AccountPicker from "./AccountPicker";
 
-/** A Buy: USD from Exchange USD (or the bank, for an auto-buy) into BTC. */
-const BuyFields: React.FC = () => {
-  const { register, formState: { errors } } = useFormContext<TransactionFormData>();
+/** A Buy: the dollars' account, then the exchange the bitcoin is bought into (5.13, Q15). */
+const BuyFields: React.FC<{ book: AccountBook }> = ({ book }) => {
+  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  // A blank select is "" until setValueAs runs, so it is no payer (5.13).
+  const watchedPayer = watch("fromAccountId");
+  const payerId = typeof watchedPayer === "number" ? watchedPayer : undefined;
   return (
     <>
-      <div className="field">
-        <label htmlFor="tx-from-account">From Account</label>
-        <select
-          id="tx-from-account"
-          className="input"
-          {...register("buyFromAccount", { required: true })}
-        >
-          <option value="Exchange">Exchange USD</option>
-          <option value="Bank">Bank (auto-buy)</option>
-        </select>
+      <AccountPicker
+        id="tx-from-account"
+        label="Paid from"
+        field="fromAccountId"
+        book={book}
+        choices={(saved) => buyPayers(book, saved)}
+        placeholder="Select Account"
+        requiredMessage="Please select an account"
+        optionLabel={(id) => {
+          const name = accountName(book, id);
+          return accountKind(book, id) === "bank" ? `${name} (auto-buy)` : name;
+        }}
+      >
         <small className="field-hint">
           Select where the USD is coming from.
         </small>
-      </div>
+      </AccountPicker>
+
+      <AccountPicker
+        id="tx-to-account"
+        label="Exchange"
+        field="toAccountId"
+        book={book}
+        choices={(saved) => buyExchanges(book, payerId, saved)}
+        placeholder="Select Exchange"
+        requiredMessage="Please select an exchange"
+        optionLabel={(id) => exchangeName(book, id)}
+      />
 
       <div className="field">
         <label htmlFor="tx-amount-usd">Amount USD</label>

@@ -26,7 +26,6 @@ export function toDatetimeLocal(date: Date): string {
 }
 
 // The server's fixed account ids
-const BANK_ID = 1;
 const EXTERNAL_ID = 99;
 const EXCHANGE_USD_ID = 3;
 const EXCHANGE_BTC_ID = 4;
@@ -42,7 +41,10 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
 }
 
 /** The ledger's from and to accounts. A Sell's dollars are its exchange's USD
- * half (`usdOf`); every other type still maps the 1.x account names. */
+ * half (`usdOf`). A Buy sends the ids the form holds, so a row read back and
+ * saved unchanged keeps both (5.13). Deposit, Withdrawal and Transfer map
+ * the 1.x account names. 0 is none chosen, which the pickers' checks never
+ * let through. */
 export function mapDoubleEntryAccounts(data: TransactionFormData, book: AccountBook): IAccountMapping {
   switch (data.type) {
     case "Deposit":
@@ -60,18 +62,13 @@ export function mapDoubleEntryAccounts(data: TransactionFormData, book: AccountB
         from_account_id: mapAccountToId(data.fromAccount, data.fromCurrency),
         to_account_id: mapAccountToId(data.toAccount, data.toCurrency),
       };
-    case "Buy":
-      return {
-        from_account_id: data.buyFromAccount === "Bank" ? BANK_ID : EXCHANGE_USD_ID,
-        to_account_id: EXCHANGE_BTC_ID,
-      };
     case "Sell":
       return {
         from_account_id: data.fromAccountId ?? 0,
         to_account_id: usdOf(book, data.fromAccountId) ?? 0,
       };
     default:
-      return { from_account_id: 0, to_account_id: 0 };
+      return { from_account_id: data.fromAccountId ?? 0, to_account_id: data.toAccountId ?? 0 };
   }
 }
 
@@ -177,8 +174,6 @@ const TYPE_FORM_DATA: Record<
     };
   },
   Buy: (tx) => ({
-    account: "Exchange",
-    buyFromAccount: tx.from_account_id === 1 ? "Bank" : "Exchange",
     amountUSD: tx.cost_basis_usd ?? 0,
     amountBTC: tx.amount,
   }),

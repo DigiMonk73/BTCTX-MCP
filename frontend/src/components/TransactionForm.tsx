@@ -21,7 +21,6 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   fmv_usd: undefined,
   grossProceedsUSD: 0,
   brokerReporting: "",
-  buyFromAccount: "Exchange",
   // A type change clears both: an account chosen for one type is not another's (5.13).
   fromAccountId: undefined,
   toAccountId: undefined,

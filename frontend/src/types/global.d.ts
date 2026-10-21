@@ -295,9 +295,6 @@ declare global {
     amountUSD?: number;
     amountBTC?: BtcFieldValue;
 
-    // For Buy transactions: source account (Bank or Exchange)
-    buyFromAccount?: "Bank" | "Exchange";
-
     // Both of the row's accounts, kept on read-back for every type (5.13).
     fromAccountId?: number;
     toAccountId?: number;
