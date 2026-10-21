@@ -74,6 +74,12 @@ export function reviewAmount(item: { amount: string; unit?: string }): string {
   return item.unit === "USD" ? `$${item.amount}` : `${item.amount} BTC`;
 }
 
+/** A Ledger Review item's accounts after its amount (5.13): " · Credit Union",
+ * " · Wallet → Kraken BTC"; "" when the server names none (an older server). */
+export function reviewAccounts(item: { accounts?: string[] }): string {
+  return item.accounts?.length ? ` · ${item.accounts.join(" \u2192 ")}` : "";
+}
+
 /** "Withdrawal (Spent)", or the type alone with no source or purpose ("Sell"),
  * as Ledger Review lists an item. */
 export function typeWithSourceOrPurpose(item: Described): string {
