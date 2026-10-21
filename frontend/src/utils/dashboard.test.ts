@@ -18,16 +18,23 @@ describe("accountTotals", () => {
       balance(4, "Exchange BTC", "BTC", "0.25000000"),
       balance(5, "BTC Fees", "BTC", "0.00010000"),
       balance(6, "USD Fees", "USD", "12.00"),
-    ])).toEqual({ bank: 1500.25, exchangeUsd: 20, exchangeBtc: 0.25, wallet: 0.5, totalBtc: 0.75 });
+    ])).toEqual({
+      rows: [
+        { key: "account-1", name: "Bank", usd: 1500.25, btc: undefined },
+        { key: "account-2", name: "Wallet", usd: undefined, btc: 0.5 },
+        { key: "exchange-1", name: "Exchange", usd: 20, btc: 0.25 },
+      ],
+      totalBtc: 0.75,
+    });
   });
 
   it("skips a balance that isn't a number", () => {
     expect(accountTotals([balance(2, "Wallet", "BTC", NaN), balance(4, "Exchange BTC", "BTC", "0.1")]))
-      .toEqual({ bank: 0, exchangeUsd: 0, exchangeBtc: 0.1, wallet: 0, totalBtc: 0.1 });
+      .toEqual({ rows: [{ key: "exchange-1", name: "Exchange", usd: undefined, btc: 0.1 }], totalBtc: 0.1 });
   });
 
-  it("is all zero with no accounts", () => {
-    expect(accountTotals([])).toEqual({ bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 });
+  it("is empty with no accounts", () => {
+    expect(accountTotals([])).toEqual({ rows: [], totalBtc: 0 });
   });
 });
 

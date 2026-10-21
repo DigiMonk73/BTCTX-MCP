@@ -1,3 +1,5 @@
+// The overview's rows by kind (5.13, B8): Bank, Wallet, then Exchange with its
+// dollars and bitcoin on one row.
 // Dashboard figures after a known ledger (seedKnownLedger), worked by hand:
 //   Bank: 100,000 − 20,000 (buy) = 80,000
 //   Exchange USD: 7,000 − 20 fee (sell 1) + 9,000 (sell 2) = 15,980
@@ -13,7 +15,7 @@ import { test, expect, figure, seedKnownLedger, choosePriceSource, CURRENT_PRICE
 
 test("empty ledger shows zeros", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
-  expect(await figure(page, "Bank (USD)")).toBe(0);
+  expect(await figure(page, "Bank")).toBe(0);
   expect(await figure(page, "Total BTC")).toBe(0);
   expect(await figure(page, "Total Net Capital Gains")).toBe(0);
 });
@@ -22,10 +24,10 @@ test("balances, basis, gains and income after a known ledger", async ({ authedPa
   await seedKnownLedger(page.request);
   await page.reload();
 
-  expect(await figure(page, "Bank (USD)")).toBe(80000);
-  expect(await figure(page, "Exchange (USD)")).toBe(15980);
-  expect(await figure(page, "Exchange (BTC)")).toBe(0.15);
-  expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
+  expect(await figure(page, "Bank")).toBe(80000);
+  expect(await figure(page, "Exchange")).toBe(15980);
+  await expect(page.getByRole("paragraph").filter({ hasText: /^\s*Exchange/ })).toContainText("· 0.15000000 BTC");
+  expect(await figure(page, "Wallet")).toBe(0.5099);
   expect(await figure(page, "Total BTC")).toBe(0.6599);
   expect(await figure(page, "Avg. Cost per BTC")).toBeCloseTo(13498 / 0.6599, 1);
   expect(await figure(page, "Unrealized Gains/Losses")).toBeCloseTo(26096, 0);
