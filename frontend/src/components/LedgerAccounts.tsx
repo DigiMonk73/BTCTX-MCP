@@ -23,7 +23,8 @@ async function putConfirmed(url: string, body: object): Promise<void> {
   }
 }
 
-/** Settings' "Wallets, exchanges and banks" (spec 5.9): your accounts. Every change is one request, then the book again. */
+/** Settings' "Wallets, exchanges and banks" (spec 5.9): your accounts, their
+ * changes and the three Add buttons. Every change is one request, then the book again. */
 const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
   const { book, failed, reload } = useAccounts();
   const [balances, setBalances] = useState<AccountBalance[]>([]);

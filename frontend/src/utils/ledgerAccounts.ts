@@ -26,6 +26,7 @@ export function balanceText(balances: AccountBalance[], account: LedgerAccount):
 /** The kinds the owner adds (5.1): never a fee account. */
 export type YourKind = "bank" | "wallet" | "exchange";
 
+// 5.1's and 5.8's words, exactly: never reworded
 const WALLET_HELP =
   "A wallet is one set of keys: every address it makes is part of it. A backup of the same keys (a seed phrase, " +
   "or another device with the same keys) isn't a second wallet. If you use multiple wallets, add each one: since " +
@@ -64,6 +65,6 @@ export function pooledNote(book: AccountBook, kind: YourKind): string | null {
  * `confirm` asks the owner first. Null for any other refusal or error. */
 export function pastYearsConfirm(error: unknown): string | null {
   if (!axios.isAxiosError(error) || error.response?.status !== 409) return null;
-  const confirm: unknown = error.response?.data?.confirm;
+  const confirm: unknown = (error.response.data as { confirm?: unknown } | undefined)?.confirm;
   return typeof confirm === "string" ? confirm : null;
 }

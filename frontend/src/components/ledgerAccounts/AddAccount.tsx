@@ -15,7 +15,8 @@ interface AddAccountProps {
   onAdd: (kind: YourKind, name: string) => Promise<boolean>;
 }
 
-/** One kind's "Add a …" (5.9): the Nickname field, its help text and Q5's note, Add and Cancel. */
+/** One kind's "Add a …" (5.9): the Nickname field, its help text and Q5's note,
+ * Add and Cancel. The name goes as typed: the server trims it and says what it refuses. */
 const AddAccount: React.FC<AddAccountProps> = ({ kind, book, busy, onAdd }) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");

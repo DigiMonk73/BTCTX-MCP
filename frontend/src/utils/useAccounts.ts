@@ -51,6 +51,9 @@ export function useAccounts(): AccountsState & { reload: () => void } {
       live = false;
     };
   }, [asked]);
-  const reload = useCallback(() => { forgetAccounts(); setAsked((n) => n + 1); }, []);
+  const reload = useCallback(() => {
+    forgetAccounts();
+    setAsked((n) => n + 1);
+  }, []);
   return { ...state, reload };
 }

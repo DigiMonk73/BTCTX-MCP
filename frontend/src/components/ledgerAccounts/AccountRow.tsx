@@ -10,11 +10,15 @@ interface AccountRowProps {
   onSwitch1099da: (account: LedgerAccount, sends: boolean) => void;
 }
 
+// 5.9's words, exactly
 const SWITCH_LABEL = "This exchange sends me a Form 1099-DA";
 const SWITCH_HELP =
-  "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. It decides the Form 8949 box, not the gain.";
+  "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
+  "It decides the Form 8949 box, not the gain.";
 
-/** One of your accounts in Settings: nickname, kind and balance, "Hidden" when it is; Hide or Show, and Delete while no transaction names it (5.9). An exchange's switch is on its bitcoin account's row. */
+/** One of your accounts in Settings: its nickname, kind and balance, "Hidden"
+ * when it is; Hide or Show, and Delete while no transaction names it (5.9). An
+ * exchange's switch is on its bitcoin account's row: one per exchange. */
 const AccountRow: React.FC<AccountRowProps> = ({ account, balance, busy, onHide, onDelete, onSwitch1099da }) => (
   <li className="settings-option" aria-label={account.name}>
     <div className="option-info">
@@ -43,7 +47,9 @@ const AccountRow: React.FC<AccountRowProps> = ({ account, balance, busy, onHide,
         {account.hidden ? "Show" : "Hide"}
       </button>
       {!account.in_use && (
-        <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onDelete(account)}>Delete</button>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => onDelete(account)}>
+          Delete
+        </button>
       )}
     </div>
   </li>
