@@ -1,17 +1,24 @@
 // The dashboard's figures worked out from the server's answers.
-import { parseDecimal } from "./format";
+import { formatBtc, formatUsd, parseDecimal } from "./format";
 
-/** The balances the Portfolio Overview shows, and the BTC held in all
- * accounts. */
+/** One line of the Portfolio Overview: a bank, a wallet, or an exchange with its dollars and bitcoin side by side (5.13). */
+export interface PortfolioRow {
+  key: string; // "account-<id>" or "exchange-<exchange_id>": nicknames of an account and an exchange may match
+  name: string; // the nickname: the account's, or the exchange's
+  usd?: number;
+  btc?: number;
+}
+
+/** The Portfolio Overview's rows, and the BTC held in all accounts. */
 export interface AccountTotals {
-  bank: number;
-  exchangeUsd: number;
-  exchangeBtc: number;
-  wallet: number;
+  rows: PortfolioRow[];
   totalBtc: number;
 }
 
-export const NO_TOTALS: AccountTotals = { bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 };
+export const NO_TOTALS: AccountTotals = { rows: [], totalBtc: 0 };
+
+// Banks, then wallets, then exchanges (5.9's order); fee accounts are no one's holdings
+const ROW_KINDS: readonly AccountKind[] = ["bank", "wallet", "exchange"];
 
 /** Today's BTC price as the dashboard fetched it. `off` when the owner has
  * no price source or turned prices off; `problem` is the server's reason
@@ -79,20 +86,35 @@ export function priceSourceShort(source: string | undefined, throughTor = false)
   return `${siteName(source)}${throughTor ? ", through Tor" : ""}`;
 }
 
-/** The totals of the account balances. Fee accounts and unreadable balances
- * are left out. */
+/** The overview's rows and the BTC held. An unreadable balance and the fee accounts
+ * are left out; so is a hidden account at zero (5.13), though a hidden one holding
+ * anything stays. */
 export function accountTotals(balances: AccountBalance[]): AccountTotals {
-  const totals = { ...NO_TOTALS };
+  const rows = new Map<string, PortfolioRow & { kind: AccountKind }>();
+  let totalBtc = 0;
   for (const acc of balances) {
     const balance = parseDecimal(acc.balance);
-    if (Number.isNaN(balance) || acc.name === "BTC Fees" || acc.name === "USD Fees") continue;
-    if (acc.name === "Bank" && acc.currency === "USD") totals.bank = balance;
-    else if (acc.name === "Wallet" && acc.currency === "BTC") totals.wallet = balance;
-    else if (acc.name === "Exchange USD" && acc.currency === "USD") totals.exchangeUsd = balance;
-    else if (acc.name === "Exchange BTC" && acc.currency === "BTC") totals.exchangeBtc = balance;
-    if (acc.currency === "BTC") totals.totalBtc += balance;
+    if (Number.isNaN(balance) || !ROW_KINDS.includes(acc.kind) || (acc.hidden && balance === 0)) continue;
+    if (acc.currency === "BTC") totalBtc += balance;
+    // An exchange's two accounts are one row, keyed by its exchange: never by a name
+    const exchange = acc.kind === "exchange" && acc.exchange_id !== null;
+    const key = exchange ? `exchange-${acc.exchange_id}` : `account-${acc.account_id}`;
+    const row = rows.get(key) ?? { key, name: exchange ? (acc.exchange ?? acc.name) : acc.name, kind: acc.kind };
+    if (acc.currency === "USD") row.usd = balance;
+    else row.btc = balance;
+    rows.set(key, row);
   }
-  return totals;
+  // Stable: the balances' order within a kind
+  const ordered = [...rows.values()].sort((a, b) => ROW_KINDS.indexOf(a.kind) - ROW_KINDS.indexOf(b.kind));
+  return { rows: ordered.map(({ key, name, usd, btc }) => ({ key, name, usd, btc })), totalBtc };
+}
+
+/** A row's figures: "$40.00", "0.50000000 BTC", or both joined by " · ". */
+export function rowFigures(row: PortfolioRow): string {
+  const parts = [];
+  if (row.usd !== undefined) parts.push(formatUsd(row.usd));
+  if (row.btc !== undefined) parts.push(formatBtc(row.btc));
+  return parts.join(" · ");
 }
 
 /** The colour of a net figure: green for a gain, red for a loss, none at 0. */
