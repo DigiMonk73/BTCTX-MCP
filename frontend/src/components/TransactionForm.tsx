@@ -22,6 +22,9 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   grossProceedsUSD: 0,
   brokerReporting: "",
   buyFromAccount: "Exchange",
+  // A type change clears both: an account chosen for one type is not another's (5.13).
+  fromAccountId: undefined,
+  toAccountId: undefined,
 };
 
 /** The transaction form: a new transaction, or `transactionId`'s to edit. */
@@ -114,7 +117,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      toast.success(await saveTransaction(data, transactionId));
+      toast.success(await saveTransaction(data, book, transactionId));
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
@@ -200,7 +203,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           {failed ? (
             <p className="field-error" role="alert">{ACCOUNTS_FAILED}</p>
           ) : (
-            book && <TypeFields type={currentType} />
+            book && <TypeFields type={currentType} book={book} />
           )}
         </div>
 

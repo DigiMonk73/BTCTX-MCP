@@ -8,8 +8,12 @@ import { buildTransactionPayload } from "../../utils/transactionForm";
  * Save the form: a new transaction, or `transactionId`'s changes. Returns
  * the message to show, with the realized gain when there is one.
  */
-export async function saveTransaction(data: TransactionFormData, transactionId?: number | null): Promise<string> {
-  const payload = buildTransactionPayload(data);
+export async function saveTransaction(
+  data: TransactionFormData,
+  book: AccountBook,
+  transactionId?: number | null,
+): Promise<string> {
+  const payload = buildTransactionPayload(data, book);
   if (transactionId) {
     const response = await api.put(`/transactions/${transactionId}`, payload);
     if (response.status !== 200) {

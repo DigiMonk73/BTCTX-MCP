@@ -1,6 +1,6 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
-import { accountCurrency, isBtcAccount } from "./accounts";
+import { accountCurrency, isBtcAccount, usdOf } from "./accounts";
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
@@ -41,8 +41,9 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
   return 0;
 }
 
-/** The ledger's from and to accounts for what the form shows as one account. */
-export function mapDoubleEntryAccounts(data: TransactionFormData): IAccountMapping {
+/** The ledger's from and to accounts. A Sell's dollars are its exchange's USD
+ * half (`usdOf`); every other type still maps the 1.x account names. */
+export function mapDoubleEntryAccounts(data: TransactionFormData, book: AccountBook): IAccountMapping {
   switch (data.type) {
     case "Deposit":
       return {
@@ -66,8 +67,8 @@ export function mapDoubleEntryAccounts(data: TransactionFormData): IAccountMappi
       };
     case "Sell":
       return {
-        from_account_id: EXCHANGE_BTC_ID,
-        to_account_id: EXCHANGE_USD_ID,
+        from_account_id: data.fromAccountId ?? 0,
+        to_account_id: usdOf(book, data.fromAccountId) ?? 0,
       };
     default:
       return { from_account_id: 0, to_account_id: 0 };
@@ -182,7 +183,6 @@ const TYPE_FORM_DATA: Record<
     amountBTC: tx.amount,
   }),
   Sell: (tx) => ({
-    account: "Exchange",
     amountBTC: tx.amount,
     grossProceedsUSD: sellGross(tx),
   }),
@@ -274,7 +274,7 @@ function depositSource(data: TransactionFormData): string {
 // purpose and a value: the form shows those fields for a bitcoin account
 // alone, and one filled in before the account changed stays in the form
 // though hidden, so a dollar deposit or withdrawal sends none (#449)
-const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData) => TypePayload> = {
+const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData, book: AccountBook) => TypePayload> = {
   Deposit: (data) => ({
     amount: parseDecimal(data.amount),
     feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
@@ -356,10 +356,11 @@ function feeUsd(data: TransactionFormData, feeCurrency: Currency): number | null
 /** Form values => the body for POST/PUT /api/transactions. */
 export function buildTransactionPayload(
   data: TransactionFormData,
+  book: AccountBook,
 ): ICreateTransactionPayload {
-  const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data);
+  const { from_account_id, to_account_id } = mapDoubleEntryAccounts(data, book);
   const typePayload = TYPE_PAYLOAD[data.type];
-  const values: TypePayload = typePayload ? typePayload(data) : { amount: 0, feeCurrency: "USD", cost_basis_usd: null };
+  const values: TypePayload = typePayload ? typePayload(data, book) : { amount: 0, feeCurrency: "USD", cost_basis_usd: null };
   const fee_usd = feeUsd(data, values.feeCurrency);
   return {
     type: data.type,
