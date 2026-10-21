@@ -10,6 +10,7 @@ name back, which a second account of that name would stop (#289).
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
+from backend.constants import ACCOUNT_EXTERNAL
 from backend.database import FIXED_ACCOUNTS
 from backend.models.account import Account
 from backend.models.transaction import Transaction
@@ -24,6 +25,49 @@ def get_all_accounts(db: Session):
     """Every account, after putting the fixed ones right."""
     ensure_special_accounts_exist(db)
     return db.query(Account).all()
+
+
+# 2.0's account list (spec 5.9) on the draft branch, a stub (P-2): each fixed
+# account's kind and exchange from its id, until B2b stores them in the table
+FIXED_KINDS = {1: ("bank", None), 2: ("wallet", None), 3: ("exchange", 1), 4: ("exchange", 1),
+               5: ("fee", None), 6: ("fee", None)}
+KIND_ORDER = ("bank", "wallet", "exchange", "fee")
+FIRST_EXCHANGE = "Exchange"
+FEE_NAMES = frozenset(SPECIAL_ACCOUNTS[i]["name"].casefold() for i in (5, 6))
+
+
+def _kind(account: Account) -> str | None:
+    """A fixed account's kind; any other is a wallet when it holds BTC, else a bank
+    (5.3). None for one never listed: External, or a second fee account (#289)."""
+    if account.id in FIXED_KINDS:
+        return FIXED_KINDS[account.id][0]
+    if account.id == ACCOUNT_EXTERNAL or account.name.strip().casefold() in FEE_NAMES:
+        return None
+    return "wallet" if account.currency == "BTC" else "bank"
+
+
+def _named_by_transactions(db: Session) -> set[int]:
+    """Every account a transaction names, from or to."""
+    pairs = db.query(Transaction.from_account_id, Transaction.to_account_id).distinct()
+    return {account_id for pair in pairs for account_id in pair if account_id is not None}
+
+
+def account_book(db: Session) -> list[dict]:
+    """The accounts as 2.0's GET /api/accounts/ lists them: banks, wallets,
+    exchanges, then the fee accounts, each by id within its kind."""
+    named = _named_by_transactions(db)
+    book = []
+    for account in get_all_accounts(db):
+        kind = _kind(account)
+        if kind is None:
+            continue
+        exchange_id = FIXED_KINDS.get(account.id, (kind, None))[1]
+        book.append({
+            "id": account.id, "name": account.name, "kind": kind, "currency": account.currency,
+            "exchange_id": exchange_id, "exchange": FIRST_EXCHANGE if exchange_id else None,
+            "hidden": False, "in_use": account.id in named,
+        })
+    return sorted(book, key=lambda row: (KIND_ORDER.index(row["kind"]), row["id"]))
 
 
 def get_account_by_id(account_id: int, db: Session):

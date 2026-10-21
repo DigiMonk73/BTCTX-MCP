@@ -1,20 +1,21 @@
 """
-The accounts (the six fixed ones; database.FIXED_ACCOUNTS).
+The accounts (the six fixed ones; database.FIXED_ACCOUNTS). The list is in
+2.0's shape (spec 5.9), derived from the fixed ids on this draft branch.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead
+from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead, LedgerAccountRead
 from backend.services import account as account_service
 from backend.database import get_db
 
 router = APIRouter(tags=["accounts"])
 
 
-@router.get("/", response_model=list[AccountRead])
+@router.get("/", response_model=list[LedgerAccountRead])
 def list_accounts(db: Session = Depends(get_db)):
-    """Every account."""
-    return account_service.get_all_accounts(db)
+    """Every account the owner has, then the fee accounts, in 2.0's shape (spec 5.9)."""
+    return account_service.account_book(db)
 
 
 @router.get("/{account_id}", response_model=AccountRead)

@@ -52,3 +52,16 @@ class AccountRead(AccountBase):
     user_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class LedgerAccountRead(BaseModel):
+    """An account as 2.0's list gives it (spec 5.9): `name` is the owner's
+    nickname; an exchange's two accounts share `exchange_id`, and `exchange`
+    is that exchange's name; `in_use` when a transaction names it."""
+    id: int
+    name: str
+    kind: str
+    currency: str
+    exchange_id: int | None
+    exchange: str | None
+    hidden: bool
+    in_use: bool
