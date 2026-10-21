@@ -80,7 +80,8 @@ def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
 def _snapshot_code_digest() -> str:
     """Changes when the snapshot code or its ledger does, so an old snapshot isn't reused."""
     digest = hashlib.sha256()
-    for name in ("equivalence_check.py", "equivalence_snapshot.py", "equivalence_inputs.py"):
+    for name in ("equivalence_check.py", "equivalence_snapshot.py", "equivalence_inputs.py",
+                 "equivalence_ledgers_1x.py"):
         digest.update((ROOT / "scripts" / name).read_bytes())
     digest.update((ROOT / "testdata" / "reference_ledger.json").read_bytes())
     return digest.hexdigest()[:8]
