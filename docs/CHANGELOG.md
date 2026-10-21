@@ -26,6 +26,15 @@ All notable changes to BitcoinTX are documented in this file.
   `uv python install 3.13` once and restart the AI app. CI tests 3.11 and
   3.13.
 
+### Development
+- **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
+  which Playwright supports from 1.61; the click-through tests and their
+  config needed no change. CI's click-through job stays on Ubuntu 24.04
+  until a run on `ubuntu-latest` (26.04) is green. `docs/TESTING.md` no
+  longer says cloud sessions have Chromium preinstalled: Anthropic's list
+  of their tools names no Playwright browsers. Tooling only: nothing
+  changes in the app.
+
 ### Fixed
 - **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
