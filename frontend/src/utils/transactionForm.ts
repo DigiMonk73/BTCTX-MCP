@@ -1,5 +1,6 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
+import { accountCurrency, isBtcAccount } from "./accounts";
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
@@ -87,15 +88,14 @@ function accountIdToType(id: number): AccountType {
   }
 }
 
-function accountCurrency(id: number): Currency {
-  return id === 1 || id === 3 ? "USD" : "BTC";
-}
-
 /** The fields every type's form shows. */
 function commonFormData(tx: ITransaction): TransactionFormData {
   return {
     type: tx.type,
     timestamp: toDatetimeLocal(new Date(tx.timestamp)),
+    // Kept for every type (5.13). null is none, which the form holds as undefined.
+    fromAccountId: tx.from_account_id ?? undefined,
+    toAccountId: tx.to_account_id ?? undefined,
     fee: tx.fee_amount ?? 0,
     costBasisUSD: tx.cost_basis_usd ?? 0,
     proceeds_usd: tx.proceeds_usd ?? 0,
@@ -127,21 +127,26 @@ function valueOrigins(tx: ITransaction): Partial<TransactionFormData> {
 }
 
 /** Each type's own form fields, read back from a saved transaction. */
-const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<TransactionFormData>> = {
-  Deposit: (tx) => {
+const TYPE_FORM_DATA: Record<
+  TransactionType,
+  (tx: ITransaction, book: AccountBook) => Partial<TransactionFormData>
+> = {
+  Deposit: (tx, book) => {
     const accountId = tx.to_account_id ?? 0;
     return {
       account: accountIdToType(accountId),
-      currency: accountCurrency(accountId),
+      currency: accountCurrency(book, accountId),
       amount: tx.amount,
       source: listedSource(tx.source),
     };
   },
-  Withdrawal: (tx) => {
+  Withdrawal: (tx, book) => {
     const accountId = tx.from_account_id ?? 0;
-    const place = { account: accountIdToType(accountId), currency: accountCurrency(accountId) };
-    // A dollar withdrawal has none (#449)
-    const proceeds = inBtcAccount(place) ? withdrawalProceeds(tx) : undefined;
+    const place = { account: accountIdToType(accountId), currency: accountCurrency(book, accountId) };
+    // A dollar withdrawal has none (#449). Which accounts hold bitcoin is the book's (5.4).
+    const proceeds = isBtcAccount(book, tx.from_account_id ?? undefined)
+      ? withdrawalProceeds(tx)
+      : undefined;
     return {
       ...place,
       amount: tx.amount,
@@ -150,10 +155,10 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       proceedsStored: proceeds,
     };
   },
-  Transfer: (tx) => {
+  Transfer: (tx, book) => {
     const fromId = tx.from_account_id ?? 0;
     const toId = tx.to_account_id ?? 0;
-    const fromCurrency = accountCurrency(fromId);
+    const fromCurrency = accountCurrency(book, fromId);
     const fee = tx.fee_amount ?? 0;
     // Dollars add up in cents (two amounts' float sum can carry a stray digit
     // past the cent); one stored past the cent keeps 8 places, for the form to say so
@@ -162,7 +167,7 @@ const TYPE_FORM_DATA: Record<TransactionType, (tx: ITransaction) => Partial<Tran
       fromAccount: accountIdToType(fromId),
       toAccount: accountIdToType(toId),
       fromCurrency,
-      toCurrency: accountCurrency(toId),
+      toCurrency: accountCurrency(book, toId),
       // A BTC transfer's amount is what left, its fee included: what arrived
       // is the rest, to the satoshi. A dollar transfer's is what arrived, its
       // fee on top (#447)
@@ -200,10 +205,11 @@ function sellGross(tx: ITransaction): number {
 
 /** A saved transaction as the form shows it for editing; a date originally
  * acquired as the date stored, YYYY-MM-DD (#185: a date, which no timezone
- * moves; never read through a Date, which would). */
-export function mapTransactionToFormData(tx: ITransaction): TransactionFormData {
+ * moves; never read through a Date, which would). `book` says each account's
+ * currency (5.4). */
+export function mapTransactionToFormData(tx: ITransaction, book: AccountBook): TransactionFormData {
   const typeFormData = TYPE_FORM_DATA[tx.type];
-  const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx) } : commonFormData(tx);
+  const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx, book) } : commonFormData(tx);
   if (tx.acquired_at) form.acquiredDate = tx.acquired_at;
   return form;
 }

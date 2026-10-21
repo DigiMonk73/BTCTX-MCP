@@ -298,6 +298,10 @@ declare global {
     // For Buy transactions: source account (Bank or Exchange)
     buyFromAccount?: "Bank" | "Exchange";
 
+    // Both of the row's accounts, kept on read-back for every type (5.13).
+    fromAccountId?: number;
+    toAccountId?: number;
+
     // A Sell's proceeds as typed, before fees
     grossProceedsUSD?: number;
     // Form 1099-DA override; "" = automatic
