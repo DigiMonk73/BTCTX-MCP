@@ -1,23 +1,11 @@
 """2.0-B1 step 2 (5.15): an account id the ledger does not have stops the calculation. Written by Silas; read-only to the implementer."""
 
-import importlib.util
-import sys
-from pathlib import Path
-
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
+from backend.tests.conftest import independent_figures
 
 
-def _script(name):
-    spec = importlib.util.spec_from_file_location(name, SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-independent = _script("independent_figures_b1_2")
+independent = independent_figures()
 
 DEPOSIT = {"type": "Deposit", "timestamp": "2024-01-15T10:00:00Z", "from_account_id": 99, "to_account_id": 7,
            "amount": "1.00000000", "fee_amount": "0", "fee_currency": "BTC", "source": "My BTC",

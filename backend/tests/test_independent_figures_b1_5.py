@@ -1,29 +1,9 @@
 """2.0-B1 step 5 (5.15, 5.7; decisions-B1): a Sell is broker-reported from any exchange whose 1099-DA switch (sends_1099da) is on; covered only for a lot bought into that same account from 2026-01-01 in the tax timezone. A Sell's own broker_reporting still wins. With no accounts list, exchange 1 (3 and 4) has the switch on. Written by Silas; read-only to the implementer."""
 
-import importlib.util
-import sys
-from pathlib import Path
+from backend.tests.conftest import independent_figures, ledger_tx
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
-
-
-def _script(name):
-    spec = importlib.util.spec_from_file_location(name, SCRIPT)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def tx(kind, when, src, dst, amount, **more):
-    base = {"type": kind, "timestamp": when, "from_account_id": src, "to_account_id": dst, "amount": amount,
-            "fee_amount": "0", "fee_currency": "BTC" if kind == "Transfer" else "USD"}
-    base.update(more)
-    return base
-
-
-independent = _script("independent_figures_b1_5")
+independent = independent_figures()
 
 ACCOUNTS = {"accounts": [
     {"id": 3, "name": "Exchange USD", "currency": "USD", "kind": "exchange", "exchange_id": 1, "sends_1099da": True},
@@ -40,8 +20,8 @@ def _boxes(transactions, **options):
 
 
 # 03:00 UTC on Jan 1 2026 is still Dec 31 2025 in Chicago.
-NEW_YEARS_NIGHT = tx("Buy", "2026-01-01T03:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00")
-SELL_4 = tx("Sell", "2026-06-01T12:00:00Z", 4, 3, "0.50000000", gross_proceeds_usd="600.00")
+NEW_YEARS_NIGHT = ledger_tx("Buy", "2026-01-01T03:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00")
+SELL_4 = ledger_tx("Sell", "2026-06-01T12:00:00Z", 4, 3, "0.50000000", gross_proceeds_usd="600.00")
 
 
 def test_the_fixed_exchanges_switch_is_on_by_default():
@@ -59,15 +39,15 @@ def test_in_utc_the_same_buy_is_covered():
 
 def test_an_exchange_with_the_switch_off_reports_nothing():
     accounts = independent.read_accounts(ACCOUNTS)
-    sales = [tx("Buy", "2026-02-01T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="1000.00"),
-             tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
+    sales = [ledger_tx("Buy", "2026-02-01T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="1000.00"),
+             ledger_tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
     assert _boxes(sales, accounts=accounts) == ["I"]
 
 
 def test_a_sells_own_broker_reporting_still_wins():
     accounts = independent.read_accounts(ACCOUNTS)
-    sales = [tx("Buy", "2026-02-01T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="1000.00"),
-             tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00",
+    sales = [ledger_tx("Buy", "2026-02-01T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="1000.00"),
+             ledger_tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00",
                 broker_reporting="basis")]
     assert _boxes(sales, accounts=accounts) == ["G"]
 
@@ -77,7 +57,7 @@ def test_a_lot_bought_on_one_exchange_and_moved_is_not_covered_on_the_other():
         {"id": 9, "name": "Other BTC", "currency": "BTC", "kind": "exchange", "exchange_id": 2, "sends_1099da": True},
         {"id": 8, "name": "Other USD", "currency": "USD", "kind": "exchange", "exchange_id": 2, "sends_1099da": True},
     ] + ACCOUNTS["accounts"][4:]})
-    sales = [tx("Buy", "2026-02-01T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00"),
-             tx("Transfer", "2026-03-01T15:00:00Z", 4, 9, "1.00000000"),
-             tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
+    sales = [ledger_tx("Buy", "2026-02-01T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00"),
+             ledger_tx("Transfer", "2026-03-01T15:00:00Z", 4, 9, "1.00000000"),
+             ledger_tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
     assert _boxes(sales, accounts=accounts) == ["H"]
