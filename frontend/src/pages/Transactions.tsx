@@ -6,9 +6,11 @@ import TransactionPanel from "../components/TransactionPanel";
 import TransactionRow from "../components/TransactionRow";
 import { parseTransaction } from "../utils/format";
 import { groupByDay, pageOf, sortTransactions } from "../utils/transactionList";
+import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import "../styles/transactions.css";
 
 const Transactions: React.FC = () => {
+  const { book, failed } = useAccounts();
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [transactions, setTransactions] = useState<ITransaction[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("TIMESTAMP_DESC");
@@ -76,6 +78,28 @@ const Transactions: React.FC = () => {
     setCurrentPage(1);
   };
 
+  // Every row's names come from the book (5.13): the page waits for it
+  if (failed) {
+    return (
+      <div className="transactions-page">
+        <div className="transactions-list transactions-status" role="alert">
+          <p className="note note-error">{ACCOUNTS_FAILED}</p>
+        </div>
+      </div>
+    );
+  }
+  if (!book) {
+    return (
+      <div className="transactions-page">
+        <div className="transactions-list">
+          <div className="loading-row transactions-status">
+            <div className="spinner" /> Loading transactions…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="transactions-page">
       <div className="transactions-header">
@@ -134,6 +158,7 @@ const Transactions: React.FC = () => {
                   <TransactionRow
                     key={tx.id}
                     tx={tx}
+                    book={book}
                     onEdit={id => {
                       setEditingTransactionId(id);
                       setIsPanelOpen(true);
