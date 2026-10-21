@@ -5,7 +5,6 @@ switch through the past-year warning's stub (B6c, 5.8), and the gate's stub
 (B7a, 5.10) that lets a transaction name an account Settings added.
 """
 
-from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -156,12 +155,13 @@ def test_the_1099da_switch_on_another_kind_is_refused(client):
     assert (r.status_code, r.json()["detail"]) == (400, account_service.NOT_AN_EXCHANGE)
 
 
-def test_the_1099da_switch_with_earlier_years_asks_first(client):
+def test_the_1099da_switch_with_earlier_years_asks_first(client, tax_year):
     """B6c's stub of 5.8's warning: a 409 with the years and a fingerprint; the
     same request with ?confirm=<it> saves."""
-    year = datetime.now(timezone.utc).year
+    year = 2026
     deposit_into(client, 4, when=f"{year - 2}-03-01T12:00:00Z")
     deposit_into(client, 4, when=f"{year - 1}-03-01T12:00:00Z")
+    tax_year(year)  # after the deposits: the clock is the one 5.8's warning reads
     r = client.put("/api/accounts/4", json={"sends_1099da": False})
     assert r.status_code == 409
     body = r.json()

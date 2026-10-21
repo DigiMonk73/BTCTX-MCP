@@ -88,10 +88,14 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=TransactionRead)
-def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(tx: TransactionCreate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Save a new transaction with its ledger lines and its lots or lot
-    disposals; one dated before others recalculates the ledger.
+    disposals; one dated before others recalculates the ledger. One that
+    changes an earlier tax year answers 409 and saves nothing until it's
+    sent again with confirm=<the 409's fingerprint>, after a copy of the
+    database (5.8).
     """
     tx_data = tx.model_dump()
     new_tx = tx_service.create_transaction_record(tx_data, db)
@@ -121,12 +125,14 @@ def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, db: Session = Depends(get_db)):
+def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
     transaction doesn't exist. With the AI key, its first change in an hour
     (an edit, a deletion, a recalculation, or an import that recalculates)
-    comes after an AI copy of the database.
+    comes after an AI copy of the database. One that changes an earlier tax
+    year answers 409 until confirmed, as an add does (5.8).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
@@ -159,13 +165,15 @@ def delete_all_transactions_endpoint(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_transaction(transaction_id: int, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
     With the AI key, its first change in an hour (an edit, a deletion, a
     recalculation, or an import that recalculates) comes after an AI copy of
-    the database (in the backups folder).
+    the database (in the backups folder). One that changes an earlier tax
+    year answers 409 until confirmed, as an add does (5.8).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")

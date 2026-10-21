@@ -202,7 +202,13 @@ def call(method, path, body=None):
         with web.open(req) as r:
             return json.loads(r.read() or "null")
     except urllib.error.HTTPError as e:
-        sys.exit(f"{method} {path}: {e.code} {e.read().decode()[:300]}")
+        answer = e.read().decode()
+        # 2.0's past-year warning (5.8): a row in an earlier tax year is sent
+        # again with the 409's fingerprint, once
+        confirm = json.loads(answer).get("confirm") if e.code == 409 else None
+        if isinstance(confirm, str) and "?confirm=" not in path:
+            return call(method, f"{path}?confirm={confirm}", body)
+        sys.exit(f"{method} {path}: {e.code} {answer[:300]}")
 
 
 call("POST", "/api/login", {"username": os.environ["BTCTX_USER"], "password": os.environ["BTCTX_PASSWORD"]})

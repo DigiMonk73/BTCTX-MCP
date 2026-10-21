@@ -12,7 +12,6 @@ past-year warning of 5.8 for the 1099-DA switch (B6c).
 import hashlib
 import re
 import unicodedata
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -219,7 +218,7 @@ def _past_years(db: Session, ids: set[int]) -> list[int]:
     """The tax years before this one with a transaction naming one of `ids`: the
     B6c stub's stand-in for 5.8's dry run (the boxes it could move)."""
     tz = tax_time.get_tax_timezone(db)
-    this_year = datetime.now(timezone.utc).astimezone(tz).year
+    this_year = tax_time.current_tax_year(tz)
     rows = db.query(Transaction.timestamp).filter(
         Transaction.from_account_id.in_(ids) | Transaction.to_account_id.in_(ids))
     return sorted({tax_time.local_date(ts, tz).year for (ts,) in rows} - set(range(this_year, 10000)))

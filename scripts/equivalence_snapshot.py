@@ -56,6 +56,9 @@ VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 VOLATILE_MCP_KEYS = {"file", "created"}
 # Hashes of the AI key, and of the login sessions each run opens anew.
 VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
+# Which BitcoinTX last recalculated the ledger (5.8, from 2.0): its version
+# and migration head, which differ between the two sides by design.
+UNCOMPARED_SETTINGS = ("recalculated_by",)
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.
@@ -132,6 +135,18 @@ def _shut_out_the_world(work: Path) -> None:
     first_run.DATA_DIR = str(work / "data")
     outbound._current = outbound.NetworkSettings(price_source="public")
     mcp_server.connector_version = app_version
+    _pinned_tax_year()
+
+
+def _pinned_tax_year() -> None:
+    """"This tax year" is 2009, before every ledger's, as the backend tests
+    pin it (5.15): 2.0's past-year warning (5.8) then never asks, and an
+    in-process write saves as it did before 2.0. A release before 2.0 has
+    no such clock (services/tax_time.current_tax_year)."""
+    from backend.services import tax_time
+
+    if hasattr(tax_time, "current_tax_year"):
+        tax_time.current_tax_year = lambda tz: 2009
 
 
 def _no_hourly_prices() -> None:
@@ -255,7 +270,8 @@ def database_rows(engine) -> dict:
     with engine.connect() as con:
         for table in sorted(inspect(engine).get_table_names()):
             rows = con.execute(text(f'SELECT * FROM "{table}" ORDER BY rowid')).mappings().all()
-            tables[table] = [_stable_row(table, row) for row in rows]
+            tables[table] = [_stable_row(table, row) for row in rows
+                             if not (table == "app_settings" and row["key"] in UNCOMPARED_SETTINGS)]
     return tables
 
 
