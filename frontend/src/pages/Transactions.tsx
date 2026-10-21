@@ -5,7 +5,8 @@ import Pagination from "../components/Pagination";
 import TransactionPanel from "../components/TransactionPanel";
 import TransactionRow from "../components/TransactionRow";
 import { parseTransaction } from "../utils/format";
-import { groupByDay, pageOf, sortTransactions } from "../utils/transactionList";
+import { accountName, chosenId, yours } from "../utils/accounts";
+import { byAccount, groupByDay, pageOf, sortTransactions } from "../utils/transactionList";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import "../styles/transactions.css";
 
@@ -14,6 +15,8 @@ const Transactions: React.FC = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [transactions, setTransactions] = useState<ITransaction[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("TIMESTAMP_DESC");
+  // The filter select's value: "" for every account (chosenId reads it)
+  const [accountFilter, setAccountFilter] = useState("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -62,7 +65,7 @@ const Transactions: React.FC = () => {
     }
   };
 
-  const sorted = transactions ? sortTransactions(transactions, sortMode) : [];
+  const sorted = transactions ? sortTransactions(byAccount(transactions, chosenId(accountFilter)), sortMode) : [];
   const { page, totalPages, items: transactionsForPage } = pageOf(sorted, currentPage, pageSize);
   const dateGroups = groupByDay(transactionsForPage);
 
@@ -71,6 +74,11 @@ const Transactions: React.FC = () => {
   };
   const handleNextPage = () => {
     if (page < totalPages) setCurrentPage(page + 1);
+  };
+
+  const handleAccountFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAccountFilter(e.target.value);
+    setCurrentPage(1);
   };
 
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -108,15 +116,31 @@ const Transactions: React.FC = () => {
           Add transaction
         </button>
 
-        <select
-          className="input select-pill"
-          aria-label="Sort transactions"
-          value={sortMode}
-          onChange={e => setSortMode(e.target.value as SortMode)}
-        >
-          <option value="TIMESTAMP_DESC">Sort by date</option>
-          <option value="CREATION_DESC">Last added</option>
-        </select>
+        <div className="transactions-filters">
+          <select
+            className="input select-pill"
+            aria-label="Filter by wallet, exchange or bank"
+            value={accountFilter}
+            onChange={handleAccountFilterChange}
+          >
+            <option value="">All accounts</option>
+            {/* Hidden accounts too: old rows name them (5.5) */}
+            {yours(book).map(id => (
+              <option key={id} value={id}>
+                {accountName(book, id)}
+              </option>
+            ))}
+          </select>
+          <select
+            className="input select-pill"
+            aria-label="Sort transactions"
+            value={sortMode}
+            onChange={e => setSortMode(e.target.value as SortMode)}
+          >
+            <option value="TIMESTAMP_DESC">Sort by date</option>
+            <option value="CREATION_DESC">Last added</option>
+          </select>
+        </div>
       </div>
 
       {isLoading && (

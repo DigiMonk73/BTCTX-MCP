@@ -3,6 +3,12 @@
 import { formatSignedUsd, parseDecimal } from "./format";
 import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
+/** One account's history (5.13): the rows naming `accountId` on either side; every row for undefined. */
+export function byAccount(transactions: ITransaction[], accountId: number | undefined): ITransaction[] {
+  if (accountId === undefined) return transactions;
+  return transactions.filter((tx) => tx.from_account_id === accountId || tx.to_account_id === accountId);
+}
+
 /** Newest first: by date, or by when they were added (id). */
 export function sortTransactions(transactions: ITransaction[], sortMode: SortMode): ITransaction[] {
   return [...transactions].sort((a, b) => {
