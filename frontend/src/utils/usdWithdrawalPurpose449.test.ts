@@ -3,6 +3,7 @@
 // the payload then sent it with the dollar withdrawal or deposit.
 import { describe, expect, it } from "vitest";
 import { buildTransactionPayload } from "./transactionForm";
+import { ONE_OF_EACH } from "../test/accountBooks";
 
 // Runs with TZ=UTC (npm test), so datetime-local strings are UTC.
 const form = (fields: Partial<TransactionFormData>) =>
@@ -16,7 +17,7 @@ describe("a withdrawal's purpose and values go only with bitcoin leaving", () =>
     ["Bank", "USD"],
     ["Exchange", "USD"],
   ] as const)("from %s (%s): no purpose, proceeds or FMV", (account, currency) => {
-    const body = buildTransactionPayload(form({ ...leftOver, account, currency }));
+    const body = buildTransactionPayload(form({ ...leftOver, account, currency }), ONE_OF_EACH);
     expect(body).toMatchObject({ purpose: "N/A", proceeds_usd: null, fmv_usd: null, broker_reporting: null });
   });
 
@@ -24,11 +25,11 @@ describe("a withdrawal's purpose and values go only with bitcoin leaving", () =>
     ["Wallet", "BTC"],
     ["Exchange", "BTC"],
   ] as const)("from %s (%s): its purpose and FMV, as typed", (account, currency) => {
-    const body = buildTransactionPayload(form({ ...leftOver, account, currency, amount: 0.01 }));
+    const body = buildTransactionPayload(form({ ...leftOver, account, currency, amount: 0.01 }), ONE_OF_EACH);
     expect(body).toMatchObject({ purpose: "Gift", fmv_usd: 500 });
     // A gift has no proceeds: the Spent's typed before goes no further (#457)
     expect(body.proceeds_usd).toBeUndefined();
-    expect(buildTransactionPayload(form({ ...leftOver, account, currency, purpose: "Spent" })).proceeds_usd).toBe(500);
+    expect(buildTransactionPayload(form({ ...leftOver, account, currency, purpose: "Spent" }), ONE_OF_EACH).proceeds_usd).toBe(500);
   });
 });
 
@@ -37,13 +38,14 @@ describe("a deposit's source goes only with bitcoin received", () => {
     ["Bank", "USD"],
     ["Exchange", "USD"],
   ] as const)("into %s (%s): no source", (account, currency) => {
-    const body = buildTransactionPayload(form({ type: "Deposit", account, currency, amount: 100, source: "Income" }));
+    const body = buildTransactionPayload(form({ type: "Deposit", account, currency, amount: 100, source: "Income" }), ONE_OF_EACH);
     expect(body).toMatchObject({ source: "N/A", cost_basis_usd: null });
   });
 
   it("into the Wallet: the source chosen", () => {
     const body = buildTransactionPayload(
       form({ type: "Deposit", account: "Wallet", currency: "BTC", amount: 0.01, source: "Income", costBasisUSD: 600 }),
+      ONE_OF_EACH,
     );
     expect(body).toMatchObject({ source: "Income", cost_basis_usd: 600 });
   });
@@ -56,6 +58,7 @@ describe("a dollar withdrawal's own label", () => {
   it("is sent back as it was (a purpose that isn't a bitcoin one, from an import)", () => {
     const body = buildTransactionPayload(
       form({ type: "Withdrawal", account: "Bank", currency: "USD", amount: 100, purpose: saved("Rent") }),
+      ONE_OF_EACH,
     );
     expect(body.purpose).toBe("Rent");
   });
@@ -63,6 +66,7 @@ describe("a dollar withdrawal's own label", () => {
   it("a bitcoin purpose saved on one by an older version is not", () => {
     const body = buildTransactionPayload(
       form({ type: "Withdrawal", account: "Bank", currency: "USD", amount: 100, purpose: saved(" gift ") }),
+      ONE_OF_EACH,
     );
     expect(body.purpose).toBe("N/A");
   });
@@ -72,6 +76,7 @@ describe("a dollar deposit's old free-text source", () => {
   it("is sent back as it was (text a version before 1.1.0 saved)", () => {
     const body = buildTransactionPayload(
       form({ type: "Deposit", account: "Bank", currency: "USD", amount: 100, source: "Salary" as DepositSource }),
+      ONE_OF_EACH,
     );
     expect(body.source).toBe("Salary");
   });

@@ -26,7 +26,7 @@ function tx(fields: Partial<ITransaction>): ITransaction {
 
 /** Edit round trip: saved transaction -> form -> request body. */
 function roundTrip(fields: Partial<ITransaction>) {
-  return buildTransactionPayload(mapTransactionToFormData(tx(fields), ONE_OF_EACH));
+  return buildTransactionPayload(mapTransactionToFormData(tx(fields), ONE_OF_EACH), ONE_OF_EACH);
 }
 
 describe("localDatetimeToIso", () => {
@@ -85,7 +85,7 @@ describe("Withdrawal", () => {
     const form = mapTransactionToFormData(tx(spend), ONE_OF_EACH);
     expect(form).toMatchObject({ account: "Wallet", currency: "BTC", purpose: "Spent" });
     expect(form.proceeds_usd).toBe(5000);
-    expect(buildTransactionPayload(form)).toMatchObject({
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 2,
       to_account_id: 99,
       proceeds_usd: 5000,
@@ -98,11 +98,11 @@ describe("Withdrawal", () => {
     const gift = { ...spend, purpose: "Gift", gross_proceeds_usd: undefined, proceeds_usd: undefined };
     const form = mapTransactionToFormData(tx({ ...gift, fmv_usd: undefined }), ONE_OF_EACH);
     expect(form.fmv_usd).toBeUndefined();
-    expect(buildTransactionPayload(form).fmv_usd).toBeNull();
+    expect(buildTransactionPayload(form, ONE_OF_EACH).fmv_usd).toBeNull();
     // A value it has (typed, or from the price) is sent back as it is, with where it came from
     const priced = mapTransactionToFormData(tx({ ...gift, fmv_usd: 391.05, fmv_from_price: true }), ONE_OF_EACH);
     expect(priced).toMatchObject({ fmv_usd: 391.05, fmvFromPrice: true, fmvStored: 391.05 });
-    expect(buildTransactionPayload(priced).fmv_usd).toBe(391.05);
+    expect(buildTransactionPayload(priced, ONE_OF_EACH).fmv_usd).toBe(391.05);
     // A gift's $0 is a value it was given: sent back as $0
     expect(roundTrip({ ...gift, fmv_usd: 0 }).fmv_usd).toBe(0);
   });
@@ -111,7 +111,7 @@ describe("Withdrawal", () => {
     // Older forms saved $0 as every withdrawal's value; sent back, it would be a typed $0
     const form = mapTransactionToFormData(tx({ ...spend, fmv_usd: 0 }), ONE_OF_EACH);
     expect(form.fmv_usd).toBeUndefined();
-    expect(buildTransactionPayload({ ...form, purpose: "Gift" }).fmv_usd).toBeNull();
+    expect(buildTransactionPayload({ ...form, purpose: "Gift" }, ONE_OF_EACH).fmv_usd).toBeNull();
   });
 
   it("sends the override for a Spent withdrawal only", () => {
@@ -125,7 +125,7 @@ describe("Withdrawal", () => {
     // "spent" showed a blank Purpose, and Update did nothing until one was picked
     const form = mapTransactionToFormData(tx({ ...spend, purpose: "spent", broker_reporting: "proceeds" }), ONE_OF_EACH);
     expect(form.purpose).toBe("Spent");
-    expect(buildTransactionPayload(form)).toMatchObject({
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       purpose: "Spent", proceeds_usd: 5000, broker_reporting: "proceeds",
     });
     for (const [saved, listed] of [["gift", "Gift"], ["DONATION", "Donation"], [" lost ", "Lost"], ["n/a", "N/A"]]) {
@@ -141,7 +141,7 @@ describe("Withdrawal", () => {
     const gift = { ...spend, purpose: " gift ", fmv_usd: 0, gross_proceeds_usd: undefined, proceeds_usd: undefined };
     const form = mapTransactionToFormData(tx(gift), ONE_OF_EACH);
     expect(form).toMatchObject({ purpose: "Gift", fmv_usd: 0 });
-    expect(buildTransactionPayload(form).fmv_usd).toBe(0);
+    expect(buildTransactionPayload(form, ONE_OF_EACH).fmv_usd).toBe(0);
   });
 });
 
@@ -169,7 +169,7 @@ describe("Transfer", () => {
     const form = mapTransactionToFormData(tx(transfer), ONE_OF_EACH);
     expect(form).toMatchObject({ fromAccount: "Exchange", toAccount: "Wallet", amountFrom: 0.5 });
     expect(form.amountTo).toBeCloseTo(0.4999, 8);
-    expect(buildTransactionPayload(form)).toMatchObject({
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 4,
       to_account_id: 2,
       amount: 0.5,
@@ -191,7 +191,7 @@ describe("Transfer", () => {
     const form = mapTransactionToFormData(tx(consolidation), ONE_OF_EACH);
     expect(form).toMatchObject({ fromAccount: "Wallet", toAccount: "Wallet", amountFrom: 0.8 });
     expect(form.amountTo).toBeCloseTo(0.7999, 8);
-    expect(buildTransactionPayload(form)).toMatchObject({
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 2,
       to_account_id: 2,
       amount: 0.8,
@@ -250,7 +250,7 @@ it("does not modify the form values it is given", () => {
   );
   form.proceeds_usd = undefined;
   const snapshot = JSON.stringify(form);
-  buildTransactionPayload(form);
+  buildTransactionPayload(form, ONE_OF_EACH);
   expect(JSON.stringify(form)).toBe(snapshot);
 });
 
@@ -261,6 +261,7 @@ describe("blank means not given (F1)", () => {
   it("a Spent withdrawal with blank proceeds sends null, not $0", () => {
     const body = buildTransactionPayload(
       form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: NaN }),
+      ONE_OF_EACH,
     );
     expect(body.proceeds_usd).toBeNull();
     expect(body.fmv_usd).toBeNull();
@@ -269,6 +270,7 @@ describe("blank means not given (F1)", () => {
   it("a typed 0 stays 0", () => {
     const body = buildTransactionPayload(
       form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: 0 }),
+      ONE_OF_EACH,
     );
     expect(body.proceeds_usd).toBe(0);
   });
@@ -276,6 +278,7 @@ describe("blank means not given (F1)", () => {
   it("an income deposit with a blank basis sends null", () => {
     const body = buildTransactionPayload(
       form({ type: "Deposit", account: "Wallet", currency: "BTC", amount: 0.01, source: "Income", costBasisUSD: undefined }),
+      ONE_OF_EACH,
     );
     expect(body.cost_basis_usd).toBeNull();
   });
@@ -283,6 +286,7 @@ describe("blank means not given (F1)", () => {
   it("types that don't take a basis send none", () => {
     const body = buildTransactionPayload(
       form({ type: "Transfer", fromAccount: "Wallet", fromCurrency: "BTC", toAccount: "Exchange", toCurrency: "BTC", amountFrom: 0.5 }),
+      ONE_OF_EACH,
     );
     expect(body.cost_basis_usd).toBeNull();
   });
@@ -302,7 +306,7 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
       expect(mapTransactionToFormData(tx({ type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.01,
         fee_currency: "BTC", source: saved }), ONE_OF_EACH).source).toBe(listed);
     }
-    expect(buildTransactionPayload(form)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({ source: "Inherited", acquired_at: "2026-02-01" });
   });
 
   it("round-trips the date as the date stored, which no timezone moves (#185)", () => {
@@ -310,7 +314,7 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
     const body = buildTransactionPayload(mapTransactionToFormData(tx({
       type: "Deposit", from_account_id: 99, to_account_id: 2, amount: 0.5, cost_basis_usd: 4000,
       fee_currency: "BTC", source: "MyBTC", acquired_at: "2021-03-14",
-    }), ONE_OF_EACH));
+    }), ONE_OF_EACH), ONE_OF_EACH);
     expect(body.acquired_at).toBe("2021-03-14");
   });
 
@@ -318,7 +322,7 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
     const deposit = (fields: Partial<TransactionFormData>) => buildTransactionPayload({
       type: "Deposit", timestamp: "2025-03-01T12:00", fee: 0, account: "Wallet", currency: "BTC", amount: 0.1,
       costBasisUSD: 10, acquiredDate: "2021-03-14", ...fields,
-    } as TransactionFormData).acquired_at;
+    } as TransactionFormData, ONE_OF_EACH).acquired_at;
     expect(deposit({ source: "Gift" })).toBe("2021-03-14");
     expect(deposit({ source: "Inherited" })).toBe("2021-03-14"); // its date of death (#154)
     expect(deposit({ source: "Income" })).toBeNull();
@@ -345,13 +349,13 @@ describe("a BTC fee's USD value (F14)", () => {
   it("a typed value is sent and shown again when editing", () => {
     const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }), ONE_OF_EACH);
     expect(form.feeUSD).toBe(7.77);
-    expect(buildTransactionPayload(form).fee_usd).toBe(7.77);
+    expect(buildTransactionPayload(form, ONE_OF_EACH).fee_usd).toBe(7.77);
   });
 
   it("clearing a typed value sends null (back to the price)", () => {
     const form = mapTransactionToFormData(tx({ ...transfer, fee_usd: 7.77, fee_usd_manual: true }), ONE_OF_EACH);
     form.feeUSD = NaN;
-    expect(buildTransactionPayload(form).fee_usd).toBeNull();
+    expect(buildTransactionPayload(form, ONE_OF_EACH).fee_usd).toBeNull();
   });
 
   it("USD fees never carry one", () => {
@@ -397,7 +401,7 @@ describe("a few sats shown as plain digits, never 5e-8 (#101)", () => {
     const form = mapTransactionToFormData(tx({ type: "Withdrawal", from_account_id: 2, to_account_id: 99,
       amount: 5e-8, fee_amount: 3e-8, fee_currency: "BTC", purpose: "Spent", gross_proceeds_usd: 0.01 }), ONE_OF_EACH);
     for (const [name, text] of plainBtcText(form)) form[name] = text;
-    const body = buildTransactionPayload(form);
+    const body = buildTransactionPayload(form, ONE_OF_EACH);
     expect([body.amount, body.fee_amount]).toEqual([5e-8, 3e-8]);
   });
 });

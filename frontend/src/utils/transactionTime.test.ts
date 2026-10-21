@@ -27,7 +27,7 @@ const sell = {
 
 function editAndSave(timestamp: string): string {
   const form = mapTransactionToFormData({ ...sell, timestamp } as ITransaction, ONE_OF_EACH);
-  return buildTransactionPayload(form).timestamp as string;
+  return buildTransactionPayload(form, ONE_OF_EACH).timestamp as string;
 }
 
 describe("editing a transaction in a non-UTC timezone", () => {

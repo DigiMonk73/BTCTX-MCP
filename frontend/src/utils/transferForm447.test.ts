@@ -19,7 +19,7 @@ const bankToExchange = { fromAccount: "Bank", fromCurrency: "USD", toAccount: "E
 
 describe("a dollar transfer (#447)", () => {
   it("saves what arrived as its amount and From − To as its fee, whatever the Fee field held", () => {
-    const body = buildTransactionPayload(form({ ...bankToExchange, amountFrom: 1000, amountTo: 990 }));
+    const body = buildTransactionPayload(form({ ...bankToExchange, amountFrom: 1000, amountTo: 990 }), ONE_OF_EACH);
     expect(body).toMatchObject({
       type: "Transfer", from_account_id: 1, to_account_id: 3,
       amount: 990, fee_amount: 10, fee_currency: "USD",
@@ -30,12 +30,12 @@ describe("a dollar transfer (#447)", () => {
     const body = buildTransactionPayload(form({
       fromAccount: "Exchange", fromCurrency: "USD", toAccount: "Bank", toCurrency: "USD",
       amountFrom: "250.10", amountTo: "250.05",
-    }));
+    }), ONE_OF_EACH);
     expect(body).toMatchObject({ from_account_id: 3, to_account_id: 1, amount: 250.05, fee_amount: 0.05 });
   });
 
   it("with nothing lost on the way, saves no fee", () => {
-    const body = buildTransactionPayload(form({ ...bankToExchange, amountFrom: 2500, amountTo: 2500, fee: 7 }));
+    const body = buildTransactionPayload(form({ ...bankToExchange, amountFrom: 2500, amountTo: 2500, fee: 7 }), ONE_OF_EACH);
     expect(body).toMatchObject({ amount: 2500, fee_amount: 0 });
   });
 
@@ -49,7 +49,7 @@ describe("a dollar transfer (#447)", () => {
     const old = saved({ from_account_id: 1, to_account_id: 3, amount: 1000, fee_amount: 10, fee_currency: "USD" });
     const shown = mapTransactionToFormData(old, ONE_OF_EACH);
     expect(shown).toMatchObject({ ...bankToExchange, amountFrom: 1010, amountTo: 1000, fee: 10 });
-    expect(buildTransactionPayload(shown)).toMatchObject({
+    expect(buildTransactionPayload(shown, ONE_OF_EACH)).toMatchObject({
       from_account_id: 1, to_account_id: 3, amount: 1000, fee_amount: 10, fee_currency: "USD",
     });
   });
@@ -58,7 +58,7 @@ describe("a dollar transfer (#447)", () => {
     const shown = mapTransactionToFormData(saved({ from_account_id: 3, to_account_id: 1, amount: 0.1, fee_amount: 0.2,
       fee_currency: "USD" }), ONE_OF_EACH);
     expect([shown.amountFrom, shown.amountTo]).toEqual([0.3, 0.1]);
-    expect(buildTransactionPayload(shown)).toMatchObject({ amount: 0.1, fee_amount: 0.2 });
+    expect(buildTransactionPayload(shown, ONE_OF_EACH)).toMatchObject({ amount: 0.1, fee_amount: 0.2 });
   });
 
   it("a large one opens in cents too, so it saves as it was", () => {
@@ -66,7 +66,7 @@ describe("a dollar transfer (#447)", () => {
       fee_amount: 99.05, fee_currency: "USD" }), ONE_OF_EACH);
     expect(shown.amountFrom).toBe(46856852.92);
     expect(transferAmountProblem(shown, "amountFrom")).toBeNull();
-    expect(buildTransactionPayload(shown)).toMatchObject({ amount: 46856753.87, fee_amount: 99.05 });
+    expect(buildTransactionPayload(shown, ONE_OF_EACH)).toMatchObject({ amount: 46856753.87, fee_amount: 99.05 });
   });
 
   it("one stored past the cent (before #298) opens to 8 places, and the form says so", () => {
@@ -82,7 +82,7 @@ describe("a bitcoin transfer is unchanged", () => {
     const body = buildTransactionPayload(form({
       fromAccount: "Exchange", fromCurrency: "BTC", toAccount: "Wallet", toCurrency: "BTC",
       amountFrom: 0.5, amountTo: 0.4999, fee: "0.0001",
-    }));
+    }), ONE_OF_EACH);
     expect(body).toMatchObject({ from_account_id: 4, to_account_id: 2, amount: 0.5, fee_amount: 0.0001,
       fee_currency: "BTC" });
   });

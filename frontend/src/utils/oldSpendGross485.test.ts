@@ -42,7 +42,7 @@ describe("a Spent saved before its gross was kept (#485)", () => {
   it("saved unchanged, sends that gross, which says it was typed", () => {
     const form = formFor({});
     expect(form.proceedsStored).toBe(1000);
-    expect(buildTransactionPayload(form)).toMatchObject({ purpose: "Spent", proceeds_usd: 1000 });
+    expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({ purpose: "Spent", proceeds_usd: 1000 });
   });
 
   it("with no BTC fee, the stored proceeds are the gross", () => {
@@ -60,7 +60,7 @@ describe("a Spent saved before its gross was kept (#485)", () => {
   it("with no proceeds stored at all opens blank: the save prices it, as a recalculation would", () => {
     const form = formFor({ proceeds_usd: null });
     expect(form.proceeds_usd).toBeUndefined();
-    expect(buildTransactionPayload(form).proceeds_usd).toBeNull();
+    expect(buildTransactionPayload(form, ONE_OF_EACH).proceeds_usd).toBeNull();
   });
 
   it.each([
@@ -78,7 +78,7 @@ describe("an old withdrawal of another purpose with no gross", () => {
     const form = formFor({ purpose: "Expenses" });
     expect(form.proceeds_usd).toBe(990.1);
     // Saved, its purpose chosen as Spent, it keeps what it received
-    expect(buildTransactionPayload({ ...form, purpose: "Spent" }).proceeds_usd).toBe(990.1);
+    expect(buildTransactionPayload({ ...form, purpose: "Spent" }, ONE_OF_EACH).proceeds_usd).toBe(990.1);
   });
 
   it("one with none stored (#329) opens blank", () => {

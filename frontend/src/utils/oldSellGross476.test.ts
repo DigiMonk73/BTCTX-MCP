@@ -35,7 +35,7 @@ describe("a Sell saved before its gross was kept (#476)", () => {
   });
 
   it("saved unchanged, sends that gross and the same fee", () => {
-    expect(buildTransactionPayload(formFor({}))).toMatchObject({
+    expect(buildTransactionPayload(formFor({}), ONE_OF_EACH)).toMatchObject({
       type: "Sell",
       amount: 0.05,
       fee_amount: 10,
@@ -74,7 +74,7 @@ describe("a Sell whose gross is kept", () => {
   });
 
   it("saved unchanged, sends that gross", () => {
-    expect(buildTransactionPayload(formFor({ gross_proceeds_usd: "5000.00" }))).toMatchObject({
+    expect(buildTransactionPayload(formFor({ gross_proceeds_usd: "5000.00" }), ONE_OF_EACH)).toMatchObject({
       gross_proceeds_usd: 5000,
       fee_amount: 10,
     });
