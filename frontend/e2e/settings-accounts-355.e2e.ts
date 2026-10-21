@@ -4,7 +4,7 @@
 // switch asks first on a ledger with an earlier year (5.8, B6c's stub). Only
 // that accounts are kept, never figures: an added account's figures wait for
 // B3 on this branch.
-import { test, expect, createTx, listTx, saveForm, seedFunds } from "./fixtures";
+import { test, expect, createTx, listTx, saveForm, seedFunds, pastYearsDialog } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 
 async function openSection(page: Page) {
@@ -107,20 +107,16 @@ test("the 1099-DA switch asks first when an earlier year has the exchange's tran
   const sendsForm = row.getByRole("checkbox", { name: "This exchange sends me a Form 1099-DA" });
   await expect(sendsForm).toBeChecked();
 
-  const asked: string[] = [];
-  let answer = false;
-  page.on("dialog", async (d) => {
-    asked.push(d.message());
-    await (answer ? d.accept() : d.dismiss());
-  });
-
+  // The past-year warning's dialog (B6b), where B7b had the browser's confirm
+  const asked = pastYearsDialog(page);
   await sendsForm.click();
+  await expect(asked).toContainText("This changes the figures of tax year 2024");
+  await asked.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByText("Not changed.")).toBeVisible();
   await expect(sendsForm).toBeChecked();
-  expect(asked[0]).toContain("This changes the figures of tax year 2024");
 
-  answer = true;
   await sendsForm.click();
+  await asked.getByRole("button", { name: "Save anyway (a copy is made first)" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
   await expect(sendsForm).not.toBeChecked();
   const r = await page.request.get("/api/accounts/");
