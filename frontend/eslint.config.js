@@ -5,6 +5,25 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
+// Spec 5.4: an account is found by its id from the book, never by a fixed number;
+// and its name is the owner's nickname, shown, never compared (Rick, 2026-10-20)
+const ACCOUNT_ID = '/^(id|.*(account_id|AccountId|accountId))$/'
+const COMPARED = 'BinaryExpression[operator=/^[!=]==?$/]'
+const ONE_TO_FOUR = (side) => `:matches([${side}.value=1], [${side}.value=2], [${side}.value=3], [${side}.value=4])`
+const AN_ID = (side) => `:matches([${side}.name=${ACCOUNT_ID}], [${side}.property.name=${ACCOUNT_ID}])`
+const NO_FIXED_ID = 'An account is found by its id from the book (utils/accounts.ts), never by a fixed number (spec 5.4).'
+const NO_NAME = "An account's name is the owner's nickname: show it, never compare it (Rick, 2026-10-20)."
+const ACCOUNT_RULES = [
+  { selector: `${COMPARED}${AN_ID('left')}[right.type='Literal']${ONE_TO_FOUR('right')}`, message: NO_FIXED_ID },
+  { selector: `${COMPARED}${AN_ID('right')}[left.type='Literal']${ONE_TO_FOUR('left')}`, message: NO_FIXED_ID },
+  {
+    selector: `SwitchStatement${AN_ID('discriminant')} > SwitchCase[test.type='Literal']${ONE_TO_FOUR('test')}`,
+    message: NO_FIXED_ID,
+  },
+  { selector: `${COMPARED}[left.property.name='name'][right.type='Literal'][right.raw=/^["']/]`, message: NO_NAME },
+  { selector: `${COMPARED}[right.property.name='name'][left.type='Literal'][left.raw=/^["']/]`, message: NO_NAME },
+]
+
 export default defineConfig(
   globalIgnores(['dist', 'playwright-report', 'test-results']),
   {
@@ -33,12 +52,14 @@ export default defineConfig(
       // Past these, divide the function or file (docs/CODE_STYLE.md)
       complexity: ['error', 15],
       'max-lines': ['error', 400],
+      'no-restricted-syntax': ['error', ...ACCOUNT_RULES],
     },
   },
   {
     // A test scenario can be long, and so can the helpers that mount one (src/test).
+    // Their fixtures name accounts by id on purpose (the shared books), so 5.4's rule is the app's only.
     files: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/test/**'],
-    rules: { complexity: 'off', 'max-lines': 'off' },
+    rules: { complexity: 'off', 'max-lines': 'off', 'no-restricted-syntax': 'off' },
   },
   {
     // Playwright end-to-end tests: Node, no React.
