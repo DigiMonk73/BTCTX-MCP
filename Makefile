@@ -17,7 +17,7 @@
 # make check-fast   the pre-push gate, without pushing
 # make sync-check   is everything on this computer also on GitHub? (--tidy: scripts/sync-check.sh)
 
-PY ?= python3
+PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
 .PHONY: sync-check hooks test test-fast smoke e2e preview site-shots reference-figures prices docker-smoke lint audit-deps lock check check-fast frontend-dist
 
