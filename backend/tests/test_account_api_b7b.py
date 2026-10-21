@@ -183,3 +183,37 @@ def test_the_gate_stub_lets_a_transaction_name_an_added_account(client):
         "type": "Deposit", "timestamp": "2024-01-03T12:00:00Z", "from_account_id": 99, "to_account_id": 5,
         "amount": "1", "source": "MyBTC", "cost_basis_usd": "1", "fee_amount": "0", "fee_currency": "BTC"})
     assert (r.status_code, r.json()["detail"]) == (422, "Unknown account id 5.")  # a fee account is never yours
+
+
+def tx(client, kind, from_id, to_id, **fields):
+    return client.post("/api/transactions", json={
+        "type": kind, "timestamp": "2024-06-15T15:00:00Z", "from_account_id": from_id, "to_account_id": to_id,
+        "amount": "0.1", "fee_amount": "0", "fee_currency": "USD", **fields})
+
+
+def test_the_gate_stub_lets_a_buy_and_a_sell_use_an_added_exchange(client):
+    usd, btc = (a["id"] for a in add(client, "exchange", "Kraken").json())
+    bank = add(client, "bank", "Credit Union").json()[0]["id"]
+    funded = client.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2024-01-02T12:00:00Z", "from_account_id": 99, "to_account_id": usd,
+        "amount": "20000", "source": "N/A", "fee_amount": "0", "fee_currency": "USD"})
+    assert funded.status_code == 200, funded.text
+    assert tx(client, "Buy", usd, btc, cost_basis_usd="6000").status_code == 200
+    assert tx(client, "Buy", bank, btc, cost_basis_usd="6000").status_code == 200
+    assert tx(client, "Sell", btc, usd, gross_proceeds_usd="3200").status_code == 200
+
+
+@pytest.mark.parametrize("kind, from_side, to_side, detail", [
+    ("Buy", "1.x USD", "added BTC", "Buy => from and to must be the same exchange."),
+    ("Buy", "added USD", "1.x BTC", "Buy => from and to must be the same exchange."),
+    ("Sell", "added BTC", "1.x USD", "Sell => from and to must be the same exchange."),
+    ("Buy", "wallet", "added BTC", "Buy => from must be Bank or Exchange USD."),
+    ("Sell", "added BTC", "bank", "Sell => to must be Exchange USD."),
+])
+def test_a_buy_or_sell_across_two_exchanges_or_kinds_is_refused(client, kind, from_side, to_side, detail):
+    usd, btc = (a["id"] for a in add(client, "exchange", "Kraken").json())
+    sides = {"1.x USD": 3, "1.x BTC": 4, "added USD": usd, "added BTC": btc,
+             "wallet": add(client, "wallet", "Cold").json()[0]["id"], "bank": 1}
+    r = tx(client, kind, sides[from_side], sides[to_side], cost_basis_usd="6000", gross_proceeds_usd="3200")
+    assert r.status_code == 400
+    assert r.json()["detail"] == detail

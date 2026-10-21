@@ -2652,6 +2652,28 @@ _TYPE_ACCOUNT_RULES = {
 }
 
 
+# B7a's gate, stubbed on the draft branch (5.10): a Buy or a Sell on an
+# account Settings added is checked as 1.x's account of its kind
+_ROLE = {("bank", "USD"): ACCOUNT_BANK, ("wallet", "BTC"): ACCOUNT_WALLET,
+         ("exchange", "USD"): ACCOUNT_EXCHANGE_USD, ("exchange", "BTC"): ACCOUNT_EXCHANGE_BTC}
+
+
+def _role(acct_id: int | None, db: Session) -> int | None:
+    """1.x's id for an added account of the same kind and currency; 1.x's ids as they are."""
+    if acct_id is None or acct_id in USER_ACCOUNTS:
+        return acct_id
+    account = db.get(Account, acct_id)
+    return _ROLE.get((account.kind, account.currency), acct_id) if account else acct_id
+
+
+def _check_one_exchange(tx_type: str, from_id: int | None, to_id: int | None, db: Session) -> None:
+    """An exchange's dollars and bitcoin in one Buy or Sell are the same exchange's."""
+    accounts = [db.get(Account, i) for i in (from_id, to_id) if i is not None]
+    exchanges = {a.exchange_id for a in accounts if a is not None and a.kind == "exchange"}
+    if len(exchanges) > 1:
+        raise HTTPException(400, f"{tx_type} => from and to must be the same exchange.")
+
+
 def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     """
     The accounts each type allows: a Deposit from External to one of the
@@ -2665,6 +2687,9 @@ def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     to_id = tx_data.get("to_account_id")
     if tx_type not in _TYPE_ACCOUNT_RULES:
         raise HTTPException(400, f"Unknown transaction type: {tx_type}")
+    if tx_type in ("Buy", "Sell"):
+        _check_one_exchange(tx_type, from_id, to_id, db)
+        from_id, to_id = _role(from_id, db), _role(to_id, db)
     for broken, message in _TYPE_ACCOUNT_RULES[tx_type]:
         if broken(from_id, to_id):
             raise HTTPException(400, message)
