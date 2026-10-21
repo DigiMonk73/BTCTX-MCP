@@ -1,6 +1,6 @@
 // The account book, loaded once per page (spec 5.4): every form and list on the
 // page shares one GET /api/accounts/.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../api";
 
 /** What a screen shows in place of its account fields when the book won't load (D4). */
@@ -32,8 +32,10 @@ export function forgetAccounts(): void {
   loading = undefined;
 }
 
-export function useAccounts(): AccountsState {
+/** The page's book; `reload` asks the server again after a change Settings made (B7b). */
+export function useAccounts(): AccountsState & { reload: () => void } {
   const [state, setState] = useState<AccountsState>({ failed: false });
+  const [asked, setAsked] = useState(0);
   useEffect(() => {
     // An unmounted screen sets no state.
     let live = true;
@@ -48,6 +50,7 @@ export function useAccounts(): AccountsState {
     return () => {
       live = false;
     };
-  }, []);
-  return state;
+  }, [asked]);
+  const reload = useCallback(() => { forgetAccounts(); setAsked((n) => n + 1); }, []);
+  return { ...state, reload };
 }
