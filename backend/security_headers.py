@@ -29,6 +29,15 @@ this server (Host or X-Forwarded-Host, and https when the request came over
 HTTPS). Requests with neither header are not from a web page (the AI
 connector, the CLI, curl, tests) and carry no browser cookie to abuse.
 
+PageVersionMiddleware refuses a logged-in change that a browser sent (it
+carries Sec-Fetch-Site or Origin) from a page older than this server: 409,
+"BitcoinTX was updated: reload the page." The page says its version on every
+request (X-BitcoinTX-Page, frontend/src/api.ts); a 1.x page left open over
+an upgrade sends none, and would save a Buy or Sell into the first exchange
+(spec 5.13). Any page of the server's major version is accepted. Requests
+with neither browser header (the AI connector, the CLI, scripts, tests) and
+the routes before login (no session cookie) aren't checked.
+
 LocalAddressOnlyMiddleware: the Mac app answers only requests addressed to
 127.0.0.1, localhost or [::1] (421 otherwise), the names its window and the
 AI connector use.
@@ -43,6 +52,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from backend.services.desktop import is_desktop
+from backend.version import app_version
 
 CSP = "; ".join([
     "default-src 'self'",
@@ -159,6 +169,42 @@ class CrossSiteGuardMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http" and scope["method"] not in SAFE_METHODS and self._refuse(scope):
             response = JSONResponse({"detail": CROSS_SITE_REFUSED}, status_code=403)
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
+PAGE_HEADER = b"x-bitcointx-page"
+PAGE_OUTDATED = "BitcoinTX was updated: reload the page."
+
+
+def _major(version: str) -> str:
+    return version.strip().split(".")[0]
+
+
+def _has_cookie(scope: Scope, name: str) -> bool:
+    cookies = _header(scope, b"cookie") or ""
+    return any(part.strip().startswith(name + "=") for part in cookies.split(";"))
+
+
+class PageVersionMiddleware:
+    def __init__(self, app: ASGIApp, session_cookie: str, version: str | None = None):
+        self.app = app
+        self.session_cookie = session_cookie
+        # The server's own; tests give another (this branch's VERSION is 1.x)
+        self.major = _major(version or app_version())
+
+    def _refuse(self, scope: Scope) -> bool:
+        from_a_page = _header(scope, b"sec-fetch-site") is not None or _header(scope, b"origin") is not None
+        if not from_a_page or not _has_cookie(scope, self.session_cookie):
+            return False
+        page = _header(scope, PAGE_HEADER)
+        return page is None or _major(page) != self.major
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (scope["type"] == "http" and scope["method"] not in SAFE_METHODS
+                and scope["path"].startswith(NO_STORE_PREFIX) and self._refuse(scope)):
+            response = JSONResponse({"detail": PAGE_OUTDATED}, status_code=409)
             await response(scope, receive, send)
             return
         await self.app(scope, receive, send)

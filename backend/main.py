@@ -54,7 +54,12 @@ ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
-from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
+from backend.security_headers import (
+    CrossSiteGuardMiddleware,
+    LocalAddressOnlyMiddleware,
+    PageVersionMiddleware,
+    SecurityHeadersMiddleware,
+)
 from backend.services import ai_key
 from backend.unexpected_errors import UnexpectedErrorMiddleware, log_unexpected
 from backend.schemas.user import is_text
@@ -258,6 +263,9 @@ app.add_middleware(
     # HTTP installs (Mac app on 127.0.0.1, Docker on a LAN).
     https_only=False,
 )
+# A logged-in change from a page older than the server (one open over an
+# upgrade, sending no X-BitcoinTX-Page) is refused (409): reload the page.
+app.add_middleware(PageVersionMiddleware, session_cookie=SESSION_COOKIE)
 # A POST, PUT, PATCH or DELETE sent by another site's page (or another app on
 # the same host) with the owner's cookie is refused (403).
 app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
