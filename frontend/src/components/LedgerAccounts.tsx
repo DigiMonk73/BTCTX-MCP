@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import { extractErrorMessage } from "../utils/apiError";
-import { balanceText, settingsAccounts } from "../utils/ledgerAccounts";
+import { balanceText, settingsAccounts, type YourKind } from "../utils/ledgerAccounts";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import AccountRow from "./ledgerAccounts/AccountRow";
+import AddAccount from "./ledgerAccounts/AddAccount";
+
+const ADDED: YourKind[] = ["wallet", "exchange", "bank"];
 
 /** Settings' "Wallets, exchanges and banks" (spec 5.9): your accounts. Every change is one request, then the book again. */
 const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
@@ -42,6 +45,9 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
     void write(() => api.delete(`/accounts/${account.id}`), "Deleted.");
   };
 
+  const add = (kind: YourKind, name: string) =>
+    write(() => api.post("/accounts/", { kind, name }), "Added.");
+
   return (
     <div className="settings-section" role="region" aria-label="Wallets, exchanges and banks">
       <h3 className="section-title">Wallets, exchanges and banks</h3>
@@ -59,6 +65,13 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
             />
           ))}
         </ul>
+      )}
+      {book && (
+        <div className="ledger-add">
+          {ADDED.map((kind) => (
+            <AddAccount key={kind} kind={kind} book={book} busy={loading} onAdd={add} />
+          ))}
+        </div>
       )}
     </div>
   );
