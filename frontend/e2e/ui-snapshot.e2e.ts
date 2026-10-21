@@ -65,9 +65,12 @@ test("pages", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Transactions" }).click();
   await expect(page.getByRole("listitem").first()).toBeVisible();
   await record(page, "transactions");
+  // Each page's own content first: networkidle alone recorded only the sidebar
   await page.getByRole("link", { name: "Reports" }).click();
+  await expect(page.getByRole("heading", { name: "Reports" })).toBeVisible();
   await record(page, "reports");
   await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByText("Recalculate Ledger")).toBeVisible();
   await record(page, "settings");
 });
 
