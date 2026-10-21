@@ -4,6 +4,7 @@ import AccountSettings from "../components/AccountSettings";
 import BackupRestore from "../components/BackupRestore";
 import ConnectAiSetting from "../components/ConnectAiSetting";
 import DataManagement from "../components/DataManagement";
+import LedgerAccounts from "../components/LedgerAccounts";
 import LedgerReview from "../components/LedgerReview";
 import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import RiverImport from "../components/RiverImport";
@@ -26,6 +27,7 @@ const Settings: React.FC = () => {
       <h2 className="page-title">Settings</h2>
       <div className="card settings-container">
         <AccountSettings {...section} />
+        <LedgerAccounts {...section} />
         <LedgerReview />
         <div className="settings-section" role="region" aria-label="Privacy & network">
           <h3 className="section-title">Privacy &amp; Network</h3>
