@@ -44,3 +44,22 @@ export function isBtcAccount(book: AccountBook, id: number | undefined): boolean
 export function yours(book: AccountBook): number[] {
   return book.filter((account) => OWN_KINDS.includes(account.kind)).map((account) => account.id);
 }
+
+/** What a picker offers: the owner's accounts not hidden, plus the row's own saved one if it's one of them. */
+export function visibleAccounts(book: AccountBook, keepId?: number): number[] {
+  // A fee keepId is never added: it isn't one of the owner's accounts (5.1).
+  return book
+    .filter((account) => OWN_KINDS.includes(account.kind) && (!account.hidden || account.id === keepId))
+    .map((account) => account.id);
+}
+
+/** Where a Transfer from `fromId` can go (5.5): visible accounts in its currency; itself only for a bitcoin account. */
+export function transferTargets(book: AccountBook, fromId: number | undefined, keepId?: number): number[] {
+  // A transfer starts from one of the owner's accounts. External, a fee account and a missing id have nowhere to go.
+  if (fromId === undefined || !yours(book).includes(fromId)) return [];
+  const currency = accountCurrency(book, fromId);
+  // A dollar account never targets itself; a bitcoin account may, as a consolidation (#159).
+  return visibleAccounts(book, keepId).filter(
+    (id) => accountCurrency(book, id) === currency && (id !== fromId || isBtcAccount(book, fromId)),
+  );
+}
