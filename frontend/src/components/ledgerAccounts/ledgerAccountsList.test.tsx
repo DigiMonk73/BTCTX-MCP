@@ -4,7 +4,7 @@
 // accounts never (spec 5.9).
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
-import { ONE_OF_EACH, RENAMED, TWO_BALANCES, TWO_OF_EACH } from "../../test/accountBooks";
+import { balancesFor, ONE_OF_EACH, RENAMED, TWO_BALANCES, TWO_OF_EACH } from "../../test/accountBooks";
 import { renderSettings } from "../../test/renderSettings";
 import { balanceText, KIND_LABEL, settingsAccounts } from "../../utils/ledgerAccounts";
 
@@ -34,7 +34,8 @@ describe("the book's answers for the list (utils/ledgerAccounts.ts)", () => {
   });
 
   it("finds a balance by the account's id, never its name", () => {
-    const renamedBalance = [{ account_id: 1, name: "Bank", currency: "USD", balance: "12.00" }];
+    // The balance row still carries the 1.x name: only the id may match it
+    const renamedBalance = [{ ...balancesFor(RENAMED, [[1, "12.00"]])[0], name: "Bank" }];
     expect(balanceText(renamedBalance, byId(RENAMED, 1))).toBe("$12.00");
   });
 

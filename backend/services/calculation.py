@@ -12,7 +12,7 @@ from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
 from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE, normalized
-from backend.models.account import Account
+from backend.models.account import Account, Exchange
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
@@ -57,12 +57,18 @@ def get_all_account_balances(db: Session) -> list[dict]:
           .all()
     )
     accounts = db.query(Account).all()
+    exchanges = {e.id: e.name for e in db.query(Exchange).all()}
+    # The dashboard's rows go by kind (5.13, B8-1): an exchange's two accounts share exchange_id
     return [
         {
             "account_id": account.id,
             "name": account.name,
             "currency": account.currency,
             "balance": sums.get(account.id, Decimal("0.0")),
+            "kind": account.kind,
+            "exchange_id": account.exchange_id,
+            "exchange": exchanges.get(account.exchange_id),
+            "hidden": bool(account.hidden),
         }
         for account in accounts
     ]

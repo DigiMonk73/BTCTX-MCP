@@ -1,6 +1,6 @@
 // Settings' "Wallets, exchanges and banks" (B7b, spec 5.9) mounted as the page
 // mounts it, with the page's message line, against a stubbed server that keeps
-// an account book and changes it as the account API would. Every request is
+// an account book and changes it as the account API would (B7b-0, B8-5r's renames). Every request is
 // recorded, in order.
 import "./setup";
 import React, { useState } from "react";
@@ -114,7 +114,15 @@ class Server {
         years, changes: [], pending: [], confirm: CONFIRM,
       }));
     }
-    for (const half of halves) Object.assign(half, body);
+    const { name, ...rest } = body;
+    // A rename (B8-5r): an exchange's account renames its exchange and both its accounts
+    if (name !== undefined) {
+      for (const half of halves) {
+        if (half.exchange_id === null) half.name = name;
+        else Object.assign(half, { name: `${name} ${half.currency}`, exchange: name });
+      }
+    }
+    for (const half of halves) Object.assign(half, rest);
     return Promise.resolve(answer(halves));
   }
 

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { accountTotals, gainClass, noPriceReason, priceSourceShort, priceSourceWords } from "./dashboard";
 
+const KINDS: Record<number, AccountKind> = { 1: "bank", 2: "wallet", 3: "exchange", 4: "exchange", 5: "fee", 6: "fee" };
+
 const balance = (account_id: number, name: string, currency: string, value: number | string): AccountBalance => ({
-  account_id, name, currency, balance: value,
+  account_id, name, currency, balance: value, kind: KINDS[account_id],
+  exchange_id: KINDS[account_id] === "exchange" ? 1 : null, exchange: KINDS[account_id] === "exchange" ? "Exchange" : null,
+  hidden: false,
 });
 
 describe("accountTotals", () => {

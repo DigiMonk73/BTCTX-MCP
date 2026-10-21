@@ -33,8 +33,8 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    """Hide or show an account, an exchange's 1099-DA switch; `name` only unchanged
-    on this draft branch (renames are B8's)."""
+    """Rename (an exchange's account: its exchange, B8-5r), hide or show an
+    account, an exchange's 1099-DA switch."""
     name: str | None = None
     hidden: bool | None = None
     sends_1099da: bool | None = None

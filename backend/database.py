@@ -220,7 +220,9 @@ def seed_defaults(bind=None) -> None:
         for acct in FIXED_ACCOUNTS:
             existing = db.get(Account, acct["id"])
             if existing:
-                existing.name = acct["name"]
+                # 1 to 4 keep the owner's nickname (5.1, B8-5r); the fee accounts never change theirs
+                if acct["kind"] == "fee" or not existing.name:
+                    existing.name = acct["name"]
                 existing.currency = acct["currency"]
                 existing.kind = acct["kind"]
                 existing.exchange_id = acct["exchange_id"]

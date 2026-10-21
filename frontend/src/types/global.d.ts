@@ -36,6 +36,10 @@ declare global {
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
+    kind: AccountKind;          // the dashboard's rows go by kind (5.13, B8-1)
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null;    // that exchange's nickname
+    hidden: boolean;
   }
 
   // The account book (GET /api/accounts/, spec 5.9). An account is its id; `name`

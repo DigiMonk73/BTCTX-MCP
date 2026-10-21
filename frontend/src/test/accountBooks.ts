@@ -54,12 +54,19 @@ export const RENAMED: AccountBook = ONE_OF_EACH.map((row) => ({ ...row, ...NICKN
 /** An id a row may name that the book doesn't have (5.13's "missing account"). */
 export const MISSING = 999;
 
+/** GET /calculations/accounts/balances for `book`: one row per account listed in
+ * `amounts` (id → the amount as the API sends it, a string), in the order given. */
+export function balancesFor(book: AccountBook, amounts: [number, string][]): AccountBalance[] {
+  return amounts.map(([id, balance]) => {
+    const row = book.find((a) => a.id === id) as LedgerAccount;
+    const { name, currency, kind, exchange_id, exchange, hidden } = row;
+    return { account_id: id, name, currency, balance, kind, exchange_id, exchange, hidden };
+  });
+}
+
 /** GET /calculations/accounts/balances for TWO_OF_EACH (B7b): one row per account,
  * the amounts as the API sends them (strings). */
-export const TWO_BALANCES: AccountBalance[] = [
+export const TWO_BALANCES: AccountBalance[] = balancesFor(TWO_OF_EACH, [
   [1, "1000.00"], [100, "250.00"], [2, "0.50000000"], [101, "0.25000000"], [104, "0.00000000"],
   [3, "1200.50"], [4, "0.10000000"], [102, "0.00"], [103, "0.05000000"], [5, "0.00020000"], [6, "3.00"],
-].map(([id, balance]) => {
-  const row = TWO_OF_EACH.find((a) => a.id === id) as LedgerAccount;
-  return { account_id: row.id, name: row.name, currency: row.currency, balance: balance as string };
-});
+]);

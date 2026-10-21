@@ -2,9 +2,9 @@
 Accounts: the book (spec 5.4, 5.9) and Settings' changes to it.
 
 Draft branch only (B7b-0, the Grok trial; never merged): the account API
-of 5.9, over migration 0013's columns. The fixed accounts keep their
-names here (renames come with B8), 1 to 4 can't be deleted, and the fee
-accounts (5, 6) can't be hidden or deleted. Two stubs stand in for later
+of 5.9, over migration 0013's columns. Any account but the fee accounts
+can be renamed (B8-5r), 1 to 4 can't be deleted, and the fee accounts
+(5, 6) can't be renamed, hidden or deleted. Two stubs stand in for later
 cards: `is_yours` is the gate of 5.10 (B7a), and `PastYearsChange` the
 past-year warning of 5.8 for the 1099-DA switch (B6c).
 """
@@ -119,18 +119,31 @@ def _refuse(detail: str) -> None:
     raise HTTPException(status_code=400, detail=detail)
 
 
-def _check_name(db: Session, name: str, kind: str) -> None:
-    """5.9's refusals for a new account's name; an exchange's also for its two accounts' names."""
+def _its_own(renamed: Account | None, folded: str) -> bool:
+    """A reserved name given back to the account it means (5.1: ids 1 to 4 "can be
+    renamed, and renamed back"): Bank to 1, Wallet to 2, Exchange to exchange 1."""
+    if renamed is None:
+        return False
+    return (folded == "bank" and renamed.id == 1) or (folded == "wallet" and renamed.id == 2) \
+        or (folded == "exchange" and renamed.exchange_id == 1)
+
+
+def _check_name(db: Session, name: str, kind: str, renamed: Account | None = None) -> None:
+    """5.9's refusals for a new account's name; an exchange's also for its two accounts' names.
+    A rename (`renamed`) doesn't collide with the names it replaces."""
     longest = 36 if kind == "exchange" else 40
     if not 1 <= len(name) <= longest or not _on_one_line(name) or name.startswith("'"):
         _refuse(f"A name is 1 to {longest} characters on one line.")
     folded = name.casefold()
     if folded == EXTERNAL:
         _refuse("External means everything outside BitcoinTX: choose another name.")
-    if folded in RESERVED:
+    if folded in RESERVED and not _its_own(renamed, folded):
         _refuse(f"'{name}' always means your first {RESERVED[folded]} in files (CSV, River, BitcoinTX 1.x): "
                 "choose another name.")
-    taken = {_folded(a.name) for a in db.query(Account).all()} | {_folded(e.name) for e in db.query(Exchange).all()}
+    own = {a.id for a in _halves(db, renamed)} if renamed else set()
+    own_exchange = renamed.exchange_id if renamed else None
+    taken = {_folded(a.name) for a in db.query(Account).all() if a.id not in own} \
+        | {_folded(e.name) for e in db.query(Exchange).all() if e.id != own_exchange}
     wanted = {folded} | ({f"{folded} usd", f"{folded} btc"} if kind == "exchange" else set())
     if taken & wanted:
         _refuse(f"An account named '{name}' already exists.")
@@ -231,15 +244,33 @@ def _switch_1099da(db: Session, account: Account, sends: bool, confirm: str | No
     exchange.sends_1099da = sends
 
 
+def _rename(db: Session, account: Account, raw_name: str) -> None:
+    """A new nickname (5.9, B8-5r): an exchange's account renames its exchange and
+    both its accounts ("<name> USD", "<name> BTC"); the fee accounts keep theirs."""
+    if account.kind == "fee":
+        _refuse(FEES_SHOWN)
+    name = _clean_name(raw_name)
+    exchange = db.get(Exchange, account.exchange_id) if account.kind == "exchange" else None
+    if name == (exchange.name if exchange else account.name):
+        return
+    _check_name(db, name, account.kind, renamed=account)
+    if exchange is None:
+        account.name = name
+        return
+    exchange.name = name
+    for half in _halves(db, account):
+        half.name = f"{name} {half.currency}"
+
+
 def change_account(db: Session, account_id: int, hidden: bool | None, sends_1099da: bool | None,
                    name: str | None, confirm: str | None) -> list[dict] | None:
-    """PUT /api/accounts/{id} (5.9): hide or show, the 1099-DA switch; a fixed
-    account's name only unchanged (renames are B8's). None when it doesn't exist."""
+    """PUT /api/accounts/{id} (5.9): rename (B8-5r), hide or show, the 1099-DA
+    switch. None when it doesn't exist."""
     account = get_account_by_id(account_id, db)
     if not account or account.kind not in KIND_ORDER:
         return None
-    if name is not None and name != account.name:
-        _refuse(f"Cannot rename the account #{account_id} ({account.name}) yet.")
+    if name is not None:
+        _rename(db, account, name)
     if hidden is not None:
         if account.kind == "fee":
             _refuse(FEES_SHOWN)

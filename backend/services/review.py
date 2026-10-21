@@ -2,7 +2,8 @@
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
 what looks odd and what would change if the owner acts on it, and gives
-its amount with its unit (`unit`: BTC, or USD for a move of dollars).
+its amount with its unit (`unit`: BTC, or USD for a move of dollars), and
+its accounts by nickname (`accounts`, from then to; never External: B8-5).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
@@ -100,21 +101,21 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.database import scratch_copy
+from backend.models.account import Account
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
+from backend.services.account import YOURS
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
 from backend.unexpected_errors import log_unexpected
 
 logger = logging.getLogger(__name__)
-
-USD_ACCOUNTS = (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD)
 
 # What the check says when the dry run fails on something that isn't a
 # refusal of its own (a bug, a database error): plain words, never SQL; the
@@ -268,28 +269,42 @@ def _money(value) -> str | None:
 
 
 def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
+    sides = _sides(t)
+    in_dollars = _in_dollars(t, sides)
     return {
         "id": t.id,
         "date": as_utc(t.timestamp).astimezone(tz).strftime("%Y-%m-%d %H:%M"),
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": _money(t.amount) if _in_dollars(t) else btc_text(t.amount),
-        "unit": "USD" if _in_dollars(t) else "BTC",
+        "amount": _money(t.amount) if in_dollars else btc_text(t.amount),
+        "unit": "USD" if in_dollars else "BTC",
+        "accounts": [a.name for a in sides if a is not None],
         "realized_gain_usd": _money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
 
 
-def _in_dollars(t: Transaction) -> bool:
+def _sides(t: Transaction) -> tuple[Account | None, Account | None]:
+    """Its accounts from the book (5.13, B8-5), from then to: None for External,
+    a missing id or a fee account (the owner's accounts only)."""
+    db = object_session(t)
+
+    def yours(account_id: int | None) -> Account | None:
+        account = db.get(Account, account_id) if db is not None and account_id is not None else None
+        return account if account is not None and account.kind in YOURS else None
+
+    return yours(t.from_account_id), yours(t.to_account_id)
+
+
+def _in_dollars(t: Transaction, sides: tuple[Account | None, Account | None]) -> bool:
     """Whether its amount is dollars: a deposit, withdrawal or transfer that
-    no bitcoin account is part of, with Bank or Exchange USD on a side. A
-    Buy's and a Sell's amount is bitcoin; so, unknown, is one naming only
-    External and missing accounts."""
-    sides = (t.from_account_id, t.to_account_id)
-    return t.type not in ("Buy", "Sell") and not any(a in BTC_ACCOUNTS for a in sides) \
-        and any(a in USD_ACCOUNTS for a in sides)
+    no bitcoin account is part of, with a dollar account (a bank, an
+    exchange's USD) on a side, by the book. A Buy's and a Sell's amount is
+    bitcoin; so, unknown, is one naming only External and missing accounts."""
+    currencies = {a.currency for a in sides if a is not None}
+    return t.type not in ("Buy", "Sell") and "BTC" not in currencies and "USD" in currencies
 
 
 def _market_price(db: Session, t: Transaction, missing: list[int]):
