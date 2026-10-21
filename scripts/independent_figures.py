@@ -7,18 +7,23 @@ Schedule D's lines) and the ledger's documented ones (AGENTS.md "Tax
 invariants", the AI connector's ledger guide). It imports nothing from
 backend/, so a mistake in the app's code can't hide in both.
 
-It replays the reference test ledger (testdata/reference_ledger.json) and
-gives each year's Form 8949 rows, Schedule D lines, box totals, gains
-summary, income, rebates, gifts (with the cost basis and term of what each
-took from its lots) and year-end lots:
+It replays the reference test ledger (testdata/reference_ledger.json) in
+its accounts (its `accounts` list, else the six fixed accounts: each
+bitcoin account its own FIFO pile, each exchange its own 1099-DA switch)
+and its tax timezone (`tax_timezone`, else UTC), and gives each year's
+Form 8949 rows, Schedule D lines, box totals, gains summary, income,
+rebates, gifts (with the cost basis and term of what each took from its
+lots) and year-end lots:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
 
 `--compare` lists every difference from testdata/reference_figures.json for
 2024 and 2025 (`--years` for others). backend/tests/test_independent_figures.py
-runs it for every year and fails on a difference. Dates are taken in UTC,
-the reference figures' tax time zone.
+runs it for every year and fails on a difference. Moments are kept in UTC,
+as the ledger stores them; the tax timezone decides every date a rule
+reads (the tax year, the holding period, Form 8949's dates, a covered
+lot's day, a date originally acquired), as it does in the app.
 
 Amounts stay exact (fractions) until they are rounded to the cent. Three
 conventions are the ledger's (AGENTS.md "Tax invariants", Lot cost), shared
@@ -52,7 +57,7 @@ from datetime import date, datetime, time, timezone
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
@@ -180,6 +185,13 @@ class Ledger:
         # One pile per bitcoin account (2.0 spec 5.15); every other account holds no lots.
         self.lots = {i: [] for i, account in self.accounts.items() if account.holds_lots}
 
+    def day(self, moment: datetime) -> date:
+        """A moment's date in the tax timezone: the one every tax rule reads."""
+        return moment.astimezone(self.tax_zone).date()
+
+    def tax_year(self, moment: datetime) -> int:
+        return self.day(moment).year
+
     def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool,
                 inherited: bool = False) -> None:
         self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order, inherited))
@@ -230,33 +242,40 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP, *,
     ledger's accounts (the fixed ones when None; an empty book stays empty)."""
     accounts = read_accounts({}) if accounts is None else accounts
     _check_accounts(transactions, accounts)
-    ledger = Ledger(accounts=accounts, rounding=rounding, tax_zone=ZoneInfo(tax_timezone))
+    ledger = Ledger(accounts=accounts, rounding=rounding, tax_zone=_tax_zone(tax_timezone))
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
     for _, tx in ordered:
         when = _moment(tx["timestamp"])
-        _close_years_before(ledger, when.year)
+        _close_years_before(ledger, ledger.tax_year(when))
         handlers[tx["type"]](ledger, tx, when)
     if ledger.year is not None:
         _close_years_before(ledger, ledger.year + 1)
     return ledger
 
 
+def replay_ledger(data: dict, rounding: str = ROUND_HALF_UP) -> Ledger:
+    """A ledger file replayed in its own accounts and tax timezone."""
+    return replay(data["transactions"], rounding, accounts=read_accounts(data),
+                  tax_timezone=data.get("tax_timezone", "UTC"))
+
+
 def year_figures(ledger: Ledger, year: int) -> dict:
-    rows = [_form_row(row, year, ledger.rounding) for row in ledger.rows if row.sold.year == year]
+    rows = [_form_row(row, year, ledger) for row in ledger.rows if ledger.tax_year(row.sold) == year]
     holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(), "quantity": _btc(lot.quantity),
                  "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year, [])]
     return {
+        "tax_timezone": ledger.tax_zone.key,
         "form_8949": rows,
         "schedule_d": _schedule_d(rows),
         "boxes": _box_totals(rows),
         "gains": _gains_summary(rows),
         "income": _income(ledger, year),
         "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(_cents(value, ledger.rounding))}
-                    for when, amount, value in ledger.rebates if when.year == year],
+                    for when, amount, value in ledger.rebates if ledger.tax_year(when) == year],
         "gifts_donations_lost": [
             {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv), "lots_by_term": terms}
-            for when, kind, amount, fmv, terms in ledger.gifts if when.year == year],
+            for when, kind, amount, fmv, terms in ledger.gifts if ledger.tax_year(when) == year],
         "end_of_year_holdings": holdings,
         "end_of_year_total": {"quantity": _btc(sum(Fraction(lot["quantity"]) for lot in holdings)),
                               "cost": str(sum(Decimal(lot["cost"]) for lot in holdings))},
@@ -266,7 +285,8 @@ def year_figures(ledger: Ledger, year: int) -> dict:
 def differences(mine: dict, app: dict) -> list[str]:
     """Every figure where this calculation and the app's saved one disagree."""
     report = app["report"]
-    found = _unmatched("Form 8949 row", mine["form_8949"], app["form_8949"])
+    found = _compare("tax timezone", mine["tax_timezone"], report["tax_timezone"])
+    found += _unmatched("Form 8949 row", mine["form_8949"], app["form_8949"])
     found += _schedule_d_differences(mine["schedule_d"], app["schedule_d"])
     found += _unmatched("box total", mine["boxes"], [
         {"box": b["box"], "line": b["line"], "rows": b["rows"], **{c: _usd(b[c]) for c in COLUMNS}}
@@ -292,7 +312,7 @@ def main() -> int:
     parser.add_argument("--rounding", choices=ROUNDING, default="half-up",
                         help="how an exact half cent rounds (the app: half-up)")
     args = parser.parse_args()
-    ledger = replay(json.loads(LEDGER.read_text())["transactions"], ROUNDING[args.rounding])
+    ledger = replay_ledger(json.loads(LEDGER.read_text()), ROUNDING[args.rounding])
     if args.year:
         print(json.dumps(year_figures(ledger, args.year), indent=1))
         return 0
@@ -432,17 +452,28 @@ def _exchange_account(accounts: dict[int, Account], exchange_id: int | None, cur
     return next(a for a in accounts.values() if a.exchange_id == exchange_id and a.currency == currency)
 
 
+def _tax_zone(name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ValueError(f"The tax timezone {name!r} isn't a time zone this computer knows.") from None
+
+
 def _moment(text: str) -> datetime:
-    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    """A transaction's time, in UTC: one without a time zone could be any day's."""
+    given = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    if given.tzinfo is None:
+        raise ValueError(f"The time {text!r} has no time zone: write it in UTC, ending in Z.")
+    return given.astimezone(timezone.utc)
 
 
-def _noon_of(text: str) -> datetime:
-    """Noon of a date originally acquired, in UTC (the reference figures'
-    tax timezone): a time given with it stands for its date there, one
+def _noon_of(text: str, zone: ZoneInfo) -> datetime:
+    """Noon of a date originally acquired, in the tax timezone (AGENTS.md,
+    "Holding period"): a time given with it stands for its date there, one
     without a timezone for the date written."""
-    given = _moment(text)
-    day = given.astimezone(timezone.utc).date() if given.tzinfo else given.date()
-    return datetime.combine(day, time(12), tzinfo=timezone.utc)
+    given = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    day = given.astimezone(zone).date() if given.tzinfo else given.date()
+    return datetime.combine(day, time(12), tzinfo=zone).astimezone(timezone.utc)
 
 
 def _close_years_before(ledger: Ledger, year: int) -> None:
@@ -462,7 +493,7 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
     # are acquired at the death (IRC §1014: their basis is their value then)
     # and long-term whenever sold (§1223(9)). That is a date: noon of it,
     # never after the deposit.
-    acquired = min(_noon_of(tx["acquired_at"]), when) if tx.get("acquired_at") else when
+    acquired = min(_noon_of(tx["acquired_at"], ledger.tax_zone), when) if tx.get("acquired_at") else when
     ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False,
                    inherited=tx.get("source") == "Inherited")
     # Income is its value at receipt, which is also its basis; a rebate is
@@ -478,7 +509,7 @@ def _buy(ledger: Ledger, tx: dict, when: datetime) -> None:
     basis = _money(tx["cost_basis_usd"]) + _money(tx["fee_amount"])
     # Treas. Reg. §1.6045-1(a)(15)(i)(J): covered from 2026-01-01 in the tax
     # timezone, so 2026-01-01 03:00 UTC is still 2025-12-31 in America/Chicago.
-    covered = when.astimezone(ledger.tax_zone).date() >= COVERED_FROM
+    covered = ledger.day(when) >= COVERED_FROM
     ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=covered)
 
 
@@ -498,7 +529,7 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     if purpose in NOT_SALES:
         _pay_network_fee(ledger, tx, account, when)
         amount = _money(tx["amount"])
-        terms = _by_term(ledger.take(account, amount), when, ledger.rounding)
+        terms = _by_term(ledger, ledger.take(account, amount), when)
         ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd"), terms))
         return
     # The fee paid to make a spend is a cost of it: it comes off what was
@@ -528,16 +559,16 @@ def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
         ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False, inherited=lot.inherited)
 
 
-def _by_term(pieces: list[tuple[Lot, Fraction, Fraction]], when: datetime, rounding: str) -> list[dict]:
+def _by_term(ledger: Ledger, pieces: list[tuple[Lot, Fraction, Fraction]], when: datetime) -> list[dict]:
     """A gift's, donation's or loss's BTC and cost basis held more than a
     year, then a year or less (#160): a donation's deduction depends on both."""
     terms: dict[str, list[Fraction]] = {}
     for lot, quantity, basis in pieces:
-        long_term = lot.inherited or _is_long_term(lot.acquired.date(), when.date())
+        long_term = lot.inherited or _is_long_term(ledger.day(lot.acquired), ledger.day(when))
         part = terms.setdefault("LONG" if long_term else "SHORT", [Fraction(0), Fraction(0)])
         part[0] += quantity
         part[1] += basis
-    return [{"term": term, "btc": _btc(terms[term][0]), "cost_basis": str(_cents(terms[term][1], rounding))}
+    return [{"term": term, "btc": _btc(terms[term][0]), "cost_basis": str(_cents(terms[term][1], ledger.rounding))}
             for term in ("LONG", "SHORT") if term in terms]
 
 
@@ -582,15 +613,16 @@ def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledg
     return value if part >= whole else Fraction(_cents(value * part / whole, ledger.rounding))
 
 
-def _form_row(row: Row, year: int, rounding: str) -> dict:
+def _form_row(row: Row, year: int, ledger: Ledger) -> dict:
+    acquired, sold = ledger.day(row.acquired), ledger.day(row.sold)
     # Inherited property: Part II, "INHERITED" in column (b) (Form 8949 instructions)
-    long_term = row.inherited or _is_long_term(row.acquired.date(), row.sold.date())
-    proceeds, cost = _cents(row.proceeds, rounding), _cents(row.basis, rounding)
+    long_term = row.inherited or _is_long_term(acquired, sold)
+    proceeds, cost = _cents(row.proceeds, ledger.rounding), _cents(row.basis, ledger.rounding)
     return {
         "box": _box(row, year, long_term),
         "description": f"{_btc(row.quantity)} BTC",
-        "date_acquired": "INHERITED" if row.inherited else row.acquired.strftime("%m/%d/%Y"),
-        "date_sold": row.sold.strftime("%m/%d/%Y"),
+        "date_acquired": "INHERITED" if row.inherited else acquired.strftime("%m/%d/%Y"),
+        "date_sold": sold.strftime("%m/%d/%Y"),
         "proceeds": str(proceeds),
         "cost": str(cost),
         # Column (h) is (d) minus (e) as printed, so each row adds up.
@@ -668,7 +700,7 @@ def _add(bucket: dict, row: dict) -> None:
 def _income(ledger: Ledger, year: int) -> dict:
     income = {source: Fraction(0) for source in INCOME_SOURCES}
     for when, source, value in ledger.income:
-        if when.year == year:
+        if ledger.tax_year(when) == year:
             income[source] += value
     income["Total"] = sum(income.values())
     return {source: str(_cents(value, ledger.rounding)) for source, value in income.items()}
