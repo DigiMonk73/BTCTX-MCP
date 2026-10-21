@@ -255,8 +255,6 @@ declare global {
   // The transaction form
   type TransactionType = "Deposit" | "Withdrawal" | "Transfer" | "Buy" | "Sell";
 
-  type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
-
   type DepositSource = "N/A" | "MyBTC" | "Gift" | "Inherited" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
   // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
@@ -281,11 +279,7 @@ declare global {
     proceeds_usd?: number;
     fmv_usd?: number;
 
-    // Transfer
-    fromAccount?: AccountType;
-    fromCurrency?: Currency;
-    toAccount?: AccountType;
-    toCurrency?: Currency;
+    // Transfer: what left and what arrived. The accounts are the ids below (5.13).
     amountFrom?: BtcFieldValue;
     amountTo?: BtcFieldValue;
 

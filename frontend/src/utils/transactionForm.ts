@@ -25,58 +25,19 @@ export function toDatetimeLocal(date: Date): string {
   );
 }
 
-// The server's fixed account ids
-const EXCHANGE_USD_ID = 3;
-const EXCHANGE_BTC_ID = 4;
-
-/** The account id for a form's account and currency (0: none chosen). */
-export function mapAccountToId(account?: AccountType, currency?: Currency): number {
-  if (account === "Bank") return 1;
-  if (account === "Wallet") return 2;
-  if (account === "Exchange") {
-    return currency === "BTC" ? EXCHANGE_BTC_ID : EXCHANGE_USD_ID;
-  }
-  return 0;
-}
-
-/** The ledger's from and to accounts. A Deposit comes from External and a
- * Withdrawal goes there; the owner's side is the id the form holds. A Sell's
- * dollars are its exchange's USD half (`usdOf`). A Buy sends the ids the form
- * holds, so a row read back and saved unchanged keeps both (5.13). Transfer
- * still maps the 1.x account names. 0 is none chosen, which the pickers'
- * checks never let through. */
+/** The ledger's from and to accounts. External's side and a Sell's dollars follow from
+ * the type; every other id is sent as the form holds it, so a row read back and saved
+ * unchanged keeps both (5.13). 0 = none chosen, which the pickers' checks never let through. */
 export function mapDoubleEntryAccounts(data: TransactionFormData, book: AccountBook): IAccountMapping {
   switch (data.type) {
     case "Deposit":
       return { from_account_id: EXTERNAL_ID, to_account_id: data.toAccountId ?? 0 };
     case "Withdrawal":
       return { from_account_id: data.fromAccountId ?? 0, to_account_id: EXTERNAL_ID };
-    case "Transfer":
-      return {
-        from_account_id: mapAccountToId(data.fromAccount, data.fromCurrency),
-        to_account_id: mapAccountToId(data.toAccount, data.toCurrency),
-      };
     case "Sell":
-      return {
-        from_account_id: data.fromAccountId ?? 0,
-        to_account_id: usdOf(book, data.fromAccountId) ?? 0,
-      };
+      return { from_account_id: data.fromAccountId ?? 0, to_account_id: usdOf(book, data.fromAccountId) ?? 0 };
     default:
       return { from_account_id: data.fromAccountId ?? 0, to_account_id: data.toAccountId ?? 0 };
-  }
-}
-
-function accountIdToType(id: number): AccountType {
-  switch (id) {
-    case 1:
-      return "Bank";
-    case 2:
-      return "Wallet";
-    case 3:
-    case 4:
-      return "Exchange";
-    default:
-      return "External";
   }
 }
 
@@ -140,23 +101,22 @@ const TYPE_FORM_DATA: Record<
     };
   },
   Transfer: (tx, book) => {
-    const fromId = tx.from_account_id ?? 0;
-    const toId = tx.to_account_id ?? 0;
-    const fromCurrency = accountCurrency(book, fromId);
     const fee = tx.fee_amount ?? 0;
-    // Dollars add up in cents (two amounts' float sum can carry a stray digit
-    // past the cent); one stored past the cent keeps 8 places, for the form to say so
-    const dollarPlaces = pastTheCent(tx.amount) || pastTheCent(fee) ? 8 : 2;
+    // A bitcoin transfer's amount is what left, its fee included: what arrived
+    // is the rest, to the satoshi. A dollar transfer's is what arrived, its
+    // fee on top (#447). An id the book lacks is not dollars, so it reads as bitcoin.
+    if (accountCurrency(book, tx.from_account_id ?? undefined) === "USD") {
+      // Dollars add up in cents (two amounts' float sum can carry a stray digit
+      // past the cent); one stored past the cent keeps 8 places, for the form to say so
+      const dollarPlaces = pastTheCent(tx.amount) || pastTheCent(fee) ? 8 : 2;
+      return {
+        amountFrom: Number((tx.amount + fee).toFixed(dollarPlaces)),
+        amountTo: tx.amount,
+      };
+    }
     return {
-      fromAccount: accountIdToType(fromId),
-      toAccount: accountIdToType(toId),
-      fromCurrency,
-      toCurrency: accountCurrency(book, toId),
-      // A BTC transfer's amount is what left, its fee included: what arrived
-      // is the rest, to the satoshi. A dollar transfer's is what arrived, its
-      // fee on top (#447)
-      amountFrom: fromCurrency === "BTC" ? tx.amount : Number((tx.amount + fee).toFixed(dollarPlaces)),
-      amountTo: fromCurrency === "BTC" ? Number((tx.amount - fee).toFixed(8)) : tx.amount,
+      amountFrom: tx.amount,
+      amountTo: Number((tx.amount - fee).toFixed(8)),
     };
   },
   Buy: (tx) => ({
@@ -278,11 +238,10 @@ const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData, book: Ac
     proceeds_usd: inBtcAccount(data, book) ? proceedsSent(data) : null,
     fmv_usd: inBtcAccount(data, book) ? optionalDecimal(data.fmv_usd) : null,
   }),
-  // A BTC transfer's amount is what left, its fee in it (filled in by
-  // useFieldAutofill); a dollar transfer's is what arrived, the fee on top
-  // (#447), as the server keeps both
-  Transfer: (data) =>
-    data.fromCurrency === "BTC"
+  // A bitcoin transfer's amount is what left, its fee in it; a dollar
+  // transfer's is what arrived, the fee on top (#447), as the server keeps both
+  Transfer: (data, book) =>
+    inBtcAccount(data, book)
       ? { amount: parseDecimal(data.amountFrom), feeCurrency: "BTC", cost_basis_usd: null }
       : {
           amount: parseDecimal(data.amountTo),

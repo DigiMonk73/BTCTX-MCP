@@ -13,7 +13,7 @@ const TypeFields: React.FC<{ type: TransactionType | ""; book: AccountBook }> = 
     case "Withdrawal":
       return <WithdrawalFields book={book} />;
     case "Transfer":
-      return <TransferFields />;
+      return <TransferFields book={book} />;
     case "Buy":
       return <BuyFields book={book} />;
     case "Sell":

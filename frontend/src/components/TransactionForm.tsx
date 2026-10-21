@@ -9,7 +9,6 @@ import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../util
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
-import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
 
 // What a change of type resets, and a new transaction starts with. Blank,
 // not 0: a blank income basis or Spent proceeds means "use that hour's BTC
@@ -99,8 +98,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   useEffect(() => {
     onUpdateStatusChange?.(isSubmitting);
   }, [isSubmitting, onUpdateStatusChange]);
-
-  useFieldAutofill(currentType, form);
 
   // A new type keeps what was typed but resets the type's own values.
   const onTransactionTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
