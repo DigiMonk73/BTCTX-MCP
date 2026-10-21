@@ -349,13 +349,87 @@ def _check_exchanges(accounts: dict[int, Account]) -> None:
 
 
 def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> None:
-    """An id the ledger's accounts list doesn't have stops it, never skipped (2.0 spec 5.15)."""
+    """Each transaction names the ledger's accounts, the way its type allows
+    (2.0 spec 5.5). One that doesn't stops the calculation, never skipped
+    (5.15): a skipped row would leave its figures out unseen."""
     for position, tx in enumerate(transactions, start=1):
         number = position if tx.get("id") is None else tx["id"]
-        for account_id in (tx["from_account_id"], tx["to_account_id"]):
-            if account_id not in accounts:
-                raise ValueError(f"Transaction {number} names account {account_id}, "
-                                 "which the ledger's accounts list doesn't have.")
+        source, destination = (_named_account(number, tx[side], accounts)
+                               for side in ("from_account_id", "to_account_id"))
+        if tx["type"] not in ROUTES:
+            raise ValueError(f"Transaction {number} is a {tx['type']!r}, which isn't one of {', '.join(ROUTES)}.")
+        problem = ROUTES[tx["type"]](source, destination, accounts)
+        if problem:
+            raise ValueError(f"Transaction {number}: {problem}")
+
+
+def _named_account(number, account_id: int, accounts: dict[int, Account]) -> Account:
+    if account_id not in accounts:
+        raise ValueError(f"Transaction {number} names account {account_id}, "
+                         "which the ledger's accounts list doesn't have.")
+    account = accounts[account_id]
+    if account.kind == "fee":
+        # It holds the ledger's fee lines; a fee is paid from the paying account (2.0 spec 5.1, 5.5).
+        raise ValueError(f"Transaction {number} names account {account_id} ({account.name}), a fee account, "
+                         "which no transaction names.")
+    return account
+
+
+# 2.0 spec 5.5's rules per type, in its words: what's wrong, or None.
+def _deposit_route(source: Account, destination: Account, accounts: dict[int, Account]) -> str | None:
+    if source.kind != "external":
+        return "A Deposit comes from External."
+    if destination.kind == "external":
+        return "A Deposit goes into one of your accounts, not External."
+    return None
+
+
+def _withdrawal_route(source: Account, destination: Account, accounts: dict[int, Account]) -> str | None:
+    if source.kind == "external":
+        return "A Withdrawal comes from one of your accounts, not External."
+    if destination.kind != "external":
+        return "A Withdrawal goes to External."
+    return None
+
+
+def _transfer_route(source: Account, destination: Account, accounts: dict[int, Account]) -> str | None:
+    if "external" in (source.kind, destination.kind):
+        return "A Transfer is between two of your accounts, not External."
+    if source.currency != destination.currency:
+        return ("A Transfer stays in one currency: bitcoin between bitcoin accounts, "
+                "dollars between dollar accounts.")
+    if source == destination and not source.holds_lots:
+        return "A Transfer goes to another account: only a bitcoin account can send to itself (a consolidation)."
+    return None
+
+
+def _buy_route(source: Account, destination: Account, accounts: dict[int, Account]) -> str | None:
+    if source.currency != "USD" or source.kind not in ("bank", "exchange"):
+        return "A Buy is paid from a bank or from an exchange's USD account."
+    if destination.kind != "exchange" or destination.currency != "BTC":
+        return "A Buy's bitcoin goes into an exchange's BTC account."
+    if source.kind == "exchange" and source.exchange_id != destination.exchange_id:
+        own = _exchange_account(accounts, source.exchange_id, "BTC")
+        return f"A Buy paid from {source.name} goes into {own.name}: an exchange's dollars buy only on that exchange."
+    return None
+
+
+def _sell_route(source: Account, destination: Account, accounts: dict[int, Account]) -> str | None:
+    if source.kind != "exchange" or source.currency != "BTC":
+        return "A Sell is from an exchange's BTC account."
+    own = _exchange_account(accounts, source.exchange_id, "USD")
+    if destination != own:
+        return f"A Sell from {source.name} goes into {own.name}."
+    return None
+
+
+ROUTES = {"Deposit": _deposit_route, "Withdrawal": _withdrawal_route, "Transfer": _transfer_route,
+          "Buy": _buy_route, "Sell": _sell_route}
+
+
+def _exchange_account(accounts: dict[int, Account], exchange_id: int | None, currency: str) -> Account:
+    """An exchange's dollar or bitcoin account (read_accounts made sure it has one of each)."""
+    return next(a for a in accounts.values() if a.exchange_id == exchange_id and a.currency == currency)
 
 
 def _moment(text: str) -> datetime:
