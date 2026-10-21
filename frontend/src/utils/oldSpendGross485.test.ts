@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { buildTransactionPayload, mapTransactionToFormData } from "./transactionForm";
 import { parseTransaction } from "./format";
+import { ONE_OF_EACH } from "../test/accountBooks";
 
 /** A Spent as GET /api/transactions/{id} sends it: amounts as strings, a blank gross as null. */
 const OLD_SPEND = {
@@ -29,7 +30,7 @@ const OLD_SPEND = {
 
 /** What the edit form loads for a raw transaction (TransactionForm.tsx). */
 function formFor(raw: Partial<Record<keyof ITransactionRaw, unknown>>) {
-  return mapTransactionToFormData(parseTransaction({ ...OLD_SPEND, ...raw } as ITransactionRaw));
+  return mapTransactionToFormData(parseTransaction({ ...OLD_SPEND, ...raw } as ITransactionRaw), ONE_OF_EACH);
 }
 
 describe("a Spent saved before its gross was kept (#485)", () => {

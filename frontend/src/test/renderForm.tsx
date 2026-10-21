@@ -22,6 +22,8 @@ export interface RenderFormOptions {
   transaction?: ITransactionRaw;
   /** GET /accounts/ answers 500 (D4). */
   accountsFail?: boolean;
+  /** GET /accounts/ waits for answerAccounts(), so every other answer comes first. */
+  accountsHeld?: boolean;
 }
 
 export interface RenderedForm {
@@ -29,6 +31,8 @@ export interface RenderedForm {
   requests: SentRequest[];
   /** Click Save, then wait until every request it made has its answer. */
   save: () => Promise<void>;
+  /** With accountsHeld: let GET /accounts/ answer, and wait for what follows. */
+  answerAccounts: () => Promise<void>;
 }
 
 // The price hint's two reads (useBlankPriceSource): a fresh install's, so the
@@ -81,10 +85,16 @@ async function settle(pending: Set<Promise<unknown>>): Promise<void> {
   }
 }
 
-/** Every api call goes to `serve`, recorded first. */
-function stubApi(options: RenderFormOptions, requests: SentRequest[], pending: Set<Promise<unknown>>): void {
+/** Every api call goes to `serve`, recorded first; the account list after `held`, when given. */
+function stubApi(
+  options: RenderFormOptions,
+  requests: SentRequest[],
+  pending: Set<Promise<unknown>>,
+  held?: Promise<void>,
+): void {
   const call = (request: SentRequest) => {
     requests.push(request);
+    if (held && request.url === "/accounts/") return held.then(() => serve(options, request));
     const reply = serve(options, request);
     const tracked = reply.catch(() => undefined).finally(() => pending.delete(tracked));
     pending.add(tracked);
@@ -101,7 +111,9 @@ export async function renderForm(options: RenderFormOptions): Promise<RenderedFo
   forgetAccounts();
   const requests: SentRequest[] = [];
   const pending = new Set<Promise<unknown>>();
-  stubApi(options, requests, pending);
+  let release = () => {};
+  const held = options.accountsHeld ? new Promise<void>((resolve) => (release = resolve)) : undefined;
+  stubApi(options, requests, pending, held);
   const user = userEvent.setup();
   const view = render(
     <ToastProvider>
@@ -114,5 +126,9 @@ export async function renderForm(options: RenderFormOptions): Promise<RenderedFo
     await user.click(view.getByRole("button", { name: "Save transaction" }));
     await settle(pending);
   };
-  return { user, requests, save };
+  const answerAccounts = async () => {
+    release();
+    await settle(pending);
+  };
+  return { user, requests, save, answerAccounts };
 }

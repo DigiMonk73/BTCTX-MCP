@@ -4,6 +4,7 @@
 // and shows another withdrawal's $0 blank, so making it a Spent prices it.
 import { describe, expect, it } from "vitest";
 import { buildTransactionPayload, mapTransactionToFormData } from "./transactionForm";
+import { ONE_OF_EACH } from "../test/accountBooks";
 
 const gift = {
   id: 1,
@@ -22,7 +23,7 @@ const gift = {
 } as unknown as ITransaction;
 
 function form(fields: Partial<ITransaction>) {
-  return mapTransactionToFormData({ ...gift, ...fields } as ITransaction);
+  return mapTransactionToFormData({ ...gift, ...fields } as ITransaction, ONE_OF_EACH);
 }
 
 describe("a gift's proceeds (#457)", () => {
