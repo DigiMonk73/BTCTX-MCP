@@ -262,8 +262,10 @@ def replay_ledger(data: dict, rounding: str = ROUND_HALF_UP) -> Ledger:
 
 def year_figures(ledger: Ledger, year: int) -> dict:
     rows = [_form_row(row, year, ledger) for row in ledger.rows if ledger.tax_year(row.sold) == year]
-    holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(), "quantity": _btc(lot.quantity),
-                 "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year, [])]
+    # The account by its nickname, as the report shows it.
+    holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(),
+                 "quantity": _btc(lot.quantity), "cost": str(_cents(lot.basis, ledger.rounding))}
+                for account, lot in ledger.holdings.get(year, [])]
     return {
         "tax_timezone": ledger.tax_zone.key,
         "form_8949": rows,
@@ -383,7 +385,7 @@ def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> N
             raise ValueError(f"Transaction {number}: {problem}")
 
 
-def _named_account(number, account_id: int, accounts: dict[int, Account]) -> Account:
+def _named_account(number: int, account_id: int, accounts: dict[int, Account]) -> Account:
     if account_id not in accounts:
         raise ValueError(f"Transaction {number} names account {account_id}, "
                          "which the ledger's accounts list doesn't have.")
@@ -418,7 +420,7 @@ def _transfer_route(source: Account, destination: Account, accounts: dict[int, A
     if source.currency != destination.currency:
         return ("A Transfer stays in one currency: bitcoin between bitcoin accounts, "
                 "dollars between dollar accounts.")
-    if source == destination and not source.holds_lots:
+    if source.id == destination.id and not source.holds_lots:
         return "A Transfer goes to another account: only a bitcoin account can send to itself (a consolidation)."
     return None
 
@@ -438,7 +440,7 @@ def _sell_route(source: Account, destination: Account, accounts: dict[int, Accou
     if source.kind != "exchange" or source.currency != "BTC":
         return "A Sell is from an exchange's BTC account."
     own = _exchange_account(accounts, source.exchange_id, "USD")
-    if destination != own:
+    if destination.id != own.id:
         return f"A Sell from {source.name} goes into {own.name}."
     return None
 
