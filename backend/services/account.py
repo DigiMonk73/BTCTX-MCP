@@ -247,12 +247,13 @@ def _switch_1099da(db: Session, account: Account, sends: bool, confirm: str | No
 def _rename(db: Session, account: Account, raw_name: str) -> None:
     """A new nickname (5.9, B8-5r): an exchange's account renames its exchange and
     both its accounts ("<name> USD", "<name> BTC"); the fee accounts keep theirs."""
-    if account.kind == "fee":
-        _refuse(FEES_SHOWN)
     name = _clean_name(raw_name)
     exchange = db.get(Exchange, account.exchange_id) if account.kind == "exchange" else None
-    if name == (exchange.name if exchange else account.name):
+    # Its own name sent back (an exchange's, or the account's) changes nothing, as in 1.x
+    if name in (account.name, exchange.name if exchange else None):
         return
+    if account.kind == "fee":
+        _refuse(FEES_SHOWN)
     _check_name(db, name, account.kind, renamed=account)
     if exchange is None:
         account.name = name

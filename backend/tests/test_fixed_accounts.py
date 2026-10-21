@@ -19,9 +19,12 @@ from backend.tests.conftest import default_login
 def test_a_fixed_account_keeps_its_name_currency_and_place(auth_client, fixed):
     url = f"/api/accounts/{fixed['id']}"
     before = auth_client.get(url).json()
-    assert auth_client.put(url, json={"name": "Renamed"}).status_code == 400
+    # 1 to 4 can be renamed, and renamed back; the fee accounts never (5.1, B8-5r on the draft branch)
+    assert auth_client.put(url, json={"name": "Renamed"}).status_code == (400 if fixed["kind"] == "fee" else 200)
     assert auth_client.delete(url).status_code == 400
-    assert auth_client.put(url, json={"name": fixed["name"]}).status_code == 200  # unchanged: fine
+    # Back to its own name: an exchange's account takes its exchange's ("Exchange")
+    back = "Exchange" if fixed["kind"] == "exchange" else fixed["name"]
+    assert auth_client.put(url, json={"name": back}).status_code == 200
     assert auth_client.get(url).json() == before
 
 
@@ -33,7 +36,7 @@ def test_no_second_fee_account(auth_client, name, kind):
 
 def test_no_other_account_takes_a_fixed_name(fresh_app):
     """An account someone adds can't be called "BTC Fees" (it was a 500 on the
-    duplicate name); another name is fine. (Renames come with B8.)"""
+    duplicate name); another name is fine."""
     client = TestClient(app)
     assert client.post("/api/login", json=default_login()).status_code == 200
     assert client.post("/api/accounts/", json={"kind": "wallet", "name": "BTC Fees"}).status_code == 400
