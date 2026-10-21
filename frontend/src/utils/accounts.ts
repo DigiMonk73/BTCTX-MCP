@@ -8,6 +8,13 @@ export const EXTERNAL_ID = 99;
 // The owner's own accounts; the fee accounts hold fee lines and are in no picker (5.1)
 const OWN_KINDS: readonly AccountKind[] = ["bank", "wallet", "exchange"];
 
+/** A picker's value as an id. A blank select holds "" until react-hook-form's
+ * setValueAs runs, and "" is no account (5.13): every reader of a picker's
+ * value goes through this, so none mistakes "" for a choice. */
+export function chosenId(value: unknown): number | undefined {
+  return value === "" || value == null ? undefined : Number(value);
+}
+
 function find(book: AccountBook, id: number | undefined): LedgerAccount | undefined {
   return book.find((account) => account.id === id);
 }
@@ -93,12 +100,12 @@ export function sellExchanges(book: AccountBook, keepId?: number): number[] {
   );
 }
 
-/** An exchange account's other half (5.4's usd_of, btc_of); undefined for any other account. */
+/** An exchange account's dollar half (5.4's usd_of); undefined for any other account. */
 export function usdOf(book: AccountBook, id: number | undefined): number | undefined {
   return exchangeHalf(book, id, "USD");
 }
 
-/** An exchange account's other half (5.4's usd_of, btc_of); undefined for any other account. */
+/** An exchange account's bitcoin half (5.4's btc_of); undefined for any other account. */
 export function btcOf(book: AccountBook, id: number | undefined): number | undefined {
   return exchangeHalf(book, id, "BTC");
 }
@@ -107,13 +114,7 @@ export function btcOf(book: AccountBook, id: number | undefined): number | undef
 function exchangeHalf(book: AccountBook, id: number | undefined, currency: Currency): number | undefined {
   const account = find(book, id);
   if (account?.kind !== "exchange" || account.exchange_id === null) return undefined;
-  const halves = book
-    .filter(
-      (other) =>
-        other.kind === "exchange" &&
-        other.exchange_id === account.exchange_id &&
-        other.currency === currency,
-    )
-    .map((other) => other.id);
-  return halves.length === 0 ? undefined : halves[0];
+  return book.find(
+    (other) => other.kind === "exchange" && other.exchange_id === account.exchange_id && other.currency === currency,
+  )?.id;
 }

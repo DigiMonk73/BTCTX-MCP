@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useFormContext, type FieldPath } from "react-hook-form";
-import { accountName, yours } from "../../utils/accounts";
+import { accountName, chosenId, yours } from "../../utils/accounts";
 
 interface AccountPickerProps {
   /** The element's id: labels and the e2e tests find the field by it. */
@@ -22,11 +22,6 @@ interface AccountPickerProps {
   children?: React.ReactNode;
 }
 
-/** A select's "" is no account; anything else is an id. */
-function chosenId(value: unknown): number | undefined {
-  return value === "" || value == null ? undefined : Number(value);
-}
-
 const AccountPicker: React.FC<AccountPickerProps> = ({
   id,
   label,
@@ -40,9 +35,8 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
   children,
 }) => {
   const { register, watch, setValue, formState: { errors, defaultValues } } = useFormContext<TransactionFormData>();
-  // A blank select is "" in the form until setValueAs runs, and "" is not
-  // "no account": without chosenId the only fitting account would never fill,
-  // and a new row would show a missing-account hint (5.13).
+  // Through chosenId, not watch() alone: a blank select's "" would otherwise
+  // block the only fitting account's fill and show a missing-account hint (5.13)
   const chosen = chosenId(watch(field));
   const options = choices(defaultValues?.[field]);
   const nameOf = optionLabel ?? ((account: number) => accountName(book, account));

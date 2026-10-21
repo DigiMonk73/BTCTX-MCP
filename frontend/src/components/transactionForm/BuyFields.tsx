@@ -1,14 +1,12 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { accountKind, accountName, buyExchanges, buyPayers, exchangeName } from "../../utils/accounts";
+import { accountKind, accountName, buyExchanges, buyPayers, chosenId, exchangeName } from "../../utils/accounts";
 import AccountPicker from "./AccountPicker";
 
 /** A Buy: the dollars' account, then the exchange the bitcoin is bought into (5.13, Q15). */
 const BuyFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
-  // A blank select is "" until setValueAs runs, so it is no payer (5.13).
-  const watchedPayer = watch("fromAccountId");
-  const payerId = typeof watchedPayer === "number" ? watchedPayer : undefined;
+  const payerId = chosenId(watch("fromAccountId"));
   return (
     <>
       <AccountPicker

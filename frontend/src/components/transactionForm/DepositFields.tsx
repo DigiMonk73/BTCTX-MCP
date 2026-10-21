@@ -2,7 +2,7 @@ import React from "react";
 import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
-import { isBtcAccount } from "../../utils/accounts";
+import { chosenId, isBtcAccount } from "../../utils/accounts";
 import { takesOriginalDate } from "../../utils/transactionForm";
 import { useBlankPriceSource, type BlankPriceWords } from "./useBlankPriceSource";
 
@@ -88,9 +88,7 @@ const OriginalDateField: React.FC<{ inherited: boolean }> = ({ inherited }) => {
 const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
   const priced = useBlankPriceSource();
-  // A blank select is "" until setValueAs runs, and "" is not an id (5.13).
-  const watched = watch("toAccountId");
-  const toAccountId = typeof watched === "number" ? watched : undefined;
+  const toAccountId = chosenId(watch("toAccountId"));
   // Income is valued at receipt only in a bitcoin account (AGENTS.md "Income deposits").
   const btc = isBtcAccount(book, toAccountId);
   // Income, rebates, inheritances: basis = value when acquired (the server fills a blank one)

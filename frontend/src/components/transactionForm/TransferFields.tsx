@@ -4,6 +4,7 @@ import {
   accountCurrency,
   accountKind,
   accountName,
+  chosenId,
   isBtcAccount,
   transferTargets,
   visibleAccounts,
@@ -28,10 +29,7 @@ const BETWEEN_EXCHANGES_HINT =
  * currency string, never the book, so a new book object can't loop it. */
 function useTransferFee(book: AccountBook): void {
   const { watch, setValue } = useFormContext<TransactionFormData>();
-  // A blank select is "" until setValueAs runs, so it is no account (5.13).
-  const watchedFrom = watch("fromAccountId");
-  const fromId = typeof watchedFrom === "number" ? watchedFrom : undefined;
-  const currency = accountCurrency(book, fromId);
+  const currency = accountCurrency(book, chosenId(watch("fromAccountId")));
   const amountFrom = parseDecimal(watch("amountFrom")) || 0;
   const amountTo = parseDecimal(watch("amountTo")) || 0;
 
@@ -53,11 +51,8 @@ function useTransferFee(book: AccountBook): void {
 const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
   useTransferFee(book);
-  // A blank select is "" until setValueAs runs, so it is no account (5.13).
-  const watchedFrom = watch("fromAccountId");
-  const watchedTo = watch("toAccountId");
-  const fromId = typeof watchedFrom === "number" ? watchedFrom : undefined;
-  const toId = typeof watchedTo === "number" ? watchedTo : undefined;
+  const fromId = chosenId(watch("fromAccountId"));
+  const toId = chosenId(watch("toAccountId"));
   const currency = accountCurrency(book, fromId);
   const within = toId === fromId && isBtcAccount(book, fromId);
   return (

@@ -3,7 +3,7 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import BtcWithdrawalValues from "./BtcWithdrawalValues";
 import FeeValueField from "./FeeValueField";
-import { isBtcAccount } from "../../utils/accounts";
+import { chosenId, isBtcAccount } from "../../utils/accounts";
 import { isNotSold } from "../../utils/purposes";
 
 /**
@@ -13,9 +13,7 @@ import { isNotSold } from "../../utils/purposes";
  */
 const WithdrawalFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  // A blank select is "" until setValueAs runs, and "" is not an id (5.13).
-  const watched = watch("fromAccountId");
-  const btc = isBtcAccount(book, typeof watched === "number" ? watched : undefined);
+  const btc = isBtcAccount(book, chosenId(watch("fromAccountId")));
   const purpose = watch("purpose");
   const notSold = isNotSold(purpose);
 

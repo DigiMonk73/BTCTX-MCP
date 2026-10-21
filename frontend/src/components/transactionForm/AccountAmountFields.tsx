@@ -1,6 +1,6 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import { accountCurrency, accountKind, visibleAccounts } from "../../utils/accounts";
+import { accountCurrency, accountKind, chosenId, visibleAccounts } from "../../utils/accounts";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
 import AccountPicker from "./AccountPicker";
 
@@ -14,9 +14,7 @@ const AccountAmountFields: React.FC<{ book: AccountBook; field: "fromAccountId" 
   field,
 }) => {
   const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
-  // A blank select is "" until setValueAs runs, and "" is not an id (5.13).
-  const watched = watch(field);
-  const chosen = typeof watched === "number" ? watched : undefined;
+  const chosen = chosenId(watch(field));
   return (
     <>
       <AccountPicker
