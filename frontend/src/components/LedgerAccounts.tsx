@@ -64,6 +64,9 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   const add = (kind: YourKind, name: string) =>
     write(() => api.post("/accounts/", { kind, name }), "Added.");
 
+  const rename = (account: LedgerAccount, name: string) =>
+    write(() => api.put(`/accounts/${account.id}`, { name }), "Renamed.");
+
   const switch1099da = (account: LedgerAccount, sends: boolean) =>
     write(() => putConfirmed(`/accounts/${account.id}`, { sends_1099da: sends }), "Saved.");
 
@@ -82,6 +85,7 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
               onHide={hide}
               onDelete={remove}
               onSwitch1099da={switch1099da}
+              onRename={rename}
             />
           ))}
         </ul>
