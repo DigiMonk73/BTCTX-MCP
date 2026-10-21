@@ -14,31 +14,31 @@ describe("a withdrawal's purpose and values go only with bitcoin leaving", () =>
   const leftOver = { type: "Withdrawal", purpose: "Gift", fmv_usd: 500, proceeds_usd: 500, amount: 100 } as const;
 
   it.each([
-    ["Bank", "USD"],
-    ["Exchange", "USD"],
-  ] as const)("from %s (%s): no purpose, proceeds or FMV", (account, currency) => {
-    const body = buildTransactionPayload(form({ ...leftOver, account, currency }), ONE_OF_EACH);
+    ["Bank", "USD", 1],
+    ["Exchange", "USD", 3],
+  ] as const)("from %s (%s): no purpose, proceeds or FMV", (_name, _currency, fromAccountId) => {
+    const body = buildTransactionPayload(form({ ...leftOver, fromAccountId }), ONE_OF_EACH);
     expect(body).toMatchObject({ purpose: "N/A", proceeds_usd: null, fmv_usd: null, broker_reporting: null });
   });
 
   it.each([
-    ["Wallet", "BTC"],
-    ["Exchange", "BTC"],
-  ] as const)("from %s (%s): its purpose and FMV, as typed", (account, currency) => {
-    const body = buildTransactionPayload(form({ ...leftOver, account, currency, amount: 0.01 }), ONE_OF_EACH);
+    ["Wallet", "BTC", 2],
+    ["Exchange", "BTC", 4],
+  ] as const)("from %s (%s): its purpose and FMV, as typed", (_name, _currency, fromAccountId) => {
+    const body = buildTransactionPayload(form({ ...leftOver, fromAccountId, amount: 0.01 }), ONE_OF_EACH);
     expect(body).toMatchObject({ purpose: "Gift", fmv_usd: 500 });
     // A gift has no proceeds: the Spent's typed before goes no further (#457)
     expect(body.proceeds_usd).toBeUndefined();
-    expect(buildTransactionPayload(form({ ...leftOver, account, currency, purpose: "Spent" }), ONE_OF_EACH).proceeds_usd).toBe(500);
+    expect(buildTransactionPayload(form({ ...leftOver, fromAccountId, purpose: "Spent" }), ONE_OF_EACH).proceeds_usd).toBe(500);
   });
 });
 
 describe("a deposit's source goes only with bitcoin received", () => {
   it.each([
-    ["Bank", "USD"],
-    ["Exchange", "USD"],
-  ] as const)("into %s (%s): no source", (account, currency) => {
-    const body = buildTransactionPayload(form({ type: "Deposit", account, currency, amount: 100, source: "Income" }), ONE_OF_EACH);
+    ["Bank", "USD", 1],
+    ["Exchange", "USD", 3],
+  ] as const)("into %s (%s): no source", (_name, _currency, toAccountId) => {
+    const body = buildTransactionPayload(form({ type: "Deposit", toAccountId, amount: 100, source: "Income" }), ONE_OF_EACH);
     expect(body).toMatchObject({ source: "N/A", cost_basis_usd: null });
   });
 
