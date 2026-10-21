@@ -44,7 +44,7 @@ describe("a deposit's source goes only with bitcoin received", () => {
 
   it("into the Wallet: the source chosen", () => {
     const body = buildTransactionPayload(
-      form({ type: "Deposit", account: "Wallet", currency: "BTC", amount: 0.01, source: "Income", costBasisUSD: 600 }),
+      form({ type: "Deposit", toAccountId: 2, amount: 0.01, source: "Income", costBasisUSD: 600 }),
       ONE_OF_EACH,
     );
     expect(body).toMatchObject({ source: "Income", cost_basis_usd: 600 });
@@ -57,7 +57,7 @@ describe("a dollar withdrawal's own label", () => {
 
   it("is sent back as it was (a purpose that isn't a bitcoin one, from an import)", () => {
     const body = buildTransactionPayload(
-      form({ type: "Withdrawal", account: "Bank", currency: "USD", amount: 100, purpose: saved("Rent") }),
+      form({ type: "Withdrawal", fromAccountId: 1, amount: 100, purpose: saved("Rent") }),
       ONE_OF_EACH,
     );
     expect(body.purpose).toBe("Rent");
@@ -65,7 +65,7 @@ describe("a dollar withdrawal's own label", () => {
 
   it("a bitcoin purpose saved on one by an older version is not", () => {
     const body = buildTransactionPayload(
-      form({ type: "Withdrawal", account: "Bank", currency: "USD", amount: 100, purpose: saved(" gift ") }),
+      form({ type: "Withdrawal", fromAccountId: 1, amount: 100, purpose: saved(" gift ") }),
       ONE_OF_EACH,
     );
     expect(body.purpose).toBe("N/A");
@@ -75,7 +75,7 @@ describe("a dollar withdrawal's own label", () => {
 describe("a dollar deposit's old free-text source", () => {
   it("is sent back as it was (text a version before 1.1.0 saved)", () => {
     const body = buildTransactionPayload(
-      form({ type: "Deposit", account: "Bank", currency: "USD", amount: 100, source: "Salary" as DepositSource }),
+      form({ type: "Deposit", toAccountId: 1, amount: 100, source: "Salary" as DepositSource }),
       ONE_OF_EACH,
     );
     expect(body.source).toBe("Salary");

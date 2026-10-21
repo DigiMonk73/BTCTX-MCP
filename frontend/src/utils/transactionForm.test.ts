@@ -83,7 +83,7 @@ describe("Withdrawal", () => {
 
   it("re-saving an edit sends the gross proceeds (no double fee)", () => {
     const form = mapTransactionToFormData(tx(spend), ONE_OF_EACH);
-    expect(form).toMatchObject({ account: "Wallet", currency: "BTC", purpose: "Spent" });
+    expect(form).toMatchObject({ fromAccountId: 2, purpose: "Spent" });
     expect(form.proceeds_usd).toBe(5000);
     expect(buildTransactionPayload(form, ONE_OF_EACH)).toMatchObject({
       from_account_id: 2,
@@ -260,7 +260,7 @@ describe("blank means not given (F1)", () => {
 
   it("a Spent withdrawal with blank proceeds sends null, not $0", () => {
     const body = buildTransactionPayload(
-      form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: NaN }),
+      form({ type: "Withdrawal", fromAccountId: 4, amount: 0.1, purpose: "Spent", proceeds_usd: NaN }),
       ONE_OF_EACH,
     );
     expect(body.proceeds_usd).toBeNull();
@@ -269,7 +269,7 @@ describe("blank means not given (F1)", () => {
 
   it("a typed 0 stays 0", () => {
     const body = buildTransactionPayload(
-      form({ type: "Withdrawal", account: "Exchange", currency: "BTC", amount: 0.1, purpose: "Spent", proceeds_usd: 0 }),
+      form({ type: "Withdrawal", fromAccountId: 4, amount: 0.1, purpose: "Spent", proceeds_usd: 0 }),
       ONE_OF_EACH,
     );
     expect(body.proceeds_usd).toBe(0);
@@ -277,7 +277,7 @@ describe("blank means not given (F1)", () => {
 
   it("an income deposit with a blank basis sends null", () => {
     const body = buildTransactionPayload(
-      form({ type: "Deposit", account: "Wallet", currency: "BTC", amount: 0.01, source: "Income", costBasisUSD: undefined }),
+      form({ type: "Deposit", toAccountId: 2, amount: 0.01, source: "Income", costBasisUSD: undefined }),
       ONE_OF_EACH,
     );
     expect(body.cost_basis_usd).toBeNull();
@@ -298,7 +298,7 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
       type: "Deposit", from_account_id: 99, to_account_id: 4, amount: 0.02, cost_basis_usd: 2100,
       fee_currency: "BTC", source: "Inherited", acquired_at: "2026-02-01",
     }), ONE_OF_EACH);
-    expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", account: "Exchange" });
+    expect(form).toMatchObject({ source: "Inherited", acquiredDate: "2026-02-01", toAccountId: 4 });
     // A row saved before 1.1.0 as free text "inherited" reads back as Inherited, and so does
     // every other source in another case (#273)
     for (const [saved, listed] of [["inherited", "Inherited"], ["income", "Income"], ["REBATE", "Rebate"],
@@ -320,13 +320,13 @@ describe("a My BTC or Gift deposit's date originally acquired (#91)", () => {
 
   it("is sent only for My BTC or Gift into a BTC account; otherwise null", () => {
     const deposit = (fields: Partial<TransactionFormData>) => buildTransactionPayload({
-      type: "Deposit", timestamp: "2025-03-01T12:00", fee: 0, account: "Wallet", currency: "BTC", amount: 0.1,
+      type: "Deposit", timestamp: "2025-03-01T12:00", fee: 0, toAccountId: 2, amount: 0.1,
       costBasisUSD: 10, acquiredDate: "2021-03-14", ...fields,
     } as TransactionFormData, ONE_OF_EACH).acquired_at;
     expect(deposit({ source: "Gift" })).toBe("2021-03-14");
     expect(deposit({ source: "Inherited" })).toBe("2021-03-14"); // its date of death (#154)
     expect(deposit({ source: "Income" })).toBeNull();
-    expect(deposit({ source: "MyBTC", account: "Bank", currency: "USD" })).toBeNull();
+    expect(deposit({ source: "MyBTC", toAccountId: 1 })).toBeNull();
     expect(deposit({ source: "MyBTC", acquiredDate: "" })).toBeNull();
   });
 });

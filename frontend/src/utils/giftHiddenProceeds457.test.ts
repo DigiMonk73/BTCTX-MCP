@@ -58,7 +58,7 @@ describe("a gift's proceeds (#457)", () => {
     expect(dollars.proceeds_usd).toBeUndefined();
     expect(buildTransactionPayload(dollars, ONE_OF_EACH).proceeds_usd).toBeNull();
     // Moved to a bitcoin account in the form and made a Spent: blank, the hour's price
-    const moved = { ...dollars, account: "Wallet" as AccountType, currency: "BTC" as Currency, purpose: "Spent" as WithdrawalPurpose };
+    const moved = { ...dollars, fromAccountId: 2, purpose: "Spent" as WithdrawalPurpose };
     expect(buildTransactionPayload(moved, ONE_OF_EACH).proceeds_usd).toBeNull();
   });
 });
