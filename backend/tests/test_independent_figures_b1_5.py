@@ -26,7 +26,7 @@ SELL_4 = ledger_tx("Sell", "2026-06-01T12:00:00Z", 4, 3, "0.50000000", gross_pro
 
 def test_the_fixed_exchanges_switch_is_on_by_default():
     accounts = independent.read_accounts({})
-    assert accounts[3]["sends_1099da"] is True and accounts[4]["sends_1099da"] is True
+    assert accounts[3].sends_1099da is True and accounts[4].on_1099da is True
 
 
 def test_covered_is_the_tax_timezones_day_not_the_utc_day():

@@ -58,7 +58,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 
-# Copied, not imported: this script shares no code with the app.
+# Copied, not imported: this script shares no code with the app. A ledger
+# file without an `accounts` list has these, a 1.x ledger's.
 FIXED_ACCOUNTS = {
     1: {"name": "Bank", "currency": "USD", "kind": "bank"},
     2: {"name": "Wallet", "currency": "BTC", "kind": "wallet"},
@@ -68,6 +69,15 @@ FIXED_ACCOUNTS = {
     6: {"name": "USD Fees", "currency": "USD", "kind": "fee"},
     99: {"name": "External", "currency": None, "kind": "external"},
 }
+EXTERNAL = 99
+# Each kind's currencies (2.0 spec, docs/temp/2.0-accounts.md 5.1): External
+# is everything outside the ledger, so it has none.
+KIND_CURRENCIES = {"bank": ("USD",), "wallet": ("BTC",), "exchange": ("USD", "BTC"), "fee": ("USD", "BTC"),
+                   "external": (None,)}
+ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
+# `hidden` only keeps an account out of the pickers, and `why` says what a
+# test row is for: neither changes a figure.
+OPTIONAL_FIELDS = ("exchange_id", "sends_1099da", "hidden", "why")
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
 CENT = Decimal("0.01")
@@ -86,6 +96,33 @@ SCHEDULE_D_LINE = {
     "G": "1b", "H": "2", "I": "3", "J": "8b", "K": "9", "L": "10",
 }
 ROUNDING = {"half-up": ROUND_HALF_UP, "half-down": ROUND_HALF_DOWN}
+
+
+@dataclass(frozen=True)
+class Account:
+    """One of the ledger's accounts. `id` is what transactions name, and it
+    never changes; `name` is the owner's nickname for it, shown on screen
+    and in the report and free to change, so nothing here finds an account
+    by its name."""
+
+    id: int
+    name: str
+    kind: str  # bank, wallet, exchange, fee or external
+    currency: str | None  # None: External
+    exchange_id: int | None = None  # an exchange's two accounts share it
+    # "This exchange sends me a Form 1099-DA": on unless the owner turns it
+    # off (2.0 spec 5.2, the owner's decision of 2026-10-15).
+    sends_1099da: bool = True
+
+    @property
+    def holds_lots(self) -> bool:
+        """A bitcoin account: a fee account holds fee lines, never lots (2.0 spec 5.1)."""
+        return self.currency == "BTC" and self.kind != "fee"
+
+    @property
+    def on_1099da(self) -> bool:
+        """Its sales are on a Form 1099-DA: an exchange's BTC account with the switch on."""
+        return self.kind == "exchange" and self.currency == "BTC" and self.sends_1099da
 
 
 @dataclass
@@ -119,23 +156,29 @@ class Row:
     covered: bool
     broker_reporting: str | None
     inherited: bool = False
-    broker_reported: bool = False
+    on_1099da: bool = False  # sold from an account whose exchange sends a 1099-DA
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Ledger:
+    """The replay's state: every bitcoin account's lots, and what each
+    year's forms need. Built from its accounts, so each pile is there."""
+
+    accounts: dict[int, Account]
     rounding: str
-    lots: dict[int, list[Lot]] = field(default_factory=dict)
-    names: dict[int, str] = field(default_factory=dict)
+    tax_zone: ZoneInfo
+    lots: dict[int, list[Lot]] = field(init=False)
     rows: list[Row] = field(default_factory=list)
     income: list[tuple[datetime, str, Fraction]] = field(default_factory=list)
     rebates: list[tuple[datetime, Fraction, Fraction]] = field(default_factory=list)
     gifts: list[tuple[datetime, str, Fraction, str | None, list[dict]]] = field(default_factory=list)
-    holdings: dict[int, list[tuple[str, Lot]]] = field(default_factory=dict)
+    holdings: dict[int, list[tuple[int, Lot]]] = field(default_factory=dict)  # year: (account id, lot)
     year: int | None = None
     next_order: int = 0
-    accounts: dict[int, dict] = field(default_factory=dict)
-    tax_zone: ZoneInfo = field(default_factory=lambda: ZoneInfo("UTC"))
+
+    def __post_init__(self) -> None:
+        # One pile per bitcoin account (2.0 spec 5.15); every other account holds no lots.
+        self.lots = {i: [] for i, account in self.accounts.items() if account.holds_lots}
 
     def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool,
                 inherited: bool = False) -> None:
@@ -165,41 +208,29 @@ class Ledger:
         return _share_so_far(lot.cost, btc, lot.total, self)
 
 
-def read_accounts(data: dict) -> dict[int, dict]:
-    """The ledger's accounts by id, else the six fixed accounts and External."""
-    if "accounts" in data:
-        return {account["id"]: account for account in data["accounts"]}
-    return {i: dict(account) for i, account in FIXED_ACCOUNTS.items()}
+def read_accounts(data: dict) -> dict[int, Account]:
+    """A ledger file's accounts by id: its `accounts` list, else the six
+    fixed accounts. External (99) is always there, listed or not. A list
+    that can't be read one way only stops here, before any figure."""
+    listed = data["accounts"] if "accounts" in data else [{"id": i, **a} for i, a in FIXED_ACCOUNTS.items()]
+    accounts: dict[int, Account] = {}
+    for entry in listed:
+        account = _account(entry)
+        if account.id in accounts:
+            raise ValueError(f"The ledger's accounts list has account {account.id} twice.")
+        accounts[account.id] = account
+    accounts.setdefault(EXTERNAL, _account({"id": EXTERNAL, **FIXED_ACCOUNTS[EXTERNAL]}))
+    _check_exchanges(accounts)
+    return accounts
 
 
-def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
-           accounts: dict[int, dict] | None = None, tax_timezone: str = "UTC") -> Ledger:
-    """Every transaction in time order (the file's order on a tie). An account
-    id absent from the ledger's accounts list stops the calculation before any
-    transaction is handled. Each bitcoin account gets its own pile, and a run
-    with no transactions returns that ledger unclosed. `tax_timezone` decides
-    only whether a Buy's lot is covered."""
-    if accounts is None:
-        accounts = read_accounts({})
-    for position, tx in enumerate(transactions, start=1):
-        number = tx["id"] if "id" in tx else position
-        for account_id in (tx["from_account_id"], tx["to_account_id"]):
-            if account_id not in accounts:
-                raise ValueError(
-                    f"Transaction {number} names account {account_id}, "
-                    "which the ledger's accounts list doesn't have.")
-    # A bad IANA name raises before any transaction is handled.
-    tax_zone = ZoneInfo(tax_timezone)
-    # A fee account holds fee lines and is not a bitcoin account, so it has no pile.
-    bitcoin = [i for i, account in accounts.items()
-               if account["currency"] == "BTC" and account.get("kind") != "fee"]
-    ledger = Ledger(
-        rounding,
-        lots={i: [] for i in bitcoin},
-        names={i: account["name"] for i, account in accounts.items()},
-        accounts=accounts,
-        tax_zone=tax_zone,
-    )
+def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP, *,
+           accounts: dict[int, Account] | None = None, tax_timezone: str = "UTC") -> Ledger:
+    """Every transaction in time order (the file's order on a tie), in the
+    ledger's accounts (the fixed ones when None; an empty book stays empty)."""
+    accounts = read_accounts({}) if accounts is None else accounts
+    _check_accounts(transactions, accounts)
+    ledger = Ledger(accounts=accounts, rounding=rounding, tax_zone=ZoneInfo(tax_timezone))
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
     for _, tx in ordered:
@@ -213,7 +244,7 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP,
 
 def year_figures(ledger: Ledger, year: int) -> dict:
     rows = [_form_row(row, year, ledger.rounding) for row in ledger.rows if row.sold.year == year]
-    holdings = [{"account": account, "acquired": lot.acquired.isoformat(), "quantity": _btc(lot.quantity),
+    holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(), "quantity": _btc(lot.quantity),
                  "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year, [])]
     return {
         "form_8949": rows,
@@ -272,6 +303,61 @@ def main() -> int:
     return 1 if found else 0
 
 
+def _account(entry: dict) -> Account:
+    """One entry of an accounts list, every field checked: nothing is guessed."""
+    if not isinstance(entry.get("id"), int) or isinstance(entry["id"], bool):
+        raise ValueError(f"An account in the ledger's accounts list has no whole-number id: {entry}.")
+    where = f"The ledger's accounts list: account {entry['id']}"
+    _check_fields(entry, where)
+    _check_kind(entry, where)
+    return Account(**{key: value for key, value in entry.items() if key not in ("hidden", "why")})
+
+
+def _check_fields(entry: dict, where: str) -> None:
+    missing = [key for key in ACCOUNT_FIELDS if key not in entry]
+    if missing:
+        raise ValueError(f"{where} has no {', '.join(missing)}.")
+    unknown = [key for key in entry if key not in ACCOUNT_FIELDS + OPTIONAL_FIELDS]
+    if unknown:
+        raise ValueError(f"{where} has fields this check doesn't know: {', '.join(unknown)}.")
+
+
+def _check_kind(entry: dict, where: str) -> None:
+    """Its kind, currency, exchange and switch agree (2.0 spec 5.1, 5.2)."""
+    kind = entry["kind"]
+    if entry["currency"] not in KIND_CURRENCIES.get(kind, ()):
+        raise ValueError(f"{where} is a {kind!r} account in {entry['currency']!r}, which no account is.")
+    if (kind == "external") != (entry["id"] == EXTERNAL):
+        raise ValueError(f"{where}: External is account {EXTERNAL}, and only External is.")
+    if (kind == "exchange") != isinstance(entry.get("exchange_id"), int):
+        raise ValueError(f"{where}: an exchange's account names its exchange (exchange_id), and no other does.")
+    if "sends_1099da" in entry and (kind != "exchange" or not isinstance(entry["sends_1099da"], bool)):
+        raise ValueError(f"{where}: sends_1099da is an exchange's switch, true or false.")
+
+
+def _check_exchanges(accounts: dict[int, Account]) -> None:
+    """Each exchange has one dollar and one bitcoin account, one switch for both (2.0 spec 5.1, 5.2)."""
+    exchanges: dict[int, list[Account]] = {}
+    for account in accounts.values():
+        if account.exchange_id is not None:
+            exchanges.setdefault(account.exchange_id, []).append(account)
+    for exchange, pair in sorted(exchanges.items()):
+        if sorted(account.currency for account in pair) != ["BTC", "USD"]:
+            raise ValueError(f"Exchange {exchange} in the ledger's accounts list needs one USD and one BTC account.")
+        if pair[0].sends_1099da != pair[1].sends_1099da:
+            raise ValueError(f"Exchange {exchange}'s two accounts disagree on its 1099-DA switch (sends_1099da).")
+
+
+def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> None:
+    """An id the ledger's accounts list doesn't have stops it, never skipped (2.0 spec 5.15)."""
+    for position, tx in enumerate(transactions, start=1):
+        number = position if tx.get("id") is None else tx["id"]
+        for account_id in (tx["from_account_id"], tx["to_account_id"]):
+            if account_id not in accounts:
+                raise ValueError(f"Transaction {number} names account {account_id}, "
+                                 "which the ledger's accounts list doesn't have.")
+
+
 def _moment(text: str) -> datetime:
     return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
@@ -288,7 +374,7 @@ def _noon_of(text: str) -> datetime:
 def _close_years_before(ledger: Ledger, year: int) -> None:
     """Keep each year's closing lots, once the ledger has moved past it."""
     for closed in range(ledger.year or year, year):
-        ledger.holdings[closed] = [(ledger.names[account], copy(lot))
+        ledger.holdings[closed] = [(account, copy(lot))
                                    for account, lots in ledger.lots.items() for lot in lots]
     ledger.year = max(ledger.year or year, year)
 
@@ -322,19 +408,12 @@ def _buy(ledger: Ledger, tx: dict, when: datetime) -> None:
     ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=covered)
 
 
-def _broker_reports(account: dict) -> bool:
-    """A sale from an exchange BTC account is on a 1099-DA when its switch is on.
-    Kind or currency left out is not that account. A missing switch is on (§5.2)."""
-    return bool(account.get("kind") == "exchange" and account.get("currency") == "BTC"
-                and account.get("sends_1099da", True))
-
-
 def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
     # The fee comes off the gross proceeds (amount realized, IRC §1001).
     proceeds = _gross_proceeds(tx) - _money(tx["fee_amount"])
     pieces = ledger.take(tx["from_account_id"], _money(tx["amount"]))
     _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"),
-             _broker_reports(ledger.accounts[tx["from_account_id"]]))
+             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da)
 
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -355,7 +434,7 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
-    _pay_network_fee(ledger, tx, account, when, fee_value, reporting)
+    _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
     pieces = ledger.take(account, _money(tx["amount"]))
     _dispose(ledger, "spend", pieces, received - fee_value, when, reporting)
 
@@ -397,7 +476,7 @@ def _gross_proceeds(tx: dict) -> Fraction:
     return _money(tx.get("gross_proceeds_usd", tx.get("proceeds_usd")))
 
 
-def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
+def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
                      value: Fraction | None = None, reporting: str | None = None) -> Fraction:
     """A fee paid in BTC disposes of that BTC, at its value (`fee_usd`
     unless given), oldest first. Returns the BTC it took. `reporting`: what
@@ -411,7 +490,7 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime,
 
 
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
-             when: datetime, reporting: str | None, broker_reported: bool = False) -> None:
+             when: datetime, reporting: str | None, *, on_1099da: bool = False) -> None:
     """One row per lot, each with its share of the proceeds as a running
     total in cents: the proceeds for the BTC so far with this lot, less
     without it. So the rows report all of the proceeds (the amount realized)
@@ -420,8 +499,8 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
     for lot, quantity, basis in pieces:
         share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
         before += quantity
-        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, lot.covered, reporting,
-                               lot.inherited, broker_reported))
+        ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, covered=lot.covered,
+                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da))
 
 
 def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
@@ -459,7 +538,7 @@ def _box(row: Row, year: int, long_term: bool) -> str:
     boxes = BOXES_UNTIL_2024 if year <= 2024 else BOXES_FROM_2025
     if row.broker_reporting:
         reported = row.broker_reporting  # what the user's 1099 showed (a fee's: its spend's, #549)
-    elif row.kind == "sale" and row.broker_reported and year >= 2025:
+    elif row.kind == "sale" and row.on_1099da and year >= 2025:
         reported = "basis" if row.covered else "proceeds"  # the exchange's 1099-DA
     else:
         reported = "none"  # a spend, a network fee, or a sale no broker reports

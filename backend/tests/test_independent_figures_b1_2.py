@@ -27,7 +27,7 @@ def test_an_unknown_account_names_the_transactions_id():
 
 def test_a_ledgers_own_accounts_are_known():
     accounts = independent.read_accounts({"accounts": [
-        {"id": 2, "name": "Wallet", "currency": "BTC"}, {"id": 99, "name": "External", "currency": None}]})
+        {"id": 2, "name": "Wallet", "kind": "wallet", "currency": "BTC"}]})
     ledger = independent.replay([dict(DEPOSIT, to_account_id=2)], accounts=accounts)
     assert sum(lot.quantity for lot in ledger.lots[2]) == 1
     with pytest.raises(ValueError, match="names account 4,"):
