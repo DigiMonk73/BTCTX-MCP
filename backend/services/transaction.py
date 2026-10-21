@@ -22,6 +22,7 @@ from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, Lo
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
 from backend.services import hourly_prices, price_history
+from backend.services.account import is_yours
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
     ACCOUNT_WALLET,
@@ -2328,7 +2329,8 @@ def _checked_accounts(data: dict, db: Session) -> tuple[Account | None, Account 
     accounts or External is refused."""
     for key in ("from_account_id", "to_account_id"):
         acct_id = data.get(key)
-        if acct_id is not None and acct_id not in USER_ACCOUNTS:
+        # B7a's gate, stubbed on the draft branch (5.10): an account Settings added is yours too
+        if acct_id is not None and acct_id not in USER_ACCOUNTS and not is_yours(acct_id, db):
             _bad(f"Unknown account id {acct_id}.")
     from_acct = db.get(Account, data["from_account_id"]) if data.get("from_account_id") else None
     to_acct = db.get(Account, data["to_account_id"]) if data.get("to_account_id") else None

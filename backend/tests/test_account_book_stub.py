@@ -16,7 +16,7 @@ from backend.tests.conftest import default_login
 
 def account(id, name, kind, currency, exchange_id=None, exchange=None, in_use=False):
     return dict(id=id, name=name, kind=kind, currency=currency, exchange_id=exchange_id,
-                exchange=exchange, hidden=False, in_use=in_use)
+                exchange=exchange, sends_1099da=True if exchange else None, hidden=False, in_use=in_use)
 
 
 ONE_OF_EACH = [
@@ -50,13 +50,13 @@ def test_in_use_is_an_account_a_transaction_names(fresh_app):
     assert used == {1: False, 2: True, 3: False, 4: False, 5: False, 6: False}
 
 
-def test_an_account_made_through_the_1x_api_is_a_wallet_or_a_bank_by_its_currency(fresh_app):
+def test_an_added_account_is_listed_by_its_kind(fresh_app):
     client = logged_in()
     made = {}
-    for name, currency in (("Savings", "BTC"), ("Credit Union", "USD")):
-        r = client.post("/api/accounts/", json={"user_id": 1, "name": name, "currency": currency})
-        assert r.status_code == 200, r.text
-        made[name] = r.json()["id"]
+    for name, kind in (("Savings", "wallet"), ("Credit Union", "bank")):
+        r = client.post("/api/accounts/", json={"kind": kind, "name": name})
+        assert r.status_code == 201, r.text
+        made[name] = r.json()[0]["id"]
     listed = [(a["id"], a["kind"]) for a in client.get("/api/accounts/").json()]
     assert listed == [(1, "bank"), (made["Credit Union"], "bank"), (2, "wallet"), (made["Savings"], "wallet"),
                       (3, "exchange"), (4, "exchange"), (5, "fee"), (6, "fee")]

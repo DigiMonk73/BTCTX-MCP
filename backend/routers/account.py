@@ -1,9 +1,10 @@
 """
-The accounts (the six fixed ones; database.FIXED_ACCOUNTS). The list is in
-2.0's shape (spec 5.9), derived from the fixed ids on this draft branch.
+The account API (spec 5.9), login only; on this draft branch over
+migration 0013's columns (B7b-0, never merged).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead, LedgerAccountRead
 from backend.services import account as account_service
@@ -27,27 +28,32 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
     return account
 
 
-@router.post("/", response_model=AccountRead)
+@router.post("/", response_model=list[LedgerAccountRead], status_code=201)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    """Create an account (user_id, name, currency)."""
-    new_account = account_service.create_account(account, db)
-    return new_account
+    """A bank or a wallet, or an exchange and its two accounts: the rows made."""
+    return account_service.add_account(db, account.kind, account.name)
 
 
-@router.put("/{account_id}", response_model=AccountRead)
-def update_account(account_id: int, account: AccountUpdate, db: Session = Depends(get_db)):
-    """Change an account's name or currency, or 404."""
-    updated_account = account_service.update_account(account_id, account, db)
-    if not updated_account:
+@router.put("/{account_id}", response_model=list[LedgerAccountRead])
+def update_account(account_id: int, account: AccountUpdate, confirm: str | None = None,
+                   db: Session = Depends(get_db)):
+    """Hide or show an account (an exchange's: both), or its exchange's 1099-DA
+    switch; a switch that moves earlier years answers 409 until confirmed (5.8)."""
+    try:
+        changed = account_service.change_account(
+            db, account_id, account.hidden, account.sends_1099da, account.name, confirm)
+    except account_service.PastYearsChange as warning:
+        db.rollback()
+        return JSONResponse(status_code=409, content=warning.body)
+    if changed is None:
         raise HTTPException(status_code=404, detail="Account not found.")
-    return updated_account
+    return changed
 
 
 @router.delete("/{account_id}", status_code=204)
 def delete_account(account_id: int, db: Session = Depends(get_db)):
-    """Delete an account: 204; 404 when it doesn't exist; 400 for a fixed
-    account; 409 while transactions name it."""
-    success = account_service.delete_account(account_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="Account not found or cannot be deleted.")
+    """Delete an account no transaction names: 204; 404 when it doesn't exist;
+    400 for 1 to 6; 409 while transactions name it."""
+    if not account_service.delete_account(account_id, db):
+        raise HTTPException(status_code=404, detail="Account not found.")
     return

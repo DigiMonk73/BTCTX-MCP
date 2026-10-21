@@ -126,13 +126,13 @@ def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_clien
 def test_an_account_transactions_name_cant_be_deleted(auth_client, test_engine, empty):
     """#367's review: deleting it answered 204 and left its transactions
     naming no account. Refused now, in plain words; one nothing names goes."""
-    made = auth_client.post("/api/accounts/", json={"user_id": 1, "name": "Old wallet", "currency": "BTC"})
+    made = auth_client.post("/api/accounts/", json={"kind": "wallet", "name": "Old wallet"})
     assert made.status_code in (200, 201), made.text
-    account_id = made.json()["id"]
+    account_id = made.json()[0]["id"]
     _old_row(test_engine, 984, "Transfer", WALLET, account_id)
     r = auth_client.delete(f"/api/accounts/{account_id}")
     assert (r.status_code, r.json()["detail"]) == (
-        409, "Not deleted: 1 transaction names Old wallet. Move it to another account, or delete it, first.")
+        409, "This account has transactions, so it can't be deleted. Hide it instead: its history stays.")
     with test_engine.connect() as con:
         assert con.execute(text("SELECT to_account_id FROM transactions WHERE id = 984")).scalar() == account_id
     auth_client.delete("/api/transactions/delete_all?confirm=DELETE")

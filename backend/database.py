@@ -185,12 +185,12 @@ def was_replaced(error: Exception) -> bool:
 
 
 FIXED_ACCOUNTS = [
-    {"id": 1, "name": "Bank", "currency": "USD"},
-    {"id": 2, "name": "Wallet", "currency": "BTC"},
-    {"id": 3, "name": "Exchange USD", "currency": "USD"},
-    {"id": 4, "name": "Exchange BTC", "currency": "BTC"},
-    {"id": 5, "name": "BTC Fees", "currency": "BTC"},
-    {"id": 6, "name": "USD Fees", "currency": "USD"},
+    {"id": 1, "name": "Bank", "currency": "USD", "kind": "bank", "exchange_id": None},
+    {"id": 2, "name": "Wallet", "currency": "BTC", "kind": "wallet", "exchange_id": None},
+    {"id": 3, "name": "Exchange USD", "currency": "USD", "kind": "exchange", "exchange_id": 1},
+    {"id": 4, "name": "Exchange BTC", "currency": "BTC", "kind": "exchange", "exchange_id": 1},
+    {"id": 5, "name": "BTC Fees", "currency": "BTC", "kind": "fee", "exchange_id": None},
+    {"id": 6, "name": "USD Fees", "currency": "USD", "kind": "fee", "exchange_id": None},
 ]
 
 
@@ -200,7 +200,7 @@ def seed_defaults(bind=None) -> None:
     fixed accounts (IDs 1-6), tied to the first user. Idempotent.
     """
     from backend.models.user import User
-    from backend.models.account import Account
+    from backend.models.account import Account, Exchange
 
     db = sessionmaker(bind=bind or engine)()
     try:
@@ -214,11 +214,16 @@ def seed_defaults(bind=None) -> None:
             db.add(user)
             db.flush()
 
+        # Exchange 1, 1.x's exchange (spec 5.2): its accounts 3 and 4 name it
+        if db.get(Exchange, 1) is None:
+            db.add(Exchange(id=1, name="Exchange", sends_1099da=True))
         for acct in FIXED_ACCOUNTS:
             existing = db.get(Account, acct["id"])
             if existing:
                 existing.name = acct["name"]
                 existing.currency = acct["currency"]
+                existing.kind = acct["kind"]
+                existing.exchange_id = acct["exchange_id"]
                 existing.user_id = user.id
             else:
                 db.add(Account(user_id=user.id, **acct))
