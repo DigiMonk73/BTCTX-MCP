@@ -1,6 +1,6 @@
 // Pure mapping between the transaction form and the API, kept out of the
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
-import { accountCurrency, isBtcAccount, usdOf } from "./accounts";
+import { EXTERNAL_ID, accountCurrency, isBtcAccount, usdOf } from "./accounts";
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
@@ -26,7 +26,6 @@ export function toDatetimeLocal(date: Date): string {
 }
 
 // The server's fixed account ids
-const EXTERNAL_ID = 99;
 const EXCHANGE_USD_ID = 3;
 const EXCHANGE_BTC_ID = 4;
 
@@ -40,23 +39,18 @@ export function mapAccountToId(account?: AccountType, currency?: Currency): numb
   return 0;
 }
 
-/** The ledger's from and to accounts. A Sell's dollars are its exchange's USD
- * half (`usdOf`). A Buy sends the ids the form holds, so a row read back and
- * saved unchanged keeps both (5.13). Deposit, Withdrawal and Transfer map
- * the 1.x account names. 0 is none chosen, which the pickers' checks never
- * let through. */
+/** The ledger's from and to accounts. A Deposit comes from External and a
+ * Withdrawal goes there; the owner's side is the id the form holds. A Sell's
+ * dollars are its exchange's USD half (`usdOf`). A Buy sends the ids the form
+ * holds, so a row read back and saved unchanged keeps both (5.13). Transfer
+ * still maps the 1.x account names. 0 is none chosen, which the pickers'
+ * checks never let through. */
 export function mapDoubleEntryAccounts(data: TransactionFormData, book: AccountBook): IAccountMapping {
   switch (data.type) {
     case "Deposit":
-      return {
-        from_account_id: EXTERNAL_ID,
-        to_account_id: mapAccountToId(data.account, data.currency),
-      };
+      return { from_account_id: EXTERNAL_ID, to_account_id: data.toAccountId ?? 0 };
     case "Withdrawal":
-      return {
-        from_account_id: mapAccountToId(data.account, data.currency),
-        to_account_id: EXTERNAL_ID,
-      };
+      return { from_account_id: data.fromAccountId ?? 0, to_account_id: EXTERNAL_ID };
     case "Transfer":
       return {
         from_account_id: mapAccountToId(data.fromAccount, data.fromCurrency),
@@ -129,24 +123,16 @@ const TYPE_FORM_DATA: Record<
   TransactionType,
   (tx: ITransaction, book: AccountBook) => Partial<TransactionFormData>
 > = {
-  Deposit: (tx, book) => {
-    const accountId = tx.to_account_id ?? 0;
-    return {
-      account: accountIdToType(accountId),
-      currency: accountCurrency(book, accountId),
-      amount: tx.amount,
-      source: listedSource(tx.source),
-    };
-  },
+  Deposit: (tx) => ({
+    amount: tx.amount,
+    source: listedSource(tx.source),
+  }),
   Withdrawal: (tx, book) => {
-    const accountId = tx.from_account_id ?? 0;
-    const place = { account: accountIdToType(accountId), currency: accountCurrency(book, accountId) };
     // A dollar withdrawal has none (#449). Which accounts hold bitcoin is the book's (5.4).
     const proceeds = isBtcAccount(book, tx.from_account_id ?? undefined)
       ? withdrawalProceeds(tx)
       : undefined;
     return {
-      ...place,
       amount: tx.amount,
       purpose: listedPurpose(tx.purpose),
       proceeds_usd: proceeds,
@@ -239,9 +225,17 @@ interface TypePayload {
   fee?: number;
 }
 
-/** Whether a Deposit's or Withdrawal's account holds bitcoin: Wallet or Exchange BTC. */
-function inBtcAccount(data: Pick<TransactionFormData, "account" | "currency">): boolean {
-  return data.currency === "BTC" && (data.account === "Wallet" || data.account === "Exchange");
+type FormAccounts = Pick<TransactionFormData, "type" | "fromAccountId" | "toAccountId">;
+
+/** The account a Deposit or Withdrawal moves money into or out of: its
+ * currency decides which fields the form shows and sends (5.13). */
+function ownAccount(data: FormAccounts): number | undefined {
+  return data.type === "Deposit" ? data.toAccountId : data.fromAccountId;
+}
+
+/** Whether that account holds bitcoin (5.1): only bitcoin has a source, a basis, a purpose or a value (#449). */
+function inBtcAccount(data: FormAccounts, book: AccountBook): boolean {
+  return isBtcAccount(book, ownAccount(data));
 }
 
 /**
@@ -250,9 +244,9 @@ function inBtcAccount(data: Pick<TransactionFormData, "account" | "currency">): 
  * (#449). It may have a label of its own ("Rent", from an import), which an
  * edit sends back as it was.
  */
-function withdrawalPurpose(data: TransactionFormData): string {
+function withdrawalPurpose(data: TransactionFormData, book: AccountBook): string {
   const purpose = data.purpose && data.purpose !== "N/A" ? data.purpose : "N/A";
-  return inBtcAccount(data) || !isBtcPurpose(purpose) ? purpose : "N/A";
+  return inBtcAccount(data, book) || !isBtcPurpose(purpose) ? purpose : "N/A";
 }
 
 /**
@@ -260,9 +254,9 @@ function withdrawalPurpose(data: TransactionFormData): string {
  * it's one left from the hidden bitcoin fields (#449). Text a version
  * before 1.1.0 saved goes back as it was, as the server keeps it.
  */
-function depositSource(data: TransactionFormData): string {
+function depositSource(data: TransactionFormData, book: AccountBook): string {
   const source = data.source && data.source !== "N/A" ? data.source : "N/A";
-  return inBtcAccount(data) || !isListedSource(source) ? source : "N/A";
+  return inBtcAccount(data, book) || !isListedSource(source) ? source : "N/A";
 }
 
 // Only bitcoin received has a source and a basis, and only bitcoin leaving a
@@ -270,19 +264,19 @@ function depositSource(data: TransactionFormData): string {
 // alone, and one filled in before the account changed stays in the form
 // though hidden, so a dollar deposit or withdrawal sends none (#449)
 const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData, book: AccountBook) => TypePayload> = {
-  Deposit: (data) => ({
+  Deposit: (data, book) => ({
     amount: parseDecimal(data.amount),
-    feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    source: depositSource(data),
-    cost_basis_usd: inBtcAccount(data) ? optionalDecimal(data.costBasisUSD) : null,
+    feeCurrency: inBtcAccount(data, book) ? "BTC" : "USD",
+    source: depositSource(data, book),
+    cost_basis_usd: inBtcAccount(data, book) ? optionalDecimal(data.costBasisUSD) : null,
   }),
-  Withdrawal: (data) => ({
+  Withdrawal: (data, book) => ({
     amount: parseDecimal(data.amount),
-    feeCurrency: data.currency === "BTC" ? "BTC" : "USD",
-    purpose: withdrawalPurpose(data),
+    feeCurrency: inBtcAccount(data, book) ? "BTC" : "USD",
+    purpose: withdrawalPurpose(data, book),
     cost_basis_usd: null,
-    proceeds_usd: inBtcAccount(data) ? proceedsSent(data) : null,
-    fmv_usd: inBtcAccount(data) ? optionalDecimal(data.fmv_usd) : null,
+    proceeds_usd: inBtcAccount(data, book) ? proceedsSent(data) : null,
+    fmv_usd: inBtcAccount(data, book) ? optionalDecimal(data.fmv_usd) : null,
   }),
   // A BTC transfer's amount is what left, its fee in it (filled in by
   // useFieldAutofill); a dollar transfer's is what arrived, the fee on top
@@ -311,10 +305,10 @@ const TYPE_PAYLOAD: Record<TransactionType, (data: TransactionFormData, book: Ac
 };
 
 /** The Form 1099-DA override: only sales and BTC spends reach a broker form. */
-function brokerReporting(data: TransactionFormData): BrokerReporting | null {
+function brokerReporting(data: TransactionFormData, book: AccountBook): BrokerReporting | null {
   const brokerApplies =
     data.type === "Sell" ||
-    (data.type === "Withdrawal" && data.currency === "BTC" && data.purpose === "Spent");
+    (data.type === "Withdrawal" && inBtcAccount(data, book) && data.purpose === "Spent");
   return brokerApplies && data.brokerReporting ? data.brokerReporting : null;
 }
 
@@ -323,15 +317,18 @@ function brokerReporting(data: TransactionFormData): BrokerReporting | null {
 const ORIGINAL_DATE_SOURCES = ["MyBTC", "Gift", "Inherited"];
 
 /** Whether a deposit takes "Date originally acquired" (an inheritance's
- * "Date of death"): My BTC, Gift or Inherited into Wallet or Exchange BTC. */
-export function takesOriginalDate(data: Pick<TransactionFormData, "type" | "account" | "currency" | "source">): boolean {
-  return data.type === "Deposit" && inBtcAccount(data) && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
+ * "Date of death"): My BTC, Gift or Inherited into a bitcoin account. */
+export function takesOriginalDate(
+  data: FormAccounts & Pick<TransactionFormData, "source">,
+  book: AccountBook,
+): boolean {
+  return data.type === "Deposit" && inBtcAccount(data, book) && ORIGINAL_DATE_SOURCES.includes(data.source ?? "");
 }
 
 /** The date originally acquired, as a date alone (the server keeps it as
  * that date); null = none, so an edit to another source clears it. */
-function acquiredAt(data: TransactionFormData): string | null {
-  return takesOriginalDate(data) && data.acquiredDate ? data.acquiredDate : null;
+function acquiredAt(data: TransactionFormData, book: AccountBook): string | null {
+  return takesOriginalDate(data, book) && data.acquiredDate ? data.acquiredDate : null;
 }
 
 /**
@@ -371,8 +368,8 @@ export function buildTransactionPayload(
     fmv_usd: values.fmv_usd,
     source: values.source,
     purpose: values.purpose,
-    broker_reporting: brokerReporting(data),
-    acquired_at: acquiredAt(data),
+    broker_reporting: brokerReporting(data, book),
+    acquired_at: acquiredAt(data, book),
     ...(fee_usd !== undefined ? { fee_usd } : {}),
   };
 }

@@ -9,9 +9,9 @@ import WithdrawalFields from "./WithdrawalFields";
 const TypeFields: React.FC<{ type: TransactionType | ""; book: AccountBook }> = ({ type, book }) => {
   switch (type) {
     case "Deposit":
-      return <DepositFields />;
+      return <DepositFields book={book} />;
     case "Withdrawal":
-      return <WithdrawalFields />;
+      return <WithdrawalFields book={book} />;
     case "Transfer":
       return <TransferFields />;
     case "Buy":

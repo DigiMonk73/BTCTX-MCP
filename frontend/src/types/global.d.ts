@@ -272,9 +272,7 @@ declare global {
     type: TransactionType;
     timestamp: string;
 
-    // Single-account
-    account?: AccountType;
-    currency?: Currency;
+    // Single-account: a Deposit or Withdrawal names its account by id
     amount?: BtcFieldValue;
     source?: DepositSource;      // for BTC deposit
     purpose?: WithdrawalPurpose; // for BTC withdrawal
