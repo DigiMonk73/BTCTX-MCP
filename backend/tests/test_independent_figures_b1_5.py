@@ -61,3 +61,41 @@ def test_a_lot_bought_on_one_exchange_and_moved_is_not_covered_on_the_other():
              ledger_tx("Transfer", "2026-03-01T15:00:00Z", 4, 9, "1.00000000"),
              ledger_tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
     assert _boxes(sales, accounts=accounts) == ["H"]
+
+
+# Added in Claude's B1 fix run (claude-style-verdict-B1.md, gap 7).
+
+def test_east_of_utc_a_buy_on_new_years_eve_in_utc_is_covered():
+    # 16:00 UTC on Dec 31 2025 is 01:00 on Jan 1 2026 in Tokyo.
+    buy = ledger_tx("Buy", "2025-12-31T16:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00")
+    assert _boxes([buy, SELL_4], tax_timezone="Asia/Tokyo") == ["G"]
+    assert _boxes([buy, SELL_4]) == ["H"]
+
+
+def test_a_sell_across_a_lot_from_before_2026_and_one_after_splits_its_boxes():
+    ledger = independent.replay([
+        ledger_tx("Buy", "2025-11-01T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00"),
+        ledger_tx("Buy", "2026-02-01T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="2000.00"),
+        # FIFO: all of the 2025 lot (noncovered, H), then half the 2026 lot (covered, G);
+        # the $3,000 shared by BTC, $2,000 and $1,000.
+        ledger_tx("Sell", "2026-06-01T12:00:00Z", 4, 3, "1.50000000", gross_proceeds_usd="3000.00"),
+    ])
+    rows = [(r["box"], r["proceeds"], r["cost"]) for r in independent.year_figures(ledger, 2026)["form_8949"]]
+    assert rows == [("H", "2000.00", "1000.00"), ("G", "1000.00", "1000.00")]
+
+
+def test_a_sell_the_owner_says_no_broker_reported_is_box_i_with_the_switch_on():
+    sell = dict(SELL_4, broker_reporting="none")
+    bought = ledger_tx("Buy", "2026-02-01T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00")
+    assert _boxes([bought, sell]) == ["I"]
+
+
+def test_an_exchange_listed_without_its_switch_has_it_on():
+    accounts = independent.read_accounts({"accounts": [
+        {"id": 8, "name": "Kraken USD", "currency": "USD", "kind": "exchange", "exchange_id": 2},
+        {"id": 9, "name": "Kraken BTC", "currency": "BTC", "kind": "exchange", "exchange_id": 2},
+    ]})
+    sales = [ledger_tx("Buy", "2026-02-01T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="1000.00"),
+             ledger_tx("Sell", "2026-06-01T12:00:00Z", 9, 8, "0.50000000", gross_proceeds_usd="600.00")]
+    assert accounts[9].on_1099da
+    assert _boxes(sales, accounts=accounts) == ["G"]
