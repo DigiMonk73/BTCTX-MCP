@@ -11,7 +11,7 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
-from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE, normalized
+from backend.constants import REBATE_SOURCE, normalized
 from backend.models.account import Account, Exchange
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
@@ -108,7 +108,7 @@ def get_gains_and_losses(db: Session) -> dict:
     transactions = db.query(Transaction).all()
     book = read_book(db)
     proceeds = _proceeds(transactions, book)
-    deposit_usd, deposit_btc = _deposits_by_source(transactions)
+    deposit_usd, deposit_btc = _deposits_by_source(transactions, book)
     fees_usd, fees_btc = _fees(transactions)
     short_term_net = gains["short_term_gains"] - gains["short_term_losses"]
     long_term_net = gains["long_term_gains"] - gains["long_term_losses"]
@@ -185,14 +185,15 @@ def _proceeds(transactions: list[Transaction], book: AccountBook) -> dict[str, D
     return totals
 
 
-def _deposits_by_source(transactions: list[Transaction]) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+def _deposits_by_source(transactions: list[Transaction],
+                        book: AccountBook) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
     """(USD basis, BTC amount) of the deposits from each DEPOSIT_TOTALS source."""
     usd = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     btc = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     for tx in transactions:
         source = normalized(tx.source)
-        # Into Wallet or Exchange BTC only: a USD deposit's amount is dollars
-        if tx.type.lower() != "deposit" or source not in usd or tx.to_account_id not in BTC_ACCOUNTS:
+        # Into a bitcoin account only: a USD deposit's amount is dollars
+        if tx.type.lower() != "deposit" or source not in usd or not book.is_btc(tx.to_account_id):
             continue
         if tx.cost_basis_usd is None or tx.amount is None:
             continue

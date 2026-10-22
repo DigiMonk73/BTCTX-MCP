@@ -13,7 +13,7 @@ import logging
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import (
     Transaction,
     BitcoinLot,
@@ -21,6 +21,7 @@ from backend.models.transaction import (
 )
 from backend.database import scratch_copy
 from backend.models.account import Account
+from backend.services.account import AccountBook, read_book
 from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
 from backend.services.reports.form_8949 import (
     INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
@@ -102,16 +103,17 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     )
 
     # 4) Build each needed section
+    book              = read_book(db)
     disposals         = taxable_disposals(db, start_dt, end_dt)
     gains_dict        = _build_capital_gains_summary(disposals)
-    income_dict       = _build_income_summary(txns)
+    income_dict       = _build_income_summary(txns, book)
     asset_list        = _build_asset_summary(db, start_dt, end_dt)
     cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals, year, get_tax_timezone(db))
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
-    income_txs        = _build_income_transactions(txns)
-    rebates           = _build_rebates(txns)
-    gifts_lost        = _build_gifts_donations_lost(txns)
-    priced_values     = _build_priced_values(txns, get_tax_timezone(db), db)
+    income_txs        = _build_income_transactions(txns, book)
+    rebates           = _build_rebates(txns, book)
+    gifts_lost        = _build_gifts_donations_lost(txns, book)
+    priced_values     = _build_priced_values(txns, get_tax_timezone(db), book, db)
     data_sources_list = _gather_data_sources(txns)
 
     # 5) Construct final dictionary
@@ -208,14 +210,14 @@ def _build_capital_gains_summary(disposals: list[LotDisposal]) -> dict[str, Any]
     }
 
 
-def _is_btc_deposit(tx: Transaction) -> bool:
-    """A deposit into Wallet or Exchange BTC. One into Bank or Exchange USD
-    is dollars, never bitcoin income, whatever value an older version or an
+def _is_btc_deposit(tx: Transaction, book: AccountBook) -> bool:
+    """A deposit into a bitcoin account. One into a dollar account is
+    dollars, never bitcoin income, whatever value an older version or an
     import left on it."""
-    return tx.type == "Deposit" and tx.to_account_id in BTC_ACCOUNTS
+    return tx.type == "Deposit" and book.is_btc(tx.to_account_id)
 
 
-def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
+def _build_income_summary(txns: list[Transaction], book: AccountBook) -> dict[str, Any]:
     """
     Summarizes BTC deposits where source is "Income", "Reward", or "Interest."
     Note: This example interprets cost_basis_usd as the deposit's "value."
@@ -227,7 +229,7 @@ def _build_income_summary(txns: list[Transaction]) -> dict[str, Any]:
     total_interest = Decimal("0.0")
 
     for tx in txns:
-        if not _is_btc_deposit(tx) or not tx.source:
+        if not _is_btc_deposit(tx, book) or not tx.source:
             continue
         deposit_usd = tx.cost_basis_usd or Decimal("0.0")
         source_lower = normalized(tx.source)
@@ -393,7 +395,7 @@ def _build_capital_gains_transactions_detailed(disposals: list[LotDisposal]) -> 
     ]
 
 
-def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
+def _build_income_transactions(txns: list[Transaction], book: AccountBook) -> list[dict[str, Any]]:
     """
     Builds a list of all deposits that might be categorized as "Income", "Reward", or "Interest."
     This is separate from the summarized totals in _build_income_summary; 
@@ -403,7 +405,7 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
 
     results = []
     for tx in txns:
-        if not _is_btc_deposit(tx) or not tx.source:
+        if not _is_btc_deposit(tx, book) or not tx.source:
             continue
         source_lower = normalized(tx.source)
         if source_lower not in ("income", "reward", "interest"):
@@ -432,15 +434,15 @@ def _build_income_transactions(txns: list[Transaction]) -> list[dict[str, Any]]:
     return results
 
 
-def _build_rebates(txns: list[Transaction]) -> list[dict[str, Any]]:
+def _build_rebates(txns: list[Transaction], book: AccountBook) -> list[dict[str, Any]]:
     """Bitcoin received as a rebate on spending (source Rebate, #98): its
     value at receipt is its cost basis, and it is never income."""
     return [{"date": tx.timestamp.isoformat() if tx.timestamp else "", "amount": float(tx.amount or 0),
              "value_usd": float(tx.cost_basis_usd or 0)}
-            for tx in txns if _is_btc_deposit(tx) and normalized(tx.source) == REBATE_SOURCE]
+            for tx in txns if _is_btc_deposit(tx, book) and normalized(tx.source) == REBATE_SOURCE]
 
 
-def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]:
+def _build_gifts_donations_lost(txns: list[Transaction], book: AccountBook) -> list[dict[str, Any]]:
     """
     Gathers any withdrawals of bitcoin with purpose in ("Gift","Donation","Lost").
     Shown separately for tax/record-keeping. A dollar withdrawal isn't one,
@@ -448,7 +450,7 @@ def _build_gifts_donations_lost(txns: list[Transaction]) -> list[dict[str, Any]]
     """
     results = []
     for tx in txns:
-        if tx.type != "Withdrawal" or tx.from_account_id not in BTC_ACCOUNTS:
+        if tx.type != "Withdrawal" or not book.is_btc(tx.from_account_id):
             continue
         if not tx.purpose:
             continue
@@ -489,7 +491,8 @@ def _lots_by_term(tx: Transaction) -> list[dict[str, Any]]:
             for term in ("LONG", "SHORT") if term in terms]
 
 
-def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None) -> list[dict[str, Any]]:
+def _build_priced_values(txns: list[Transaction], tz, book: AccountBook,
+                         db: Session | None = None) -> list[dict[str, Any]]:
     """
     The year's values BitcoinTX filled in from the BTC price, and which
     price each used (#144): an income, rebate or inherited deposit's value,
@@ -501,7 +504,7 @@ def _build_priced_values(txns: list[Transaction], tz, db: Session | None = None)
     return [
         {"date": tx.timestamp.isoformat(), "transaction": _transaction_label(tx), "value": name,
          "usd": float(usd), "priced_at": priced_at + _from_where(tx, db, years)}
-        for tx in txns for name, usd, priced_at in _priced_values(tx, tz)
+        for tx in txns for name, usd, priced_at in _priced_values(tx, tz, book)
     ]
 
 
@@ -518,10 +521,10 @@ def _from_where(tx: Transaction, db: Session | None, years: dict) -> str:
     return f", {_SOURCE_NAMES.get(source, source)}" if source in _SOURCE_NAMES else ""
 
 
-def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
+def _priced_values(tx: Transaction, tz, book: AccountBook) -> Iterator[tuple[str, Decimal, str]]:
     """(what, USD, which price) for each of a transaction's values from a price."""
     source = normalized(tx.source)
-    if tx.cost_basis_from_price and tx.cost_basis_usd is not None and _is_btc_deposit(tx) \
+    if tx.cost_basis_from_price and tx.cost_basis_usd is not None and _is_btc_deposit(tx, book) \
             and source in VALUED_AT_RECEIPT:
         if source == INHERITED_SOURCE and tx.acquired_at is not None:
             yield "Value (cost basis)", tx.cost_basis_usd, \
@@ -530,7 +533,7 @@ def _priced_values(tx: Transaction, tz) -> Iterator[tuple[str, Decimal, str]]:
             name = "Value (cost basis)" if source == REBATE_SOURCE else "Value (income and basis)"
             yield name, tx.cost_basis_usd, _price_used(tx)
     # A withdrawal's only when bitcoin left: none an older save left on a dollar one (#449)
-    btc_leaving = tx.type == "Withdrawal" and tx.from_account_id in BTC_ACCOUNTS
+    btc_leaving = tx.type == "Withdrawal" and book.is_btc(tx.from_account_id)
     if tx.proceeds_from_price and tx.gross_proceeds_usd is not None and btc_leaving \
             and normalized(tx.purpose) == "spent":
         yield "Proceeds (before fees)", tx.gross_proceeds_usd, _price_used(tx)
