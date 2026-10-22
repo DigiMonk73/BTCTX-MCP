@@ -283,8 +283,8 @@ after `npx playwright install chromium webkit`, reads Playwright's release
 notes for every version in between, and lets CI's two `e2e` jobs decide on
 Linux. The browsers each version needs come with that install, so nothing
 else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
-`ubuntu-24.04` until a run on `ubuntu-latest` (26.04) is green; then it goes
-back to `ubuntu-latest` (#574). WebKit's suite runs on a Mac only from macOS 15
+`ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
+WebKit's suite runs on a Mac only from macOS 15
 (Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
 
 ### Deferred upgrades
