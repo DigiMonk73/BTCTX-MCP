@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db, is_busy
+from backend.services.account import read_book
 from backend.services.tax_time import get_tax_timezone
 from backend.schemas.csv_import import (
     CSVPreviewResponse,
@@ -167,7 +168,7 @@ def preview_import(
 
     content = _read_validated_csv(file)
 
-    result = parse_csv_file(content, get_tax_timezone(db))
+    result = parse_csv_file(content, get_tax_timezone(db), read_book(db))
 
     if len(result.transactions) > MAX_ROWS:
         raise HTTPException(
@@ -211,7 +212,7 @@ def execute_csv_import(
 
     content = _read_validated_csv(file)
 
-    result = parse_csv_file(content, get_tax_timezone(db))
+    result = parse_csv_file(content, get_tax_timezone(db), read_book(db))
 
     if not result.can_import:
         error_messages = [f"Row {e.row_number}: {e.message}" for e in result.errors[:5]]
