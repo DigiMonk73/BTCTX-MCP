@@ -116,9 +116,13 @@ All notable changes to BitcoinTX are documented in this file.
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
   compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
   frontend's lock lists under axios but the built web app never includes.
-  CI's click-through job runs on Ubuntu 24.04 for now (#563's pin), since
-  Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
-  runners.
+- **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
+  which Playwright supports from 1.61; the click-through tests and their
+  config needed no change. CI's click-through job stays on Ubuntu 24.04
+  until a run on `ubuntu-latest` (26.04) is green. `docs/TESTING.md` no
+  longer says cloud sessions have Chromium preinstalled: Anthropic's list
+  of their tools names no Playwright browsers. Tooling only: nothing
+  changes in the app.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
