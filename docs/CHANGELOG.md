@@ -54,6 +54,36 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **The CSV import's preview counts each row once** (#479). Its "N valid
+  / M total rows" counted a row once per error, so a one-row file whose
+  row had two errors said "0 valid / 2 total rows", and an error about
+  the whole file (no rows, missing columns) counted as a row too. It now
+  counts the file's rows, as River's preview does. The count on screen
+  only: a file with any error is never imported.
+- **The AI import's note on a dollar row says dollars** (#525). When the
+  AI connector's preview flagged a dollar deposit, withdrawal or transfer
+  as a possible duplicate, its note called the dollars bitcoin: "Same BTC
+  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit, and
+  "Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)" for a
+  near amount. It now says "Same dollar amount as tx #1 (Deposit
+  $500.00)" and "(Withdrawal $1,500.00)". A dollar row already recorded
+  is left out "(the same type, accounts, dollar amount, …)", no longer
+  "BTC amount". Wording only: each row is flagged, saved or left out as
+  before; a bitcoin row's words are unchanged.
+- **River's Import says which row and column it refused** (#480). When
+  Import refused a cell the server couldn't read (a Cost Basis typed
+  `1,200`, a Fee of `abc`), its message said only "Input should be a
+  valid decimal", once per cell, without saying where. It now names the
+  cell's row by its number in the file, the header being row 1 (as the
+  preview's lists of errors and warnings number rows), and its column:
+  "Row 6 (Cost Basis): Input should be a valid decimal". Nothing is
+  saved, and the preview keeps every edit, as before.
+- **The import previews say an error about the whole file without "Row
+  0:"** (#534). River's preview said "Row 0: This does not look like a
+  River bitcoin-activity CSV. Missing columns: …", and the CSV import's
+  "Row 0: No valid transactions found in file." The message is about the
+  file, not a row, so it now stands alone; a row's errors keep their row.
+  Wording only: such a file is refused as before.
 
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2

@@ -1,20 +1,31 @@
 // The message to show when an API request fails.
 import axios, { AxiosError } from 'axios';
 
+/** Where a 422's input error is, from its `loc` (["body", "rows", 2,
+ * "fee_amount"]), said before its words ("Row 6 (Fee)"); null when it
+ * can't say. */
+export type InputPlace = (loc: unknown[]) => string | null;
+
+/** One of FastAPI's input errors in words: { msg: "Value error, The
+ * password ..." }, after its place when `place` names one. */
+function inputErrorText(error: unknown, place?: InputPlace): string {
+  const { msg, loc } = (error ?? {}) as { msg?: unknown; loc?: unknown };
+  const words = String(msg ?? '').replace(/^Value error, /, '');
+  const where = words && place && Array.isArray(loc) ? place(loc) : null;
+  return where ? `${where}: ${words}` : words;
+}
+
 /** The message in the server's error body: FastAPI's `detail` (a string, or
- * a 422's list of input errors), else an `errors` list; null when it has
- * none. */
-function bodyMessage(data: ApiErrorResponse): string | null {
+ * a 422's list of input errors, each after its place when `place` names
+ * one), else an `errors` list; null when it has none. */
+function bodyMessage(data: ApiErrorResponse, place?: InputPlace): string | null {
   const detail: unknown = data.detail;
   if (typeof detail === 'string' && detail) {
     return detail;
   }
-  // FastAPI's input errors (422): [{ msg: "Value error, The password ..." }]
   if (Array.isArray(detail)) {
-    const messages = detail
-      .map((d) => String((d as { msg?: unknown } | null)?.msg ?? '').replace(/^Value error, /, ''))
-      .filter(Boolean);
-    if (messages.length) return messages.join(' ');
+    const messages = detail.map((d) => inputErrorText(d, place)).filter(Boolean);
+    if (messages.length) return messages.join(place ? '; ' : ' ');
   }
   if (data.errors) {
     const messages = Object.values(data.errors).flat();
@@ -65,14 +76,15 @@ export function extractErrorMessage(err: unknown): string {
 }
 
 /** The server's reason for a failed request, in words (FastAPI's `detail`,
- * a 422's list of input errors included, #448), or null when it gave none. */
-export function serverReason(err: unknown): string | null {
+ * a 422's list of input errors included, #448, each after its place when
+ * `place` names one), or null when it gave none. */
+export function serverReason(err: unknown, place?: InputPlace): string | null {
   const data: unknown = (err as { response?: { data?: unknown } } | null)?.response?.data;
-  return data !== null && typeof data === 'object' ? bodyMessage(data as ApiErrorResponse) : null;
+  return data !== null && typeof data === 'object' ? bodyMessage(data as ApiErrorResponse, place) : null;
 }
 
 /** The server's reason for a failed request, or the fallback when it gave
  * none. Always text: a React child or a template string can take it. */
-export function detailOr(err: unknown, fallback: string): string {
-  return serverReason(err) || fallback;
+export function detailOr(err: unknown, fallback: string, place?: InputPlace): string {
+  return serverReason(err, place) || fallback;
 }
