@@ -55,6 +55,22 @@ All notable changes to BitcoinTX are documented in this file.
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
 
+### Security
+- **Package updates for published security advisories:** pypdf 6.21.2
+  (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
+  which ReportLab needs (the reports draw no images); and certifi
+  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
+  trusts. The IRS forms come out byte-identical for the reference test
+  ledger, and the Complete Tax Report's text is the same.
+
+### Development
+- **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
+  compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
+  frontend's lock lists under axios but the built web app never includes.
+  CI's click-through job runs on Ubuntu 24.04 for now (#563's pin), since
+  Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
+  runners.
+
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
 **About this release.** 1.2.9 is the stable version of BitcoinTX 1.x.
