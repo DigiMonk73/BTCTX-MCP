@@ -91,3 +91,16 @@ promotion request).
       reports by account. BitcoinTX 1.x is deliberately limited to one
       self-custody wallet and one exchange account (#86). No dates
       promised; meanwhile 1.x stays in maintenance.
+
+## After 2.0 (being considered)
+
+Ideas for a later 2.x version, not promises (the owner, 2026-10-22): kept out
+of 2.0, each to be considered once 2.0 is released, with a planning pass and
+a feature branch of its own.
+
+- [ ] **Check a wallet against its public key** (#564): a check, not an
+      import: the wallet's balance, missing transactions and exact network
+      fees, from the owner's own Electrum server or node only, the key never
+      stored by default.
+- [ ] **Exchange history by API** (#565), with read-only keys; weighed
+      against importing the exchange's file (#338).
