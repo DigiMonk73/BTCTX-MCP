@@ -4,19 +4,6 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-### Security
-- **Package updates for published security advisories.** What ships:
-  pypdf 6.21.2 (from 6.20.0), which fills the IRS forms; Pillow 13.0.0
-  (from 12.3.0), which ReportLab uses for the tax report; certifi
-  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts; and follow-redirects 1.16.1 (from 1.16.0), under axios, though
-  the browser doesn't use it. Never shipped: uv 0.13.5 (from 0.13.0), the
-  tool that compiles the locks. The IRS forms come out byte-identical for
-  the reference test ledger, and the Complete Tax Report's text is the
-  same. CI's click-through job runs on Ubuntu 24.04 for now (#563's pin),
-  since Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
-  runners.
-
 ### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
@@ -67,6 +54,22 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+
+### Security
+- **Package updates for published security advisories:** pypdf 6.21.2
+  (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
+  which ReportLab needs (the reports draw no images); and certifi
+  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
+  trusts. The IRS forms come out byte-identical for the reference test
+  ledger, and the Complete Tax Report's text is the same.
+
+### Development
+- **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
+  compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
+  frontend's lock lists under axios but the built web app never includes.
+  CI's click-through job runs on Ubuntu 24.04 for now (#563's pin), since
+  Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
+  runners.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
