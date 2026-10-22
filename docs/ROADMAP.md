@@ -77,8 +77,8 @@ new features go into 2.0, below. No dates are promised.
 
 ## BitcoinTX 2.0 (planned, after 1.2.9)
 
-Planned in #251; the build is planned to start the day Start9 promotes the
-stable version (#251, decision 8). Because it changes how the ledger is
+Planned in #251; the build starts on 2026-10-22, on a `2.0` branch of its
+own (#251, decision 16). Because it changes how the ledger is
 stored, we plan to test 2.0 as a beta on GitHub pre-releases for as long as
 it needs; Start9's copy carries only 1.x until 2.0 is ready for its own 14
 days on Community Beta (the owner, 2026-10-16; Start9 is asked in the
