@@ -5,8 +5,10 @@ import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { serverReason } from "../utils/apiError";
 import { parseTransaction } from "../utils/format";
+import { confirmed } from "../utils/pastYears";
 import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
+import { usePastYears } from "../utils/usePastYears";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
 
@@ -38,6 +40,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // The row's accounts are read from the book (5.4). Without it a save would
   // have nothing true to name, so the fields stay hidden (D4).
   const { book, failed } = useAccounts();
+  // A save, an edit or a delete that changes an earlier tax year asks first (5.8)
+  const pastYears = usePastYears();
 
   const form = useForm<TransactionFormData>({
     defaultValues: { timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS },
@@ -113,7 +117,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      toast.success(await saveTransaction(data, book, transactionId));
+      const saved = await pastYears.through(
+        (confirm) => saveTransaction(data, book, transactionId, confirm),
+        !transactionId,
+      );
+      if (saved === null) return; // Cancel: nothing saved, the form stays as it was
+      toast.success(saved);
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
@@ -126,14 +135,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleDeleteClick = async () => {
-    const confirmed = window.confirm(
+    const sure = window.confirm(
       "Are you sure you want to delete this transaction?"
     );
-    if (!confirmed) return;
+    if (!sure) return;
 
     setIsSubmitting(true);
     try {
-      await api.delete(`/transactions/${transactionId}`);
+      const deleted = await pastYears.through(
+        (confirm) => api.delete(`/transactions/${transactionId}`, confirmed(confirm)),
+        false,
+      );
+      if (deleted === null) return;
       toast.success("Transaction deleted successfully!");
       reset();
       onSubmitSuccess?.();
@@ -213,6 +226,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           />
         )}
       </form>
+      {pastYears.dialog}
     </FormProvider>
   );
 };
