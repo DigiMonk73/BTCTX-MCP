@@ -76,6 +76,29 @@ All notable changes to BitcoinTX are documented in this file.
   longer says cloud sessions have Chromium preinstalled: Anthropic's list
   of their tools names no Playwright browsers. Tooling only: nothing
   changes in the app.
+- **React 19.3 and Vite 8.3** (from React 18.3 and Vite 6.4; the owner's
+  decision, 2026-10-22, deferred since #425). React draws the web pages and
+  Vite builds them; their type packages (`@types/react`,
+  `@types/react-dom` 19.3) and `@vitejs/plugin-react` 6.1, which needs
+  Vite 8, move with them. Taken now so 2.0's reworked screens, from the
+  transaction form (B6a, #351) on, are written once, on the React they'll
+  ship with, and before Vite 6's security fixes end with Vite 9. Two lines
+  of code change: `PrivateRoute.tsx` names `React.JSX.Element` (React 19's
+  types drop the global `JSX`), and `tsconfig.node.json` resolves modules
+  the `bundler` way (Vite 8 and the plugin publish their types only
+  through `exports`). Vite 8 builds with Rolldown and Lightning CSS, not
+  esbuild and Rollup, and its default target, Safari 16.4, is newer than
+  the Mac app's WebKit (Safari 15 on macOS 10.15), so
+  `frontend/vite.config.ts` keeps the build's target at Safari 15
+  (`['es2020', 'safari15']`): newer JavaScript or CSS syntax is still
+  rewritten for it. Nothing changes for users: the same screens, figures
+  and forms; the page's script is about 70 kB bigger (513 kB, 159 kB
+  compressed). Dependabot now proposes these packages' major versions
+  (`.github/dependabot.yml`), and their "Deferred upgrades" row in
+  `docs/MAINTENANCE.md` is gone. The lint check
+  `react-hooks/set-state-in-effect` stays off until 2.0's screens
+  (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
+  Node.js 22.13 or newer, the README's minimum (it said 18).
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

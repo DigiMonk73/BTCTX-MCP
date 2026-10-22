@@ -103,20 +103,8 @@ updates:
     ignore:
       # Bumped by hand, with both click-through suites (MAINTENANCE.md)
       - dependency-name: "@playwright/test"
-      # Deferred majors (MAINTENANCE.md): React 18, Vite 6, TypeScript 5;
+      # Deferred major (MAINTENANCE.md): TypeScript 5;
       # @types/node follows Node 24, the version Docker and CI run
-      - dependency-name: react
-        update-types: ["version-update:semver-major"]
-      - dependency-name: react-dom
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: vite
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@vitejs/plugin-react"
-        update-types: ["version-update:semver-major"]
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"

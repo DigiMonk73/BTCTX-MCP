@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import api from '../api';
 
 interface PrivateRouteProps {
-  children: JSX.Element;
+  children: React.JSX.Element;
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
