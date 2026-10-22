@@ -22,7 +22,7 @@ from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, Lo
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
 from backend.services import hourly_prices, price_history, recalculated
-from backend.services.account import is_yours
+from backend.services.account import AccountBook, is_yours, read_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
     ACCOUNT_WALLET,
@@ -2668,80 +2668,100 @@ BUY_SAME_EXCHANGE = "A Buy paid from {paid_from} goes into {its_btc}: an exchang
 SELL_FROM = "A Sell is from an exchange's BTC account."
 SELL_INTO = "A Sell from {sold_from} goes into {its_usd}."
 
-# Each type's rules for its accounts: (broken(from_id, to_id), message), in
-# the order they're checked: 1.x's ids with 5.5's messages (B3's prep), until
-# account_problems asks the book (B3-2)
-_TYPE_ACCOUNT_RULES = {
-    "Deposit": [
-        (lambda f, t: f != ACCOUNT_EXTERNAL, DEPOSIT_FROM),
-        (lambda f, t: not t or t == ACCOUNT_EXTERNAL, DEPOSIT_INTO),
-    ],
-    "Withdrawal": [
-        (lambda f, t: not f or f == ACCOUNT_EXTERNAL, WITHDRAWAL_FROM),
-        (lambda f, t: t != ACCOUNT_EXTERNAL, WITHDRAWAL_TO),
-    ],
-    "Transfer": [
-        (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL, TRANSFER_BETWEEN),
-        # Only a BTC account can send to itself: a consolidation (#159)
-        (lambda f, t: f == t and f not in BTC_ACCOUNTS, TRANSFER_TO_ITSELF),
-    ],
-    "Buy": [
-        (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), BUY_PAID_FROM),
-        (lambda f, t: t != ACCOUNT_EXCHANGE_BTC, BUY_INTO),
-    ],
-    "Sell": [
-        (lambda f, t: f != ACCOUNT_EXCHANGE_BTC, SELL_FROM),
-        (lambda f, t: t != ACCOUNT_EXCHANGE_USD, SELL_INTO.format(sold_from="Exchange BTC", its_usd="Exchange USD")),
-    ],
-}
+def account_problems(tx_type: str, from_id: int | None, to_id: int | None,
+                     book: AccountBook) -> list[tuple[str, str]]:
+    """
+    Every rule of 5.5 the pair of accounts breaks for the type, in order, as
+    (side, message): side "from" or "to", the message in 5.5's words. The one
+    copy of the rules: the save raises the first, the CSV import (and River
+    and the AI import through it) reports each. Asked of the book's kinds and
+    currencies, never of 1.x's ids, so a second bank, wallet or exchange
+    follows the first one's rules. A type that isn't one breaks none here.
+    """
+    check = _ACCOUNT_PROBLEMS.get(tx_type)
+    if check is None:
+        return []
+    return check(from_id, to_id, book)
 
 
-# B7a's gate, stubbed on the draft branch (5.10): a Buy or a Sell on an
-# account Settings added is checked as 1.x's account of its kind
-_ROLE = {("bank", "USD"): ACCOUNT_BANK, ("wallet", "BTC"): ACCOUNT_WALLET,
-         ("exchange", "USD"): ACCOUNT_EXCHANGE_USD, ("exchange", "BTC"): ACCOUNT_EXCHANGE_BTC}
+def _deposit_problems(from_id: int | None, to_id: int | None, book: AccountBook) -> list[tuple[str, str]]:
+    problems = []
+    if from_id != ACCOUNT_EXTERNAL:
+        problems.append(("from", DEPOSIT_FROM))
+    if not book.is_yours(to_id):
+        problems.append(("to", DEPOSIT_INTO))
+    return problems
 
 
-def _role(acct_id: int | None, db: Session) -> int | None:
-    """1.x's id for an added account of the same kind and currency; 1.x's ids as they are."""
-    if acct_id is None or acct_id in USER_ACCOUNTS:
-        return acct_id
-    account = db.get(Account, acct_id)
-    return _ROLE.get((account.kind, account.currency), acct_id) if account else acct_id
+def _withdrawal_problems(from_id: int | None, to_id: int | None, book: AccountBook) -> list[tuple[str, str]]:
+    problems = []
+    if not book.is_yours(from_id):
+        problems.append(("from", WITHDRAWAL_FROM))
+    if to_id != ACCOUNT_EXTERNAL:
+        problems.append(("to", WITHDRAWAL_TO))
+    return problems
 
 
-def _check_one_exchange(tx_type: str, from_id: int | None, to_id: int | None, db: Session) -> None:
-    """An exchange's dollars and bitcoin in one Buy or Sell are the same exchange's."""
-    accounts = [db.get(Account, i) for i in (from_id, to_id) if i is not None]
-    exchanges = {a.exchange_id for a in accounts if a is not None and a.kind == "exchange"}
-    if len(exchanges) > 1:
-        raise HTTPException(400, f"{tx_type} => from and to must be the same exchange.")
+def _transfer_problems(from_id: int | None, to_id: int | None, book: AccountBook) -> list[tuple[str, str]]:
+    problems = []
+    if not book.is_yours(from_id):
+        problems.append(("from", TRANSFER_BETWEEN))
+    if not book.is_yours(to_id):
+        problems.append(("to", TRANSFER_BETWEEN))
+    if problems:
+        return problems
+    # Only a bitcoin account can send to itself: a consolidation (#159)
+    if from_id == to_id and not book.is_btc(from_id):
+        return [("to", TRANSFER_TO_ITSELF)]
+    if book.currency(from_id) != book.currency(to_id):
+        return [("to", TRANSFER_ONE_CURRENCY)]
+    return []
+
+
+def _buy_problems(from_id: int | None, to_id: int | None, book: AccountBook) -> list[tuple[str, str]]:
+    problems = []
+    if book.kind(from_id) != "bank" and not _exchange_half(book, from_id, "USD"):
+        problems.append(("from", BUY_PAID_FROM))
+    if not _exchange_half(book, to_id, "BTC"):
+        problems.append(("to", BUY_INTO))
+    # An exchange's dollars buy only on that exchange (Q15)
+    elif (_exchange_half(book, from_id, "USD")
+          and book.exchange_of(from_id) != book.exchange_of(to_id)):
+        its_btc = book.btc_of(from_id)
+        problems.append(("to", BUY_SAME_EXCHANGE.format(paid_from=book.name(from_id), its_btc=book.name(its_btc))))
+    return problems
+
+
+def _sell_problems(from_id: int | None, to_id: int | None, book: AccountBook) -> list[tuple[str, str]]:
+    if not _exchange_half(book, from_id, "BTC"):
+        return [("from", SELL_FROM)]
+    if to_id != book.usd_of(from_id):
+        its_usd = book.usd_of(from_id)
+        return [("to", SELL_INTO.format(sold_from=book.name(from_id), its_usd=book.name(its_usd)))]
+    return []
+
+
+def _exchange_half(book: AccountBook, account_id: int | None, currency: str) -> bool:
+    """An exchange's account in that currency: its USD or its BTC."""
+    return book.kind(account_id) == "exchange" and book.currency(account_id) == currency
+
+
+# 5.5's table, one function per type
+_ACCOUNT_PROBLEMS = {"Deposit": _deposit_problems, "Withdrawal": _withdrawal_problems,
+                     "Transfer": _transfer_problems, "Buy": _buy_problems, "Sell": _sell_problems}
 
 
 def _enforce_transaction_type_rules(tx_data: dict, db: Session):
     """
-    The accounts each type allows: a Deposit from External to one of the
-    user's accounts, a Withdrawal the other way, a Transfer between two of
-    them in the same currency (or from a BTC account to itself: a
-    consolidation, #159), a Buy from Bank or Exchange USD to Exchange BTC, a
-    Sell from Exchange BTC to Exchange USD.
+    The accounts each type allows (5.5): the first rule the pair breaks is
+    the save's 400 (account_problems, by the book).
     """
     tx_type = tx_data.get("type")
-    from_id = tx_data.get("from_account_id")
-    to_id = tx_data.get("to_account_id")
-    if tx_type not in _TYPE_ACCOUNT_RULES:
+    if tx_type not in TX_TYPES:
         raise HTTPException(400, f"Unknown transaction type: {tx_type}")
-    if tx_type in ("Buy", "Sell"):
-        _check_one_exchange(tx_type, from_id, to_id, db)
-        from_id, to_id = _role(from_id, db), _role(to_id, db)
-    for broken, message in _TYPE_ACCOUNT_RULES[tx_type]:
-        if broken(from_id, to_id):
-            raise HTTPException(400, message)
-    if tx_type == "Transfer":
-        db_from = db.get(Account, from_id)
-        db_to = db.get(Account, to_id)
-        if db_from and db_to and db_from.currency != db_to.currency:
-            raise HTTPException(400, TRANSFER_ONE_CURRENCY)
+    problems = account_problems(tx_type, tx_data.get("from_account_id"), tx_data.get("to_account_id"), read_book(db))
+    if problems:
+        raise HTTPException(400, problems[0][1])
 
 
 def delete_all_transactions(db: Session) -> int:
