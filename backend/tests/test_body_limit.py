@@ -11,6 +11,7 @@ for a logged-in owner's request only.
 import asyncio
 import io
 import json
+import logging
 import time
 from base64 import b64encode
 
@@ -199,3 +200,105 @@ def test_a_busy_database_answers_busy_not_too_large(auth_client, monkeypatch):
     login = auth_client.cookies.get(SESSION_COOKIE)
     status, read, answer = send("/api/backup/restore", [b" " * MB] * 6, length=6 * MB, cookie=login)
     assert (status, read) == (503, 0) and answer["json"]["detail"] == "BitcoinTX is busy: try again in a moment."
+
+
+# A body sent with a GET for one of the web app's files (#589's review).
+# Starlette 1.8's FileResponse reads receive() while it sends a file, to see
+# the client leave (under uvicorn, ASGI spec 2.3), so it reads a body no
+# route asked for; past 5 MB that refusal came in the middle of the file.
+PAGE_SIZE, SCRIPT_SIZE = 200 * 1024, 300 * 1024  # several of FileResponse's 64 KB chunks
+
+
+@pytest.fixture
+def web_files(tmp_path, monkeypatch):
+    """The web app's page and a script of its bundle, served from tmp_path;
+    their contents by path."""
+    import backend.main as main
+
+    page = b"<!doctype html><title>BitcoinTX</title>".ljust(PAGE_SIZE, b" ")
+    script = b"console.log(1);".ljust(SCRIPT_SIZE, b" ")
+    (tmp_path / "index.html").write_bytes(page)
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "index-abc123.js").write_bytes(script)
+    files = next(route.app for route in main.app.routes if getattr(route, "name", None) == "frontend")
+    monkeypatch.setattr(files, "directory", str(tmp_path))
+    monkeypatch.setattr(files, "all_directories", [str(tmp_path)])
+    monkeypatch.setattr(main, "frontend_dist", str(tmp_path))  # the page for the app's own routes
+    return {"/": page, "/dashboard": page, "/assets/index-abc123.js": script}
+
+
+def get_with_a_body(path: str, chunks: list[bytes], arriving: bool) -> tuple[int, bytes, bool]:
+    """
+    GET `path` straight to the app as uvicorn calls it (ASGI spec 2.3), with
+    `chunks` as its body and no Content-Length. `arriving`: each chunk takes
+    a turn of the event loop, so the answer gets under way meanwhile; else
+    they are all there at once. Once the body is read, receive() waits for
+    the answer's end and then says the client left, as uvicorn's does.
+    Returns the status, the body sent and whether the answer was finished.
+    """
+    scope = {
+        "type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+        "method": "GET", "scheme": "http", "path": path, "raw_path": path.encode(), "query_string": b"",
+        "root_path": "", "headers": [(b"host", b"testserver")], "client": ("127.0.0.1", 50000),
+        "server": ("testserver", 80),
+    }
+    sent = []
+
+    async def run():
+        finished = asyncio.Event()
+        read = 0
+
+        async def receive():
+            nonlocal read
+            if read == len(chunks):
+                await finished.wait()
+                return {"type": "http.disconnect"}
+            if arriving:
+                await asyncio.sleep(0)
+            read += 1
+            return {"type": "http.request", "body": chunks[read - 1], "more_body": read < len(chunks)}
+
+        async def collect(message):
+            sent.append(message)
+            if message["type"] == "http.response.body" and not message.get("more_body", False):
+                finished.set()
+
+        await asyncio.wait_for(app(scope, receive, collect), timeout=30)
+
+    asyncio.run(run())
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    bodies = [m for m in sent if m["type"] == "http.response.body"]
+    return start["status"], b"".join(m.get("body", b"") for m in bodies), bool(bodies) and not bodies[-1].get(
+        "more_body", False)
+
+
+def no_error_logged(caplog) -> bool:
+    return not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+@pytest.mark.parametrize("path", ["/", "/dashboard", "/assets/index-abc123.js"])
+def test_a_body_arriving_while_a_file_is_sent_is_dropped_never_refused_mid_file(web_files, caplog, path):
+    """The answer is under way when the body passes 5 MB: nothing can be
+    refused any more, so the rest of the body is thrown away and the
+    whole file is sent. It was a 200 cut off with no file and an error in
+    the log (RuntimeError, or _TooLarge for an app page)."""
+    status, body, finished = get_with_a_body(path, [b" " * MB] * 6, arriving=True)
+    assert (status, finished, len(body)) == (200, True, len(web_files[path])), (path, status, finished, len(body))
+    assert body == web_files[path]
+    assert no_error_logged(caplog), [r.getMessage() for r in caplog.records]
+
+
+@pytest.mark.parametrize("path", ["/", "/dashboard", "/assets/index-abc123.js"])
+def test_a_body_past_the_limit_before_a_file_is_sent_is_a_413(web_files, caplog, path):
+    """The body passes 5 MB before the answer starts: 413, as for any
+    route, never a 500 and an error in the log (the app page's was)."""
+    status, body, finished = get_with_a_body(path, [b" " * MB] * 6, arriving=False)
+    assert (status, finished) == (413, True), (path, status, body[:200])
+    assert json.loads(body)["detail"] == too_large(MAX_BODY_BYTES)
+    assert no_error_logged(caplog), [r.getMessage() for r in caplog.records]
+
+
+def test_a_body_under_the_limit_sent_with_a_file_changes_nothing(web_files, caplog):
+    status, body, finished = get_with_a_body("/assets/index-abc123.js", [b" " * MB] * 4, arriving=True)
+    assert (status, finished, body) == (200, True, web_files["/assets/index-abc123.js"])
+    assert no_error_logged(caplog)

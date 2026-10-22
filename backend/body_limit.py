@@ -4,7 +4,8 @@ FastAPI reads a body (and parses it) before any dependency, the login check
 included, so the routes anyone can reach (login, Create account, the
 account reset) took a body of any size. A body over its limit is answered
 413: with a Content-Length over it before a byte is read, and sent in
-chunks as soon as the bytes that came pass it.
+chunks as soon as the bytes that came pass it, unless the answer is already
+under way (_Counted says how each case ends).
 
 The limit is MAX_BODY_BYTES. A route taking a file (main.py lists them)
 takes that file's own limit, with FORM_ROOM for the form around it, and
@@ -66,17 +67,7 @@ class BodyLimitMiddleware:
         if _content_length(scope) > limit:
             await JSONResponse({"detail": too_large(limit)}, status_code=413)(scope, receive, send)
             return
-        received = 0
-
-        async def counted() -> Message:
-            nonlocal received
-            message = await receive()
-            received += len(message.get("body", b""))
-            if received > limit:
-                raise _TooLarge(status_code=413, detail=too_large(limit))
-            return message
-
-        await self.app(scope, counted, send)
+        await _Counted(limit, receive, send).run(self.app, scope)
 
     async def _limit(self, scope: Scope) -> int | None:
         """This request's limit; None when the database is too busy to say
@@ -104,6 +95,73 @@ class BodyLimitMiddleware:
         except (itsdangerous.BadSignature, binascii.Error, ValueError):
             return None
         return session if isinstance(session, dict) and session.get("user_id") else None
+
+
+class _Counted:
+    """
+    One request's body, counted as the app reads it, and how a body past
+    the limit ends:
+
+    - Before the answer has started, receive() refuses it (_TooLarge), and
+      the 413 is this middleware's own: whatever the app sends from then on
+      is dropped, and so is the error the refusal becomes on its way out,
+      so the client gets one 413 and the log no error (#430). The app may
+      answer the refusal itself (FastAPI's 413, the same words), or a file
+      being sent may send its 200's start while the refusal unwinds it,
+      which Starlette then turns into "response already started".
+    - Once the answer has started, nothing can be refused any more: the
+      rest of the body is read and thrown away (each chunk comes back
+      empty), and the answer goes on. Starlette's FileResponse (from 1.8,
+      under an ASGI spec below 2.4, as uvicorn's) reads receive() while it
+      sends a file, to see the client leave, and so reads a body no route
+      asked for: a GET for the page or a script with a body in chunks past
+      the limit was refused in the middle of the file, cut off with an
+      error in the log (#589's review).
+    """
+
+    def __init__(self, limit: int, receive: Receive, send: Send):
+        self.limit = limit
+        self._receive = receive
+        self._send = send
+        self.received = 0
+        self.started = False
+        self.refused: _TooLarge | None = None
+
+    async def run(self, app: ASGIApp, scope: Scope) -> None:
+        try:
+            await app(scope, self.receive, self.send)
+        except Exception as error:
+            if self.refused is None or not _comes_from(error, self.refused):
+                raise
+        if self.refused is not None:
+            await JSONResponse({"detail": self.refused.detail}, status_code=413)(scope, self._receive, self._send)
+
+    async def receive(self) -> Message:
+        message = await self._receive()
+        self.received += len(message.get("body", b""))
+        if self.received <= self.limit or message["type"] != "http.request":
+            return message
+        if self.started:
+            return {**message, "body": b""}
+        self.refused = self.refused or _TooLarge(status_code=413, detail=too_large(self.limit))
+        raise self.refused
+
+    async def send(self, message: Message) -> None:
+        if self.refused is not None:
+            return  # run() answers the 413
+        self.started = self.started or message["type"] == "http.response.start"
+        await self._send(message)
+
+
+def _comes_from(error: BaseException | None, cause: BaseException) -> bool:
+    """Whether `error` is `cause`, or was raised from it or while handling it."""
+    seen = set()
+    while error is not None and id(error) not in seen:
+        if error is cause:
+            return True
+        seen.add(id(error))
+        error = error.__cause__ or error.__context__
+    return False
 
 
 def _is_live(scope: Scope, session: dict) -> bool | None:
