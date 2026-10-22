@@ -141,3 +141,24 @@ test("converter, date mode: the day's price", async ({ authedPage: page }) => {
   await page.getByLabel("BTC", { exact: true }).fill("1");
   await expect(page.getByLabel("USD", { exact: true })).toHaveValue("50000");
 });
+
+test("converter, date mode: an hour with no price stored says the day's price stands in (#555)", async ({ authedPage: page }) => {
+  const sidebar = page.getByRole("complementary");
+  const note = sidebar.getByText("The day's price (00:00 UTC)", { exact: true });
+  await sidebar.getByRole("button", { name: "Date" }).click();
+  await sidebar.getByLabel("Select date").fill("2024-03-01");
+  await expect(sidebar.getByText("$50,000.00", { exact: true })).toBeVisible();
+  await expect(note).toHaveCount(0); // the day, asked for
+  // The test server stores no hourly prices, so an hour gets the day's
+  await sidebar.getByLabel("Hour").selectOption("15:00");
+  await expect(note).toBeVisible();
+  await expect(sidebar.getByText("$50,000.00", { exact: true })).toBeVisible();
+  // An hour's own price: no note
+  await page.route(
+    (url) => url.pathname.endsWith("/bitcoin/price/history") && url.searchParams.has("at"),
+    (route) => route.fulfill({ json: { USD: 50_123, moment: "hour", at: "2024-03-01T22:00:00Z", source: "bitstamp" } }),
+  );
+  await sidebar.getByLabel("Hour").selectOption("16:00");
+  await expect(sidebar.getByText("$50,123.00", { exact: true })).toBeVisible();
+  await expect(note).toHaveCount(0);
+});

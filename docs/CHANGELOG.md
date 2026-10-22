@@ -54,6 +54,38 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **The Sats Converter counts dollars exactly, and a half satoshi goes to
+  the even count** (#529). From dollars it worked the satoshis out in a
+  computer's binary numbers, which can land a hair off: $488.93 at
+  $96,281.60 is exactly 507,812.5 sats, and came out 507,812.49999999994.
+  It now counts from the digits typed, and an amount exactly halfway
+  between two satoshis goes to the even one, as BitcoinTX rounds a half
+  cent of a value worked out from a price (#556). So $488.93 at $96,281.60
+  still shows 507,812, now by that rule. Some numbers it shows change by
+  one satoshi: at an exact half the old arithmetic landed on the other side
+  of ($91.69 at $80,000 is 114,612.5 sats: 114,612, where it showed
+  114,613; $267.59 is 334,487.5: 334,488, where it showed 334,487), and
+  very large amounts ($20,160,000,000 at $96,281.95 is 20,938,504,049,824
+  sats, one fewer than it showed). A BTC amount typed with more than 8
+  decimals that is exactly halfway between two satoshis goes to the even
+  one too, where it went up: 0.000000025 BTC is 2 sats (it showed 3), and
+  0.000000005 BTC is 0. Only the converter's display changes: nothing it
+  shows is saved. 1.2.9.
+- **The Sats Converter's Date mode says when it shows the day's price for
+  an hour** (#555). With an hour chosen that BitcoinTX has no price stored
+  for, it showed the day's price (that UTC day's 00:00 price) just as it
+  shows an hour's, so two hours of one day could show different kinds of
+  price with nothing to tell them apart. Under the date and hour it now
+  says "The day's price (00:00 UTC)", the words a transaction's filled-in
+  value uses; pointing at it says no price is stored for that hour. The
+  calculator below moves down a line while it shows. Nothing is saved.
+  1.2.8 and 1.2.9.
+- **An amount of 10^21 BTC or more is written whole** (#489). Far beyond
+  all the bitcoin there is, JavaScript writes such an amount in exponent
+  form, and trimming the zeros after a decimal point took the exponent's:
+  1e30 BTC was written "1e+3" (in the converter's BTC field, for one).
+  It's now "1e+30". No real amount reaches it, and nothing is saved.
+  Every release.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

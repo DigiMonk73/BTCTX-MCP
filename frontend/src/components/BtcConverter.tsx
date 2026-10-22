@@ -4,7 +4,7 @@ import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
-import { historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
+import { dayPriceNote, historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
@@ -26,6 +26,7 @@ const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
   missing: "No price",
 };
 type Field = "USD" | "BTC" | "SATS" | null;
+type Answered = Pick<LiveBtcPriceResponse, "source" | "at" | "moment">;
 
 const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
@@ -33,8 +34,9 @@ const BtcConverter: React.FC = () => {
   // Why there's no price, when there's none: never shown as "$0.00". "missing":
   // Date mode's day has none
   const [noPrice, setNoPrice] = useState<"loading" | NoPrice | "missing">("loading");
-  // Where the price came from and when ("kraken", "mempool"; the live price only)
-  const [answered, setAnswered] = useState<{ source?: string; at?: string } | null>(null);
+  // Where the price came from and when ("kraken", "mempool"; the live price only), and
+  // for Date mode's hour whether it's that hour's or the day's (#555)
+  const [answered, setAnswered] = useState<Answered | null>(null);
   // Whether public sites are asked through Tor (null until the settings answer):
   // the source line waits for it, so it never shows without "through Tor" first
   const [throughTor, setThroughTor] = useState<boolean | null>(null);
@@ -45,11 +47,11 @@ const BtcConverter: React.FC = () => {
     const ticket = priceTicket.current;
     let price = 0;
     let why: NoPrice | "missing" = "none";
-    let from: { source?: string; at?: string } | null = null;
+    let from: Answered | null = null;
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
-      from = { source: res.data?.source, at: res.data?.at };
+      from = { source: res.data?.source, at: res.data?.at, moment: res.data?.moment };
     } catch (err) {
       // no price: 0, and why (backend/services/outbound.py's 503s are choices)
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
@@ -82,6 +84,7 @@ const BtcConverter: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedHour, setSelectedHour] = useState<string>("");
   const timezone = browserTimezone();
+  const dayNote = btcPrice > 0 ? dayPriceNote(selectedHour, answered?.moment) : null;
 
   const [usdValue, setUsdValue] = useState<string>("");
   const [btcValue, setBtcValue] = useState<string>("");
@@ -179,7 +182,7 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setUsdValue(value);
       // One count, and the BTC field written from it, so the two agree (#451)
-      const sats = satsFromUsd(parseFloat(value) || 0, btcPrice);
+      const sats = satsFromUsd(value, btcPrice);
 
       setBtcValue(sats === null ? "" : btcText(sats / SATS_PER_BTC));
       setSatsValue(sats === null ? "" : sats.toString());
@@ -345,6 +348,7 @@ const BtcConverter: React.FC = () => {
               ))}
             </select>
           </div>
+          {dayNote && <p className="converter-note day-price-note" title={dayNote.full}>{dayNote.short}</p>}
         </div>
       )}
 
