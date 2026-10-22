@@ -13,17 +13,20 @@ export function historyPriceUrl(date: string, hour: string): string | null {
 }
 
 /**
- * Date mode's note when an hour was asked and no price is stored for it
- * (#555): the server's answer is the day's price ("moment": "day"), named in
- * the transaction form's words (utils/priceUsed.ts). null for the hour's own
- * price, or for the day asked for.
+ * Date mode's line under the date and hour, once an hour is chosen (#555):
+ * which price the server answered, in UTC as a price's hour always is. The
+ * hour's own price, or, where none is stored for it, the 00:00 UTC price of
+ * the hour's UTC day, which isn't always the date picked: 23:00 on Mar 1 in
+ * Chicago gets Mar 2's. why: the reason, for a screen reader and the title.
+ * null: no answer naming a moment.
  */
-export function dayPriceNote(hour: string, moment?: string): { short: string; full: string } | null {
-  if (hour === "" || moment !== "day") return null;
-  return {
-    short: "The day's price (00:00 UTC)",
-    full: "No price is stored for that hour, so this is the day's price (00:00 UTC).",
-  };
+export function priceMomentLine(moment?: string, at?: string): { text: string; why: string | null } | null {
+  if (!at || (moment !== "hour" && moment !== "day")) return null;
+  const day = new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const when = `${day}, ${at.slice(11, 16)} UTC`;
+  return moment === "hour"
+    ? { text: `Hour's price: ${when}`, why: null }
+    : { text: `Day's price: ${when}`, why: "No price is stored for that hour." };
 }
 
 // A number field's text: sign, digits, decimal point, exponent ("1e-8")

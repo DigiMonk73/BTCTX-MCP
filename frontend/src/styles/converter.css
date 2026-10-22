@@ -54,9 +54,9 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-/* Under the date and hour, when the day's price stands in for the hour (#555): one line,
-   the full words its title */
-.day-price-note {
+/* Under the date and hour, which price shows (#555): one line, kept while its answer comes */
+.price-moment-line {
+  min-height: 1.5em;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

@@ -5,11 +5,12 @@ import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from 
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
 import {
-  dayPriceNote, historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd, usdFromBtc, usdFromSats,
+  historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd, usdFromBtc, usdFromSats,
 } from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
+import PriceMomentLine from "./converter/PriceMomentLine";
 import "../styles/converter.css";
 
 type Mode = "manual" | "auto" | "date";
@@ -37,7 +38,7 @@ const BtcConverter: React.FC = () => {
   // Date mode's day has none
   const [noPrice, setNoPrice] = useState<"loading" | NoPrice | "missing">("loading");
   // Where the price came from and when ("kraken", "mempool"; the live price only), and
-  // for Date mode's hour whether it's that hour's or the day's (#555)
+  // for Date mode's hour whether it's that hour's or a day's, and which (#555)
   const [answered, setAnswered] = useState<Answered | null>(null);
   // Whether public sites are asked through Tor (null until the settings answer):
   // the source line waits for it, so it never shows without "through Tor" first
@@ -86,7 +87,6 @@ const BtcConverter: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedHour, setSelectedHour] = useState<string>("");
   const timezone = browserTimezone();
-  const dayNote = btcPrice > 0 ? dayPriceNote(selectedHour, answered?.moment) : null;
 
   const [usdValue, setUsdValue] = useState<string>("");
   const [btcValue, setBtcValue] = useState<string>("");
@@ -347,7 +347,8 @@ const BtcConverter: React.FC = () => {
               ))}
             </select>
           </div>
-          {dayNote && <p className="converter-note day-price-note" title={dayNote.full}>{dayNote.short}</p>}
+          {/* Kept while an hour is chosen, so the calculator below moves only between Day and an hour */}
+          {selectedHour !== "" && <PriceMomentLine answer={btcPrice > 0 ? answered : null} />}
         </div>
       )}
 
