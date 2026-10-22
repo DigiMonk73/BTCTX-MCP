@@ -7,7 +7,7 @@ All notable changes to BitcoinTX are documented in this file.
 ### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
-  now says "multiple": the one-wallet notice (Settings → About, the
+  now says "multiple": the one-wallet notice (Settings → About BitcoinTX, the
   README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
   the StartOS instructions and store description, the roadmap and the 2.0
   plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
@@ -63,6 +63,56 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **A save that meets a busy database says so** (#478). A transaction
+  saved, edited or deleted while something else held the database for
+  more than 5 seconds (a long import, or an AI assistant adding many rows)
+  waited, as it should, then failed with "Something unexpected went wrong.
+  BitcoinTX's log says what.", and the log had an error. It now says
+  "BitcoinTX was busy saving something else, and nothing was changed. Try
+  again.", as the imports do, and the log has a warning. The AI connector
+  shows the same words. Create account on an install with transactions
+  now deletes them and saves the new login as one save: a save that came
+  between the two could leave every transaction deleted and the old login
+  in place, with that error.
+- **A save that failed is never saved later with the next one** (tax
+  figures; found in #580's review). When a save's last step, writing it
+  into the database file, had to wait more than 5 seconds for something
+  reading the database (a backup or a report copying it, on slow
+  storage), the save failed with an error, but its change stayed pending
+  on that database connection, and the next save made through it saved
+  the change too. So a transaction entered again after the error could be
+  in the ledger twice, and an edit, a deletion, a Delete All or a Create
+  account that failed could take effect with a later save. BitcoinTX now
+  drops what a failed save left pending. It takes a read lasting over 5
+  seconds, so it's rare.
+
+  **Affected:** 0.8.0 to 1.2.9, any tax year, only after a save, edit or
+  deletion that failed with an error (in 1.2.9, "Something unexpected
+  went wrong. BitcoinTX's log says what."). A transaction saved twice
+  changes the holdings, gains and income worked out from it. **What to
+  do:** if you saw such an error and then entered the same transaction
+  again, look in Transactions around its date for it listed twice, and
+  delete the extra one (Ledger Review doesn't look for duplicates). If a
+  Delete All or Create account failed that way and your transactions
+  were gone later: in 1.2.9, the copy made just before is in `backups/`
+  (`btctx-before-delete-all-….db`); before 1.2.9 no such copy was made, so
+  restore your last backup.
+- **Settings says why the tax timezone wasn't saved** (#533). It said
+  "Could not save the timezone." whatever went wrong; it now gives the
+  server's reason, as the rest of Settings does: a timezone your browser
+  lists that BitcoinTX's timezone data doesn't know yet, or a busy
+  database. The timezone in use stays until a save succeeds.
+- **Small wording fixes from 1.2.9's checks** (#534):
+  - The CSV export's file name has the date on your device's clock: one
+    made at 9:37 pm on October 18 in Chicago was named for October 19,
+    the date in UTC.
+  - The Sell form's hint under Gross Proceeds says "BitcoinTX takes the
+    fee off to give the net proceeds." (it spoke of "the backend").
+  - The hint under Bitcoin Wallet points to Settings → About BitcoinTX,
+    the section's name.
+  - The Mac app says it needs macOS 11 or later (it said 10.15). It's
+    built for Apple silicon only, and every Apple-silicon Mac has macOS 11
+    or later, so nothing changes for anyone.
 - **With your own Mempool, a value priced while its history was
   downloading could take its day's price instead of its hour's** (tax
   figures, #535). With **My own Mempool** chosen, the first past price

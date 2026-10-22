@@ -266,7 +266,7 @@ app = BUNDLE(
         "CFBundleVersion": "1.2.9",
         "CFBundleShortVersionString": "1.2.9",
         "NSHighResolutionCapable": True,
-        "LSMinimumSystemVersion": "10.15",
+        "LSMinimumSystemVersion": "11.0",
         "NSRequiresAquaSystemAppearance": False,  # Support dark mode
     },
 )

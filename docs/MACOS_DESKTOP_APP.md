@@ -249,7 +249,7 @@ nothing.
 - **Bundle:** `org.bitcointx.desktop`, its version typed into
   `BitcoinTX.spec` (`CFBundleVersion` / `CFBundleShortVersionString`; bump
   both on release; `backend/tests/test_versions_agree.py` checks they match
-  `VERSION`), minimum macOS 10.15,
+  `VERSION`), minimum macOS 11.0,
   dark mode supported.
 
 ## Using the MCP server with the Mac app

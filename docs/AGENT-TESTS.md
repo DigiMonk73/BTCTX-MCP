@@ -324,7 +324,7 @@ Start from the `clean` snapshot.
   every golden figure as before.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Bitcoin Wallet`: expect the
-  hint "One self-custody wallet: see Settings → About." under it. Switch to
+  hint "One self-custody wallet: see Settings → About BitcoinTX." under it. Switch to
   Account `Exchange`, Currency `BTC`, Source **Rebate**, `0.0001` BTC on `2025-04-01`, cost basis
   `6`, and save. Expect: Exchange (BTC) 0.15010000, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged

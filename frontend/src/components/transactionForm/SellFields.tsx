@@ -52,7 +52,7 @@ const SellFields: React.FC = () => {
           <span className="field-error">Gross proceeds is required</span>
         )}
         <small className="field-hint">
-          The backend will subtract fees to calculate net proceeds.
+          BitcoinTX takes the fee off to give the net proceeds.
         </small>
       </div>
 

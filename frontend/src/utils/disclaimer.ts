@@ -14,4 +14,4 @@ export const ONE_WALLET_NOTICE =
   "your tax preparer.";
 
 /** The light hint next to the Bitcoin Wallet choice. */
-export const ONE_WALLET_HINT = "One self-custody wallet: see Settings → About.";
+export const ONE_WALLET_HINT = "One self-custody wallet: see Settings → About BitcoinTX.";

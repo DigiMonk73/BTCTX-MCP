@@ -482,6 +482,8 @@ from the Transaction row alone.
   checks the setup code or password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.
+  reset-account's delete and its new login are one save (`wipe.delete_all`'s
+  `save_with`): a failure leaves both as they were.
 - Sessions (`backend/session_auth.py`): each login gets a random session id,
   carried in the cookie; the server keeps the hashes of the open ones in
   `app_settings` (the newest 20). A session not on that list is logged out
@@ -543,8 +545,13 @@ from the Transaction row alone.
   logs no trace (#430; the tests fail on one unless marked
   `unexpected_error`); a save a restore's swap refused answers `REPLACED`
   (503, `database.was_replaced`, Python 3.11+) and is logged as a
-  warning. Two kinds still show an error in full, to the owner only: a
-  failure that stops BitcoinTX starting (`init_db`, a migration),
+  warning, and so is one that waited past the 5 s for SQLite's write lock
+  (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
+  pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
+  a COMMIT that failed busy is never saved by the next request on it
+  (#580's re-check). Two kinds still show an error
+  in full, to the owner only: a failure that stops BitcoinTX starting
+  (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot; its Set Login Credentials and
   Recalculate Ledger actions show only the `error:` line, never the SQL

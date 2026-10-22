@@ -1,8 +1,9 @@
 /* ============================================
    theme.css - design tokens
    Every color, size and radius the app uses. Plain custom properties only:
-   the Mac app's WebKit (Safari 15 on macOS 10.15) has no color-mix(), CSS
-   nesting or container queries.
+   the Mac app draws with the system's WebKit, and its CSS keeps to Safari 15
+   (macOS 11, the oldest the app runs on, came with Safari 14 and updates to
+   16), which has no color-mix(), CSS nesting or container queries.
 ============================================ */
 
 :root {
