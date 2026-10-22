@@ -142,6 +142,17 @@ def river_preview(client, rows: list[str]) -> list[dict]:
     return r.json()["proposals"]
 
 
+ROW_KEYS = ("date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
+            "fee_amount", "fee_currency", "source", "purpose")
+
+
+def river_save(client, row: dict) -> dict:
+    """River's Import of one row as the screen sends it, after the owner's edits."""
+    r = client.post("/api/import/river/execute", json={"rows": [row]})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
 def record(client, when: str, amount: str, to_account_id: int, **fields) -> int:
     """A recorded deposit from External (1 Bank: dollars; 4 Exchange BTC: bitcoin)."""
     r = client.post("/api/transactions", json={
@@ -167,10 +178,37 @@ def test_a_river_payout_beside_a_dollar_deposit_of_the_same_number_is_new(client
     dollar_deposit(client, "2026-02-01T09:00:00Z", "0.01")
     [payout] = river_preview(client, [PAYOUT])
     assert (payout["status"], payout["matched_tx_id"]) == ("new", None), payout
-    keys = ("date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
-            "fee_amount", "fee_currency", "source", "purpose")
-    r = client.post("/api/import/river/execute", json={"rows": [{k: payout[k] for k in keys}]})
-    assert r.status_code == 200 and r.json()["imported_count"] == 1, r.text
+    assert river_save(client, {k: payout[k] for k in ROW_KEYS})["imported_count"] == 1
+
+
+def test_a_river_send_made_a_withdrawal_beside_a_dollar_withdrawal_is_saved(client):
+    """#588's review: a send (New in the preview) the owner switched to a
+    Withdrawal was skipped at the save, "already in the ledger", beside a
+    recorded $0.01 Bank -> External withdrawal at its minute: the same
+    destination was all _compatible asked."""
+    bitcoin_payout(client, "2026-01-01T12:00:00Z", "0.05")
+    dollar_deposit(client, "2026-01-01T12:00:00Z", "100")
+    r = client.post("/api/transactions", json={
+        "type": "Withdrawal", "timestamp": "2026-02-15T10:00:00Z", "from_account_id": 1, "to_account_id": 99,
+        "amount": "0.01", "fee_amount": "0", "fee_currency": "USD",
+    })
+    assert r.is_success, r.text
+    [send] = river_preview(client, ["2026-02-15 10:00:00,0.01000000,BTC,,,,,"])
+    assert (send["status"], send["type"], send["to_account"]) == ("new", "Transfer", "Wallet"), send
+    row = {**{k: send[k] for k in ROW_KEYS}, "type": "Withdrawal", "to_account": "External", "purpose": "Gift"}
+    assert river_save(client, row)["imported_count"] == 1
+
+
+def test_a_river_receive_made_a_deposit_beside_a_dollar_deposit_is_saved(client):
+    """#588's review: a receive the owner switched to a Deposit was skipped
+    at the save beside a recorded $0.01 External -> Bank deposit at its
+    minute: the same source (External)."""
+    dollar_deposit(client, "2026-03-01T10:00:00Z", "0.01")
+    [receive] = river_preview(client, ["2026-03-01 10:00:00,,,0.01000000,BTC,,,"])
+    assert (receive["status"], receive["type"], receive["from_account"]) == ("new", "Transfer", "Wallet"), receive
+    row = {**{k: receive[k] for k in ROW_KEYS}, "type": "Deposit", "from_account": "External", "source": "Income",
+           "cost_basis_usd": "1000.00"}
+    assert river_save(client, row)["imported_count"] == 1
 
 
 def test_a_river_payout_a_day_after_a_dollar_deposit_of_the_same_number_is_not_to_review(client):
