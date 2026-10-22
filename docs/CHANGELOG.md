@@ -60,16 +60,15 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX needs (on a fresh install, or 10 minutes after the last
   download) downloads your Mempool's whole price history. A price looked up
   while that download was still running found nothing in it:
-  - For an hour whose day's price was already stored, BitcoinTX took that
-    day's 00:00 UTC price instead of the hour's. A value it filled in then
-    was saved at that price, marked as priced at the day: an income or
-    rebate deposit's value, a spend's proceeds, a gift's, donation's or
-    lost coins' value, a network fee's value.
+  - BitcoinTX could take the day's 00:00 UTC price instead of the hour's:
+    when that day's price was already stored, or, with the backup on, from
+    the public sites, which it asked instead of your Mempool. A value it
+    filled in then was saved at that price, marked as priced at the day:
+    an income or rebate deposit's value, a spend's proceeds, a gift's,
+    donation's or lost coins' value, a network fee's value.
   - Otherwise the value was refused until tried again: "No BTC price is
     available for …; enter the USD value yourself." (422), or "No price"
     in the Sats Converter's Date mode.
-  - With the backup on, such a lookup asked the public sites instead of
-    your Mempool.
 
   Now a lookup made while the download is running waits for it (at most 3
   minutes), sends no request of its own, and takes its price from it. If
