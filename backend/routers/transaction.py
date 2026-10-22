@@ -10,6 +10,7 @@ import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -18,8 +19,10 @@ from backend.schemas.transaction import (
     TransactionUpdate,
     TransactionRead
 )
+from backend.services import past_year_saves
 from backend.services import transaction as tx_service
 from backend.services import wipe
+from backend.services.past_years import PastYearsChange
 from backend.database import get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
@@ -97,8 +100,10 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
     sent again with confirm=<the 409's fingerprint>, after a copy of the
     database (5.8).
     """
-    tx_data = tx.model_dump()
-    new_tx = tx_service.create_transaction_record(tx_data, db)
+    new_tx = _through_the_warning(
+        past_year_saves.Write("add", data=tx.model_dump()), request, db, confirm)
+    if isinstance(new_tx, JSONResponse):
+        return new_tx
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
     return _attach_utc_and_build_read_model(new_tx, db)
@@ -138,8 +143,11 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
         raise HTTPException(status_code=404, detail="Transaction not found.")
     if not request.session.get("user_id"):  # the AI key
         _copy_before_ai_changes(db, "Not changed")
-    tx_data = tx.model_dump(exclude_unset=True)
-    updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
+    updated_tx = _through_the_warning(
+        past_year_saves.Write("edit", transaction_id, tx.model_dump(exclude_unset=True)),
+        request, db, confirm)
+    if isinstance(updated_tx, JSONResponse):
+        return updated_tx
     if not updated_tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return _attach_utc_and_build_read_model(updated_tx, db)
@@ -179,10 +187,24 @@ def delete_transaction(transaction_id: int, request: Request, confirm: str | Non
         raise HTTPException(status_code=404, detail="Transaction not found.")
     if not request.session.get("user_id"):  # the AI key
         _copy_before_ai_changes(db, "Not deleted")
-    success = tx_service.delete_transaction_record(transaction_id, db)
+    success = _through_the_warning(
+        past_year_saves.Write("delete", transaction_id), request, db, confirm)
+    if isinstance(success, JSONResponse):
+        return success
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return
+
+
+def _through_the_warning(write: past_year_saves.Write, request: Request, db: Session,
+                         confirm: str | None):
+    """The write, or 409 when it changes an earlier tax year (5.8). The AI
+    key is also warned about a pending fix; a login is not."""
+    try:
+        return past_year_saves.save(write, db, confirm, ai=not request.session.get("user_id"))
+    except PastYearsChange as asked:
+        db.rollback()
+        return JSONResponse(status_code=409, content=asked.body)
 
 
 def _made_this_hour_today(made: float) -> bool:
