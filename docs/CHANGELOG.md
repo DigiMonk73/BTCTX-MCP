@@ -34,6 +34,20 @@ All notable changes to BitcoinTX are documented in this file.
   nothing is opened or requested. The reports come out the same for the
   reference test ledger: the same text and pages, only the time they were
   made differs.
+- **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
+  web framework BitcoinTX's server is built on, and lucide-react 1.61.0
+  (from 1.55.0), the web app's icons (Dependabot's #538, #544 and #559,
+  taken together). Bug fixes and small additions: nothing BitcoinTX
+  relies on works differently. Starlette 1.8 was read against BitcoinTX's
+  security rules (the size limit on a request, the cross-site guard,
+  sessions, the web app's files), and they hold: a file being sent now
+  stops when the browser goes away; a session that drops a value says
+  `Vary: Cookie`; a POST to the web app's pages, refused as before (405),
+  names the methods they take (`Allow: GET, HEAD`); and it needs Python
+  3.11, BitcoinTX's minimum since #546. The icons BitcoinTX shows are
+  drawn the same. The tools that check the code moved with them: Ruff
+  0.17.2 (from 0.17.0), typescript-eslint 8.71.2 (from 8.71.1) and Vitest
+  5.0.5 (from 5.0.4). Nothing changes on screen or in any figure.
 
 ### Fixed
 - **A spend's network fee goes in the Form 8949 box its Broker form
@@ -179,12 +193,12 @@ All notable changes to BitcoinTX are documented in this file.
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2
   (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
-  which ReportLab needs (the reports draw no images); and certifi
-  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
-  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
-  forms come out byte-identical for the reference test
-  ledger, and the Complete Tax Report's text is the same.
+  which ReportLab needs (the reports draw no images); certifi 2026.10.19
+  (from 2026.7.22), the certificate authorities BitcoinTX trusts; and
+  opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI brings (a header
+  parsed in quadratic time, CVE-2026-114603). The IRS forms come out
+  byte-identical for the reference test ledger, and the Complete Tax
+  Report's text is the same.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
