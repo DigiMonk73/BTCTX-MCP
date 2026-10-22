@@ -362,6 +362,8 @@ test("Date with an hour: that hour on this device's clock, its UTC day's price h
   await sidebar.getByLabel("Hour").selectOption(tokyo ? "5" : "23");
   const expected = fakePastPrice(tokyo ? "2024-02-29" : "2024-03-02");
   await expect(sidebar.getByText(shown(expected), { exact: true })).toBeVisible();
+  // #555: and the line under the date and hour names that day, not the date picked
+  await expect(sidebar.getByText(`Day's price: ${tokyo ? "Feb 29" : "Mar 2"}, 00:00 UTC`, { exact: true })).toBeVisible();
   sentOut(app, browser); // no request named the day, or the hour
 });
 
