@@ -544,7 +544,10 @@ from the Transaction row alone.
   `unexpected_error`); a save a restore's swap refused answers `REPLACED`
   (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
-  (`BUSY`, 503, `database.is_busy`, #478). Two kinds still show an error
+  (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
+  pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
+  a COMMIT that failed busy is never saved by the next request on it
+  (#580's re-check). Two kinds still show an error
   in full, to the owner only: a failure that stops BitcoinTX starting
   (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's

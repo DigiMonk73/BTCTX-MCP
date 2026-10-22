@@ -9,6 +9,7 @@ check, the copy and the delete hold the write lock together (#276).
 import sqlite3
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ from backend.database import get_db
 from backend.main import app
 from backend.models.user import User
 from backend.services import first_run, wipe
+from backend.unexpected_errors import BUSY
 
 DELETE_ALL = "/api/transactions/delete_all"
 CONFIRMED = f"{DELETE_ALL}?confirm=DELETE"
@@ -338,7 +340,6 @@ def test_a_busy_database_deletes_nothing(impatient_app):
     assert delete_copies(impatient_app) == []
 
 
-
 def test_create_accounts_delete_and_new_login_are_one_save(impatient_app, monkeypatch):
     """#580's review: Create account saved the delete, then the new login.
     A save that took the write lock in between (an import) made the login's
@@ -369,6 +370,56 @@ def test_create_accounts_delete_and_new_login_are_one_save(impatient_app, monkey
     assert me.post("/api/login", json=CLAIM).status_code == 200
     assert count(me) == 0
     assert rows_in(delete_copies(impatient_app)[0]) == 2
+
+
+@contextmanager
+def reading(path):
+    """Another connection reading while a save commits (a backup copying the
+    database on slow storage): the COMMIT waits for it, then fails busy."""
+    other = sqlite3.connect(path, check_same_thread=False)
+    other.execute("BEGIN")
+    other.execute("SELECT count(*) FROM transactions").fetchone()  # its read lock, kept until it ends
+    try:
+        yield
+    finally:
+        other.rollback()
+        other.close()
+
+
+# #580's re-check: a save whose COMMIT failed busy went back to the pool still
+# open, and the next save on that connection saved it too
+def test_a_save_whose_commit_was_busy_is_never_saved_by_the_next(impatient_app):
+    """A transaction saved, "busy, try again", tried again: it's saved once."""
+    me = with_transactions()
+    with reading(impatient_app.url.database):
+        r = me.post("/api/transactions", json={
+            "type": "Deposit", "timestamp": "2026-01-02T12:00:00Z", "from_account_id": 99, "to_account_id": 1,
+            "amount": "100", "fee_amount": "0", "fee_currency": "USD"})
+    assert (r.status_code, r.json()) == (503, {"detail": BUSY})
+    deposit(me, "2026-01-02T12:00:00Z")
+    assert count(me) == 3
+
+
+def test_a_create_account_whose_commit_was_busy_is_never_finished_by_the_next_save(impatient_app):
+    me = with_transactions()
+    code = first_run.ensure_code()
+    with reading(impatient_app.url.database):
+        r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=code, confirm="DELETE"))
+    assert (r.status_code, r.json()) == (503, {"detail": BUSY})
+    deposit(me, "2026-01-02T12:00:00Z")
+    assert count(me) == 3
+    assert anon().post("/api/login", json=CLAIM).status_code == 401
+    assert anon().get("/api/users/setup-status").json()["is_default"] is True
+
+
+def test_a_delete_all_whose_commit_was_busy_is_never_finished_by_the_next_save(impatient_app):
+    me = with_transactions()
+    with reading(impatient_app.url.database):
+        r = me.delete(CONFIRMED)
+    assert (r.status_code, r.json()) == (503, {"detail": BUSY})
+    deposit(me, "2026-01-02T12:00:00Z")
+    assert count(me) == 3
+
 
 def test_create_account_with_transactions_asks_once_the_code_is_right(fresh_app):
     with_transactions()

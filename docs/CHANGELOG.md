@@ -60,11 +60,33 @@ All notable changes to BitcoinTX are documented in this file.
   waited, as it should, then failed with "Something unexpected went wrong.
   BitcoinTX's log says what.", and the log had an error. It now says
   "BitcoinTX was busy saving something else, and nothing was changed. Try
-  again.", as the imports do, and the log has a warning. Nothing was ever
-  half saved: only the message changes. The AI connector shows the same
-  words. Create account on an install with transactions deletes them and
-  saves the new login as one save: a save that came between the two
-  could leave every transaction deleted and the old login in place.
+  again.", as the imports do, and the log has a warning. The AI connector
+  shows the same words. Create account on an install with transactions
+  now deletes them and saves the new login as one save: a save that came
+  between the two could leave every transaction deleted and the old login
+  in place, with that error.
+- **A save that failed is never saved later with the next one** (tax
+  figures; found in #580's review). When a save's last step, writing it
+  into the database file, had to wait more than 5 seconds for something
+  reading the database (a backup or a report copying it, on slow
+  storage), the save failed with an error, but its change stayed pending
+  on that database connection, and the next save made through it saved
+  the change too. So a transaction entered again after the error could be
+  in the ledger twice, and an edit, a deletion, a Delete All or a Create
+  account that failed could take effect with a later save. BitcoinTX now
+  drops what a failed save left pending. It takes a read lasting over 5
+  seconds, so it's rare.
+
+  **Affected:** 0.8.0 to 1.2.9, any tax year, only after a save, edit or
+  deletion that failed with an error (in 1.2.9, "Something unexpected
+  went wrong. BitcoinTX's log says what."). A transaction saved twice
+  changes the holdings, gains and income worked out from it. **What to
+  do:** if you saw such an error and then entered the same transaction
+  again, look in Transactions around its date for it listed twice, and
+  delete the extra one (Ledger Review doesn't look for duplicates). If a
+  Delete All or Create account failed that way and your transactions
+  were gone later, the copy made just before is in `backups/`
+  (`btctx-before-delete-all-….db`).
 - **Settings says why the tax timezone wasn't saved** (#533). It said
   "Could not save the timezone." whatever went wrong; it now gives the
   server's reason, as the rest of Settings does: a timezone your browser
