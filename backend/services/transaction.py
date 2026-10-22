@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
-from backend.services import hourly_prices, price_history
+from backend.services import hourly_prices, price_history, recalculated
 from backend.services.account import is_yours
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -2039,6 +2039,9 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
         _replay(rec_tx, db, known, past_missing)
 
     db.flush()
+    if until is None:
+        # The whole ledger, by this BitcoinTX's rules: nothing is pending now (5.8)
+        recalculated.note(db)
 
 
 def _replay(tx: Transaction, db: Session, known: set[int], past_missing: list[Transaction] | None) -> None:

@@ -122,6 +122,10 @@ def get_db():
         db.close()
 
 
+# Marks a scratch copy's session (scratch_copy): what's written there is thrown away.
+SCRATCH = "btctx_scratch_copy"
+
+
 @contextmanager
 def scratch_copy(db: Session) -> Iterator[Session]:
     """
@@ -141,6 +145,7 @@ def scratch_copy(db: Session) -> Iterator[Session]:
         try:
             scratch = Session(bind=engine)
             try:
+                scratch.info[SCRATCH] = True
                 yield scratch
             finally:
                 scratch.close()
