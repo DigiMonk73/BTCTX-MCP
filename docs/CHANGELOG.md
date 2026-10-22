@@ -54,6 +54,47 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **The Sats Converter counts exactly, a half satoshi to the even count
+  and a half cent to the even cent** (#529). It worked its figures out in
+  a computer's binary numbers, which can land a hair off: $488.93 at
+  $96,281.60 is exactly 507,812.5 sats, and came out 507,812.49999999994.
+  It now counts from the digits typed, and an amount exactly halfway goes
+  to the even one, as BitcoinTX rounds a half cent of a value worked out
+  from a price (#556). So $488.93 at $96,281.60 still shows 507,812, now
+  by that rule. **Some sats figures it shows change by one sat,** where an
+  amount is exactly halfway and the old arithmetic rounded it the other
+  way ($91.69 at $80,000 is 114,612.5 sats: 114,612, where it showed
+  114,613; $267.59 is 334,487.5: 334,488, where it showed 334,487), and for
+  very large amounts ($20,160,000,000 at $96,281.95 is 20,938,504,049,824
+  sats, one fewer than it showed). A BTC amount typed with more than 8
+  decimals that is exactly halfway between two satoshis goes to the even
+  one too, where it went up: 0.000000025 BTC is 2 sats (it showed 3), and
+  0.000000005 BTC is 0. **Some dollar figures it shows (from BTC or sats)
+  change by one cent:** they follow the same rule, so the converter shows
+  the cent BitcoinTX would save for that amount at that price. 0.5 BTC at
+  $96,281.61 ($48,140.805) is $48,140.80, where it showed $48,140.81; 0.15
+  BTC at $96,283.70 ($14,442.555) is $14,442.56, where it showed
+  $14,442.55. Only the converter's display changes: nothing it shows is
+  saved. The sats figures: 1.2.9; the dollar figures: 0.9.2 to 1.2.9.
+- **The Sats Converter's Date mode says which price it shows for an hour**
+  (#555). With an hour chosen that BitcoinTX has no price stored for, it
+  showed a day's 00:00 UTC price just as it shows an hour's, so two hours
+  of one day could show different kinds of price with nothing to tell
+  them apart. That day is the hour's day in UTC, which isn't always the
+  date picked: 23:00 on March 1 in Chicago is 05:00 UTC on March 2, so
+  it's March 2's price. Under the date and hour a line now says which
+  price shows: "Hour's price: Mar 1, 22:00 UTC", or "Day's price: Mar 2,
+  00:00 UTC", when no price is stored for that hour (which a screen
+  reader is told, and pointing at the line says). The line is there
+  whenever an hour is chosen, so the calculator below moves down a line
+  when you choose an hour instead of Day, and not while a price comes.
+  Nothing is saved. 1.2.8 and 1.2.9.
+- **An amount of 10^21 BTC or more is written whole** (#489). Far beyond
+  all the bitcoin there is, JavaScript writes such an amount in exponent
+  form, and trimming the zeros after a decimal point took the exponent's:
+  1e30 BTC was written "1e+3" (in the converter's BTC field, for one).
+  It's now "1e+30". No real amount reaches it, and nothing is saved.
+  0.9.2 to 1.2.9.
 - **The CSV import's preview counts each row once** (#479). Its "N valid
   / M total rows" counted a row once per error, so a one-row file whose
   row had two errors said "0 valid / 2 total rows", and an error about

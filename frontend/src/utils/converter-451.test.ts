@@ -26,12 +26,14 @@ describe("the converter counts satoshis exactly (#451)", () => {
     }
   });
 
-  it("rounds digits past the satoshi to the nearest", () => {
+  it("rounds digits past the satoshi to the nearest, an exact half to the even count (#529)", () => {
     expect(satsFromBtc("0.123456784")).toBe(12_345_678);
-    expect(satsFromBtc("0.123456785")).toBe(12_345_679);
+    expect(satsFromBtc("0.123456785")).toBe(12_345_678);
+    expect(satsFromBtc("0.123456786")).toBe(12_345_679);
     expect(satsFromBtc("1.999999999")).toBe(200_000_000);
     expect(satsFromBtc("0.000000004")).toBe(0);
-    expect(satsFromBtc("0.000000005")).toBe(1);
+    expect(satsFromBtc("0.000000005")).toBe(0);
+    expect(satsFromBtc("0.000000006")).toBe(1);
   });
 
   it("reads what a number field holds", () => {
@@ -41,7 +43,7 @@ describe("the converter counts satoshis exactly (#451)", () => {
     expect(satsFromBtc("-0.29")).toBe(-29_000_000);
     expect(satsFromBtc("1e-8")).toBe(1);
     expect(satsFromBtc("2.9E-1")).toBe(29_000_000);
-    expect(satsFromBtc("5e-9")).toBe(1);
+    expect(satsFromBtc("6e-9")).toBe(1);
     expect(satsFromBtc("1e-10")).toBe(0);
     expect(satsFromBtc("-0")).toBe(0);
   });
@@ -51,15 +53,15 @@ describe("the converter counts satoshis exactly (#451)", () => {
   });
 
   it("counts dollars at a price once, to the nearest satoshi", () => {
-    expect(satsFromUsd(1, 60_000)).toBe(1_667); // 1,666.67
-    expect(satsFromUsd(2, 60_000)).toBe(3_333); // 3,333.33
-    expect(satsFromUsd(600, 60_000)).toBe(1_000_000);
-    expect(satsFromUsd(1, 70_000)).toBe(1_429); // 1,428.57
+    expect(satsFromUsd("1", 60_000)).toBe(1_667); // 1,666.67
+    expect(satsFromUsd("2", 60_000)).toBe(3_333); // 3,333.33
+    expect(satsFromUsd("600", 60_000)).toBe(1_000_000);
+    expect(satsFromUsd("1", 70_000)).toBe(1_429); // 1,428.57
     expect(btcText(1_667 / 100_000_000)).toBe("0.00001667");
   });
 
   it("is no count without dollars or a price", () => {
-    expect(satsFromUsd(0, 60_000)).toBeNull();
-    expect(satsFromUsd(1, 0)).toBeNull();
+    expect(satsFromUsd("0", 60_000)).toBeNull();
+    expect(satsFromUsd("1", 0)).toBeNull();
   });
 });
