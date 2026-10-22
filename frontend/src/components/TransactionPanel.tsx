@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useBlocker, type BlockerFunction } from "react-router-dom";
 import { X } from "lucide-react";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
@@ -28,6 +29,10 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     }
   }, [isOpen]);
 
+  // A closed panel has nothing to lose, though isFormDirty keeps the last
+  // form's answer (true after Discard changes) until the next opening
+  const hasUnsavedChanges = isOpen && isFormDirty;
+
   // A click outside, Escape or the close button: close, or ask first when
   // there are unsaved changes
   const requestClose = useCallback(() => {
@@ -38,12 +43,40 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     }
   }, [isFormDirty, onClose]);
 
+  // Back, Forward or a page link to another page: the same question (#536).
+  // A link to this page keeps the panel open, so it isn't asked then.
+  const leavesWithChanges = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname,
+    [hasUnsavedChanges],
+  );
+  const leaving = useBlocker(leavesWithChanges);
+  const askDiscard = showDiscardModal || leaving.state === "blocked";
+
+  // A reload, closing the tab or Back out of the app: only the browser's own
+  // question can stop those
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const askBrowser = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = true; // Chrome before 119 asks only when this is set
+    };
+    window.addEventListener("beforeunload", askBrowser);
+    return () => window.removeEventListener("beforeunload", askBrowser);
+  }, [hasUnsavedChanges]);
+
+  // Go back: the panel stays as it is, and so does the page
+  const keepEditing = useCallback(() => {
+    setShowDiscardModal(false);
+    leaving.reset?.();
+  }, [leaving]);
+
   // What Escape does now, read when the key is pressed. With "Discard
   // changes?" showing, it is that question's safe answer: Go back.
   const onEscape = useRef(requestClose);
   useLayoutEffect(() => {
-    onEscape.current = showDiscardModal ? () => setShowDiscardModal(false) : requestClose;
-  }, [showDiscardModal, requestClose]);
+    onEscape.current = askDiscard ? keepEditing : requestClose;
+  }, [askDiscard, keepEditing, requestClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -54,13 +87,14 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
+  // Discard changes: go where the user was going, or just close
   const handleDiscardChanges = () => {
     setShowDiscardModal(false);
-    onClose();
-  };
-
-  const handleGoBack = () => {
-    setShowDiscardModal(false);
+    if (leaving.state === "blocked") {
+      leaving.proceed();
+    } else {
+      onClose();
+    }
   };
 
   const handleFormSubmitSuccess = () => {
@@ -133,13 +167,13 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
           )}
         </div>
 
-      {showDiscardModal && (
+      {askDiscard && (
         <div className="dialog-backdrop">
           <div className="dialog dialog-narrow card" role="dialog" aria-modal="true">
             <h3 className="card-title">Discard changes?</h3>
             <p>Your changes have not been saved. If you close this panel, they will be lost.</p>
             <div className="dialog-actions">
-              <button type="button" onClick={handleGoBack} className="btn btn-secondary">Go back</button>
+              <button type="button" onClick={keepEditing} className="btn btn-secondary">Go back</button>
               <button type="button" onClick={handleDiscardChanges} className="btn btn-danger">
                 Discard changes
               </button>
