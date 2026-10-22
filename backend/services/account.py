@@ -5,11 +5,11 @@ Draft branch only (B7b-0, the Grok trial; never merged): the account API
 of 5.9, over migration 0013's columns. Any account but the fee accounts
 can be renamed (B8-5r), 1 to 4 can't be deleted, and the fee accounts
 (5, 6) can't be renamed, hidden or deleted. Two stubs stand in for later
-cards: `is_yours` is the gate of 5.10 (B7a), and `PastYearsChange` the
-past-year warning of 5.8 for the 1099-DA switch (B6c).
+cards: `is_yours` is the gate of 5.10 (B7a), and `_past_years` the dry run
+of 5.8's warning for the 1099-DA switch (B6c), which answers with the
+warning's one shape (services/past_years.py).
 """
 
-import hashlib
 import re
 import unicodedata
 
@@ -23,6 +23,7 @@ from backend.models.account import Account, Exchange
 from backend.models.app_setting import AppSetting, save_setting
 from backend.models.transaction import LedgerEntry, Transaction
 from backend.services import tax_time
+from backend.services.past_years import warning
 
 
 SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
@@ -48,14 +49,6 @@ FEES_KEPT = "The fee accounts can't be deleted."
 FEES_SHOWN = "The fee accounts keep their names and can't be hidden."
 NOT_AN_EXCHANGE = "Only an exchange's accounts have this setting."
 BUSY = "BitcoinTX is busy saving something else: try again."
-
-
-class PastYearsChange(Exception):
-    """The 1099-DA switch would move earlier tax years' boxes (5.8): the 409's body."""
-
-    def __init__(self, body: dict):
-        super().__init__(body["detail"])
-        self.body = body
 
 
 def _account_row(account: Account, exchange: Exchange | None, named: set[int]) -> dict:
@@ -208,12 +201,6 @@ def _halves(db: Session, account: Account) -> list[Account]:
     return db.query(Account).filter(Account.exchange_id == account.exchange_id).all()
 
 
-def _years_text(years: list[int]) -> str:
-    if len(years) == 1:
-        return f"tax year {years[0]}"
-    return f"tax years {', '.join(map(str, years[:-1]))} and {years[-1]}"
-
-
 def _past_years(db: Session, ids: set[int]) -> list[int]:
     """The tax years before this one with a transaction naming one of `ids`: the
     B6c stub's stand-in for 5.8's dry run (the boxes it could move)."""
@@ -233,13 +220,10 @@ def _switch_1099da(db: Session, account: Account, sends: bool, confirm: str | No
     if exchange.sends_1099da == sends:
         return
     years = _past_years(db, {a.id for a in _halves(db, account)})
-    fingerprint = hashlib.sha256(f"{exchange.id}:{sends}:{years}".encode()).hexdigest()
-    if years and confirm != fingerprint:
-        raise PastYearsChange({
-            "detail": (f"This changes the figures of {_years_text(years)}, which you may already have filed. "
-                       "Confirm to save it: a copy of your ledger is made first."),
-            "years": years, "changes": [], "pending": [], "confirm": fingerprint,
-        })
+    if years:
+        asked = warning(years, [], [], f"{exchange.id}:{sends}")
+        if confirm != asked.body["confirm"]:
+            raise asked
     exchange.sends_1099da = sends
 
 

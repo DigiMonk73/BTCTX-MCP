@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead, LedgerAccountRead
 from backend.services import account as account_service
+from backend.services.past_years import PastYearsChange
 from backend.database import get_db
 
 router = APIRouter(tags=["accounts"])
@@ -42,7 +43,7 @@ def update_account(account_id: int, account: AccountUpdate, confirm: str | None 
     try:
         changed = account_service.change_account(
             db, account_id, account.hidden, account.sends_1099da, account.name, confirm)
-    except account_service.PastYearsChange as warning:
+    except PastYearsChange as warning:
         db.rollback()
         return JSONResponse(status_code=409, content=warning.body)
     if changed is None:
