@@ -13,12 +13,12 @@ version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
 every bug found in 1.2.8's user test and in the reviews since, is the stable
 version of 1.x (#369; it shipped with nine minor known issues, none of which
 can make a figure wrong, listed in its release notes). 1.2.9 was released
-on 2026-10-18 and has been on Community Beta since that day; its 14 days
-there end on 2026-11-01 if nothing resets the clock, then comes the
-promotion request (1.2.8 isn't
+on 2026-10-18 and has been on Community Beta since that day; the owner
+asks Start9 to promote it when they're ready (Start9 sets no waiting
+time; #251, decision 22) (1.2.8 isn't
 promoted; the Community Registry still serves 1.2.7). Meanwhile it's
 tested again on the Mac, Docker and StartOS (#552). Nothing that changes
-the package goes to Start9 during those 14 days, so what's under "Soon"
+the package goes to Start9 until it's promoted, so what's under "Soon"
 waits for the maintenance releases after promotion.
 
 After 1.2.9, until 2.0 replaces it, 1.x gets maintenance updates (bug and
@@ -27,8 +27,8 @@ few small improvements under "Soon" (the owner, 2026-10-17 and 2026-10-18);
 new features go into 2.0, below. No dates are promised.
 
 - [ ] **The stable-release checklist** (#143; ticked at promotion): every
-      blocking item, then 14 days on Community Beta (1.2.9), then the
-      promotion request (the owner's OK).
+      blocking item, then 1.2.9's test on Community Beta, then the
+      promotion request when the owner is ready.
       It includes a full security review, a privacy audit of every request
       the app can make, and a check against current IRS guidance.
 
